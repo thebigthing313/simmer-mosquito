@@ -27,7 +27,7 @@ import { SaveErrorNote, saveFailureMessage } from './helpers';
  *
  * The profile is deliberately left alone. It is what every record this person
  * created still points at, and it goes on being assignable field history. What
- * ends is the login's reach into this agency, not the person.
+ * ends is the login's reach into this organization, not the person.
  */
 export function RemoveMemberControl({
 	auth,

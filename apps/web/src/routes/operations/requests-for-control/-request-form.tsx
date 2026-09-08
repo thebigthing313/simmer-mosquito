@@ -1,22 +1,21 @@
+import type { ControlType } from '@simmer-mosquito/domain';
 import { requestControlActionCommand } from '@simmer-mosquito/domain';
-import type { ControlType } from '@simmer-mosquito/sync';
 import {
 	FormSection,
 	type RecordFormHeader,
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
 import { ControlTypeToggle } from '../-control-type-toggle';
-import { useDrawLocation } from '../-draw-location';
 import { LocationSection } from '../-location-section';
 import { useMethodsForControlType } from '../-operations-data';
 
@@ -99,8 +98,8 @@ export function RequestFormPage({
 	readonly errorTitle: string;
 	readonly onSave: (input: RequestSaveInput) => Promise<void>;
 }) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
+		geometryKind: 'requestedControlAction',
 		initialGeometry,
 		missingMessage: 'Map where the control work is needed.',
 	});
@@ -141,19 +140,14 @@ export function RequestFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({
-					values: value,
-					geometry,
-					geometryChanged: location.geometryChanged,
-				});
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save the request.');
-			}
+			await onSave({
+				values: value,
+				geometry,
+				geometryChanged: location.geometryChanged,
+			});
 		},
 	});
 
@@ -168,12 +162,12 @@ export function RequestFormPage({
 				}
 				aside={
 					<>
-						<MapCanvas
-							controls={{ layers: false }}
-							geoJson={location.referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-							onMapReady={location.onMapReady}
+						<MapCanvas geoJson={location.referenceGeometry} onMapReady={location.onMapReady} />
+						<DrawToolbar
+							geometryKind="requestedControlAction"
+							controller={location.draw}
+							geometryType={location.geometryType}
 						/>
-						<DrawToolbar controller={location.draw} geometryType={location.geometryType} />
 					</>
 				}
 				header={header}
@@ -182,15 +176,10 @@ export function RequestFormPage({
 				}}
 			>
 				<form.FormErrorAlert title={errorTitle} />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>{errorTitle}</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<LocationSection
-					description="A point for a single site, a line or area for a stretch. An address is optional reference."
+					geometryKind="requestedControlAction"
+					description="A point for a single spot, a line or area for a stretch. An address is optional reference."
 					location={location}
 					organizationId={organizationId}
 				>
@@ -215,7 +204,7 @@ export function RequestFormPage({
 					<form.AppField name="controlType">
 						{(field) => (
 							<ControlTypeToggle
-								description="Which kind of control work the site needs."
+								description="Which kind of control work is needed."
 								onChange={(next) => {
 									field.handleChange(next);
 									// The recommended method is polymorphic by control type, so
@@ -272,7 +261,7 @@ export function RequestFormPage({
 							)}
 						</form.AppField>
 						<p className="m-0 text-muted-foreground text-xs">
-							Link the request to a known larval site so it shows on that habitat’s history.
+							Link the request to a known habitat so it shows on that habitat’s history.
 						</p>
 					</div>
 				</FormSection>

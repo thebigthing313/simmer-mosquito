@@ -1,4 +1,6 @@
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -140,9 +142,10 @@ export function RoutesIndexPage({
 						</div>
 
 						{routes.length > 0 ? (
-							<SearchField
+							<SearchInput
 								label="Search routes by name"
-								onChange={setSearchInput}
+								onChange={(event) => setSearchInput(event.target.value)}
+								onClear={() => setSearchInput('')}
 								placeholder="Search routes…"
 								value={searchInput}
 							/>
@@ -298,13 +301,16 @@ function RouteListRow({
 				</span>
 				<span className="min-w-0 flex-1">
 					<Link
-						className="pointer-events-auto block w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+						className={cn(
+							recordLink({ size: 'sm', underline: 'hover' }),
+							'pointer-events-auto block w-fit max-w-full truncate',
+						)}
 						{...surface.detailLink(route.id)}
 					>
 						{route.routeName}
 					</Link>
 					<span className="block text-muted-foreground text-xs">
-						{stopCount === null ? '—' : stopCountLabel(stopCount)}
+						{stopCount === null ? <AbsentValue /> : stopCountLabel(stopCount)}
 					</span>
 				</span>
 				<Button

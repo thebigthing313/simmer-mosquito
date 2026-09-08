@@ -156,7 +156,8 @@ describe('polygon measurement', () => {
 
 	it('subtracts a hole from the area but not from the perimeter', () => {
 		// Holes are not walls: a marsh with an island in it has the island's
-		// shoreline inside, and an agency treating the marsh does not walk it.
+		// shoreline inside, and an organization treating the marsh does not walk
+		// it.
 		const withHole = {
 			type: 'Polygon' as const,
 			coordinates: [

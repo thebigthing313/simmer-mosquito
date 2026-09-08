@@ -1,5 +1,5 @@
 /**
- * The three operator routes that create and read agencies.
+ * The three operator routes that create and read organizations.
  *
  * They sit beside `admin-invitations.ts` and `admin-foundations.ts`, which is
  * where the rest of `/admin/*` already lives, and they were the last of the
@@ -12,6 +12,7 @@
  * organization with no SIMMER row is a state an operator can see and retry from.
  */
 
+import type { WorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	getOperatorOrganization,
 	type Kysely,
@@ -23,16 +24,13 @@ import {
 	type SimmerDatabase,
 	upsertOperatorOrganization,
 } from '@simmer-mosquito/db';
+import { ORGANIZATION_SUBSCRIPTION_STATUSES } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
 
-/** What creating an agency needs of the WorkOS client. */
-export interface OperatorOrganizationAuth {
-	createOrganization(input: {
-		readonly name: string;
-	}): Promise<{ readonly workosOrganizationId: string; readonly name: string }>;
-}
+/** What creating an organization needs of the WorkOS client. */
+export type OperatorOrganizationAuth = Pick<WorkOsAuth, 'createOrganization'>;
 
 export function registerOperatorOrganizationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -214,8 +212,8 @@ function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus 
 		return 'trial';
 	}
 
-	if (value === 'trial' || value === 'active' || value === 'suspended' || value === 'canceled') {
-		return value;
+	if (ORGANIZATION_SUBSCRIPTION_STATUSES.includes(value as OrganizationSubscriptionStatus)) {
+		return value as OrganizationSubscriptionStatus;
 	}
 
 	return null;

@@ -1,15 +1,12 @@
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
-import type { MapExtent } from './map-extent.js';
+import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
-	type MapBounds,
-	type MapBoundsPageInput,
-	type MapByIdInput,
-	type MapFilterInput,
-	type MapPageResult,
-	type MapTileInput,
+	type MapDisplayColumns,
+	type MapRecordSurfaceReaders,
 	mapRecordSurface,
 } from './map-surface.js';
 
@@ -107,21 +104,10 @@ export async function listSamplesAwaitingIdentification(
 // events that carry their own owned geometry (usually inherited from the parent
 // habitat), so they are spatially queryable exactly like habitats.
 
-/** A larval-density enum value as stored on `inspections.density`. */
-export type InspectionDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
-
-export const inspectionDensityValues: readonly InspectionDensity[] = [
-	'none',
-	'light',
-	'medium',
-	'heavy',
-	'very_heavy',
-];
-
 export interface InspectionMvtTileFilters {
 	readonly isWet?: boolean;
 	/** Match inspections recorded at any of these larval densities. */
-	readonly densities?: readonly InspectionDensity[];
+	readonly densities?: readonly LarvalDensity[];
 	/** Only inspections where at least one life stage (eggs → pupae) was found. */
 	readonly positiveOnly?: boolean;
 	readonly habitatTypeIds?: readonly string[];
@@ -134,14 +120,6 @@ export interface InspectionMvtTileFilters {
 	/** Inclusive upper bound on `inspection_date` (`YYYY-MM-DD`). */
 	readonly dateTo?: string;
 }
-
-export type InspectionMvtTileInput = MapTileInput<InspectionMvtTileFilters>;
-export type InspectionBounds = MapBounds;
-export type InspectionBoundingBoxInput = MapBoundsPageInput<InspectionMvtTileFilters>;
-export type InspectionByIdInput = MapByIdInput;
-
-/** A page of inspection display rows plus the full count for the viewport + filters. */
-export type InspectionDisplayPageResult = MapPageResult<SafeInspectionDisplayRow>;
 
 /**
  * A server-safe inspection display row: the geometry projection plus the record
@@ -166,7 +144,7 @@ export interface SafeInspectionDisplayRow {
 	readonly inspectionDate: string;
 	readonly isWet: boolean;
 	readonly dipCount: number | null;
-	readonly density: InspectionDensity | null;
+	readonly density: LarvalDensity | null;
 	readonly larvaeCount: number | null;
 	readonly hasEggs: boolean;
 	readonly hasFirstInstar: boolean;
@@ -186,57 +164,65 @@ const inspectionDisplayJoins = sql`
 	left join profiles p on p.id = i.inspected_by_profile_id
 `;
 
-const inspectionDisplayColumns = sql`
-	i.id,
-	i.organization_id as "organizationId",
-	i.lat,
-	i.lng,
-	i.geojson,
-	i.geom_type as "geomType",
-	i.habitat_id as "habitatId",
-	h.habitat_name as "habitatName",
-	i.habitat_type_id as "habitatTypeId",
-	i.address_id as "addressId",
-	a.display_name as "addressDisplayName",
-	i.inspected_by_profile_id as "inspectedByProfileId",
-	p.display_name as "inspectedByName",
-	i.inspection_date::text as "inspectionDate",
-	i.is_wet as "isWet",
-	i.dip_count as "dipCount",
-	i.density::text as "density",
-	i.larvae_count as "larvaeCount",
-	i.has_eggs as "hasEggs",
-	i.has_first_instar as "hasFirstInstar",
-	i.has_second_instar as "hasSecondInstar",
-	i.has_third_instar as "hasThirdInstar",
-	i.has_fourth_instar as "hasFourthInstar",
-	i.has_pupae as "hasPupae",
-	i.created_at as "createdAt",
-	i.updated_at as "updatedAt"
-`;
+const inspectionDisplayColumns: MapDisplayColumns<SafeInspectionDisplayRow> = {
+	id: sql`i.id`,
+	organizationId: sql`i.organization_id`,
+	lat: sql`i.lat`,
+	lng: sql`i.lng`,
+	geojson: sql`i.geojson`,
+	geomType: sql`i.geom_type`,
+	habitatId: sql`i.habitat_id`,
+	habitatName: sql`h.habitat_name`,
+	habitatTypeId: sql`i.habitat_type_id`,
+	addressId: sql`i.address_id`,
+	addressDisplayName: sql`a.display_name`,
+	inspectedByProfileId: sql`i.inspected_by_profile_id`,
+	inspectedByName: sql`p.display_name`,
+	inspectionDate: sql`i.inspection_date::text`,
+	isWet: sql`i.is_wet`,
+	dipCount: sql`i.dip_count`,
+	density: sql`i.density::text`,
+	larvaeCount: sql`i.larvae_count`,
+	hasEggs: sql`i.has_eggs`,
+	hasFirstInstar: sql`i.has_first_instar`,
+	hasSecondInstar: sql`i.has_second_instar`,
+	hasThirdInstar: sql`i.has_third_instar`,
+	hasFourthInstar: sql`i.has_fourth_instar`,
+	hasPupae: sql`i.has_pupae`,
+	createdAt: sql`i.created_at`,
+	updatedAt: sql`i.updated_at`,
+};
 
-const inspectionSurface = mapRecordSurface<InspectionMvtTileFilters, SafeInspectionDisplayRow>({
-	layer: 'inspections',
-	from: sql`inspections i`,
-	alias: 'i',
-	geom: sql`i.geom`,
-	properties: [
-		sql`i.id`,
-		sql`i.is_wet as "isWet"`,
-		sql`i.density::text as "density"`,
-		sql`i.habitat_type_id as "habitatTypeId"`,
-		sql`(
+/**
+ * The inspections map surface, with the layer it stamps into its tiles handed in
+ * by the register it is declared in.
+ */
+export function inspectionSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<InspectionMvtTileFilters, SafeInspectionDisplayRow> {
+	return mapRecordSurface<InspectionMvtTileFilters, SafeInspectionDisplayRow>({
+		layer,
+		from: sql`inspections i`,
+		alias: 'i',
+		geom: sql`i.geom`,
+		properties: [
+			sql`i.id`,
+			sql`i.is_wet as "isWet"`,
+			sql`i.density::text as "density"`,
+			sql`i.habitat_type_id as "habitatTypeId"`,
+			sql`(
 			i.has_eggs or i.has_first_instar or i.has_second_instar
 			or i.has_third_instar or i.has_fourth_instar or i.has_pupae
 		) as "positive"`,
-	],
-	filterWhere: inspectionFilterWhere,
-	display: {
-		columns: inspectionDisplayColumns,
-		joins: inspectionDisplayJoins,
-		orderBy: sql`i.inspection_date desc, i.created_at desc, i.id`,
-	},
-});
+		],
+		filterWhere: inspectionFilterWhere,
+		display: {
+			columns: inspectionDisplayColumns,
+			joins: inspectionDisplayJoins,
+			orderBy: sql`i.inspection_date desc, i.created_at desc, i.id`,
+		},
+	});
+}
 
 function inspectionFilterWhere(
 	filters: InspectionMvtTileFilters | undefined,
@@ -290,38 +276,6 @@ function inspectionFilterWhere(
 	);
 
 	return whereClauses;
-}
-
-export async function getInspectionMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: InspectionMvtTileInput,
-): Promise<Uint8Array> {
-	return inspectionSurface.getTile(db, input);
-}
-
-export async function listInspectionDisplayRowsByBounds(
-	db: Kysely<SimmerDatabase>,
-	input: InspectionBoundingBoxInput,
-): Promise<InspectionDisplayPageResult> {
-	return inspectionSurface.listByBounds(db, input);
-}
-
-export async function getInspectionDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: InspectionByIdInput,
-): Promise<SafeInspectionDisplayRow | undefined> {
-	return inspectionSurface.getById(db, input);
-}
-
-/**
- * Extent of every inspection matching the tile filters, ignoring the viewport —
- * what the explorer map frames on load and after a filter change.
- */
-export async function getInspectionMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<InspectionMvtTileFilters>,
-): Promise<MapExtent | null> {
-	return inspectionSurface.getExtent(db, input);
 }
 
 // --- sample map surface -----------------------------------------------------
@@ -407,14 +361,6 @@ export interface SafeSampleDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export type SampleBounds = MapBounds;
-export type SampleMvtTileInput = MapTileInput<SampleListFilters>;
-export type SampleBoundingBoxInput = MapBoundsPageInput<SampleListFilters>;
-export type SampleByIdInput = MapByIdInput;
-
-/** A page of sample display rows plus the full count for the viewport + filters. */
-export type SampleDisplayPageResult = MapPageResult<SafeSampleDisplayRow>;
-
 // Resolves a single lifecycle status by precedence. Shared by the tile (feature
 // paint) and the display readers so the map color and the list badge can never
 // disagree about what a sample is.
@@ -448,48 +394,56 @@ const sampleDisplayJoins = sql`
 
 // Geometry comes from the parent inspection; the roll-up columns come from the
 // `agg` lateral above.
-const sampleDisplayColumns = sql`
-	s.id,
-	s.organization_id as "organizationId",
-	i.lat,
-	i.lng,
-	i.geojson,
-	i.geom_type as "geomType",
-	s.display_name as "displayName",
-	s.inspection_id as "inspectionId",
-	i.inspection_date::text as "inspectionDate",
-	i.habitat_id as "habitatId",
-	h.habitat_name as "habitatName",
-	s.is_zero_larvae as "isZeroLarvae",
-	s.has_non_mosquito as "hasNonMosquito",
-	s.unidentifiable_reason as "unidentifiableReason",
-	s.created_by_profile_id as "createdByProfileId",
-	(${sampleStatusExpression}) as "status",
-	agg.identified_at as "identifiedAt",
-	coalesce(agg.larvae_total, 0)::int as "larvaeTotal",
-	coalesce(agg.results, '[]'::json) as "results",
-	s.created_at as "createdAt",
-	s.updated_at as "updatedAt"
-`;
+const sampleDisplayColumns: MapDisplayColumns<SafeSampleDisplayRow> = {
+	id: sql`s.id`,
+	organizationId: sql`s.organization_id`,
+	lat: sql`i.lat`,
+	lng: sql`i.lng`,
+	geojson: sql`i.geojson`,
+	geomType: sql`i.geom_type`,
+	displayName: sql`s.display_name`,
+	inspectionId: sql`s.inspection_id`,
+	inspectionDate: sql`i.inspection_date::text`,
+	habitatId: sql`i.habitat_id`,
+	habitatName: sql`h.habitat_name`,
+	isZeroLarvae: sql`s.is_zero_larvae`,
+	hasNonMosquito: sql`s.has_non_mosquito`,
+	unidentifiableReason: sql`s.unidentifiable_reason`,
+	createdByProfileId: sql`s.created_by_profile_id`,
+	status: sql`(${sampleStatusExpression})`,
+	identifiedAt: sql`agg.identified_at`,
+	larvaeTotal: sql`coalesce(agg.larvae_total, 0)::int`,
+	results: sql`coalesce(agg.results, '[]'::json)`,
+	createdAt: sql`s.created_at`,
+	updatedAt: sql`s.updated_at`,
+};
 
-const sampleSurface = mapRecordSurface<SampleListFilters, SafeSampleDisplayRow>({
-	layer: 'samples',
-	from: sql`samples s join inspections i on i.id = s.inspection_id`,
-	// Tenancy is the sample's; the geometry is its parent inspection's, which is
-	// why the two aliases differ here and nowhere else.
-	alias: 's',
-	geom: sql`i.geom`,
-	properties: [sql`s.id`, sql`(${sampleStatusExpression}) as "status"`],
-	// A sample whose inspection was deleted, or whose inspection never carried
-	// geometry, is not on the map at all.
-	alwaysWhere: [sql<boolean>`i.deleted_at is null`, sql<boolean>`i.geom is not null`],
-	filterWhere: sampleFilterWhere,
-	display: {
-		columns: sampleDisplayColumns,
-		joins: sampleDisplayJoins,
-		orderBy: sql`i.inspection_date desc, s.created_at desc, s.id`,
-	},
-});
+/**
+ * The samples map surface, with the layer it stamps into its tiles handed in by
+ * the register it is declared in.
+ */
+export function sampleSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<SampleListFilters, SafeSampleDisplayRow> {
+	return mapRecordSurface<SampleListFilters, SafeSampleDisplayRow>({
+		layer,
+		from: sql`samples s join inspections i on i.id = s.inspection_id`,
+		// The organization scope is the sample's; the geometry is its parent
+		// inspection's, which is why the two aliases differ here and nowhere else.
+		alias: 's',
+		geom: sql`i.geom`,
+		properties: [sql`s.id`, sql`(${sampleStatusExpression}) as "status"`],
+		// A sample whose inspection was deleted, or whose inspection never carried
+		// geometry, is not on the map at all.
+		alwaysWhere: [sql<boolean>`i.deleted_at is null`, sql<boolean>`i.geom is not null`],
+		filterWhere: sampleFilterWhere,
+		display: {
+			columns: sampleDisplayColumns,
+			joins: sampleDisplayJoins,
+			orderBy: sql`i.inspection_date desc, s.created_at desc, s.id`,
+		},
+	});
+}
 
 function sampleFilterWhere(filters: SampleListFilters | undefined): RawBuilder<boolean>[] {
 	if (filters === undefined) {
@@ -555,37 +509,4 @@ function sampleStatusClause(status: SampleStatus): RawBuilder<boolean> {
 				)
 			)`;
 	}
-}
-
-export async function getSampleMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: SampleMvtTileInput,
-): Promise<Uint8Array> {
-	return sampleSurface.getTile(db, input);
-}
-
-export async function listSampleDisplayRowsByBounds(
-	db: Kysely<SimmerDatabase>,
-	input: SampleBoundingBoxInput,
-): Promise<SampleDisplayPageResult> {
-	return sampleSurface.listByBounds(db, input);
-}
-
-export async function getSampleDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: SampleByIdInput,
-): Promise<SafeSampleDisplayRow | undefined> {
-	return sampleSurface.getById(db, input);
-}
-
-/**
- * Extent of every sample matching the tile filters, ignoring the viewport. A
- * sample inherits its parent inspection's geometry, so the join mirrors the tile
- * read exactly.
- */
-export async function getSampleMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<SampleListFilters>,
-): Promise<MapExtent | null> {
-	return sampleSurface.getExtent(db, input);
 }

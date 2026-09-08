@@ -17,7 +17,7 @@
  *   z15+    water + roads + buildings; terrain and land cover off entirely.
  *
  * Water is the one group present at every zoom. It is not context — breeding
- * habitat is the job, so it holds tonal weight at the agency overview where
+ * habitat is the job, so it holds tonal weight at the organization overview where
  * everything else has faded out.
  *
  * ## Known tileset limits (mapbox-streets-v8)
@@ -830,10 +830,10 @@ function buildingFootprints({ palette: p, buildings }) {
 }
 
 /**
- * Neutral grey and clearly subordinate. A SIMMER Region is 2px solid #2d46b6
- * with a fill wash; nothing drawn here can be mistaken for an agency object.
- * Note admin_level 2 is counties in the US — municipal limits are not in this
- * tileset.
+ * Neutral grey and clearly subordinate. A SIMMER Region is 2px solid #2d46b6 with
+ * a fill wash; nothing drawn here can be mistaken for an organization's own
+ * record. Note admin_level 2 is counties in the US — municipal limits are not in
+ * this tileset.
  */
 function boundaries({ palette: p, weight: w }) {
 	const layers = [];
@@ -991,9 +991,9 @@ function labels({ palette: p, poiLandmarks }) {
 		paint: { 'text-color': p.labelMuted, ...halo(p) },
 	});
 
-	// Civic and coordination POI only: the places an agency coordinates with, gets
-	// complaints about, or must notify before spraying. Everything commercial is
-	// cut at this tier. One uniform dot rather than category icons — the data
+	// Civic and coordination POI only: the places an organization coordinates with,
+	// gets complaints about, or must notify before spraying. Everything commercial
+	// is cut at this tier. One uniform dot rather than category icons — the data
 	// marks carry meaning on this map, and coloured POI icons would compete.
 	const CIVIC = ['education', 'medical', 'park_like', 'public_facilities'];
 

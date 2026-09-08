@@ -43,7 +43,7 @@ import { newRecordId, optimisticStamp } from './shared';
 export interface TagFields {
 	readonly name: string;
 	readonly description: string | null;
-	/** A hex string, or `null` for a Tag the agency left uncoloured. */
+	/** A hex string, or `null` for a Tag the organization left uncoloured. */
 	readonly color: string | null;
 	readonly isActive: boolean;
 }
@@ -105,7 +105,7 @@ export function useTagMutations(): TagMutations {
 				created_at: now,
 				updated_at: now,
 			} satisfies Tag;
-			await createCatalogRow(tags, tagCommands, row);
+			await createCatalogRow(tags(), tagCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -126,7 +126,7 @@ export function useTagMutations(): TagMutations {
 			changes.color = fields.color;
 		}
 
-		await saveCatalogRow(tags, tagCommands, id, {
+		await saveCatalogRow(tags(), tagCommands, id, {
 			changes,
 			isActive: fields.isActive,
 			wasActive: current.isActive,
@@ -134,11 +134,11 @@ export function useTagMutations(): TagMutations {
 	}, []);
 
 	const setActive = useCallback(
-		(id: string, isActive: boolean) => setCatalogRowActive(tags, tagCommands, id, isActive),
+		(id: string, isActive: boolean) => setCatalogRowActive(tags(), tagCommands, id, isActive),
 		[],
 	);
 
-	const remove = useCallback((id: string) => deleteCatalogRow(tags, tagCommands, id), []);
+	const remove = useCallback((id: string) => deleteCatalogRow(tags(), tagCommands, id), []);
 
 	return {
 		create,

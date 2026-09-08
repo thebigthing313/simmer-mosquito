@@ -12,7 +12,8 @@
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { CommandTable } from '../../../command-payload.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import { collectionSpeciesTableCommands } from '../../../table-commands/collection-species.js';
 import { collectionTableCommands } from '../../../table-commands/collections.js';
@@ -37,10 +38,13 @@ const traps = trapTableCommands(undefined as never);
 const collections = collectionTableCommands(undefined as never);
 const collectionSpecies = collectionSpeciesTableCommands(undefined as never);
 
-function request(id: string, payload: Record<string, unknown>): IntentRequest {
+function request(
+	id: string,
+	payload: Record<string, unknown>,
+): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings: null },
 			profile: { id: ACTOR },
@@ -51,9 +55,9 @@ function request(id: string, payload: Record<string, unknown>): IntentRequest {
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
-	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
+	intent: OrganizationCommandType,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {
@@ -173,8 +177,9 @@ describe('collections intent map', () => {
 	});
 
 	it('reads the collection-date timing mode off its own four columns', () => {
-		// Agencies record duration one of two ways and the setting says which —
-		// reading one agency's collections under the other's mode is silent.
+		// Organizations record duration one of two ways and the setting says which
+		// — reading one organization's collections under the other's mode is
+		// silent.
 		const command = build(
 			collections,
 			'adultSurveillance.recordCollectedTrapCollection',

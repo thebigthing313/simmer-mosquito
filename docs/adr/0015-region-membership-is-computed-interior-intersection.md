@@ -5,7 +5,8 @@ Date: 2026-08-24
 ## Status
 
 Accepted. Amends the plain-intersection rule the Region multiselect shipped
-under, documented in `packages/db/src/domains/map-region-filter.ts`.
+under, documented in `packages/db/src/domains/map-region-filter.ts`. Amended for
+multipart geometry by ADR 0018, see the amendment below.
 
 ## Context
 
@@ -103,5 +104,85 @@ until a count in a report is wrong.
   reconciler and a reported disagreement is a corpus bug first.
 - GEOS is not reachable on the client, so the TypeScript half is hand-rolled
   rather than shared with the code PostGIS runs.
+- Membership does not require a valid geometry and nothing checks for one.
+  Fifteen of production's 345 Regions hold a self-intersecting ring. #417 settled
+  that such a ring stores rather than being refused on its next save, and GEOS
+  leaves the result of a relate on one undefined without raising. Measured
+  against the production clone, repairing those fifteen with `ST_MakeValid`
+  changed no answer on 9,181 region-against-record candidate pairs or on 103
+  region-against-region ones, which is why #437 left the rows alone. That is a
+  fact about where the data sits rather than a property of the predicate: a
+  record sharing an edge with an invalid ring is answered inside, where the
+  repaired region answers outside. The second `describeDbIntegration` block in
+  `packages/db/src/tests/integration/domains/region-membership.integration.test.ts`
+  seeds that pair and pins both answers, so the next person reads the measurement
+  instead of taking it again. Validity is unpoliced. The neighbouring rule, that
+  a stored geometry must cover ground, is #434's and is enforced.
 - The empty answer is a real answer. A trap in no spray zone is an operational
   fact, not a gap.
+
+## Amendment, 2026-09-03: multipart geometry
+
+Amended by ADR 0018, which lets a record hold MultiPoint, MultiLineString or
+MultiPolygon geometry on the same row and id as its single-part form.
+
+The rule does not change. It widens, because the interior rule was already
+written in the one vocabulary that covers both shapes. The OGC model defines the
+interior of a MultiPolygon as its point set with the rings of its element
+Polygons removed, which is the union of its parts' interiors, one connected
+component per part. `'T********'` reads the interior-interior cell, so the
+question the predicate asks a multipart record is "does any part's interior meet
+the region's interior".
+
+That gives the answers the domain wants without a new rule. A treated area split
+into two lobes by a road, one lobe inside a district, is in that district. A
+parcel set whose every lot abuts a district edge and overlaps it nowhere is next
+to the district, not in it, exactly as a single Polygon in the same position
+already was.
+
+Three things follow.
+
+**The branch reads areal rather than polygon.** The record takes the interior arm
+when its `geom_type` is `st_polygon` or `st_multipolygon`, and plain intersection
+otherwise. The stored `geom_type` column is still what decides, so it still
+cannot drift from the geometry it describes.
+
+**A MultiPolygon region behaves the same way.** The interior-interior cell is
+symmetric, so once `regions.geom` accepts a MultiPolygon, a record is in a
+multipart region when it meets any part's interior. No predicate change. The `&&`
+prefilter gets looser, because a multipart bounding box covers the gaps between
+the parts, and that costs candidates rather than correctness.
+
+**MultiPoint and MultiLineString stay on plain intersection**, for the reason the
+single-part forms do: boundary contact is the only contact those shapes can offer
+a region, and excluding it would put a trap standing on a district line in no
+district. A MultiLineString has a second reason. Its boundary is the mod-2 union
+of its parts' endpoints, not the plain union, so an interior-only rule would
+answer differently for one LineString than for the MultiLineString built from its
+halves. Plain intersection reads no boundary cell in isolation and sidesteps
+that.
+
+The paragraph above that said multipart and collection geometry cannot occur is
+superseded. Two of its three claims still hold and are worth keeping: the
+`geom_type` column is maintained from the geometry it describes, and
+GeometryCollection remains out of scope, so the areal set stays closed at two
+names.
+
+One thing this amendment assumes and does not provide: that stored MultiPolygons
+are valid. PostGIS allows parts that touch at a finite number of points and
+forbids parts that share an edge or overlap, and it warns that its functions
+assume valid input. `ST_Relate` has no repair step, so an invalid row can abort a
+tile read or answer wrongly. ADR 0018 leaves validity unpoliced, because 15 of
+345 production Regions already fail `ST_IsValid` and a gate would refuse them on
+their next save. #437 measured what those 15 answer and left them where they are.
+The Consequences bullet above on validity carries the numbers and names the
+guard.
+
+### Consequences of the amendment
+
+- Saved district filters can change answer again, this time only for rows that
+  are multipart, of which there are none on the day it lands. ADR 0018 does no
+  backfill, so the change is forward-looking by construction.
+- The corpus grows from 22 cases to 32 to cover the multipart arms before mobile
+  implements them. The gate rises ahead of the implementation, which is
+  deliberate.

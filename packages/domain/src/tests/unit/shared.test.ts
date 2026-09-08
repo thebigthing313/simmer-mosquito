@@ -1,0 +1,495 @@
+import { describe, expect, it } from 'vitest';
+import {
+	DomainValidationError,
+	type DomainValidationIssue,
+	type GeoJsonPoint,
+	geometryCoversGround,
+	getBaseGeometryType,
+	getMultipartGeometryType,
+	getOwnedGeometryBaseTypes,
+	getOwnedGeometryPolicy,
+	normalizeOwnedGeometry,
+	OWNED_GEOMETRY_POLICIES,
+	type OwnedGeoJsonGeometryFor,
+	type OwnedGeometryKind,
+	type OwnedGeometryTypeFor,
+	ownedGeometryAllowsParts,
+	SUPPORTED_GEOMETRY_TYPES,
+	type SupportedGeoJsonGeometry,
+	validateGeometry,
+} from '../../shared.js';
+
+/** A square with area 4, in degrees. */
+const SQUARE = [
+	[0, 0],
+	[0, 2],
+	[2, 2],
+	[2, 0],
+	[0, 0],
+];
+/** A square with area 1, sitting inside {@link SQUARE}. */
+const HOLE = [
+	[0.5, 0.5],
+	[0.5, 1.5],
+	[1.5, 1.5],
+	[1.5, 0.5],
+	[0.5, 0.5],
+];
+/** Four positions, all the same. Closed, four-position, and zero area. */
+const PINPRICK = [
+	[3, 3],
+	[3, 3],
+	[3, 3],
+	[3, 3],
+];
+
+function build(input: unknown): {
+	readonly geometry: SupportedGeoJsonGeometry;
+	readonly issues: readonly DomainValidationIssue[];
+} {
+	const issues: DomainValidationIssue[] = [];
+	const geometry = validateGeometry(input, SUPPORTED_GEOMETRY_TYPES, 'geometry', issues);
+	return { geometry, issues };
+}
+
+describe('the owned geometry register', () => {
+	it('names every kind exactly once, in domain order', () => {
+		expect(OWNED_GEOMETRY_POLICIES.map((policy) => policy.kind)).toEqual([
+			'address',
+			'region',
+			'trap',
+			'collection',
+			'habitat',
+			'inspection',
+			'controlAction',
+			'requestedControlAction',
+			'missionItem',
+			'serviceRequest',
+			'notificationRegistration',
+			'weatherStation',
+		]);
+	});
+
+	it('covers the fifteen geometry tables, each on one row', () => {
+		const tables = OWNED_GEOMETRY_POLICIES.flatMap((policy) => policy.tables);
+
+		expect(tables).toHaveLength(15);
+		expect(new Set(tables).size).toBe(15);
+		expect(getOwnedGeometryPolicy('controlAction').tables).toEqual([
+			'applications',
+			'source_reductions',
+			'outreach_actions',
+			'biocontrol_actions',
+		]);
+	});
+
+	it('stores the shape set the matrix says', () => {
+		expect(getOwnedGeometryPolicy('address').allowedTypes).toEqual(['Point']);
+		expect(getOwnedGeometryPolicy('region').allowedTypes).toEqual(['Polygon', 'MultiPolygon']);
+		expect(getOwnedGeometryPolicy('notificationRegistration').allowedTypes).toEqual([
+			'Point',
+			'Polygon',
+		]);
+		expect(getOwnedGeometryPolicy('missionItem').allowedTypes).toEqual([
+			'Point',
+			'LineString',
+			'Polygon',
+			'MultiPoint',
+			'MultiLineString',
+			'MultiPolygon',
+		]);
+	});
+
+	it('refuses a kind it does not hold', () => {
+		expect(() => getOwnedGeometryPolicy('parcel' as OwnedGeometryKind)).toThrow(
+			'Unknown owned geometry kind: parcel',
+		);
+	});
+});
+
+/**
+ * The type-level lookup, which `tsc` checks rather than vitest.
+ *
+ * Each annotation below is the assertion; the `expect` beside it only proves the
+ * case ran. The `@ts-expect-error` cases are the ones that catch a regression: a
+ * lookup that stopped reading the register and widened to `SupportedGeometryType`
+ * would take every name, the directive would suppress nothing, and `tsc` would
+ * fail on the directive itself.
+ */
+describe('OwnedGeometryTypeFor', () => {
+	it('answers with the shapes a policy names', () => {
+		const stored: OwnedGeometryTypeFor<'region'> = 'MultiPolygon';
+		const placed: OwnedGeometryTypeFor<'address'> = 'Point';
+
+		expect(getOwnedGeometryPolicy('region').allowedTypes).toContain(stored);
+		expect(getOwnedGeometryPolicy('address').allowedTypes).toContain(placed);
+	});
+
+	it('refuses a shape the policy leaves out', () => {
+		// @ts-expect-error A Region stores areas, so its lookup takes no Point.
+		const refusedByRegion: OwnedGeometryTypeFor<'region'> = 'Point';
+		// @ts-expect-error An Address stores one point, so its lookup takes no Polygon.
+		const refusedByAddress: OwnedGeometryTypeFor<'address'> = 'Polygon';
+
+		expect(getOwnedGeometryPolicy('region').allowedTypes).not.toContain(refusedByRegion);
+		expect(getOwnedGeometryPolicy('address').allowedTypes).not.toContain(refusedByAddress);
+	});
+});
+
+/**
+ * The same lookup at the level of whole geometries, and the return it gives
+ * {@link normalizeOwnedGeometry}.
+ *
+ * `tsc` is the assertion here too. The third case is the one this exists for:
+ * four validators used to cast that return down to a shape they had written out
+ * by hand, so the register and the name were never compared and a widened policy
+ * moved one without the other. The `@ts-expect-error` fails the moment the
+ * return goes back to answering `SupportedGeoJsonGeometry`.
+ */
+describe('OwnedGeoJsonGeometryFor', () => {
+	/** A closed ring, held as tuples so it reads as GeoJSON positions. */
+	const RING = [
+		[0, 0],
+		[0, 2],
+		[2, 2],
+		[0, 0],
+	] as const;
+	const POINT = { type: 'Point', coordinates: [1, 1] } as const;
+	const AREA = { type: 'Polygon', coordinates: [RING] } as const;
+
+	it('answers with the geometries a policy stores', () => {
+		const boundary: OwnedGeoJsonGeometryFor<'region'> = AREA;
+		const placed: OwnedGeoJsonGeometryFor<'address'> = POINT;
+
+		expect(boundary.type).toBe('Polygon');
+		expect(placed.type).toBe('Point');
+	});
+
+	it('refuses a geometry the policy leaves out', () => {
+		// One line each: `@ts-expect-error` covers the line below it, and an object
+		// literal spread over three puts the error on a line the directive misses.
+		// @ts-expect-error A Region stores areas, so its lookup holds no Point.
+		const noPoint: OwnedGeoJsonGeometryFor<'region'> = POINT;
+		// @ts-expect-error An Address stores one point, so its lookup holds no ring.
+		const noRing: OwnedGeoJsonGeometryFor<'address'> = AREA;
+
+		expect(noPoint.type).toBe('Point');
+		expect(noRing.type).toBe('Polygon');
+	});
+
+	it('is what the normalizer answers, so a hand-written return type is checked', () => {
+		const placed: GeoJsonPoint = normalizeOwnedGeometry('address', POINT);
+		// @ts-expect-error A Region stores areas, so its normalizer answers with no Point.
+		const refused: GeoJsonPoint = normalizeOwnedGeometry('region', AREA);
+
+		expect(placed.type).toBe('Point');
+		expect(refused.type).toBe('Polygon');
+	});
+});
+
+describe('getOwnedGeometryBaseTypes', () => {
+	it('normalizes the storable set to the shapes a user draws', () => {
+		expect(getOwnedGeometryBaseTypes('weatherStation')).toEqual(['Point']);
+		expect(getOwnedGeometryBaseTypes('habitat')).toEqual(['Point', 'LineString', 'Polygon']);
+	});
+
+	it('answers for every kind the register holds', () => {
+		for (const policy of OWNED_GEOMETRY_POLICIES) {
+			const bases = getOwnedGeometryBaseTypes(policy.kind);
+
+			expect(bases.length).toBeGreaterThan(0);
+			expect(new Set(bases).size).toBe(bases.length);
+		}
+	});
+});
+
+describe('getMultipartGeometryType', () => {
+	it('promotes each base shape to the multi shape beside it', () => {
+		expect(getMultipartGeometryType('Point')).toBe('MultiPoint');
+		expect(getMultipartGeometryType('LineString')).toBe('MultiLineString');
+		expect(getMultipartGeometryType('Polygon')).toBe('MultiPolygon');
+	});
+
+	// Promote and demote are two maps written separately, and a shape that
+	// promoted to one thing and demoted to another would strand a record halfway.
+	it('round-trips every base shape back through demote', () => {
+		for (const type of SUPPORTED_GEOMETRY_TYPES) {
+			const base = getBaseGeometryType(type);
+
+			expect(getBaseGeometryType(getMultipartGeometryType(base))).toBe(base);
+		}
+	});
+});
+
+describe('ownedGeometryAllowsParts', () => {
+	it('offers parts where the register holds the multi shape', () => {
+		expect(ownedGeometryAllowsParts('habitat', 'Polygon')).toBe(true);
+		expect(ownedGeometryAllowsParts('region', 'Polygon')).toBe(true);
+	});
+
+	it('refuses parts where the register does not', () => {
+		expect(ownedGeometryAllowsParts('notificationRegistration', 'Polygon')).toBe(false);
+		expect(ownedGeometryAllowsParts('notificationRegistration', 'Point')).toBe(false);
+		expect(ownedGeometryAllowsParts('trap', 'Point')).toBe(false);
+	});
+});
+
+describe('normalizeOwnedGeometry', () => {
+	it('accepts a shape the kind may store', () => {
+		expect(normalizeOwnedGeometry('trap', { type: 'Point', coordinates: [-90.1, 35.7] })).toEqual({
+			type: 'Point',
+			coordinates: [-90.1, 35.7],
+		});
+	});
+
+	it('refuses a shape the kind may not store', () => {
+		expect(() =>
+			normalizeOwnedGeometry('trap', {
+				type: 'Polygon',
+				coordinates: [
+					[
+						[0, 0],
+						[0, 1],
+						[1, 1],
+						[0, 0],
+					],
+				],
+			}),
+		).toThrow(DomainValidationError);
+	});
+
+	it('names the path it was given', () => {
+		expect(() => normalizeOwnedGeometry('region', { type: 'Point' }, 'location.geometry')).toThrow(
+			DomainValidationError,
+		);
+	});
+});
+
+describe('validateGeometry over six shapes', () => {
+	it('takes each of the six', () => {
+		const accepted = [
+			{ type: 'Point', coordinates: [1, 1] },
+			{ type: 'LineString', coordinates: [SQUARE[0], SQUARE[1]] },
+			{ type: 'Polygon', coordinates: [SQUARE] },
+			{
+				type: 'MultiPoint',
+				coordinates: [
+					[1, 1],
+					[2, 2],
+				],
+			},
+			{ type: 'MultiLineString', coordinates: [[SQUARE[0], SQUARE[1]], SQUARE] },
+			{ type: 'MultiPolygon', coordinates: [[SQUARE], [HOLE]] },
+		];
+
+		for (const input of accepted) {
+			const { geometry, issues } = build(input);
+
+			expect(issues, JSON.stringify(input.type)).toEqual([]);
+			expect(geometry.type).toBe(input.type);
+		}
+	});
+
+	it('validates each part with the validator for its base shape', () => {
+		// A ring that is not closed, in the second part. Nothing about the multi
+		// validators is a reimplementation, so ring closure reaches part 1 for free.
+		const { issues } = build({
+			type: 'MultiPolygon',
+			coordinates: [[SQUARE], [[HOLE[0], HOLE[1], HOLE[2], HOLE[3]]]],
+		});
+
+		expect(issues).toEqual([
+			{
+				path: 'geometry.coordinates.1.0',
+				message: 'geometry.coordinates.1.0 must be closed with matching first and last positions.',
+			},
+		]);
+	});
+
+	it('refuses a multi shape with no parts, having nothing to demote to', () => {
+		const { issues } = build({ type: 'MultiPolygon', coordinates: [] });
+
+		expect(issues).toEqual([
+			{
+				path: 'geometry.coordinates',
+				message: 'geometry.coordinates must include at least one part.',
+			},
+		]);
+	});
+});
+
+describe('demote', () => {
+	it('rewrites a one-part multi shape to its base shape', () => {
+		const table = [
+			{ input: { type: 'MultiPoint', coordinates: [[1, 1]] }, stored: 'Point' },
+			{
+				input: { type: 'MultiLineString', coordinates: [[SQUARE[0], SQUARE[1]]] },
+				stored: 'LineString',
+			},
+			{ input: { type: 'MultiPolygon', coordinates: [[SQUARE]] }, stored: 'Polygon' },
+		];
+
+		for (const { input, stored } of table) {
+			const { geometry, issues } = build(input);
+
+			expect(issues, input.type).toEqual([]);
+			expect(geometry.type, input.type).toBe(stored);
+		}
+	});
+
+	it('unwraps the part rather than keeping the wrapper', () => {
+		const { geometry } = build({ type: 'MultiPolygon', coordinates: [[SQUARE]] });
+
+		expect(geometry).toEqual({ type: 'Polygon', coordinates: [SQUARE] });
+	});
+
+	it('leaves a two-part multi shape alone', () => {
+		const { geometry } = build({ type: 'MultiPolygon', coordinates: [[SQUARE], [HOLE]] });
+
+		expect(geometry.type).toBe('MultiPolygon');
+	});
+
+	/**
+	 * Demote runs before the policy test, so `allowedTypes` is asked about the
+	 * shape that lands in the column. This is the `ogr2ogr` case: a single-lot
+	 * shapefile feature arrives as a one-part MultiPolygon and stores as a Polygon.
+	 */
+	it('lets a kind with no multi form take a one-part MultiPolygon, and refuses a two-part one', () => {
+		// A Registration is the one kind that takes a base shape and refuses its
+		// multipart form: two places are two subscriptions, so one can be removed
+		// without the other.
+		expect(
+			normalizeOwnedGeometry('notificationRegistration', {
+				type: 'MultiPolygon',
+				coordinates: [[SQUARE]],
+			}),
+		).toEqual({ type: 'Polygon', coordinates: [SQUARE] });
+		expect(() =>
+			normalizeOwnedGeometry('notificationRegistration', {
+				type: 'MultiPolygon',
+				coordinates: [[SQUARE], [HOLE]],
+			}),
+		).toThrow(DomainValidationError);
+	});
+
+	it('lets a Region hold a MultiPolygon', () => {
+		// A county parks file where one park sits on three separated lots is one
+		// Region, not three.
+		const parts = { type: 'MultiPolygon', coordinates: [[SQUARE], [HOLE]] } as const;
+
+		expect(normalizeOwnedGeometry('region', parts)).toEqual(parts);
+	});
+
+	it('names the payload rather than the demoted shape when a part is bad', () => {
+		const { issues } = build({ type: 'MultiPolygon', coordinates: [[PINPRICK]] });
+
+		expect(issues).toEqual([
+			{ path: 'geometry.coordinates.0', message: 'geometry.coordinates.0 covers no ground.' },
+		]);
+	});
+});
+
+describe('covering ground', () => {
+	it('refuses a ring that encloses nothing', () => {
+		const degenerate = [
+			{ what: 'four positions in one spot', rings: [PINPRICK] },
+			{
+				what: 'three collinear corners',
+				rings: [
+					[
+						[0, 0],
+						[1, 1],
+						[2, 2],
+						[0, 0],
+					],
+				],
+			},
+			{ what: 'a hole the size of its outer ring', rings: [SQUARE, SQUARE] },
+		];
+
+		for (const { what, rings } of degenerate) {
+			const { issues } = build({ type: 'Polygon', coordinates: rings });
+
+			expect(issues, what).toEqual([
+				{ path: 'geometry.coordinates', message: 'geometry.coordinates covers no ground.' },
+			]);
+		}
+	});
+
+	it('counts the outer ring less its holes', () => {
+		const { issues } = build({ type: 'Polygon', coordinates: [SQUARE, HOLE] });
+
+		expect(issues).toEqual([]);
+	});
+
+	it('refuses a line whose positions all coincide', () => {
+		const { issues } = build({
+			type: 'LineString',
+			coordinates: [
+				[4, 4],
+				[4, 4],
+				[4, 4],
+			],
+		});
+
+		expect(issues).toEqual([
+			{ path: 'geometry.coordinates', message: 'geometry.coordinates covers no ground.' },
+		]);
+	});
+
+	it('exempts the point shapes, which have no measure', () => {
+		expect(build({ type: 'Point', coordinates: [0, 0] }).issues).toEqual([]);
+		expect(
+			build({
+				type: 'MultiPoint',
+				coordinates: [
+					[5, 5],
+					[5, 5],
+				],
+			}).issues,
+		).toEqual([]);
+	});
+
+	/**
+	 * The whole write, and never the part. Dropping the part would throw away
+	 * something the user drew, and it cascades: a two-part multi that loses a part
+	 * then demotes, so one silent normalization triggers another.
+	 */
+	it('refuses the whole multi shape and names the offending part', () => {
+		const { issues } = build({ type: 'MultiPolygon', coordinates: [[SQUARE], [PINPRICK]] });
+
+		expect(issues).toEqual([
+			{ path: 'geometry.coordinates.1', message: 'geometry.coordinates.1 covers no ground.' },
+		]);
+	});
+
+	it('says it once, not on top of a structural complaint', () => {
+		const { issues } = build({
+			type: 'Polygon',
+			coordinates: [
+				[
+					[0, 0],
+					[0, 1],
+					[1, 1],
+				],
+			],
+		});
+
+		expect(issues).toEqual([
+			{
+				path: 'geometry.coordinates.0',
+				message: 'geometry.coordinates.0 must include at least four positions.',
+			},
+		]);
+	});
+
+	/**
+	 * It is the backstop in `geojsonToGeom` as well as the rule in the builder, so
+	 * a value it cannot read is not its refusal to make.
+	 */
+	it('passes anything it cannot read as one of the six shapes', () => {
+		expect(geometryCoversGround(null)).toBe(true);
+		expect(geometryCoversGround({ type: 'GeometryCollection', geometries: [] })).toBe(true);
+		expect(geometryCoversGround({ type: 'Polygon' })).toBe(true);
+	});
+});

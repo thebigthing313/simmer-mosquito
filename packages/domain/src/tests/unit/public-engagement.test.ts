@@ -292,13 +292,26 @@ describe('public engagement notification commands', () => {
 				organizationId,
 				actorProfileId,
 				notificationRegistrationId,
-				location: { address: { kind: 'existing', addressId }, geometry: lineGeometry },
+				location: { address: { kind: 'existing', addressId }, geometry: polygonGeometry },
 				acknowledgedFutureOnlyChange: true,
 			}).payload.location,
 		).toEqual({
 			address: { kind: 'existing', addressId },
-			geometry: lineGeometry,
+			geometry: polygonGeometry,
 		});
+
+		// A Registration takes a Point or a Polygon and nothing else. A
+		// line-shaped notification area has no story, and two places are two
+		// Registrations so that one can be removed without the other.
+		expect(() =>
+			updateNotificationRegistrationLocationCommand({
+				organizationId,
+				actorProfileId,
+				notificationRegistrationId,
+				location: { address: { kind: 'none' }, geometry: lineGeometry },
+				acknowledgedFutureOnlyChange: true,
+			}),
+		).toThrow(DomainValidationError);
 
 		expect(() =>
 			createNotificationRegistrationCommand({

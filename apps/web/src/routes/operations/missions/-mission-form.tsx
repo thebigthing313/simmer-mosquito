@@ -1,11 +1,10 @@
-import type { ControlType } from '@simmer-mosquito/sync';
+import type { ControlType } from '@simmer-mosquito/domain';
 import {
 	FormSection,
 	type RecordFormHeader,
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
@@ -166,8 +165,8 @@ export function readMissionPlan(values: MissionFormValues, timeZone: string): Mi
 	const trimmedName = values.missionName.trim();
 	return {
 		controlType: values.controlType,
-		startAt: agencyInstant(values.startDate, values.startTime, timeZone),
-		endAt: agencyInstant(values.startDate, values.endTime, timeZone),
+		startAt: organizationInstant(values.startDate, values.startTime, timeZone),
+		endAt: organizationInstant(values.startDate, values.endTime, timeZone),
 		rainDate: values.rainDate === '' ? null : values.rainDate,
 		missionName: trimmedName === '' ? null : trimmedName,
 		plannedMethodId: values.plannedMethodId === NO_METHOD ? null : values.plannedMethodId,
@@ -179,13 +178,13 @@ export function readMissionPlan(values: MissionFormValues, timeZone: string): Mi
 }
 
 /**
- * A day and a wall time as the instant they name on the agency's clock.
+ * A day and a wall time as the instant they name on the organization's clock.
  *
- * The zone is the agency's, not the browser's: a dispatcher scheduling a 6am
- * muster from another zone was writing their own 6am, while the mission list and
- * detail page have always shown the yard's.
+ * The zone is the organization's, not the browser's: a dispatcher scheduling a
+ * 6am muster from another zone was writing their own 6am, while the mission
+ * list and detail page have always shown the yard's.
  */
-function agencyInstant(date: string, time: string, timeZone: string): Date | null {
+function organizationInstant(date: string, time: string, timeZone: string): Date | null {
 	const instant = localTimeAsInstant(date, time, timeZone);
 	return instant === null ? null : new Date(instant);
 }
@@ -212,7 +211,6 @@ export function MissionFormPage({
 	readonly onSave: (plan: MissionPlan) => Promise<void>;
 }) {
 	const timeZone = useOrganizationTimeZone();
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const [controlType, setControlType] = useState<ControlType>(defaultValues.controlType);
 
 	const options = useMissionFormOptions(controlType);
@@ -223,17 +221,11 @@ export function MissionFormPage({
 			onSubmit: domainValidatorFor(validate, fieldPaths, timeZone),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			const plan = readMissionPlan(value, timeZone);
 			if (plan.startAt === null) {
-				setSaveError('Enter the date and time the mission is scheduled to start.');
-				return;
+				throw new Error('Enter the date and time the mission is scheduled to start.');
 			}
-			try {
-				await onSave(plan);
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save the mission.');
-			}
+			await onSave(plan);
 		},
 	});
 
@@ -253,12 +245,6 @@ export function MissionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title={errorTitle} />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>{errorTitle}</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<FormSection title="Plan">
 					<form.AppField name="controlType">
@@ -281,7 +267,7 @@ export function MissionFormPage({
 						{(field) => (
 							<field.TextField
 								label="Mission name"
-								placeholder="Optional — a name crews will recognise"
+								placeholder="Optional, a name crews will recognise"
 							/>
 						)}
 					</form.AppField>
@@ -335,7 +321,7 @@ export function MissionFormPage({
 								)}
 							</form.AppField>
 							<p className="m-0 text-muted-foreground text-xs">
-								Optional. Planning metadata — it does not reschedule the mission.
+								Optional planning metadata. It does not reschedule the mission.
 							</p>
 						</div>
 					</div>

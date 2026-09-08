@@ -21,11 +21,12 @@
  * operator is most likely looking for is the one that disappears.
  */
 
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { and, eq, gte, isNull, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
 import { localDayStartAsInstant, todayInTimeZone } from '../../lib/local-date';
-import type { CollectionTimingMode } from './collection-view';
+import type { AdultCollectionTimingMode } from './collection-view';
 import { activityGcTimeMs } from './shared';
 
 /** One species line under a collection. */
@@ -33,8 +34,8 @@ export interface TrapCollectionSpecies {
 	readonly id: string;
 	readonly speciesId: string;
 	readonly count: number;
-	readonly sex: 'male' | 'female' | null;
-	readonly status: 'damaged' | 'unfed' | 'bloodfed' | 'gravid' | null;
+	readonly sex: SpeciesSex | null;
+	readonly status: SpeciesStatus | null;
 }
 
 /** One collection in a trap's history, with what it caught. */
@@ -42,7 +43,7 @@ export interface TrapCollection {
 	readonly id: string;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
-	readonly collectionTimingMode: CollectionTimingMode;
+	readonly collectionTimingMode: AdultCollectionTimingMode;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
@@ -62,8 +63,8 @@ export function useTrapCollections(
 	readonly isError: boolean;
 } {
 	const { seasons, timeZone } = options;
-	// A calendar year boundary in the agency's zone, as both the string a `date`
-	// column compares against and the instant a `timestamptz` one does.
+	// A calendar year boundary in the organization's zone, as both the string a
+	// `date` column compares against and the instant a `timestamptz` one does.
 	const sinceDate =
 		seasons === null
 			? null
@@ -75,7 +76,7 @@ export function useTrapCollections(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) =>
 						sinceDate === null || sinceInstant === null
 							? eq(collection.trap_id, trapId)
@@ -98,7 +99,7 @@ export function useTrapCollections(
 						hasBycatch: collection.has_bycatch,
 						species: toArray(
 							query
-								.from({ identification: collection_species })
+								.from({ identification: collection_species() })
 								.where(({ identification }) => eq(identification.collection_id, collection.id))
 								.select(({ identification }) => ({
 									id: identification.id,

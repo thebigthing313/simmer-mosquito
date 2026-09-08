@@ -48,7 +48,7 @@ export interface RecordRegionGroup {
 export interface RecordRegions {
 	readonly recordType: RegionMembershipRecordType;
 	readonly recordId: string;
-	/** False when the record is missing, another agency's, or already deleted. */
+	/** False when the record is missing, another organization's, or already deleted. */
 	readonly found: boolean;
 	readonly groups: readonly RecordRegionGroup[];
 }
@@ -93,7 +93,7 @@ async function fetchRecordRegions(
 ): Promise<RecordRegions> {
 	const response = await sessionFetch(
 		new URL(`/records/${recordType}/${recordId}/regions`, getServerUrl()),
-		{ credentials: 'include', signal },
+		{ signal },
 	);
 	if (!response.ok) {
 		throw new Error(`Could not read which regions hold this record (${response.status}).`);

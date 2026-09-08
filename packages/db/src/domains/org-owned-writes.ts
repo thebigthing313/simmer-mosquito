@@ -1,19 +1,20 @@
+import { DomainValidationError, geometryCoversGround } from '@simmer-mosquito/domain';
 import { type RawBuilder, type Selectable, sql, type Transaction } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../tables.js';
 import { assertWriteReferences, recordReferencesIn } from './write-references.js';
 
 /**
- * Every table a tenant owns rows in directly: it carries the tenant column, and
- * it is soft-deleted rather than removed.
+ * Every table an organization owns rows in directly: it carries the
+ * organization column, and it is soft-deleted rather than removed.
  *
  * Derived from the schema rather than listed, because a hand-written list is
- * only as safe as the file that wrote it. Seven command families each kept their
- * own `WriteTable` union, and `control-operations` alone kept two that disagreed
- * — `updateActionRow` named five tables, its neighbouring `softDelete` named
- * eight. Passing a table without `organization_id` is now a build error instead
- * of something each union had to remember, which is how ADR 0008's tenant-scope
- * rule becomes checkable.
+ * only as safe as the file that wrote it. Seven command families each kept
+ * their own `WriteTable` union, and `control-operations` alone kept two that
+ * disagreed — `updateActionRow` named five tables, its neighbouring
+ * `softDelete` named eight. Passing a table without `organization_id` is now a
+ * build error instead of something each union had to remember, which is how ADR
+ * 0008's organization-scope rule becomes checkable.
  */
 export type OrgOwnedTable = {
 	[K in keyof SimmerDatabase]: SimmerDatabase[K] extends {
@@ -59,6 +60,17 @@ export function localDateColumn(value: string): RawBuilder<Date> {
 }
 
 /**
+ * A column of one table, named the way a returning list names one.
+ *
+ * Written here rather than spelled out at each use so that a caller building a
+ * column list can say what it is holding its names to without reaching for
+ * `Selectable` itself. `apps/server` sees kysely only through this package's
+ * barrel, and `return-columns.ts` there is the caller that needs it.
+ */
+export type RowColumn<TTable extends keyof SimmerDatabase> = string &
+	keyof Selectable<SimmerDatabase[TTable]>;
+
+/**
  * The shape a returning-column list actually produces.
  *
  * Derived from the schema and from the list itself, so the two cannot drift.
@@ -67,12 +79,12 @@ export function localDateColumn(value: string): RawBuilder<Date> {
  */
 export type SelectedRow<
 	TTable extends keyof SimmerDatabase,
-	TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+	TColumns extends readonly RowColumn<TTable>[],
 > = Pick<Selectable<SimmerDatabase[TTable]>, TColumns[number]>;
 
 /**
- * Update one row a tenant owns, scoped so it cannot reach another tenant's or a
- * deleted one.
+ * Update one row an organization owns, scoped so it cannot reach another
+ * organization's or a deleted one.
  *
  * Returns `null` rather than throwing when nothing matched: whether that means
  * "not yours" or "not there" is not a distinction this layer can draw, and the
@@ -87,7 +99,7 @@ export type SelectedRow<
  */
 export async function updateRow<
 	TTable extends OrgOwnedTable,
-	const TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+	const TColumns extends readonly RowColumn<TTable>[],
 >(
 	trx: Transaction<SimmerDatabase>,
 	table: TTable,
@@ -114,14 +126,14 @@ export async function updateRow<
 }
 
 /**
- * Retire a row the tenant owns, recording who did it.
+ * Retire a row the organization owns, recording who did it.
  *
  * The same `deleted_at is null` guard as `updateRow` makes this idempotent: a
  * second delete matches nothing and answers `null`.
  */
 export async function softDelete<
 	TTable extends OrgOwnedTable,
-	const TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+	const TColumns extends readonly RowColumn<TTable>[],
 >(
 	trx: Transaction<SimmerDatabase>,
 	table: TTable,
@@ -152,8 +164,20 @@ export async function softDelete<
  * Accepts either a bare geometry or a Feature wrapping one, because both reach
  * the server: a domain location source carries the geometry itself, while a
  * geometry read back out of another row arrives already unwrapped.
+ *
+ * This is also where the covers-ground rule has its last say. `validateGeometry`
+ * runs it on every command-carried geometry and `loadOr404` runs it on an
+ * inherited one, but this package's own writers pass no domain builder, and this
+ * is the one function structurally guaranteed to see whatever reaches a `geom`
+ * column. `handleCommandError` answers a `DomainValidationError` with 400
+ * wherever it was raised, transaction included.
  */
 export function geojsonToGeom(geojson: unknown): RawBuilder<string> {
+	if (!geometryCoversGround(unwrapFeature(geojson))) {
+		throw new DomainValidationError('Geometry is invalid.', [
+			{ path: 'geometry', message: 'geometry covers no ground.' },
+		]);
+	}
 	const serialized = JSON.stringify(geojson);
 	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
 		case
@@ -164,13 +188,22 @@ export function geojsonToGeom(geojson: unknown): RawBuilder<string> {
 	), 4326))`;
 }
 
+/** The geometry inside a Feature, or the value itself when it is already bare. */
+function unwrapFeature(geojson: unknown): unknown {
+	if (typeof geojson !== 'object' || geojson === null) {
+		return geojson;
+	}
+	const geometry = (geojson as { readonly geometry?: unknown }).geometry;
+	return geometry === undefined || geometry === null ? geojson : geometry;
+}
+
 /**
- * The geometry of another row the same tenant owns.
+ * The geometry of another row the same organization owns.
  *
- * Answers `undefined` when the row is absent, another tenant's, or deleted —
- * the 404 that fact becomes is `apps/server`'s to raise, so that this package
- * stays free of HTTP vocabulary. The tenancy predicate was re-typed in three
- * families before living here.
+ * Answers `undefined` when the row is absent, another organization's, or
+ * deleted — the 404 that fact becomes is `apps/server`'s to raise, so that this
+ * package stays free of HTTP vocabulary. The organization predicate was
+ * re-typed in three families before living here.
  */
 export async function loadGeojson(
 	trx: Transaction<SimmerDatabase>,

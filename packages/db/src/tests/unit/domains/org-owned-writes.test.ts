@@ -1,3 +1,4 @@
+import { DomainValidationError } from '@simmer-mosquito/domain';
 import {
 	DummyDriver,
 	Kysely,
@@ -9,6 +10,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
 	type GeomTable,
+	geojsonToGeom,
 	loadGeojson,
 	type OrgOwnedTable,
 	softDelete,
@@ -87,9 +89,9 @@ const rowId = 'b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa';
 const actorProfileId = 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f';
 
 describe('org-owned writes', () => {
-	// The tenancy predicate these three share is the reason a guessed id from
-	// another agency cannot reach a row. It was re-typed in seven families and
-	// asserted in none of them.
+	// The organization predicate these three share is the reason a guessed id
+	// from another organization cannot reach a row. It was re-typed in seven
+	// families and asserted in none of them.
 	it.each([
 		[
 			'updateRow',
@@ -106,7 +108,7 @@ describe('org-owned writes', () => {
 			async (trx: Transaction<SimmerDatabase>) =>
 				loadGeojson(trx, 'habitats', rowId, organizationId),
 		],
-	])('scopes %s to the agency and to rows that are not deleted', async (_helper, run) => {
+	])('scopes %s to the organization and to rows that are not deleted', async (_helper, run) => {
 		const { db, queries } = compilingDatabase();
 
 		await db.transaction().execute(run);
@@ -146,8 +148,8 @@ describe('org-owned writes', () => {
 
 	it('answers null rather than throwing when nothing matched', async () => {
 		// DummyDriver returns no rows, which is the same shape as a row that is
-		// another agency's, deleted, or absent — the three cases the caller in
-		// `apps/server` turns into one 404.
+		// another organization's, deleted, or absent — the three cases the caller
+		// in `apps/server` turns into one 404.
 		const { db } = compilingDatabase();
 
 		const updated = await db
@@ -167,6 +169,53 @@ describe('org-owned writes', () => {
 		expect(updated).toBeNull();
 		expect(deleted).toBeNull();
 		expect(geojson).toBeUndefined();
+	});
+});
+
+/** Closed, four positions, and zero area. */
+const PINPRICK = {
+	type: 'Polygon',
+	coordinates: [
+		[
+			[0, 0],
+			[0, 0],
+			[0, 0],
+			[0, 0],
+		],
+	],
+};
+
+/**
+ * The covers-ground backstop, at the one layer guaranteed to see every value
+ * reaching a `geom` column.
+ *
+ * `validateGeometry` runs the same rule on a command-carried geometry and
+ * `loadOr404` on an inherited one, but this package's own writers pass no domain
+ * builder. `POLYGON((0 0,0 0,0 0,0 0))` is the case that gets here: it is not
+ * empty, it has four positions with a matching first and last, and PostGIS
+ * stores it with `st_area` 0 after a notice nobody reads.
+ */
+describe('geojsonToGeom', () => {
+	it('refuses a geometry that covers no ground', () => {
+		expect(() => geojsonToGeom(PINPRICK)).toThrow(DomainValidationError);
+		expect(() => geojsonToGeom({ type: 'Feature', geometry: PINPRICK })).toThrow(
+			DomainValidationError,
+		);
+	});
+
+	it('names the rule rather than the shape', () => {
+		try {
+			geojsonToGeom(PINPRICK);
+			expect.unreachable('geojsonToGeom accepted a zero-area polygon');
+		} catch (error) {
+			expect((error as DomainValidationError).issues).toEqual([
+				{ path: 'geometry', message: 'geometry covers no ground.' },
+			]);
+		}
+	});
+
+	it('takes a shape that does', () => {
+		expect(() => geojsonToGeom({ type: 'Point', coordinates: [-90.5, 35.5] })).not.toThrow();
 	});
 });
 

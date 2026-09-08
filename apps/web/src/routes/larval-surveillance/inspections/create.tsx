@@ -17,7 +17,7 @@ import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { todayInTimeZone } from '../-overview-data';
 import {
 	type DrawGeometry,
@@ -38,7 +38,7 @@ export const Route = createFileRoute('/larval-surveillance/inspections/create')(
 		...inspectionSeedSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/inspections/create')) {
 			throw redirect({ replace: true, to: '/larval-surveillance/inspections' });
 		}
 	},
@@ -95,7 +95,7 @@ function useNewInspectionDraft(): string {
 			gcTime: warmGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sample: samples })
+					.from({ sample: samples() })
 					.where(({ sample }) => eq(sample.inspection_id, inspectionId)),
 		},
 		[inspectionId],
@@ -151,11 +151,9 @@ function CreateInspectionRoute() {
 				// The shape the server will snapshot: the drawn one for an ad hoc
 				// inspection, the habitat's own for the other two. Reduced here so the
 				// optimistic row carries the centroid the map card will read.
-				const shape = isAdhoc
-					? ((adhocGeometry ?? null) as GeoJsonGeometry | null)
-					: habitatGeometry;
+				const shape = isAdhoc ? adhocGeometry : habitatGeometry;
 				const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
-				if (centroid === null) {
+				if (shape === null || centroid === null) {
 					throw new Error('Unable to determine the inspection location.');
 				}
 
@@ -165,7 +163,7 @@ function CreateInspectionRoute() {
 					placement: isAdhoc
 						? {
 								kind: 'adhoc',
-								geometry: shape as GeoJsonGeometry,
+								geometry: shape,
 								addressId: values.addressId,
 								habitatTypeId:
 									values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,

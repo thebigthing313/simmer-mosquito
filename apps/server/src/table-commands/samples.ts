@@ -9,7 +9,7 @@
  *   of spaces silently created an unlabeled sample;
  * - `isZeroLarvae: true` meant `markSampleZeroLarvae` and `false` meant
  *   `clearSampleZeroLarvae`, a value read for its direction;
- * - and the rest of the PATCH was four `'field' in payload` checks.
+ * - and the rest of the PATCH was four `payload.field !== undefined` checks.
  *
  * Eight named entries below, each reading only what its own command takes.
  *
@@ -33,14 +33,14 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeSampleCommand } from '../larval-surveillance-commands/samples.js';
-import type { SampleRow } from '../larval-surveillance-commands/shared.js';
+import { writeSampleCommand } from '../writers/larval-surveillance/samples.js';
+import type { SampleRow } from '../writers/larval-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
 export function sampleTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, SampleRow> {
+): TableCommands<'samples', LarvalSurveillanceCommand, SampleRow> {
 	return {
 		table: 'samples',
 		run: { db, write: writeSampleCommand, notFound: 'sample_not_found', key: 'sample' },
@@ -49,24 +49,24 @@ export function sampleTableCommands(
 			// two intentions, not because one has a field the other lacks. The domain
 			// refuses a blank name to the first, which is the right answer to a caller
 			// who meant the second and did not say so.
-			'larvalSurveillance.addInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.addInspectionSample': ({ payload, organization, id }) =>
 				addInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					inspectionId: readText(payload.inspection_id) ?? '',
 					displayName: readText(payload.display_name) ?? '',
 				}),
 
-			'larvalSurveillance.addUnlabeledInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.addUnlabeledInspectionSample': ({ payload, organization, id }) =>
 				addUnlabeledInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					inspectionId: readText(payload.inspection_id) ?? '',
 				}),
 
-			'larvalSurveillance.updateInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateInspectionSample': ({ payload, organization, id }) =>
 				updateInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					displayName: readText(payload.display_name) ?? '',
 				}),
@@ -74,34 +74,35 @@ export function sampleTableCommands(
 			// `is_zero_larvae` is a column a client can watch change, but which way it
 			// moved is the command's to say. Two names rather than one boolean read for
 			// its direction — the same treatment `markHabitatInaccessible` gets.
-			'larvalSurveillance.markSampleZeroLarvae': ({ agency, id }) =>
-				markSampleZeroLarvaeCommand({ ...agency, sampleId: id }),
+			'larvalSurveillance.markSampleZeroLarvae': ({ organization, id }) =>
+				markSampleZeroLarvaeCommand({ ...organization, sampleId: id }),
 
-			'larvalSurveillance.clearSampleZeroLarvae': ({ agency, id }) =>
-				clearSampleZeroLarvaeCommand({ ...agency, sampleId: id }),
+			'larvalSurveillance.clearSampleZeroLarvae': ({ organization, id }) =>
+				clearSampleZeroLarvaeCommand({ ...organization, sampleId: id }),
 
 			// Not the same shape as the pair above, and deliberately: non-mosquito
 			// presence is an observation the field recorded, so the value is the point.
-			'larvalSurveillance.setSampleNonMosquitoPresence': ({ payload, agency, id }) =>
+			'larvalSurveillance.setSampleNonMosquitoPresence': ({ payload, organization, id }) =>
 				setSampleNonMosquitoPresenceCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					hasNonMosquito: payload.has_non_mosquito === true,
 				}),
 
-			'larvalSurveillance.setSampleUnidentifiableReason': ({ payload, agency, id }) =>
+			'larvalSurveillance.setSampleUnidentifiableReason': ({ payload, organization, id }) =>
 				setSampleUnidentifiableReasonCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					unidentifiableReason: readNullableText(payload.unidentifiable_reason),
 				}),
 
-			'larvalSurveillance.deleteInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.deleteInspectionSample': ({ payload, organization, id }) =>
 				deleteInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					acknowledgedAssociatedRecordsDeletion: acknowledged(
-						payload.acknowledgedAssociatedRecordsDeletion,
+						payload,
+						'acknowledgedAssociatedRecordsDeletion',
 					),
 				}),
 		},

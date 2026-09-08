@@ -100,7 +100,7 @@ export function useFormulationMutations(): FormulationMutations {
 			} satisfies Formulation;
 
 			await settleWrite(
-				mutateCollection(formulations, {
+				mutateCollection(formulations(), {
 					operation: 'insert',
 					// A recipe with nothing in it cannot be mixed, so a new one that the
 					// dialog left inactive says so rather than being written active and
@@ -152,7 +152,7 @@ export function useFormulationMutations(): FormulationMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(formulations, {
+				mutateCollection(formulations(), {
 					operation: 'update',
 					intent: intents,
 					key: id,
@@ -165,7 +165,7 @@ export function useFormulationMutations(): FormulationMutations {
 
 	const setActive = useCallback(async (id: string, isActive: boolean) => {
 		await settleWrite(
-			mutateCollection(formulations, {
+			mutateCollection(formulations(), {
 				operation: 'update',
 				intent: isActive
 					? 'controlOperations.activateFormulation'
@@ -178,7 +178,7 @@ export function useFormulationMutations(): FormulationMutations {
 
 	const remove = useCallback(async (id: string) => {
 		await settleWrite(
-			mutateCollection(formulations, {
+			mutateCollection(formulations(), {
 				operation: 'delete',
 				intent: 'controlOperations.deleteFormulation',
 				key: id,
@@ -196,7 +196,7 @@ export function useFormulationMutations(): FormulationMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(formulation_insecticides, {
+				mutateCollection(formulation_insecticides(), {
 					operation: 'insert',
 					intent: 'controlOperations.addFormulationInsecticide',
 					row: {
@@ -220,7 +220,7 @@ export function useFormulationMutations(): FormulationMutations {
 	const saveComponent = useCallback(
 		async (componentId: string, fields: FormulationComponentFields) => {
 			await settleWrite(
-				mutateCollection(formulation_insecticides, {
+				mutateCollection(formulation_insecticides(), {
 					operation: 'update',
 					intent: 'controlOperations.updateFormulationInsecticide',
 					key: componentId,
@@ -239,7 +239,7 @@ export function useFormulationMutations(): FormulationMutations {
 
 	const removeComponent = useCallback(async (componentId: string) => {
 		await settleWrite(
-			mutateCollection(formulation_insecticides, {
+			mutateCollection(formulation_insecticides(), {
 				operation: 'delete',
 				intent: 'controlOperations.removeFormulationInsecticide',
 				key: componentId,

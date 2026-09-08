@@ -212,7 +212,7 @@ operator yourself.
 So: `ST_Relate` does not block the index scan, it contributes nothing to it.
 Writing `rf.geom && :record_geom AND st_relate(...)` leaves the bounding-box
 half of the predicate index-aware exactly as it is today. Without the `&&`,
-every live region in the agency gets a full GEOS relate. The `&&` must be
+every live region in the Organization gets a full GEOS relate. The `&&` must be
 written, and once written it is sufficient. `ST_Intersects`, on the other hand,
 "automatically includes a bounding box comparison that makes use of any spatial
 indexes"
@@ -229,14 +229,14 @@ Two things gate the index in this particular query and neither is about
    `rf.deleted_at is null` clause is load-bearing for the index, not only for
    correctness. The shipped `regionMembershipClause` already has it.
 2. Whether the planner picks the index is a cost decision over a table with one
-   agency's regions in it. A sequential scan over a few dozen rows is the
+   Organization's regions in it. A sequential scan over a few dozen rows is the
    cheaper plan and choosing it is not a bug.
 
 I did not run `EXPLAIN`, and a plan is the one thing here a document cannot
 settle. Point 2 is what #244 should measure: not "does the index get used" but
 "how long does the whole read take against real region counts", with `EXPLAIN
-(ANALYZE, BUFFERS)` on the largest agency. The capability question is closed by
-the manual.
+(ANALYZE, BUFFERS)` on the largest Organization. The capability question is
+closed by the manual.
 
 One more performance note, for #244 rather than for the predicate. PostGIS
 caches prepared geometry for repeated calls of some predicates against the same

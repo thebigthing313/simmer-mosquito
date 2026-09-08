@@ -93,7 +93,7 @@ export function useSampleMutations(): SampleMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(samples, {
+				mutateCollection(samples(), {
 					operation: 'insert',
 					// Two intentions, not one command with an optional field.
 					intent:
@@ -122,7 +122,7 @@ export function useSampleMutations(): SampleMutations {
 	const rename = useCallback(
 		async (sampleId: string, displayName: string) => {
 			await settleWrite(
-				mutateCollection(samples, {
+				mutateCollection(samples(), {
 					operation: 'update',
 					intent: 'larvalSurveillance.updateInspectionSample',
 					key: sampleId,
@@ -140,7 +140,7 @@ export function useSampleMutations(): SampleMutations {
 	const setZeroLarvae = useCallback(
 		async (sampleId: string, isZeroLarvae: boolean) => {
 			await settleWrite(
-				mutateCollection(samples, {
+				mutateCollection(samples(), {
 					operation: 'update',
 					intent: isZeroLarvae
 						? 'larvalSurveillance.markSampleZeroLarvae'
@@ -160,7 +160,7 @@ export function useSampleMutations(): SampleMutations {
 	const setNonMosquito = useCallback(
 		async (sampleId: string, hasNonMosquito: boolean) => {
 			await settleWrite(
-				mutateCollection(samples, {
+				mutateCollection(samples(), {
 					operation: 'update',
 					intent: 'larvalSurveillance.setSampleNonMosquitoPresence',
 					key: sampleId,
@@ -178,7 +178,7 @@ export function useSampleMutations(): SampleMutations {
 	const setUnidentifiableReason = useCallback(
 		async (sampleId: string, unidentifiableReason: string | null) => {
 			await settleWrite(
-				mutateCollection(samples, {
+				mutateCollection(samples(), {
 					operation: 'update',
 					intent: 'larvalSurveillance.setSampleUnidentifiableReason',
 					key: sampleId,
@@ -196,7 +196,7 @@ export function useSampleMutations(): SampleMutations {
 	const remove = useCallback(
 		async (sampleId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(samples, {
+				mutateCollection(samples(), {
 					operation: 'delete',
 					intent: 'larvalSurveillance.deleteInspectionSample',
 					key: sampleId,

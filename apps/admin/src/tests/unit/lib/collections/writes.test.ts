@@ -14,6 +14,7 @@
  * projection.
  */
 
+import type { MutableCollection, MutationTransaction } from '@simmer-mosquito/sync';
 import { describe, expect, it, vi } from 'vitest';
 
 const inserted: Record<string, unknown>[] = [];
@@ -65,7 +66,16 @@ function stubCollection() {
 vi.mock('../../../../lib/collections/genera', () => ({ genera: stubCollection() }));
 vi.mock('../../../../lib/collections/species', () => ({ species: stubCollection() }));
 vi.mock('../../../../lib/collections/units', () => ({ units: stubCollection() }));
-vi.mock('@simmer-mosquito/sync', () => ({ settleWrite: (value: unknown) => value }));
+/**
+ * The real `createCollectionMutator`, because `mutate.ts` binds it and this suite
+ * is what runs the writes through it. Only `settleWrite` is replaced: a stubbed
+ * collection returns a plain promise rather than a transaction, and settling one
+ * would wait on an `isPersisted` nothing here has.
+ */
+vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
+	settleWrite: (value: unknown) => value,
+}));
 
 const {
 	createGenus,
@@ -78,6 +88,7 @@ const {
 	updateSpecies,
 	updateUnit,
 } = await import('../../../../lib/collections/writes');
+const { mutateCollection } = await import('../../../../lib/collections/mutate');
 
 describe('writes project onto Postgres column names', () => {
 	it('writes a species as genus_id, common_name and display_name', async () => {
@@ -164,10 +175,14 @@ describe('a create mints its own id', () => {
 });
 
 /**
- * `requireIntents` throws on a write that names no command, so a missing intent is
- * not a degraded write — it is every write on that page failing at the click.
- * Nothing else in the app can supply them: a form knows its values, and only this
- * module knows which command they mean.
+ * Which command each write means.
+ *
+ * `mutate.ts` binds `SingleRowCommandType`, so half of what this used to prove is
+ * now the compiler's: a name outside the domain vocabulary fails `tsc` rather
+ * than reaching the server as a 400. What types cannot say is which of the
+ * twenty-two `foundation.*` commands a given write means, and getting that wrong
+ * compiles cleanly. `updateGenus` naming `foundation.deleteGenus` is a name in
+ * the union, and this table is the only thing that reads it back.
  */
 describe('every write names the command it means', () => {
 	const values = {
@@ -208,4 +223,38 @@ describe('every write names the command it means', () => {
 			expect(intents[0]).toEqual([intent]);
 		});
 	}
+});
+
+/**
+ * The compile-time half, which no assertion can reach.
+ *
+ * These lines run nothing. `@ts-expect-error` fails the build when the line below
+ * it compiles, so a mutator that stopped constraining its intent would fail
+ * `pnpm typecheck` here rather than shipping a console whose every write is a 400.
+ */
+describe('a command outside the vocabulary does not compile', () => {
+	// The recording stub above returns a bare promise, and what is being checked
+	// here is the intent rather than the row, so this one answers the shape
+	// `mutateCollection` asks for and does nothing else.
+	const transaction: MutationTransaction = { isPersisted: { promise: Promise.resolve() } };
+	const collection: MutableCollection<Record<string, unknown>> = {
+		insert: () => transaction,
+		update: () => transaction,
+		delete: () => transaction,
+	};
+	const key = '7c1a5b6e-8f3d-4e2a-9a1b-2c3d4e5f6074';
+
+	it('refuses a misspelled name and a multi-row command', () => {
+		// @ts-expect-error a typo, and nothing in the domain answers to it.
+		mutateCollection(collection, { operation: 'delete', intent: 'foundation.deleteGenu', key });
+
+		mutateCollection(collection, {
+			operation: 'delete',
+			// @ts-expect-error a real command, but one that writes more than one row.
+			intent: 'foundation.mergeAddresses',
+			key,
+		});
+
+		expect(intents).toBeDefined();
+	});
 });

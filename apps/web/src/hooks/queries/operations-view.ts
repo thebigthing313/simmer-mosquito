@@ -20,22 +20,16 @@
  * queue and the detail page agreeing about what is finished.
  */
 
-import type { ControlType } from '@simmer-mosquito/sync';
+import { CONTROL_TYPES, type ControlType } from '@simmer-mosquito/domain';
 import type { LinkedAddress } from './address-view';
 
-/**
- * The four kinds of control work a request or mission can be for.
- *
- * The column stores the snake_case `control_type` enum; these are the labels the
- * operator reads. Ordered as the domain lists them, not alphabetically.
- */
-export const CONTROL_TYPES: readonly ControlType[] = [
-	'application',
-	'source_reduction',
-	'biocontrol',
-	'outreach',
-];
+export { CONTROL_TYPES };
 
+/**
+ * What each kind of control work reads as on screen.
+ *
+ * The column stores the snake_case enum; these are the words the operator sees.
+ */
 const CONTROL_TYPE_LABELS: Readonly<Record<ControlType, string>> = {
 	application: 'Application',
 	source_reduction: 'Source Reduction',
@@ -213,8 +207,12 @@ export function missionDisplayName(
 		return name;
 	}
 	// An unnamed mission is named by when it runs, so the fallback carries the
-	// same zone the scheduled start is read in everywhere else.
-	return `${controlTypeLabel(row.controlType)} — ${formatScheduledStart(row.scheduledStartAt, timeZone)}`;
+	// same zone the scheduled start is read in everywhere else. A start that will
+	// not parse formats as '', and joining that leaves a dangling "on", so the
+	// half that survives is the whole name.
+	const label = controlTypeLabel(row.controlType);
+	const start = formatScheduledStart(row.scheduledStartAt, timeZone);
+	return start === '' ? label : `${label} on ${start}`;
 }
 
 /**
@@ -295,11 +293,11 @@ export interface MissionProgressCounts {
 // --- formatting -------------------------------------------------------------
 
 /**
- * When a mission is due to start, on the agency's clock.
+ * When a mission is due to start, on the organization's clock.
  *
  * `scheduledStartAt` is an instant, and an instant has no time of day until a
  * zone is named. A dispatcher two zones from the yard has to read the same 6am
- * muster as the crew standing in it, so the zone is the agency's.
+ * muster as the crew standing in it, so the zone is the organization's.
  *
  * A string is still accepted: the write surfaces read raw Electric rows, where
  * the column arrives unparsed.
@@ -309,7 +307,7 @@ export function formatScheduledStart(value: Date | string, timeZone: string | un
 	if (parsed === null) {
 		return typeof value === 'string' ? value : '';
 	}
-	return parsed.toLocaleString(undefined, {
+	return parsed.toLocaleString('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',
@@ -319,13 +317,13 @@ export function formatScheduledStart(value: Date | string, timeZone: string | un
 	});
 }
 
-/** The day a request came in, on the agency's calendar. See {@link formatScheduledStart}. */
+/** The day a request came in, on the organization's calendar. See {@link formatScheduledStart}. */
 export function formatRequestedAt(value: Date | string, timeZone: string | undefined): string {
 	const parsed = asInstant(value);
 	if (parsed === null) {
 		return typeof value === 'string' ? value : '';
 	}
-	return parsed.toLocaleDateString(undefined, {
+	return parsed.toLocaleDateString('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

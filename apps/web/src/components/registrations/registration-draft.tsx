@@ -3,7 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { newRecordId } from '../../hooks/mutations/shared';
 import { useNotificationRegistrationMutations } from '../../hooks/mutations/use-notification-registration-mutations';
@@ -294,7 +294,6 @@ function DraftForm({
 	readonly submitLabel: string;
 	readonly toolbarSlot: HTMLElement | null;
 }) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const organizationId = useOrganizationId();
 	const { all: units } = useUnitLabels();
 	// Active only: the domain refuses a subscription to a retired type, and a
@@ -316,17 +315,10 @@ function DraftForm({
 				validateRegistration(input.value, geometry),
 		},
 		onSubmit: async ({ value }: { readonly value: RegistrationFormValues }) => {
-			setSaveError(null);
-			location.clearError();
-			if (geometry === null) {
-				location.setError('Draw the place this registration covers.');
+			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
-			try {
-				await onSave(value, geometry);
-			} catch (thrown) {
-				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save registration.');
-			}
+			await onSave(value, geometry);
 		},
 	});
 
@@ -340,12 +332,6 @@ function DraftForm({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to save registration" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to save registration</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				{organizationId === null ? (
 					<DraftSkeleton />
@@ -394,6 +380,7 @@ function DraftToolbar({
 
 	return createPortal(
 		<DrawToolbar
+			geometryKind="notificationRegistration"
 			controller={controller}
 			geometryType={geometryType}
 			pointPrompt="Click the map to place this registration."

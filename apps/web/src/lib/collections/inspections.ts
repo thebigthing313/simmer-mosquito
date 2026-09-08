@@ -7,35 +7,43 @@
  */
 
 import { createInspectionsCollection, type Inspection } from '@simmer-mosquito/sync';
-import { BasicIndex, type Collection } from '@tanstack/db';
-import { syncClientOptions } from './client-options';
+import { BasicIndex } from '@tanstack/db';
+import { declareCollection } from './registry';
 
 /**
  * `on-demand`: One row per habitat visit, so it grows every week the season runs.
  *
  * This app writes inspections, so the collection carries the three mutation
  * handlers and every write through it names the command it means.
- *
- * The type is written here rather than inferred because a `Collection<…>`
- * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
- * Naming it on this side instantiates it where it resolves.
  */
-export const inspections: Collection<Inspection, string | number> = createInspectionsCollection({
-	...syncClientOptions,
+export const inspections = declareCollection<Inspection>({
+	table: 'inspections',
 	syncMode: 'on-demand',
 	mutations: true,
-});
+	create: createInspectionsCollection,
 
-/**
- * The join index.
- *
- * A live query that joins this table loads it lazily — it collects the join keys
- * the driving side produces and asks for exactly those rows. It can only do that
- * when the join column is indexed. Without this it says so in a console warning
- * and loads the whole table instead, which on an on-demand collection is the one
- * thing the mode exists to avoid.
- *
- * Always `id`: every table is joined by its primary key, because that is what the
- * foreign keys point at.
- */
-inspections.createIndex((row) => row.id, { indexType: BasicIndex });
+	/*
+	 * One index per column the inspections table sorts on.
+	 *
+	 * An `orderBy` with a `limit` pages lazily only while the first sort key is
+	 * indexed here, and only while that index was built with the compare options
+	 * the clause asks for. Miss either and the compiler warns once and then loads
+	 * every inspection the organization has, with the right rows in the right
+	 * order and nothing thrown. `INSPECTION_SORT_KEYS` in
+	 * `hooks/queries/use-inspection-table.ts` is the other half of this list; a
+	 * key added there without a column here is a silent full load, which is what
+	 * the sort-key loop in that hook's suite catches.
+	 */
+	index: (collection) => {
+		// The collection's own options with one change, rather than a copy of the
+		// library's defaults. `nulls` is the only part the table decides.
+		const sorted = {
+			indexType: BasicIndex,
+			options: { compareOptions: { ...collection.compareOptions, nulls: 'last' as const } },
+		};
+		collection.createIndex((row) => row.inspection_date, sorted);
+		collection.createIndex((row) => row.is_wet, sorted);
+		collection.createIndex((row) => row.dip_count, sorted);
+		collection.createIndex((row) => row.larvae_count, sorted);
+	},
+});

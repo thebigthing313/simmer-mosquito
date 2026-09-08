@@ -104,7 +104,7 @@ function fitMapToBounds(
 }
 
 async function fetchMapExtent(url: string, signal: AbortSignal): Promise<BoundingBox | null> {
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`Map extent request failed (${response.status}).`);
 	}

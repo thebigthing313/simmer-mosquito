@@ -1,10 +1,11 @@
-import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import {
+	LARVAL_DENSITIES,
+	type LarvalDensity,
+	type ResolvedLarvalInspectionEntryPolicy,
 	recordAdHocInspectionCommand,
 	recordHabitatInspectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import {
 	FormSection,
@@ -13,7 +14,7 @@ import {
 	RequiredMark,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -27,6 +28,7 @@ import {
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
 	Popover,
 	PopoverAnchor,
@@ -35,23 +37,15 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { CheckIcon, PlusIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { densityLabel, type LifeStageFlags } from '../../../components/larval-display';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
@@ -71,15 +65,6 @@ export type InspectionLocationMode = 'habitat' | 'adhoc';
 /** Non-empty sentinels: Radix Select forbids empty-string item values. */
 export const unsetDensityValue = 'unset';
 export const noHabitatTypeValue = 'none';
-
-// Ordered low -> high so the density select reads as an escalating scale.
-const DENSITY_OPTIONS: readonly LarvalDensity[] = [
-	'none',
-	'light',
-	'medium',
-	'heavy',
-	'very_heavy',
-];
 
 const LIFE_STAGE_SEGMENTS: readonly {
 	readonly key: keyof LifeStageFlags;
@@ -157,7 +142,7 @@ export interface InspectionFormHeader {
 export interface InspectionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	/** The agency's larval entry policy — decides which abundance fields exist. */
+	/** The organization's larval entry policy — decides which abundance fields exist. */
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly profiles: readonly ProfileListing[];
 	readonly habitatTypes: readonly SchemaCatalogListing[];
@@ -233,10 +218,10 @@ interface ResultColumns {
 }
 
 /**
- * Which abundance inputs the agency's entry policy makes meaningful, and which
- * of them it insists on. Mirrors `normalizeLarvalInspectionResult` so the form
- * asks for exactly what the command will accept — under density-only entry a
- * larvae count is rejected outright, and under count-and-dips both counts are
+ * Which abundance inputs the organization's entry policy makes meaningful, and
+ * which of them it insists on. Mirrors `normalizeLarvalInspectionResult` so the
+ * form asks for exactly what the command will accept — under density-only entry
+ * a larvae count is rejected outright, and under count-and-dips both counts are
  * required, so neither should be presented the same way as an optional field.
  *
  * Hybrid requires density *or* the count pair, which no single field can be
@@ -292,61 +277,29 @@ export function InspectionFormPage({
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
 
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [adhocGeometry, setAdhocGeometry] = useState<DrawGeometry | null>(initialAdhocGeometry);
-	const [adhocGeometryType, setAdhocGeometryType] = useState<DrawGeometryType>(
-		initialAdhocGeometry?.type ?? 'Point',
-	);
-	// The selected habitat's shape, shown for reference in habitat mode. Ad-hoc
-	// geometry is rendered by the draw layer instead.
-	const [previewGeometry, setPreviewGeometry] = useState<GeoJsonGeometry | null>(
-		initialPreviewGeometry,
-	);
-	const [locationError, setLocationError] = useState<string | null>(null);
-	const [saveError, setSaveError] = useState<string | null>(null);
+	// Habitat mode reports against the same band as the drawn location, but it is
+	// a missing pick rather than a missing shape, so the hook does not own it.
+	const [habitatError, setHabitatError] = useState<string | null>(null);
 	// Switching to dry throws away whatever abundance was keyed in — the command
 	// rejects a dry inspection that carries any — so the crew is asked first.
 	const [pendingDry, setPendingDry] = useState(false);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleAdhocGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setAdhocGeometry(next);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: adhocGeometry,
-		onChange: handleAdhocGeometryChange,
+	// `referenceGeometry` is the selected habitat's shape, shown for reference in
+	// habitat mode. Ad-hoc geometry is rendered by the draw layer instead.
+	const location = useDrawLocation({
+		geometryKind: 'inspection',
+		initialGeometry: initialAdhocGeometry,
+		initialReferenceGeometry: initialPreviewGeometry,
+		missingMessage: 'Map the area this ad-hoc inspection covers.',
 	});
-	const { start, requestPoint } = draw;
-
-	// The address picker's own "Create Address" places its point against this
-	// form's map, so a new address can be sited without leaving the inspection.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	// Same rule as every other located record: linking an address fills an empty
-	// location and never overwrites a shape the crew drew. Moving onto it stays an
-	// explicit act.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setAdhocGeometry(point);
-		setAdhocGeometryType('Point');
-		setLocationError(null);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+	const {
+		addressCoord,
+		draw,
 		geometry: adhocGeometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	// Ease the map to frame whatever location is currently chosen (a selected
-	// habitat's geometry or freshly drawn ad-hoc geometry) without a manual pan.
-	useFitToGeometry(map, previewGeometry, draw.isDrawing);
-	useFitToGeometry(map, adhocGeometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+		geometryType: adhocGeometryType,
+		referenceGeometry: previewGeometry,
+		setReferenceGeometry,
+		startDraw,
+	} = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -359,8 +312,8 @@ export function InspectionFormPage({
 					inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
 					inspectionDate: value.inspectionDate,
 					inspectedByProfileId: value.inspectedByProfileId,
-					// The agency's own policy, so the form enforces the same abundance
-					// rules the server will rather than the built-in default.
+					// The organization's own policy, so the form enforces the same
+					// abundance rules the server will rather than the built-in default.
 					policy,
 					isWet: value.isWet,
 					dipCount: value.dipCount,
@@ -386,63 +339,45 @@ export function InspectionFormPage({
 			}, INSPECTION_FIELD_PATHS),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
+			setHabitatError(null);
 			if (value.locationMode === 'habitat' && value.habitatId === null) {
-				setLocationError('Select the habitat this inspection covers.');
+				setHabitatError('Select the habitat this inspection covers.');
 				return;
 			}
-			if (value.locationMode === 'adhoc' && adhocGeometry === null) {
-				setLocationError('Map the area this ad-hoc inspection covers.');
+			if (value.locationMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({
-					values: value,
-					adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
-					habitatGeometry: value.locationMode === 'habitat' ? previewGeometry : null,
-				});
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save inspection.');
-			}
+			await onSave({
+				values: value,
+				adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
+				habitatGeometry: value.locationMode === 'habitat' ? previewGeometry : null,
+			});
 		},
 	});
 
-	const handleHabitatSelected = useCallback((habitat: HabitatMatch | null) => {
-		setLocationError(null);
-		if (habitat === null) {
-			setPreviewGeometry(null);
-			return;
-		}
-		// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it so
-		// the map can frame the selected habitat.
-		void fetchHabitatGeometry(habitat.id).then((geometry) => setPreviewGeometry(geometry));
-	}, []);
-
-	// Switching tools replaces the shape, so the old one is cleared rather than
-	// silently saved under the wrong type.
-	const handleAdhocTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setAdhocGeometryType(next);
-			setAdhocGeometry(null);
-			if (draw.isDrawing) {
-				start(next);
+	const { clearError } = location;
+	const handleHabitatSelected = useCallback(
+		(habitat: HabitatMatch | null) => {
+			clearError();
+			setHabitatError(null);
+			if (habitat === null) {
+				setReferenceGeometry(null);
+				return;
 			}
+			// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it
+			// so the map can frame the selected habitat.
+			void fetchHabitatGeometry(habitat.id).then((geometry) => setReferenceGeometry(geometry));
 		},
-		[draw.isDrawing, start],
+		[clearError, setReferenceGeometry],
 	);
 
 	const startAdhocDraw = useCallback(() => {
-		setLocationError(null);
 		// Ad-hoc geometry is the inspection's own; drop any habitat reference shape
 		// still framing the map from a previous mode.
-		setPreviewGeometry(null);
-		start(adhocGeometryType);
-	}, [adhocGeometryType, start]);
-
-	const clearAdhoc = useCallback(() => {
-		setAdhocGeometry(null);
-	}, []);
+		setReferenceGeometry(null);
+		startDraw();
+	}, [setReferenceGeometry, startDraw]);
 
 	return (
 		<form.AppForm>
@@ -457,12 +392,17 @@ export function InspectionFormPage({
 				aside={
 					<>
 						<MapCanvas
-							controls={{ layers: false }}
-							geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
-							habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
-							onMapReady={handleMapReady}
+							geoJson={previewGeometry}
+							layers={[
+								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
+							]}
+							onMapReady={location.onMapReady}
 						/>
-						<DrawToolbar controller={draw} geometryType={adhocGeometryType} />
+						<DrawToolbar
+							geometryKind="inspection"
+							controller={draw}
+							geometryType={adhocGeometryType}
+						/>
 					</>
 				}
 				onSubmit={() => {
@@ -470,12 +410,6 @@ export function InspectionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Inspection" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Inspection</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<form.AppField name="inspectionDate">
 					{(field) => (
@@ -526,10 +460,10 @@ export function InspectionFormPage({
 				<LocationSection
 					description={
 						isEditing
-							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different site.'
+							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different habitat.'
 							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers. An address is optional reference.'
 					}
-					error={locationError}
+					error={habitatError ?? location.locationError}
 				>
 					<form.AppField name="locationMode">
 						{(field) => (
@@ -584,12 +518,12 @@ export function InspectionFormPage({
 									<form.AppField name="addressId">
 										{(field) => (
 											<AddressPicker
-												create={{ requestMapPoint }}
+												create={{ requestMapPoint: location.requestMapPoint }}
 												label="Address"
 												onSelect={(address) => {
 													field.handleChange(address?.id ?? null);
-													setLocationError(null);
-													selectAddress(address);
+													location.clearError();
+													location.selectAddress(address);
 												}}
 												organizationId={organizationId}
 												value={field.state.value}
@@ -601,13 +535,14 @@ export function InspectionFormPage({
 										controller={draw}
 										geometry={adhocGeometry}
 										geometryType={adhocGeometryType}
+										geometryKind="inspection"
 										label="Inspected location"
-										onClear={clearAdhoc}
+										onClear={location.clear}
 										onDraw={startAdhocDraw}
-										onTypeChange={handleAdhocTypeChange}
+										onTypeChange={location.changeType}
 										organizationId={organizationId}
 										required
-										{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+										{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 									/>
 									<form.AppField name="habitatTypeId">
 										{(field) => (
@@ -824,7 +759,7 @@ function SamplesSection({
 											),
 										)
 									}
-									placeholder={`Sample ${index + 1} — label optional`}
+									placeholder={`Optional label for sample ${index + 1}`}
 									value={sample.label}
 								/>
 								<Button
@@ -913,13 +848,29 @@ function HabitatPicker({
 		<LabeledControl label="Habitat" required>
 			<Popover onOpenChange={setOpen} open={open}>
 				<PopoverAnchor asChild>
-					<div className="relative" ref={anchorRef}>
-						<SearchIcon
-							aria-hidden="true"
-							className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-						/>
-						<Input
-							className="pr-10 pl-9"
+					<div ref={anchorRef}>
+						<SearchInput
+							/*
+							 * The trailing control clears the picked habitat, not the text, so
+							 * it is this form's own addon and shows against the selection
+							 * rather than against what is typed.
+							 */
+							endAddon={
+								value === null ? null : (
+									<InputGroupButton
+										aria-label="Clear habitat"
+										onClick={() => {
+											setPickedLabel('');
+											setSearch('');
+											onSelect(null);
+										}}
+										size="icon-xs"
+									>
+										<XIcon aria-hidden="true" />
+									</InputGroupButton>
+								)
+							}
+							label="Search habitats"
 							onChange={(event) => {
 								setSearch(event.target.value);
 								setOpen(true);
@@ -928,22 +879,6 @@ function HabitatPicker({
 							placeholder="Search habitats"
 							value={open ? search : selectedLabel}
 						/>
-						{value === null ? null : (
-							<Button
-								aria-label="Clear habitat"
-								className="-translate-y-1/2 absolute top-1/2 right-1.5"
-								onClick={() => {
-									setPickedLabel('');
-									setSearch('');
-									onSelect(null);
-								}}
-								size="icon-xs"
-								type="button"
-								variant="ghost"
-							>
-								<XIcon aria-hidden="true" />
-							</Button>
-						)}
 					</div>
 				</PopoverAnchor>
 				<PopoverContent
@@ -986,7 +921,8 @@ function HabitatSearchResults({
 	readonly onSelect: (habitat: HabitatMatch) => void;
 }) {
 	// `includeRetired`, because this picker always has: an inspection is also how
-	// a site the agency retired gets looked at again. The control pickers exclude.
+	// a site the organization retired gets looked at again. The control pickers
+	// exclude.
 	const {
 		matches: habitats,
 		isReady,
@@ -1145,7 +1081,7 @@ function emptyLifeStages(): LifeStageFlags {
 function densityOptions() {
 	return [
 		{ label: 'Not recorded', value: unsetDensityValue },
-		...DENSITY_OPTIONS.map((density) => ({ label: densityLabel(density), value: density })),
+		...LARVAL_DENSITIES.map((density) => ({ label: densityLabel(density), value: density })),
 	];
 }
 
@@ -1170,16 +1106,14 @@ function profileOptions(profiles: readonly ProfileListing[]) {
 
 async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry | null> {
 	try {
-		const response = await sessionFetch(new URL(`/map/habitats/${habitatId}`, getServerUrl()), {
-			credentials: 'include',
-		});
+		const response = await sessionFetch(new URL(`/map/habitats/${habitatId}`, getServerUrl()));
 		if (!response.ok) {
 			return null;
 		}
 		const body = (await response.json()) as {
 			readonly habitat?: { readonly geojson?: unknown };
 		};
-		return (body.habitat?.geojson ?? null) as GeoJsonGeometry | null;
+		return checkOwnedGeometry('habitat', body.habitat?.geojson).geometry;
 	} catch {
 		return null;
 	}

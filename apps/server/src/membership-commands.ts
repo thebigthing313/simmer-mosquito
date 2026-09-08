@@ -42,10 +42,10 @@
  * names the Profile it creates, and the two rows are written together.
  */
 
+import type { WorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	checkedValues,
 	type Kysely,
-	type SelectedRow,
 	type SimmerDatabase,
 	type SimmerRole,
 	type StageOrganizationInvitationErrorCode,
@@ -59,6 +59,7 @@ import { CommandError } from './command-endpoint.js';
 import type { CommandDb, CommandTransaction } from './command-write.js';
 import { refuseInvitationRevoke, refuseInvitationSend } from './invitation-refusal.js';
 import { forgetInvitation, stampInvitation } from './invitation-stamp.js';
+import { type CommandRow, returnColumns } from './return-columns.js';
 import { canGrantRole, forbidden } from './roles.js';
 import {
 	workOsIdentityWritesDisabled,
@@ -68,44 +69,18 @@ import {
 /**
  * What the second system needs of the auth provider.
  *
- * Structural, and only the four calls these commands make. `main.ts` hands in
- * the real WorkOS client; a test hands in four functions.
+ * Only the three calls these commands make, picked off `WorkOsAuth` rather than
+ * described a second time. `main.ts` hands in the real WorkOS client; a test
+ * hands in three functions, and they now have to answer what the real ones
+ * answer. `sendOrganizationInvitation` was narrowed here to `{ id }`, which let
+ * a double return a shape no WorkOS response has.
  */
-export interface MembershipAuth {
-	sendOrganizationInvitation(input: {
-		readonly email: string;
-		readonly workosOrganizationId: string;
-		readonly inviterWorkosUserId?: string;
-	}): Promise<{ readonly id: string }>;
-	revokeInvitation(
-		invitationId: string,
-	): Promise<{ readonly status: 'revoked' | 'already_settled' }>;
-	deactivateOrganizationMembership(input: {
-		readonly workosUserId: string;
-		readonly workosOrganizationId: string;
-	}): Promise<{ readonly status: 'deactivated' | 'not_a_member' }>;
-}
+export type MembershipAuth = Pick<
+	WorkOsAuth,
+	'sendOrganizationInvitation' | 'revokeInvitation' | 'deactivateOrganizationMembership'
+>;
 
-/**
- * What a client is told about a Membership.
- *
- * The two withheld columns are absent here as well as from the sync shape. A
- * command response that carried them would put an invited address on a screen the
- * shape deliberately keeps it off.
- */
-const membershipReturnColumns = [
-	'id',
-	'organization_id',
-	'user_id',
-	'profile_id',
-	'role',
-	'status',
-	'is_default',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type MembershipRow = SelectedRow<'memberships', typeof membershipReturnColumns>;
+export type MembershipRow = CommandRow<'memberships'>;
 
 /**
  * Whether an actor may hand out a role, as a refusal rather than a boolean.
@@ -158,9 +133,9 @@ export async function writeMembershipCommand(
 				command.payload.organizationId,
 				{
 					status: 'inactive',
-					// `is_default` names where a user lands when they sign in. Left set, it
-					// points at the one agency they can no longer enter, and the next
-					// sign-in has nowhere to go.
+					// `is_default` names where a user lands when they sign in. Left set,
+					// it points at the one organization they can no longer enter, and the
+					// next sign-in has nowhere to go.
 					is_default: false,
 				},
 			);
@@ -182,7 +157,7 @@ async function writeInvitation(
 ): Promise<MembershipRow> {
 	const alreadyWritten = await trx
 		.selectFrom('memberships')
-		.select(membershipReturnColumns)
+		.select(returnColumns.memberships)
 		.where('id', '=', payload.membershipId)
 		.where('organization_id', '=', payload.organizationId)
 		.executeTakeFirst();
@@ -205,7 +180,7 @@ async function writeInvitation(
 	if (activeMember !== undefined) {
 		throw new CommandError(409, {
 			error: 'already_a_member',
-			reason: 'That address already has access to this agency.',
+			reason: 'That address already has access to this organization.',
 		});
 	}
 
@@ -229,7 +204,7 @@ async function writeInvitation(
 				workos_invitation_id: null,
 			}),
 		)
-		.returning(membershipReturnColumns)
+		.returning(returnColumns.memberships)
 		.executeTakeFirstOrThrow();
 
 	return inserted;
@@ -293,7 +268,7 @@ async function writeInvitedProfile(
 }
 
 /**
- * One live invitation per address per agency, refused by name.
+ * One live invitation per address per organization, refused by name.
  *
  * `memberships_organization_invited_email_unique` is the rule the schema owns,
  * and reaching it as a constraint violation would answer 500. A collision here
@@ -360,7 +335,7 @@ async function writeReinvitation(
 }
 
 /**
- * One update, tenant-scoped, written out here.
+ * One update, organization-scoped, written out here.
  *
  * Not `updateRow` from `packages/db`: that takes an `OrgOwnedTable`, which is
  * derived from carrying `deleted_at`, and `memberships` has none. A membership is
@@ -377,7 +352,7 @@ async function setMembershipColumns(
 		.set({ ...set, updated_at: sql`now()` } as never)
 		.where('id', '=', membershipId)
 		.where('organization_id', '=', organizationId)
-		.returning(membershipReturnColumns)
+		.returning(returnColumns.memberships)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -394,7 +369,7 @@ async function setMembershipColumns(
 function profileRefusal(issue: StageOrganizationInvitationErrorCode): string {
 	switch (issue) {
 		case 'profile_not_found':
-			return 'That profile is not in this agency.';
+			return 'That profile is not in this organization.';
 		case 'profile_already_linked':
 			return 'That profile already has a login.';
 		case 'profile_deleted':
@@ -402,7 +377,7 @@ function profileRefusal(issue: StageOrganizationInvitationErrorCode): string {
 		case 'invited_email_already_used':
 			return 'That address is already invited.';
 		case 'already_a_member':
-			return 'That address already has access to this agency.';
+			return 'That address already has access to this organization.';
 	}
 }
 
@@ -415,8 +390,8 @@ function profileRefusal(issue: StageOrganizationInvitationErrorCode): string {
  *
  * `before` is the revoke side: WorkOS is what refuses a session, so ending the
  * SIMMER row and then failing would leave somebody who reads as removed and can
- * still sign in. `after` is the create side: the mail must not reach somebody the
- * agency has no row for.
+ * still sign in. `after` is the create side: the mail must not reach somebody
+ * the organization has no row for.
  */
 export function membershipSecondSystem(db: CommandDb, auth: MembershipAuth) {
 	return {
@@ -688,7 +663,8 @@ async function sendInvitation(
 	} catch (error) {
 		// The row is written and the mail is not. That reads on the People page as
 		// somebody invited who never got a link, and the repair is a re-invitation.
-		// The other order sends a working link to somebody the agency has no row for.
+		// The other order sends a working link to somebody the organization has no
+		// row for.
 		throw new CommandError(
 			502,
 			refuseInvitationSend(error, {
@@ -730,8 +706,8 @@ async function endWorkOsMembership(
 		.executeTakeFirst();
 
 	// The same bound as an invitation, for the same reason: an admin who could
-	// remove an owner could remove every owner, and an agency with no owner cannot
-	// appoint one.
+	// remove an owner could remove every owner, and an organization with no owner
+	// cannot appoint one.
 	if (target !== undefined) {
 		assertCanGrantRole(authContext.role, target.role, 'remove');
 	}

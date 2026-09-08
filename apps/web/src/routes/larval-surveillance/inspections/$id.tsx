@@ -1,7 +1,8 @@
+import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlType, LarvalDensity } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -19,15 +20,13 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, Suspense } from 'react';
+import { Suspense } from 'react';
 import { getServerUrl } from '../../../auth';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -42,7 +41,11 @@ import {
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import {
@@ -63,14 +66,41 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel } from '../../../lib/coordinate-label';
+import { formatAmount } from '../../../lib/format-count';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 	component: RouteComponent,
 });
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	padding: 'trailing',
+	stickyAside: true,
+	skeleton: {
+		eyebrow: 'w-28',
+		subtitle: 'w-48',
+		main: [['h-[420px]', 'h-[420px]'], 'h-48'],
+		aside: ['h-96'],
+	},
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <InspectionDetail inspectionId={id} />;
+	const query = useInspectionDetail(id);
+
+	return (
+		<RecordDetailPage
+			actions={<ViewHabitatButton habitatId={query.data?.habitatId ?? null} />}
+			back={{ label: 'Back to inspections', to: '/larval-surveillance/inspections' }}
+			deleteRefusals={INSPECTION_DELETE_REFUSALS}
+			layout={layout}
+			noun="inspection"
+			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
+		>
+			{(record, askDelete) => <InspectionDetailContent askDelete={askDelete} inspection={record} />}
+		</RecordDetailPage>
+	);
 }
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
@@ -132,58 +162,18 @@ interface SampleEntry {
 	readonly species: readonly SampleSpeciesEntry[];
 }
 
-function InspectionDetail({ inspectionId }: { readonly inspectionId: string }) {
-	const query = useInspectionDetail(inspectionId);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so everything below this line can unmount before the
-	// registry's refusal comes back, and state set there would be set on a
-	// component that is gone.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: INSPECTION_DELETE_REFUSALS,
-		ask: true,
-	});
-
+/** The site this inspection was filed against, beside the way back to the list. */
+function ViewHabitatButton({ habitatId }: { readonly habitatId: string | null }) {
+	if (habitatId === null) {
+		return null;
+	}
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'trailing' })}>
-				<InspectionTopBar habitatId={query.data?.habitatId ?? null} />
-				{query.isPending ? (
-					<InspectionDetailSkeleton />
-				) : query.isError || query.data == null ? (
-					<>
-						<RecordUnavailable noun="inspection" reason="not-found" />
-						{dialog}
-					</>
-				) : (
-					<>
-						<InspectionDetailContent askDelete={run} inspection={query.data} />
-						{dialog}
-					</>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function InspectionTopBar({ habitatId }: { readonly habitatId: string | null }) {
-	return (
-		<div className="flex items-center justify-between gap-3">
-			<Link
-				className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-				to="/larval-surveillance/inspections"
-			>
-				<ArrowLeftIcon aria-hidden="true" />
-				Back to inspections
+		<Button asChild size="sm" variant="outline">
+			<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
+				<HabitatIcon aria-hidden="true" />
+				View habitat
 			</Link>
-			{habitatId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-						<HabitatIcon aria-hidden="true" />
-						View habitat
-					</Link>
-				</Button>
-			)}
-		</div>
+		</Button>
 	);
 }
 
@@ -192,48 +182,42 @@ function InspectionDetailContent({
 	askDelete,
 }: {
 	readonly inspection: InspectionDetailRow;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	// Surface the inspection date in the breadcrumb trail in place of its uuid.
 	useBreadcrumbLabel(inspection.id, breadcrumbLabel(inspection));
 	const mutations = useInspectionMutations();
 
 	return (
-		<>
-			<InspectionHeader inspection={inspection} />
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
-						<RecordRegionsBand
-							noun="inspection"
-							recordId={inspection.id}
-							recordType="inspections"
-						/>
-					</div>
-					<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
-					<LinkedControlActionsCard inspectionId={inspection.id} />
-					<DangerZoneCard
-						ask={askDelete}
-						name={breadcrumbLabel(inspection)}
-						noun="inspection"
-						onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
-						recordId={inspection.id}
-						recordType="inspection"
-						returnTo="/larval-surveillance/inspections"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<ContextCard inspection={inspection} />
 					<CommentsSection
 						description="Access notes, conditions, and follow-up for this inspection."
 						target={{ type: 'inspection', id: inspection.id }}
 					/>
-				</div>
+				</>
+			}
+			header={<InspectionHeader inspection={inspection} />}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
+				<RecordRegionsBand noun="inspection" recordId={inspection.id} recordType="inspections" />
 			</div>
-		</>
+			<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
+			<LinkedControlActionsCard inspectionId={inspection.id} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={breadcrumbLabel(inspection)}
+				noun="inspection"
+				onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
+				recordId={inspection.id}
+				recordType="inspection"
+				returnTo="/larval-surveillance/inspections"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -245,7 +229,7 @@ function InspectionHeader({ inspection }: { readonly inspection: InspectionDetai
 					<InspectionIcon aria-hidden="true" className="size-3.5" />
 					Larval inspection
 				</span>
-				<h1 className="m-0 flex items-center gap-2 font-semibold text-[1.5rem] text-foreground leading-tight">
+				<h1 className="m-0 flex items-center gap-2 font-semibold text-foreground text-heading leading-heading">
 					<CalendarIcon aria-hidden="true" className="size-5 text-muted-foreground" />
 					{formatFullDate(inspection.inspectionDate)}
 				</h1>
@@ -285,7 +269,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 		<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-[0.95rem] text-muted-foreground">
 			<span>at</span>
 			<Link
-				className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+				className={recordLink()}
 				params={{ id: inspection.habitatId }}
 				to="/larval-surveillance/habitats/$id"
 			>
@@ -341,10 +325,10 @@ function InspectionLocationCard({
  * the two it repeated were the two an operator had just read.
  *
  * What is left is what nothing else on the page says: which stages were there,
- * how many larvae, and out of how much dipping. The rate closes the loop back to
- * the badge in the header — an agency configures its density bands as ranges of
- * larvae per dip, so printing the rate is what makes "Heavy" checkable instead of
- * asserted.
+ * how many larvae, and out of how much dipping. The rate closes the loop back
+ * to the badge in the header — an organization configures its density bands as
+ * ranges of larvae per dip, so printing the rate is what makes "Heavy"
+ * checkable instead of asserted.
  *
  * A dry inspection renders nothing. Its Dry badge is already in the header, and
  * the sentence that used to fill this card — that larvae need standing water —
@@ -399,9 +383,11 @@ function effortLabel(larvaeCount: number | null, dipCount: number | null): strin
 	const larvae =
 		larvaeCount === null
 			? null
-			: `${larvaeCount.toLocaleString()} ${plural(larvaeCount, 'larva', 'larvae')}`;
+			: `${larvaeCount.toLocaleString('en-US')} ${plural(larvaeCount, 'larva', 'larvae')}`;
 	const dips =
-		dipCount === null ? null : `${dipCount.toLocaleString()} ${plural(dipCount, 'dip', 'dips')}`;
+		dipCount === null
+			? null
+			: `${dipCount.toLocaleString('en-US')} ${plural(dipCount, 'dip', 'dips')}`;
 
 	if (larvae !== null && dips !== null) {
 		return `${larvae} in ${dips}`;
@@ -415,24 +401,24 @@ function plural(count: number, one: string, many: string): string {
 
 /** One decimal at most: `2.8`, `3`, `0.5`. */
 function formatRate(rate: number): string {
-	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(rate);
+	return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(rate);
 }
 
 function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Habitat">
 						{inspection.habitatId === null ? (
 							<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
 						) : (
 							<Link
-								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: inspection.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -449,16 +435,14 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={inspection.addressId} />
 					</DetailRow>
-					<DetailRow label="Inspector">
-						{inspection.inspectedByName ?? (
-							<span className="text-muted-foreground">Unassigned</span>
-						)}
+					<DetailRow empty="Unassigned" label="Inspector">
+						{inspection.inspectedByName}
 					</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
 					<DetailRow label="Coordinates">{coordinateLabel(inspection)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'inspection', id: inspection.id }} />
 			</CardContent>
 		</Card>
@@ -476,7 +460,7 @@ function InspectionSamplesCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="flex items-start justify-between gap-3">
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
@@ -533,7 +517,7 @@ function SampleItem({ sample }: { readonly sample: SampleEntry }) {
 		<li className="grid gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<Link
-					className="rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+					className={recordLink({ size: 'sm' })}
 					params={{ id: sample.id }}
 					to="/larval-surveillance/samples/$id"
 				>
@@ -594,7 +578,7 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="flex items-start justify-between gap-3">
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
@@ -684,7 +668,8 @@ function LinkedActionSummary({ action }: { readonly action: LinkedControlAction 
 		case 'outreachAction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<OutreachMethodName id={action.methodId} /> · {action.reach.toLocaleString()} reached
+					<OutreachMethodName id={action.methodId} /> · {action.reach.toLocaleString('en-US')}{' '}
+					reached
 				</Suspense>
 			);
 		case 'biocontrolAction':
@@ -700,7 +685,7 @@ function LinkedActionSummary({ action }: { readonly action: LinkedControlAction 
 					{controlTypeLabel(action.controlType)} requested
 					{action.summary === null || action.summary.trim().length === 0
 						? ''
-						: ` — ${action.summary}`}
+						: ` · ${action.summary}`}
 					{' · '}
 					<span
 						className={
@@ -795,15 +780,6 @@ function LinkedActionsEmpty({
 	);
 }
 
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[100px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
 function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
 	const habitatTypes = useHabitatTypeRoster();
 	if (habitatTypeId === null) {
@@ -833,7 +809,6 @@ async function fetchInspectionDetail(
 	signal: AbortSignal,
 ): Promise<InspectionDetailRow | null> {
 	const response = await sessionFetch(new URL(`/map/inspections/${id}`, getServerUrl()), {
-		credentials: 'include',
 		signal,
 	});
 	if (response.status === 404) {
@@ -865,28 +840,6 @@ function SamplesEmpty({
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
-	);
-}
-
-function InspectionDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-28" />
-				<Skeleton className="h-8 w-64" />
-				<Skeleton className="h-4 w-48" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<div className="grid gap-5 lg:grid-cols-2">
-						<Skeleton className="h-[420px]" />
-						<Skeleton className="h-[420px]" />
-					</div>
-					<Skeleton className="h-48" />
-				</div>
-				<Skeleton className="h-96" />
-			</div>
-		</>
 	);
 }
 
@@ -935,15 +888,6 @@ function breadcrumbLabel(inspection: InspectionDetailRow): string {
 	return `Inspection · ${formatMonthDayYear(inspection.inspectionDate)}`;
 }
 
-// Trim trailing zeros from stored decimals (2.50 -> 2.5) while keeping whole
-// amounts whole, so applied/eliminated quantities read naturally next to a unit.
-function formatAmount(value: number): string {
-	if (!Number.isFinite(value)) {
-		return '—';
-	}
-	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value);
-}
-
 function controlTypeLabel(controlType: ControlType): string {
 	switch (controlType) {
 		case 'application':
@@ -962,57 +906,4 @@ function coordinateLabel(inspection: InspectionDetailRow): string {
 		return 'Unknown coordinates';
 	}
 	return `${inspection.lat.toFixed(5)}, ${inspection.lng.toFixed(5)}`;
-}
-
-/** Long-form date from a `YYYY-MM-DD` inspection date (parsed as its own UTC day). */
-function formatFullDate(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function formatMonthDayYear(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function parseDateOnly(date: string): Date | null {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return null;
-	}
-	return new Date(Date.UTC(year, month - 1, day));
-}
-
-function formatDateTime(value: string, timeZone: string | undefined): string {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return 'Unknown';
-	}
-	return new Intl.DateTimeFormat(undefined, {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	}).format(date);
 }

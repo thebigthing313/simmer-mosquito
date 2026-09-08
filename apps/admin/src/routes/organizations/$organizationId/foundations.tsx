@@ -1,26 +1,17 @@
-import type { GeoJsonGeometry, GeoJsonPoint, ImportGeometryKind } from '@simmer-mosquito/mapping';
 import { ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
-import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
+import type { OrganizationFoundations } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
-import { AgencySessionGate } from '../../../components/agency-session';
 import { CatalogList, CatalogRow, RecordDialog } from '../../../components/catalog';
-import { GeometryFileInput, PointInput } from '../../../components/geometry-input';
-import { useAgencies } from '../-agency-data';
-import {
-	type AgencyFoundations,
-	type LookupKind,
-	useAgencyFoundations,
-	useCreateFoundation,
-} from './-foundations-data';
+import { OrganizationSessionGate } from '../../../components/organization-session';
+import { useOrganizations } from '../-organization-data';
+import { type DialogKind, FoundationForm, LOOKUP_LABELS } from './-foundation-forms';
+import { useCreateFoundation, useOrganizationFoundations } from './-foundations-data';
 
 const FoundationsIcon = iconRegistry.generic.settings.icon;
 const RegionIcon = iconRegistry.entities.region.icon;
@@ -29,44 +20,42 @@ const TrapIcon = iconRegistry.entities.trap.icon;
 const AddIcon = iconRegistry.actions.add.icon;
 const CheckIcon = iconRegistry.actions.check.icon;
 
-/** Stable reference — a literal here would be a new array on every render. */
-const POLYGON_ONLY: readonly ImportGeometryKind[] = ['Polygon'];
-
 export const Route = createFileRoute('/organizations/$organizationId/foundations')({
-	component: AgencyFoundationsRoute,
+	component: OrganizationFoundationsRoute,
 });
 
 /**
- * The agency-bootstrap page.
+ * The organization-bootstrap page.
  *
  * Everything here is **create-only**. That is a deliberate shape rather than an
- * omission: an operator's job is to get a new agency to the point where its own
- * people can work, and from then on the agency maintains its catalogs in the web
- * app, where editing and deleting exist. The copy says so rather than leaving an
- * operator hunting for an edit control that was never built.
+ * omission: an operator's job is to get a new organization to the point where
+ * its own people can work, and from then on the organization maintains its
+ * catalogs in the web app, where editing and deleting exist. The copy says so
+ * rather than leaving an operator hunting for an edit control that was never
+ * built.
  *
- * The writes are the agency's own endpoints, which means this page only works
- * from inside the agency (ADR 0011) — `AgencySessionGate` is what puts the
- * session there, and what explains the way in when it is not.
+ * The writes are the organization's own endpoints, which means this page only
+ * works from inside the organization (ADR 0011) — `OrganizationSessionGate` is
+ * what puts the session there, and what explains the way in when it is not.
  *
  * The layout is a **sequence, not a grid**. These eight things are not eight
  * peers to compare — they have a dependency order (a trap needs a collection
- * method; a region can want a folder) and a natural grouping, and the operator's
- * real question on arrival is "what is still missing before this agency can
- * work?". Eight equal cards answer that question worst of all: every one looks
- * as urgent as every other, and the order they happen to sit in is the order
- * they were written. So the page opens with what is outstanding and then reads
- * top to bottom in the order the work actually happens.
+ * method; a region can want a folder) and a natural grouping, and the
+ * operator's real question on arrival is "what is still missing before this
+ * organization can work?". Eight equal cards answer that question worst of all:
+ * every one looks as urgent as every other, and the order they happen to sit in
+ * is the order they were written. So the page opens with what is outstanding
+ * and then reads top to bottom in the order the work actually happens.
  *
  * The two shapes are also deliberately different. Vocabulary and species are
  * bare names — they scan far better as wrapped chips than as a column of rows
  * with an empty subtitle each. Regions, addresses, and traps carry a second
  * line worth reading, so those stay as rows.
  */
-function AgencyFoundationsRoute() {
+function OrganizationFoundationsRoute() {
 	const { organizationId } = Route.useParams();
-	const agency = useAgencyIdentity(organizationId);
-	const { data, isPending, error } = useAgencyFoundations(organizationId);
+	const organization = useOrganizationIdentity(organizationId);
+	const { data, isPending, error } = useOrganizationFoundations(organizationId);
 
 	if (error !== null) {
 		return <FoundationsFrame>{<AdminError error={error} />}</FoundationsFrame>;
@@ -78,37 +67,40 @@ function AgencyFoundationsRoute() {
 
 	return (
 		<FoundationsFrame>
-			<AgencySessionGate
-				agencyName={agency.name}
+			<OrganizationSessionGate
+				organizationName={organization.name}
 				organizationId={organizationId}
-				workosOrganizationId={agency.workosOrganizationId}
+				workosOrganizationId={organization.workosOrganizationId}
 			>
 				<FoundationPanels data={data} organizationId={organizationId} />
-			</AgencySessionGate>
+			</OrganizationSessionGate>
 		</FoundationsFrame>
 	);
 }
 
 /**
- * The agency's name and WorkOS organization, from the directory's cache.
+ * The organization's name and WorkOS organization, from the directory's cache.
  *
  * Read rather than fetched: the operator arrived through that list, so it is
- * already warm. The WorkOS id is what entering the agency switches the session
- * to.
+ * already warm. The WorkOS id is what entering the organization switches the
+ * session to.
  */
-function useAgencyIdentity(organizationId: string): {
+function useOrganizationIdentity(organizationId: string): {
 	readonly name: string | undefined;
 	readonly workosOrganizationId: string | null;
 } {
-	const { data } = useAgencies();
-	const agency = data?.find((row) => row.id === organizationId);
-	return { name: agency?.name, workosOrganizationId: agency?.workosOrganizationId ?? null };
+	const { data } = useOrganizations();
+	const organization = data?.find((row) => row.id === organizationId);
+	return {
+		name: organization?.name,
+		workosOrganizationId: organization?.workosOrganizationId ?? null,
+	};
 }
 
 function FoundationsFrame({ children }: { readonly children: ReactNode }) {
 	return (
 		<AdminPage
-			description="Reference data this agency needs before its crews can record anything. These can only be added here — the agency edits and removes them from the SIMMER web app."
+			description="Reference data this organization needs before its crews can record anything. These can only be added here, and edited or removed from the SIMMER web app."
 			icon={FoundationsIcon}
 			title="Foundations"
 		>
@@ -119,18 +111,18 @@ function FoundationsFrame({ children }: { readonly children: ReactNode }) {
 
 /**
  * Everything the page shows once there is data and the session is inside the
- * agency.
+ * organization.
  *
  * Split from the route because the route's job is now three questions — did the
- * read fail, has it arrived, are we in the agency — and answering them inline
- * around two hundred lines of panels made the whole thing one function nobody
- * could see the shape of.
+ * read fail, has it arrived, are we in the organization — and answering them
+ * inline around two hundred lines of panels made the whole thing one function
+ * nobody could see the shape of.
  */
 function FoundationPanels({
 	data,
 	organizationId,
 }: {
-	readonly data: AgencyFoundations;
+	readonly data: OrganizationFoundations;
 	readonly organizationId: string;
 }) {
 	const create = useCreateFoundation(organizationId);
@@ -156,7 +148,7 @@ function FoundationPanels({
 			<Readiness steps={steps} />
 
 			<FoundationGroup
-				description="What this agency's forms offer when crews record work. A trap records against a collection method, so methods come before traps."
+				description="What the forms offer when crews record work. A trap records against a collection method, so methods come before traps."
 				title="Field vocabulary"
 			>
 				<ChipSection
@@ -168,7 +160,7 @@ function FoundationPanels({
 				/>
 				<ChipSection
 					addLabel="Add lure"
-					emptyMessage="None yet. Optional — traps can run unbaited."
+					emptyMessage="None yet. Lures are optional."
 					names={data.lookups.collectionLures.map(lookupName)}
 					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_lures' })}
 					title="Collection lures"
@@ -183,12 +175,12 @@ function FoundationPanels({
 			</FoundationGroup>
 
 			<FoundationGroup
-				description="Where the agency works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
+				description="Where the organization works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
 				title="Geography"
 			>
 				<RecordSection
 					addLabel="Add region"
-					emptyMessage="No regions. Load the agency's district boundaries from the KML, KMZ, or GeoJSON they sent."
+					emptyMessage="No regions. Load the district boundaries from the KML, KMZ, or GeoJSON they sent."
 					icon={RegionIcon}
 					items={data.regions.map((region) => ({
 						id: region.id,
@@ -240,14 +232,14 @@ function FoundationPanels({
 			</FoundationGroup>
 
 			<FoundationGroup
-				description="The agency's first traps. Crews add the rest themselves once they can sign in."
+				description="The first traps. Crews add the rest themselves once they can sign in."
 				title="Traps"
 			>
 				<RecordSection
 					addLabel="Add trap"
 					disabledReason={
 						data.lookups.collectionMethods.length === 0
-							? 'Add a collection method first — a trap records against one.'
+							? 'Add a collection method first. A trap records against one.'
 							: undefined
 					}
 					emptyMessage="No traps yet."
@@ -301,14 +293,17 @@ interface ReadinessStep {
 }
 
 /**
- * The four things that have to exist before an agency's crews can record
+ * The four things that have to exist before an organization's crews can record
  * anything, in the order they have to happen.
  *
  * Addresses, lures, and folders are absent on purpose: all three are genuinely
  * optional, and a checklist that lists optional work teaches an operator to
  * ignore it.
  */
-function readinessSteps(data: AgencyFoundations, enabledSpeciesCount: number): ReadinessStep[] {
+function readinessSteps(
+	data: OrganizationFoundations,
+	enabledSpeciesCount: number,
+): ReadinessStep[] {
 	return [
 		{
 			label: 'A region',
@@ -349,7 +344,7 @@ function Readiness({ steps }: { readonly steps: readonly ReadinessStep[] }) {
 		return (
 			<p className="m-0 flex items-center gap-2 rounded-md border border-success/30 bg-success/5 px-4 py-3 text-foreground text-sm">
 				<CheckIcon aria-hidden="true" className="size-4 shrink-0 text-success" />
-				This agency has everything its crews need to start recording work.
+				This organization has everything its crews need to start recording work.
 			</p>
 		);
 	}
@@ -358,7 +353,7 @@ function Readiness({ steps }: { readonly steps: readonly ReadinessStep[] }) {
 		<div className="grid gap-3 rounded-md border border-border/60 bg-muted/30 px-4 py-3.5">
 			<p className="m-0 text-foreground text-sm">
 				<span className="font-medium">{next.label.replace(/^An? /, '')}</span> is the next thing
-				this agency needs — {next.unblocks}.
+				this organization needs, so {next.unblocks}.
 			</p>
 			<ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1.5 p-0">
 				{steps.map((step) => (
@@ -382,7 +377,7 @@ function Readiness({ steps }: { readonly steps: readonly ReadinessStep[] }) {
 							/>
 						)}
 						<span>{step.label.replace(/^An? /, '')}</span>
-						<span className="sr-only">{step.done ? ' — in place' : ' — still needed'}</span>
+						<span className="sr-only">{step.done ? ' is in place.' : ' is still needed.'}</span>
 					</li>
 				))}
 			</ul>
@@ -569,20 +564,6 @@ function RecordSection({
 	);
 }
 
-type DialogKind =
-	| { readonly kind: 'region-folder' }
-	| { readonly kind: 'region' }
-	| { readonly kind: 'address' }
-	| { readonly kind: 'species' }
-	| { readonly kind: 'trap' }
-	| { readonly kind: 'lookup'; readonly lookupKind: LookupKind };
-
-const LOOKUP_LABELS: Readonly<Record<LookupKind, string>> = {
-	collection_methods: 'Collection Method',
-	collection_lures: 'Collection Lure',
-	habitat_types: 'Habitat Type',
-};
-
 function dialogTitle(dialog: DialogKind | null): string {
 	if (dialog === null) {
 		return '';
@@ -608,473 +589,7 @@ function dialogDescription(dialog: DialogKind | null): string {
 		return '';
 	}
 	if (dialog.kind === 'species') {
-		return 'Enabling a species adds it to this agency’s identification lists. The global species list itself is managed under Taxonomy.';
+		return "Enabling a species adds it to this organization's identification lists. The global species list itself is managed under Taxonomy.";
 	}
-	return 'Added for this agency only. It can be edited or removed from the SIMMER web app.';
-}
-
-/**
- * One form per foundation kind.
- *
- * These were a single component with a six-way switch in its body and another in
- * its submit, over fifteen `useState` hooks — every field every kind might need,
- * held at once. It read as one form that could not decide what it was, and the
- * complexity gate agreed. Each kind now owns only its own fields and its own
- * submit, and the dialog picks between them.
- */
-function FoundationForm({
-	dialog,
-	foundations,
-	availableSpecies,
-	create,
-	onSubmit,
-}: {
-	readonly dialog: DialogKind;
-	readonly foundations: AgencyFoundations;
-	readonly availableSpecies: AgencyFoundations['species'];
-	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
-}) {
-	switch (dialog.kind) {
-		case 'region-folder':
-			return <RegionFolderForm create={create} onSubmit={onSubmit} />;
-		case 'region':
-			return <RegionForm create={create} folders={foundations.regionFolders} onSubmit={onSubmit} />;
-		case 'address':
-			return <AddressForm create={create} onSubmit={onSubmit} />;
-		case 'species':
-			return <SpeciesForm available={availableSpecies} create={create} onSubmit={onSubmit} />;
-		case 'lookup':
-			return <LookupForm create={create} kind={dialog.lookupKind} onSubmit={onSubmit} />;
-		case 'trap':
-			return <TrapForm create={create} foundations={foundations} onSubmit={onSubmit} />;
-	}
-}
-
-/** Shared submit row, so every kind's dialog ends the same way. */
-function FormFooter({
-	disabled,
-	pending,
-}: {
-	readonly disabled: boolean;
-	readonly pending: boolean;
-}) {
-	return (
-		<div className="flex justify-end">
-			<Button disabled={pending || disabled} type="submit">
-				{pending ? 'Saving…' : 'Add'}
-			</Button>
-		</div>
-	);
-}
-
-function RegionFolderForm({
-	create,
-	onSubmit,
-}: {
-	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
-}) {
-	const [name, setName] = useState('');
-	const [description, setDescription] = useState('');
-
-	return (
-		<form
-			className="grid gap-4"
-			onSubmit={(event) => {
-				event.preventDefault();
-				void onSubmit('Folder', () =>
-					create.regionFolder.mutateAsync({ name: name.trim(), description }),
-				);
-			}}
-		>
-			<TextRow
-				label="Folder name"
-				onChange={setName}
-				placeholder="e.g. North district"
-				required
-				value={name}
-			/>
-			<TextAreaRow label="Description" onChange={setDescription} value={description} />
-			<FormFooter disabled={name.trim() === ''} pending={create.regionFolder.isPending} />
-		</form>
-	);
-}
-
-function RegionForm({
-	create,
-	folders,
-	onSubmit,
-}: {
-	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly folders: AgencyFoundations['regionFolders'];
-	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
-}) {
-	const [name, setName] = useState('');
-	const [description, setDescription] = useState('');
-	const [folderId, setFolderId] = useState('');
-	const [geometry, setGeometry] = useState<GeoJsonGeometry | null>(null);
-
-	return (
-		<form
-			className="grid gap-4"
-			onSubmit={(event) => {
-				event.preventDefault();
-				if (geometry === null) {
-					return;
-				}
-				void onSubmit('Region', () =>
-					create.region.mutateAsync({
-						name: name.trim(),
-						regionFolderId: folderId === '' ? null : folderId,
-						description,
-						geojson: geometry,
-					}),
-				);
-			}}
-		>
-			<TextRow
-				label="Region name"
-				onChange={setName}
-				placeholder="e.g. Zone 4"
-				required
-				value={name}
-			/>
-			<Field>
-				<FieldLabel htmlFor="region-folder">Folder</FieldLabel>
-				<NativeSelect
-					id="region-folder"
-					onChange={(event) => setFolderId(event.target.value)}
-					value={folderId}
-				>
-					<option value="">Unfiled</option>
-					{folders.map((folder) => (
-						<option key={folder.id} value={folder.id}>
-							{folder.name}
-						</option>
-					))}
-				</NativeSelect>
-			</Field>
-			<TextAreaRow label="Description" onChange={setDescription} value={description} />
-			<GeometryFileInput
-				description="The district boundary, from the customer's KML, KMZ, or GeoJSON."
-				kinds={POLYGON_ONLY}
-				label="Boundary"
-				onChange={setGeometry}
-				value={geometry}
-			/>
-			<FormFooter
-				disabled={name.trim() === '' || geometry === null}
-				pending={create.region.isPending}
-			/>
-		</form>
-	);
-}
-
-function AddressForm({
-	create,
-	onSubmit,
-}: {
-	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
-}) {
-	const [displayName, setDisplayName] = useState('');
-	const [addressLine1, setAddressLine1] = useState('');
-	const [locality, setLocality] = useState('');
-	const [region, setRegion] = useState('');
-	const [postalCode, setPostalCode] = useState('');
-	const [country, setCountry] = useState('US');
-	const [point, setPoint] = useState<GeoJsonPoint | null>(null);
-
-	return (
-		<form
-			className="grid gap-4"
-			onSubmit={(event) => {
-				event.preventDefault();
-				if (point === null) {
-					return;
-				}
-				void onSubmit('Address', () =>
-					create.address.mutateAsync({
-						displayName: displayName.trim(),
-						country,
-						addressLine1,
-						addressLine2: '',
-						locality,
-						region,
-						postalCode,
-						geojson: point,
-					}),
-				);
-			}}
-		>
-			<TextRow
-				label="Display name"
-				onChange={setDisplayName}
-				placeholder="e.g. District yard"
-				required
-				value={displayName}
-			/>
-			<TextRow label="Address line 1" onChange={setAddressLine1} value={addressLine1} />
-			<div className="grid gap-4 sm:grid-cols-2">
-				<TextRow label="City" onChange={setLocality} value={locality} />
-				<TextRow label="State or region" onChange={setRegion} value={region} />
-				<TextRow label="Postal code" onChange={setPostalCode} value={postalCode} />
-				<TextRow
-					label="Country"
-					maxLength={2}
-					onChange={setCountry}
-					placeholder="US"
-					required
-					value={country}
-				/>
-			</div>
-			<PointInput
-				description="Where this address sits. Two decimal degrees, WGS84."
-				label="Location"
-				onChange={setPoint}
-				value={point}
-			/>
-			<FormFooter
-				disabled={displayName.trim() === '' || country.trim().length !== 2 || point === null}
-				pending={create.address.isPending}
-			/>
-		</form>
-	);
-}
-
-function SpeciesForm({
-	available,
-	create,
-	onSubmit,
-}: {
-	readonly available: AgencyFoundations['species'];
-	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
-}) {
-	const [speciesId, setSpeciesId] = useState('');
-
-	return (
-		<form
-			className="grid gap-4"
-			onSubmit={(event) => {
-				event.preventDefault();
-				void onSubmit('Species', () => create.species.mutateAsync(speciesId));
-			}}
-		>
-			<Field>
-				<FieldLabel htmlFor="species-select">Species</FieldLabel>
-				<NativeSelect
-					id="species-select"
-					onChange={(event) => setSpeciesId(event.target.value)}
-					value={speciesId}
-				>
-					<option value="">Choose a species…</option>
-					{available.map((species) => (
-						<option key={species.id} value={species.id}>
-							{species.displayName}
-							{species.commonName === null ? '' : ` — ${species.commonName}`}
-						</option>
-					))}
-				</NativeSelect>
-			</Field>
-			<FormFooter disabled={speciesId === ''} pending={create.species.isPending} />
-		</form>
-	);
-}
-
-function LookupForm({
-	kind,
-	create,
-	onSubmit,
-}: {
-	readonly kind: LookupKind;
-	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
-}) {
-	const [name, setName] = useState('');
-	const [description, setDescription] = useState('');
-	const [actionThreshold, setActionThreshold] = useState('');
-
-	return (
-		<form
-			className="grid gap-4"
-			onSubmit={(event) => {
-				event.preventDefault();
-				const threshold = Number.parseInt(actionThreshold, 10);
-				void onSubmit(LOOKUP_LABELS[kind], () =>
-					create.lookup.mutateAsync({
-						kind,
-						input: {
-							name: name.trim(),
-							description,
-							actionThreshold: Number.isFinite(threshold) && threshold >= 0 ? threshold : null,
-						},
-					}),
-				);
-			}}
-		>
-			<TextRow label="Name" onChange={setName} required value={name} />
-			<TextAreaRow label="Description" onChange={setDescription} value={description} />
-			{/* No "Active" toggle: a catalog entry is created live and retired
-			    later, which is an update the agency makes in its own workspace. */}
-			<Field>
-				<FieldLabel htmlFor="lookup-threshold">Action threshold</FieldLabel>
-				<Input
-					id="lookup-threshold"
-					inputMode="numeric"
-					onChange={(event) => setActionThreshold(event.target.value)}
-					placeholder="Optional"
-					value={actionThreshold}
-				/>
-			</Field>
-			<FormFooter disabled={name.trim() === ''} pending={create.lookup.isPending} />
-		</form>
-	);
-}
-
-function TrapForm({
-	foundations,
-	create,
-	onSubmit,
-}: {
-	readonly foundations: AgencyFoundations;
-	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
-}) {
-	const [trapName, setTrapName] = useState('');
-	const [trapCode, setTrapCode] = useState('');
-	const [methodId, setMethodId] = useState('');
-	const [lureId, setLureId] = useState('');
-	const [addressId, setAddressId] = useState('');
-	const [point, setPoint] = useState<GeoJsonPoint | null>(null);
-
-	return (
-		<form
-			className="grid gap-4"
-			onSubmit={(event) => {
-				event.preventDefault();
-				if (point === null) {
-					return;
-				}
-				void onSubmit('Trap', () =>
-					create.trap.mutateAsync({
-						collectionMethodId: methodId,
-						addressId: addressId === '' ? null : addressId,
-						collectionLureId: lureId === '' ? null : lureId,
-						trapName,
-						trapCode,
-						description: '',
-						geojson: point,
-					}),
-				);
-			}}
-		>
-			<TextRow label="Trap name" onChange={setTrapName} value={trapName} />
-			<TextRow label="Trap code" onChange={setTrapCode} value={trapCode} />
-			<Field>
-				<FieldLabel htmlFor="trap-method">Collection method</FieldLabel>
-				<NativeSelect
-					id="trap-method"
-					onChange={(event) => setMethodId(event.target.value)}
-					value={methodId}
-				>
-					<option value="">Choose a method…</option>
-					{foundations.lookups.collectionMethods.map((method) => (
-						<option key={method.id} value={method.id}>
-							{method.name}
-						</option>
-					))}
-				</NativeSelect>
-			</Field>
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Field>
-					<FieldLabel htmlFor="trap-lure">Lure</FieldLabel>
-					<NativeSelect
-						id="trap-lure"
-						onChange={(event) => setLureId(event.target.value)}
-						value={lureId}
-					>
-						<option value="">None</option>
-						{foundations.lookups.collectionLures.map((lure) => (
-							<option key={lure.id} value={lure.id}>
-								{lure.name}
-							</option>
-						))}
-					</NativeSelect>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="trap-address">Address</FieldLabel>
-					<NativeSelect
-						id="trap-address"
-						onChange={(event) => setAddressId(event.target.value)}
-						value={addressId}
-					>
-						<option value="">None</option>
-						{foundations.addresses.map((address) => (
-							<option key={address.id} value={address.id}>
-								{address.displayName}
-							</option>
-						))}
-					</NativeSelect>
-				</Field>
-			</div>
-			<PointInput
-				description="Where the trap is set. Two decimal degrees, WGS84."
-				label="Location"
-				onChange={setPoint}
-				value={point}
-			/>
-			<FormFooter disabled={methodId === '' || point === null} pending={create.trap.isPending} />
-		</form>
-	);
-}
-
-function TextRow({
-	label,
-	value,
-	onChange,
-	placeholder,
-	required = false,
-	maxLength,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly onChange: (next: string) => void;
-	readonly placeholder?: string;
-	readonly required?: boolean;
-	readonly maxLength?: number;
-}) {
-	const id = `foundation-${label.toLowerCase().replace(/\s+/g, '-')}`;
-	return (
-		<Field>
-			<FieldLabel htmlFor={id}>{label}</FieldLabel>
-			<Input
-				id={id}
-				{...(maxLength === undefined ? {} : { maxLength })}
-				onChange={(event) => onChange(event.target.value)}
-				{...(placeholder === undefined ? {} : { placeholder })}
-				required={required}
-				value={value}
-			/>
-		</Field>
-	);
-}
-
-function TextAreaRow({
-	label,
-	value,
-	onChange,
-}: {
-	readonly label: string;
-	readonly value: string;
-	readonly onChange: (next: string) => void;
-}) {
-	const id = `foundation-${label.toLowerCase().replace(/\s+/g, '-')}`;
-	return (
-		<Field>
-			<FieldLabel htmlFor={id}>{label}</FieldLabel>
-			<Textarea id={id} onChange={(event) => onChange(event.target.value)} rows={2} value={value} />
-		</Field>
-	);
+	return 'Added for this organization only. It can be edited or removed from the SIMMER web app.';
 }

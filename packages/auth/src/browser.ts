@@ -12,11 +12,12 @@
  * `/auth/me`. It imports nothing from `@workos-inc/node` and is exported as a
  * separate subpath so a browser bundle never reaches the server SDK.
  *
- * Both front ends need it. The agency workspace signs agency staff in; the
- * operator console signs operators in against the same endpoints (`/auth/*` CORS
- * already admits `ADMIN_APP_ORIGIN`). Written twice, the two copies of the
- * outcome parsing drifted immediately — an outcome the server can return but one
- * client does not name is a silent dead end for the user in front of it.
+ * Both front ends need it. The organization workspace signs organization staff
+ * in; the operator console signs operators in against the same endpoints
+ * (`/auth/*` CORS already admits `ADMIN_APP_ORIGIN`). Written twice, the two
+ * copies of the outcome parsing drifted immediately — an outcome the server can
+ * return but one client does not name is a silent dead end for the user in
+ * front of it.
  *
  * The server URL is injected rather than read from `import.meta.env` here: this
  * module is environment-agnostic, and each app already owns that decision (web
@@ -50,8 +51,50 @@ export interface AuthenticatedMe {
 	readonly localIdentity: LocalIdentity;
 }
 
+/**
+ * Why the server would not answer with a session, as a fixed set.
+ *
+ * The three are decisions with different fixes, and only the server can tell
+ * them apart: `unauthenticated` means no session was presented or the one
+ * presented could not be renewed, `organization_required` means the session is
+ * real and has selected no Organization, and `membership_required` means it has
+ * selected one the Account holds no active Membership in.
+ *
+ * `AuthContextError` in `apps/server/src/auth-context.ts` is the producer, and
+ * {@link RefusedMeBody} is what holds it to this list: a fourth kind there, or
+ * a renamed one, fails `tsc` on the server rather than arriving here as a
+ * string nothing matches.
+ */
+export type ServerAuthRefusal = 'unauthenticated' | 'organization_required' | 'membership_required';
+
+/**
+ * A refusal as a client holds it, which is the wire refusals plus one the
+ * client makes up.
+ *
+ * `unavailable` is "could not ask", not "was told no": the round trip broke, so
+ * there is no server answer to carry. It is a category of its own because the
+ * two are not the same fact, and reading a network failure as a refusal is what
+ * signs somebody out of a page that is still signed in. Nothing branches on it
+ * today, so the arm a client takes on a network failure is the arm it took
+ * before.
+ */
+export type AuthRefusal = ServerAuthRefusal | 'unavailable';
+
+/**
+ * The refusal body every guarded route answers with, `/auth/me` included.
+ *
+ * Narrower than {@link UnauthenticatedMe}: this is what goes on the wire, and
+ * `unavailable` never does.
+ */
+export interface RefusedMeBody {
+	readonly authenticated: false;
+	readonly error: ServerAuthRefusal;
+	readonly reason: string;
+}
+
 export interface UnauthenticatedMe {
 	readonly authenticated: false;
+	readonly error: AuthRefusal;
 	readonly reason: string;
 }
 
@@ -75,7 +118,7 @@ export interface VerificationRequiredOutcome {
  *
  * `refused` is its own outcome rather than an error because it is the expected
  * answer, not a fault: the membership check is WorkOS's, and "you are not in
- * that agency" is exactly what the caller needs to show.
+ * that organization" is exactly what the caller needs to show.
  */
 export type SwitchOrganizationOutcome =
 	| { readonly status: 'switched' }
@@ -167,6 +210,7 @@ export interface SessionTransport {
  * again. Reading the shapes off the function that is actually in scope is the
  * one spelling that holds in all three.
  */
+type FetchInput = Parameters<typeof fetch>[0];
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 type FetchResponse = Awaited<ReturnType<typeof fetch>>;
 
@@ -175,8 +219,169 @@ const SESSION_CLIENT_HEADER = 'x-simmer-client';
 const TOKEN_CLIENT = 'token';
 const SESSION_RESPONSE_HEADER = 'x-simmer-session';
 
+/**
+ * The headers something already carries, as an object the credential ones can be
+ * layered over.
+ *
+ * `HeadersInit` is three shapes and only one of them survives a spread. A
+ * `Headers` instance or a list of pairs would arrive as `{}`, which does not
+ * fail: it silently drops whatever the caller set, and a POST that loses its
+ * content type is answered as an empty body rather than refused.
+ *
+ * Names come back lowercased, because these objects are merged by spreading and
+ * a header name is case-insensitive. `Content-Type` from a record literal beside
+ * `content-type` off a `Headers` are two keys to a spread and one header to the
+ * server, which arrives as a value of `"application/json, application/json"`.
+ *
+ * Structural rather than `instanceof Headers`, for the reason the comment above
+ * {@link FetchInit} gives: three runtimes, three declarations of that global.
+ *
+ * The merge is **last-wins by design**, and the spread in {@link createAuthClient}
+ * depends on it: three of these records go out in order, so a header the caller
+ * wrote beats one the request carried, which beats the default this module sets.
+ * Combining on collision instead of overwriting would undo the lowercasing right
+ * above, which exists to stop `Content-Type` from a record literal and
+ * `content-type` off a `Headers` arriving as one doubled value.
+ *
+ * One shape loses information, and it is the array of pairs: two entries for one
+ * name keep only the last, where `Headers` would have comma-joined them. A
+ * `Headers` instance is not that case, because it joins duplicates itself before
+ * `forEach` sees them, so the loop reads one value. No caller sends a repeated
+ * request header today, and the response-only names that repeat, `set-cookie`
+ * among them, never reach this function.
+ */
+function headerEntries(source: unknown): Record<string, string> {
+	const entries: Record<string, string> = {};
+	const add = (value: string, key: string) => {
+		entries[key.toLowerCase()] = value;
+	};
+
+	if (Array.isArray(source)) {
+		for (const [key, value] of source as readonly (readonly [string, string])[]) {
+			add(value, key);
+		}
+
+		return entries;
+	}
+
+	if (typeof source !== 'object' || source === null) {
+		return entries;
+	}
+
+	const headers = source as {
+		readonly forEach?: (fn: (value: string, key: string) => void) => void;
+	};
+	if (typeof headers.forEach !== 'function') {
+		for (const [key, value] of Object.entries(source as Record<string, string>)) {
+			add(value, key);
+		}
+
+		return entries;
+	}
+
+	headers.forEach(add);
+
+	return entries;
+}
+
+/** A string is already addressed when it names a scheme, which is what `fetch` needs. */
+const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
+
+/**
+ * Where a request is going: a string starting with `/` is a path on this
+ * client's server, and anything already carrying a scheme is left alone.
+ *
+ * The second case is what lets `packages/sync` install this client's `fetch`
+ * whole. It builds its own URLs from the app's `serverUrl` and passes Electric's
+ * `Request` objects straight through, so neither is a path and neither should be
+ * rewritten.
+ *
+ * A string that is neither is refused rather than passed on. `fetch` would
+ * resolve it against the document, which on both front ends is the SPA and not
+ * the API: the request lands on the static host, comes back 200 with a page of
+ * HTML, and is read as an empty result set with nothing on screen saying why.
+ * That shape has cost this workspace a debugging session before.
+ */
+function addressOn(serverUrl: string, input: FetchInput): FetchInput {
+	if (typeof input !== 'string' || ABSOLUTE_URL.test(input)) {
+		return input;
+	}
+
+	if (input.startsWith('/')) {
+		return `${serverUrl}${input}`;
+	}
+
+	throw new Error(`Cannot address "${input}": give a path starting with "/" or a whole URL.`);
+}
+
+/** The headers an already-built `Request` brought with it, which are nobody's to drop. */
+function carriedHeaders(input: FetchInput): Record<string, string> {
+	return typeof input === 'object' && input !== null && 'headers' in input
+		? headerEntries(input.headers)
+		: {};
+}
+
+/**
+ * ADR 0016's two outgoing rules, or nothing at all.
+ *
+ * Nothing is the web apps: a browser holds the sealed session in an httpOnly
+ * cookie this client cannot read, so it has no credential to attach and no
+ * reason to declare itself. Declaring one anyway would ask the server to send
+ * the session back in a header any script could read.
+ */
+async function credentialHeaders(
+	session: SessionTransport | null,
+): Promise<Record<string, string>> {
+	if (session === null) {
+		return {};
+	}
+
+	const credential = await session.read();
+	return {
+		[SESSION_CLIENT_HEADER]: TOKEN_CLIENT,
+		...(credential === null ? {} : { authorization: `Bearer ${credential}` }),
+	};
+}
+
+/**
+ * `fetch`, with the session cookie the browser holds and nothing else.
+ *
+ * What `apps/web` and `apps/admin` install into `packages/sync`. The sealed
+ * session lives in an httpOnly cookie no script can read, so there is no
+ * credential to attach and no token client to declare — sending the cookie is
+ * the whole of it, and `credentials: 'include'` is what makes a cross-origin
+ * request send one at all.
+ *
+ * Here rather than in each app because it is one line both would otherwise
+ * write, and rather than in `packages/sync` because that package should hold no
+ * opinion about how its host authenticates: the token half of this pair is
+ * {@link AuthClient.fetch}, and both belong beside each other.
+ */
+export const cookieFetch: typeof fetch = (input, init) =>
+	// session-credential-ignore: this is the transport an app installs, not a caller of one.
+	fetch(input, { ...init, credentials: 'include' });
+
 /** Everything the client can do, bound to one server origin. */
 export interface AuthClient {
+	/**
+	 * Send a request with whatever credential this client carries.
+	 *
+	 * Every other member is an `/auth/*` operation, so until this was on the
+	 * interface the credential could reach nothing else — and ADR 0016's token
+	 * rules, implemented once behind it, were unreachable from the shape and
+	 * command paths that are every read and every write `apps/mobile` makes.
+	 *
+	 * A string beginning with `/` is a path on this client's `serverUrl`.
+	 * Anything else is left as the caller wrote it, which is what lets
+	 * `packages/sync` install this: it builds whole URLs from the app's own
+	 * `serverUrl` and hands Electric's `Request` objects straight through, so the
+	 * shape matches `fetch` and needs no adapter.
+	 *
+	 * Written as `typeof fetch` for that last reason: `packages/sync` types what
+	 * an app installs the same way, so this member goes in with no wrapper and no
+	 * cast at the one call site that matters.
+	 */
+	readonly fetch: typeof fetch;
 	readonly getAuthMe: () => Promise<AuthMe>;
 	readonly signIn: (input: {
 		readonly email: string;
@@ -230,7 +435,7 @@ export function createAuthClient(options: {
 	const session = options.session ?? null;
 
 	/**
-	 * Every `/auth/*` request, with whichever credential this client carries.
+	 * Every request, with whichever credential this client carries.
 	 *
 	 * The return trip matters as much as the outgoing one. WorkOS rotates sealed
 	 * sessions, and the server hands the new value back the same way it received
@@ -239,18 +444,25 @@ export function createAuthClient(options: {
 	 * at the sign-in call site — is what makes rotation invisible to callers,
 	 * and is the difference between a mobile session that lasts and one that
 	 * dies at its first refresh with nothing nearby to explain why.
+	 *
+	 * Returned as {@link AuthClient.fetch}, which is what lets a caller outside
+	 * `/auth/*` obey those rules without a second copy of them.
 	 */
-	async function authFetch(path: string, init: FetchInit = {}): Promise<FetchResponse> {
-		const credential = session === null ? null : await session.read();
-
-		const response = await fetch(`${serverUrl}${path}`, {
+	async function authFetch(input: FetchInput, init: FetchInit = {}): Promise<FetchResponse> {
+		const response = await fetch(addressOn(serverUrl, input), {
 			...init,
+			// session-credential-ignore: this is the token transport itself, which every caller sends through.
 			credentials: 'include',
+			// Later wins, so the order is the override rule: the default first, then
+			// what the request carried, then what this caller wrote, and the
+			// credential headers last because no caller may forge them. Every source
+			// is lowercased by `headerEntries`, which is what makes a spread the
+			// override rather than two keys for one header.
 			headers: {
 				accept: 'application/json',
-				...init.headers,
-				...(session === null ? {} : { [SESSION_CLIENT_HEADER]: TOKEN_CLIENT }),
-				...(credential === null ? {} : { authorization: `Bearer ${credential}` }),
+				...carriedHeaders(input),
+				...headerEntries(init.headers),
+				...(await credentialHeaders(session)),
 			},
 		});
 
@@ -269,6 +481,18 @@ export function createAuthClient(options: {
 	async function getAuthMe(): Promise<AuthMe> {
 		const response = await authFetch('/auth/me');
 
+		/*
+		 * The one unavoidable step from an untyped parse to a typed value.
+		 * `response.json()` answers `unknown` under this package's own `types`
+		 * and `any` under a DOM lib, so the cast is load-bearing either way: it
+		 * is what stops an `any` spreading through every read site.
+		 *
+		 * What makes it safe is at the other end of the wire. `toAuthMeBody` and
+		 * `toAuthFailureBody` in `apps/server` are the only producers of this
+		 * body and are annotated with {@link AuthenticatedMe} and
+		 * {@link RefusedMeBody}, so this cast names a type the compiler holds the
+		 * producers to rather than a shape restated here (#615, #698).
+		 */
 		const body = (await response.json()) as AuthMe;
 		if (response.ok || body.authenticated === false) {
 			return body;
@@ -373,8 +597,8 @@ export function createAuthClient(options: {
 	 * Not the same thing as {@link selectOrganization}, which resolves a sign-in
 	 * that has not finished yet. This one has nothing pending: the caller is
 	 * signed in and wants to be somewhere else, which is how a SIMMER Operator
-	 * holding an agency membership comes to hold an ordinary agency session
-	 * (ADR 0011).
+	 * holding an organization membership comes to hold an ordinary organization
+	 * session (ADR 0011).
 	 */
 	async function switchOrganization(input: {
 		readonly organizationId: string;
@@ -532,6 +756,7 @@ export function createAuthClient(options: {
 
 	return {
 		acceptInvitation,
+		fetch: authFetch,
 		fetchInvitation,
 		getAuthMe,
 		requestPasswordReset,
@@ -559,8 +784,9 @@ export interface AppAuthController {
 	readonly snapshot: AuthMe | null;
 	readonly load: () => Promise<AuthMe>;
 	/**
-	 * Ask now, for a caller that has just changed the session and needs the answer
-	 * for the session it changed to. Signing in and entering an agency both do.
+	 * Ask now, for a caller that has just changed the session and needs the
+	 * answer for the session it changed to. Signing in and entering an
+	 * organization both do.
 	 */
 	readonly refresh: () => Promise<AuthMe>;
 	/**
@@ -573,24 +799,24 @@ export interface AppAuthController {
 	/**
 	 * Run something that changes the session, with no renewal overlapping it.
 	 *
-	 * Entering an agency re-seals the session against another organization, which
-	 * spends the same single-use refresh token a renewal spends. #298 gave
-	 * rotation to one endpoint; this is the other write that was left outside that
-	 * rule, and running the two at once is WorkOS's reuse signature (#301).
+	 * Entering an organization re-seals the session against another organization,
+	 * which spends the same single-use refresh token a renewal spends. #298 gave
+	 * rotation to one endpoint; this is the other write that was left outside
+	 * that rule, and running the two at once is WorkOS's reuse signature (#301).
 	 *
-	 * **The operation must be the session-changing call and nothing else.** It must
-	 * not call `renew` or `refresh`, and must not issue a request that can renew:
-	 * `sessionFetch` answers a 401 by renewing. All three take the same
+	 * **The operation must be the session-changing call and nothing else.** It
+	 * must not call `renew` or `refresh`, and must not issue a request that can
+	 * renew: `sessionFetch` answers a 401 by renewing. All three take the same
 	 * browser-wide lock this is holding, and that lock is not reentrant, so the
 	 * operation would wait on the exchange that is waiting on it. Ask afterwards
-	 * instead, which is what the enter-agency flow does.
+	 * instead, which is what the enter-organization flow does.
 	 *
-	 * The wait is bounded, so this costs seconds rather than the page, but seconds
-	 * on every agency entry is still a bug. It is stated rather than prevented
-	 * because both preventions are worse: a shorter timeout weakens the ordering
-	 * this exists to guarantee, and a flag cannot tell a renewal called from inside
-	 * the operation apart from one that merely happened at the same time, which is
-	 * the race being fixed.
+	 * The wait is bounded, so this costs seconds rather than the page, but
+	 * seconds on every organization entry is still a bug. It is stated rather
+	 * than prevented because both preventions are worse: a shorter timeout
+	 * weakens the ordering this exists to guarantee, and a flag cannot tell a
+	 * renewal called from inside the operation apart from one that merely
+	 * happened at the same time, which is the race being fixed.
 	 */
 	readonly exchange: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly subscribe: (listener: () => void) => () => void;
@@ -647,7 +873,7 @@ export function sessionLostDestination(options: {
  * When that answers "no", the session is genuinely gone, and the workspace has
  * to stop pretending otherwise: `renew()` records the refusal, which is what
  * lets the shell see a signed-out snapshot instead of reading an empty synced
- * collection as a broken agency (#299).
+ * collection as a broken organization (#299).
  *
  * `onSessionLost` is the app's, because only the app knows where its sign-in
  * surface is, and it is called once for a loss however many collections were
@@ -857,10 +1083,11 @@ export function createAppAuthController(options: {
 	 * The promise is dropped as soon as it settles: callers arriving later want
 	 * the current answer, not this one.
 	 *
-	 * Separate from `refresh()` rather than replacing it, because sharing is wrong
-	 * for the caller that has just *changed* the session. Signing in and entering
-	 * an agency both re-seal the cookie and then ask who they are; joining a round
-	 * trip sent before the change would answer for the session they left.
+	 * Separate from `refresh()` rather than replacing it, because sharing is
+	 * wrong for the caller that has just *changed* the session. Signing in and
+	 * entering an organization both re-seal the cookie and then ask who they are;
+	 * joining a round trip sent before the change would answer for the session
+	 * they left.
 	 */
 	function renew(): Promise<AuthMe> {
 		pending ??= serialize(ask).finally(() => {
@@ -904,6 +1131,7 @@ export function createAppAuthController(options: {
 			return (
 				snapshot ?? {
 					authenticated: false,
+					error: 'unavailable',
 					reason: error instanceof Error ? error.message : 'Unable to load auth state.',
 				}
 			);

@@ -16,9 +16,9 @@
 
 import { type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
 import {
-	type AgencyCommandType,
 	type CommandActor,
 	type DeletionEscalation,
+	type OrganizationCommandType,
 	type OwnedRecordRef,
 	type PerformedRecordRef,
 	readCommandPermission,
@@ -54,7 +54,7 @@ const ALLOWED: OwnershipOutcome = { kind: 'allowed' };
 export async function resolveCommandOwnership(
 	trx: CommandTransaction,
 	command: {
-		readonly type: AgencyCommandType;
+		readonly type: OrganizationCommandType;
 		readonly payload: unknown;
 	},
 	actor: CommandActor,
@@ -76,7 +76,7 @@ export async function resolveCommandOwnership(
 	const payload = asPayload(command.payload);
 	const organizationId = readPayloadId(payload, 'organizationId');
 	if (payload === null || organizationId === null) {
-		// Commands are built server-side from `agencyCommandContext`, so this is
+		// Commands are built server-side from `organizationCommandContext`, so this is
 		// unreachable barring a programming error — and an ownership rule that
 		// cannot find its own subject must not resolve to "allowed".
 		return { kind: 'refused', reason: 'This command cannot be checked against its record.' };

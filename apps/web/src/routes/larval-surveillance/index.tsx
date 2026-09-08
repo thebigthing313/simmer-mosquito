@@ -1,6 +1,8 @@
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -26,7 +28,11 @@ import {
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../components/larval-display';
-import type { LarvalActivityRow } from '../../hooks/queries/larval-activity-view';
+import {
+	inspectionSiteLabel,
+	inspectionTypeLabel,
+	type LarvalActivityRow,
+} from '../../hooks/queries/larval-activity-view';
 import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
@@ -81,21 +87,12 @@ export const Route = createFileRoute('/larval-surveillance/')({
 function LarvalSurveillanceOverviewRoute() {
 	return (
 		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
-			<header className="grid gap-1.5">
-				<div className="flex items-center gap-2 text-muted-foreground">
-					<LarvalIcon aria-hidden="true" className="size-4" />
-					<span className="font-medium text-xs uppercase tracking-wide">
-						Surveillance &amp; mapping
-					</span>
-				</div>
-				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Larval Surveillance
-				</h1>
-				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-					Inspection activity across your habitats, the species your samples identified, and the
-					habitats where larval density came back heavy.
-				</p>
-			</header>
+			<PageHeader
+				description="Inspection activity across your habitats, the species your samples identified, and the habitats where larval density came back heavy."
+				eyebrow="Surveillance & mapping"
+				icon={LarvalIcon}
+				title="Larval Surveillance"
+			/>
 
 			<Suspense fallback={<OverviewSkeleton />}>
 				<OverviewBody />
@@ -105,7 +102,8 @@ function LarvalSurveillanceOverviewRoute() {
 }
 
 function OverviewBody() {
-	// The agency's "today"; the day strip and windows are pure string math from here.
+	// The organization's "today"; the day strip and windows are pure string math
+	// from here.
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(() => addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1)), [today]);
@@ -128,35 +126,9 @@ function OverviewBody() {
 	);
 }
 
-/**
- * What names an inspection's site. An ad-hoc inspection has no habitat, so it is
- * titled by its coordinates instead — "Ad-hoc inspection" named the category
- * every such row already belonged to, leaving nothing to tell one row from the
- * next.
- */
-function siteName(row: LarvalActivityRow): string {
-	if (row.habitatId === null) {
-		return adhocLabel(row.latitude, row.longitude);
-	}
-	return row.habitatName ?? adhocLabel(row.latitude, row.longitude);
-}
-
-/**
- * The Habitat's type, or what to say instead.
- *
- * A row with a type id and no joined name is a Habitat pointing at a catalog entry
- * this client has not loaded — worth saying, rather than showing nothing.
- */
-function typeLabel(row: LarvalActivityRow): string | null {
-	if (row.habitatTypeId === null) {
-		return null;
-	}
-	return row.typeName ?? 'Unknown type';
-}
-
 /** Habitat name as a link to the habitat, for panels that list a day's work. */
 function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
-	const label = siteName(row);
+	const label = inspectionSiteLabel(row);
 	if (row.habitatId === null) {
 		return (
 			<span className="truncate font-medium text-foreground text-sm tabular-nums">{label}</span>
@@ -164,7 +136,7 @@ function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
 	}
 	return (
 		<Link
-			className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			className={cn(recordLink({ size: 'sm' }), 'truncate')}
 			params={{ id: row.habitatId }}
 			to="/larval-surveillance/habitats/$id"
 		>
@@ -377,7 +349,7 @@ function InspectionRow({ row }: { readonly row: LarvalActivityRow }) {
 			<div className="grid min-w-0 flex-1">
 				<HabitatLink row={row} />
 				<span className="truncate text-muted-foreground text-xs">
-					{typeLabel(row) ?? 'Unassigned type'}
+					{inspectionTypeLabel(row) ?? 'Unassigned type'}
 				</span>
 			</div>
 			<div className="flex shrink-0 items-center gap-2">
@@ -487,7 +459,7 @@ function SpeciesBar({
 					{entry.name}
 				</span>
 				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString()} · {percent.toFixed(0)}%
+					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
 				</span>
 			</div>
 			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -528,14 +500,14 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 			) : isLoading ? (
 				<RowSkeleton count={3} />
 			) : samples.length === 0 ? (
-				<PanelMessage>No samples awaiting identification — nice work.</PanelMessage>
+				<PanelMessage>No samples awaiting identification. Nice work.</PanelMessage>
 			) : (
 				<ul className="divide-y divide-border/60">
 					{samples.map((sample) => (
 						<li className="flex items-center gap-3 px-4 py-2.5" key={sample.id}>
 							<div className="grid min-w-0 flex-1">
 								<Link
-									className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									className={cn(recordLink({ size: 'sm' }), 'truncate')}
 									params={{ id: sample.id }}
 									to="/larval-surveillance/samples/$id"
 								>
@@ -618,7 +590,7 @@ function HeavyInspectionsPanel({
 									to="/larval-surveillance/inspections/$id"
 								>
 									<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
-										{siteName(row)}
+										{inspectionSiteLabel(row)}
 									</span>
 									<span className="truncate text-muted-foreground text-xs">
 										{row.typeName ?? 'Unassigned type'}

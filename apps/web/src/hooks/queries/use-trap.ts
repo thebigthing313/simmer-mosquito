@@ -34,23 +34,23 @@ export function useTrap(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ trap: traps })
+					.from({ trap: traps() })
 					.where(({ trap }) => eq(trap.id, trapId ?? unmatchableId))
 					// `left` throughout: an unbaited Trap has no lure and most have no
 					// address, and an `inner` join would drop those traps from their own
 					// cards rather than leaving a field blank.
 					.join(
-						{ method: collection_methods },
+						{ method: collection_methods() },
 						({ trap, method }) => eq(trap.collection_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ lure: collection_lures },
+						{ lure: collection_lures() },
 						({ trap, lure }) => eq(trap.collection_lure_id, lure.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ trap, address }) => eq(trap.address_id, address.id),
 						'left',
 					)

@@ -4,13 +4,13 @@
  * Three facts make one route, and each comes from the one place that owns it:
  * the path from `shapePathFor`, which the client's collection derives too; the
  * columns from the table's schema, which is also what a client parses a row
- * with; and the tenant predicate from `shape-scopes.ts`, which is the server's
- * alone. Nothing is written twice, so nothing can drift.
+ * with; and the organization predicate from `shape-scopes.ts`, which is the
+ * server's alone. Nothing is written twice, so nothing can drift.
  *
  * This replaces fifty-five descriptor files that stated all three per table and
  * carried a fourth — a `syncMode` that was never a fact about a table at all.
  */
-import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync';
+import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync/contract';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import { type AuthVariables, createGlobalReadMiddleware } from './auth-middleware.js';
 import { isServedScope, type SyncShapeScope, syncShapeScopes } from './shape-scopes.js';
@@ -35,14 +35,14 @@ interface ShapeRoute {
  * One route per table, and the door follows from the scope.
  *
  * `units`, `genera` and `species` used to be registered a second time under
- * `/admin`, behind the operator middleware, because `apps/admin` could not reach
- * the ordinary path: an operator session has no agency context and the agency
- * middleware refuses it. That prefix is gone. The three tables are `global`
- * scope, meaning `shapeScopeFilter` forces no predicate and the handler never
- * reads an agency context at all — so one route can admit either identity,
- * which is exactly what `createGlobalReadMiddleware` does.
+ * `/admin`, behind the operator middleware, because `apps/admin` could not
+ * reach the ordinary path: an operator session has no organization context and
+ * the organization middleware refuses it. That prefix is gone. The three tables
+ * are `global` scope, meaning `shapeScopeFilter` forces no predicate and the
+ * handler never reads an organization context at all — so one route can admit
+ * either identity, which is exactly what `createGlobalReadMiddleware` does.
  *
- * The scope decides, not a list. A table that becomes tenant-scoped stops
+ * The scope decides, not a list. A table that becomes organization-scoped stops
  * admitting operators the moment its entry in `shape-scopes.ts` changes, rather
  * than when someone remembers to remove it from a second array here.
  */
@@ -51,7 +51,7 @@ export function registerSyncShapeRoutes(
 	options: ShapeRouteOptions,
 ): void {
 	const globalReadMiddleware = createGlobalReadMiddleware({
-		agency: options.authContextMiddleware,
+		organization: options.authContextMiddleware,
 		operator: options.operatorAuthContextMiddleware,
 	});
 
@@ -136,9 +136,9 @@ function proxyShapeRoute(
 }
 
 /**
- * The tenant predicate for a shape, derived from the scope declared for its table
- * — never from anything the caller sent. A new scope is a compile error here
- * rather than a route that silently streams unscoped rows.
+ * The organization predicate for a shape, derived from the scope declared for
+ * its table — never from anything the caller sent. A new scope is a compile
+ * error here rather than a route that silently streams unscoped rows.
  */
 function shapeScopeFilter(
 	scope: SyncShapeScope,
@@ -299,11 +299,11 @@ function copyElectricHeaders(headers: Headers): Headers {
 	 * immutable shape log, keyed on the full query string. It is wrong for this
 	 * proxy on both counts.
 	 *
-	 * `public` is wrong because these routes sit behind the session cookie and the
-	 * server *forces* the org-scoped `where` (see the shape route handlers). Two
-	 * operators hit byte-identical URLs and must not receive each other's rows, so
-	 * a response that any shared cache may store is a tenancy leak waiting on a
-	 * proxy nobody remembered was there.
+	 * `public` is wrong because these routes sit behind the session cookie and
+	 * the server *forces* the org-scoped `where` (see the shape route handlers).
+	 * Two operators hit byte-identical URLs and must not receive each other's
+	 * rows, so a response that any shared cache may store is a leak across
+	 * organizations waiting on a proxy nobody remembered was there.
 	 *
 	 * The week-long `max-age` is wrong because `offset=-1` is not immutable: it is
 	 * "the snapshot as of now", and its URL is stable across days. Chrome cached it

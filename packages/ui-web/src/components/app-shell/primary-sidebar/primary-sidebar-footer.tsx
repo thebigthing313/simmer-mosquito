@@ -81,8 +81,8 @@ export function PrimarySidebarFooter({ collapsed }: { readonly collapsed: boolea
 					{/*
 					 * The account links are the mounting app's, not the shell's. The web
 					 * workspace has a profile page here; the operator console has no
-					 * agency-scoped account to edit, so it supplies none and the group
-					 * — and its separator — simply do not render.
+					 * organization-scoped account to edit, so it supplies none and the
+					 * group — and its separator — simply do not render.
 					 */}
 					{accountLinks === undefined || accountLinks.length === 0 ? null : (
 						<>

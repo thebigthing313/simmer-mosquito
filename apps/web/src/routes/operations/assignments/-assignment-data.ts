@@ -221,13 +221,18 @@ export function useAssignment(assignmentId: string | null): {
 	readonly assignment: AssignmentView | null;
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
+	/**
+	 * The read failed. Distinct from a ready query holding no row: the edit page
+	 * offers a retry for one and "no such record" for the other.
+	 */
+	readonly isError: boolean;
 } {
 	const result = useLiveQuery(
 		{
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ assignment: assignments })
+					.from({ assignment: assignments() })
 					.where(({ assignment }) => eq(assignment.id, assignmentId ?? UNMATCHABLE_ID))
 					.select(({ assignment }) => ({
 						id: assignment.id,
@@ -250,6 +255,7 @@ export function useAssignment(assignmentId: string | null): {
 		assignment: row === undefined ? null : { ...row, status: assignmentStatus(row) },
 		isLoading: assignmentId !== null && result.isLoading,
 		isReady: result.isReady,
+		isError: result.isError,
 	};
 }
 
@@ -283,7 +289,7 @@ export function useAssignmentItems(assignmentId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: assignment_items })
+					.from({ item: assignment_items() })
 					.where(({ item }) => eq(item.assignment_id, assignmentId ?? UNMATCHABLE_ID))
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item }) => ({
@@ -353,7 +359,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ trap: traps })
+					.from({ trap: traps() })
 					.where(({ trap }) => inArray(trap.id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]))
 					.select(({ trap }) => ({
 						id: trap.id,
@@ -374,7 +380,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) =>
 						inArray(habitat.id, habitatIds.length > 0 ? habitatIds : [UNMATCHABLE_ID]),
 					)
@@ -397,7 +403,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.where(({ request }) =>
 						inArray(request.id, requestIds.length > 0 ? requestIds : [UNMATCHABLE_ID]),
 					)
@@ -442,7 +448,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: addresses })
+					.from({ address: addresses() })
 					.where(({ address }) =>
 						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
 					)
@@ -548,7 +554,7 @@ function usePendingTrapCollections(
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) =>
 						and(
 							inArray(collection.trap_id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]),
@@ -673,10 +679,10 @@ export interface OpenServiceRequest {
 /**
  * Open service requests, for the target picker.
  *
- * No `organization_id` predicate: the shape is authorized and scoped server-side,
- * so a client-side tenant filter is redundant — and on a collection whose rows
- * carry the column but whose subset request does not accept it, it empties the
- * page instead.
+ * No `organization_id` predicate: the shape is authorized and scoped
+ * server-side, so a client-side organization filter is redundant — and on a
+ * collection whose rows carry the column but whose subset request does not
+ * accept it, it empties the page instead.
  */
 export function useOpenServiceRequests(): {
 	readonly requests: readonly OpenServiceRequest[];
@@ -687,7 +693,7 @@ export function useOpenServiceRequests(): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.where(({ request }) => isNull(request.closed_at))
 					.orderBy(({ request }) => request.request_date, 'desc')
 					.select(({ request }) => ({
@@ -728,7 +734,7 @@ export function useRouteSnapshotItems(routeId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) => eq(item.route_id, routeId ?? UNMATCHABLE_ID))
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item }) => ({

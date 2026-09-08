@@ -1,13 +1,11 @@
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
 import { toast } from 'sonner';
-import { type CreateAdminAgencyInput, createAdminAgency } from '../../api';
-import { useInvalidateAgencies } from './-agency-data';
+import { type CreateAdminOrganizationInput, createAdminOrganization } from '../../api';
+import { useInvalidateOrganizations } from './-organization-data';
 
 export const Route = createFileRoute('/organizations/create')({
-	component: CreateAgencyRoute,
+	component: CreateOrganizationRoute,
 });
 
 const SUBSCRIPTION_OPTIONS = [
@@ -17,9 +15,9 @@ const SUBSCRIPTION_OPTIONS = [
 	{ value: 'canceled', label: 'Canceled' },
 ];
 
-type AgencyFormValues = CreateAdminAgencyInput;
+type OrganizationFormValues = CreateAdminOrganizationInput;
 
-function emptyAgency(): AgencyFormValues {
+function emptyOrganization(): OrganizationFormValues {
 	return {
 		name: '',
 		subscriptionStatus: 'trial',
@@ -38,7 +36,7 @@ function emptyAgency(): AgencyFormValues {
 	};
 }
 
-function trimmed(values: AgencyFormValues): AgencyFormValues {
+function trimmed(values: OrganizationFormValues): OrganizationFormValues {
 	const trim = (value: string) => value.trim();
 	return {
 		...values,
@@ -58,34 +56,32 @@ function trimmed(values: AgencyFormValues): AgencyFormValues {
 }
 
 /**
- * Creating an agency.
+ * Creating an organization.
  *
  * This replaces a slide-over sheet on the directory page. A sheet was the wrong
  * container for it: the form is fourteen fields across three concerns, and the
  * one that most needs deliberation — `linkRequesterAsOwner`, which makes the
- * operator the agency's first owner — was below the fold of a 520px panel.
- * On its own page the whole decision is visible at once.
+ * operator the organization's first owner — was below the fold of a 520px
+ * panel. On its own page the whole decision is visible at once.
  */
-function CreateAgencyRoute() {
+function CreateOrganizationRoute() {
 	const navigate = useNavigate();
-	const invalidateAgencies = useInvalidateAgencies();
-	const [saveError, setSaveError] = useState<string | null>(null);
-
+	const invalidateOrganizations = useInvalidateOrganizations();
 	const form = useAppForm({
-		defaultValues: emptyAgency(),
+		defaultValues: emptyOrganization(),
+		/*
+		 * Nothing is caught here. `useAppForm` records a rejection as a
+		 * `SaveFailure` for the one alert below to render, and leaves Save
+		 * pressable so a dropped write can be tried again (#754).
+		 */
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			try {
-				const agency = await createAdminAgency(trimmed(value));
-				await invalidateAgencies();
-				toast.success(`${agency.name} created.`);
-				await navigate({
-					to: '/organizations/$organizationId',
-					params: { organizationId: agency.id },
-				});
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to create the agency.');
-			}
+			const organization = await createAdminOrganization(trimmed(value));
+			await invalidateOrganizations();
+			toast.success(`${organization.name} created.`);
+			await navigate({
+				to: '/organizations/$organizationId',
+				params: { organizationId: organization.id },
+			});
 		},
 	});
 
@@ -95,40 +91,34 @@ function CreateAgencyRoute() {
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton>Create Agency</form.SubmitButton>
+						<form.SubmitButton>Create Organization</form.SubmitButton>
 					</>
 				}
 				header={{
-					title: 'Create Agency',
+					title: 'Create Organization',
 					description:
-						'Add a mosquito control agency. Invite its people from the agency page once it exists.',
+						'Add a mosquito control organization. Invite its people from its page once it exists.',
 					backTo: '/organizations',
-					backLabel: 'Agencies',
+					backLabel: 'Organizations',
 				}}
 				onSubmit={() => {
 					void form.handleSubmit();
 				}}
 			>
-				<form.FormErrorAlert title="Unable to Create Agency" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Create Agency</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
+				<form.FormErrorAlert title="Unable to Create Organization" />
 
 				<section className="grid gap-5">
-					<h2 className="m-0 font-semibold text-foreground text-sm">Agency</h2>
+					<h2 className="m-0 font-semibold text-foreground text-sm">Organization</h2>
 					<form.AppField
 						name="name"
 						validators={{
 							onSubmit: ({ value }: { readonly value: string }) =>
-								value.trim().length === 0 ? 'Agency name is required.' : undefined,
+								value.trim().length === 0 ? 'Organization name is required.' : undefined,
 						}}
 					>
 						{(field) => (
 							<field.TextField
-								label="Agency name"
+								label="Organization name"
 								maxLength={160}
 								placeholder="e.g. Coastal Mosquito Abatement District"
 								required
@@ -194,7 +184,7 @@ function CreateAgencyRoute() {
 					<form.AppField name="linkRequesterAsOwner">
 						{(field) => (
 							<field.SwitchField
-								description="Adds your account as this agency's first owner. Leave off when the customer's own owner will be invited."
+								description="Adds your account as its first owner. Leave off when the customer's own owner will be invited."
 								label="Link me as owner"
 							/>
 						)}

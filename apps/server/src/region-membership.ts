@@ -11,11 +11,11 @@ import type { AuthVariables } from './auth-middleware.js';
  * Which regions contain a record, for the band under its map card.
  *
  * The sibling of `/records/:recordType/:recordId/delete-impact`, and built to
- * read as one with it: one route for every geom-bearing record type, whitelisted
- * in `@simmer-mosquito/db`, scoped to the caller's agency, and answering
- * `found: false` rather than 404 for a record that is missing, another agency's,
- * or soft-deleted, so the three are indistinguishable and the endpoint cannot be
- * used to probe for ids.
+ * read as one with it: one route for every geom-bearing record type,
+ * whitelisted in `@simmer-mosquito/db`, scoped to the caller's organization,
+ * and answering `found: false` rather than 404 for a record that is missing,
+ * another organization's, or soft-deleted, so the three are indistinguishable
+ * and the endpoint cannot be used to probe for ids.
  *
  * Not on `/map/*`, which is tilesets and one record's boundary. This returns
  * names and no geometry. Both prefixes get identical treatment in

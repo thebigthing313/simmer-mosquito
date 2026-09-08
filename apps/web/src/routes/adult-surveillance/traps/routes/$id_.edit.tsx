@@ -25,6 +25,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
+import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
 import { RouteMap } from '../../../../components/route-planning';
 import {
 	type MoveAction,
@@ -36,7 +37,7 @@ import {
 import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-item-mutations';
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import { type TrapListing, useActiveTraps } from '../../../../hooks/queries/use-active-traps';
-import { isBelowRole } from '../../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { TrapPicker } from '../../-adult-pickers';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
 
@@ -47,7 +48,7 @@ const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/traps/routes/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -60,7 +61,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit
 
 function EditTrapRouteRoute() {
 	const { id } = Route.useParams();
-	const { routes, isReady } = useTrapRoutes();
+	const { routes, isReady, isError } = useTrapRoutes();
 	const route = routes.find((candidate) => candidate.id === id) ?? null;
 	const { stops, itemCount, isLoading } = useRouteStops(id);
 	const { traps } = useActiveTraps();
@@ -155,11 +156,7 @@ function EditTrapRouteRoute() {
 		}
 	}, [id, navigate, removeRoute]);
 
-	if (isReady && route === null) {
-		return <RouteNotFound />;
-	}
-
-	return (
+	const body = (
 		<>
 			<MapSplitPage
 				map={
@@ -253,6 +250,16 @@ function EditTrapRouteRoute() {
 			</AlertDialog>
 		</>
 	);
+
+	return (
+		<RecordEditFrame
+			noun="route"
+			reading={{ isError, isReady, record: route }}
+			skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
+		>
+			{() => body}
+		</RecordEditFrame>
+	);
 }
 
 function StopEditor({
@@ -326,21 +333,6 @@ function StopEditor({
 				</li>
 			))}
 		</ol>
-	);
-}
-
-function RouteNotFound() {
-	return (
-		<div className="flex h-full items-center justify-center p-6">
-			<Empty>
-				<EmptyHeader>
-					<EmptyTitle>Route Not Found</EmptyTitle>
-					<EmptyDescription>
-						This route may have been deleted, or the link is out of date.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		</div>
 	);
 }
 

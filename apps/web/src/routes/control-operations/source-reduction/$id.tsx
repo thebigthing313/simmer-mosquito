@@ -1,6 +1,7 @@
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -8,24 +9,23 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import { useMemo } from 'react';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
@@ -49,49 +49,36 @@ const EditIcon = iconRegistry.actions.edit.icon;
 
 const sourceReductionGcTimeMs = 30_000;
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <SourceReductionDetail sourceReductionId={id} />;
-}
-
-function SourceReductionDetail({ sourceReductionId }: { readonly sourceReductionId: string }) {
 	// One query for the action, its method, unit, technician and address — the four
 	// lookups this page used to do for itself. `sourceReductions` is on-demand, so
 	// this is status-gated rather than suspending; see the hook.
-	const { action: sourceReduction, isReady } = useSourceReduction(sourceReductionId, {
-		gcTime: sourceReductionGcTimeMs,
-	});
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the action leaves the collection the moment the button is
-	// pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: CONTROL_ACTION_DELETE_REFUSALS,
-		ask: true,
-	});
+	const {
+		action: sourceReduction,
+		isReady,
+		isError,
+	} = useSourceReduction(id, { gcTime: sourceReductionGcTimeMs });
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/control-operations/source-reduction">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to source reduction
-				</Link>
-				{!isReady ? (
-					<SourceReductionDetailSkeleton />
-				) : sourceReduction === undefined ? (
-					<RecordUnavailable
-						noun="source reduction action"
-						reason="not-found"
-						title="Source Reduction Unavailable"
-					/>
-				) : (
-					<SourceReductionDetailContent askDelete={run} sourceReduction={sourceReduction} />
-				)}
-				{dialog}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to source reduction', to: '/control-operations/source-reduction' }}
+			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
+			layout={layout}
+			noun="source reduction action"
+			reading={{ isError, isReady, record: sourceReduction }}
+			unavailableTitle="Source Reduction Unavailable"
+		>
+			{(record, askDelete) => (
+				<SourceReductionDetailContent askDelete={askDelete} sourceReduction={record} />
+			)}
+		</RecordDetailPage>
 	);
 }
 
@@ -99,9 +86,7 @@ function SourceReductionDetailContent({
 	askDelete,
 	sourceReduction,
 }: {
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 	readonly sourceReduction: SourceReduction;
 }) {
 	// The method roster is still read, but only for the custom-field schema the
@@ -127,59 +112,9 @@ function SourceReductionDetailContent({
 	useBreadcrumbLabel(sourceReduction.id, methodName);
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<SourceReductionIcon aria-hidden="true" className="size-3.5" />
-						Source reduction
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{methodName}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{amountLabel} eliminated · {formatActionDate(sourceReduction.actionDate)}
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<WriteOnly>
-						<Button asChild size="sm" variant="outline">
-							<Link
-								params={{ id: sourceReduction.id }}
-								to="/control-operations/source-reduction/$id/edit"
-							>
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-				</div>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<SourceReductionLocationCard
-							habitatName={habitatName}
-							sourceReduction={sourceReduction}
-						/>
-						<RecordRegionsBand
-							noun="source reduction action"
-							recordId={sourceReduction.id}
-							recordType="source_reductions"
-						/>
-					</div>
-					<DangerZoneCard
-						ask={askDelete}
-						name={methodName}
-						noun="source reduction"
-						onDelete={(acknowledgements) => remove(sourceReduction.id, acknowledgements)}
-						recordId={sourceReduction.id}
-						recordType="sourceReduction"
-						returnTo="/control-operations/source-reduction"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<SourceReductionDetailsCard
 						amountLabel={amountLabel}
 						habitatId={habitatId}
@@ -196,9 +131,49 @@ function SourceReductionDetailContent({
 						description="Follow-up, access notes, and anything crews should know about this work."
 						target={{ type: 'sourceReduction', id: sourceReduction.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<PageHeader
+					actions={
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link
+									params={{ id: sourceReduction.id }}
+									to="/control-operations/source-reduction/$id/edit"
+								>
+									<EditIcon aria-hidden="true" />
+									Edit
+								</Link>
+							</Button>
+						</WriteOnly>
+					}
+					eyebrow="Source reduction"
+					icon={SourceReductionIcon}
+					description={`${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`}
+					title={methodName}
+				/>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<SourceReductionLocationCard habitatName={habitatName} sourceReduction={sourceReduction} />
+				<RecordRegionsBand
+					noun="source reduction action"
+					recordId={sourceReduction.id}
+					recordType="source_reductions"
+				/>
 			</div>
-		</>
+			<DangerZoneCard
+				ask={askDelete}
+				name={methodName}
+				noun="source reduction"
+				onDelete={(acknowledgements) => remove(sourceReduction.id, acknowledgements)}
+				recordId={sourceReduction.id}
+				recordType="sourceReduction"
+				returnTo="/control-operations/source-reduction"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -234,6 +209,7 @@ function SourceReductionLocationCard({
 			geomType={geometry.geomType ?? sourceReduction.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
+			unsupportedShape={geometry.unsupportedShape}
 		/>
 	);
 }
@@ -255,23 +231,21 @@ function SourceReductionDetailsCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Eliminated">{amountLabel}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(sourceReduction.actionDate)}</DetailRow>
-					<DetailRow label="Technician">
-						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
+					<DetailRow empty="Unassigned" label="Technician">
+						{technicianName}
 					</DetailRow>
 					<DetailRow label="Habitat">
-						{habitatId === null ? (
-							<EmptyValue />
-						) : (
+						{habitatId === null ? null : (
 							<Link
-								className="rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className={recordLink({ tone: 'value' })}
 								params={{ id: habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -282,35 +256,9 @@ function SourceReductionDetailsCard({
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={sourceReduction.addressId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'sourceReduction', id: sourceReduction.id }} />
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
-function SourceReductionDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-20" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
 	);
 }

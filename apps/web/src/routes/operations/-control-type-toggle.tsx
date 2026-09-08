@@ -1,4 +1,4 @@
-import type { ControlType } from '@simmer-mosquito/sync';
+import type { ControlType } from '@simmer-mosquito/domain';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { CONTROL_TYPES, controlTypeLabel } from '../../hooks/queries/operations-view';

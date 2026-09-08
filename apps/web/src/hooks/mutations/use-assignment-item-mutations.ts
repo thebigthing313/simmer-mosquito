@@ -11,11 +11,11 @@
  * refuses a stale one.
  *
  * The `*_by_profile_id` columns are mirrored optimistically so the row does not
- * flicker between what the page wrote and what the server stamped. They do reach
- * the wire — `withoutServerOwnedColumns` strips the tenant, the centroid and the
- * four audit columns, and these are none of those — and the server ignores them,
- * because a builder reads the fields it takes and the actor is one it takes from
- * the session rather than from the body.
+ * flicker between what the page wrote and what the server stamped. They do
+ * reach the wire — `withoutServerOwnedColumns` strips the organization id, the
+ * centroid and the four audit columns, and these are none of those — and the
+ * server ignores them, because a builder reads the fields it takes and the
+ * actor is one it takes from the session rather than from the body.
  *
  * Reordering is not here: it restacks the worklist and is a command on
  * the assignment, in `use-assignment-mutations.ts`.
@@ -82,7 +82,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'insert',
 					intent: 'fieldWork.addAssignmentItem',
 					row: {
@@ -113,7 +113,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 		async (assignmentItemId: string, directions: string) => {
 			const trimmed = directions.trim();
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.updateAssignmentItem',
 					key: assignmentItemId,
@@ -130,7 +130,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 
 	const removeStop = useCallback(async (assignmentItemId: string) => {
 		await settleWrite(
-			mutateCollection(assignment_items, {
+			mutateCollection(assignment_items(), {
 				operation: 'delete',
 				intent: 'fieldWork.removeAssignmentItem',
 				key: assignmentItemId,
@@ -141,7 +141,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const complete = useCallback(
 		async (assignmentItemId: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.completeAssignmentItem',
 					key: assignmentItemId,
@@ -166,7 +166,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const reopen = useCallback(
 		async (assignmentItemId: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.reopenAssignmentItem',
 					key: assignmentItemId,
@@ -185,7 +185,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const skip = useCallback(
 		async (assignmentItemId: string, skipReason: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.skipAssignmentItem',
 					key: assignmentItemId,
@@ -207,7 +207,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const unskip = useCallback(
 		async (assignmentItemId: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.unskipAssignmentItem',
 					key: assignmentItemId,

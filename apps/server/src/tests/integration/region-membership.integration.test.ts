@@ -1,16 +1,20 @@
 import { type DbExecutor, type RecordRegions, readRecordRegions, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createOrganization,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { expect, it } from 'vitest';
 
 /**
  * What the regions read answers about records it should not, or barely, own.
  *
  * The predicate itself is proved by the corpus in `packages/db`. This is the
- * other half: the gates around it. A record another agency owns, a soft-deleted
- * one and an unknown id all have to be indistinguishable, a region another agency
- * owns must never widen an answer. And `weather_sources`, the only one of the
- * fifteen whose `organization_id` is nullable, has to answer with the caller's
- * regions rather than with an empty list.
+ * other half: the gates around it. A record another organization owns, a
+ * soft-deleted one and an unknown id all have to be indistinguishable, a region
+ * another organization owns must never widen an answer. And `weather_sources`,
+ * the only one of the fifteen whose `organization_id` is nullable, has to
+ * answer with the caller's regions rather than with an empty list.
  *
  * One `withTestDb` for all seven cases. The harness applies the whole migration
  * set per call, so a block each would be seven migration runs and seven schemas
@@ -45,13 +49,10 @@ const around = (at: { lng: number; lat: number }) =>
 	sql<string>`st_makeenvelope(${at.lng - 0.5}, ${at.lat - 0.5}, ${at.lng + 0.5}, ${at.lat + 0.5}, 4326)`;
 
 async function seed(db: DbExecutor): Promise<void> {
-	await db
-		.insertInto('organizations')
-		.values([
-			{ id: own, workos_organization_id: 'org_region_read_own', name: 'Own District' },
-			{ id: other, workos_organization_id: 'org_region_read_other', name: 'Other District' },
-		])
-		.execute();
+	// The two Organizations go in row at a time rather than in one insert, so the
+	// columns `organizations` requires are named in the fixture and nowhere else.
+	await createOrganization(db, { id: own });
+	await createOrganization(db, { id: other });
 
 	await db
 		.insertInto('region_folders')
@@ -113,7 +114,7 @@ async function seed(db: DbExecutor): Promise<void> {
 				id: id(10),
 				organization_id: other,
 				geom: point(WHERE.notFound),
-				description: 'other agency',
+				description: 'other organization',
 			},
 			{
 				id: id(11),
@@ -164,7 +165,7 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 				readRecordRegions(db, { recordType, recordId, organizationId: own });
 
 			const [
-				otherAgency,
+				otherOrganization,
 				softDeleted,
 				unknown,
 				nothingHolds,
@@ -185,15 +186,15 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 				read('weather_sources', id(71)),
 			]);
 
-			// A record another agency owns, a soft-deleted one and an id that never
-			// existed have to be indistinguishable. That is why `found` is a body
-			// field and not a status code.
+			// A record another organization owns, a soft-deleted one and an id that
+			// never existed have to be indistinguishable. That is why `found` is a
+			// body field and not a status code.
 			expect({
-				otherAgency: summarize(otherAgency),
+				otherOrganization: summarize(otherOrganization),
 				softDeleted: summarize(softDeleted),
 				unknown: summarize(unknown),
 			}).toEqual({
-				otherAgency: { found: false, groups: [] },
+				otherOrganization: { found: false, groups: [] },
 				softDeleted: { found: false, groups: [] },
 				unknown: { found: false, groups: [] },
 			});
@@ -202,8 +203,8 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 			// panel's copy hangs on the difference.
 			expect(summarize(nothingHolds)).toEqual({ found: true, groups: [] });
 
-			// Another agency's region never widens the answer, and a soft-deleted one
-			// never appears.
+			// Another organization's region never widens the answer, and a
+			// soft-deleted one never appears.
 			expect(scoping.groups).toEqual([
 				{ folderId: null, folderName: null, regions: [{ id: id(30), name: 'Ours' }] },
 			]);
@@ -242,8 +243,8 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 				],
 			});
 
-			// The widened gate is for null, not for every value. A row another agency
-			// owns is still invisible.
+			// The widened gate is for null, not for every value. A row another
+			// organization owns is still invisible.
 			expect(summarize(ownedStation)).toEqual({ found: false, groups: [] });
 		});
 	});

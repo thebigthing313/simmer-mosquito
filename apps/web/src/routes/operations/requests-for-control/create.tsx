@@ -1,10 +1,9 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	defaultRequestFormValues,
 	RequestFormPage,
@@ -14,7 +13,7 @@ import {
 
 export const Route = createFileRoute('/operations/requests-for-control/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/operations/requests-for-control/create')) {
 			throw redirect({ replace: true, to: '/operations/requests-for-control' });
 		}
 	},
@@ -53,7 +52,7 @@ function CreateRequestForControlRoute() {
 					addressId: values.addressId,
 					habitatId: values.habitatId,
 				},
-				geometry as unknown as GeoJsonGeometry,
+				geometry,
 			);
 			await navigate({ to: '/operations/requests-for-control' });
 		},

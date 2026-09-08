@@ -32,7 +32,7 @@ import {
 } from '../hooks/use-delete-impact';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
-import type { Acknowledgements } from './acknowledged-write';
+import type { Acknowledgements, AskAcknowledged } from './acknowledged-write';
 import { WriteOnly } from './write-only';
 
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -69,10 +69,11 @@ interface DangerZoneCardRecord {
 	 * **Hold the hook above this card.** The delete is optimistic, so the record
 	 * leaves its collection the moment the button is pressed and this card
 	 * unmounts before the refusal arrives. State set here would be set on a
-	 * component that is gone. The habitat detail page holds it in the loader that
-	 * renders `RecordUnavailable` in the card's place.
+	 * component that is gone. On a detail page that is `RecordDetailPage`, which
+	 * takes the refusal map as `deleteRefusals` and hands the runner down — it is
+	 * what renders `RecordUnavailable` in the card's place.
 	 */
-	readonly ask?: (write: (acknowledgements: Acknowledgements) => Promise<void>) => Promise<void>;
+	readonly ask?: AskAcknowledged | undefined;
 }
 
 /**

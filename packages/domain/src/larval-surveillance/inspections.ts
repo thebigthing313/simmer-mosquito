@@ -1,15 +1,19 @@
 import {
+	basePayload,
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 	validateNotFutureLocalDate,
 } from '../command-validation.js';
-import type {
-	AdHocInspectionLocationSource,
-	AdHocInspectionLocationSourceInput,
+import {
+	type AdHocInspectionLocationSource,
+	type AdHocInspectionLocationSourceInput,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
 import {
@@ -19,13 +23,17 @@ import {
 	normalizeLarvalInspectionResult,
 } from '../surveillance-records.js';
 import {
-	basePayload,
+	nullableReferenceIdField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
+	adHocInspectionLocationSourceField,
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
-	validateAdHocInspectionLocationSourceInput,
-	validateBase,
-	validateIdCommand,
 } from './shared.js';
 
 export type {
@@ -80,22 +88,22 @@ export type UpdateInspectionFieldDetailsCommand = LarvalDomainCommand<
 	InspectionResultPayload
 >;
 
-export interface UpdateAdHocInspectionLocationCommandInput extends LarvalCommandInput {
-	readonly inspectionId: DomainId;
-	readonly locationSource?: AdHocInspectionLocationSourceInput;
-	readonly addressId?: DomainId | null;
-	readonly habitatTypeId?: DomainId | null;
-}
+export const AD_HOC_INSPECTION_LOCATION_UPDATE_FIELDS = {
+	locationSource: adHocInspectionLocationSourceField,
+	addressId: nullableReferenceIdField,
+	habitatTypeId: nullableReferenceIdField,
+} satisfies UpdateFieldSet;
+
+export type UpdateAdHocInspectionLocationCommandInput = LarvalCommandInput &
+	UpdateFieldsInput<typeof AD_HOC_INSPECTION_LOCATION_UPDATE_FIELDS> & {
+		readonly inspectionId: DomainId;
+	};
 
 export type UpdateAdHocInspectionLocationCommand = LarvalDomainCommand<
 	'larvalSurveillance.updateAdHocInspectionLocation',
 	LarvalCommandPayload & {
 		readonly inspectionId: DomainId;
-		readonly changes: Readonly<{
-			readonly locationSource?: AdHocInspectionLocationSource;
-			readonly addressId?: DomainId | null;
-			readonly habitatTypeId?: DomainId | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof AD_HOC_INSPECTION_LOCATION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -134,7 +142,7 @@ export function recordAdHocInspectionCommand(
 	input: RecordAdHocInspectionCommandInput,
 ): RecordAdHocInspectionCommand {
 	const issues = validateInspectionBase(input);
-	const locationSource = validateAdHocInspectionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'adHocInspection', issues);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const habitatTypeId = normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues);
 	throwIfIssues('Record ad hoc inspection command is invalid.', issues);
@@ -165,42 +173,14 @@ export function updateInspectionFieldDetailsCommand(
 export function updateAdHocInspectionLocationCommand(
 	input: UpdateAdHocInspectionLocationCommandInput,
 ): UpdateAdHocInspectionLocationCommand {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input.inspectionId, 'inspectionId', issues);
-	const hasLocation = input.locationSource !== undefined;
-	const hasAddress = input.addressId !== undefined;
-	const hasType = input.habitatTypeId !== undefined;
-	if (!hasLocation && !hasAddress && !hasType) {
-		issues.push({
-			path: 'changes',
-			message: 'At least one ad hoc inspection location field must change.',
-		});
-	}
-	const locationSource = hasLocation
-		? validateAdHocInspectionLocationSourceInput(input, issues)
-		: undefined;
-	const addressId = hasAddress
-		? normalizeOptionalUuid(input.addressId, 'addressId', issues)
-		: undefined;
-	const habitatTypeId = hasType
-		? normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues)
-		: undefined;
-	throwIfIssues('Update ad hoc inspection location command is invalid.', issues);
-	const changes: UpdateAdHocInspectionLocationCommand['payload']['changes'] = {
-		...(locationSource !== undefined ? { locationSource } : {}),
-		...(hasAddress ? { addressId: addressId ?? null } : {}),
-		...(hasType ? { habitatTypeId: habitatTypeId ?? null } : {}),
-	};
-
-	return {
+	return updateFieldsCommand({
 		type: 'larvalSurveillance.updateAdHocInspectionLocation',
-		payload: {
-			...basePayload(input),
-			inspectionId: normalizeRequiredId(input.inspectionId),
-			changes,
-		},
-	};
+		input,
+		idKey: 'inspectionId',
+		fields: AD_HOC_INSPECTION_LOCATION_UPDATE_FIELDS,
+		changeNoun: 'ad hoc inspection location',
+		message: 'Update ad hoc inspection location command is invalid.',
+	});
 }
 
 export function deleteInspectionCommand(

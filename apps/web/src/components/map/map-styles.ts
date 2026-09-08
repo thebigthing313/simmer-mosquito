@@ -1,5 +1,5 @@
 /**
- * Baseline basemap catalogue and camera defaults for the GIS Data explorer map.
+ * Baseline basemap catalogue and camera defaults for every map surface.
  *
  * Framework-free on purpose: this module only knows about Mapbox style URLs and
  * the public access token, so it can be shared by the map hook, the basemap
@@ -13,7 +13,7 @@ export type MapCamera = {
 	readonly pitch?: number;
 };
 
-/** Continental-US framing until an agency's own extent is known. */
+/** Continental-US framing until an organization's own extent is known. */
 export const DEFAULT_MAP_CAMERA: MapCamera = {
 	center: [-95.7, 37.1],
 	zoom: 3.4,

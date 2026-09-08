@@ -1,15 +1,21 @@
 import {
+	basePayload,
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	nullableText as normalizeNullableText,
+	normalizeOptionalTimestamp,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
+	normalizeStringUnion,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
-import type {
-	RequestedControlActionLocationSource,
-	RequestedControlActionLocationSourceInput,
+import {
+	type RequestedControlActionLocationSource,
+	type RequestedControlActionLocationSourceInput,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import {
 	type ControlActionContext,
@@ -17,22 +23,26 @@ import {
 	validateControlActionContext,
 } from '../performed-control-actions.js';
 import type { DomainId } from '../shared.js';
+import {
+	nullableReferenceIdField,
+	nullableTextField,
+	stringUnionField,
+	timestampField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	ControlCommandInput,
 	ControlCommandPayload,
 	ControlOperationsDomainCommand,
 } from './core.js';
 import {
-	basePayload,
 	CONTROL_TYPES,
 	idCommand,
 	locationContextChanges,
-	normalizeOptionalTimestamp,
-	normalizeStringUnion,
-	validateBase,
-	validateIdCommand,
 	validateLocationContextPatchBase,
-	validateRequestedControlActionLocationSourceInput,
 } from './core.js';
 export interface RequestControlActionCommandInput extends ControlCommandInput {
 	readonly requestedControlActionId: DomainId;
@@ -61,26 +71,24 @@ export type RequestControlActionCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateRequestedControlActionDetailsCommandInput extends ControlCommandInput {
-	readonly requestedControlActionId: DomainId;
-	readonly controlType?: ControlType;
-	readonly recommendedMethodId?: DomainId | null;
-	readonly summary?: string | null;
-	readonly requestedByProfileId?: DomainId | null;
-	readonly requestedAt?: Date | null;
-}
+export const REQUESTED_CONTROL_ACTION_UPDATE_FIELDS = {
+	controlType: stringUnionField(CONTROL_TYPES),
+	recommendedMethodId: nullableReferenceIdField,
+	summary: nullableTextField(2_000),
+	requestedByProfileId: nullableReferenceIdField,
+	requestedAt: timestampField(false),
+} satisfies UpdateFieldSet;
+
+export type UpdateRequestedControlActionDetailsCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof REQUESTED_CONTROL_ACTION_UPDATE_FIELDS> & {
+		readonly requestedControlActionId: DomainId;
+	};
 
 export type UpdateRequestedControlActionDetailsCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateRequestedControlActionDetails',
 	ControlCommandPayload & {
 		readonly requestedControlActionId: DomainId;
-		readonly changes: Readonly<{
-			readonly controlType?: ControlType;
-			readonly recommendedMethodId?: DomainId | null;
-			readonly summary?: string | null;
-			readonly requestedByProfileId?: DomainId | null;
-			readonly requestedAt?: Date | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof REQUESTED_CONTROL_ACTION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -147,7 +155,7 @@ export function requestControlActionCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.requestedControlActionId, 'requestedControlActionId', issues);
-	const locationSource = validateRequestedControlActionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'requestedControlAction', issues);
 	const controlType = normalizeStringUnion(input.controlType, CONTROL_TYPES, 'controlType', issues);
 	const context = validateControlActionContext(
 		input.context ?? { kind: 'none' },
@@ -186,45 +194,15 @@ export function requestControlActionCommand(
 export function updateRequestedControlActionDetailsCommand(
 	input: UpdateRequestedControlActionDetailsCommandInput,
 ): UpdateRequestedControlActionDetailsCommand {
-	const issues = validateIdCommand(input, 'requestedControlActionId');
-	const hasControlType = input.controlType !== undefined;
-	const hasMethod = input.recommendedMethodId !== undefined;
-	const hasSummary = input.summary !== undefined;
-	const hasRequestedBy = input.requestedByProfileId !== undefined;
-	const hasRequestedAt = input.requestedAt !== undefined;
-	if (!hasControlType && !hasMethod && !hasSummary && !hasRequestedBy && !hasRequestedAt) {
-		issues.push({ path: 'changes', message: 'At least one requested action detail must change.' });
-	}
-	const controlType = hasControlType
-		? normalizeStringUnion(input.controlType, CONTROL_TYPES, 'controlType', issues)
-		: undefined;
-	const requestedAt = hasRequestedAt
-		? normalizeOptionalTimestamp(input.requestedAt, 'requestedAt', issues, false)
-		: undefined;
-	const recommendedMethodId = hasMethod
-		? normalizeOptionalUuid(input.recommendedMethodId, 'recommendedMethodId', issues)
-		: undefined;
-	const summary = hasSummary
-		? normalizeNullableText(input.summary, 'summary', issues, 2_000)
-		: undefined;
-	const requestedByProfileId = hasRequestedBy
-		? normalizeOptionalUuid(input.requestedByProfileId, 'requestedByProfileId', issues)
-		: undefined;
-	throwIfIssues('Update requested control action details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'controlOperations.updateRequestedControlActionDetails',
-		payload: {
-			...basePayload(input),
-			requestedControlActionId: normalizeRequiredId(input.requestedControlActionId),
-			changes: {
-				...(controlType !== undefined ? { controlType } : {}),
-				...(hasMethod ? { recommendedMethodId: recommendedMethodId ?? null } : {}),
-				...(hasSummary ? { summary: summary ?? null } : {}),
-				...(hasRequestedBy ? { requestedByProfileId: requestedByProfileId ?? null } : {}),
-				...(hasRequestedAt ? { requestedAt: requestedAt ?? null } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'requestedControlActionId',
+		fields: REQUESTED_CONTROL_ACTION_UPDATE_FIELDS,
+		changeNoun: 'requested action',
+		emptyChangeMessage: 'At least one requested action detail must change.',
+		message: 'Update requested control action details command is invalid.',
+	});
 }
 
 export function updateRequestedControlActionLocationAndContextCommand(
@@ -244,12 +222,7 @@ export function updateRequestedControlActionLocationAndContextCommand(
 		payload: {
 			...basePayload(input),
 			requestedControlActionId: normalizeRequiredId(input.requestedControlActionId),
-			changes: locationContextChanges(
-				input,
-				context,
-				issues,
-				'requestedControlAction',
-			) as UpdateRequestedControlActionLocationAndContextCommand['payload']['changes'],
+			changes: locationContextChanges(input, context, issues, 'requestedControlAction'),
 		},
 	};
 }

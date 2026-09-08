@@ -1,5 +1,7 @@
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -12,6 +14,7 @@ import {
 	useAdultSpeciesComposition,
 } from '../../hooks/queries/use-adult-species-composition';
 import { useCollectionsAwaitingIdentification } from '../../hooks/queries/use-collections-awaiting-identification';
+import { useCollectionsOverThreshold } from '../../hooks/queries/use-collections-over-threshold';
 import {
 	type ActivityCollection,
 	useRecentCollections,
@@ -45,21 +48,12 @@ function AdultSurveillanceOverviewRoute() {
 
 	return (
 		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
-			<header className="grid gap-1.5">
-				<div className="flex items-center gap-2 text-muted-foreground">
-					<AdultIcon aria-hidden="true" className="size-4" />
-					<span className="font-medium text-xs uppercase tracking-wide">
-						Surveillance &amp; mapping
-					</span>
-				</div>
-				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Adult Surveillance
-				</h1>
-				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-					Collection activity across your traps, the species composition in what they caught, and
-					the collections still awaiting identification or flagged with a problem.
-				</p>
-			</header>
+			<PageHeader
+				description="Collection activity across your traps, the species composition in what they caught, and the collections still awaiting identification or flagged with a problem."
+				eyebrow="Surveillance & mapping"
+				icon={AdultIcon}
+				title="Adult Surveillance"
+			/>
 
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="xl:col-span-7">
@@ -68,6 +62,9 @@ function AdultSurveillanceOverviewRoute() {
 				<div className="grid content-start gap-5 xl:col-span-5">
 					<SpeciesCompositionPanel today={today} />
 					<AwaitingIdentificationPanel since={since} />
+				</div>
+				<div className="xl:col-span-12">
+					<OverThresholdPanel since={since} />
 				</div>
 				<div className="xl:col-span-12">
 					<AttentionPanel since={since} />
@@ -115,10 +112,7 @@ function CollectionLink({
 }) {
 	return (
 		<Link
-			className={cn(
-				'truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-				className,
-			)}
+			className={cn(cn(recordLink({ size: 'sm' }), 'truncate'), className)}
 			params={{ id }}
 			to="/adult-surveillance/collections/$id"
 		>
@@ -326,7 +320,7 @@ function SpeciesBar({
 					{entry.name}
 				</span>
 				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString()} · {percent.toFixed(0)}%
+					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
 				</span>
 			</div>
 			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -366,7 +360,7 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 			) : !isReady ? (
 				<RowSkeleton count={3} />
 			) : awaiting.length === 0 ? (
-				<PanelMessage>No collections awaiting identification — nice work.</PanelMessage>
+				<PanelMessage>No collections awaiting identification. Nice work.</PanelMessage>
 			) : (
 				<ul className="divide-y divide-border/60">
 					{awaiting.map((collection) => (
@@ -379,6 +373,91 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 							</div>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 								{collectionDayLabel(collection, timeZone)}
+							</span>
+						</li>
+					))}
+				</ul>
+			)}
+		</Panel>
+	);
+}
+
+// --- over action threshold --------------------------------------------------
+
+function OverThresholdPanel({ since }: { readonly since: string }) {
+	const timeZone = useOrganizationTimeZone();
+	const { collections, hasConfiguredThresholds, isReady, isError } = useCollectionsOverThreshold(
+		since,
+		timeZone,
+	);
+
+	return (
+		<Panel
+			count={isReady ? collections.length : undefined}
+			icon={<AlertTriangleIcon className="size-4" />}
+			title={`Over Action Threshold · Last ${ADULT_ACTIVITY_WINDOW_DAYS} Days`}
+		>
+			{isError ? (
+				<PanelMessage>Collection activity is unavailable right now.</PanelMessage>
+			) : !isReady ? (
+				<RowSkeleton count={3} />
+			) : !hasConfiguredThresholds ? (
+				// Distinct from the empty list below it. Without this an unset threshold
+				// reads as a quiet fortnight.
+				<PanelMessage>
+					No collection method sets an action threshold.{' '}
+					<Link
+						className="font-medium text-primary hover:underline"
+						to="/adult-surveillance/collection-methods"
+					>
+						Set one
+					</Link>
+					.
+				</PanelMessage>
+			) : collections.length === 0 ? (
+				<PanelMessage>
+					No collection reached its method's action threshold in the last{' '}
+					{ADULT_ACTIVITY_WINDOW_DAYS} days.
+				</PanelMessage>
+			) : (
+				<ul className="grid gap-1 p-2 sm:grid-cols-2">
+					{collections.map((collection) => (
+						<li
+							className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
+							key={collection.id}
+						>
+							<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
+								{formatMonthDay(collectionEffectiveDate(collection, timeZone) ?? '')}
+							</span>
+							{/*
+							 * The reason to read this panel is to open the collection that ran
+							 * hot, so the row's body goes there rather than to the trap.
+							 */}
+							<Link
+								className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								params={{ id: collection.id }}
+								to="/adult-surveillance/collections/$id"
+							>
+								<span className="truncate font-medium text-foreground text-sm group-hover:text-primary">
+									{collectionPrimaryLabel(collection)}
+								</span>
+								<span className="truncate text-muted-foreground text-xs">
+									{collection.methodName}
+								</span>
+							</Link>
+							<span className="shrink-0 text-sm tabular-nums">
+								{/* A slash reads as nothing aloud, so the pair is spelled out. */}
+								<span className="sr-only">
+									{collection.total.toLocaleString('en-US')} of a threshold of{' '}
+									{collection.actionThreshold.toLocaleString('en-US')}
+								</span>
+								<span aria-hidden="true" className="font-medium text-foreground">
+									{collection.total.toLocaleString('en-US')}
+								</span>
+								<span aria-hidden="true" className="text-muted-foreground">
+									{' / '}
+									{collection.actionThreshold.toLocaleString('en-US')}
+								</span>
 							</span>
 						</li>
 					))}

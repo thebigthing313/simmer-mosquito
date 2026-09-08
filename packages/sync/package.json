@@ -9,6 +9,11 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./contract": {
+			"fallow": "./src/contract.ts",
+			"types": "./dist/contract.d.ts",
+			"import": "./dist/contract.js"
+		},
 		"./session-fetch": {
 			"fallow": "./src/collections/functions/session-fetch.ts",
 			"types": "./dist/collections/functions/session-fetch.d.ts",

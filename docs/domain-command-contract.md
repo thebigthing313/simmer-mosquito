@@ -5,15 +5,15 @@ file when implementing or reviewing command builders, command handlers, sync
 mutation adapters, or offline/mobile replay behavior. Load the specific
 `docs/*-domain.md` file only for domain-specific vocabulary and exceptions.
 
-**Every agency write to Postgres is a command.** One model covers every
+**Every organization write to Postgres is a command.** One model covers every
 operation: *this is what I intended to do*, and the server decides whether to do
 it. A client never states which tables a write touches, in what order, or
 whether a second system is involved.
 
-Identity is there. ADR 0013 decided that profiles, memberships and the agency's
-own details become commands too, and every one of them is: three that touch
-Postgres and nothing else, and four on `/commands/memberships` that also settle
-WorkOS. One surface is still REST and always will be —
+Identity is there. ADR 0013 decided that profiles, memberships and the
+organization's own details become commands too, and every one of them is: three
+that touch Postgres and nothing else, and four on `/commands/memberships` that
+also settle WorkOS. One surface is still REST and always will be:
 `people.listMemberships`, which is a read behind a POST.
 
 ## Command shape
@@ -48,8 +48,8 @@ Server command handlers validate context-dependent rules:
 
 ## The write surface
 
-An agency write goes to one endpoint per table, and the body names the commands
-it means.
+An organization write goes to one endpoint per table, and the body names the
+commands it means.
 
 ```
 POST   /commands/habitats        { intents: ['larvalSurveillance.createHabitat'], … }
@@ -78,6 +78,23 @@ both names over one payload, each builder reads the fields it takes, and
 Authorization runs on the names, before any builder does. A role that may not
 send a command is refused without its payload being validated, which is what
 naming the command in the request buys over inferring it from the fields.
+
+### What the answer carries
+
+`{ [key]: row, txid }`, and the row's columns are not a thing a writer decides.
+`returnColumns` in `apps/server/src/return-columns.ts` derives one list per table
+from that table's generated row schema in `packages/sync`, which is the same list
+`sync-shapes.ts` forces on the shape route, so a command response and the sync
+stream carry the same columns by construction. `OMIT` and `WITHHELD` are applied
+in the schema, which is what keeps `geom`, `geojson`, `deleted_at` and
+`deleted_by_profile_id` off every response and a Membership's `invited_email` off
+the one that would have carried it.
+
+So a writer passes `returnColumns.<table>` to `.returning(...)` and types its row
+as `CommandRow<'<table>'>`. Writing the list out instead is what #635 removed: 43
+hand-written lists, 34 of which had drifted from the schema, every one of them by
+omitting a column. A migration that adds a column reaches the response the moment
+it reaches the schema, and nothing has to be edited twice.
 
 ### Declaring a command takes two halves
 
@@ -120,23 +137,34 @@ The other two write more rows than one, and answer with more than one row:
 A command whose result is a set rather than a row gets its own route for the same
 reason.
 
-### Which surface a new command uses
+### Where a new command goes
 
 The per-table surface. Always, unless the command is one of the shapes above.
 
-The older per-domain endpoints are still registered, under
-`apps/server/src/*-commands/`, and still tested. `POST
-/larval-surveillance/habitats` is `createHabitat`, and a PATCH there decides
-between five commands by reading which fields arrived. That inference is what
-the per-table surface exists to remove: an extra key in a body becomes an extra
-command, so the payload's shape is load-bearing in a way nothing states. Both
-surfaces call the same writers, the same permission map, and the same
-transaction, so a table served by both cannot disagree with itself, but only one
-of them lets a client say what it meant.
+There is no second write surface to choose between any more. There used to be:
+twelve per-domain route families under `apps/server/src/*-commands/`, where
+`POST /larval-surveillance/habitats` was `createHabitat` and a PATCH beside it
+decided between five commands by reading which fields arrived. That inference is
+what the per-table surface exists to remove, because an extra key in a body
+became an extra command and the payload's shape was load-bearing in a way
+nothing stated. Both surfaces called the same writers, the same permission map
+and the same transaction, so neither could disagree with the other, and by the
+end 111 of the older surface's 120 registrations answered requests nothing in
+this monorepo made. #634 deleted those 111 and a 112th, the one PATCH `apps/web`
+still sent, whose two callers moved onto `/commands/habitats` with the commands
+they mean named. Every writer stayed. They live under
+`apps/server/src/writers/` now, named for what they are rather than for a route
+family, and nothing under that directory registers a route.
 
-`apps/web` posts nothing to the older surface. What remains on it is
-`apps/admin`, which seeds a new agency's geography and lookups through
-`/foundation/*` and `/adult-surveillance/traps`. Do not add to it.
+What is left outside the table surface, each saying why in its own module:
+
+- The six creates `apps/admin` seeds a new Organization with, in
+  `organization-seed-routes.ts`, over `/foundation/*` and
+  `/adult-surveillance/traps`. **Nothing else belongs there.** Moving them onto
+  the table surface is a change to `apps/admin` that nobody has made yet.
+- `GET /larval-surveillance/samples/awaiting` in `larval-surveillance-reads.ts`,
+  which is a read.
+- `POST /commands/mission_notifications/generate`, one of the nine above.
 
 ## Column names in a command body
 
@@ -166,32 +194,123 @@ Route carries `route_id`. Those stay `snake_case`, because they are column
 names and a reader would take a `camelCase` spelling for an instruction. The
 module's own "Field names" section says which of its keys are not its columns.
 
-### The check
+### The compiler checks it
 
-`pnpm check:command-columns` reads every `snake_case` key an intent handler
-reads and requires it to be a column of that handler's table, from the generated
-row schema in `packages/sync/src/collections/tables/`. CI runs it beside
-`check:build-graph`.
+The rule above is a type. `CommandPayload<TTable, TArgument>` in
+`apps/server/src/command-payload.ts` is the body a builder is handed, and its
+keys are that table's columns, the acknowledgement vocabulary, and the keys the
+table declares. Everything else is a compile error at the property access.
 
-It exists because the client half of this is safe and the server half is not.
-A mutation's keys are `withoutServerOwnedColumns(mutation.changes)`, so they come
-off the generated row type and cannot be misspelled. A handler types its keys as
-string literals against a loose `Record<string, unknown>`, so
-`payload.region_folder_ids` compiles, reads `undefined`, and leaves the Region in
-no folder while the caller gets a 200.
+- The columns come from `SimmerDatabase` in `packages/db/src/tables.ts`, which
+  is generated from `packages/db/schema.sql` (ADR 0004), less the ones the
+  server owns.
+- The acknowledgements come from `ACKNOWLEDGEMENTS` in `packages/domain`, so
+  every table carries them and a misspelled flag does not compile.
+- Everything else is `TArgument`, a union each table names at its factory's
+  return type. That is the declaration site those keys did not have, and it is
+  where the module's "Field names" section is written down as code.
 
-Two faults, and the second is the one worth having:
+A table declares its arguments once, as a named type beside the factory:
+
+```ts
+type HabitatArgument = 'locationSource' | 'inspection_id' | 'sourceHabitatIds';
+
+export function habitatTableCommands(
+	db: CommandDb,
+): TableCommands<'habitats', LarvalSurveillanceCommand, HabitatRow, HabitatArgument> {
+```
+
+A factory serving several tables at once names the union, and `ColumnOf` is
+distributive, so it answers to every column any of them has. `org-lookups.ts` is
+the case: three catalogs, one reader, and `custom_schema` on two of them.
+
+Two faults this closes, and the second is the one worth having:
 
 1. A typo, at the moment it is written.
 2. A column a later migration renames or drops, where the handler keeps reading
-   the old name and quietly stops receiving a value.
+   the old name and quietly stops receiving a value. The migration moves
+   `schema.sql`, `pnpm generate:table-types` moves `tables.ts`, and the build
+   fails at every handler still reading the old name.
 
-The reverse direction is not checked. A handler reads only the keys its command
-takes, and a column no command writes is normal. Single-word keys are not
-checked either, because `name` and `context` are spelled the same and only one
-of them is a column. Cross-record keys are listed in the script's
-`CROSS_RECORD_KEYS` with what each names, and an entry no handler reads any more
-is itself a failure.
+**Presence is `=== undefined`, not `in`.** A body's key that is absent and one
+carrying `null` are different writes, so a partial update reads presence. `'key'
+in payload` takes any string, so it is checked by nothing; `payload.key !==
+undefined` goes through the property access the compiler checks, and answers the
+same question, because `JSON.parse` never produces `undefined`.
+
+**A reader shared by several tables takes the values, not the payload.**
+`readEntityTarget(payload.entity_type, payload.entity_id)` and
+`drawnGeometry(payload.locationSource)` are spelled in the module whose table has
+the column, which is the only place the compiler can check them.
+
+This replaced `pnpm check:command-columns`, a script that read the same
+`snake_case` keys out of the handler source and compared them against the
+generated row schemas (#426). It carried a hardcoded table count and an allowlist
+of keys naming another record, and it could see neither the `camelCase` half nor
+a reader that took a loose record. It did one thing the type did not, which was
+to read the client's row schemas and so refuse a handler reading
+`payload.deleted_at` or `payload.geom` off a body. `ServerOwnedColumns` is that
+half, back as a type and derived from the schema rather than from what a client
+happens to be sent (#478).
+
+### The columns a body may not name
+
+A table's columns are not all of them. `ServerOwnedColumns` in
+`packages/db/src/tables.ts` names, per table, what the server computes inside the
+write's own transaction, and `ColumnOf` subtracts it. Reading one off a body is a
+`tsc` error naming the column, so the value a handler uses is the one the server
+resolved and never the one the caller sent.
+
+- `organization_id` is the organization scope, set from `AuthContext`. This is
+  the sharp one: a handler reading it off a body would let a caller name another
+  organization's id.
+- `created_at`, `updated_at` and `deleted_at` are the row's clock. A delete is a
+  named command, not a timestamp arriving.
+- `created_by_profile_id` and `updated_by_profile_id` are who made the row and
+  who last touched it, both resolved from the session.
+- `geom` is geometry, snapshotted from a domain location source. A body carries
+  `locationSource` or `geometry` instead.
+- Whatever the database fills: the `geojson` stored generated column, and the
+  `lat`, `lng` and `geom_type` the `set_owned_centroid()` trigger owns.
+
+One column near that line stays. `id` is client-generated, which is what makes a
+create replay-safe.
+
+It reaches the typed surface and stops there. The six operator seed creates in
+`organization-seed-routes.ts` hold a `Record<string, unknown>`, so a key read off
+one of those is checked by nothing, which is the same limit this section's parent
+states for the `camelCase` half. Moving them onto `/commands/{table}` is what
+would bring them under the rule.
+
+The set is generated, not hand-kept. `SERVER_OWNED` in
+`scripts/generate-table-types.mjs` is the rule and the reasons; the generator
+reads it against `schema.sql` and emits the per-table answer, so `pnpm
+check:table-types` covers it and a new table with an `organization_id` is
+subtracted the day its migration lands. A column added to the rule that a live
+handler reads is a build failure at that handler, which is the argument for
+leaving it out rather than a licence to carve an exception into the type.
+
+The client strips its own list on the way out, before a body is ever sent:
+`serverOwnedColumns` in
+`packages/sync/src/collections/functions/command-request.ts`, applied by both
+write paths. One list for every table, and deliberately wider than any one
+table's answer, because a name it strips that the table does not have costs
+nothing. Its reason is not the server's: the endpoints ignore what they do not
+read, so this is about keeping a no-op detectable. An edit form stamps
+`updated_at` and `updated_by_profile_id` on every save so the optimistic row
+looks right, and without the strip an edit that changed nothing would still be a
+request. `pnpm check:server-owned-columns` holds the two lists to each other:
+every name the server owns by name is stripped or kept off every client by `OMIT`
+in `scripts/generate-table-schemas.mjs`, and every name the client strips is one
+the server owns or one the centroid trigger writes. It runs in CI's `verify` job.
+Before it existed the two had drifted in both directions and nothing said so
+(#648).
+
+`ServerOwnedColumns` is not `scripts/withheld-columns.mjs`. That file names
+columns kept out of the Electric shape and the search index, a question about who
+receives a value; this is a question about who writes one. `invited_email` is
+withheld from every client and is still a column `/commands/memberships` reads
+off a body.
 
 ## Delete policy
 
@@ -222,20 +341,29 @@ command vocabulary spell them the same way.
 
 The refusal is `409 acknowledgement_required`, with the flag that would let the
 delete through and the same entry shape the impact read returns. It is not
-`delete_blocked`: a blocked delete cannot proceed until the agency deals with
-the referring records, while this one proceeds the moment the request arrives
-again with the flag set. One flag per refusal, because a form asks one question
-at a time.
+`delete_blocked`: a blocked delete cannot proceed until the organization deals
+with the referring records, while this one proceeds the moment the request
+arrives again with the flag set. One flag per refusal, because a form asks one
+question at a time.
 
 A client withholds a confirmation by sending the flag as `false`. Absent means
 confirmed, which is what every endpoint did before any of them was read, so a
 client that has never heard of a flag behaves as it always did. `acknowledged`
 in `apps/server/src/command-payload.ts` is the one reading of that convention.
 
+Six flags read the other way, and the reader takes the flag's name so no call
+site chooses. `EXPLICIT_ACKNOWLEDGEMENTS` in `apps/server/src/acknowledgements.ts`
+names them with the reason for each: a duplicate trap code is a collision the
+caller could not have seen, the three mission ones are a stop being closed
+against what the plan said, and the two weather import ones answer for rows the
+caller has not seen either. Absent is not an answer to a question the body was
+written before. A flag added to the vocabulary takes the default, so the
+exception is the thing that has to be argued for (#426).
+
 The flag on a rule is required rather than optional. A new consequence cannot
-reach the registry without someone deciding whether the agency is asked about
-it, which is the hole #165 describes: fifty-nine flags were declared, carried
-into the write, and read by nothing.
+reach the registry without someone deciding whether the organization is asked
+about it, which is the hole #165 describes: fifty-nine flags were declared,
+carried into the write, and read by nothing.
 
 ### The other mechanisms, and the map
 
@@ -263,11 +391,11 @@ only one that describes a record delete. Four more raise the same 409:
   carries the whole answer. The client keys its wording off `flag`, which it has
   to do anyway: two counted refusals under one code need two different
   sentences.
-- **A citation.** Rows that already read under the value being changed: the
-  four hundred collections behind a renamed collection method, the summaries
-  behind a moved weather station, every agency's counts behind a renamed
-  species. Nothing in the schema snapshots a label onto the rows that use it, so
-  a rename is retroactive. `assertHistoryAcknowledged` in
+- **A citation.** Rows that already read under the value being changed: the four
+  hundred collections behind a renamed collection method, the summaries behind a
+  moved weather station, every organization's counts behind a renamed species.
+  Nothing in the schema snapshots a label onto the rows that use it, so a rename
+  is retroactive. `assertHistoryAcknowledged` in
   `packages/db/src/domains/record-history.ts` counts and refuses; the citing
   tables come from `citingRules`, which reads them out of the delete registry,
   so there is no second table map. **Any citing row asks, and there is no time
@@ -279,8 +407,8 @@ only one that describes a record delete. Four more raise the same 409:
   `acknowledgedDuplicateTrapCode`: trap codes are indexed but not unique, so two
   traps may legitimately share one and the collision is a question rather than a
   rule. `assertNoColliding` counts the traps already carrying the code. Kept out
-  of the citation check on purpose — those rows do not read under the value,
-  they compete with it — and it is the one flag that refuses unless it is
+  of the citation check on purpose: those rows compete with the value rather
+  than reading under it. It is one of the four that refuse unless the flag is
   explicitly `true`, because a collision cannot arrive pre-answered.
 
 The last two mechanisms are the pure command builder, which pushes a validation
@@ -288,11 +416,11 @@ issue unless the flag is `true` and so answers `400 invalid_command` naming the
 flag's path, and the weather import's own assessment, which counts the rows that
 would update or fail before it commits anything.
 
-A guard reads its flag at **every** door. The per-domain endpoints that predate
+A guard reads its flag at **every** door. The per-domain endpoints that predated
 `/commands/{table}` used to hard-code several of these to `true`, which is the
 two-doors-different-locks state #182 found: the refusal existed and one route
-could never reach it. Every door now passes the caller's answer through
-`acknowledged`.
+could never reach it. Those endpoints are gone (#634), and every door left passes
+the caller's answer through `acknowledged`.
 
 Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
 `apps/server/src/acknowledgements.ts`, a total map over the vocabulary in
@@ -300,18 +428,17 @@ Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
 naming the issue that will settle it. `pnpm check:acknowledgements` asserts the
 map, the vocabulary and the flags on command payloads name the same set, and
 ratchets `UNCHECKED_ACKNOWLEDGEMENTS` so a flag cannot be added without somebody
-deciding. Five remain: the two dependent-deactivation flags (#341), and three
-mission flags still labelled #316 that are in fact already read, through a
-bespoke 400 rather than the settled 409, so relabelling them alone would move
-the ratchet with no guard written.
+deciding. Three remain, all of them mission flags still labelled #316 that are
+in fact already read, through a bespoke 400 rather than the settled 409, so
+relabelling them alone would move the ratchet with no guard written.
 
 ### Catalogs are block-only
 
 The registry covers the catalogs as well as the operational records, and every
 catalog rule is a `block`. None cascades, none detaches. Delete means the record
 should never have existed, so a live referrer is proof that it did and the
-agency wanted Deactivate. The block reaches catalog children too: an Insecticide
-with a Batch needs the Batch deleted first.
+organization wanted Deactivate. The block reaches catalog children too: an
+Insecticide with a Batch needs the Batch deleted first.
 
 Catalog deletes call `assertRecordDeletable` rather than `applyRecordDeletion`,
 which is the same check without the cascade and detach writes there is nothing
@@ -320,8 +447,8 @@ call it without being retyped.
 
 The three operator-global catalogs (Unit, Genus, Species) cannot use the
 registry, because every query in it scopes by `organization_id` and those rows
-have none. Their block counts across every agency, reports one total, and names
-no agency. `units` also carries a hand-written check against
+have none. Their block counts across every organization, reports one total, and
+names no organization. `units` also carries a hand-written check against
 `organizations.settings -> 'unitDefaults'`, because that reference is a code
 string in a JSON document and a rule that counts rows cannot see it.
 
@@ -335,8 +462,8 @@ and shares the first's registry, so a catalog gets both directions or neither.
 `{ error: 'reference_refused', reason, reference, message }`, where `reason` is
 `missing` or `inactive` and `reference` names the catalog record type or the
 table. Missing answers 404 and inactive 409; missing does not distinguish
-"another agency's" from "no such row", because telling them apart would make the
-refusal a way to probe for ids.
+"another organization's" from "no such row", because telling them apart would
+make the refusal a way to probe for ids.
 
 Pass `write: { kind: 'update', table, recordId }` on an update and
 `{ kind: 'create' }` on a create. The stored row is read once and any reference
@@ -363,9 +490,9 @@ Inspection, a Profile arrive the same way, and until #200 nothing checked whose
 they were: a foreign key is satisfied by the row existing anywhere, so org A
 could file a Chemical Application against org B's Equipment and get a 201.
 
-A **record** reference qualifies when the row belongs to the writing agency and
-is not soft-deleted. There is no third condition, because there is no
-`is_active` on an operational record and no meaning for one.
+A **record** reference qualifies when the row belongs to the writing
+organization and is not soft-deleted. There is no third condition, because there
+is no `is_active` on an operational record and no meaning for one.
 
 Writers do not list these. They come off the row being written:
 
@@ -386,8 +513,8 @@ goes through one of the two seams. Its allowlist is for a column set from
 
 The two weather tables are outside all of this. Their `organization_id` is
 nullable, kept that way for a provider-owned station, and `organization_id = $1`
-compares unequal to null — this gate would read a global station as belonging to
-nobody and refuse it. `weather-commands/shared.ts` writes that predicate out
+compares unequal to null, so this gate would read a global station as belonging
+to nobody and refuse it. `weather-commands/shared.ts` writes that predicate out
 itself.
 
 ## Offline and sync
@@ -440,7 +567,7 @@ a command that never happened.
   different id, is two admins asking for the same thing at once, and the server
   refuses it and names who holds it. For an invitation that rule is
   `memberships_organization_invited_email_unique`, which is one live invitation
-  per address per agency.
+  per address per organization.
 
 - **An overwrite is its own command.** Where a second call is sometimes a retry
   to swallow and sometimes a deliberate redo, no key can tell them apart.
@@ -457,17 +584,17 @@ a command that never happened.
   (#218), because the only rows the command is offered on are the rows holding an
   invitation. So the revoke goes first.
 
-  What that costs is a window where the person holds no grant at all: the old one
-  is gone and the new one has not issued. Nothing closes it. A restore is another
-  call that can fail the same way, and the failure it is restoring from is usually
-  the second system being unreachable. What is owed instead is two things. The row
-  must end saying only what the second system actually finished, which for a
-  re-invitation means clearing `workos_invitation_id` the moment the revoke lands,
-  so a retry finds nothing to revoke and the Membership never names a dead link.
-  And the failure must be legible: one server log line naming the row, the agency
-  and the grant that was revoked, because no screen shows the difference between
-  "the re-invitation failed" and "the re-invitation failed and took their link
-  with it".
+  What that costs is a window where the person holds no grant at all: the old
+  one is gone and the new one has not issued. Nothing closes it. A restore is
+  another call that can fail the same way, and the failure it is restoring from
+  is usually the second system being unreachable. What is owed instead is two
+  things. The row must end saying only what the second system actually finished,
+  which for a re-invitation means clearing `workos_invitation_id` the moment the
+  revoke lands, so a retry finds nothing to revoke and the Membership never
+  names a dead link. And the failure must be legible: one server log line naming
+  the row, the organization and the grant that was revoked, because no screen
+  shows the difference between "the re-invitation failed" and "the re-invitation
+  failed and took their link with it".
 
 - **No optimistic row for the half the client cannot see.** Apply optimistically
   to what the command fully determines; never invent a status only the second

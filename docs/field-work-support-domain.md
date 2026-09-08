@@ -179,8 +179,8 @@ use this registry instead of hand-rolling polymorphic comment checks.
 
 `comments.organization_id` is derived, denormalized data and stays that way.
 Even when normal loading is target-scoped, the column earns its place in
-authorization prefiltering, indexing, exports, moderation, and tenant-scoped
-cleanup jobs.
+authorization prefiltering, indexing, exports, moderation, and
+organization-scoped cleanup jobs.
 
 `comments_entity_idx` is the target-scoped active-comment index and stays:
 
@@ -343,10 +343,11 @@ it. Deactivate used tags instead.
 `tag_items.organization_id` exists as derived, denormalized data. The server
 derives it from the resolved tag and target organization and verifies both
 match. Keeping the organization id on the association row makes target-scoped
-and tenant-scoped queries cheaper, and mirrors `comments` and
+and organization-scoped queries cheaper, and mirrors `comments` and
 `additional_personnel`.
 
-Tag names are unique per agency through a soft-delete-aware, lower-trim index:
+Tag names are unique per organization through a soft-delete-aware, lower-trim
+index:
 
 ```sql
 create unique index tags_organization_normalized_name_unique
@@ -666,7 +667,8 @@ anchors, uniqueness, and command invariants when queued commands replay.
 
 ## Route schema
 
-Route names are unique per agency through a soft-delete-aware, lower-trim index:
+Route names are unique per organization through a soft-delete-aware, lower-trim
+index:
 
 ```sql
 create unique index routes_organization_normalized_name_unique
@@ -989,12 +991,13 @@ through `packages/domain/src/surveillance-records.ts` so neither domain imports
 the other. It is the same seam `performed-control-actions.ts` provides for
 control actions.
 
-They are reached through the record's own endpoint (`POST
-/larval-surveillance/inspections`, `POST /adult-surveillance/collections`,
-`POST /adult-surveillance/collections/:id/collect`) by including
-`assignmentItemId` in the body. The endpoint follows the table; the command
-follows the unit of work. A body without `assignmentItemId` builds the ordinary
-surveillance command, unchanged.
+They are reached through the record's own table endpoint, `/commands/inspections`
+and `/commands/collections`, by naming one of them in `intents` and sending
+`assignment_item_id` in the body. The endpoint follows the table; the command
+follows the unit of work. Naming the ordinary `larvalSurveillance.*` or
+`adultSurveillance.*` command instead builds the ordinary surveillance record,
+unchanged. This used to be an inference off whether `assignmentItemId` was in the
+body, on per-domain routes that no longer exist (#634).
 
 Options, matching `MissionExecutionOptions`:
 
@@ -1026,7 +1029,7 @@ surface may be asked. The refusals with no flag
 (`assignment_item_wrong_target_type`, `assignment_item_skipped`) are absent from
 it on purpose.
 
-Server checks, in `apps/server/src/field-work-commands/assignment-lifecycle.ts`:
+Server checks, in `apps/server/src/writers/field-work/assignment-lifecycle.ts`:
 the assignment row is locked before it is read, so two devices cannot both
 decide it was unstarted and both stamp a start time. A skipped stop is refused,
 and has to be unskipped first. A `completedAt` before the assignment's `started_at` is refused
@@ -1612,7 +1615,7 @@ Require client-generated IDs for commands that create rows:
 - `assignmentId`
 - `assignmentItemId`
 
-Date-only fields use `LocalDateString` because they represent agency-local
+Date-only fields use `LocalDateString` because they represent organization-local
 calendar dates, not instants:
 
 - `assignmentDate`

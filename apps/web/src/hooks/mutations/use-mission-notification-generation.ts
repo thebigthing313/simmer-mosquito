@@ -68,11 +68,11 @@ export interface RefusedRegistration {
  * A refusal, with the three fields that make one of them actionable.
  *
  * All three are empty on every reason but `buffer_unit_not_convertible`. That
- * refusal is agency-wide: one registration holding a unit the server cannot
- * price in metres blocks generation for every mission until somebody changes it.
- * `unitCodes` names the units, `registrations` names the rows holding them and
- * the contact each one is managed from, and `registrationsNotShown` counts the
- * ones past the server's cap.
+ * refusal is organization-wide: one registration holding a unit the server
+ * cannot price in metres blocks generation for every mission until somebody
+ * changes it. `unitCodes` names the units, `registrations` names the rows
+ * holding them and the contact each one is managed from, and
+ * `registrationsNotShown` counts the ones past the server's cap.
  */
 export interface GenerationRefusal {
 	readonly reason: GenerationRefusalReason;
@@ -149,7 +149,6 @@ export function useGenerateMissionNotifications(): (
 			`${getServerUrl()}/commands/mission_notifications/generate`,
 			{
 				method: 'POST',
-				credentials: 'include',
 				headers: { accept: 'application/json', 'content-type': 'application/json' },
 				// The column name, as everywhere else on the `/commands` surface.
 				body: JSON.stringify({ mission_id: missionId }),

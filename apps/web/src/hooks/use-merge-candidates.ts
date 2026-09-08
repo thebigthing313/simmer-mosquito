@@ -40,7 +40,10 @@ export interface DuplicateRecord {
 	/** The record's own name. Empty when it has none, which habitats often do. */
 	readonly label: string;
 	readonly detail: string | null;
-	/** ISO, as JSON carries it. Rendered through `lib/local-date`. */
+	/**
+	 * ISO, as JSON carries it — an instant, so the day it names is the
+	 * Organization's, read through `lib/local-date`. `addedOn` is that read.
+	 */
 	readonly createdAt: string;
 	readonly lat: number | null;
 	readonly lng: number | null;
@@ -65,7 +68,7 @@ export interface DuplicateGroup {
 }
 
 /**
- * The duplicate sets this agency's records suggest.
+ * The duplicate sets this organization's records suggest.
  *
  * Live data, and a merge is irreversible, so this refetches on focus for the
  * same reason `useDeleteImpact` does: a cleanup page left open over lunch would
@@ -80,7 +83,7 @@ export function useDuplicateCandidates(recordType: DuplicateRecordType) {
 		queryFn: async ({ signal }) => {
 			const response = await sessionFetch(
 				new URL(`/records/${recordType}/duplicates`, getServerUrl()),
-				{ credentials: 'include', signal },
+				{ signal },
 			);
 			if (!response.ok) {
 				throw new Error(`Could not look for duplicates (${response.status}).`);
@@ -131,7 +134,7 @@ export function useNearbyHabitats(habitatId: string, radiusMetres: number) {
 		queryFn: async ({ signal }) => {
 			const url = new URL(`/records/habitat/${habitatId}/nearby`, getServerUrl());
 			url.searchParams.set('radiusMetres', String(Math.round(radiusMetres)));
-			const response = await sessionFetch(url, { credentials: 'include', signal });
+			const response = await sessionFetch(url, { signal });
 			if (!response.ok) {
 				throw new Error(`Could not look for nearby habitats (${response.status}).`);
 			}

@@ -79,7 +79,7 @@ describe('deletable record registry', () => {
 			expect(label.trim()).not.toBe('');
 			// The label reaches the user through `RecordDeleteBlockedError`, so a
 			// multi-word type that never got one would leak `requestedControlAction`
-			// into a sentence an agency reads.
+			// into a sentence an organization reads.
 			expect(label).not.toMatch(/[A-Z]/);
 		}
 	});

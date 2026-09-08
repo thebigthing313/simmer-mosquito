@@ -7,14 +7,15 @@
  * > `public` is wrong because these routes sit behind the session cookie and
  * > the server *forces* the org-scoped `where` … Two operators hit
  * > byte-identical URLs and must not receive each other's rows, so a response
- * > that any shared cache may store is a tenancy leak waiting on a proxy nobody
- * > remembered was there.
+ * > that any shared cache may store is a leak across organizations waiting on a
+ * > proxy nobody remembered was there.
  *
  * `/map/tiles/habitats/13/1310/3166.mvt` carries no organization id. The scope
  * comes from `authContext.organization.id`, read out of the session inside the
- * handler. ADR 0005 lets one login belong to several agencies and `apps/web`
- * switches organization without changing that URL, so the same browser, on the
- * same URL, is entitled to two different tenants' geometry.
+ * handler. ADR 0005 lets one login belong to several organizations and
+ * `apps/web` switches organization without changing that URL, so the same
+ * browser, on the same URL, is entitled to two different organizations'
+ * geometry.
  *
  * The tile route sent no `cache-control` at all, which is not the same mistake
  * the sync proxy made — a response with no freshness header, no `ETag` and no
@@ -30,18 +31,18 @@
 import type { MiddlewareHandler } from 'hono';
 
 /**
- * Prefixes whose responses are organization-scoped reads on tenant-identical
- * URLs.
+ * Prefixes whose responses are organization-scoped reads on URLs that are
+ * identical across organizations.
  *
  * `/sync/*` is deliberately absent: `proxyElectricShape` forces the same two
  * headers itself, because it has to *replace* Electric's
  * `public, max-age=604800` rather than add to nothing.
  *
  * `/search` is here for the same reason `/map/*` is, and one more: the response
- * varies by which agency the caller is currently in, and one login can belong to
- * several. The organization id is nowhere in the URL, so two agencies hit
- * byte-identical URLs. Freshness across keystrokes is client memory, not an HTTP
- * cache.
+ * varies by which organization the caller is currently in, and one login can
+ * belong to several. The organization id is nowhere in the URL, so two
+ * organizations hit byte-identical URLs. Freshness across keystrokes is client
+ * memory, not an HTTP cache.
  *
  * It is `'/search'` and not `'/search*'`. Hono treats `*` as a wildcard only
  * where it is a whole path segment or a trailing `/*`; anywhere else it is

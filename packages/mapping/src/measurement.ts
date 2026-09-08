@@ -8,10 +8,10 @@
  * numbers that inform a pesticide rate, so being wrong at the third decimal is
  * not the same as being wrong by a factor of ten.
  *
- * Everything is computed on a sphere. Over the distances an agency measures —
- * a parcel, a marsh, a service area — the difference from a proper ellipsoidal
- * calculation is well under a tenth of a percent, and the formulae stay short
- * enough to read.
+ * Everything is computed on a sphere. Over the distances an organization
+ * measures — a parcel, a marsh, a service area — the difference from a proper
+ * ellipsoidal calculation is well under a tenth of a percent, and the formulae
+ * stay short enough to read.
  */
 
 import type { GeoJsonPolygon, LngLat } from './geometry.js';
@@ -148,10 +148,10 @@ export function rectanglePolygon(from: LngLat, to: LngLat): GeoJsonPolygon {
 /**
  * Which units to read a measurement back in.
  *
- * `us` because SIMMER's v1 agencies are US districts, who size treatment areas
- * in acres and talk about swath width in feet. `metric` is here because the
- * science half of the same work — larval densities, application rates — is
- * metric, and an agency should be able to pick.
+ * `us` because SIMMER's v1 organizations are US districts, who size treatment
+ * areas in acres and talk about swath width in feet. `metric` is here because
+ * the science half of the same work — larval densities, application rates — is
+ * metric, and an organization should be able to pick.
  */
 export type MeasurementSystem = 'us' | 'metric';
 
@@ -191,7 +191,7 @@ export function formatDistance(meters: number, system: MeasurementSystem = 'us')
 }
 
 /**
- * An area, in the unit an agency would actually write down.
+ * An area, in the unit an organization would actually write down.
  *
  * Acres for anything a crew treats, square miles once it is district-scale.
  * Small areas stay in square feet rather than becoming "0.01 acres", which

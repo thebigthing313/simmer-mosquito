@@ -50,8 +50,8 @@ export function registerSearchRoutes(
 		}
 
 		// One organization, off `AuthContext`, with no parameter that widens it. An
-		// operator who has entered an agency under ADR 0011 holds an ordinary
-		// `admin` membership there, so they get that agency and nothing else.
+		// operator who has entered an organization under ADR 0011 holds an ordinary
+		// `admin` membership there, so they get that organization and nothing else.
 		//
 		// Role deliberately does not filter results. No read in this repo is
 		// role-filtered: `shapeScopeOf` derives every predicate from
@@ -100,11 +100,11 @@ export function registerSearchRoutes(
  * response here and found what they came for. The results page is the honest
  * surface, because its empty state is this same `total === 0`.
  *
- * The query text is never written. It is free text somebody typed and can hold a
- * caller's name, a street address or a phone number, so the length stands in for
- * it: a log line is agency data in a stream nothing in this codebase scopes and
- * no deletion request reaches. Issue #282 is the record of why there is no table
- * here either.
+ * The query text is never written. It is free text somebody typed and can hold
+ * a caller's name, a street address or a phone number, so the length stands in
+ * for it: a log line is organization data in a stream nothing in this codebase
+ * scopes and no deletion request reaches. Issue #282 is the record of why there
+ * is no table here either.
  *
  * Only a query that reached Postgres gets a line. A refusal already answered
  * `400 invalid_query` above and is not a miss.

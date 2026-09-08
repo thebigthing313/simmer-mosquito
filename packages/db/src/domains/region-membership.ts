@@ -13,9 +13,9 @@ import { regionMembershipMatch } from './map-region-filter.js';
  * every geometry write and would go stale silently.
  *
  * A sibling of `record-deletion.ts`: generic, keyed by record type and id,
- * whitelisted, agency-scoped, and answering `found: false` rather than 404 so
- * the read cannot be used to probe for another agency's ids. Read the two as a
- * pair.
+ * whitelisted, organization-scoped, and answering `found: false` rather than
+ * 404 so the read cannot be used to probe for another organization's ids. Read
+ * the two as a pair.
  */
 
 /**
@@ -77,7 +77,7 @@ export interface RecordRegionGroup {
 export interface RecordRegions {
 	readonly recordType: RegionMembershipRecordType;
 	readonly recordId: string;
-	/** False when the record is missing, another agency's, or already deleted. */
+	/** False when the record is missing, another organization's, or already deleted. */
 	readonly found: boolean;
 	/**
 	 * Folders holding a match, by name, with the unfiled group last. Only folders
@@ -91,14 +91,15 @@ export interface RecordRegions {
  * The only one of the fifteen whose `organization_id` is nullable.
  *
  * The null rows are the shared provider stations `gis/weather/$id.tsx` already
- * branches on, owned by nobody rather than by another agency and visible to
- * every agency by design. So the record gate widens for it and the region side
- * does not: `regions.organization_id` is NOT NULL and the region set scopes to
- * the caller either way, so a shared station is answered with the caller's own
- * regions. That is the point of the read for one, since an agency subscribes to
- * a provider station to find out which of their districts it sits in.
+ * branches on, owned by nobody rather than by another organization and visible
+ * to every organization by design. So the record gate widens for it and the
+ * region side does not: `regions.organization_id` is NOT NULL and the region
+ * set scopes to the caller either way, so a shared station is answered with the
+ * caller's own regions. That is the point of the read for one, since an
+ * organization subscribes to a provider station to find out which of their
+ * districts it sits in.
  */
-const NULLABLE_TENANCY_TABLES: ReadonlySet<string> = new Set(['weather_sources']);
+const NULLABLE_ORGANIZATION_TABLES: ReadonlySet<string> = new Set(['weather_sources']);
 
 export async function readRecordRegions(
 	db: DbExecutor,
@@ -133,18 +134,18 @@ async function recordExists(
 		select id from ${sql.table(input.recordType)}
 		where id = ${input.recordId}
 			and deleted_at is null
-			and ${tenancyGate(input.recordType, sql`organization_id`, input.organizationId)}
+			and ${organizationGate(input.recordType, sql`organization_id`, input.organizationId)}
 		limit 1
 	`.execute(db);
 	return result.rows.length > 0;
 }
 
-function tenancyGate(
+function organizationGate(
 	recordType: RegionMembershipRecordType,
 	column: RawBuilder<unknown>,
 	organizationId: string,
 ) {
-	if (NULLABLE_TENANCY_TABLES.has(recordType)) {
+	if (NULLABLE_ORGANIZATION_TABLES.has(recordType)) {
 		return sql`(${column} = ${organizationId} or ${column} is null)`;
 	}
 	return sql`${column} = ${organizationId}`;
@@ -198,7 +199,7 @@ async function readGroups(
 			and folder.deleted_at is null
 		where rec.id = ${input.recordId}
 			and rec.deleted_at is null
-			and ${tenancyGate(input.recordType, sql`rec.organization_id`, input.organizationId)}
+			and ${organizationGate(input.recordType, sql`rec.organization_id`, input.organizationId)}
 		order by (folder.id is null), folder.name, rf.name, rf.id
 	`.execute(db);
 

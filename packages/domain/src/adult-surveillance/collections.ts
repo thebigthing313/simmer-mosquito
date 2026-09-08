@@ -1,27 +1,43 @@
 import {
+	basePayload,
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
-import type { AdultCollectionLocationSource } from '../location-intent.js';
+import {
+	type AdultCollectionLocationSource,
+	validateLocationSourceInput,
+} from '../location-intent.js';
 import type { DomainId } from '../shared.js';
+import {
+	jsonObjectField,
+	normalizeUpdateFields,
+	nullableReferenceIdField,
+	passThroughField,
+	referenceIdField,
+	type UpdateFieldNormalizer,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import {
 	type AdultCommandInput,
 	type AdultCommandPayload,
-	basePayload,
+	adultCollectionLocationSourceField,
 	type CollectedCollectionTiming,
 	type CollectionBaseInput,
 	type CollectionBasePayload,
 	type CollectionTiming,
 	collectionBasePayload,
 	type DomainCommand,
-	validateAdultCollectionLocationSourceInput,
 	validateCollectedTiming,
 	validateCollectionBase,
-	validateIdCommand,
 	validateOperationalDate,
 	validateTiming,
 } from './shared.js';
@@ -144,21 +160,25 @@ export type CancelPendingCollectionCommand = DomainCommand<
 	AdultCommandPayload & { readonly collectionId: DomainId }
 >;
 
-export interface UpdateCollectionFieldDetailsCommandInput extends CollectionBaseInput {
-	readonly timing?: CollectionTiming;
-	readonly setByProfileId?: DomainId | null;
-	readonly collectedByProfileId?: DomainId | null;
-	readonly hasProblem?: boolean;
-}
+const collectionTimingField: UpdateFieldNormalizer<CollectionTiming, CollectionTiming> = (
+	value,
+	path,
+	issues,
+) => validateTiming(value, path, issues) ?? value;
+
+export const COLLECTION_FIELD_DETAILS_UPDATE_FIELDS = {
+	timing: collectionTimingField,
+	setByProfileId: nullableReferenceIdField,
+	collectedByProfileId: nullableReferenceIdField,
+	hasProblem: passThroughField<boolean>(),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateCollectionFieldDetailsCommandInput = CollectionBaseInput &
+	UpdateFieldsInput<typeof COLLECTION_FIELD_DETAILS_UPDATE_FIELDS>;
 
 export interface UpdateCollectionFieldDetailsCommandPayload extends CollectionBasePayload {
-	readonly changes: Readonly<{
-		readonly timing?: CollectionTiming;
-		readonly setByProfileId?: DomainId | null;
-		readonly collectedByProfileId?: DomainId | null;
-		readonly hasProblem?: boolean;
-		readonly metadata?: import('../shared.js').JsonObject | null;
-	}>;
+	readonly changes: UpdateFieldsChanges<typeof COLLECTION_FIELD_DETAILS_UPDATE_FIELDS>;
 }
 
 export type UpdateCollectionFieldDetailsCommand = DomainCommand<
@@ -166,22 +186,21 @@ export type UpdateCollectionFieldDetailsCommand = DomainCommand<
 	UpdateCollectionFieldDetailsCommandPayload
 >;
 
-export interface UpdateAdHocCollectionConfigurationCommandInput extends AdultCommandInput {
-	readonly collectionId: DomainId;
-	readonly collectionMethodId?: DomainId;
-	readonly locationSource?: import('../location-intent.js').AdultCollectionLocationSourceInput;
-	readonly collectionLureId?: DomainId | null;
-	readonly addressId?: DomainId | null;
-}
+export const AD_HOC_COLLECTION_UPDATE_FIELDS = {
+	collectionMethodId: referenceIdField,
+	locationSource: adultCollectionLocationSourceField,
+	collectionLureId: nullableReferenceIdField,
+	addressId: nullableReferenceIdField,
+} satisfies UpdateFieldSet;
+
+export type UpdateAdHocCollectionConfigurationCommandInput = AdultCommandInput &
+	UpdateFieldsInput<typeof AD_HOC_COLLECTION_UPDATE_FIELDS> & {
+		readonly collectionId: DomainId;
+	};
 
 export interface UpdateAdHocCollectionConfigurationCommandPayload extends AdultCommandPayload {
 	readonly collectionId: DomainId;
-	readonly changes: Readonly<{
-		readonly collectionMethodId?: DomainId;
-		readonly locationSource?: AdultCollectionLocationSource;
-		readonly collectionLureId?: DomainId | null;
-		readonly addressId?: DomainId | null;
-	}>;
+	readonly changes: UpdateFieldsChanges<typeof AD_HOC_COLLECTION_UPDATE_FIELDS>;
 }
 
 export type UpdateAdHocCollectionConfigurationCommand = DomainCommand<
@@ -271,7 +290,7 @@ export function setAdHocCollectionCommand(
 ): SetAdHocCollectionCommand {
 	const issues = validateCollectionBase(input);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
-	const locationSource = validateAdultCollectionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'adultCollection', issues);
 	validateOperationalDate(input.startedAt, 'startedAt', issues);
 	throwIfIssues('Set ad hoc collection command is invalid.', issues);
 
@@ -319,7 +338,7 @@ export function recordCollectedAdHocCollectionCommand(
 ): RecordCollectedAdHocCollectionCommand {
 	const issues = validateCollectionBase(input);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
-	const locationSource = validateAdultCollectionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'adultCollection', issues);
 	const timing = validateCollectedTiming(input.timing, 'timing', issues);
 	throwIfIssues('Record collected ad hoc collection command is invalid.', issues);
 
@@ -389,86 +408,34 @@ export function cancelPendingCollectionCommand(
 export function updateCollectionFieldDetailsCommand(
 	input: UpdateCollectionFieldDetailsCommandInput,
 ): UpdateCollectionFieldDetailsCommand {
-	const issues = validateCollectionBase(input);
-	const hasTiming = input.timing !== undefined;
-	const hasSetBy = input.setByProfileId !== undefined;
-	const hasCollectedBy = input.collectedByProfileId !== undefined;
-	const hasProblem = input.hasProblem !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (!hasTiming && !hasSetBy && !hasCollectedBy && !hasProblem && !hasMetadata) {
-		issues.push({ path: 'changes', message: 'At least one collection field must change.' });
-	}
-	const timing = hasTiming ? validateTiming(input.timing, 'timing', issues) : undefined;
-	const setByProfileId = hasSetBy
-		? normalizeOptionalUuid(input.setByProfileId, 'setByProfileId', issues)
-		: null;
-	const collectedByProfileId = hasCollectedBy
-		? normalizeOptionalUuid(input.collectedByProfileId, 'collectedByProfileId', issues)
-		: null;
+	const issues = createIssues();
+	validateBase(input, issues);
+	requireUuid(input.collectionId, 'collectionId', issues);
+	const changes = normalizeUpdateFields(
+		input,
+		COLLECTION_FIELD_DETAILS_UPDATE_FIELDS,
+		'At least one collection field must change.',
+		issues,
+	);
 	throwIfIssues('Update collection field details command is invalid.', issues);
 
 	return {
 		type: 'adultSurveillance.updateCollectionFieldDetails',
-		payload: {
-			...collectionBasePayload(input),
-			changes: {
-				...(timing !== undefined ? { timing } : {}),
-				...(hasSetBy ? { setByProfileId } : {}),
-				...(hasCollectedBy ? { collectedByProfileId } : {}),
-				...(hasProblem ? { hasProblem: input.hasProblem } : {}),
-				...(hasMetadata ? { metadata: collectionBasePayload(input).metadata } : {}),
-			},
-		},
+		payload: { ...collectionBasePayload(input), changes },
 	};
 }
 
 export function updateAdHocCollectionConfigurationCommand(
 	input: UpdateAdHocCollectionConfigurationCommandInput,
 ): UpdateAdHocCollectionConfigurationCommand {
-	const issues = createIssues();
-	const baseIssues = validateIdCommand(input, 'collectionId');
-	issues.push(...baseIssues);
-	const hasMethod = input.collectionMethodId !== undefined;
-	const hasLocation = input.locationSource !== undefined;
-	const hasLure = input.collectionLureId !== undefined;
-	const hasAddress = input.addressId !== undefined;
-	if (!hasMethod && !hasLocation && !hasLure && !hasAddress) {
-		issues.push({
-			path: 'changes',
-			message: 'At least one ad hoc configuration field must change.',
-		});
-	}
-	if (hasMethod) {
-		requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
-	}
-	const locationSource = hasLocation
-		? validateAdultCollectionLocationSourceInput(input, issues)
-		: undefined;
-	throwIfIssues('Update ad hoc collection configuration command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'adultSurveillance.updateAdHocCollectionConfiguration',
-		payload: {
-			...basePayload(input),
-			collectionId: normalizeRequiredId(input.collectionId),
-			changes: {
-				...(hasMethod ? { collectionMethodId: normalizeRequiredId(input.collectionMethodId) } : {}),
-				...(locationSource !== undefined ? { locationSource } : {}),
-				...(hasLure
-					? {
-							collectionLureId: normalizeOptionalUuid(
-								input.collectionLureId,
-								'collectionLureId',
-								issues,
-							),
-						}
-					: {}),
-				...(hasAddress
-					? { addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues) }
-					: {}),
-			},
-		},
-	};
+		input,
+		idKey: 'collectionId',
+		fields: AD_HOC_COLLECTION_UPDATE_FIELDS,
+		changeNoun: 'ad hoc configuration',
+		message: 'Update ad hoc collection configuration command is invalid.',
+	});
 }
 
 export function deleteCollectionCommand(

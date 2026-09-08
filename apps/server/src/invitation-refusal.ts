@@ -9,7 +9,7 @@
  * WorkOS writes into a browser (#220). Nothing in this repo decides what is in
  * it. The one seen on staging was `Email already invited to organization.` and
  * was harmless; the next could carry an internal id, an address belonging to
- * another agency, or the shape of the account structure.
+ * another organization, or the shape of the account structure.
  *
  * So the raw message goes to the log and the caller gets one of three names.
  * The split is read from the HTTP status WorkOS answered with, the same thing
@@ -43,9 +43,9 @@ export interface InvitationRefusal {
  * Name a failed send and log what WorkOS actually said.
  *
  * The ids are the log's, not the caller's. An operator reading the line needs
- * the row and the agency to find the person; the caller already knows which
- * invitation it asked for, and the address is the half worth keeping out of a
- * response body.
+ * the row and the organization to find the person; the caller already knows
+ * which invitation it asked for, and the address is the half worth keeping out
+ * of a response body.
  */
 export function refuseInvitationSend(
 	error: unknown,
@@ -81,7 +81,7 @@ export function refuseInvitationRevoke(
 	return report('Revoke', refusal, error, attempt);
 }
 
-/** The row and the agency, which is what an operator searches a log by. */
+/** The row and the organization, which is what an operator searches a log by. */
 interface InvitationAttempt {
 	readonly membershipId: string;
 	readonly organizationId: string;
@@ -135,8 +135,8 @@ function classify(status: number | null): InvitationRefusalCode {
 		return 'invitation_service_unavailable';
 	}
 
-	// SIMMER's own credentials, or an agency wired to a WorkOS organization it
-	// cannot write to. The person clicking Invite can do nothing about either,
+	// SIMMER's own credentials, or an organization wired to a WorkOS organization
+	// it cannot write to. The person clicking Invite can do nothing about either,
 	// and a retry reproduces it exactly.
 	if (status === 401 || status === 403) {
 		return 'invitation_service_unauthorized';

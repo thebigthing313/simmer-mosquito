@@ -49,7 +49,7 @@ export function useTrapRecord(trapId: string | null | undefined): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ trap: traps })
+				.from({ trap: traps() })
 				.where(({ trap }) => eq(trap.id, id))
 				.select(({ trap }) => ({
 					id: trap.id,

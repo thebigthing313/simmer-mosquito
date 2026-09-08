@@ -49,8 +49,8 @@ Adjacent shared domains own:
 ## Important semantics
 
 `traps` are recurring adult surveillance configurations: collection method,
-point location, optional lure, optional address, and agency display identity.
-They are not physical equipment.
+point location, optional lure, optional address, and organization display
+identity. They are not physical equipment.
 
 Trap management is manager-and-above. Collection method, lure, and organization
 species management is owner/admin only.
@@ -59,7 +59,7 @@ Collections are field collection attempts or collected records. Species counts
 are separate analysis transactions. Collection creation commands must not embed
 species count mutations.
 
-Pending collections exist only for exact timestamp workflows. Agencies that
+Pending collections exist only for exact timestamp workflows. Organizations that
 record adult surveillance only after lab arrival can create collected records
 directly with collection date and duration.
 
@@ -161,7 +161,10 @@ source record's owned geometry onto the target row.
 
 Trap create/reactivate/update must preserve:
 
-- At least one of `trap_name` or `trap_code`.
+- At least one of `trap_name` or `trap_code`. A create carries both fields, so
+  the domain builder states it. An update carries only the fields the edit
+  named, so the server reads the rule against the row as the edit will leave it,
+  and that is the only place the update path states it.
 - Duplicate active `trap_code` values are allowed only with acknowledgement.
 - Duplicate code checks are scoped to active, non-deleted traps in the same org,
   trim whitespace, and compare case-insensitively.

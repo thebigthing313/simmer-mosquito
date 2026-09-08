@@ -1,4 +1,5 @@
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import {
@@ -26,7 +27,7 @@ import {
 	FilterChip,
 	useExplorerPanel,
 } from '../../../components/explorer';
-import { MapCanvas } from '../../../components/map';
+import { MapCanvas, type MapTileLayer } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
@@ -85,9 +86,10 @@ function RegionFilters({
 }) {
 	return (
 		<>
-			<SearchField
+			<SearchInput
 				label="Search regions and folders"
-				onChange={onChange}
+				onChange={(event) => onChange(event.target.value)}
+				onClear={onClear}
 				placeholder="Search regions and folders"
 				value={search}
 			/>
@@ -105,16 +107,16 @@ function RegionsMap({
 	focusedId,
 	map,
 	onMapReady,
+	layers,
 	onSelect,
 	panel,
-	regionLayer,
 }: {
 	readonly focusedId: string | null;
+	readonly layers: readonly MapTileLayer[];
 	readonly map: MapboxMap | null;
 	readonly onMapReady: (instance: MapboxMap) => void;
 	readonly onSelect: (id: string | null) => void;
 	readonly panel: ReturnType<typeof useExplorerPanel>;
-	readonly regionLayer: NonNullable<Parameters<typeof MapCanvas>[0]['regionLayer']>;
 }) {
 	return (
 		<>
@@ -125,11 +127,11 @@ function RegionsMap({
 			 */}
 			<MapCanvas
 				contextMenu={{}}
-				controls={{ layers: false, measure: true, readout: true }}
+				controls={{ measure: true, readout: true }}
 				fitToData={focusedId === null}
 				inset={panel.inset}
+				layers={layers}
 				onMapReady={onMapReady}
-				regionLayer={regionLayer}
 				searchWidth={panel.width}
 			/>
 			{focusedId === null ? null : (
@@ -362,8 +364,8 @@ function useRegionEdits(
 function RegionsExplorerRoute() {
 	// `region_folders` is eager but no longer preloaded at boot — it left the
 	// baseline bundle with its webCollections entry — so the tree waits for both
-	// halves. Drawn on the regions alone, an agency that files everything would
-	// flash "No Regions Yet" for as long as the folder list took to arrive.
+	// halves. Drawn on the regions alone, an organization that files everything
+	// would flash "No Regions Yet" for as long as the folder list took to arrive.
 	const { folders, isReady: foldersReady } = useRegionFolders();
 	const { regions, isReady: regionsReady } = useRegionDirectory();
 	const isReady = foldersReady && regionsReady;
@@ -387,10 +389,17 @@ function RegionsExplorerRoute() {
 		(next: string) => setRegionFilters({ search: next }),
 		[setRegionFilters],
 	);
-	const { input: search, setInput: setSearch } = useDebouncedTextFilter(
-		regionQuery.search,
-		commitSearch,
-	);
+	const {
+		input: search,
+		setInput: setSearch,
+		clear: clearSearchInput,
+	} = useDebouncedTextFilter(regionQuery.search, commitSearch);
+	// Both halves: the field the operator is looking at, and the committed term on
+	// the URL that is actually cutting the tree.
+	const clearSearch = useCallback(() => {
+		clearSearchInput();
+		commitSearch('');
+	}, [clearSearchInput, commitSearch]);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
@@ -417,13 +426,16 @@ function RegionsExplorerRoute() {
 
 	const visibleArray = useMemo(() => [...visibleIds], [visibleIds]);
 	const serverUrl = getServerUrl();
-	const regionLayer = useMemo(
-		() => ({
-			serverUrl,
-			visibleIds: visibleArray,
-			selectedId: focusedId,
-			onSelectFeature: (id: string | null) => setFocusedId(id),
-		}),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'regions',
+				serverUrl,
+				visibleIds: visibleArray,
+				selectedId: focusedId,
+				onSelectFeature: (id: string | null) => setFocusedId(id),
+			},
+		],
 		[serverUrl, visibleArray, focusedId],
 	);
 	const toggleRegion = useCallback(
@@ -462,9 +474,7 @@ function RegionsExplorerRoute() {
 		<>
 			<ExplorerMapPage
 				activeFilterCount={activeFilterCount}
-				filters={
-					<RegionFilters onChange={setSearch} onClear={() => commitSearch('')} search={search} />
-				}
+				filters={<RegionFilters onChange={setSearch} onClear={clearSearch} search={search} />}
 				/*
 				 * Filing and importing sit with Create Region rather than as buttons over
 				 * the tree. All three write regions, none is reached often, and a row of
@@ -497,11 +507,11 @@ function RegionsExplorerRoute() {
 				map={
 					<RegionsMap
 						focusedId={focusedId}
+						layers={layers}
 						map={map}
 						onMapReady={setMap}
 						onSelect={setFocusedId}
 						panel={panel}
-						regionLayer={regionLayer}
 					/>
 				}
 				panel={panel}
@@ -801,7 +811,10 @@ function RegionTreeRow({
 						onCheckedChange={(value) => onToggle(value === true)}
 					/>
 					<button
-						className="min-w-0 flex-1 truncate rounded-sm text-left text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className={cn(
+							recordLink({ size: 'sm', tone: 'value' }),
+							'min-w-0 flex-1 truncate text-left',
+						)}
 						onClick={onFocus}
 						title="Show on the Map"
 						type="button"
@@ -889,17 +902,17 @@ function RegionRenameField({
 /**
  * Which of the two empty readings the tree is in, and the copy for it.
  *
- * An agency that has never drawn a region and a search that matched none of
- * hundreds are both an empty panel, and the way out of them is opposite: draw
- * or import one, or clear the search. Exported so the pair is tested without
- * standing a tree up.
+ * An organization that has never drawn a region and a search that matched none
+ * of hundreds are both an empty panel, and the way out of them is opposite:
+ * draw or import one, or clear the search. Exported so the pair is tested
+ * without standing a tree up.
  *
  * Not knowing yet reads as empty here, which is what the frame wants: while the
  * two collections load the heading is still `isLoading`, and the frame draws
  * placeholder rows rather than either of these.
  */
 export function regionsEmptyState(input: {
-	/** The agency has at least one Region or one folder. */
+	/** The organization has at least one Region or one folder. */
 	readonly hasDirectory: boolean;
 	/** The search left something in the tree. */
 	readonly hasMatches: boolean;

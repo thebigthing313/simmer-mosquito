@@ -95,7 +95,7 @@ export function useRouteMutations(): RouteMutations {
 			const now = optimisticStamp();
 			const routeId = newRecordId();
 			await settleWrite(
-				mutateCollection(routes, {
+				mutateCollection(routes(), {
 					operation: 'insert',
 					intent: 'fieldWork.createRoute',
 					row: {
@@ -118,7 +118,7 @@ export function useRouteMutations(): RouteMutations {
 	const rename = useCallback(
 		async (routeId: string, routeName: string) => {
 			await settleWrite(
-				mutateCollection(routes, {
+				mutateCollection(routes(), {
 					operation: 'update',
 					intent: 'fieldWork.updateRouteDetails',
 					key: routeId,
@@ -136,7 +136,7 @@ export function useRouteMutations(): RouteMutations {
 	const remove = useCallback(
 		async (routeId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(routes, {
+				mutateCollection(routes(), {
 					operation: 'delete',
 					intent: 'fieldWork.deleteRoute',
 					key: routeId,
@@ -171,9 +171,9 @@ export function useRouteMutations(): RouteMutations {
 				// request would never leave the browser. A move always rewrites at least
 				// the row it moved, which is why that cannot happen here.
 				apply: () => {
-					const positions = planStopPositions(plan, (id) => route_items.get(id)?.position);
+					const positions = planStopPositions(plan, (id) => route_items().get(id)?.position);
 					for (const [routeItemId, position] of positions) {
-						route_items.update(routeItemId, (draft) => {
+						route_items().update(routeItemId, (draft) => {
 							draft.position = position;
 						});
 					}

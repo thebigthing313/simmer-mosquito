@@ -16,6 +16,7 @@ export { FilterGrid } from './filter-layout';
 export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
 export { RESULT_SKELETON_KEYS } from './result-skeleton';
 export { SegmentedFilter } from './segmented-filter';
+export { SurfaceSwitch, surfaceSwitchItem } from './surface-switch';
 export { whenAny, whenOn, whenText } from './tile-filter-params';
 export { ToggleFilter } from './toggle-filter';
 export { useCollectionMethodOptions } from './use-collection-method-options';

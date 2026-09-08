@@ -18,10 +18,12 @@
  * Anywhere one row means one unit, join it instead. `use-application.ts` and the
  * two beside it do.
  *
- * Units are a global catalog rather than an agency one — no `organization_id` —
- * and there are a few dozen, so this reads the whole table and suspends.
+ * Units are a global catalog rather than an organization one — no
+ * `organization_id` — and there are a few dozen, so this reads the whole table
+ * and suspends.
  */
 
+import type { UnitSystem, UnitType } from '@simmer-mosquito/domain';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { units } from '../../lib/collections/units';
@@ -39,19 +41,10 @@ export interface UnitLabel {
 	 * Which family it belongs to. Read by the unit-defaults sheet, which groups a
 	 * type's units by system before name so metric and imperial do not interleave.
 	 */
-	readonly unitSystem: 'si' | 'imperial' | 'us_customary';
+	readonly unitSystem: UnitSystem;
 }
 
-/** The `unit_type` enum, as the domain's field predicates spell it. */
-export type UnitType =
-	| 'weight'
-	| 'distance'
-	| 'area'
-	| 'volume'
-	| 'temperature'
-	| 'duration'
-	| 'count'
-	| 'speed';
+export type { UnitType };
 
 export function useUnitLabels(): {
 	readonly all: readonly UnitLabel[];
@@ -60,7 +53,7 @@ export function useUnitLabels(): {
 } {
 	const result = useLiveSuspenseQuery(
 		(query) =>
-			query.from({ unit: units }).select(({ unit }) => ({
+			query.from({ unit: units() }).select(({ unit }) => ({
 				id: unit.id,
 				code: unit.code,
 				abbreviation: unit.abbreviation,

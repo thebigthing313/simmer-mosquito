@@ -20,9 +20,9 @@ import type { ReactNode } from 'react';
  *
  * Pass `aside` for the forms that carry geography — the layout splits and hands
  * the right half to it. Omit it and the column stands alone. The slot is named
- * for its position rather than its contents because this frame lives in `ui-web`
- * and knows nothing about maps; the agency workspace passes a `MapCanvas`, and
- * the operator console passes a geometry-file preview.
+ * for its position rather than its contents because this frame lives in
+ * `ui-web` and knows nothing about maps; the organization workspace passes a
+ * `MapCanvas`, and the operator console passes a geometry-file preview.
  */
 
 /**

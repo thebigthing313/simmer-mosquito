@@ -1,8 +1,7 @@
-import { createIssues, requiredUuid, validateAgencyCommandContext } from '../command-validation.js';
-import type { DomainId, DomainValidationIssue } from '../shared.js';
+import type { DomainId } from '../shared.js';
 
 /**
- * The identity commands an agency can send.
+ * The identity commands an organization can send.
  *
  * Every identity write ADR 0013 folds in, which is all of them. The one surface
  * left outside is `people.listMemberships`: it is a read behind a POST, and
@@ -27,33 +26,12 @@ export interface IdentityDomainCommand<TType extends IdentityCommandType, TPaylo
 	readonly payload: TPayload;
 }
 
-export interface AgencyIdentityCommandInput {
+export interface OrganizationIdentityCommandInput {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
 
-export interface AgencyIdentityCommandPayload {
+export interface OrganizationIdentityCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
-}
-
-export function agencyPayload(input: AgencyIdentityCommandInput): AgencyIdentityCommandPayload {
-	return { organizationId: input.organizationId, actorProfileId: input.actorProfileId };
-}
-
-export function validateAgencyBase(
-	input: AgencyIdentityCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateAgencyCommandContext(input, issues);
-}
-
-export function validateAgencyIdCommand<T extends AgencyIdentityCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateAgencyBase(input, issues);
-	requiredUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
 }

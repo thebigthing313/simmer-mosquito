@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	sendCommandTransaction,
 	type TransactionWrite,
 } from '../../../../collections/functions/command-transaction.js';
+import { setSessionFetcher } from '../../../../collections/functions/session-fetch.js';
+import { globalTransport } from './global-transport.js';
 
 const SERVER = 'https://api.test';
 
@@ -61,7 +63,15 @@ function write(
 	return { type, collection: collectionValue };
 }
 
+// What `stubApi` stubs is the answer, not the credential, so the transport
+// installed here defers to it. Without one `sessionFetch` refuses the send
+// (#694) and every case below reports that instead of what it asserts.
+beforeEach(() => {
+	setSessionFetcher(globalTransport);
+});
+
 afterEach(() => {
+	setSessionFetcher(null);
 	vi.unstubAllGlobals();
 });
 

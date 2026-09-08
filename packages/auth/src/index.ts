@@ -1,5 +1,20 @@
 import { WorkOS } from '@workos-inc/node';
 
+import type { AuthOrganizationChoice, AuthUser } from './browser.js';
+
+/**
+ * The two shapes both halves of this package name, declared once in `./browser`
+ * and re-exported here.
+ *
+ * That direction and not the other: `./browser` is the entry point a browser
+ * bundle reaches, and importing this module would pull `@workos-inc/node` into
+ * it. A type-only re-export erases, so nothing crosses at runtime either way.
+ *
+ * Written out twice until #615, byte for byte, with the WorkOS boundary reading
+ * one copy and the `/auth/me` body declaring the other.
+ */
+export type { AuthOrganizationChoice, AuthUser } from './browser.js';
+
 export const WORKOS_SESSION_COOKIE_NAME = 'wos-session';
 
 export interface WorkOsAuthConfig {
@@ -7,16 +22,6 @@ export interface WorkOsAuthConfig {
 	readonly clientId: string;
 	readonly cookiePassword: string;
 	readonly redirectUri: string;
-}
-
-export interface AuthUser {
-	readonly workosUserId: string;
-	readonly email: string;
-	readonly firstName: string | null;
-	readonly lastName: string | null;
-	readonly displayName: string;
-	readonly emailVerified: boolean | null;
-	readonly profilePictureUrl: string | null;
 }
 
 export interface AuthOrganization {
@@ -94,11 +99,6 @@ export interface PasswordSignInInput {
 export interface PasswordSignUpInput extends PasswordSignInInput {
 	readonly firstName?: string;
 	readonly lastName?: string;
-}
-
-export interface AuthOrganizationChoice {
-	readonly id: string;
-	readonly name: string;
 }
 
 /**
@@ -180,10 +180,187 @@ interface WorkOsUserLike {
 	readonly profilePictureUrl?: string | null;
 }
 
-export function createWorkOsAuth(config: WorkOsAuthConfig) {
-	const workos = new WorkOS(config.apiKey, {
-		clientId: config.clientId,
-	});
+/**
+ * Every call this workspace makes to WorkOS.
+ *
+ * Written out rather than inferred from the literal below, because it is the
+ * one shape six modules used to describe by hand and one interlock used to
+ * classify by string. `createWorkOsAuth` annotates its return with it, so a
+ * method whose signature drifts is a `tsc` error at the definition rather than
+ * a widening nobody notices.
+ */
+export interface WorkOsAuth {
+	getAuthorizationUrl(): string;
+	authenticateCode(options: {
+		readonly code: string;
+		readonly ipAddress?: string;
+		readonly userAgent?: string;
+	}): Promise<AuthenticatedSession>;
+	authenticateSession(
+		sealedSession: string | undefined,
+		options: SessionAuthenticationOptions,
+	): Promise<SessionAuthenticationResult>;
+	switchOrganization(input: {
+		readonly sealedSession: string | undefined;
+		readonly workosOrganizationId: string;
+	}): Promise<SessionAuthenticationResult>;
+	signInWithPassword(input: PasswordSignInInput): Promise<PasswordAuthResult>;
+	signUpWithPassword(input: PasswordSignUpInput): Promise<SignUpResult>;
+	verifyEmailCode(input: {
+		readonly code: string;
+		readonly pendingAuthenticationToken: string;
+		readonly ipAddress?: string;
+		readonly userAgent?: string;
+	}): Promise<VerifyEmailResult>;
+	authenticateWithOrganizationSelection(input: {
+		readonly organizationId: string;
+		readonly pendingAuthenticationToken: string;
+		readonly ipAddress?: string;
+		readonly userAgent?: string;
+	}): Promise<SelectOrganizationResult>;
+	requestPasswordReset(input: {
+		readonly email: string;
+	}): Promise<{ readonly passwordResetToken: string; readonly email: string } | null>;
+	resetPassword(input: {
+		readonly token: string;
+		readonly newPassword: string;
+	}): Promise<ResetPasswordResult>;
+	getInvitationByToken(token: string): Promise<InvitationSummary | null>;
+	acceptInvitationWithPassword(input: AcceptInvitationInput): Promise<AcceptInvitationResult>;
+	getLogoutUrl(sealedSession: string | undefined): Promise<string | null>;
+	revokeSession(sealedSession: string | undefined): Promise<void>;
+	getOrganization(workosOrganizationId: string | null): Promise<AuthOrganization | null>;
+	createOrganization(input: { readonly name: string }): Promise<AuthOrganization>;
+	deactivateOrganizationMembership(input: {
+		readonly workosUserId: string;
+		readonly workosOrganizationId: string;
+	}): Promise<{ readonly status: 'deactivated' | 'not_a_member' }>;
+	findOrganizationMember(input: {
+		readonly email: string;
+		readonly workosOrganizationId: string;
+	}): Promise<{
+		readonly workosUserId: string;
+		readonly status: 'active' | 'inactive' | 'pending';
+	} | null>;
+	sendOrganizationInvitation(input: {
+		readonly email: string;
+		readonly workosOrganizationId: string;
+		readonly inviterWorkosUserId?: string;
+	}): Promise<AuthInvitation>;
+	revokeInvitation(
+		invitationId: string,
+	): Promise<{ readonly status: 'revoked' | 'already_settled' }>;
+}
+
+/**
+ * The methods that change durable identity state.
+ *
+ * Staging authenticates against WorkOS **production**, so every one of these
+ * reaches the same directory production reaches: a `sendOrganizationInvitation`
+ * mails a real address, a `deactivateOrganizationMembership` revokes somebody's
+ * real access, a `requestPasswordReset` mails a working reset link. ADR 0017 is
+ * the decision that none of them runs there, and
+ * `apps/server/src/workos-identity-interlock.ts` is the enforcement.
+ *
+ * The list lives here, beside the methods, because it is a property of each
+ * method rather than of the server that calls it. It was two `Set`s of strings
+ * in `apps/server` and a third copy in that module's suite, and the strings had
+ * already drifted from the object (#619).
+ */
+export const WORKOS_IDENTITY_WRITE_METHODS = [
+	'signUpWithPassword',
+	'acceptInvitationWithPassword',
+	'requestPasswordReset',
+	'resetPassword',
+	'createOrganization',
+	'sendOrganizationInvitation',
+	'revokeInvitation',
+	'deactivateOrganizationMembership',
+] as const satisfies readonly (keyof WorkOsAuth)[];
+
+/**
+ * The methods that still run with the interlock on.
+ *
+ * The line is durable identity state versus session state.
+ * `signInWithPassword` and `revokeSession` both write, but what they write is a
+ * session. `getAuthorizationUrl`, `getOrganization` and `findOrganizationMember`
+ * write nothing at all.
+ *
+ * `verifyEmailCode` is the one judgement call, and it is allowed. It marks an
+ * address verified, which is durable, but it is reachable only as the second
+ * step of a sign-in WorkOS itself asked for, and refusing it would strand a
+ * signing-in user mid-flow. Nobody new can reach it on staging anyway, because
+ * `signUpWithPassword` and `acceptInvitationWithPassword` are both refused.
+ */
+export const WORKOS_SESSION_AND_READ_METHODS = [
+	'getAuthorizationUrl',
+	'authenticateCode',
+	'authenticateSession',
+	'switchOrganization',
+	'signInWithPassword',
+	'verifyEmailCode',
+	'authenticateWithOrganizationSelection',
+	'getInvitationByToken',
+	'getLogoutUrl',
+	'revokeSession',
+	'getOrganization',
+	'findOrganizationMember',
+] as const satisfies readonly (keyof WorkOsAuth)[];
+
+export type WorkOsIdentityWriteMethod = (typeof WORKOS_IDENTITY_WRITE_METHODS)[number];
+export type WorkOsSessionAndReadMethod = (typeof WORKOS_SESSION_AND_READ_METHODS)[number];
+
+/**
+ * Errors with the offending method names when `T` is not `never`.
+ *
+ * Deliberately the same three lines as in `apps/server/src/auth-context.ts` and in the
+ * generated drift suite at
+ * `packages/sync/src/tests/unit/collections/tables/drift.test.ts`, because a shared
+ * export was considered and refused: the idiom has no runtime and exporting it would
+ * put a dependency edge between packages that need nothing else from each other (#716).
+ */
+type Assert<T extends never> = T;
+
+/**
+ * A method on neither half, or on both.
+ *
+ * This is what makes the interlock's fail-closed default the second line rather
+ * than the only one. A method added below and classified nowhere used to be
+ * found on staging, as a 403 on a surface somebody was using; it is now a `tsc`
+ * error at the moment it is written. Dropping a name from either list fails the
+ * same way, and a name no method answers to fails at the `satisfies` above.
+ */
+type _EveryMethodIsClassifiedOnce = Assert<
+	| Exclude<keyof WorkOsAuth, WorkOsIdentityWriteMethod | WorkOsSessionAndReadMethod>
+	| Extract<WorkOsIdentityWriteMethod, WorkOsSessionAndReadMethod>
+>;
+
+/**
+ * The two halves of the WorkOS SDK this object calls.
+ *
+ * Narrowed off `WorkOS` rather than written out, so it cannot drift from the
+ * client the default below constructs, and so a third namespace has to be named
+ * here before a method can reach it.
+ *
+ * It exists to be passed. `createWorkOsAuth` used to construct the only client
+ * it would ever use, so a suite standing this object up over a double had to
+ * `vi.mock('@workos-inc/node')` and declare the SDK where it was mocked, which
+ * put the vendor dependency in `apps/server` for one test file and left "the
+ * stub is what the object called" as something that suite proved at runtime
+ * (#714).
+ */
+export type WorkOsClient = Pick<WorkOS, 'organizations' | 'userManagement'>;
+
+/**
+ * `client` is the WorkOS SDK client every method below calls. It is constructed
+ * from `config` when absent, which is every caller that is not a test.
+ */
+export function createWorkOsAuth(config: WorkOsAuthConfig, client?: WorkOsClient): WorkOsAuth {
+	const workos: WorkOsClient =
+		client ??
+		new WorkOS(config.apiKey, {
+			clientId: config.clientId,
+		});
 
 	const sessionSealOptions = {
 		sealSession: true,
@@ -298,10 +475,11 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 		 *
 		 * Organization selection already happens at sign-in, but only there — a
 		 * session is bound to one organization for its whole life, and a user in
-		 * more than one agency could otherwise only reach the second by signing out.
-		 * WorkOS models the move as a refresh carrying an explicit organization, so
-		 * the switch costs one round-trip and yields a session indistinguishable
-		 * from one that had been signed into that organization directly.
+		 * more than one organization could otherwise only reach the second by
+		 * signing out. WorkOS models the move as a refresh carrying an explicit
+		 * organization, so the switch costs one round-trip and yields a session
+		 * indistinguishable from one that had been signed into that organization
+		 * directly.
 		 *
 		 * A refusal here is WorkOS's: the refresh fails when the user has no
 		 * membership in the organization asked for. That is the authorization, not
@@ -331,8 +509,8 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 				// everything else — and "not a member of that organization", the
 				// refusal this endpoint exists to produce, is not one of the three. So
 				// the ordinary case arrived here as a throw and left as a 500, and an
-				// operator asking to enter an agency they have no membership in was
-				// told "unable to switch" rather than what was wrong.
+				// operator asking to enter an organization they have no membership in
+				// was told "unable to switch" rather than what was wrong.
 				const refusal = asSwitchRefusal(error);
 				if (refusal === null) {
 					throw error;
@@ -721,9 +899,9 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 		 *
 		 * Asked before an invitation is sent, because `sendInvitation` refuses an
 		 * address that is already a member and does so by throwing — so without
-		 * this, the one case ADR 0011 makes routine (an operator who is already
-		 * inside the agency's WorkOS organization, needing only the SIMMER role)
-		 * is the one case the invitation route cannot serve.
+		 * this, the one case ADR 0011 makes routine (an operator already inside the
+		 * WorkOS organization, needing only the SIMMER role) is the one case the
+		 * invitation route cannot serve.
 		 *
 		 * Two calls rather than one: WorkOS lists memberships by user id, and an
 		 * invitation names an email.
@@ -823,28 +1001,13 @@ function isSettledInvitationRefusal(error: unknown): boolean {
 	return status === 400 || status === 404;
 }
 
-interface WorkOsClientLike {
-	readonly userManagement: {
-		readonly listUsers: (options: {
-			readonly email: string;
-			readonly limit?: number;
-		}) => Promise<{ readonly data: readonly WorkOsListedUser[] }>;
-	};
-}
-
-interface WorkOsListedUser {
-	readonly id: string;
-	readonly email: string;
-	readonly lastSignInAt?: string | null;
-}
-
 /**
  * Looks up an existing WorkOS user by exact email. Returns `null` when none
  * matches. `lastSignInAt` distinguishes a real, previously-used account from an
  * invitation's provisional (never-signed-in) placeholder user.
  */
 async function findUserByEmail(
-	workos: WorkOsClientLike,
+	workos: WorkOsClient,
 	email: string,
 ): Promise<{ readonly id: string; readonly lastSignInAt: string | null } | null> {
 	const normalized = email.trim().toLowerCase();

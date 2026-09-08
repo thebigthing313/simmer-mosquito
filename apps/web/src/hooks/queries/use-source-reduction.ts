@@ -34,27 +34,27 @@ export function useSourceReduction(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ action: source_reductions })
+					.from({ action: source_reductions() })
 					.where(({ action }) => eq(action.id, actionId ?? unmatchableId))
 					// `left` throughout: a source reduction need not record a technician and
 					// most name no address.
 					.join(
-						{ method: source_reduction_methods },
+						{ method: source_reduction_methods() },
 						({ action, method }) => eq(action.source_reduction_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ unit: units },
+						{ unit: units() },
 						({ action, unit }) => eq(action.sources_eliminated_unit_id, unit.id),
 						'left',
 					)
 					.join(
-						{ technician: profiles },
+						{ technician: profiles() },
 						({ action, technician }) => eq(action.technician_profile_id, technician.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ action, address }) => eq(action.address_id, address.id),
 						'left',
 					)

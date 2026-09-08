@@ -16,7 +16,7 @@ Slice 3 landed in #204, and the invitation question #186 held is answered:
 the client mints both ids. The four that span WorkOS are
 `identity.invite`, `identity.reinvite`, `identity.changeRole` and
 `identity.endMembership`, all on `/commands/memberships`. The namespace is
-`identity.*` throughout — the `people.*` names below and in the older issues
+`identity.*` throughout. The `people.*` names below and in the older issues
 were never shipped. `IdentityWriteSurface`, `IDENTITY_FLOORS` and
 `denyIdentityWrite` are gone, `lib/identity-api.ts` with them, and all three
 identity collections are `mutations: true`.
@@ -26,7 +26,7 @@ identity collections are `mutations: true`.
 `identity.invite` is a retry to swallow, and a deliberate redo cannot be told
 from one by any key, so the redo is its own command. See
 `docs/domain-command-contract.md`, "Commands that span two systems", for the
-six rules the four ship under — the four rules below are the ADR's original
+six rules the four ship under. The four rules below are the ADR's original
 statement of them, and the doc is the current one.
 
 `hooks/mutations/rest-writes.ts` survives, against what "Consequences" says
@@ -178,10 +178,10 @@ domain. The ranking stays in `apps/server/src/roles.ts`, which is where
 authorization is decided.
 
 `lib/identity-api.ts` is deleted once the last surface moves, and
-`rest-writes.ts` with it — except that it turned out to have a caller that is
-not identity at all. See the status note above. `lib/collections/profiles.ts` and `organizations.ts` go back to
-`mutations: true`, because `/commands/profiles` and `/commands/organizations`
-will exist.
+`rest-writes.ts` with it, except that it turned out to have a caller that is not
+identity at all. See the status note above. `lib/collections/profiles.ts` and
+`organizations.ts` go back to `mutations: true`, because `/commands/profiles`
+and `/commands/organizations` will exist.
 
 `IdentityWriteSurface` and `IDENTITY_FLOORS` are deleted with the last surface.
 Until then they stay, and the floors they hold are the source for the

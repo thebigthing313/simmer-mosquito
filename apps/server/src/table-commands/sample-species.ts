@@ -25,13 +25,13 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeSampleSpeciesCommand } from '../larval-surveillance-commands/sample-species-counts.js';
-import type { SampleSpeciesRow } from '../larval-surveillance-commands/shared.js';
+import { writeSampleSpeciesCommand } from '../writers/larval-surveillance/sample-species-counts.js';
+import type { SampleSpeciesRow } from '../writers/larval-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 
 export function sampleSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, SampleSpeciesRow> {
+): TableCommands<'sample_species', LarvalSurveillanceCommand, SampleSpeciesRow> {
 	return {
 		table: 'sample_species',
 		run: {
@@ -41,9 +41,9 @@ export function sampleSpeciesTableCommands(
 			key: 'sampleSpecies',
 		},
 		intents: {
-			'larvalSurveillance.addSampleSpeciesCount': ({ payload, agency, id }) =>
+			'larvalSurveillance.addSampleSpeciesCount': ({ payload, organization, id }) =>
 				addSampleSpeciesCountCommand({
-					...agency,
+					...organization,
 					sampleSpeciesId: id,
 					sampleId: readText(payload.sample_id) ?? '',
 					speciesId: readText(payload.species_id) ?? '',
@@ -55,26 +55,28 @@ export function sampleSpeciesTableCommands(
 			// Four independently optional fields, so presence is genuinely the question
 			// here — a count corrected from 12 to 8 says nothing about the species, and
 			// re-sending the species would be this layer inventing an edit.
-			'larvalSurveillance.updateSampleSpeciesCount': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateSampleSpeciesCount': ({ payload, organization, id }) =>
 				updateSampleSpeciesCountCommand({
-					...agency,
+					...organization,
 					sampleSpeciesId: id,
-					...('species_id' in payload ? { speciesId: readText(payload.species_id) ?? '' } : {}),
-					...('larvae_count' in payload
+					...(payload.species_id !== undefined
+						? { speciesId: readText(payload.species_id) ?? '' }
+						: {}),
+					...(payload.larvae_count !== undefined
 						? { larvaeCount: readNumber(payload.larvae_count) ?? Number.NaN }
 						: {}),
-					...('identified_by_profile_id' in payload
+					...(payload.identified_by_profile_id !== undefined
 						? { identifiedByProfileId: readNullableText(payload.identified_by_profile_id) }
 						: {}),
-					...('identified_at' in payload
+					...(payload.identified_at !== undefined
 						? { identifiedAt: readText(payload.identified_at) ?? '' }
 						: {}),
 				}),
 
 			// No acknowledgement: nothing hangs off a species count, so removing one
 			// takes nothing with it.
-			'larvalSurveillance.deleteSampleSpeciesCount': ({ agency, id }) =>
-				deleteSampleSpeciesCountCommand({ ...agency, sampleSpeciesId: id }),
+			'larvalSurveillance.deleteSampleSpeciesCount': ({ organization, id }) =>
+				deleteSampleSpeciesCountCommand({ ...organization, sampleSpeciesId: id }),
 		},
 	};
 }

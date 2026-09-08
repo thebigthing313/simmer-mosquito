@@ -12,6 +12,18 @@
  * is a component, and the collection layer imports it: `./lib/*` resolves
  * straight to this file, so reading it does not pull React through the app-shell
  * barrel.
+ *
+ * It stays here rather than moving to `packages/config`, and #639 asked the
+ * question deliberately. That package now holds the rules four apps share for
+ * reading configuration, and this looks like one of them. It is not: every
+ * reader there takes a source object and a key, while this takes a value the
+ * call site has already read, and its second consumer is `EnvironmentBanner`
+ * two directories away. Moving it would put an edge from the component library
+ * to `packages/config` in exchange for one string comparison, which is the
+ * trade #644 refused when it left the tileset register out of `apps/web`. The
+ * empty-string rule that package does own is a different rule: `configured`
+ * decides whether a value is there at all, and this decides whether the value
+ * that is there names staging.
  */
 
 /**

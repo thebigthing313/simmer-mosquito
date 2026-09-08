@@ -1,3 +1,6 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -14,13 +17,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	ArrowLeftIcon,
@@ -29,15 +25,14 @@ import {
 	iconRegistry,
 	Loader2Icon,
 	PlusIcon,
-	SearchIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
+import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
 import { RouteMap } from '../../../../components/route-planning';
 import {
 	InlineEditField,
@@ -52,7 +47,8 @@ import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-ite
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import type { Tag } from '../../../../hooks/queries/tag-view';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
-import { isBelowRole } from '../../../../lib/write-access';
+import { useDebouncedValue } from '../../../../hooks/use-debounced-value';
+import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
 	type HabitatSite,
@@ -76,7 +72,7 @@ const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
 export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/habitats/routes/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -93,7 +89,7 @@ function RouteEditRoute() {
 	const auth = useAuthSnapshot();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 
-	const { routes, isReady } = useHabitatRoutes();
+	const { routes, isReady, isError } = useHabitatRoutes();
 	const route = routes.find((candidate) => candidate.id === id) ?? null;
 	const { stops, itemCount, isLoading } = useRouteStops(id);
 
@@ -232,11 +228,7 @@ function RouteEditRoute() {
 		}
 	}, [id, navigate, removeRoute]);
 
-	if (isReady && route === null) {
-		return <RouteEditNotFound />;
-	}
-
-	return (
+	const body = (
 		<>
 			<MapSplitPage
 				map={
@@ -371,6 +363,16 @@ function RouteEditRoute() {
 			) : null}
 		</>
 	);
+
+	return (
+		<RecordEditFrame
+			noun="route"
+			reading={{ isError, isReady, record: route }}
+			skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
+		>
+			{() => body}
+		</RecordEditFrame>
+	);
 }
 
 function AddStopBar({
@@ -381,36 +383,27 @@ function AddStopBar({
 	readonly onAdd: (habitat: HabitatSite) => void;
 }) {
 	const [searchInput, setSearchInput] = useState('');
-	const search = useDebouncedValue(searchInput, 220);
+	const { debounced: search, settle } = useDebouncedValue(searchInput, 220);
 	const { results, isFetching, isTooShort } = useHabitatSearch(search);
 	const open = search.trim().length >= 2;
 
 	return (
 		<div className="grid gap-1.5">
-			<div className="relative">
-				<SearchIcon
-					aria-hidden="true"
-					className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-				/>
-				<Input
-					aria-label="Search habitats to add"
-					className="pl-9"
-					onChange={(event) => setSearchInput(event.target.value)}
-					placeholder="Add a stop — search habitats…"
-					type="search"
-					value={searchInput}
-				/>
-				{searchInput.length > 0 ? (
-					<button
-						aria-label="Clear search"
-						className="-translate-y-1/2 absolute top-1/2 right-2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						onClick={() => setSearchInput('')}
-						type="button"
-					>
-						<XIcon aria-hidden="true" className="size-3.5" />
-					</button>
-				) : null}
-			</div>
+			<SearchInput
+				label="Search habitats to add"
+				onChange={(event) => setSearchInput(event.target.value)}
+				/*
+				 * The lookup keeps its previous rows while the next request is in
+				 * flight, so a clear that only empties the box leaves the panel
+				 * listing matches for text that has gone from the screen.
+				 */
+				onClear={() => {
+					setSearchInput('');
+					settle('');
+				}}
+				placeholder="Search habitats to add a stop…"
+				value={searchInput}
+			/>
 
 			{isTooShort ? (
 				<p className="px-1 text-muted-foreground text-xs">Type at least 2 characters to search.</p>
@@ -596,7 +589,10 @@ function EditStopRow({
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
 						<Link
-							className="pointer-events-auto w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+							className={cn(
+								recordLink({ size: 'sm' }),
+								'pointer-events-auto w-fit max-w-full truncate',
+							)}
 							params={{ id: stop.habitatId }}
 							to="/larval-surveillance/habitats/$id"
 						>
@@ -634,7 +630,7 @@ function EditStopRow({
 						title={stop.addressLabel ?? undefined}
 					>
 						<HomeIcon aria-hidden="true" className="size-3.5 shrink-0" />
-						<span className="min-w-0 truncate">{stop.addressLabel ?? '—'}</span>
+						<span className="min-w-0 truncate">{stop.addressLabel ?? <AbsentValue />}</span>
 					</span>
 
 					<StopTagChips tags={tags} />
@@ -649,7 +645,7 @@ function EditStopRow({
 									{value}
 								</span>
 							)}
-							textareaPlaceholder="What crews should know about this site…"
+							textareaPlaceholder="What crews should know about this habitat…"
 							value={stop.description}
 						/>
 						<InlineEditField
@@ -673,36 +669,4 @@ function EditStopRow({
 			</div>
 		</li>
 	);
-}
-
-function RouteEditNotFound() {
-	return (
-		<div className="flex h-full items-center justify-center p-6">
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<RouteIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>Route Not Found</EmptyTitle>
-					<EmptyDescription>This route may have been deleted.</EmptyDescription>
-				</EmptyHeader>
-				<Link
-					className="mt-2 inline-flex items-center gap-1 text-primary text-sm hover:underline"
-					to="/larval-surveillance/habitats/routes"
-				>
-					<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-					Back to routes
-				</Link>
-			</Empty>
-		</div>
-	);
-}
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-	const [debounced, setDebounced] = useState(value);
-	useEffect(() => {
-		const handle = setTimeout(() => setDebounced(value), delayMs);
-		return () => clearTimeout(handle);
-	}, [value, delayMs]);
-	return debounced;
 }

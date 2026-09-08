@@ -16,8 +16,16 @@ import type { SimmerDatabase } from '../index.js';
 // half. A tileset that disagreed with the others here would render visibly
 // wrong, so there is one value.
 
-const TILE_EXTENT = 4096;
-const TILE_BUFFER = 64;
+/**
+ * The two numbers every tileset encodes at.
+ *
+ * Exported so that a test asking what `ST_AsMVTGeom` does to a geometry asks it
+ * at the values the map runs on rather than at a copy of them.
+ */
+export const MAP_TILE_ENCODING = {
+	extent: 4096,
+	buffer: 64,
+} as const;
 
 /** The table, geometry, properties, and predicates of one tile read. */
 export interface MapTileQuery {
@@ -33,7 +41,7 @@ export interface MapTileQuery {
 	/** What each feature carries besides its geometry, e.g. ``sql`h.id` ``. */
 	readonly properties: readonly RawBuilder<unknown>[];
 	/**
-	 * Tenancy, filter, and tile-envelope predicates.
+	 * Organization-scope, filter, and tile-envelope predicates.
 	 *
 	 * These may reference the `bounds` CTE this read declares — the envelope
 	 * intersection is written by the caller rather than added here because the
@@ -67,14 +75,14 @@ export async function readMapTile(
 				st_asmvtgeom(
 					st_transform(${query.geom}, 3857),
 					bounds.geom_3857,
-					extent => ${TILE_EXTENT},
-					buffer => ${TILE_BUFFER}
+					extent => ${MAP_TILE_ENCODING.extent},
+					buffer => ${MAP_TILE_ENCODING.buffer}
 				) as geom
 			from ${query.from}
 			cross join bounds
 			where ${sql.join([...query.where], sql` and `)}
 		)
-		select coalesce(st_asmvt(tile_rows, ${query.layer}::text, ${TILE_EXTENT}, 'geom'), ''::bytea) as tile
+		select coalesce(st_asmvt(tile_rows, ${query.layer}::text, ${MAP_TILE_ENCODING.extent}, 'geom'), ''::bytea) as tile
 		from tile_rows
 	`.execute(db);
 

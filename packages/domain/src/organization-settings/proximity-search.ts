@@ -1,17 +1,17 @@
 /**
- * The distances a proximity search offers, in the agency's own units.
+ * The distances a proximity search offers, in the organization's own units.
  *
  * A habitat merge starts from one habitat and asks what else is standing in the
- * same spot, so the first thing the user reads is a radius. Showing it in metres
- * to an agency that works in feet makes them convert before they can judge it,
- * and the conversion is the whole question: whether two records are the same
- * catch basin turns on whether ten metres is across the street or across the
- * kerb.
+ * same spot, so the first thing the user reads is a radius. Showing it in
+ * metres to an organization that works in feet makes them convert before they
+ * can judge it, and the conversion is the whole question: whether two records
+ * are the same catch basin turns on whether ten metres is across the street or
+ * across the kerb.
  *
- * The agency's `unitDefaults.distance` decides which system, not which unit. The
- * seeded default is `mile`, which is the right unit for driving to a site and
- * the wrong one for standing next to it, so this maps the system rather than
- * carrying the setting through.
+ * The organization's `unitDefaults.distance` decides which system, not which
+ * unit. The seeded default is `mile`, which is the right unit for driving to a
+ * site and the wrong one for standing next to it, so this maps the system
+ * rather than carrying the setting through.
  */
 
 /** Which distance units a proximity search uses, and the radii it offers. */
@@ -25,13 +25,13 @@ export interface ProximitySearchUnit {
 }
 
 /**
- * Distance unit codes that mean the agency works in feet and miles.
+ * Distance unit codes that mean the organization works in feet and miles.
  *
  * Listed rather than derived, for the reason `METERS_PER_DISTANCE_UNIT` is: the
- * `units` table carries no system column, and a code is whatever an agency typed
- * when it added the unit. Anything unrecognized reads as metric, because that is
- * what the rest of the stack is in and a wrong guess there is a label rather
- * than a wrong number.
+ * `units` table carries no system column, and a code is whatever an
+ * organization typed when it added the unit. Anything unrecognized reads as
+ * metric, because that is what the rest of the stack is in and a wrong guess
+ * there is a label rather than a wrong number.
  */
 const IMPERIAL_DISTANCE_CODES: ReadonlySet<string> = new Set([
 	'mile',
@@ -64,7 +64,7 @@ const METRIC: ProximitySearchUnit = {
 	steps: [100, 250, 500, 1000],
 };
 
-/** Which units to search and label in, from the agency's default distance unit. */
+/** Which units to search and label in, from the organization's default distance unit. */
 export function proximitySearchUnit(distanceUnitCode: string): ProximitySearchUnit {
 	return IMPERIAL_DISTANCE_CODES.has(distanceUnitCode.trim().toLowerCase()) ? IMPERIAL : METRIC;
 }

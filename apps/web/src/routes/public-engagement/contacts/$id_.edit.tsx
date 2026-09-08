@@ -1,12 +1,11 @@
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type ContactFormValues,
 	contactFieldsFromValues,
@@ -16,7 +15,7 @@ import { ContactFormPage } from './-contact-form';
 
 export const Route = createFileRoute('/public-engagement/contacts/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/public-engagement/contacts/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -31,17 +30,23 @@ function EditContactRoute() {
 	const { id } = Route.useParams();
 	const { contact, isReady, isError } = useContact(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="contact" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (contact === undefined) {
-		return <RecordUnavailable layout="centered" noun="contact" reason="not-found" />;
-	}
-
-	return <EditContactLoader contact={contact} />;
+	return (
+		<RecordEditFrame
+			noun="contact"
+			reading={{ isError, isReady, record: contact }}
+			skeleton={
+				<OutletSimpleLayout>
+					<EditFormSkeleton
+						className="max-w-[640px]"
+						frame="plain"
+						rows={['h-9', ['h-9', 'h-9'], 'h-9', 'h-24']}
+					/>
+				</OutletSimpleLayout>
+			}
+		>
+			{(record) => <EditContactLoader contact={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditContactLoader({ contact }: { readonly contact: Contact }) {
@@ -77,22 +82,5 @@ function EditContactLoader({ contact }: { readonly contact: Contact }) {
 			onSave={onSave}
 			submitLabel="Save Changes"
 		/>
-	);
-}
-
-function EditFormSkeleton() {
-	return (
-		<OutletSimpleLayout>
-			<div className="grid max-w-[640px] gap-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-24 w-full" />
-			</div>
-		</OutletSimpleLayout>
 	);
 }

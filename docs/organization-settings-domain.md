@@ -106,9 +106,9 @@ batch-tracking setting, positive service request radius, and nonnegative service
 request day windows.
 
 The owner/admin floor is declared in `apps/server/src/command-permissions.ts`
-alongside every other agency command, and read from there before the request
-body is parsed, so an unauthorized caller cannot learn a payload's shape from
-the validation errors (#130).
+alongside every other organization command, and read from there before the
+request body is parsed, so an unauthorized caller cannot learn a payload's shape
+from the validation errors (#130).
 
 Settings-specific server checks include owner/admin permissions, optional
 `expectedUpdatedAt` optimistic concurrency, unit code existence and matching
@@ -142,10 +142,10 @@ details (name, contact, mailing address).
 ### People
 
 Managing people, meaning inviting somebody and creating or editing the profiles
-the agency attributes work to, is **owner/admin**, the same floor as everything
-else at the top of the ladder. An agency delegates onboarding; making the owner
-the only person who can add a seasonal crew member makes the owner a bottleneck
-rather than a safeguard.
+the organization attributes work to, is **owner/admin**, the same floor as
+everything else at the top of the ladder. An organization delegates onboarding;
+making the owner the only person who can add a seasonal crew member makes the
+owner a bottleneck rather than a safeguard.
 
 **Changing somebody's role is owner only**, and it is the one thing that is. An
 admin who could set a role could set their own to `owner`, and a rung anyone
@@ -158,12 +158,12 @@ This was undocumented until #121: the server enforced owner-only for all five
 people endpoints while no domain doc said so, and `roles.ts` simultaneously
 claimed nothing was owner-only.
 
-**Removing somebody**, meaning ending their access to the agency, is **owner/admin**
-with the invitation's bound: nobody removes above their own role. Removal is
-onboarding in reverse, so it sits on the same floor as inviting; without the
-bound, "admins may remove" would be "admins may remove every owner", and an
-agency with no owner cannot appoint one. Two further refusals: nobody removes
-themselves, and the last active owner stays.
+**Removing somebody**, meaning ending their access to the organization, is
+**owner/admin** with the invitation's bound: nobody removes above their own
+role. Removal is onboarding in reverse, so it sits on the same floor as
+inviting; without the bound, "admins may remove" would be "admins may remove
+every owner", and an organization with no owner cannot appoint one. Two further
+refusals: nobody removes themselves, and the last active owner stays.
 
 The membership is deactivated rather than deleted, in SIMMER and in WorkOS
 alike, and the profile is untouched. It stays assignable as field history and
@@ -190,11 +190,11 @@ history table is part of v1.
 
 ## Timezone
 
-**`settings.timezone` is the authority for every operational date.** An Agency's
-day is a local operational day: a trap placed at 9pm, a collection emptied
-before dawn, and an application logged at the end of a shift all belong to the
-day the crew worked, not to the day it was in UTC, on the database server, or
-on the laptop of whoever opened the page.
+**`settings.timezone` is the authority for every operational date.** An
+Organization's day is a local operational day: a trap placed at 9pm, a
+collection emptied before dawn, and an application logged at the end of a shift
+all belong to the day the crew worked, not to the day it was in UTC, on the
+database server, or on the laptop of whoever opened the page.
 
 This is not only a display rule. Every date-bounded read compares against a
 calendar day, so a moment filed under the wrong day at the edge of a range is
@@ -219,30 +219,30 @@ It affects date-only rules such as:
   organization row. It always returns a zone; while that row is still streaming
   it resolves to `DEFAULT_ORGANIZATION_TIMEZONE`. That is deliberate: the
   obvious alternative is the browser's zone, and that is the disagreement this
-  whole rule exists to remove. A default is wrong for an agency that has set
-  something else, but it is wrong identically for every viewer.
+  whole rule exists to remove. A default is wrong for an organization that has
+  set something else, but it is wrong identically for every viewer.
 
 ### The three rules
 
-1. **A `timestamptz` becoming a calendar date takes the Agency zone.** Use
+1. **A `timestamptz` becoming a calendar date takes the Organization zone.** Use
    `localDateSql` from `packages/db/src/domains/record-display-sql.ts`, never a
    bare `::date`, because that cast uses the database server's session timezone.
    `assertIanaTimeZone` guards it, because the zone is interpolated rather than
    bound.
-2. **A rendered instant takes the Agency zone.** Pass `timeZone` to every
+2. **A rendered instant takes the Organization zone.** Pass `timeZone` to every
    `Intl.DateTimeFormat` / `toLocaleString` that formats a moment. This includes
    audit timestamps ("Recorded", "Updated", a comment's absolute time): they sit
    in the same lists as operational dates, and a rule that split them by kind is
-   what produced the inconsistency in the first place. Relative durations
-   ("3m ago") are the one exception, and only because an elapsed span is the
-   same number in every zone.
+   what produced the inconsistency in the first place. Relative durations ("3m
+   ago") are the one exception, and only because an elapsed span is the same
+   number in every zone.
 3. **A `date` column takes *no* zone.** It is already a calendar day, and naming
    a zone introduces the very shift the other two rules remove. `new Date
    ('2026-08-04')` is UTC midnight, which renders as the 3rd west of Greenwich.
    Read the parts out and rebuild in UTC.
-4. **A typed calendar day widened into a `timestamptz` takes the Agency zone.**
-   The inverse of rule 1, and the half that has to agree with it. Use
-   `operationalDayAsInstant` (a day, stamped at Agency midday) or
+4. **A typed calendar day widened into a `timestamptz` takes the Organization
+   zone.** The inverse of rule 1, and the half that has to agree with it. Use
+   `operationalDayAsInstant` (a day, stamped at Organization midday) or
    `localTimeAsInstant` (a day and an `HH:MM`) from
    `apps/web/src/lib/local-date.ts`. Never `new Date(`${date}T${time}`)`, which
    is the browser's zone, and never a hard-coded `T12:00:00.000Z`, which is
@@ -270,9 +270,9 @@ Never compute an offset; always ask the zone about the instant in question.
 Postgres `at time zone` with an IANA *name* does this already (a fixed offset
 like `-05:00` does not). On the client, `Intl` does it, and
 `localDayStartAsTimestamp` in `apps/web/src/lib/local-date.ts` is the one place
-that has to resolve an Agency midnight to a UTC instant, including the case
-where the requested midnight does not exist, in a zone that springs forward at
-midnight.
+that has to resolve an Organization midnight to a UTC instant, including the
+case where the requested midnight does not exist, in a zone that springs forward
+at midnight.
 
 Settings commands validate and canonicalize IANA timezone names with built-in
 `Intl`. The web UI should normally offer a select or autocomplete sourced from
@@ -312,7 +312,7 @@ Supported modes:
 - `collection_date_duration`
 
 The default is `exact_timestamps` to preserve the original pending-collection
-workflow. Agencies that enter records after lab arrival can choose
+workflow. Organizations that enter records after lab arrival can choose
 `collection_date_duration` and create collected records directly.
 
 ## Larval inspection entry policy
@@ -353,10 +353,11 @@ be entered by key press instead of by picker. It is top-level rather than namesp
 because adult and larval identification read the same set, and the species ids come
 from the global taxonomy rather than either domain's catalog.
 
-A binding is `{ key, speciesId }` and nothing more. Sex and physiological status are
-**not** bound to the key: the adult entry modal carries a sticky sex/status mode that
-every press inherits, so an agency needs one key per species rather than one per
-species/sex/status combination. Larval entry ignores the mode entirely.
+A binding is `{ key, speciesId }` and nothing more. Sex and physiological status
+are **not** bound to the key: the adult entry modal carries a sticky sex/status
+mode that every press inherits, so an organization needs one key per species
+rather than one per species/sex/status combination. Larval entry ignores the
+mode entirely.
 
 Bindable keys are the letters `a`–`z` and digits `0`–`9`, stored and matched
 lowercase. `Escape`, `Enter`, `Backspace`, `Tab`, and the arrow keys are reserved by
@@ -380,13 +381,14 @@ points an owner or admin at the setup surface.
 
 ### Scope
 
-v1 stores one binding set per agency: shared bench workstations and printed key
-sheets are the common case, and it reuses the whole settings pipeline. Per-person
-bindings are anticipated but not built. `resolveEffectiveSpeciesKeyBindings({
-organization, user })` is the seam, and it already prefers a non-empty personal set
-over the agency set. Adding user scope is a persistence change (a `preferences`
-column on `users` or `memberships`, plus a self-scoped write endpoint) behind that
-one function; no consumer changes.
+v1 stores one binding set per organization: shared bench workstations and
+printed key sheets are the common case, and it reuses the whole settings
+pipeline. Per-person bindings are anticipated but not built.
+`resolveEffectiveSpeciesKeyBindings({ organization, user })` is the seam, and it
+already prefers a non-empty personal set over the organization set. Adding user
+scope is a persistence change (a `preferences` column on `users` or
+`memberships`, plus a self-scoped write endpoint) behind that one function; no
+consumer changes.
 
 ## Control operations
 

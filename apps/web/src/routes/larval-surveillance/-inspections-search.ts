@@ -1,3 +1,4 @@
+import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import {
 	choiceParam,
 	choiceSetParam,
@@ -13,9 +14,6 @@ import {
 // definition. Every codec drops what it cannot read, so a malformed or
 // hand-edited URL degrades to the explorer's own defaults instead of erroring.
 
-const inspectionDensityValues = ['none', 'light', 'medium', 'heavy', 'very_heavy'] as const;
-export type InspectionDensityValue = (typeof inspectionDensityValues)[number];
-
 const waterValues = ['all', 'wet', 'dry'] as const;
 export type WaterFilterValue = (typeof waterValues)[number];
 
@@ -26,7 +24,7 @@ export interface InspectionFilters {
 	/** Inclusive end of the inspection-date window (`YYYY-MM-DD`). */
 	readonly to: string;
 	readonly water: WaterFilterValue;
-	readonly density: ReadonlySet<InspectionDensityValue>;
+	readonly density: ReadonlySet<LarvalDensity>;
 	/** Restrict to inspections where at least one life stage was found. */
 	readonly positive: boolean;
 	readonly types: ReadonlySet<string>;
@@ -39,7 +37,7 @@ export const inspectionFilterCodecs: FilterCodecs<InspectionFilters> = {
 	from: dateParam,
 	to: dateParam,
 	water: choiceParam(waterValues, 'all'),
-	density: choiceSetParam(inspectionDensityValues),
+	density: choiceSetParam(LARVAL_DENSITIES),
 	positive: flagParam,
 	types: idSetParam,
 	inspectors: idSetParam,
@@ -55,9 +53,34 @@ export type InspectionsSearch = {
 	readonly from?: string;
 	readonly to?: string;
 	readonly water?: WaterFilterValue;
-	readonly density?: readonly InspectionDensityValue[];
+	readonly density?: readonly LarvalDensity[];
 	readonly positive?: boolean;
 	readonly types?: readonly string[];
 	readonly inspectors?: readonly string[];
 	readonly regions?: readonly string[];
 };
+
+/**
+ * What a move between the two Inspections surfaces carries.
+ *
+ * The Map and the Table share this filter contract and nothing else: the
+ * Table's search is these codecs plus its own sort, and the Map has no sort to
+ * put one under. So the switch between them keeps the keys named here and drops
+ * the rest, which is why a table sorted by dips does not hand the map two params
+ * its validator would strip on arrival.
+ *
+ * It takes the surface's own validated search rather than the decoded filter
+ * state, so the values that travel are the ones already on the address bar. A
+ * filter sitting at its default is not on it, and stays off, which is what lets
+ * each surface keep its own opening window.
+ */
+export function sharedInspectionSearch(search: Record<string, unknown>): Record<string, unknown> {
+	const carried: Record<string, unknown> = {};
+	for (const key of Object.keys(inspectionFilterCodecs)) {
+		const value = search[key];
+		if (value !== undefined) {
+			carried[key] = value;
+		}
+	}
+	return carried;
+}

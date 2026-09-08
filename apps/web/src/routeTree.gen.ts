@@ -19,7 +19,6 @@ import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as ChangelogRouteImport } from './routes/changelog'
-import { Route as ActivityMonitorRouteImport } from './routes/activity-monitor'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicEngagementIndexRouteImport } from './routes/public-engagement/index'
@@ -36,6 +35,7 @@ import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-orga
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as GisDataExplorerRouteImport } from './routes/gis/data-explorer'
+import { Route as DailyWorkProfileIdRouteImport } from './routes/daily-work/$profileId'
 import { Route as ControlOperationsResistanceMonitoringRouteImport } from './routes/control-operations/resistance-monitoring'
 import { Route as AdultSurveillanceTrapDirectoryRouteImport } from './routes/adult-surveillance/trap-directory'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
@@ -75,6 +75,7 @@ import { Route as OperationsAssignmentsCreateRouteImport } from './routes/operat
 import { Route as OperationsAssignmentsIdRouteImport } from './routes/operations/assignments/$id'
 import { Route as LarvalSurveillanceSamplesStatsRouteImport } from './routes/larval-surveillance/samples/stats'
 import { Route as LarvalSurveillanceSamplesIdRouteImport } from './routes/larval-surveillance/samples/$id'
+import { Route as LarvalSurveillanceInspectionsTableRouteImport } from './routes/larval-surveillance/inspections/table'
 import { Route as LarvalSurveillanceInspectionsStatsRouteImport } from './routes/larval-surveillance/inspections/stats'
 import { Route as LarvalSurveillanceInspectionsCreateRouteImport } from './routes/larval-surveillance/inspections/create'
 import { Route as LarvalSurveillanceInspectionsIdRouteImport } from './routes/larval-surveillance/inspections/$id'
@@ -189,11 +190,6 @@ const ChangelogRoute = ChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ActivityMonitorRoute = ActivityMonitorRouteImport.update({
-  id: '/activity-monitor',
-  path: '/activity-monitor',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
   id: '/accept-invitation',
   path: '/accept-invitation',
@@ -278,6 +274,11 @@ const MyOrganizationAdultSurveillanceRoute =
 const GisDataExplorerRoute = GisDataExplorerRouteImport.update({
   id: '/gis/data-explorer',
   path: '/gis/data-explorer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DailyWorkProfileIdRoute = DailyWorkProfileIdRouteImport.update({
+  id: '/daily-work/$profileId',
+  path: '/daily-work/$profileId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ControlOperationsResistanceMonitoringRoute =
@@ -505,6 +506,12 @@ const LarvalSurveillanceSamplesIdRoute =
   LarvalSurveillanceSamplesIdRouteImport.update({
     id: '/larval-surveillance/samples/$id',
     path: '/larval-surveillance/samples/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceInspectionsTableRoute =
+  LarvalSurveillanceInspectionsTableRouteImport.update({
+    id: '/larval-surveillance/inspections/table',
+    path: '/larval-surveillance/inspections/table',
     getParentRoute: () => rootRouteImport,
   } as any)
 const LarvalSurveillanceInspectionsStatsRoute =
@@ -876,7 +883,6 @@ const AdultSurveillanceTrapsRoutesIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
-  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
@@ -892,6 +898,7 @@ export interface FileRoutesByFullPath {
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
+  '/daily-work/$profileId': typeof DailyWorkProfileIdRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -943,6 +950,7 @@ export interface FileRoutesByFullPath {
   '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/inspections/table': typeof LarvalSurveillanceInspectionsTableRoute
   '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRoute
@@ -1007,7 +1015,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
-  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
@@ -1022,6 +1029,7 @@ export interface FileRoutesByTo {
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
+  '/daily-work/$profileId': typeof DailyWorkProfileIdRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -1073,6 +1081,7 @@ export interface FileRoutesByTo {
   '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/inspections/table': typeof LarvalSurveillanceInspectionsTableRoute
   '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRoute
@@ -1138,7 +1147,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
-  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
@@ -1154,6 +1162,7 @@ export interface FileRoutesById {
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
+  '/daily-work/$profileId': typeof DailyWorkProfileIdRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -1205,6 +1214,7 @@ export interface FileRoutesById {
   '/larval-surveillance/inspections/$id': typeof LarvalSurveillanceInspectionsIdRoute
   '/larval-surveillance/inspections/create': typeof LarvalSurveillanceInspectionsCreateRoute
   '/larval-surveillance/inspections/stats': typeof LarvalSurveillanceInspectionsStatsRoute
+  '/larval-surveillance/inspections/table': typeof LarvalSurveillanceInspectionsTableRoute
   '/larval-surveillance/samples/$id': typeof LarvalSurveillanceSamplesIdRoute
   '/larval-surveillance/samples/stats': typeof LarvalSurveillanceSamplesStatsRoute
   '/operations/assignments/$id': typeof OperationsAssignmentsIdRoute
@@ -1271,7 +1281,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-invitation'
-    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
@@ -1287,6 +1296,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
+    | '/daily-work/$profileId'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1338,6 +1348,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/inspections/table'
     | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
     | '/operations/assignments/$id'
@@ -1402,7 +1413,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-invitation'
-    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
@@ -1417,6 +1427,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
+    | '/daily-work/$profileId'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1468,6 +1479,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/inspections/table'
     | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
     | '/operations/assignments/$id'
@@ -1532,7 +1544,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accept-invitation'
-    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
@@ -1548,6 +1559,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
+    | '/daily-work/$profileId'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1599,6 +1611,7 @@ export interface FileRouteTypes {
     | '/larval-surveillance/inspections/$id'
     | '/larval-surveillance/inspections/create'
     | '/larval-surveillance/inspections/stats'
+    | '/larval-surveillance/inspections/table'
     | '/larval-surveillance/samples/$id'
     | '/larval-surveillance/samples/stats'
     | '/operations/assignments/$id'
@@ -1664,7 +1677,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInvitationRoute: typeof AcceptInvitationRoute
-  ActivityMonitorRoute: typeof ActivityMonitorRoute
   ChangelogRoute: typeof ChangelogRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LandingRoute: typeof LandingRoute
@@ -1680,6 +1692,7 @@ export interface RootRouteChildren {
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
   AdultSurveillanceTrapDirectoryRoute: typeof AdultSurveillanceTrapDirectoryRoute
   ControlOperationsResistanceMonitoringRoute: typeof ControlOperationsResistanceMonitoringRoute
+  DailyWorkProfileIdRoute: typeof DailyWorkProfileIdRoute
   GisDataExplorerRoute: typeof GisDataExplorerRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
   ControlOperationsIndexRoute: typeof ControlOperationsIndexRoute
@@ -1722,6 +1735,7 @@ export interface RootRouteChildren {
   LarvalSurveillanceInspectionsIdRoute: typeof LarvalSurveillanceInspectionsIdRoute
   LarvalSurveillanceInspectionsCreateRoute: typeof LarvalSurveillanceInspectionsCreateRoute
   LarvalSurveillanceInspectionsStatsRoute: typeof LarvalSurveillanceInspectionsStatsRoute
+  LarvalSurveillanceInspectionsTableRoute: typeof LarvalSurveillanceInspectionsTableRoute
   LarvalSurveillanceSamplesIdRoute: typeof LarvalSurveillanceSamplesIdRoute
   LarvalSurveillanceSamplesStatsRoute: typeof LarvalSurveillanceSamplesStatsRoute
   OperationsAssignmentsIdRoute: typeof OperationsAssignmentsIdRoute
@@ -1856,13 +1870,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChangelogRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/activity-monitor': {
-      id: '/activity-monitor'
-      path: '/activity-monitor'
-      fullPath: '/activity-monitor'
-      preLoaderRoute: typeof ActivityMonitorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/accept-invitation': {
       id: '/accept-invitation'
       path: '/accept-invitation'
@@ -1973,6 +1980,13 @@ declare module '@tanstack/react-router' {
       path: '/gis/data-explorer'
       fullPath: '/gis/data-explorer'
       preLoaderRoute: typeof GisDataExplorerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/daily-work/$profileId': {
+      id: '/daily-work/$profileId'
+      path: '/daily-work/$profileId'
+      fullPath: '/daily-work/$profileId'
+      preLoaderRoute: typeof DailyWorkProfileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/control-operations/resistance-monitoring': {
@@ -2246,6 +2260,13 @@ declare module '@tanstack/react-router' {
       path: '/larval-surveillance/samples/$id'
       fullPath: '/larval-surveillance/samples/$id'
       preLoaderRoute: typeof LarvalSurveillanceSamplesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/inspections/table': {
+      id: '/larval-surveillance/inspections/table'
+      path: '/larval-surveillance/inspections/table'
+      fullPath: '/larval-surveillance/inspections/table'
+      preLoaderRoute: typeof LarvalSurveillanceInspectionsTableRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/larval-surveillance/inspections/stats': {
@@ -2732,7 +2753,6 @@ const AdminOrganizationsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
-  ActivityMonitorRoute: ActivityMonitorRoute,
   ChangelogRoute: ChangelogRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LandingRoute: LandingRoute,
@@ -2751,6 +2771,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdultSurveillanceTrapDirectoryRoute: AdultSurveillanceTrapDirectoryRoute,
   ControlOperationsResistanceMonitoringRoute:
     ControlOperationsResistanceMonitoringRoute,
+  DailyWorkProfileIdRoute: DailyWorkProfileIdRoute,
   GisDataExplorerRoute: GisDataExplorerRoute,
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
   ControlOperationsIndexRoute: ControlOperationsIndexRoute,
@@ -2805,6 +2826,8 @@ const rootRouteChildren: RootRouteChildren = {
     LarvalSurveillanceInspectionsCreateRoute,
   LarvalSurveillanceInspectionsStatsRoute:
     LarvalSurveillanceInspectionsStatsRoute,
+  LarvalSurveillanceInspectionsTableRoute:
+    LarvalSurveillanceInspectionsTableRoute,
   LarvalSurveillanceSamplesIdRoute: LarvalSurveillanceSamplesIdRoute,
   LarvalSurveillanceSamplesStatsRoute: LarvalSurveillanceSamplesStatsRoute,
   OperationsAssignmentsIdRoute: OperationsAssignmentsIdRoute,

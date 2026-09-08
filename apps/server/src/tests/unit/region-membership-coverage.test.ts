@@ -1,6 +1,6 @@
 import { REGION_MEMBERSHIP_RECORD_TYPES } from '@simmer-mosquito/db';
 import { readUpMigrations } from '@simmer-mosquito/db/test-support';
-import { tableSchemas } from '@simmer-mosquito/sync';
+import { tableSchemas } from '@simmer-mosquito/sync/contract';
 import { describe, expect, it } from 'vitest';
 
 /**

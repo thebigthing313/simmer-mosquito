@@ -27,8 +27,8 @@
  * which is what should happen there: otherwise a backgrounded tab holds a
  * connection open for every shape.
  *
- * Both halves of the condition are replaced at build time, so a production
- * bundle drops the adapter and its import. `import.meta.env.DEV` is false in any
+ * Vite replaces both halves of the condition at build time, so a bundle carries
+ * the two values rather than reading them. `import.meta.env.DEV` is false in any
  * `vite build`, staging included, which is why staging needs the second half:
  * `VITE_SIMMER_ENVIRONMENT` is the same variable the environment banner reads,
  * compared against a literal so an unset or empty `ARG` (#85) is production.
@@ -47,9 +47,17 @@ import { getServerUrl } from '../../auth';
  *
  * Exported so the three cases can be asserted rather than reasoned about, and
  * because a wrong answer here is invisible until a shape hangs.
+ *
+ * A function rather than a constant so a test can set the environment and call
+ * it. Holding the answer at module scope left a suite nothing to do but reset
+ * the module registry and reimport per case. That reset is worker-wide, and the
+ * reimport re-executes this module and everything it pulls in. Under a full
+ * `pnpm test` it ran past the 5s default and timed out on a different case each
+ * run (#476).
  */
-export const syncsWhileHidden =
-	import.meta.env.DEV || isStagingEnvironment(import.meta.env.VITE_SIMMER_ENVIRONMENT);
+export function syncsWhileHidden(): boolean {
+	return import.meta.env.DEV || isStagingEnvironment(import.meta.env.VITE_SIMMER_ENVIRONMENT);
+}
 
 export const syncClientOptions: Pick<
 	SyncCollectionClientOptions,
@@ -57,8 +65,11 @@ export const syncClientOptions: Pick<
 > = {
 	serverUrl: getServerUrl(),
 
+	// Asked once, here. Vite bakes both values into the bundle, so the answer
+	// cannot change while the app is running.
+	//
 	// Spread rather than assigned so the key is absent in a build rather than
 	// present and holding `undefined`, which is what `exactOptionalPropertyTypes`
 	// means and what `syncCollectionConfig` checks.
-	...(syncsWhileHidden ? { runtimeVisibility: alwaysVisibleRuntime } : {}),
+	...(syncsWhileHidden() ? { runtimeVisibility: alwaysVisibleRuntime } : {}),
 };

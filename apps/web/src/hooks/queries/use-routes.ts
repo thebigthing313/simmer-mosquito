@@ -1,5 +1,5 @@
 /**
- * Every standing Route the agency has, of either kind.
+ * Every standing Route the organization has, of either kind.
  *
  * The two planning surfaces read their own kind — `useHabitatRoutes` and
  * `useTrapRoutes` each filter on `route_type`, because a habitat route and a trap
@@ -13,6 +13,7 @@
  * practice are codes and zone numbers.
  */
 
+import type { RouteType } from '@simmer-mosquito/domain';
 import { count, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteSummary } from '../../components/route-planning/route-summary';
@@ -25,7 +26,7 @@ const routeItemsGcTimeMs = 30_000;
 
 /** A route, with the kind of record its stops point at. */
 export interface RouteCatalogEntry extends RouteSummary {
-	readonly routeType: 'habitat' | 'trap';
+	readonly routeType: RouteType;
 }
 
 export function useRouteCatalog(): {
@@ -35,7 +36,7 @@ export function useRouteCatalog(): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ route: routes })
+				.from({ route: routes() })
 				.orderBy(({ route }) => route.route_name, 'asc')
 				.select(({ route }) => ({
 					id: route.id,
@@ -64,7 +65,7 @@ export function useRouteStopCounts(): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.groupBy(({ item }) => item.route_id)
 					.select(({ item }) => ({ routeId: item.route_id, stops: count(item.id) })),
 		},

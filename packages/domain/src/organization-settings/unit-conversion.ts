@@ -3,9 +3,9 @@
  *
  * The `units` table deliberately carries no factor and no base-unit column: a
  * unit pointing at another unit is a self-reference in the schema, and the
- * agency-facing tables already reference units heavily. So units are matched by
- * their stable `code`, and the arithmetic lives here, in one place, keyed to
- * those codes.
+ * organization-facing tables already reference units heavily. So units are
+ * matched by their stable `code`, and the arithmetic lives here, in one place,
+ * keyed to those codes.
  *
  * The tradeoff is accepted and worth stating: **adding a unit to the database
  * means adding it here too.** A unit this table does not know is not a silent

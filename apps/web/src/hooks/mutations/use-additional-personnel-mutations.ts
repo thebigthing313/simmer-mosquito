@@ -61,7 +61,7 @@ export function useAdditionalPersonnelMutations(): AdditionalPersonnelMutations 
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(additional_personnel, {
+				mutateCollection(additional_personnel(), {
 					operation: 'insert',
 					intent: 'fieldWork.addAdditionalPersonnel',
 					row: {
@@ -83,7 +83,7 @@ export function useAdditionalPersonnelMutations(): AdditionalPersonnelMutations 
 
 	const detach = useCallback(async (additionalPersonnelId: string) => {
 		await settleWrite(
-			mutateCollection(additional_personnel, {
+			mutateCollection(additional_personnel(), {
 				operation: 'delete',
 				intent: 'fieldWork.removeAdditionalPersonnel',
 				key: additionalPersonnelId,

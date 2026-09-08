@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { RecordFormPage } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -14,21 +13,22 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-item-mutations';
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { useCommandRunner } from '../-command-runner';
-import { useDrawLocation } from '../-draw-location';
 import { LocationSection } from '../-location-section';
 import { canEditMissionPlan, useMissionStopViews } from '../-operations-data';
+import { addStopDescription } from '../-operations-display';
 
 export const Route = createFileRoute('/operations/missions/$id_/add-stop')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/operations/missions/$id/add-stop')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -80,7 +80,10 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 	const timeZone = useOrganizationTimeZone();
 
 	const [addressId, setAddressId] = useState<string | null>(null);
-	const location = useDrawLocation({ missingMessage: 'Draw where the crew has to go.' });
+	const location = useDrawLocation({
+		geometryKind: 'missionItem',
+		missingMessage: 'Draw where the crew has to go.',
+	});
 
 	const submit = useCallback(() => {
 		if (!location.requireGeometry() || location.geometry === null) {
@@ -89,7 +92,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 		if (actorProfileId === null) {
 			return;
 		}
-		const geometry = location.geometry as unknown as GeoJsonGeometry;
+		const geometry = location.geometry;
 		void run(async () => {
 			await stopWrites.addAtGeometry({
 				missionId: mission.id,
@@ -111,18 +114,18 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 			}
 			aside={
 				<>
-					<MapCanvas
-						controls={{ layers: false }}
-						geoJson={location.referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-						onMapReady={location.onMapReady}
+					<MapCanvas geoJson={location.referenceGeometry} onMapReady={location.onMapReady} />
+					<DrawToolbar
+						geometryKind="missionItem"
+						controller={location.draw}
+						geometryType={location.geometryType}
 					/>
-					<DrawToolbar controller={location.draw} geometryType={location.geometryType} />
 				</>
 			}
 			gap="tight"
 			header={{
 				title: 'Add a Stop',
-				description: `Draw where the crew has to go on ${missionDisplayName(mission, timeZone)}.`,
+				description: addStopDescription(missionDisplayName(mission, timeZone)),
 				backTo: '/operations/missions/$id',
 				backParams: { id: mission.id },
 				backLabel: 'Back to mission',
@@ -137,7 +140,8 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 			)}
 
 			<LocationSection
-				description="A point for one site, a line for a run, an area for a block. The stop stores the shape as drawn."
+				geometryKind="missionItem"
+				description="A point for one spot, a line for a run, an area for a block. The stop stores the shape as drawn."
 				location={location}
 				organizationId={mission.organizationId}
 			>

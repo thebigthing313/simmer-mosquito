@@ -108,7 +108,7 @@ intersection, so the area-versus-area rule is genuinely there. Two gaps:
   is roughly 11 cm on the ground. The existing `geometryContainsLngLat` uses
   `1e-12`. Two client-side answers inside one app would disagree on anything
   within 11 cm of a boundary. The corpus in #246 uses shared literal
-  coordinates, so the corpus would not catch it, and agency-drawn geometry
+  coordinates, so the corpus would not catch it, and geometry drawn in the app
   would.
 
 ### geos.js and geos-wasm: yes, and they are the exact semantics
@@ -336,8 +336,8 @@ removes the largest source of silent wrong answers.
 
 **Total: roughly 250 to 450 new lines** plus the existing 75, plus
 `robust-predicates` as a 1 KB dependency. That is smaller than it sounds and
-riskier than it sounds. The corpus is twenty-two cases. Agency-drawn polygons
-are not the corpus, and the failure mode of a hand-rolled overlay is a wrong
+riskier than it sounds. The corpus is twenty-two cases. Polygons drawn in the
+app are not the corpus, and the failure mode of a hand-rolled overlay is a wrong
 boolean on one record with nothing to make it visible.
 
 ## 4. Agreement with the existing boundary behaviour
@@ -405,9 +405,9 @@ What survives, in order:
    hand-written expectation plus a hand-rolled implementation is one pair of eyes
    checking itself. jsts breaks that tie without shipping anything.
 3. **Fall back to `jsts` at runtime** if the hand-rolled area case proves
-   unstable against real agency geometry. It runs under Hermes, its licence has a
-   permissive branch, and the deep import path works around the missing `main`
-   field. Pay the 107 KB then, with evidence, not now on a guess.
+   unstable against real geometry drawn in the app. It runs under Hermes, its
+   licence has a permissive branch, and the deep import path works around the
+   missing `main` field. Pay the 107 KB then, with evidence, not now on a guess.
 
 `@flatten-js/core` is the one to say no to explicitly, because it looks like the
 answer. It has a genuine DE-9IM, it is MIT, it is the best maintained of the lot,

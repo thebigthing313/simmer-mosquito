@@ -119,8 +119,8 @@ const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
  * The real route over a database that refuses to be used.
  *
  * Everything here is about the answer given *before* a read happens. What the
- * route does once it reaches the policy — including the deliberate
- * `found: false` for another agency's record — needs real tables and lives in
+ * route does once it reaches the policy — including the deliberate `found:
+ * false` for another organization's record — needs real tables and lives in
  * `record-deletion.integration.test.ts`.
  */
 function app(): Hono<{ Variables: AuthVariables }> {

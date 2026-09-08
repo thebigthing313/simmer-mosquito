@@ -1,6 +1,6 @@
 /**
- * The stations an agency reads weather at: adding one, renaming it, moving it,
- * retiring it, deleting it.
+ * The stations an organization reads weather at: adding one, renaming it,
+ * moving it, retiring it, deleting it.
  *
  * ## `geometry` is an argument, not a location source
  *
@@ -41,7 +41,7 @@ import { optimisticStamp } from './shared';
 export interface WeatherStationFields {
 	readonly name: string;
 	readonly code: string | null;
-	/** Agency-specific notes. Not part of the station's identity. */
+	/** Organization-specific notes. Not part of the station's identity. */
 	readonly metadata: unknown;
 }
 
@@ -168,7 +168,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'insert',
 					intent: 'weather.createWeatherStation',
 					row: {
@@ -177,10 +177,10 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 						lat: centroid.lat,
 						lng: centroid.lng,
 						geom_type: centroid.geomType,
-						// An agency's own station is always its own source. The `nws` type
-						// is plumbing for a provider feed no command writes, so the server
-						// sets this rather than reading it, and the optimistic row says
-						// what the server will.
+						// An organization's own station is always its own source. The `nws`
+						// type is plumbing for a provider feed no command writes, so the
+						// server sets this rather than reading it, and the optimistic row
+						// says what the server will.
 						source_type: 'organization',
 						source_name: fields.name,
 						source_code: fields.code,
@@ -213,7 +213,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 				return;
 			}
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: input.weatherStationId,
@@ -233,7 +233,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 	const setActive = useCallback(
 		async (weatherStationId: string, isActive: boolean) => {
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'update',
 					// `is_active` is a column the client can see, so which direction a
 					// write means has to be said rather than read off the value.
@@ -255,7 +255,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 	const remove = useCallback(
 		async (weatherStationId: string, acknowledgedSummaryDeletion: boolean) => {
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'delete',
 					intent: 'weather.deleteWeatherStation',
 					key: weatherStationId,

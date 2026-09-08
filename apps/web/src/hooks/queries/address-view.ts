@@ -29,7 +29,7 @@
  */
 export interface Address {
 	readonly id: string;
-	/** The agency's own name for the place — "Riverside HOA clubhouse". */
+	/** The organization's own name for the place — "Riverside HOA clubhouse". */
 	readonly displayName: string | null;
 	readonly addressLine1: string | null;
 	readonly addressLine2: string | null;

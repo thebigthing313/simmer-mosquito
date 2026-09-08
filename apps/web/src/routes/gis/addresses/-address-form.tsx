@@ -1,4 +1,4 @@
-import { createAddressCommand } from '@simmer-mosquito/domain';
+import { createAddressCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { LocationSection } from '@simmer-mosquito/ui-web/components/form';
@@ -17,8 +17,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { GeometryControl, POINT_DRAW_TYPES } from '../../../components/map/geometry-control';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { GeometryControl } from '../../../components/map/geometry-control';
+import {
+	type DrawGeometry,
+	type DrawGeometryFor,
+	useMapDraw,
+} from '../../../components/map/use-map-draw';
 import {
 	GeocoderDialog,
 	type GeocoderPoint,
@@ -31,6 +35,26 @@ import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/
 
 /** The GIS form's public point type, and the one the geocoder helpers return. */
 export type AddressPointGeometry = GeocoderPoint;
+
+/** What an Address stores, read off the register rather than named here. */
+const ADDRESS_LOCATION_SHAPES = getOwnedGeometryPolicy('address').allowedTypes;
+
+/**
+ * Whether a placed shape is one an Address stores.
+ *
+ * `GeometryControl` below takes the same `address` policy, so its draw toolbar
+ * and its file import offer exactly the shapes this answers true for and the two
+ * cannot come apart. That is the whole fix: the adopt path used to ask
+ * `type !== 'Point'` and return, so a shape the control offered and the guard
+ * had not heard of went in and never came out, with nothing on screen to say so.
+ *
+ * The type is read off the register too. `Point` written here would have made
+ * the assertion the last copy of the matrix, and `setGeometry` below is what
+ * would then have taken a shape it cannot hold without the compiler saying so.
+ */
+export function isAddressLocation(geometry: DrawGeometry): geometry is DrawGeometryFor<'address'> {
+	return ADDRESS_LOCATION_SHAPES.includes(geometry.type);
+}
 
 export interface AddressFormValues {
 	readonly displayName: string;
@@ -99,7 +123,31 @@ export function AddressFormPage({
 	const [isSaving, setIsSaving] = useState(false);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const draw = useMapDraw({ map, isLoaded: map !== null, value: null, onChange: () => undefined });
+	/*
+	 * This form holds the address point itself and draws it through `geoJson`, so
+	 * the controller's own value stays null and nothing renders twice. A commit
+	 * still has to land: the file import is the one path that hands the controller
+	 * a shape instead of going through this form's state. A null is the start of a
+	 * fresh draw rather than a clear, which is what `clearPoint` is for.
+	 */
+	const adoptDrawnPoint = useCallback((next: DrawGeometry | null) => {
+		if (next === null || !isAddressLocation(next)) {
+			return;
+		}
+		// The narrowed value, not a pair rebuilt from `coordinates[0]` and `[1]`.
+		// The indices were the second place this file said Point, and reading them
+		// off a shape that is not one builds a Point out of rings. Assigning is what
+		// makes the compiler hold this form's state to what the predicate asserts.
+		setGeometry(next);
+		setGeometryChanged(true);
+		setLocationError(null);
+	}, []);
+	const draw = useMapDraw({
+		map,
+		isLoaded: map !== null,
+		value: null,
+		onChange: adoptDrawnPoint,
+	});
 	const { requestPoint } = draw;
 
 	useCenterOnPoint(map, geometry);
@@ -116,7 +164,7 @@ export function AddressFormPage({
 			url.searchParams.set('q', addressQueryText(values));
 			url.searchParams.set('country', values.country.trim() || 'US');
 			url.searchParams.set('limit', '5');
-			const response = await sessionFetch(url, { credentials: 'include' });
+			const response = await sessionFetch(url);
 			const body = (await response.json()) as GeocoderResponse | { readonly error: string };
 			if (!response.ok || !('results' in body)) {
 				throw new Error('Unable to geocode address.');
@@ -189,20 +237,22 @@ export function AddressFormPage({
 		}
 	}, [values, geometry, geometryChanged, geocoderResponse, onSave]);
 
-	const geoJson =
+	// `[...]` rather than the stored pair: `GeoJSON.Position` is mutable
+	// `number[]`, and the draw types hold their pairs readonly.
+	const geoJson: GeoJSON.Feature | null =
 		geometry === null
 			? null
-			: ({
+			: {
 					type: 'Feature',
 					properties: {},
-					geometry: { type: 'Point', coordinates: geometry.coordinates },
-				} as unknown as GeoJSON.Feature);
+					geometry: { type: 'Point', coordinates: [...geometry.coordinates] },
+				};
 
 	return (
 		<MapSplitPage
 			map={
 				<>
-					<MapCanvas controls={{ layers: false }} geoJson={geoJson} onMapReady={handleMapReady} />
+					<MapCanvas geoJson={geoJson} onMapReady={handleMapReady} />
 					{draw.isRequestingPoint ? (
 						<MapPrompt>
 							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
@@ -290,8 +340,14 @@ export function AddressFormPage({
 							error={locationError}
 							title="Address location"
 						>
+							{/*
+							 * The one form that writes the shape name by hand. Everywhere else
+							 * it comes off `useDrawLocation`, which reads the register. This
+							 * form holds its own `GeocoderPoint` instead, so deriving the
+							 * toolbar from the register while the state stays a point would let
+							 * the two disagree the day the address policy widens.
+							 */}
 							<GeometryControl
-								allowedTypes={POINT_DRAW_TYPES}
 								controller={draw}
 								extraActions={
 									<Button
@@ -313,8 +369,9 @@ export function AddressFormPage({
 										Geocode
 									</Button>
 								}
-								geometry={geometry as DrawGeometry | null}
+								geometry={geometry}
 								geometryType="Point"
+								geometryKind="address"
 								label="Location"
 								onClear={clearPoint}
 								onDraw={() => void drawManualPoint()}

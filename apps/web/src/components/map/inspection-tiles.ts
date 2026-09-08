@@ -1,12 +1,11 @@
 import { mapDensity, mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -37,7 +36,6 @@ export interface InspectionTileFilters extends RegionScopedTileFilters {
 }
 
 export const INSPECTION_SOURCE_ID = 'inspections';
-const _INSPECTION_SOURCE_LAYER = 'inspections';
 
 /**
  * Density heat ramp. Points are colored by the surveillance signal — a dry site
@@ -55,7 +53,6 @@ const colors = {
 	veryHeavy: mapDensity.veryHeavy,
 	pointStroke: mapInteraction.pointStroke,
 	line: mapDomain.connector,
-	selected: mapInteraction.selected,
 } as const;
 
 /**
@@ -76,28 +73,22 @@ export const INSPECTION_DRY_COLOR = colors.dry;
 /** Layers the user can click to select a inspection. Order = hit priority. */
 export const INSPECTION_INTERACTIVE_LAYER_IDS = interactiveLayerIds(INSPECTION_SOURCE_ID);
 
-const INSPECTION_SELECTED_LAYER_IDS = selectedLayerIds(INSPECTION_SOURCE_ID);
-
 export const INSPECTION_LAYER_IDS = allLayerIds(INSPECTION_SOURCE_ID);
 
 // Wet sites match on density; a null/unrecorded density falls to the "none"
 // tone. A dry site is neutral regardless of density.
+//
+// The arms are built from the register rather than typed out. Written by hand
+// this was five density words interleaved with colours in one flat array, which
+// nothing type-checked: a missing arm renders the fallback colour and says so
+// nowhere.
 const densityColor: ExpressionSpecification = [
 	'case',
 	['boolean', ['get', 'isWet'], false],
 	[
 		'match',
 		['get', 'density'],
-		'very_heavy',
-		colors.veryHeavy,
-		'heavy',
-		colors.heavy,
-		'medium',
-		colors.medium,
-		'light',
-		colors.light,
-		'none',
-		colors.none,
+		...LARVAL_DENSITIES.flatMap((density) => [density, INSPECTION_DENSITY_COLORS[density]]),
 		colors.none,
 	],
 	colors.dry,
@@ -154,5 +145,3 @@ export function inspectionTileLayers(selectedId: string | null): GeometryTileLay
 		selectedId,
 	);
 }
-
-export { INSPECTION_SELECTED_LAYER_IDS };

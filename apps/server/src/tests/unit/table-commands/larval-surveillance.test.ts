@@ -17,7 +17,8 @@
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { CommandTable } from '../../../command-payload.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { habitatTableCommands } from '../../../table-commands/habitats.js';
@@ -45,10 +46,10 @@ function request(
 	id: string,
 	payload: Record<string, unknown>,
 	settings: unknown = null,
-): IntentRequest {
+): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings },
 			profile: { id: ACTOR },
@@ -59,9 +60,9 @@ function request(
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
-	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
+	intent: OrganizationCommandType,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {
@@ -126,9 +127,10 @@ describe('inspections intent map', () => {
 	});
 
 	it('takes the entry policy from the session rather than a query', () => {
-		// A band and no counts: what a `hybrid` agency records and what a
-		// count-and-dips agency may not. Same body, two agencies, and the only thing
-		// that decided was the settings blob already on the auth context.
+		// A band and no counts: what a `hybrid` organization records and what a
+		// count-and-dips organization may not. Same body, two organizations, and
+		// the only thing that decided was the settings blob already on the auth
+		// context.
 		expect(() =>
 			build(
 				inspections,

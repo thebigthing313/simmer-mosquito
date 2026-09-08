@@ -56,18 +56,18 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeFormulationInsecticideCommand } from '../control-operations-commands/formulation-insecticides.js';
-import { writeFormulationCommand } from '../control-operations-commands/formulations.js';
+import { writeFormulationInsecticideCommand } from '../writers/control-operations/formulation-insecticides.js';
+import { writeFormulationCommand } from '../writers/control-operations/formulations.js';
 import type {
 	FormulationInsecticideRow,
 	FormulationRow,
-} from '../control-operations-commands/shared.js';
+} from '../writers/control-operations/shared.js';
 import {
 	type InsecticideBatchCommand,
 	type InsecticideCommand,
 	writeInsecticideBatchCommand,
 	writeInsecticideCommand,
-} from '../control-product-commands.js';
+} from '../writers/control-products.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
@@ -78,7 +78,7 @@ type InsecticideBatchResponse = NonNullable<
 
 export function insecticideTableCommands(
 	db: CommandDb,
-): TableCommands<InsecticideCommand, InsecticideResponse> {
+): TableCommands<'insecticides', InsecticideCommand, InsecticideResponse> {
 	return {
 		table: 'insecticides',
 		run: {
@@ -88,9 +88,9 @@ export function insecticideTableCommands(
 			key: 'insecticide',
 		},
 		intents: {
-			'controlOperations.createInsecticide': ({ payload, agency, id }) =>
+			'controlOperations.createInsecticide': ({ payload, organization, id }) =>
 				createInsecticideCommand({
-					...agency,
+					...organization,
 					insecticideId: id,
 					tradeName: readText(payload.trade_name) ?? '',
 					activeIngredient: readText(payload.active_ingredient) ?? '',
@@ -105,55 +105,65 @@ export function insecticideTableCommands(
 					metadata: payload.metadata ?? null,
 				}),
 
-			'controlOperations.updateInsecticide': ({ payload, agency, id }) =>
+			'controlOperations.updateInsecticide': ({ payload, organization, id }) =>
 				updateInsecticideCommand({
-					...agency,
+					...organization,
 					insecticideId: id,
-					...('trade_name' in payload ? { tradeName: readText(payload.trade_name) ?? '' } : {}),
-					...('active_ingredient' in payload
+					...(payload.trade_name !== undefined
+						? { tradeName: readText(payload.trade_name) ?? '' }
+						: {}),
+					...(payload.active_ingredient !== undefined
 						? { activeIngredient: readText(payload.active_ingredient) ?? '' }
 						: {}),
-					...('type' in payload ? { type: (readText(payload.type) ?? '') as never } : {}),
-					...('registration_number' in payload
+					...(payload.type !== undefined ? { type: (readText(payload.type) ?? '') as never } : {}),
+					...(payload.registration_number !== undefined
 						? { registrationNumber: readText(payload.registration_number) ?? '' }
 						: {}),
-					...('default_unit_id' in payload
+					...(payload.default_unit_id !== undefined
 						? { defaultUnitId: readText(payload.default_unit_id) ?? '' }
 						: {}),
 					// Present-and-null clears a label or safety-sheet link; absent leaves it.
-					...('label_url' in payload ? { labelUrl: readNullableText(payload.label_url) } : {}),
-					...('msds_url' in payload ? { msdsUrl: readNullableText(payload.msds_url) } : {}),
-					...('shorthand' in payload ? { shorthand: readNullableText(payload.shorthand) } : {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.label_url !== undefined
+						? { labelUrl: readNullableText(payload.label_url) }
+						: {}),
+					...(payload.msds_url !== undefined
+						? { msdsUrl: readNullableText(payload.msds_url) }
+						: {}),
+					...(payload.shorthand !== undefined
+						? { shorthand: readNullableText(payload.shorthand) }
+						: {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalProductChange: acknowledged(
-						payload.acknowledgedHistoricalProductChange,
+						payload,
+						'acknowledgedHistoricalProductChange',
 					),
 				}),
 
 			// Retiring a product takes its batches and formulations with it, which is
 			// what the acknowledgement is about — and why deactivating carries one
 			// where reactivating does not.
-			'controlOperations.deactivateInsecticide': ({ payload, agency, id }) =>
+			'controlOperations.deactivateInsecticide': ({ payload, organization, id }) =>
 				deactivateInsecticideCommand({
-					...agency,
+					...organization,
 					insecticideId: id,
 					acknowledgedDependentDeactivation: acknowledged(
-						payload.acknowledgedDependentDeactivation,
+						payload,
+						'acknowledgedDependentDeactivation',
 					),
 				}),
 
-			'controlOperations.reactivateInsecticide': ({ agency, id }) =>
-				reactivateInsecticideCommand({ ...agency, insecticideId: id }),
+			'controlOperations.reactivateInsecticide': ({ organization, id }) =>
+				reactivateInsecticideCommand({ ...organization, insecticideId: id }),
 
-			'controlOperations.deleteInsecticide': ({ agency, id }) =>
-				deleteInsecticideCommand({ ...agency, insecticideId: id }),
+			'controlOperations.deleteInsecticide': ({ organization, id }) =>
+				deleteInsecticideCommand({ ...organization, insecticideId: id }),
 		},
 	};
 }
 
 export function insecticideBatchTableCommands(
 	db: CommandDb,
-): TableCommands<InsecticideBatchCommand, InsecticideBatchResponse> {
+): TableCommands<'insecticide_batches', InsecticideBatchCommand, InsecticideBatchResponse> {
 	return {
 		table: 'insecticide_batches',
 		run: {
@@ -163,9 +173,9 @@ export function insecticideBatchTableCommands(
 			key: 'batch',
 		},
 		intents: {
-			'controlOperations.createInsecticideBatch': ({ payload, agency, id }) =>
+			'controlOperations.createInsecticideBatch': ({ payload, organization, id }) =>
 				createInsecticideBatchCommand({
-					...agency,
+					...organization,
 					insecticideBatchId: id,
 					insecticideId: readText(payload.insecticide_id) ?? '',
 					batchName: readText(payload.batch_name) ?? '',
@@ -173,31 +183,34 @@ export function insecticideBatchTableCommands(
 
 			// A batch name is what an application's record is read back under, so
 			// renaming one is the same kind of edit a trap code is.
-			'controlOperations.updateInsecticideBatch': ({ payload, agency, id }) =>
+			'controlOperations.updateInsecticideBatch': ({ payload, organization, id }) =>
 				updateInsecticideBatchCommand({
-					...agency,
+					...organization,
 					insecticideBatchId: id,
-					...('batch_name' in payload ? { batchName: readText(payload.batch_name) ?? '' } : {}),
+					...(payload.batch_name !== undefined
+						? { batchName: readText(payload.batch_name) ?? '' }
+						: {}),
 					acknowledgedHistoricalBatchLabelChange: acknowledged(
-						payload.acknowledgedHistoricalBatchLabelChange,
+						payload,
+						'acknowledgedHistoricalBatchLabelChange',
 					),
 				}),
 
-			'controlOperations.deactivateInsecticideBatch': ({ agency, id }) =>
-				deactivateInsecticideBatchCommand({ ...agency, insecticideBatchId: id }),
+			'controlOperations.deactivateInsecticideBatch': ({ organization, id }) =>
+				deactivateInsecticideBatchCommand({ ...organization, insecticideBatchId: id }),
 
-			'controlOperations.reactivateInsecticideBatch': ({ agency, id }) =>
-				reactivateInsecticideBatchCommand({ ...agency, insecticideBatchId: id }),
+			'controlOperations.reactivateInsecticideBatch': ({ organization, id }) =>
+				reactivateInsecticideBatchCommand({ ...organization, insecticideBatchId: id }),
 
-			'controlOperations.deleteInsecticideBatch': ({ agency, id }) =>
-				deleteInsecticideBatchCommand({ ...agency, insecticideBatchId: id }),
+			'controlOperations.deleteInsecticideBatch': ({ organization, id }) =>
+				deleteInsecticideBatchCommand({ ...organization, insecticideBatchId: id }),
 		},
 	};
 }
 
 export function formulationTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, FormulationRow> {
+): TableCommands<'formulations', ControlOperationsCommand, FormulationRow> {
 	return {
 		table: 'formulations',
 		run: {
@@ -207,9 +220,9 @@ export function formulationTableCommands(
 			key: 'formulation',
 		},
 		intents: {
-			'controlOperations.createFormulation': ({ payload, agency, id }) =>
+			'controlOperations.createFormulation': ({ payload, organization, id }) =>
 				createFormulationCommand({
-					...agency,
+					...organization,
 					formulationId: id,
 					formulationName: readText(payload.formulation_name) ?? '',
 					description: readNullableText(payload.description),
@@ -218,20 +231,20 @@ export function formulationTableCommands(
 					batchUnitId: readText(payload.batch_unit_id) ?? '',
 				}),
 
-			'controlOperations.updateFormulationDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateFormulationDetails': ({ payload, organization, id }) =>
 				updateFormulationDetailsCommand({
-					...agency,
+					...organization,
 					formulationId: id,
-					...('formulation_name' in payload
+					...(payload.formulation_name !== undefined
 						? { formulationName: readText(payload.formulation_name) ?? '' }
 						: {}),
-					...('description' in payload
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
-					...('batch_size' in payload
+					...(payload.batch_size !== undefined
 						? { batchSize: readNumber(payload.batch_size) ?? Number.NaN }
 						: {}),
-					...('batch_unit_id' in payload
+					...(payload.batch_unit_id !== undefined
 						? { batchUnitId: readText(payload.batch_unit_id) ?? '' }
 						: {}),
 				}),
@@ -239,17 +252,17 @@ export function formulationTableCommands(
 			// `activate`, not `reactivate` — a formulation can be deactivated by the
 			// system when its last component is removed, so turning one back on is not
 			// always undoing a person's decision.
-			'controlOperations.activateFormulation': ({ agency, id }) =>
-				activateFormulationCommand({ ...agency, formulationId: id }),
+			'controlOperations.activateFormulation': ({ organization, id }) =>
+				activateFormulationCommand({ ...organization, formulationId: id }),
 
-			'controlOperations.deactivateFormulation': ({ agency, id }) =>
-				deactivateFormulationCommand({ ...agency, formulationId: id }),
+			'controlOperations.deactivateFormulation': ({ organization, id }) =>
+				deactivateFormulationCommand({ ...organization, formulationId: id }),
 
-			'controlOperations.deleteFormulation': ({ payload, agency, id }) =>
+			'controlOperations.deleteFormulation': ({ payload, organization, id }) =>
 				deleteFormulationCommand({
-					...agency,
+					...organization,
 					formulationId: id,
-					acknowledgedComponentDeletion: acknowledged(payload.acknowledgedComponentDeletion),
+					acknowledgedComponentDeletion: acknowledged(payload, 'acknowledgedComponentDeletion'),
 				}),
 		},
 	};
@@ -257,7 +270,7 @@ export function formulationTableCommands(
 
 export function formulationInsecticideTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, FormulationInsecticideRow> {
+): TableCommands<'formulation_insecticides', ControlOperationsCommand, FormulationInsecticideRow> {
 	return {
 		table: 'formulation_insecticides',
 		run: {
@@ -267,9 +280,9 @@ export function formulationInsecticideTableCommands(
 			key: 'formulationInsecticide',
 		},
 		intents: {
-			'controlOperations.addFormulationInsecticide': ({ payload, agency, id }) =>
+			'controlOperations.addFormulationInsecticide': ({ payload, organization, id }) =>
 				addFormulationInsecticideCommand({
-					...agency,
+					...organization,
 					formulationInsecticideId: id,
 					formulationId: readText(payload.formulation_id) ?? '',
 					insecticideId: readText(payload.insecticide_id) ?? '',
@@ -282,26 +295,30 @@ export function formulationInsecticideTableCommands(
 			// can leave the formulation with nothing in it — which deactivates it.
 			// That is what the acknowledgement is for, and why it rides on the edit as
 			// well as the removal.
-			'controlOperations.updateFormulationInsecticide': ({ payload, agency, id }) =>
+			'controlOperations.updateFormulationInsecticide': ({ payload, organization, id }) =>
 				updateFormulationInsecticideCommand({
-					...agency,
+					...organization,
 					formulationInsecticideId: id,
-					...('insecticide_id' in payload
+					...(payload.insecticide_id !== undefined
 						? { insecticideId: readText(payload.insecticide_id) ?? '' }
 						: {}),
-					...('amount' in payload ? { amount: readNumber(payload.amount) ?? Number.NaN } : {}),
-					...('unit_id' in payload ? { unitId: readText(payload.unit_id) ?? '' } : {}),
+					...(payload.amount !== undefined
+						? { amount: readNumber(payload.amount) ?? Number.NaN }
+						: {}),
+					...(payload.unit_id !== undefined ? { unitId: readText(payload.unit_id) ?? '' } : {}),
 					acknowledgedDeactivateEmptyFormulation: acknowledged(
-						payload.acknowledgedDeactivateEmptyFormulation,
+						payload,
+						'acknowledgedDeactivateEmptyFormulation',
 					),
 				}),
 
-			'controlOperations.removeFormulationInsecticide': ({ payload, agency, id }) =>
+			'controlOperations.removeFormulationInsecticide': ({ payload, organization, id }) =>
 				removeFormulationInsecticideCommand({
-					...agency,
+					...organization,
 					formulationInsecticideId: id,
 					acknowledgedDeactivateEmptyFormulation: acknowledged(
-						payload.acknowledgedDeactivateEmptyFormulation,
+						payload,
+						'acknowledgedDeactivateEmptyFormulation',
 					),
 				}),
 		},

@@ -1,8 +1,13 @@
-import {
-	createNamedReferenceCommand,
-	updateNamedReferenceCommand,
-} from '../named-reference-commands.js';
+import { createNamedReferenceCommand } from '../named-reference-commands.js';
 import type { DomainId, JsonObject } from '../shared.js';
+import {
+	jsonObjectField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	ControlCommandInput,
 	ControlCommandPayload,
@@ -20,6 +25,17 @@ export interface MethodCommandInput extends ControlCommandInput {
 	readonly customSchema?: unknown | null;
 }
 
+/**
+ * What every control method catalog lets an edit change.
+ *
+ * The four catalogs are the same two columns under four table names, so they
+ * share one declaration rather than four copies of it.
+ */
+export const METHOD_UPDATE_FIELDS = {
+	name: requiredTextField(200),
+	customSchema: jsonObjectField,
+} satisfies UpdateFieldSet;
+
 export interface MethodCommandPayload extends ControlCommandPayload {
 	readonly name: string;
 	readonly customSchema: JsonObject | null;
@@ -34,21 +50,17 @@ export type CreateApplicationMethodCommand = ControlOperationsDomainCommand<
 	MethodCommandPayload & { readonly applicationMethodId: DomainId }
 >;
 
-export interface UpdateApplicationMethodCommandInput extends ControlCommandInput {
-	readonly applicationMethodId: DomainId;
-	readonly name?: string;
-	readonly customSchema?: unknown | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export type UpdateApplicationMethodCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof METHOD_UPDATE_FIELDS> & {
+		readonly applicationMethodId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateApplicationMethodCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateApplicationMethod',
 	ControlCommandPayload & {
 		readonly applicationMethodId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly customSchema?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof METHOD_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
@@ -81,21 +93,17 @@ export type CreateSourceReductionMethodCommand = ControlOperationsDomainCommand<
 	MethodCommandPayload & { readonly sourceReductionMethodId: DomainId }
 >;
 
-export interface UpdateSourceReductionMethodCommandInput extends ControlCommandInput {
-	readonly sourceReductionMethodId: DomainId;
-	readonly name?: string;
-	readonly customSchema?: unknown | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export type UpdateSourceReductionMethodCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof METHOD_UPDATE_FIELDS> & {
+		readonly sourceReductionMethodId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateSourceReductionMethodCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateSourceReductionMethod',
 	ControlCommandPayload & {
 		readonly sourceReductionMethodId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly customSchema?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof METHOD_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
@@ -128,21 +136,17 @@ export type CreateOutreachMethodCommand = ControlOperationsDomainCommand<
 	MethodCommandPayload & { readonly outreachMethodId: DomainId }
 >;
 
-export interface UpdateOutreachMethodCommandInput extends ControlCommandInput {
-	readonly outreachMethodId: DomainId;
-	readonly name?: string;
-	readonly customSchema?: unknown | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export type UpdateOutreachMethodCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof METHOD_UPDATE_FIELDS> & {
+		readonly outreachMethodId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateOutreachMethodCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateOutreachMethod',
 	ControlCommandPayload & {
 		readonly outreachMethodId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly customSchema?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof METHOD_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
@@ -175,21 +179,17 @@ export type CreateBiocontrolMethodCommand = ControlOperationsDomainCommand<
 	MethodCommandPayload & { readonly biocontrolMethodId: DomainId }
 >;
 
-export interface UpdateBiocontrolMethodCommandInput extends ControlCommandInput {
-	readonly biocontrolMethodId: DomainId;
-	readonly name?: string;
-	readonly customSchema?: unknown | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export type UpdateBiocontrolMethodCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof METHOD_UPDATE_FIELDS> & {
+		readonly biocontrolMethodId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateBiocontrolMethodCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateBiocontrolMethod',
 	ControlCommandPayload & {
 		readonly biocontrolMethodId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly customSchema?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof METHOD_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
@@ -227,13 +227,20 @@ export function createApplicationMethodCommand(
 export function updateApplicationMethodCommand(
 	input: UpdateApplicationMethodCommandInput,
 ): UpdateApplicationMethodCommand {
-	return updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateApplicationMethod',
 		input,
 		idKey: 'applicationMethodId',
-		fields: { customSchema: true },
+		fields: METHOD_UPDATE_FIELDS,
 		changeNoun: 'method',
 	});
+	return {
+		type: command.type,
+		payload: {
+			...command.payload,
+			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
+		},
+	};
 }
 
 export function deactivateApplicationMethodCommand(
@@ -268,13 +275,20 @@ export function createSourceReductionMethodCommand(
 export function updateSourceReductionMethodCommand(
 	input: UpdateSourceReductionMethodCommandInput,
 ): UpdateSourceReductionMethodCommand {
-	return updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateSourceReductionMethod',
 		input,
 		idKey: 'sourceReductionMethodId',
-		fields: { customSchema: true },
+		fields: METHOD_UPDATE_FIELDS,
 		changeNoun: 'method',
 	});
+	return {
+		type: command.type,
+		payload: {
+			...command.payload,
+			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
+		},
+	};
 }
 
 export function deactivateSourceReductionMethodCommand(
@@ -321,13 +335,20 @@ export function createOutreachMethodCommand(
 export function updateOutreachMethodCommand(
 	input: UpdateOutreachMethodCommandInput,
 ): UpdateOutreachMethodCommand {
-	return updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateOutreachMethod',
 		input,
 		idKey: 'outreachMethodId',
-		fields: { customSchema: true },
+		fields: METHOD_UPDATE_FIELDS,
 		changeNoun: 'method',
 	});
+	return {
+		type: command.type,
+		payload: {
+			...command.payload,
+			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
+		},
+	};
 }
 
 export function deactivateOutreachMethodCommand(
@@ -362,13 +383,20 @@ export function createBiocontrolMethodCommand(
 export function updateBiocontrolMethodCommand(
 	input: UpdateBiocontrolMethodCommandInput,
 ): UpdateBiocontrolMethodCommand {
-	return updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateBiocontrolMethod',
 		input,
 		idKey: 'biocontrolMethodId',
-		fields: { customSchema: true },
+		fields: METHOD_UPDATE_FIELDS,
 		changeNoun: 'method',
 	});
+	return {
+		type: command.type,
+		payload: {
+			...command.payload,
+			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
+		},
+	};
 }
 
 export function deactivateBiocontrolMethodCommand(

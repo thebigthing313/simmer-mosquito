@@ -4,10 +4,10 @@
  * scrolling region a router renders into.
  *
  * Everything here is app-agnostic on purpose. The chrome fetches nothing and
- * routes nothing — it reads {@link ShellContextValue} and calls back out — which
- * is what lets the agency workspace (`apps/web`) and the operator console
- * (`apps/admin`) wear the same shell over completely different navigation,
- * identity, and data.
+ * routes nothing — it reads {@link ShellContextValue} and calls back out —
+ * which is what lets the organization workspace (`apps/web`) and the operator
+ * console (`apps/admin`) wear the same shell over completely different
+ * navigation, identity, and data.
  *
  * A mounting app supplies three things: a navigation model built from
  * {@link ShellDomain}, the identity to show in the switcher and account menu,
@@ -19,7 +19,6 @@ export {
 	useBreadcrumbLabel,
 	useBreadcrumbLabels,
 } from './breadcrumb-labels';
-export { EnvironmentBanner } from './environment-banner';
 export {
 	SearchTriggerProvider,
 	type SearchTriggerValue,
@@ -33,6 +32,7 @@ export {
 	buildBreadcrumbs,
 	firstDestination,
 	flattenNavItems,
+	navDestination,
 	pathMatches,
 	resolveActive,
 } from './resolve-nav';
@@ -51,6 +51,7 @@ export type {
 	ShellDomain,
 	ShellNavGroup,
 	ShellNavItem,
+	ShellNavParams,
 	ShellOrganization,
 	ShellStandalonePage,
 	ShellUser,

@@ -1,5 +1,5 @@
 /**
- * Writing the agency's insecticides and their batches.
+ * Writing the organization's insecticides and their batches.
  *
  * Two tables with the five catalog commands each, so the writes come from
  * `catalog-writes.ts` and only the columns are here. What makes them not quite
@@ -10,9 +10,9 @@
  * PATCH read `is_active` and worked out the direction.
  *
  * `inventory_unit_id` and `conversion_factor` are columns this form does not
- * offer, so a create leaves them null and a save never names them. They exist for
- * an agency that buys in one unit and applies in another, and nothing in the app
- * sets them yet.
+ * offer, so a create leaves them null and a save never names them. They exist
+ * for an organization that buys in one unit and applies in another, and nothing
+ * in the app sets them yet.
  */
 
 import type { Insecticide, InsecticideBatch } from '@simmer-mosquito/sync';
@@ -38,7 +38,7 @@ export interface InsecticideFields {
 	readonly defaultUnitId: string;
 	readonly labelUrl: string | null;
 	readonly msdsUrl: string | null;
-	/** The agency's data-entry abbreviation — not a second name for the product. */
+	/** The organization's data-entry abbreviation — not a second name for the product. */
 	readonly shorthand: string | null;
 	readonly metadata: unknown;
 	readonly isActive: boolean;
@@ -109,9 +109,9 @@ function insecticideIdentityChanges(
 /**
  * The columns that point at the product without being it.
  *
- * Where its label and safety sheet live, the agency's own abbreviation for it,
- * and its notes. A save that moved only these answers no question, and the
- * server draws the same line.
+ * Where its label and safety sheet live, the organization's own abbreviation
+ * for it, and its notes. A save that moved only these answers no question, and
+ * the server draws the same line.
  */
 function insecticideReferenceChanges(
 	fields: InsecticideFields,
@@ -162,7 +162,7 @@ export function useInsecticideMutations(): InsecticideMutations {
 				created_at: now,
 				updated_at: now,
 			} satisfies Insecticide;
-			await createCatalogRow(insecticides, insecticideCommands, row);
+			await createCatalogRow(insecticides(), insecticideCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -178,7 +178,7 @@ export function useInsecticideMutations(): InsecticideMutations {
 			const identity = insecticideIdentityChanges(fields, current);
 			const identityMoved = Object.keys(identity).length > 0;
 
-			await saveCatalogRow(insecticides, insecticideCommands, id, {
+			await saveCatalogRow(insecticides(), insecticideCommands, id, {
 				changes: { ...identity, ...insecticideReferenceChanges(fields, current) },
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -199,8 +199,8 @@ export function useInsecticideMutations(): InsecticideMutations {
 		create,
 		save,
 		setActive: (id, isActive) =>
-			setCatalogRowActive(insecticides, insecticideCommands, id, isActive),
-		remove: (id) => deleteCatalogRow(insecticides, insecticideCommands, id),
+			setCatalogRowActive(insecticides(), insecticideCommands, id, isActive),
+		remove: (id) => deleteCatalogRow(insecticides(), insecticideCommands, id),
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
 }
@@ -259,7 +259,7 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 				created_at: now,
 				updated_at: now,
 			} satisfies InsecticideBatch;
-			await createCatalogRow(insecticide_batches, batchCommands, row);
+			await createCatalogRow(insecticide_batches(), batchCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -279,7 +279,7 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 			if (fields.batchName !== current.batchName) {
 				changes.batch_name = fields.batchName;
 			}
-			await saveCatalogRow(insecticide_batches, batchCommands, id, {
+			await saveCatalogRow(insecticide_batches(), batchCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -302,8 +302,8 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 		create,
 		save,
 		setActive: (id, isActive) =>
-			setCatalogRowActive(insecticide_batches, batchCommands, id, isActive),
-		remove: (id) => deleteCatalogRow(insecticide_batches, batchCommands, id),
+			setCatalogRowActive(insecticide_batches(), batchCommands, id, isActive),
+		remove: (id) => deleteCatalogRow(insecticide_batches(), batchCommands, id),
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
 }

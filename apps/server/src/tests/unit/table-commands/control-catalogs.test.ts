@@ -11,7 +11,8 @@
 
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { CommandTable } from '../../../command-payload.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import {
 	equipmentTableCommands,
@@ -29,10 +30,10 @@ const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const ACTOR = '22222222-2222-4222-8222-222222222222';
 const ROW = '33333333-3333-4333-8333-333333333333';
 
-function request(payload: Record<string, unknown>): IntentRequest {
+function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings: null },
 			profile: { id: ACTOR },
@@ -43,9 +44,9 @@ function request(payload: Record<string, unknown>): IntentRequest {
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
-	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
+	intent: OrganizationCommandType,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {
@@ -87,18 +88,21 @@ describe('control method catalogs', () => {
 		// which no per-catalog test would catch on its own.
 		const built = METHOD_CATALOGS.map((catalog) => ({
 			table: catalog.spec.table,
+			idKey: catalog.idKey,
 			command: build(
 				catalog.spec,
-				catalog.create as AgencyCommandType,
+				catalog.create as OrganizationCommandType,
 				request({ name: 'Fogging' }),
 			),
 		}));
 
 		expect(built.map((b) => b.table)).toEqual(METHOD_CATALOGS.map((c) => c.table));
 		expect(built.map((b) => b.command.type)).toEqual(METHOD_CATALOGS.map((c) => c.create));
-		// Each builder holds its own id argument's name.
-		for (const [index, b] of built.entries()) {
-			expect(b.command.payload).toHaveProperty(METHOD_CATALOGS[index]!.idKey, ROW);
+		// Each builder holds its own id argument's name. The key is carried through
+		// the map rather than looked up by index, so the row and the key it is
+		// checked against cannot come apart.
+		for (const b of built) {
+			expect(b.command.payload).toHaveProperty(b.idKey, ROW);
 		}
 	});
 

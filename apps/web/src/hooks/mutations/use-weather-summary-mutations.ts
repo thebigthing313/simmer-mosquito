@@ -126,7 +126,7 @@ export function useWeatherSummaryMutations(): WeatherSummaryMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(weather_summaries, {
+				mutateCollection(weather_summaries(), {
 					operation: 'insert',
 					intent: 'weather.createWeatherSummary',
 					row: {
@@ -149,7 +149,7 @@ export function useWeatherSummaryMutations(): WeatherSummaryMutations {
 	const save = useCallback(
 		async (input: { readonly weatherSummaryId: string; readonly fields: WeatherSummaryFields }) => {
 			await settleWrite(
-				mutateCollection(weather_summaries, {
+				mutateCollection(weather_summaries(), {
 					operation: 'update',
 					intent: 'weather.updateWeatherSummary',
 					key: input.weatherSummaryId,
@@ -166,7 +166,7 @@ export function useWeatherSummaryMutations(): WeatherSummaryMutations {
 
 	const remove = useCallback(async (weatherSummaryId: string) => {
 		await settleWrite(
-			mutateCollection(weather_summaries, {
+			mutateCollection(weather_summaries(), {
 				operation: 'delete',
 				intent: 'weather.deleteWeatherSummary',
 				key: weatherSummaryId,

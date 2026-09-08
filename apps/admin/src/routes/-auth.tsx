@@ -1,4 +1,5 @@
 import { CredentialsFields, VerificationCodeFields } from '@simmer-mosquito/ui-web/components/auth';
+import { SignedOutEnvironmentBanner } from '@simmer-mosquito/ui-web/components/environment-banner';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode, useState } from 'react';
@@ -26,9 +27,9 @@ import { appAuthController } from '../app-auth';
  * lead somewhere that refuses them one step later.
  *
  * WorkOS can still interrupt before it will mint a session: with a verification
- * code, or with an organization choice when the account belongs to more than one
- * — which operators routinely do, since `createAdminAgency`'s
- * `linkRequesterAsOwner` makes them the new agency's first owner.
+ * code, or with an organization choice when the account belongs to more than
+ * one — which operators routinely do, since `createAdminOrganization`'s
+ * `linkRequesterAsOwner` makes them the new organization's first owner.
  *
  * The code is collected. The organization is not: see `resolveOrganization`.
  */
@@ -44,7 +45,7 @@ interface Refusal {
 
 const NOT_AN_OPERATOR: Refusal = {
 	title: 'Not an Operator Account',
-	body: 'This account is not a member of the SIMMER organization, which is what operator access is. Agency work happens in the SIMMER web app.',
+	body: 'This account is not a member of the SIMMER organization, which is what operator access is. Your own work happens in the SIMMER web app.',
 };
 
 function AuthShell({
@@ -56,23 +57,29 @@ function AuthShell({
 	readonly description: string;
 	readonly children: ReactNode;
 }) {
+	// The strip goes above the centring grid, not inside it: a child of
+	// `place-items-center` is centred rather than pinned to the top, and the
+	// grid is `min-h-svh`, so a strip in a row of its own overflows the window.
 	return (
-		<div className="grid min-h-svh place-items-center bg-simmer-green-900 px-6 py-12">
-			<div className="w-full max-w-[400px]">
-				<div className="mb-8 grid justify-items-center gap-3">
-					<img alt="SIMMER" className="h-12 w-auto" src="/logo.svg" />
-					<p className="m-0 text-simmer-green-100/70 text-xs font-extrabold uppercase tracking-[0.14em]">
-						Operations Console
-					</p>
-				</div>
-				<div className="grid gap-6 rounded-xl border border-border bg-card p-7 shadow-lg">
-					<header className="grid gap-2">
-						<h1 className="m-0 text-balance font-bold text-[1.4rem] text-foreground leading-tight tracking-[-0.01em]">
-							{title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm leading-normal">{description}</p>
-					</header>
-					{children}
+		<div className="grid min-h-svh grid-rows-[auto_1fr] bg-simmer-green-900">
+			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
+			<div className="grid place-items-center px-6 py-12">
+				<div className="w-full max-w-[400px]">
+					<div className="mb-8 grid justify-items-center gap-3">
+						<img alt="SIMMER" className="h-12 w-auto" src="/logo.svg" />
+						<p className="m-0 text-simmer-green-100/70 text-xs font-extrabold uppercase tracking-[0.14em]">
+							Operations Console
+						</p>
+					</div>
+					<div className="grid gap-6 rounded-xl border border-border bg-card p-7 shadow-lg">
+						<header className="grid gap-2">
+							<h1 className="m-0 text-balance font-bold text-[1.4rem] text-foreground leading-tight tracking-[-0.01em]">
+								{title}
+							</h1>
+							<p className="m-0 text-muted-foreground text-sm leading-normal">{description}</p>
+						</header>
+						{children}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -106,8 +113,8 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 	 *
 	 * There is no picker. Being in the SIMMER organization *is* the operator
 	 * boundary, so an account that is not in it has no business here whichever
-	 * agency it would otherwise have chosen — offering a list would be asking a
-	 * question where the only acceptable answer is already known.
+	 * organization it would otherwise have chosen — offering a list would be
+	 * asking a question where the only acceptable answer is already known.
 	 */
 	async function resolveOrganization(
 		token: string,
@@ -118,7 +125,7 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 		if (operatorOrganizationId === null) {
 			setRefusal({
 				title: 'Console Not Configured',
-				body: 'This console has no SIMMER organization configured, so it cannot tell an operator from an agency member. Set VITE_SIMMER_OPERATOR_ORG_ID on the admin service and redeploy.',
+				body: 'This console has no SIMMER organization configured, so it cannot tell an operator from anyone else. Set VITE_SIMMER_OPERATOR_ORG_ID on the admin service and redeploy.',
 			});
 			return;
 		}
@@ -204,7 +211,7 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 
 	return (
 		<AuthShell
-			description="Sign in with your SIMMER operator account to manage agencies, taxonomy, and units."
+			description="Sign in with your SIMMER operator account to manage organizations, taxonomy, and units."
 			title="Operator Sign In"
 		>
 			<form onSubmit={handleCredentials}>

@@ -4,7 +4,7 @@ This document is the table-level matrix for Electric-backed TanStack DB
 collections, and the policy behind it. It covers what each app baselines, what
 it loads from screen predicates, and where the pieces live.
 
-`apps/web` is migrated: all fifty of its tables read through
+`apps/web` is migrated: all fifty-three of its tables read through
 `apps/web/src/lib/collections`, and every write names the domain command it
 means. `apps/mobile` has the same migration ahead of it, and its matrix below
 is a plan rather than a description.
@@ -24,9 +24,11 @@ is a plan rather than a description.
 - **Progressive** means the app should become usable from an initial subset,
   then continue filling a broader collection in the background.
 - Eager and on-demand are declared per app, not per package: each module under
-  `apps/web/src/lib/collections` passes `syncMode` to the collection factory.
-  The matrix below is what those fifty-three modules say, so a table that changes
-  mode changes it there and this table follows.
+  `apps/web/src/lib/collections` declares its own `syncMode`, and the source
+  installed at startup passes it to the collection factory. The matrix below is
+  what those fifty-three modules say, so a table that changes mode changes it
+  there and this table follows. `collection-modules.test.ts` holds the two to
+  each other, so the matrix is checked rather than maintained by hand.
 - Web is online-only in v1. Mobile uses automatic scoped offline persistence.
 
 ## Web matrix
@@ -35,7 +37,7 @@ Twenty-four eager, twenty-nine on-demand.
 
 | Area | Eager | On-demand | Excluded |
 | --- | --- | --- | --- |
-| Identity | `organizations` (the agency's own row), `memberships`, `profiles` for selected org | none | `users` |
+| Identity | `organizations` (the organization's own row), `memberships`, `profiles` for selected org | none | `users` |
 | Foundation | `units`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses` | `genera` |
 | Adult surveillance | `traps` | `collections`, `collection_species` | none |
 | Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` | none |
@@ -69,8 +71,8 @@ withholds.
   stable label fields: profile id, organization id, display name, active state,
   and timestamps. Profile email and user id are reserved for role-appropriate
   management views.
-- `region_folders` is eager, but `regions` is on-demand because agencies may
-  store complex administrative boundary polygons.
+- `region_folders` is eager, but `regions` is on-demand because organizations
+  may store complex administrative boundary polygons.
 - `addresses` is on-demand because address books can be large.
 - Owned geometry lives on the locatable rows themselves. It is not a standalone
   web collection. Each locatable table carries trigger-maintained centroid
@@ -91,8 +93,9 @@ withholds.
   WorkOS. The handlers that need either read it server-side inside the
   transaction, and the operator console reads both over REST. Withheld is about
   what a client *receives*: the invite dialog sends `invited_email` and
-  `/commands/memberships` writes it, which is why
-  `scripts/check-command-columns.mjs` reads the same list.
+  `/commands/memberships` writes it. The command payload type takes its columns
+  from `packages/db/src/tables.ts` rather than from these schemas, so a withheld
+  column stays writable without a second list saying so.
 - Region membership is computed on read and never stored, so there is no table
   to sync. `GET /records/:recordType/:recordId/regions` answers it. See ADR 0015
   and `docs/region-membership-spec.md`.
@@ -115,16 +118,27 @@ Who owns which leg:
   migrations, key extraction, the collection factory, and the write path that
   turns a mutation into a named domain command.
 - `apps/server` owns authenticated shape proxy routes and forces table,
-  columns, and tenant scope server-side.
-- `apps/web` owns the fifty collection singletons under `src/lib/collections`,
-  their `syncMode`, and the surface-shaped read hooks under `src/hooks/queries`
-  that join them. Route components read hooks, not collections.
+  columns, and organization scope server-side.
+- `apps/web` owns the fifty-three collection declarations under
+  `src/lib/collections`, their `syncMode`, and the surface-shaped read hooks
+  under `src/hooks/queries` that join them. Route components read hooks, not
+  collections.
 
 Writes take the mirror path. A mutation applied optimistically to a collection
 carries the domain command it means; the server validates that command, commits
 it in one Kysely transaction, and returns `pg_current_xact_id()` from the same
 transaction so Electric can confirm the optimistic write. The server never
 infers the command from which fields changed.
+
+### Where a collection comes from
+
+A module in `apps/web/src/lib/collections` names the factory from
+`packages/sync`, its `syncMode`, and whether this app writes the table. It does
+not call the factory. `main.tsx` installs the sync-backed source before the
+first render, and the registry builds each collection the first time a hook asks
+for it, so importing a hook opens no shape stream and needs no server URL. A
+test installs a memory-backed source instead, which is how `apps/web` tests a
+read at all. See `lib/collections/registry.ts`.
 
 ## Mutation confirmation and transaction IDs
 
@@ -216,13 +230,17 @@ See `docs/deployment.md`, "Local development".
   restart, or cleared `electric-data` volume to avoid confusing a smoke test.
 - The baseline seed can populate multiple organizations by setting
   `SIMMER_SYNC_BASELINE_ORGANIZATION_ID`. Use this to verify selected-org shapes
-  do not leak org-owned rows across tenants. Global tables such as `units`,
+  do not leak one org's rows into another. Global tables such as `units`,
   `genera`, and `species` intentionally return the same rows for every org.
 - The applied migrations are the source of truth for every synced column, and
-  the row schemas are generated from them by
-  `scripts/generate-table-schemas.mjs` rather than written by hand. A column a
+  the row schemas are scaffolded from them by
+  `scripts/generate-table-schemas.mjs` rather than written from nothing. Which
+  columns are in a schema is that script's decision; the zod expression beside
+  each one, the order and the prose are a person's, and a second run adds and
+  removes field lines in place rather than writing the file over. A column a
   migration adds, renames, or drops fails the drift check until the schema is
-  regenerated, so the two cannot disagree quietly.
+  regenerated, so the two cannot disagree quietly, and `pnpm check:schemas`
+  fails on the same thing without waiting for a build.
 - A full browser smoke requires an authenticated WorkOS session, because app
   shape routes are protected by the selected-organization auth context.
 
@@ -316,19 +334,42 @@ the same rows on a different sync policy without a second copy of the schema.
 - the write path in `src/collections/functions` (`mutate-collection.ts`,
   `command-request.ts`, and `command-transaction.ts`), which turns a mutation
   into a named domain command and settles the response;
-- shared helpers for Electric transaction-id mutation handling.
+- shared helpers for Electric transaction-id mutation handling;
+- one place to install the two things it needs from its host, in
+  `src/collections/functions/session-fetch.ts`: `setSessionFetcher`, which says
+  how a request carries the session, and `setSessionRecovery`, which says what
+  to do when one is refused.
+
+It offers that through two doors. The root entry is the client half, and
+importing it evaluates all 56 collection factories and, through them,
+`@tanstack/db` and `@tanstack/electric-db-collection`. The `./contract` entry is
+the row schemas, `shapePathFor`, `commandPathFor` and `syncedColumnsOf`, and
+reaches nothing but `zod`. `apps/server` comes in by the second one: it registers
+the routes and forces each shape's column list, and never creates a collection,
+so it has no business evaluating a browser library at boot (#628). A module added
+to `src/contract.ts` that value-imports either TanStack package puts the whole
+stack back, and `packages/sync/src/tests/unit/contract.test.ts` is what refuses
+it. Two doors into one package is not two packages: the boundary above is
+unchanged.
 
 `apps/web` owns:
 
-- the fifty collection singletons in `src/lib/collections`, one per table,
-  each naming its own `syncMode`;
+- the fifty-three collection declarations in `src/lib/collections`, one per
+  table, each naming its own `syncMode`;
 - the read seam in `src/hooks/queries`, one hook per surface, joining
   collections and returning camelCase;
-- the explicit eager baseline preload bundle and route live-query preloads.
+- the explicit eager baseline preload bundle and route live-query preloads;
+- the transport, installed in `src/app-auth.ts`. `apps/web` and `apps/admin`
+  install the cookie fetcher from `@simmer-mosquito/auth/browser`; a token
+  client installs the `fetch` member of its own `AuthClient`, which attaches
+  the bearer and keeps every rotation (ADR 0016).
 
 What deliberately does **not** live in `packages/sync`: sync mode, preload
-policy, and retention windows. All three are app decisions, and a package that
-declared them would be making mobile's for it.
+policy, retention windows, and the credential. All four are app decisions, and a
+package that declared them would be making mobile's for it. The credential was
+the one it did declare: `credentials: 'include'` written into the shape path and
+the command path, which are every read and every write, and which a bearer
+client could therefore not use at all.
 
 The web eager baseline bundle must stay explicit. Components should subscribe to
 collection changes, but should not individually call `collection.preload()` as a

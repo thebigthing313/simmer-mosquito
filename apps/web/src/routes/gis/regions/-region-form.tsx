@@ -1,22 +1,16 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import { createRegionCommand } from '@simmer-mosquito/domain';
+import { createRegionCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import {
 	LocationSection,
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POLYGON_DRAW_TYPES,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
@@ -31,6 +25,23 @@ const REGION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	regionFolderId: 'regionFolderId',
 	metadata: 'metadata',
 };
+
+/** What a Region stores, read off the register rather than named here. */
+const REGION_BOUNDARY_SHAPES = getOwnedGeometryPolicy('region').allowedTypes;
+
+/**
+ * Whether a drawn shape is one a Region stores.
+ *
+ * The draw control takes the same `region` policy and offers nothing else, so
+ * this narrows what the routes hold to what the write seam takes rather than
+ * gating a second time. Both halves read the register: `allowedTypes` for the
+ * check, `DrawGeometryFor` for the type, so a widened policy moves them
+ * together. Naming the pair here would be a second copy of the matrix, and
+ * naming it in the assertion alone was one the compiler could not see.
+ */
+export function isRegionBoundary(geometry: DrawGeometry): geometry is DrawGeometryFor<'region'> {
+	return REGION_BOUNDARY_SHAPES.includes(geometry.type);
+}
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noRegionFolderValue = 'none';
@@ -104,30 +115,12 @@ export function RegionFormPage({
 	submitLabel,
 	onSave,
 }: RegionFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [geometryError, setGeometryError] = useState<string | null>(null);
-	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setGeometryError(null);
-		}
-	}, []);
-
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		geometryKind: 'region',
+		initialGeometry,
+		missingMessage: 'Draw the region boundary on the map before saving.',
 	});
-	const { start } = draw;
-
-	useFitToGeometry(map, geometry, draw.isDrawing);
+	const { draw, geometry, geometryType } = location;
 
 	const activeFolders = useMemo(
 		() => [...regionFolders].sort((a, b) => a.name.localeCompare(b.name)),
@@ -153,28 +146,12 @@ export function RegionFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			if (geometry === null) {
-				setGeometryError('Draw the region boundary on the map before saving.');
+			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save region.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
-
-	const startDraw = useCallback(() => {
-		setGeometryError(null);
-		start('Polygon');
-	}, [start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -188,8 +165,8 @@ export function RegionFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
-						<DrawToolbar controller={draw} geometryType="Polygon" />
+						<MapCanvas onMapReady={location.onMapReady} />
+						<DrawToolbar geometryKind="region" controller={draw} geometryType={geometryType} />
 						<MapLegend mode={mode} />
 					</>
 				}
@@ -198,12 +175,6 @@ export function RegionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Region" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Region</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<div className="grid gap-5 sm:grid-cols-2">
 					<form.AppField
@@ -228,17 +199,17 @@ export function RegionFormPage({
 
 				<LocationSection
 					description="Draw the region's area on the map."
-					error={geometryError}
+					error={location.locationError}
 					title="Region boundary"
 				>
 					<GeometryControl
-						allowedTypes={POLYGON_DRAW_TYPES}
 						controller={draw}
 						geometry={geometry}
-						geometryType="Polygon"
+						geometryType={geometryType}
+						geometryKind="region"
 						label="Boundary"
-						onClear={clearGeometry}
-						onDraw={startDraw}
+						onClear={location.clear}
+						onDraw={location.startDraw}
 						required
 					/>
 				</LocationSection>
@@ -246,7 +217,7 @@ export function RegionFormPage({
 				<form.AppField name="description">
 					{(field) => (
 						<field.TextareaField
-							description="Optional context — what this region covers and how it's used."
+							description="Optional. Say what this region covers and how crews use it."
 							label="Description"
 							placeholder="Describe the region…"
 							rows={3}
@@ -257,7 +228,7 @@ export function RegionFormPage({
 				<form.AppField name="metadata">
 					{(field) => (
 						<field.MetadataField
-							description="Optional structured notes for agency-specific region details."
+							description="Optional structured notes for region details of your own."
 							label="Metadata"
 							mode={{ kind: 'manual' }}
 						/>

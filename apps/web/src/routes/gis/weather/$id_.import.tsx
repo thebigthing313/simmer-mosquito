@@ -1,4 +1,5 @@
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -25,11 +26,11 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
-import { useWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
+import { useAllWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { IMPORT_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { assessParsedRows, type FileAssessment } from './-import-assessment';
 import {
 	commitWeatherImport,
@@ -37,7 +38,9 @@ import {
 	type WeatherImportRowResult,
 } from './-import-commit';
 import {
+	IMPORT_COLUMNS,
 	IMPORT_FILE_ACCEPT,
+	type ImportColumn,
 	MAX_IMPORT_ROWS,
 	type ParseResult,
 	parseWeatherFile,
@@ -46,7 +49,7 @@ import { ImportPreview } from './-import-preview';
 
 export const Route = createFileRoute('/gis/weather/$id_/import')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/weather/$id/import')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/weather/$id' });
 		}
 	},
@@ -96,13 +99,14 @@ function ImportWeatherRoute() {
  * render, and a commit that answers a refusal with a dialog.
  */
 function useWeatherUpload(stationId: string) {
-	// The agency's calendar day, so the review and the server agree about which
-	// rows are dated in the future.
+	// The organization's calendar day, so the review and the server agree about
+	// which rows are dated in the future.
 	const today = todayInTimeZone(useOrganizationTimeZone());
-	// The station's readings, which the assessment compares the file against. The
-	// detail page this was opened from is already querying them, which is what
-	// keeps the on-demand subset warm.
-	const { summaries, isReady } = useWeatherSummaries(stationId);
+	// Every reading the station holds, not the year the detail page was showing.
+	// The assessment answers insert, update, no change or fail per row against
+	// what is already stored, so a narrower window would report a row overwriting
+	// a 2019 reading as an insert.
+	const { summaries, isReady } = useAllWeatherSummaries(stationId);
 	const { run, dialog } = useAcknowledgedWrite({ askable: IMPORT_REFUSALS, ask: true });
 
 	const [fileName, setFileName] = useState<string | null>(null);
@@ -194,14 +198,10 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 					Back to {station.name}
 				</Link>
 
-				<div className="grid gap-1.5">
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						Import Readings
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						Load a CSV or Excel file of readings for {station.name}.
-					</p>
-				</div>
+				<PageHeader
+					description={`Load a CSV or Excel file of readings for ${station.name}.`}
+					title="Import Readings"
+				/>
 
 				<FilePickerCard isBusy={upload.isBusy} onFile={upload.chooseFile} />
 
@@ -245,7 +245,7 @@ function FilePickerCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Choose a File</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
@@ -257,11 +257,72 @@ function FilePickerCard({
 					type="file"
 				/>
 				<p className="m-0 text-muted-foreground text-xs">
-					The first row names the columns. A date column is required; readings are read in °F,
-					inches, percent and mph. Up to {MAX_IMPORT_ROWS.toLocaleString()} rows.
+					Readings are read in °F, inches, percent and mph. Up to{' '}
+					{MAX_IMPORT_ROWS.toLocaleString('en-US')} rows.
 				</p>
+				<ColumnGuide />
 			</CardContent>
 		</Card>
+	);
+}
+
+/**
+ * The headings a file may name its columns with, before one is chosen.
+ *
+ * Every spelling comes off the parser's own map, so this cannot drift from what
+ * a file is actually matched against. Without it a user learned the headings by
+ * uploading a file and reading back the list of columns that went unmapped.
+ */
+function ColumnGuide() {
+	return (
+		<div className="grid gap-2">
+			<p className="m-0 text-muted-foreground text-xs">
+				The first row names the columns. Case, spaces, punctuation and a bracketed unit are ignored,
+				so "Start Date" and "start_date" are the same heading.
+			</p>
+			<div className="overflow-x-auto rounded-md border border-border/40">
+				<Table>
+					<TableHeader>
+						<TableRow className="hover:bg-transparent">
+							<TableHead className="w-[13rem]">Column</TableHead>
+							<TableHead>Headings</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{IMPORT_COLUMNS.required.map((column) => (
+							<ColumnGuideRow column={column} isRequired key={column.label} />
+						))}
+						{IMPORT_COLUMNS.recommended.map((column) => (
+							<ColumnGuideRow column={column} isRequired={false} key={column.label} />
+						))}
+					</TableBody>
+				</Table>
+			</div>
+		</div>
+	);
+}
+
+function ColumnGuideRow({
+	column,
+	isRequired,
+}: {
+	readonly column: ImportColumn;
+	readonly isRequired: boolean;
+}) {
+	return (
+		<TableRow>
+			<TableCell className="font-medium text-foreground">
+				<span className="flex flex-wrap items-center gap-1.5">
+					{column.label}
+					{isRequired ? (
+						<Badge tone="info" variant="outline">
+							Required
+						</Badge>
+					) : null}
+				</span>
+			</TableCell>
+			<TableCell className="text-muted-foreground">{column.headings.join(', ')}</TableCell>
+		</TableRow>
 	);
 }
 
@@ -289,10 +350,10 @@ function ParsedFileCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
+			<CardHeader padding="compact" className="flex flex-wrap items-center justify-between gap-2">
 				<CardTitle>{fileName}</CardTitle>
 				<Button disabled={!canCommit} onClick={onCommit} type="button">
-					Import {assessment.attemptable.length.toLocaleString()} Rows
+					Import {assessment.attemptable.length.toLocaleString('en-US')} Rows
 				</Button>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
@@ -328,31 +389,31 @@ function AssessmentCounts({
 	return (
 		<div className="flex flex-wrap gap-2">
 			<Badge tone="success" variant="outline">
-				{assessment.counts.insert.toLocaleString()} to add
+				{assessment.counts.insert.toLocaleString('en-US')} to add
 			</Badge>
 			{assessment.counts.update === 0 ? null : (
 				<Badge tone="info" variant="outline">
-					{assessment.counts.update.toLocaleString()} would overwrite
+					{assessment.counts.update.toLocaleString('en-US')} would overwrite
 				</Badge>
 			)}
 			{assessment.counts.noChange === 0 ? null : (
 				<Badge tone="neutral" variant="outline">
-					{assessment.counts.noChange.toLocaleString()} already recorded
+					{assessment.counts.noChange.toLocaleString('en-US')} already recorded
 				</Badge>
 			)}
 			{assessment.counts.fail === 0 ? null : (
 				<Badge tone="danger" variant="outline">
-					{assessment.counts.fail.toLocaleString()} cannot be written
+					{assessment.counts.fail.toLocaleString('en-US')} cannot be written
 				</Badge>
 			)}
 			{parsed.rejected.length === 0 ? null : (
 				<Badge tone="warning" variant="outline">
-					{parsed.rejected.length.toLocaleString()} unreadable
+					{parsed.rejected.length.toLocaleString('en-US')} unreadable
 				</Badge>
 			)}
 			{parsed.truncated ? (
 				<Badge tone="warning" variant="outline">
-					Only the first {MAX_IMPORT_ROWS.toLocaleString()} kept
+					Only the first {MAX_IMPORT_ROWS.toLocaleString('en-US')} kept
 				</Badge>
 			) : null}
 		</div>
@@ -383,7 +444,7 @@ function SkippedLines({
 			))}
 			{rejected.length > 10 ? (
 				<p className="m-0 text-muted-foreground text-xs">
-					…and {(rejected.length - 10).toLocaleString()} more.
+					…and {(rejected.length - 10).toLocaleString('en-US')} more.
 				</p>
 			) : null}
 		</div>
@@ -404,23 +465,23 @@ function ImportResultCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Imported</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
 				<div className="flex flex-wrap gap-2">
 					<Badge tone="success" variant="outline">
-						{result.counts.inserted.toLocaleString()} added
+						{result.counts.inserted.toLocaleString('en-US')} added
 					</Badge>
 					<Badge tone="info" variant="outline">
-						{result.counts.updated.toLocaleString()} updated
+						{result.counts.updated.toLocaleString('en-US')} updated
 					</Badge>
 					<Badge tone="neutral" variant="outline">
-						{result.counts.noChange.toLocaleString()} unchanged
+						{result.counts.noChange.toLocaleString('en-US')} unchanged
 					</Badge>
 					{result.counts.failed === 0 ? null : (
 						<Badge tone="danger" variant="outline">
-							{result.counts.failed.toLocaleString()} failed
+							{result.counts.failed.toLocaleString('en-US')} failed
 						</Badge>
 					)}
 				</div>
@@ -436,7 +497,7 @@ function ImportResultCard({
 					<p className="m-0 text-muted-foreground text-sm">
 						{written === 0
 							? `Nothing changed on ${stationName}.`
-							: `${written.toLocaleString()} ${written === 1 ? 'reading is' : 'readings are'} now on ${stationName}.`}
+							: `${written.toLocaleString('en-US')} ${written === 1 ? 'reading is' : 'readings are'} now on ${stationName}.`}
 					</p>
 					<Button onClick={onDone} type="button">
 						View Readings

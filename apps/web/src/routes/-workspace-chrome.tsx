@@ -1,7 +1,6 @@
 import { PRIMARY_SIDEBAR_COLLAPSED_KEY } from '@simmer-mosquito/ui-web/components/app-shell';
 import { ErrorReport } from '@simmer-mosquito/ui-web/components/error-report';
 import { SkeletonRows } from '@simmer-mosquito/ui-web/components/skeleton-rows';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { usePersistentFlag } from '@simmer-mosquito/ui-web/hooks/use-persistent-flag';

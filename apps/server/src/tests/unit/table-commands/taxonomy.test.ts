@@ -2,16 +2,17 @@
  * The two operator tables, and the door they sit behind.
  *
  * `genera` and `species` are the global taxonomy: no `organization_id`, read by
- * every agency. They are the first tables on `/commands/{table}` whose commands
- * are not agency commands — the domain types them on `{ operatorUserId }` — so
- * what is under test is both the translation and the thing that keeps the two
- * kinds of table from being confused for each other.
+ * every organization. They are the first tables on `/commands/{table}` whose
+ * commands are not organization commands — the domain types them on `{
+ * operatorUserId }` — so what is under test is both the translation and the
+ * thing that keeps the two kinds of table from being confused for each other.
  */
 
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import type { AuthVariables } from '../../../auth-middleware.js';
 import { CommandError } from '../../../command-endpoint.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { CommandTransaction, WritableCommand } from '../../../command-write.js';
 import {
 	type OperatorIntentRequest,
@@ -27,7 +28,7 @@ const GENUS = '33333333-3333-4333-8333-333333333333';
 const genera = genusTableCommands(undefined as never);
 const species = speciesTableCommands(undefined as never);
 
-function request(payload: Record<string, unknown>): OperatorIntentRequest {
+function request(payload: Record<string, unknown>): OperatorIntentRequest<CommandTable, string> {
 	return {
 		payload,
 		operatorUserId: OPERATOR_USER,
@@ -37,12 +38,12 @@ function request(payload: Record<string, unknown>): OperatorIntentRequest {
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: OperatorTableCommands<TCommand, unknown>,
+	spec: OperatorTableCommands<CommandTable, TCommand, unknown, string>,
 	intent: string,
-	intentRequest: OperatorIntentRequest,
+	intentRequest: OperatorIntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent as never] as
-		| ((r: OperatorIntentRequest) => TCommand)
+		| ((r: OperatorIntentRequest<CommandTable, string>) => TCommand)
 		| undefined;
 	if (builder === undefined) {
 		throw new Error(`${spec.table} does not accept ${intent}.`);
@@ -53,9 +54,9 @@ function build<TCommand extends WritableCommand>(
 describe('the operator door', () => {
 	it('refuses to register a table whose commands are not operator-scoped', () => {
 		// The failure this prevents is a route whose authorization does not match
-		// its door: an agency command served behind operator middleware would be
-		// reachable by any operator regardless of the floor its own map states.
-		const wrong: OperatorTableCommands<never, unknown> = {
+		// its door: an organization command served behind operator middleware would
+		// be reachable by any operator regardless of the floor its own map states.
+		const wrong: OperatorTableCommands<CommandTable, never, unknown, string> = {
 			table: 'habitats',
 			actor: 'operator',
 			run: {} as never,

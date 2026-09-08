@@ -12,9 +12,14 @@
  * the part that is easy to get wrong and impossible to see when it is. What is
  * not shared is any table's columns: each hook maps its own, so a wrong column
  * name stays a compile error rather than becoming a lookup in a map.
+ *
+ * `metadataChanged` is the one export here that is not about control actions.
+ * Every record with custom fields asks the same question of them, so the habitat
+ * and collection hooks import it from here rather than keeping their own. Two
+ * more importers do not earn a file of their own.
  */
 
-import type { ControlActionContext } from '@simmer-mosquito/domain';
+import type { ControlActionContext, SingleRowCommandType } from '@simmer-mosquito/domain';
 
 /**
  * Where a performed action happened, as a form resolved it.
@@ -72,9 +77,55 @@ export function contextFor(
  * method's schema defines, so there are no known keys to compare one by one.
  * Both sides come from the same form and the same column, so key order is stable
  * enough for this to be an equality test rather than a heuristic.
+ *
+ * Serialized rather than compared by reference because a form rebuilds the bag on
+ * every render. A reference check would read every save as a metadata change and
+ * name the details command on saves that changed only the method, and the domain
+ * refuses a command with nothing in it.
  */
 export function metadataChanged(before: unknown, after: unknown): boolean {
 	return JSON.stringify(before ?? null) !== JSON.stringify(after ?? null);
+}
+
+/**
+ * The half of a performed-action edit that carries the measurements.
+ *
+ * Read out of the command vocabulary by shape rather than listed per surface, so
+ * a fifth performed action needs nothing added here. What it buys is that the two
+ * halves are different types: a placement command handed to `fieldsIntent` is a
+ * compile error rather than a save that returns 200 and writes nothing.
+ */
+type ActionFieldDetailsIntent = Extract<
+	SingleRowCommandType,
+	`controlOperations.update${string}FieldDetails`
+>;
+
+/**
+ * The half of a performed-action edit that carries where and what it attaches to.
+ *
+ * One name wider than the four performed actions:
+ * `updateRequestedControlActionLocationAndContext` has the same shape and no
+ * field-details twin. What these two types hold apart is the role, not the record
+ * kind, and a hook naming another record's command has the wrong collection under
+ * it anyway.
+ */
+type ActionPlacementIntent = Extract<
+	SingleRowCommandType,
+	`controlOperations.update${string}LocationAndContext`
+>;
+
+/**
+ * What moved in one edit, and the command that carries each half.
+ *
+ * One object rather than four positional arguments so each flag sits beside the
+ * command it gates. Positionally the two names were interchangeable, and the
+ * mistake this guards against is naming the wrong one.
+ */
+export interface ActionEditIntentsInput {
+	readonly fieldsMoved: boolean;
+	readonly fieldsIntent: ActionFieldDetailsIntent;
+	readonly placementMoved: boolean;
+	readonly placementIntent: ActionPlacementIntent;
 }
 
 /**
@@ -89,17 +140,17 @@ export function metadataChanged(before: unknown, after: unknown): boolean {
  * So naming the wrong one loses work quietly: an address change sent under the
  * field-details name is dropped behind a 200, because that builder has no reader
  * for it. And naming one with nothing to change is refused outright, because the
- * domain will not run an empty command. Neither is a judgement call — it follows
- * from what actually moved, which is why this takes two booleans rather than a
- * form's opinion.
+ * domain will not run an empty command. Neither is a judgement call. It follows
+ * from what actually moved, which is why the caller states both flags rather than
+ * handing over a form's opinion.
  *
  * An empty result means nothing moved and there is no write to make.
  */
-export function actionEditIntents<TFields extends string, TPlacement extends string>(
-	fieldsMoved: boolean,
-	placementMoved: boolean,
-	fieldsIntent: TFields,
-	placementIntent: TPlacement,
-): readonly (TFields | TPlacement)[] {
+export function actionEditIntents({
+	fieldsMoved,
+	fieldsIntent,
+	placementMoved,
+	placementIntent,
+}: ActionEditIntentsInput): readonly (ActionFieldDetailsIntent | ActionPlacementIntent)[] {
 	return [...(fieldsMoved ? [fieldsIntent] : []), ...(placementMoved ? [placementIntent] : [])];
 }

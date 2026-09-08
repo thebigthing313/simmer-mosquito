@@ -38,11 +38,29 @@ jobs:
       # Lint, format, and import order, in one pass over every file, and first
       # because it is a second's work. Nothing else here reads style. `typecheck`
       # and `build` are indifferent to it, and `fallow` reads structure rather
-      # than syntax. Errors fail the job and the warning backlog does not,
-      # because Biome exits on severity. Four errors sat on `staging` because
-      # nothing here ran it (#291).
+      # than syntax. Four errors sat on `staging` because nothing here ran it
+      # (#291).
+      #
+      # It runs `--error-on-warnings`, so a warning fails the job too. It used to
+      # exit on severity alone, and 46 warnings accumulated under that, 41 of
+      # them an unused import or local that no gate counted: `fallow dead-code`
+      # gates unused *exports* (#543). The tree is at zero with no allowance.
       - name: Lint and format
         run: pnpm check
+
+      # The gate steps below are what `pnpm check:all` runs locally, and this is
+      # the one step that holds the two to each other. It parses the `check:*`
+      # scripts out of the root package.json and the `pnpm check:*` steps out of
+      # this job, and fails when either names something the other does not. So a
+      # new gate that is added to package.json and not to this job fails here,
+      # rather than passing CI while a contributor's `pnpm check:all` runs it.
+      #
+      # This job keeps a step per gate rather than calling `pnpm check:all`,
+      # because a failed step is a named line in the GitHub UI and one aggregate
+      # step would be a log a reader scrolls. It runs no gate, so it costs a
+      # parse.
+      - name: Static gate list
+        run: pnpm check:all --list
 
       # The cheapest of the structural gates, and the only one that can see a
       # build-order drift. `typecheck` and `build` both go through Nx, so they
@@ -54,18 +72,18 @@ jobs:
       - name: Build graph
         run: pnpm check:build-graph
 
-      # The other half of a command write is hand-typed. A body's `snake_case`
-      # key names a column, and `payload` is a loose record, so a misspelled one
-      # reads `undefined` and the caller still gets a 200. The reads have a
-      # drift test against the database; this is the writes' equivalent.
-      - name: Command columns
-        run: pnpm check:command-columns
-
       # A write's own agency comes from the session; the ids it references come
       # from the payload, and a foreign key cannot see whose they are. This
       # asserts every write that names one goes through the reference gate.
       - name: Write references
         run: pnpm check:write-references
+
+      # A route whose whole purpose is a write needs a role floor, or a Collector
+      # reaches it by URL, fills the form in and meets the refusal at the save.
+      # This asserts every one has an entry in `apps/web/src/lib/write-surfaces.ts`
+      # and guards itself against it.
+      - name: Write surfaces
+        run: pnpm check:write-surfaces
 
       # The search index is a second copy of the corpus tables' text, read back
       # over an endpoint with no column list of its own. This asserts every
@@ -75,6 +93,30 @@ jobs:
       - name: Search corpus
         run: pnpm check:search-corpus
 
+      # `/map/tiles/:tileset` is one endpoint with a name in the path, and the
+      # name lives in three places: the client's layer table, the source id its
+      # URL builder puts in the path, and the server's tileset registry. A name
+      # that disagrees 404s every tile and draws an empty map with nothing on
+      # screen to say why.
+      - name: Tileset keys
+        run: pnpm check:tileset-keys
+
+      # Which record kind stores which shapes was written in seven places and
+      # nothing held them to each other. Four were deleted; this asserts the
+      # register that replaced them is complete and that nobody has written an
+      # eighth copy. Gated at zero, because the seven agreed when they were
+      # collapsed and there is no backlog to ratchet.
+      - name: Geometry policies
+        run: pnpm check:geometry-policies
+
+      # Seventeen Postgres enum types, one register. Larval Density alone was
+      # written out in thirteen places and nothing held any of them to any
+      # other, so a sixth band would have compiled everywhere and shown five
+      # options. This compares the register to the schema dump, ordered, and
+      # refuses a member list written anywhere else. Gated at zero.
+      - name: Column vocabularies
+        run: pnpm check:column-vocabularies
+
       # An acknowledgement is a flag a client sets to say it meant to remove
       # something. Seventy-three are declared on command payloads, and until
       # #314 nothing read any of them, because a flag lives next to the command
@@ -83,6 +125,213 @@ jobs:
       # the number nothing checks.
       - name: Acknowledgements
         run: pnpm check:acknowledgements
+
+      # A mutation hook is what turns a form submit into a named domain command,
+      # and the suites that assert one are grouped by write surface rather than
+      # by module, so no file name says which hooks are covered. This asserts
+      # every exported hook is named by a suite. Textual on purpose: the four
+      # control-method catalogs are asserted from a table that passes each hook
+      # by reference, so a check for a call site reports three of them as
+      # uncovered. Gated at zero, with no allowance list.
+      - name: Mutation coverage
+        run: pnpm check:mutation-coverage
+
+      # `docs/architecture.md` says SIMMER uses `apps/preview` where another
+      # workspace would use Storybook, and nothing counted the set, so the app
+      # drifted: the last commit to its routes is dated 2026-05-18, and
+      # `autocomplete.tsx`, `date-picker.tsx` and `number-input.tsx` were added
+      # to `packages/ui-web` after it with no section between them.
+      # This requires every `.tsx` under the four gallery roots to be
+      # imported by `apps/preview/src`, matching on the import rather than on
+      # the text, because half these module names are ordinary English and a
+      # heading reading "Table" would cover one by accident. It ships at the
+      # backlog it found rather than at zero, 62, which is the 64 modules with
+      # no preview section less the two that can have none, and it fails when
+      # the real number moves either way. Those two sit on a permanent allowance
+      # with a written reason each, and an entry there excusing nothing fails.
+      - name: Preview coverage
+        run: pnpm check:preview-coverage
+
+      # `@tanstack/db` defaults a join with no third argument to `left`, and
+      # #475 found four in `apps/web` whose comments said `inner`. This resolves
+      # every `.join()` call's argument list and requires the query-builder ones
+      # to name their type. An array join is told apart by shape: two arguments
+      # at least, and either an object literal first or a function second, which
+      # is nothing `Array.prototype.join` takes. Gated at zero, 88 joins.
+      - name: Join types
+        run: pnpm check:join-types
+
+      # Mapbox evaluates paint properties outside the CSS cascade, so a map
+      # layer cannot read a custom property and every colour it paints is a
+      # literal. Six of the 62 modules under the map directory kept a private
+      # block through the pass that wrote the register, and selection reached
+      # three colours: amber on the tile layers, dark green on the record
+      # overlay, near-black on the service-request map. Lifecycle drifted twice
+      # in one file, and `NEARBY_FAMILY_COLORS` restated `mapFamily` byte for
+      # byte under a comment calling the values approximations. This refuses a
+      # hex literal anywhere under that directory, at zero with no allowance.
+      - name: Map palette
+        run: pnpm check:map-palette
+
+      # The colour maths behind every contrast answer was written four times
+      # before #617 collapsed it into `packages/design-tokens/src/color.ts`, and
+      # the four had already drifted on the sRGB linearization knee. Nothing was
+      # wrong on screen, because no integer channel falls between the two knees.
+      # This refuses the register's constants anywhere else: the luminance
+      # coefficients, the OKLCH matrix rows and both knees, read out of the
+      # register rather than copied into the gate. At zero with no allowance.
+      - name: Colour maths
+        run: pnpm check:color-maths
+
+      # `.fallowrc.jsonc` names every package barrel as an entry point, so a
+      # barrel is a graph root and everything it re-exports is reachable. That
+      # is right for `fallow` and it means a module can have no caller anywhere
+      # and still be reported as used: `features.ts`, `overlays.ts`, `tiles.ts`
+      # and `viewport.ts` in `packages/mapping` contributed 33 of the barrel's
+      # 115 names and not one was imported, and two of them had suites. This
+      # asks the question a barrel cannot, whether anything outside the package
+      # names what a module holds, and the barrel's own imports do not count.
+      # `packages/mapping` only, at zero with no allowance.
+      - name: Mapping callers
+        run: pnpm check:mapping-callers
+
+      # Tailwind emits a utility only for a theme variable it knows about, so a
+      # role declared in `:root` and never registered in `@theme` is CSS no
+      # class can reach: `border-border-strong` compiled to nothing and the
+      # admin foundations swatch drew its ring in the inherited `--border`. The
+      # status palette had already been through this once. This asserts every
+      # `:root` role is named by some `@theme` entry and that no class reaches
+      # for one that is not, at zero with no allowance.
+      - name: Registered tokens
+        run: pnpm check:registered-tokens
+
+      # `role="img"` tells assistive technology the element is an image, and an
+      # image needs an accessible name. `aria-label` gives it one and `title`
+      # does not: support varies by browser and screen reader, and it is
+      # invisible to a touch device. Six elements carry the role and the rule
+      # was written into two docblocks and enforced nowhere, which is what
+      # #606's swatch was written against. This refuses one with no `aria-label`
+      # and no `aria-labelledby`, and one whose only naming attribute is
+      # `title`, at zero with no allowance.
+      - name: Image names
+        run: pnpm check:image-names
+
+      # `CONTEXT.md` names every domain term and, beside it, the words that are
+      # not that term. Nothing read those Avoid lists until this, which is how
+      # agency and organization ended up in one sentence on one screen. It reads
+      # user-facing copy only, string literals and JSX text in the three app
+      # roots that ship screens, because about 2,100 comments said agency when
+      # it was written and a gate that read them would have failed on history.
+      # Four words since #552: `agency`, `tenant`, `site` and `seat`. All three
+      # roots are at zero since #533, and a correct use carries a
+      # `// vocabulary-ignore` marker rather than an allowance entry.
+      - name: Vocabulary
+        run: pnpm check:vocabulary
+
+      # Biome checks zero markdown files, so `pnpm check` above has never read a
+      # word of prose and `docs/writing-style.md` held only as far as whoever
+      # was reading. Fourteen em dashes were sitting under `docs/` when #594 was
+      # filed. This reads every tracked `.md` except the generated changelogs,
+      # for the em dash and for an en dash between spaces, both at zero with no
+      # allowance. A fenced block and an inline code span are masked, an
+      # unspaced en dash in a range is correct and is left alone, and a dash
+      # that is right carries a `<!-- prose-ignore: -->` marker on the line
+      # above. Code comments are out: the workspace carries 3,059 em dashes in
+      # `.ts`, `.tsx` and `.mjs`, so a gate reading them would fail on history,
+      # which is the same line `check:vocabulary` draws.
+      - name: Prose
+        run: pnpm check:prose
+
+      # The other half of the same rule, over what a user reads. `check:prose`
+      # reads no TypeScript and `check:vocabulary` enforces the `CONTEXT.md`
+      # register alone, so the dash rule bound on copy through `CLAUDE.md` and
+      # nothing checked it: 62 em dashes and 4 spaced en dashes had collected
+      # there while `docs/` sat at zero (#584). This reads the same copy
+      # `check:vocabulary` does, through the same `copyStrings`, for the same
+      # two dashes. A whole string literal that is nothing but the em dash
+      # passes, because `docs/writing-style.md` says the ban is on punctuation
+      # inside a sentence and `AbsentValue` draws the glyph. A template chunk
+      # padded with spaces between two interpolations is a separator rather than
+      # a lone glyph, so it fails. At zero with no allowance, and a dash that is
+      # right carries a `// copy-dash-ignore:` marker on the line above.
+      - name: Copy dashes
+        run: pnpm check:copy-dashes
+
+      # `packages/db/src/tables.ts` is generated from `packages/db/schema.sql`,
+      # the schema dbmate dumps on migrate. This runs the generator and fails on
+      # any difference, which covers both a hand edit and a migration whose
+      # regeneration nobody ran. It also refuses a dump whose applied versions
+      # are not the migration files on disk, which is the stale-dump case that
+      # would otherwise make every check below green against a schema that does
+      # not exist.
+      - name: Table types
+        run: pnpm check:table-types
+
+      # The client half of the same columns. The collection factories, the two
+      # barrels and the drift suite are compared byte for byte; a row schema is
+      # scaffolded and then hand-owned, so only its field list is. That list is
+      # where withholding lives: a column taken out of `WITHHELD` and left in a
+      # schema is a column Electric streams to every client on the shape.
+      - name: Collection schemas
+        run: pnpm check:schemas
+
+      # Which columns the server owns is written down on both sides of the wire:
+      # the generator's rule, and the list `packages/sync` strips from every
+      # outgoing body. Nothing compared them and they had drifted both ways. The
+      # two differences that are deliberate are answered by a register rather
+      # than by prose, so this checks the answer instead of tolerating the gap.
+      - name: Server-owned columns
+        run: pnpm check:server-owned-columns
+
+      # Since #614 the credential every shape stream and every command write
+      # carries is the host's, installed once with `setSessionFetcher`. An app
+      # that installed none used to be answered by a fallback to bare `fetch`,
+      # which omits the cookie cross-origin, so every read and every write was
+      # refused and the workspace drew as empty rather than as broken. #695
+      # swept the thirty call sites that had been carrying their own credential
+      # through that fallback, which made the hole total. `sessionFetch` now
+      # refuses to send with no transport installed, and this is the other half:
+      # an app that imports the collection barrel and calls the installer
+      # nowhere, caught on the branch that writes it.
+      - name: Session fetcher
+        run: pnpm check:session-fetcher
+
+      # The third layer over the same rule, and the one neither of the other two
+      # reaches: an app that installs a transport correctly, with one call site
+      # inside it answering the credential question a second time. #695 swept
+      # thirty of those and left the rule in a docblock, so the next one could
+      # write `credentials: 'include'` back with every gate green. This refuses a
+      # `RequestCredentials` literal under `apps/` and `packages/`, at zero, with
+      # three markers standing over the two transports and the fetch Mapbox GL
+      # makes for itself.
+      - name: Session credentials
+        run: pnpm check:session-credentials
+
+      # The React Compiler reports through a `logger` and nowhere else, and the
+      # rollout in #649 accepts on "every component compiles or carries a
+      # deliberate opt-out with a reason", which nothing could check. This runs
+      # `babel-plugin-react-compiler` over the four React source trees at
+      # `compilationMode: 'infer'` and asks two questions: zero unexcused
+      # bail-outs inside the phase allowlist, and the ratcheted file register
+      # outside it, unmoved in either direction. Last of the gates because it is
+      # the slowest, at about 25 seconds.
+      - name: Compiler bail-outs
+        run: pnpm check:compiler-bailouts
+
+      # The other half of the same question, and the only thing here that reads
+      # a React rule at all: Biome's `react` domain is off, so 104 Rules of
+      # React violations had collected under a green `pnpm check` (#651). The
+      # compiler bails out on the code those rules name, which makes the backlog
+      # the work list for every phase of #649, and a phase that added to it
+      # would look exactly like one that did not. This holds it per file, in
+      # both directions.
+      #
+      # It is not a `check:*` script and `pnpm check:all` does not run it, which
+      # is why it has a step of its own here rather than a line in the gate
+      # list: `pnpm check` means Biome, and one script over two linters would
+      # read as the zero-warning rule covering both.
+      - name: React rules
+        run: pnpm lint:react
 
       - name: Typecheck
         run: pnpm typecheck
@@ -320,6 +569,80 @@ jobs:
           # The version check reads package.json at the base commit, which the
           # default shallow clone does not have.
           fetch-depth: 0
+
+      - name: Require a hotfix to have merged back
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$BASE_REF" != "staging" ]; then
+            echo "Base is $BASE_REF, not staging: nothing is being promoted here."
+            exit 0
+          fi
+
+          # Step 6 of the hotfix path merges `main` back into `staging`, then
+          # `staging` into `develop`, and until now nothing enforced either.
+          #
+          # Skipping the first merge is already caught, and hard: the promotion
+          # is a plain `git push origin origin/staging:main`, so a `main` that
+          # holds a fix `staging` lacks is not behind and git rejects the push.
+          # The production fix cannot be silently overwritten. What it cannot do
+          # is say why, and it says it days late, after a candidate has soaked.
+          #
+          # Skipping the second merge is caught by nothing at all. `develop`
+          # keeps building on code the fix never reached, and the fix dies the
+          # day somebody resolves a conflict in its file the other way.
+          #
+          # This reads both, before the cut rather than after, so a divergence
+          # costs a merge rather than a wasted release number (#412).
+          git fetch --quiet --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/develop:refs/remotes/origin/develop
+
+          # `git cherry` limits to commits reachable from `main` and not from
+          # `develop`, drops merge commits, and compares the rest by patch id.
+          # Dropping the merges is what makes this quiet in ordinary operation:
+          # `main` is always a promotion merge commit `develop` does not carry,
+          # so a plain reachability test would fire on every cut. The patch id
+          # covers a hotfix that reached `develop` by cherry-pick instead of by
+          # the two merges.
+          unmerged=$(git cherry origin/develop origin/main | grep '^+' | cut -d' ' -f2 || true)
+
+          if [ -z "$unmerged" ]; then
+            echo "Everything on main is on develop."
+            exit 0
+          fi
+
+          # Read live rather than from `github.event.pull_request.labels`, which
+          # is a snapshot taken when the event fired, so a label added after the
+          # PR opened is not in it and `gh run rerun` replays the same stale
+          # payload. Adding the label and re-running this job is enough.
+          #
+          # No leading slash: Git Bash on Windows rewrites a leading-slash
+          # endpoint as a path, which is how anyone testing this by hand meets it.
+          if gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.labels[].name' \
+            | grep -qxF 'release cut declined'; then
+            echo "Labelled 'release cut declined': the gate was overridden deliberately."
+            exit 0
+          fi
+
+          echo "::error::main holds commits develop does not: a hotfix never merged back."
+          echo
+          echo "Finish step 6 of the hotfix path before promoting. Both branches"
+          echo "require a pull request, so it is two of them, in this order:"
+          echo
+          echo "  gh pr create --base staging --head main  --label 'release cut declined'"
+          echo "  gh pr create --base develop --head staging --label 'no changeset'"
+          echo
+          echo "Both changelogs will conflict and both sides are right: keep every"
+          echo "entry, in version order. See docs/releases.md, 'The hotfix path'."
+          echo
+          echo "Commits on main and not on develop:"
+          echo "$unmerged" | while read -r sha; do
+            git log -1 --format='  %h %s' "$sha"
+          done
+          exit 1
 
       - name: Require the release to be cut
         env:

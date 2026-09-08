@@ -1,3 +1,5 @@
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
@@ -6,14 +8,8 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	ChevronRightIcon,
-	iconRegistry,
-	PlusIcon,
-	SearchIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
@@ -71,38 +67,29 @@ function ContactsExplorerRoute() {
 	return (
 		<OutletSimpleLayout>
 			<div className="grid gap-4">
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">Contacts</h1>
-						<p className="m-0 text-muted-foreground text-sm">
-							People and organizations the agency engages with on service requests and
-							notifications.
-						</p>
-					</div>
-					<WriteOnly minimum="manager">
-						<Button asChild size="sm">
-							<Link to="/public-engagement/contacts/create">
-								<PlusIcon aria-hidden="true" data-icon="inline-start" />
-								Create
-							</Link>
-						</Button>
-					</WriteOnly>
-				</div>
+				<PageHeader
+					actions={
+						<WriteOnly minimum="manager">
+							<Button asChild size="sm">
+								<Link to="/public-engagement/contacts/create">
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									Create
+								</Link>
+							</Button>
+						</WriteOnly>
+					}
+					description="The people you engage with on service requests and notifications."
+					title="Contacts"
+				/>
 
-				<div className="relative max-w-md">
-					<SearchIcon
-						aria-hidden="true"
-						className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-					/>
-					<Input
-						aria-label="Search contacts"
-						className="pl-9"
-						onChange={(event) => setSearch(event.target.value)}
-						placeholder="Search contacts…"
-						type="search"
-						value={search}
-					/>
-				</div>
+				<SearchInput
+					className="max-w-md"
+					label="Search contacts"
+					onChange={(event) => setSearch(event.target.value)}
+					onClear={() => setSearch('')}
+					placeholder="Search contacts…"
+					value={search}
+				/>
 
 				{!isReady ? (
 					<ContactsSkeleton />

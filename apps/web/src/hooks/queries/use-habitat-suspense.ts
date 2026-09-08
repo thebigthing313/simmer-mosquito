@@ -19,15 +19,15 @@ export function useHabitatSuspense(habitatId: string): Habitat | undefined {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ habitat: habitats })
+				.from({ habitat: habitats() })
 				.where(({ habitat }) => eq(habitat.id, habitatId))
 				.join(
-					{ type: habitat_types },
+					{ type: habitat_types() },
 					({ habitat, type }) => eq(habitat.habitat_type_id, type.id),
 					'left',
 				)
 				.join(
-					{ address: addresses },
+					{ address: addresses() },
 					({ habitat, address }) => eq(habitat.address_id, address.id),
 					'left',
 				)

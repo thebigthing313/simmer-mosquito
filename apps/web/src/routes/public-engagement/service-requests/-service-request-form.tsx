@@ -1,32 +1,26 @@
 import {
 	createServiceRequestCommand,
+	getOwnedGeometryPolicy,
 	REQUEST_INTAKE_TYPES,
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	FormSection,
 	LocationSection,
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POINT_DRAW_TYPES,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type MapDrawController,
-	useMapDraw,
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type {
+	DrawGeometry,
+	DrawGeometryFor,
+	DrawGeometryType,
+	MapDrawController,
 } from '../../../components/map/use-map-draw';
 import type { AddressOption } from '../../../components/pickers/address-picker';
 import { AddressPicker } from '../../../components/pickers/address-picker';
@@ -97,6 +91,26 @@ const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 		CONTACT_FIELD_PATHS.map((field) => [`contact.details.${field}`, `newContact.${field}`]),
 	),
 };
+
+/** What a Service Request stores, read off the register rather than named here. */
+const REQUEST_LOCATION_SHAPES = getOwnedGeometryPolicy('serviceRequest').allowedTypes;
+
+/**
+ * Whether a placed shape is one a Service Request stores.
+ *
+ * The draw control takes the same `serviceRequest` policy and offers nothing
+ * else, so this narrows what the create route holds to what the write seam takes
+ * rather than gating a second time. Both halves read the register, for the same
+ * reason the station and Region predicates do: the route used to ask
+ * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
+ * widens, and on Regions that copy refused a boundary the user could see on the
+ * map. `Point` written into the assertion was the last of that copy left.
+ */
+export function isRequestLocation(
+	geometry: DrawGeometry,
+): geometry is DrawGeometryFor<'serviceRequest'> {
+	return REQUEST_LOCATION_SHAPES.includes(geometry.type);
+}
 
 /**
  * The create path's rules, straight from the domain builder: intake type, date,
@@ -192,33 +206,15 @@ export function ServiceRequestFormPage({
 	submitLabel,
 	onSave,
 }: ServiceRequestFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [locationError, setLocationError] = useState<string | null>(null);
-	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
 	// The draw layer both renders the placed point and edits it, so the map needs no
 	// separate preview feature.
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		geometryKind: 'serviceRequest',
+		initialGeometry,
+		missingMessage: 'Place the request location on the map.',
+		required: requireLocation && !hideLocation,
 	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
+	const { addressCoord, draw, geometry, geometryType } = location;
 
 	const profileOptions = useMemo(
 		() =>
@@ -230,27 +226,14 @@ export function ServiceRequestFormPage({
 		[profiles],
 	);
 
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
-
-	const placeAddressPoint = useCallback((point: DrawPoint) => setGeometry(point), []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
+	const { clearError, selectAddress } = location;
 	const handleAddressSelected = useCallback(
 		(address: AddressOption | null) => {
-			setLocationError(null);
+			clearError();
 			selectAddress(address);
 		},
-		[selectAddress],
+		[clearError, selectAddress],
 	);
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start('Point');
-	}, [start]);
-
-	const clearPoint = useCallback(() => setGeometry(null), []);
 
 	const form = useAppForm({
 		defaultValues,
@@ -263,22 +246,15 @@ export function ServiceRequestFormPage({
 				hideLocation ? undefined : validateServiceRequest(input.value, geometry),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			const error = validateServiceRequestForm(value, { hideLocation, disableNewContact });
 			if (error !== null) {
-				setSaveError(error);
+				throw new Error(error);
+			}
+			if (!location.requireGeometry()) {
 				return;
 			}
-			if (!hideLocation && requireLocation && geometry === null) {
-				setLocationError('Place the request location on the map.');
-				return;
-			}
-			try {
-				await onSave({ values: value, geometry: hideLocation ? null : geometry });
-			} catch (thrown) {
-				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save service request.');
-			}
+			await onSave({ values: value, geometry: hideLocation ? null : geometry });
 		},
 	});
 
@@ -294,10 +270,11 @@ export function ServiceRequestFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas onMapReady={location.onMapReady} />
 						<DrawToolbar
+							geometryKind="serviceRequest"
 							controller={draw}
-							geometryType="Point"
+							geometryType={geometryType}
 							pointPrompt="Click the map to place the request location."
 						/>
 					</>
@@ -307,12 +284,6 @@ export function ServiceRequestFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Service Request" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Service Request</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<ContactSection
 					disableNewContact={disableNewContact}
@@ -326,13 +297,14 @@ export function ServiceRequestFormPage({
 						controller={draw}
 						form={form}
 						geometry={geometry}
-						locationError={locationError}
+						geometryType={geometryType}
+						locationError={location.locationError}
 						onAddressSelected={handleAddressSelected}
-						onClearPoint={clearPoint}
-						onDrawPoint={startDraw}
-						onMoveToAddress={moveToAddress}
+						onClearPoint={location.clear}
+						onDrawPoint={location.startDraw}
+						onMoveToAddress={location.moveToAddress}
 						organizationId={organizationId}
-						requestMapPoint={requestMapPoint}
+						requestMapPoint={location.requestMapPoint}
 						requireLocation={requireLocation}
 					/>
 				)}
@@ -373,7 +345,7 @@ export function ServiceRequestFormPage({
 					<form.AppField name="details">
 						{(field) => (
 							<field.TextareaField
-								description="What the caller reported — location details, mosquito activity, standing water, etc."
+								description="What the caller reported, such as location details, mosquito activity, or standing water."
 								label="Details"
 								required
 								placeholder="Describe the request…"
@@ -459,6 +431,7 @@ function RequestLocation({
 	form,
 	organizationId,
 	geometry,
+	geometryType,
 	controller,
 	addressCoord,
 	locationError,
@@ -473,6 +446,7 @@ function RequestLocation({
 	readonly form: any;
 	readonly organizationId: string;
 	readonly geometry: DrawGeometry | null;
+	readonly geometryType: DrawGeometryType;
 	readonly controller: MapDrawController;
 	readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
 	readonly locationError: string | null;
@@ -511,10 +485,10 @@ function RequestLocation({
 			</form.AppField>
 
 			<GeometryControl
-				allowedTypes={POINT_DRAW_TYPES}
 				controller={controller}
 				geometry={geometry}
-				geometryType="Point"
+				geometryType={geometryType}
+				geometryKind="serviceRequest"
 				label="Point"
 				required={requireLocation}
 				onClear={onClearPoint}

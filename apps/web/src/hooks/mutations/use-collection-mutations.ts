@@ -58,7 +58,11 @@
  *   `updateCollectionFieldDetails` with everything else the crew reported.
  */
 
-import type { MultiRowCommandType, SingleRowCommandType } from '@simmer-mosquito/domain';
+import type {
+	AdultCollectionTimingMode,
+	MultiRowCommandType,
+	SingleRowCommandType,
+} from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type AdultCollection, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
@@ -68,11 +72,12 @@ import { collections } from '../../lib/collections/collections';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
+import { metadataChanged } from './performed-action-writes';
 import { lifecycleStamp, optimisticStamp } from './shared';
 
-/** How long the trap was out, in whichever of the two shapes the agency records. */
+/** How long the trap was out, in whichever of the two shapes the organization records. */
 export interface CollectionTiming {
-	readonly timingMode: 'exact_timestamps' | 'collection_date_duration';
+	readonly timingMode: AdultCollectionTimingMode;
 	/** Exact mode: when the trap went out. */
 	readonly startedAt: Date | null;
 	/** Exact mode: when it was emptied. `null` on a trap still out. */
@@ -260,11 +265,11 @@ export function useCollectionMutations(): CollectionMutations {
 							body: stopCollectionRequestBody(row, placement, acknowledgements),
 						},
 						apply: () => {
-							collections.insert(row);
+							collections().insert(row);
 							// The stop the technician was sent to, closed by the visit that
 							// was the reason for it. Backdated like every lifecycle stamp, so
 							// a fast browser clock cannot have it refused as future.
-							assignment_items.update(placement.assignmentItemId, (draft) => {
+							assignment_items().update(placement.assignmentItemId, (draft) => {
 								draft.completed_at = lifecycleStamp();
 								draft.completed_by_profile_id = actorProfileId;
 								draft.skipped_at = null;
@@ -280,7 +285,7 @@ export function useCollectionMutations(): CollectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'insert',
 					intent: createIntentFor(placement.kind, isCollected),
 					row,
@@ -349,7 +354,7 @@ export function useCollectionMutations(): CollectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: intents,
 					key: collectionId,
@@ -389,7 +394,7 @@ export function useCollectionMutations(): CollectionMutations {
 
 			if (assignmentItemId == null) {
 				await settleWrite(
-					mutateCollection(collections, {
+					mutateCollection(collections(), {
 						operation: 'update',
 						intent: 'adultSurveillance.collectCollection',
 						key: collectionId,
@@ -413,11 +418,11 @@ export function useCollectionMutations(): CollectionMutations {
 						),
 					},
 					apply: () => {
-						collections.update(collectionId, (draft) => {
+						collections().update(collectionId, (draft) => {
 							Object.assign(draft, changes);
 							draft.collected_assignment_item_id = assignmentItemId;
 						});
-						assignment_items.update(assignmentItemId, (draft) => {
+						assignment_items().update(assignmentItemId, (draft) => {
 							draft.completed_at = lifecycleStamp();
 							draft.completed_by_profile_id = actorProfileId;
 							draft.skipped_at = null;
@@ -440,7 +445,7 @@ export function useCollectionMutations(): CollectionMutations {
 			acknowledgements: Readonly<Record<string, boolean>> = {},
 		) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: isZeroResult
 						? 'adultSurveillance.markCollectionZeroResult'
@@ -464,7 +469,7 @@ export function useCollectionMutations(): CollectionMutations {
 	const setBycatch = useCallback(
 		async (collectionId: string, hasBycatch: boolean) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: 'adultSurveillance.setCollectionBycatch',
 					key: collectionId,
@@ -482,7 +487,7 @@ export function useCollectionMutations(): CollectionMutations {
 	const setProblem = useCallback(
 		async (collectionId: string, hasProblem: boolean) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: 'adultSurveillance.updateCollectionFieldDetails',
 					key: collectionId,
@@ -500,7 +505,7 @@ export function useCollectionMutations(): CollectionMutations {
 	const remove = useCallback(
 		async (collectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'delete',
 					intent: 'adultSurveillance.deleteCollection',
 					key: collectionId,
@@ -641,15 +646,4 @@ function timingMoved(next: CollectionTiming, current: CollectionTiming): boolean
 		next.durationAmount !== current.durationAmount ||
 		next.durationUnitId !== current.durationUnitId
 	);
-}
-
-/**
- * Whether the custom fields differ.
- *
- * Compared by serialization because `metadata` is an opaque object the form
- * rebuilds on every render — a reference check would name the field-details
- * command on every save, including the ones that changed only the method.
- */
-function metadataChanged(before: unknown, after: unknown): boolean {
-	return JSON.stringify(before ?? null) !== JSON.stringify(after ?? null);
 }

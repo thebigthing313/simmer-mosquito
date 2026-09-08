@@ -76,17 +76,28 @@ describe('missionDisplayName', () => {
 			{ missionName: null, controlType: 'source_reduction', scheduledStartAt },
 			'America/New_York',
 		);
-		expect(name).toContain('Source Reduction');
-		// 15:00 UTC is 11am in New York. The fallback carries the agency's zone, so
-		// two dispatchers in different zones name the same mission the same way.
+		expect(name).toContain('Source Reduction on ');
+		// 15:00 UTC is 11am in New York. The fallback carries the organization's
+		// zone, so two dispatchers in different zones name the same mission the
+		// same way.
 		expect(name).toContain('11:00');
+	});
+
+	it('names an unnamed mission by what it is when the schedule will not parse', () => {
+		// `formatScheduledStart` answers '' for an unparseable Date, so the joined
+		// form would end on a dangling "on" with nothing after it.
+		const name = missionDisplayName(
+			{ missionName: null, controlType: 'application', scheduledStartAt: new Date('nonsense') },
+			'America/New_York',
+		);
+		expect(name).toBe('Application');
 	});
 });
 
 describe('formatScheduledStart', () => {
 	const instant = new Date('2026-08-04T15:00:00Z');
 
-	it('reads the start on the agency clock, not the browser one', () => {
+	it('reads the start on the organization clock, not the browser one', () => {
 		// Two zones far enough apart that a helper ignoring the argument would agree
 		// with itself: 15:00 UTC is 11am in New York and 8am in Los Angeles.
 		expect(formatScheduledStart(instant, 'America/New_York')).toContain('11:00');
@@ -105,7 +116,7 @@ describe('formatScheduledStart', () => {
 });
 
 describe('formatRequestedAt', () => {
-	it('reads the day a request came in on the agency calendar', () => {
+	it('reads the day a request came in on the organization calendar', () => {
 		// 02:00 UTC on the 5th is still the evening of the 4th in New York. Dating
 		// this in the browser's zone puts a request on a day nobody worked.
 		const instant = new Date('2026-08-05T02:00:00Z');

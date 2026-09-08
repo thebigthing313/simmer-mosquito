@@ -14,7 +14,11 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
-import { type AgencyContext, commandEndpoint, type PayloadResult } from './command-endpoint.js';
+import {
+	commandEndpoint,
+	type OrganizationContext,
+	type PayloadResult,
+} from './command-endpoint.js';
 import { denyUnauthorizedCommandType } from './command-permissions.js';
 
 type OrganizationSettingsDb = Kysely<SimmerDatabase>;
@@ -48,7 +52,7 @@ export function registerOrganizationSettingsCommandRoutes(
 	const settingsEndpoint = (
 		build: (request: {
 			readonly payload: Record<string, unknown>;
-			readonly agency: AgencyContext;
+			readonly organization: OrganizationContext;
 		}) => OrganizationSettingsCommand,
 	) =>
 		commandEndpoint<OrganizationSettingsCommand>({
@@ -72,7 +76,7 @@ export function registerOrganizationSettingsCommandRoutes(
 		type: TType,
 		build: (request: {
 			readonly payload: Record<string, unknown>;
-			readonly agency: AgencyContext;
+			readonly organization: OrganizationContext;
 		}) => Extract<OrganizationSettingsCommand, { readonly type: NoInfer<TType> }>,
 		readPayload?: (raw: Record<string, unknown>) => PayloadResult<Record<string, unknown>>,
 	) =>
@@ -94,28 +98,31 @@ export function registerOrganizationSettingsCommandRoutes(
 					}),
 		);
 
-	settingsRoute('timezone', 'organizationSettings.updateTimezone', ({ payload, agency }) =>
+	settingsRoute('timezone', 'organizationSettings.updateTimezone', ({ payload, organization }) =>
 		updateTimezoneCommand({
-			...agency,
+			...organization,
 			timezone: readRequiredText(payload.timezone) ?? '',
 			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
 		}),
 	);
 
-	settingsRoute('unit-defaults', 'organizationSettings.updateUnitDefaults', ({ payload, agency }) =>
-		updateUnitDefaultsCommand({
-			...agency,
-			unitDefaults: payload.unitDefaults as never,
-			expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
-		}),
+	settingsRoute(
+		'unit-defaults',
+		'organizationSettings.updateUnitDefaults',
+		({ payload, organization }) =>
+			updateUnitDefaultsCommand({
+				...organization,
+				unitDefaults: payload.unitDefaults as never,
+				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
+			}),
 	);
 
 	settingsRoute(
 		'adult-collection-timing-mode',
 		'organizationSettings.updateAdultCollectionTimingMode',
-		({ payload, agency }) =>
+		({ payload, organization }) =>
 			updateAdultCollectionTimingModeCommand({
-				...agency,
+				...organization,
 				collectionTimingMode: readRequiredText(payload.collectionTimingMode) as never,
 				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
 			}),
@@ -124,9 +131,9 @@ export function registerOrganizationSettingsCommandRoutes(
 	settingsRoute(
 		'larval-inspection-entry-policy',
 		'organizationSettings.updateLarvalInspectionEntryPolicy',
-		({ payload, agency }) =>
+		({ payload, organization }) =>
 			updateLarvalInspectionEntryPolicyCommand({
-				...agency,
+				...organization,
 				policy: payload.policy as never,
 				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
 			}),
@@ -135,9 +142,9 @@ export function registerOrganizationSettingsCommandRoutes(
 	settingsRoute(
 		'insecticide-batch-tracking',
 		'organizationSettings.updateInsecticideBatchTracking',
-		({ payload, agency }) =>
+		({ payload, organization }) =>
 			updateInsecticideBatchTrackingCommand({
-				...agency,
+				...organization,
 				trackInsecticideBatches: payload.trackInsecticideBatches as boolean,
 				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
 			}),
@@ -152,9 +159,9 @@ export function registerOrganizationSettingsCommandRoutes(
 	settingsRoute(
 		'service-request-context',
 		'organizationSettings.updateServiceRequestContext',
-		({ payload, agency }) =>
+		({ payload, organization }) =>
 			updateServiceRequestContextCommand({
-				...agency,
+				...organization,
 				serviceRequestContext: payload.serviceRequestContext as never,
 				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
 			}),
@@ -163,9 +170,9 @@ export function registerOrganizationSettingsCommandRoutes(
 	settingsRoute(
 		'species-key-bindings',
 		'organizationSettings.updateSpeciesKeyBindings',
-		({ payload, agency }) =>
+		({ payload, organization }) =>
 			updateSpeciesKeyBindingsCommand({
-				...agency,
+				...organization,
 				speciesKeyBindings: payload.speciesKeyBindings as never,
 				expectedUpdatedAt: readOptionalDate(payload.expectedUpdatedAt),
 			}),

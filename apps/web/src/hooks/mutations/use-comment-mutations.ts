@@ -56,7 +56,7 @@ export function useCommentMutations(): CommentMutations {
 			const now = optimisticStamp();
 			const commentId = newRecordId();
 			await settleWrite(
-				mutateCollection(comments, {
+				mutateCollection(comments(), {
 					operation: 'insert',
 					intent: 'fieldWork.addComment',
 					row: {
@@ -90,7 +90,7 @@ export function useCommentMutations(): CommentMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(comments, {
+				mutateCollection(comments(), {
 					operation: 'update',
 					intent: 'fieldWork.updateComment',
 					key: commentId,
@@ -112,7 +112,7 @@ export function useCommentMutations(): CommentMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(comments, {
+				mutateCollection(comments(), {
 					operation: 'update',
 					// Which way it moved is the command's to say — the endpoint does not read
 					// the column to work it out.
@@ -131,7 +131,7 @@ export function useCommentMutations(): CommentMutations {
 
 	const remove = useCallback(async (commentId: string) => {
 		await settleWrite(
-			mutateCollection(comments, {
+			mutateCollection(comments(), {
 				operation: 'delete',
 				intent: 'fieldWork.deleteComment',
 				key: commentId,

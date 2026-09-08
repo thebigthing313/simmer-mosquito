@@ -6,16 +6,17 @@
  * rather than an inline query so the surface reads through the same seam as the
  * rest, and so the camelCase boundary lands in one place.
  *
- * Stations are shared rather than agency-owned — `organization_id` is nullable,
- * because the NWS ones belong to nobody — so the shape carries both this
- * agency's own stations and the public ones it reads.
+ * Stations are shared rather than organization-owned — `organization_id` is
+ * nullable, because the NWS ones belong to nobody — so the shape carries both
+ * this organization's own stations and the public ones it reads.
  */
 
+import type { WeatherSourceType } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { weather_sources } from '../../lib/collections/weather_sources';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
 
-export type WeatherSourceType = 'organization' | 'nws';
+export type { WeatherSourceType };
 
 export interface WeatherStation {
 	readonly id: string;
@@ -24,25 +25,31 @@ export interface WeatherStation {
 	readonly sourceCode: string | null;
 	readonly providerSourceId: string | null;
 	readonly isActive: boolean;
-	/** `null` on a shared station — an NWS one belongs to no agency. */
+	/** `null` on a shared station — an NWS one belongs to no organization. */
 	readonly organizationId: string | null;
 	readonly latitude: number;
 	readonly longitude: number;
 	readonly geometryKind: string;
-	/** Agency-specific notes. Round-tripped by the edit form. */
+	/** Organization-specific notes. Round-tripped by the edit form. */
 	readonly metadata: unknown;
 }
 
 export function useWeatherStation(stationId: string | null): {
 	readonly station: WeatherStation | undefined;
 	readonly isReady: boolean;
+	/**
+	 * The read failed. Distinct from a ready query with no row: the edit page
+	 * offers a retry for one and "no such record" for the other, and a surface
+	 * that conflated them would tell a reader their station had been deleted.
+	 */
+	readonly isError: boolean;
 } {
 	const result = useLiveQuery(
 		{
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ source: weather_sources })
+					.from({ source: weather_sources() })
 					.where(({ source }) => eq(source.id, stationId ?? unmatchableId))
 					.select(({ source }) => ({
 						id: source.id,
@@ -61,5 +68,5 @@ export function useWeatherStation(stationId: string | null): {
 		[stationId],
 	);
 
-	return { station: result.data[0], isReady: result.isReady };
+	return { station: result.data[0], isReady: result.isReady, isError: result.isError };
 }

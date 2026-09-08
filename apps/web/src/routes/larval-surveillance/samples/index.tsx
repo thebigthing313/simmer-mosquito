@@ -42,6 +42,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 	SAMPLE_STATUS_COLORS,
 	type SampleTileFilters,
 } from '../../../components/map';
@@ -54,8 +55,8 @@ import {
 } from '../../../lib/search-filters';
 import {
 	addDaysToDateString,
+	dateRangeLabel,
 	formatListDate,
-	formatMonthDay,
 	todayInTimeZone,
 } from '../-overview-data';
 import { SampleMapCard } from '../-sample-map-card';
@@ -217,8 +218,16 @@ function SamplesExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const sampleLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'samples',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -299,11 +308,11 @@ function SamplesExplorerRoute() {
 						inset={panel.inset}
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
+						layers={layers}
 						legend={legend}
 						onMapReady={handleMapReady}
-						sampleLayer={sampleLayer}
 					/>
 					{selected === null ? null : (
 						<SampleMapCard
@@ -642,7 +651,7 @@ function SpeciesResults({
 				<span
 					className="inline-flex items-center gap-1 rounded-full border border-[var(--success)]/25 bg-[var(--success-bg)] px-2 py-0.5 text-[var(--success)] text-xs"
 					key={result.speciesId}
-					title={`${nameById.get(result.speciesId) ?? 'Unknown species'}: ${result.larvaeCount.toLocaleString()} larvae`}
+					title={`${nameById.get(result.speciesId) ?? 'Unknown species'}: ${result.larvaeCount.toLocaleString('en-US')} larvae`}
 				>
 					<span className="max-w-[8rem] truncate italic">
 						{nameById.get(result.speciesId) ?? 'Unknown species'}
@@ -678,18 +687,4 @@ function _StatusDot({ status }: { readonly status: SampleStatus }) {
 
 function sampleName(sample: SampleFeature): string {
 	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}
-
-/** Human label for the active range chip, tolerating open-ended bounds. */
-function dateRangeLabel(from: string, to: string): string {
-	if (from === '' && to === '') {
-		return 'All dates';
-	}
-	if (from === '') {
-		return `Until ${formatMonthDay(to)}`;
-	}
-	if (to === '') {
-		return `From ${formatMonthDay(from)}`;
-	}
-	return `${formatMonthDay(from)} – ${formatMonthDay(to)}`;
 }

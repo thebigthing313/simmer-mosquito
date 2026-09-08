@@ -1,8 +1,6 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
 	type RequestRecord,
@@ -13,7 +11,7 @@ import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	NO_METHOD,
 	RequestFormPage,
@@ -27,7 +25,7 @@ export const Route = createFileRoute('/operations/requests-for-control/$id_/edit
 		// The details and location commands are `OWN_REQUESTED_ACTION` — the author
 		// or a manager. The browser cannot tell authorship apart, so the guard is the
 		// read-only line and the server settles the rest.
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/operations/requests-for-control/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -40,16 +38,17 @@ export const Route = createFileRoute('/operations/requests-for-control/$id_/edit
 
 function EditRequestRoute() {
 	const { id } = Route.useParams();
-	const { request, isReady } = useRequestedControlAction(id);
+	const { request, isReady, isError } = useRequestedControlAction(id);
 
-	if (request === undefined) {
-		return isReady ? (
-			<RecordUnavailable layout="centered" noun="request" reason="not-found" />
-		) : (
-			<EditFormSkeleton />
-		);
-	}
-	return <EditRequestLoader request={request} />;
+	return (
+		<RecordEditFrame
+			noun="request"
+			reading={{ isError, isReady, record: request }}
+			skeleton={<EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />}
+		>
+			{(record) => <EditRequestLoader request={record} />}
+		</RecordEditFrame>
+	);
 }
 
 /**
@@ -95,7 +94,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 				// Only a redrawn shape travels: the server re-resolves `geom` from
 				// whatever source it is handed, so re-sending the stored one would be a
 				// write with no edit behind it.
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null,
+				geometryChanged && geometry !== null ? geometry : null,
 			);
 			await navigate({ to: '/operations/requests-for-control/$id', params: { id: request.id } });
 		},
@@ -113,7 +112,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 		);
 	}
 	if (geometryQuery.isPending) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />;
 	}
 
 	return (
@@ -144,18 +143,4 @@ function defaultsFromRequest(request: RequestRecord): RequestFormValues {
 		addressId: request.addressId,
 		habitatId: request.habitatId,
 	};
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-32 w-full" />
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

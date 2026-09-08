@@ -30,7 +30,7 @@ export function useMissionItemCounts(missionIds: readonly string[]): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: mission_items })
+					.from({ item: mission_items() })
 					.where(({ item }) => inArray(item.mission_id, queryIds))
 					.groupBy(({ item }) => item.mission_id)
 					.select(({ item }) => ({

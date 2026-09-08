@@ -1,4 +1,5 @@
 import type { AuthUser } from '@simmer-mosquito/auth';
+import type { RefusedMeBody } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity } from '@simmer-mosquito/db';
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -29,7 +30,7 @@ export function createAuthContextMiddleware(options: {
 	readonly localIdentityResolver: LocalAuthIdentityResolver;
 	/**
 	 * Passed through so `AuthContext.isOperator` can be resolved here rather than
-	 * re-derived by every route that serves operators and agencies alike.
+	 * re-derived by every route that serves operators and organizations alike.
 	 */
 	readonly operatorOrganizationId?: string | null;
 	readonly setAuthCookie: (
@@ -66,31 +67,33 @@ export function createAuthContextMiddleware(options: {
 }
 
 /**
- * Admit an agency identity **or** an operator one, for a shape that is neither's.
+ * Admit an organization identity **or** an operator one, for a shape that is
+ * neither's.
  *
- * The global catalogs — `genera`, `species`, `units` — have no `organization_id`
- * and every agency reads them, so their shape route forces no tenant predicate at
- * all: `shapeScopeFilter` returns `{}` for `global` and never touches
- * `authContext`. The only thing left to check is that somebody is signed in.
+ * The global catalogs — `genera`, `species`, `units` — have no
+ * `organization_id` and every organization reads them, so their shape route
+ * forces no organization predicate at all: `shapeScopeFilter` returns `{}` for
+ * `global` and never touches `authContext`. The only thing left to check is
+ * that somebody is signed in.
  *
  * That is why `apps/admin` needed a second set of routes under `/admin` in the
- * first place — an operator session has no agency context, so it could not pass
- * the agency middleware — and it is why the second set can now go: one route can
- * ask for either identity when it uses neither.
+ * first place — an operator session has no organization context, so it could
+ * not pass the organization middleware — and it is why the second set can now
+ * go: one route can ask for either identity when it uses neither.
  *
  * **Only safe on a `global` scope, and `registerSyncShapeRoutes` asserts it.**
  * On an operator session this sets `operatorContext` and leaves `authContext`
- * unset, so a handler that reads the agency organization would find nothing
+ * unset, so a handler that reads the organization from it would find nothing
  * there. A scoped shape reached through this would not fail — it would stream
  * without a predicate.
  *
- * The agency door is tried first and its refusal is the one returned. Both
- * answer 401 to a caller with no session, and for these three tables almost
- * every caller is an agency user, so "you have no membership" is the more useful
- * of the two things to be told.
+ * The organization door is tried first and its refusal is the one returned.
+ * Both answer 401 to a caller with no session, and for these three tables
+ * almost every caller is an organization user, so "you have no membership" is
+ * the more useful of the two things to be told.
  */
 export function createGlobalReadMiddleware(options: {
-	readonly agency: MiddlewareHandler<{ Variables: AuthVariables }>;
+	readonly organization: MiddlewareHandler<{ Variables: AuthVariables }>;
 	readonly operator: MiddlewareHandler<{ Variables: AuthVariables }>;
 }) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
@@ -99,7 +102,7 @@ export function createGlobalReadMiddleware(options: {
 			admitted = true;
 		};
 
-		const agencyRefusal = await options.agency(context, markAdmitted);
+		const organizationRefusal = await options.organization(context, markAdmitted);
 		if (admitted) {
 			return next();
 		}
@@ -109,7 +112,7 @@ export function createGlobalReadMiddleware(options: {
 			return next();
 		}
 
-		return agencyRefusal;
+		return organizationRefusal;
 	});
 }
 
@@ -120,14 +123,14 @@ export function createGlobalReadMiddleware(options: {
  * test is an equality: the session's organization is that one, or the caller is
  * not an operator here.
  *
- * It used to be an allowlist of email addresses in `SIMMER_OPERATOR_EMAILS`, and
- * the difference is not only that a list of addresses drifts from who actually
- * works here. An email is a property of the *person*, so it stayed true after
- * they changed sessions: an operator who had switched into an agency (ADR 0011
- * — operators join agencies as admins) still passed, and could reach the
- * operator console while holding an agency session. The two session kinds are
- * meant to be mutually exclusive, and now one fact enforces that rather than two
- * facts agreeing.
+ * It used to be an allowlist of email addresses in `SIMMER_OPERATOR_EMAILS`,
+ * and the difference is not only that a list of addresses drifts from who
+ * actually works here. An email is a property of the *person*, so it stayed
+ * true after they changed sessions: an operator who had switched into an
+ * organization (ADR 0011 — operators join organizations as admins) still
+ * passed, and could reach the operator console while holding an organization
+ * session. The two session kinds are meant to be mutually exclusive, and now
+ * one fact enforces that rather than two facts agreeing.
  *
  * `null` — the variable unset — refuses everyone. An unconfigured server has no
  * operators rather than no check.
@@ -143,17 +146,20 @@ export function createOperatorAuthContextMiddleware(options: {
 }) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
 		const session = await options.auth.authenticateSession(readSealedSession(context), {
-			// Verify only, for the same reason as the agency middleware above.
+			// Verify only, for the same reason as the organization middleware above.
 			mayRefresh: false,
 		});
 
 		if (!session.authenticated) {
+			// The same refusal body `toAuthFailureBody` builds, written out because
+			// there is no `AuthContextResult` here to pass it. `satisfies` is what
+			// keeps the two spellings from drifting.
 			return context.json(
 				{
 					authenticated: false,
 					error: 'unauthenticated',
 					reason: session.reason,
-				},
+				} satisfies RefusedMeBody,
 				401,
 			);
 		}

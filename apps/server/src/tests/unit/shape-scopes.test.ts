@@ -17,10 +17,10 @@ import { isServedScope, shapeScopeOf, syncShapeScopes } from '../../shape-scopes
 describe('sync shape scopes', () => {
 	it('withholds exactly one table, and says why', () => {
 		// A table with no shape has to be a decision someone wrote down. `users` is
-		// the only one: it has no `organization_id`, and the rows an agency may see
-		// are reachable only through `memberships` — a join, which a shape predicate
-		// cannot express. Anything else appearing here is a table that quietly
-		// stopped syncing.
+		// the only one: it has no `organization_id`, and the rows an organization
+		// may see are reachable only through `memberships` — a join, which a shape
+		// predicate cannot express. Anything else appearing here is a table that
+		// quietly stopped syncing.
 		const withheld = Object.entries(syncShapeScopes)
 			.filter(([, entry]) => !isServedScope(entry))
 			.map(([table]) => table);

@@ -1,3 +1,5 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -29,6 +31,7 @@ import {
 	CircleIcon,
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
@@ -319,7 +322,7 @@ export function CollectionRow({
 						className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[state=open]:rotate-90 motion-reduce:transition-none"
 					/>
 					<span className="w-24 shrink-0 font-medium text-foreground text-sm tabular-nums">
-						{date === null ? '—' : formatWeekdayMonthDay(date)}
+						{date === null ? <AbsentValue /> : formatWeekdayMonthDay(date)}
 					</span>
 					<CollectionFlagBadges
 						className="flex min-w-0 flex-wrap items-center gap-1.5"
@@ -338,7 +341,10 @@ export function CollectionRow({
 							species={collection.species}
 						/>
 						<Link
-							className="inline-flex w-fit items-center gap-1.5 rounded-sm font-medium text-muted-foreground text-xs transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className={cn(
+								recordLink({ size: 'xs', tone: 'muted' }),
+								'inline-flex w-fit items-center gap-1.5 transition-colors',
+							)}
 							params={{ id: collection.id }}
 							to="/adult-surveillance/collections/$id"
 						>
@@ -386,7 +392,7 @@ function CollectionSpecies({
 		);
 	}
 	if (isZeroResult) {
-		return <SpeciesNote>Marked zero result — nothing was collected.</SpeciesNote>;
+		return <SpeciesNote>Marked zero result. Nothing was collected.</SpeciesNote>;
 	}
 	if (entries.length === 0) {
 		return <SpeciesNote>No species have been identified in this collection.</SpeciesNote>;
@@ -425,7 +431,7 @@ function CollectionSpecies({
 								)}
 							</TableCell>
 							<TableCell className="text-right font-medium tabular-nums">
-								{entry.count.toLocaleString()}
+								{entry.count.toLocaleString('en-US')}
 							</TableCell>
 						</TableRow>
 					))}

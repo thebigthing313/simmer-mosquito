@@ -1,3 +1,4 @@
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -60,21 +61,12 @@ function OperationsOverviewRoute() {
 
 	return (
 		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
-			<header className="grid gap-1.5">
-				<div className="flex items-center gap-2 text-muted-foreground">
-					<OperationsIcon aria-hidden="true" className="size-4" />
-					<span className="font-medium text-xs uppercase tracking-wide">
-						Dispatch and crew work
-					</span>
-				</div>
-				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Operations
-				</h1>
-				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-					Control work that has been requested, the worklists crews are running, and the missions
-					dispatched against them.
-				</p>
-			</header>
+			<PageHeader
+				description="Control work that has been requested, the worklists crews are running, and the missions dispatched against them."
+				eyebrow="Dispatch and crew work"
+				icon={OperationsIcon}
+				title="Operations"
+			/>
 
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="grid content-start gap-5 xl:col-span-6">

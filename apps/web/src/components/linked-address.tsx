@@ -1,5 +1,8 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { type LinkedAddress, resolveLinkedAddress } from '../hooks/queries/address-view';
 import { useAddress } from '../hooks/queries/use-address';
@@ -8,7 +11,6 @@ import {
 	addressSecondaryLabel,
 	addressSecondaryLines,
 } from '../lib/address-format';
-import { EmptyValue } from './empty-value';
 import { MapCardDetail } from './map/map-card';
 
 /**
@@ -21,10 +23,10 @@ import { MapCardDetail } from './map/map-card';
  * insecticide but never said *where*, which is the first thing a resident asks
  * about on the phone.
  *
- * Both readouts show the address's own name **and** its postal line. Agencies
- * name addresses for their own navigation ("Riverside HOA clubhouse") and the
- * name alone will not get a crew there, while the postal line alone loses the
- * name the agency filed it under.
+ * Both readouts show the address's own name **and** its postal line.
+ * Organizations name addresses for their own navigation ("Riverside HOA
+ * clubhouse") and the name alone will not get a crew there, while the postal
+ * line alone loses the name the organization filed it under.
  *
  * ## Why these take the address rather than fetch it
  *
@@ -55,7 +57,7 @@ function LinkedAddressValue({
 	const address = linked === undefined ? undefined : resolveLinkedAddress(linked);
 
 	if (addressId === null) {
-		return <EmptyValue />;
+		return <AbsentValue />;
 	}
 	if (address === undefined) {
 		// A record that names an address the app cannot see — deleted, or out of
@@ -73,7 +75,7 @@ function LinkedAddressValue({
 	return (
 		<div className="grid gap-0.5">
 			<Link
-				className="w-fit rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className={cn(recordLink({ tone: 'value' }), 'w-fit')}
 				params={{ id: address.id }}
 				to="/gis/addresses/$id"
 			>

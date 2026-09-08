@@ -119,10 +119,11 @@ Mission scheduling uses exact instants plus a local rain date:
 When an end time is present it must be strictly after the start time. The server
 validates effective schedule changes against stored values.
 
-`rainDate` is an agency-local calendar date. The server resolves organization
-timezone, defaulting to `America/New_York`, and validates the rain date is on or
-after the agency-local date of `scheduledStartAt`. Rain date is informational
-planning metadata; it does not automatically reschedule or activate a mission.
+`rainDate` is an organization-local calendar date. The server resolves
+organization timezone, defaulting to `America/New_York`, and validates the rain
+date is on or after the organization-local date of `scheduledStartAt`. Rain date
+is informational planning metadata; it does not automatically reschedule or
+activate a mission.
 
 No recurring missions, all-day mission mode, default duration, or default
 notification type are part of v1.
@@ -346,7 +347,7 @@ Progress timestamps are optional command inputs and default server-side when
 omitted. They cannot be future beyond clock skew and must be on or after
 mission `started_at` once effective start is known.
 
-Both are enforced, in `apps/server/src/mission-dispatch-commands/mission-lifecycle.ts`.
+Both are enforced, in `apps/server/src/writers/mission-dispatch/mission-lifecycle.ts`.
 
 "Once effective start is known" is settled as: **the mission was already started
 before the command ran**. On the auto-start path the `started_at` a progress
@@ -366,7 +367,7 @@ the other would be a bug in whichever moved.
 timezones": more than 12 hours before `scheduled_start_at`. The moment judged is
 the timestamp the command carries, or the server's clock when it carries none,
 so a write that was not early cannot become early by being slow. Enforced in
-`apps/server/src/mission-dispatch-commands/mission-acknowledgements.ts`.
+`apps/server/src/writers/mission-dispatch/mission-acknowledgements.ts`.
 
 Only the acknowledgement half of that sentence is enforced. "Assigned collectors
 may start up to 12 hours before, managers may start earlier with
@@ -491,7 +492,7 @@ commands: this mission has notifications. `acknowledgedNotificationTimingChange`
 `acknowledgedNotificationPlanChange`,
 `acknowledgedNotificationRegenerationImpact` and
 `acknowledgedNotificationGeometryChange` share a reader in
-`apps/server/src/mission-dispatch-commands/mission-acknowledgements.ts` and
+`apps/server/src/writers/mission-dispatch/mission-acknowledgements.ts` and
 differ only in the sentence they refuse with. Reordering asks nothing, for the
 reason under "Ordering": matching uses geometry sets rather than item order.
 
@@ -546,14 +547,17 @@ default rather than a rule, so there is nothing to disagree with, and no check
 has ever compared an action's date to the mission's window; flags for either
 would name rules that do not exist.
 
-Implemented in `apps/server/src/mission-dispatch-commands/mission-execution.ts`
-and reached through the action's own endpoint (`POST
-/control-operations/applications`, `/source-reductions`, `/biocontrol-actions`,
-`/outreach-actions`) by including `missionItemId` in the body. Outreach is
-recorded from `/public-engagement/outreach` in the UI but its table and endpoint
-are control-operations, like the other three. The endpoint follows the table;
-the command follows the unit of work. A body without `missionItemId` builds the
-ordinary `controlOperations.*` command, unchanged.
+Implemented in `apps/server/src/writers/mission-dispatch/mission-execution.ts`
+and reached through the action's own table endpoint (`POST
+/commands/applications`, `/commands/source_reductions`,
+`/commands/biocontrol_actions`, `/commands/outreach_actions`) by naming one of
+them in `intents` and sending `mission_item_id` in the body. Outreach is recorded
+from `/public-engagement/outreach` in the UI but its table is a control-operations
+one, like the other three. The endpoint follows the table; the command follows
+the unit of work. Naming the ordinary `controlOperations.*` command instead
+builds the ordinary action, unchanged. This used to be an inference off whether
+`missionItemId` was in the body, on per-domain routes that no longer exist
+(#634).
 
 Defaults the server fills when the command omits them:
 
@@ -630,7 +634,7 @@ Collector restrictions:
 
 Viewer is read-only.
 
-SIMMER operators do not bypass agency roles through `missionDispatch.*`.
+SIMMER operators do not bypass organization roles through `missionDispatch.*`.
 
 ## Mobile, offline, sync, and imports
 

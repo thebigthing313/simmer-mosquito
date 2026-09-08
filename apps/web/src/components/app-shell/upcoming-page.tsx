@@ -84,7 +84,7 @@ const insecticides: Elsewhere = {
 };
 const regions: Elsewhere = {
 	label: 'Regions',
-	description: 'The boundaries the agency works and reports by',
+	description: 'The boundaries you work and report by',
 	to: '/gis/regions',
 	icon: iconRegistry.entities.region.icon,
 };
@@ -96,7 +96,7 @@ const weatherStations: Elsewhere = {
 };
 const habitats: Elsewhere = {
 	label: 'Habitats',
-	description: 'The sites your agency inspects, on the map',
+	description: 'The habitats you inspect, on the map',
 	to: '/larval-surveillance/habitats',
 	icon: iconRegistry.generic.droplet.icon,
 };
@@ -114,7 +114,7 @@ const samples: Elsewhere = {
 };
 const traps: Elsewhere = {
 	label: 'Traps',
-	description: 'Trap sites and their collection methods, on the map',
+	description: 'Traps and their collection methods, on the map',
 	to: '/adult-surveillance/traps',
 	icon: iconRegistry.entities.trap.icon,
 };
@@ -132,7 +132,7 @@ const sourceReduction: Elsewhere = {
 };
 const biocontrol: Elsewhere = {
 	label: 'Biocontrol',
-	description: 'Releases logged by method, amount, and site',
+	description: 'Releases logged by method, amount, and habitat',
 	to: '/control-operations/biocontrol',
 	icon: iconRegistry.entities.biocontrolAction.icon,
 };
@@ -150,7 +150,7 @@ const habitatTypes: Elsewhere = {
 };
 const collectionMethods: Elsewhere = {
 	label: 'Collection Methods',
-	description: 'The trap types your agency runs',
+	description: 'The trap types you run',
 	to: '/adult-surveillance/collection-methods',
 	icon: iconRegistry.generic.component.icon,
 };
@@ -167,7 +167,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	'/': {
 		title: 'Dashboard',
 		summary:
-			'A single view of where agency work stands: recent field activity, records that need a decision, and the operational picture across surveillance and control.',
+			'A single view of where the work stands: recent field activity, records that need a decision, and the operational picture across surveillance and control.',
 		willLand: [
 			'Cross-domain activity for the current period',
 			'Records flagged for attention, each linking straight to the record',
@@ -211,10 +211,10 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	'/larval-surveillance/habitats/stats': {
 		title: 'Habitat Statistics',
 		summary:
-			'What your habitats have produced across a season: which sites come back positive, which types they belong to, and how often each has been visited.',
+			'What your habitats have produced across a season: which habitats come back positive, which types they belong to, and how often each has been visited.',
 		willLand: [
 			'Breeding frequency per habitat and per habitat type across a season',
-			'Inspection coverage, including sites nothing has been logged against',
+			'Inspection coverage, including habitats nothing has been logged against',
 			'Habitats ranked by how often larvae were found, with the map beside the list',
 		],
 		elsewhere: [habitats, inspections, habitatTypes],
@@ -244,7 +244,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	'/adult-surveillance/traps/stats': {
 		title: 'Trap Statistics',
 		summary:
-			'Trap effort and yield: how many nights each trap ran, what it caught, and which sites are carrying the program.',
+			'Trap effort and yield: how many nights each trap ran, what it caught, and which traps are carrying the program.',
 		willLand: [
 			'Catch per trap night, per trap and per collection method',
 			'Trap nights and problem collections over a reporting period',
@@ -269,7 +269,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'What was applied and where: product usage, method mix, and treated area across a season.',
 		willLand: [
 			'Product usage by active ingredient, in a single unit across the season',
-			'Method mix — larvicide, adulticide, barrier — over a reporting period',
+			'Larvicide, adulticide, and barrier mix over a reporting period',
 			'Applications per region, beside the surveillance that prompted them',
 		],
 		elsewhere: [applications, insecticides, controlOverview],
@@ -289,7 +289,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 		summary: 'Releases logged over a season: how much went out, by which method, and where.',
 		willLand: [
 			'Release volumes trended across the season, in a single unit',
-			'Method mix and the sites released into',
+			'Method mix and the habitats released into',
 			'Releases beside the inspections logged at the same habitats afterwards',
 		],
 		elsewhere: [biocontrol, habitats, controlOverview],
@@ -303,6 +303,16 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'Outreach beside the service requests logged in the same areas',
 		],
 		elsewhere: [outreach, serviceRequests, regions],
+	},
+	'/gis/data-explorer': {
+		title: 'Data Map',
+		summary: 'Maps you build: choose which records draw, filter each layer, and save the result.',
+		willLand: [
+			'Any of the mapped record types drawn together, each with its own filters',
+			'Draw order and visibility set per layer',
+			'Saved maps, reopened and shared across your organization',
+		],
+		elsewhere: [regions, habitats, traps],
 	},
 	'/gis/weather/stats': {
 		title: 'Weather Statistics',
@@ -349,7 +359,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 					<h1 className="m-0 text-balance font-bold text-2xl text-foreground leading-tight">
 						{heading}
 					</h1>
-					<p className="m-0 max-w-[68ch] text-base text-muted-foreground leading-[var(--leading-body)]">
+					<p className="m-0 max-w-[68ch] text-base text-muted-foreground leading-body">
 						{content?.summary ??
 							`The shell, navigation, and routing are wired. The ${heading.toLowerCase()} screen will land here.`}
 					</p>
@@ -368,7 +378,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 										aria-hidden="true"
 										className="mt-0.5 size-4 shrink-0 text-primary"
 									/>
-									<span className="leading-[var(--leading-body)]">{capability}</span>
+									<span className="leading-body">{capability}</span>
 								</li>
 							))}
 						</ul>

@@ -50,7 +50,7 @@ export function useHabitatRecord(habitatId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) => eq(habitat.id, id))
 					.select(({ habitat }) => ({
 						id: habitat.id,

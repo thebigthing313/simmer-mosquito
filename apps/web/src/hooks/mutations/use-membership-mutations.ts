@@ -1,5 +1,5 @@
 /**
- * Writing the access a login holds on this agency.
+ * Writing the access a login holds on this organization.
  *
  * Four commands, and they take two different paths out of the browser for a
  * reason `docs/domain-command-contract.md` gives under "Commands that span two
@@ -27,7 +27,7 @@
  * discovers which of the two it is by looking.
  */
 
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import type { IdentityCommandType, SimmerRole } from '@simmer-mosquito/domain';
 import type { Membership } from '@simmer-mosquito/sync';
 import {
 	commandPathFor,
@@ -42,6 +42,22 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { profiles } from '../../lib/collections/profiles';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { newRecordId } from './shared';
+
+/**
+ * A body the two REST identity writes send.
+ *
+ * These two miss `mutateCollection` because neither has an optimistic row, so
+ * the command they name had nowhere to be checked and `identity.reinvit` was a
+ * 400 rather than a build failure. Naming the union here is the same rule
+ * `lib/collections/mutate.ts` binds for the collection path.
+ *
+ * The rest of the body is columns of the record being written, which the server
+ * reads and `check:command-columns` holds, so it stays open.
+ */
+export interface MembershipCommandBody {
+	readonly intents: readonly IdentityCommandType[];
+	readonly [column: string]: unknown;
+}
 
 /** What the invite dialog holds. */
 export interface InviteFields {
@@ -81,7 +97,7 @@ export function useMembershipMutations(): MembershipMutations {
 
 	const changeRole = useCallback(async (membershipId: string, role: SimmerRole) => {
 		await settleWrite(
-			mutateCollection(memberships, {
+			mutateCollection(memberships(), {
 				operation: 'update',
 				intent: 'identity.changeRole',
 				key: membershipId,
@@ -92,14 +108,14 @@ export function useMembershipMutations(): MembershipMutations {
 
 	const endMembership = useCallback(async (membershipId: string) => {
 		await settleWrite(
-			mutateCollection(memberships, {
+			mutateCollection(memberships(), {
 				operation: 'update',
 				intent: 'identity.endMembership',
 				key: membershipId,
-				// Not a delete: the row is the only record that access was ever held, so
-				// it survives deactivated. `is_default` goes with it — left set, it points
-				// at the one agency this person can no longer enter, and their next
-				// sign-in has nowhere to go.
+				// Not a delete: the row is the only record that access was ever held,
+				// so it survives deactivated. `is_default` goes with it — left set, it
+				// points at the one organization this person can no longer enter, and
+				// their next sign-in has nowhere to go.
 				changes: { status: 'inactive', is_default: false } satisfies Partial<Membership>,
 			}),
 		);
@@ -112,18 +128,18 @@ export function useMembershipMutations(): MembershipMutations {
  * What an invitation says on the wire.
  *
  * Pulled out of the hook because two of its decisions are worth pinning and
- * neither is visible from a rendered dialog. `profile_id` is the whole reason the
- * sheet offers a list: sending a fresh id for somebody the agency already records
- * work against mints a second Profile, and the field history splits in two. And a
- * minted id is what makes a retry a retry, so it has to be the same shape whether
- * the Profile is new or picked.
+ * neither is visible from a rendered dialog. `profile_id` is the whole reason
+ * the sheet offers a list: sending a fresh id for somebody the organization
+ * already records work against mints a second Profile, and the field history
+ * splits in two. And a minted id is what makes a retry a retry, so it has to be
+ * the same shape whether the Profile is new or picked.
  *
  * `mintId` is an argument for the test's sake and for no other reason.
  */
 export function inviteCommandBody(
 	fields: InviteFields,
 	mintId: () => string,
-): Record<string, unknown> {
+): MembershipCommandBody {
 	return {
 		intents: ['identity.invite'],
 		id: mintId(),
@@ -150,13 +166,16 @@ export function inviteCommandBody(
 async function postMembershipCommand(
 	method: 'POST' | 'PATCH',
 	membershipId: string | null,
-	body: Record<string, unknown>,
+	body: MembershipCommandBody,
 ): Promise<void> {
 	const path = commandPathFor('memberships');
 	const url = `${getServerUrl()}${path}${membershipId === null ? '' : `/${membershipId}`}`;
-	const txid = await writeCommand(url, method, body, 'Unable to send the invitation.');
+	// Widened here rather than at the declaration: `writeCommand` takes any body,
+	// and the point of the narrower type is that these two call sites cannot name a
+	// command the domain does not define. The spread is what drops the `readonly`.
+	const txid = await writeCommand(url, method, { ...body }, 'Unable to send the invitation.');
 
-	await Promise.all([awaitTxIdOn(memberships, txid), awaitTxIdOn(profiles, txid)]);
+	await Promise.all([awaitTxIdOn(memberships(), txid), awaitTxIdOn(profiles(), txid)]);
 }
 
 /**

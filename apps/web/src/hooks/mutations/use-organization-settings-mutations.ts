@@ -1,22 +1,22 @@
 /**
- * Configuring the agency.
+ * Configuring the organization.
  *
- * Eight operations, each naming exactly one thing a Profile can change about the
- * agency: the seven `organizationSettings.*` commands, and the agency's details.
- * The details are columns, so since ADR 0013's first slice they are
- * `identity.updateOrganizationDetails` through `mutateCollection` like every
- * other table's writes. The seven are a JSON document and keep their own routes
- * See `organization-writes.ts` for why.
+ * Eight operations, each naming exactly one thing a Profile can change about
+ * the organization: the seven `organizationSettings.*` commands, and the
+ * organization's details. The details are columns, so since ADR 0013's first
+ * slice they are `identity.updateOrganizationDetails` through
+ * `mutateCollection` like every other table's writes. The seven are a JSON
+ * document and keep their own routes See `organization-writes.ts` for why.
  *
  * What each operation sends is only its own sub-document. The server merges it
  * into the stored settings, so an admin editing the larval density bands no
  * longer rewrites the timezone, the unit defaults and the Species Key Bindings
  * from their own copy of the document.
  *
- * ## Saving the agency details can be two writes
+ * ## Saving the organization details can be two writes
  *
  * The details sheet edits the name, the contact, the mailing address — and the
- * timezone, which is not a column but a setting. So `saveAgencyDetails` sends the
+ * timezone, which is not a column but a setting. So `saveOrganizationDetails` sends the
  * details as a command and the timezone to its settings route, each only if it
  * changed, and hands the `updated_at` the first produced to the second. Without
  * that handoff the second write conflicts with the write the same click just
@@ -41,8 +41,8 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { organizations } from '../../lib/collections/organizations';
 import { OrganizationConflictError, writeOrganization } from './organization-writes';
 
-/** The agency's details, as its sheet holds them. The timezone is a setting; the rest are columns. */
-export interface AgencyDetailsFields {
+/** The organization's details, as its sheet holds them. The timezone is a setting; the rest are columns. */
+export interface OrganizationDetailsFields {
 	readonly name: string;
 	readonly mainContactEmail: string | null;
 	readonly phoneNumber: string | null;
@@ -55,7 +55,7 @@ export interface AgencyDetailsFields {
 }
 
 export interface OrganizationSettingsMutations {
-	readonly saveAgencyDetails: (fields: AgencyDetailsFields) => Promise<void>;
+	readonly saveOrganizationDetails: (fields: OrganizationDetailsFields) => Promise<void>;
 	readonly setUnitDefaults: (unitDefaults: UnitDefaults) => Promise<void>;
 	readonly setAdultCollectionTimingMode: (mode: AdultCollectionTimingMode) => Promise<void>;
 	readonly setLarvalInspectionEntryPolicy: (
@@ -64,7 +64,7 @@ export interface OrganizationSettingsMutations {
 	readonly setInsecticideBatchTracking: (trackInsecticideBatches: boolean) => Promise<void>;
 	readonly setServiceRequestContext: (context: ServiceRequestContextSettings) => Promise<void>;
 	readonly setSpeciesKeyBindings: (bindings: readonly SpeciesKeyBinding[]) => Promise<void>;
-	/** False while the agency's row is still arriving; every write throws until then. */
+	/** False while the organization's row is still arriving; every write throws until then. */
 	readonly canWrite: boolean;
 }
 
@@ -85,7 +85,7 @@ type SettingsRoute =
 	| 'species-key-bindings';
 
 /** The columns `identity.updateOrganizationDetails` writes. */
-export interface AgencyDetailsColumns {
+export interface OrganizationDetailsColumns {
 	readonly name: string;
 	readonly mainContactEmail: string | null;
 	readonly phoneNumber: string | null;
@@ -112,15 +112,15 @@ export interface AgencyDetailsColumns {
  * `mailingCountry` is not compared to a field because there is no field. The
  * address is US-shaped, enforced by the domain on both the region and the
  * country, so it is always `'US'`. Comparing it to the stored value is what
- * stops an agency whose row predates that from being left alone forever, which
- * is why the field stays in the plan rather than being dropped.
+ * stops an organization whose row predates that from being left alone forever,
+ * which is why the field stays in the plan rather than being dropped.
  */
-export function agencyDetailsPlan(
-	fields: AgencyDetailsFields,
+export function organizationDetailsPlan(
+	fields: OrganizationDetailsFields,
 	current: Organization,
 	currentTimezone: string,
-): { readonly details: AgencyDetailsColumns | null; readonly timezone: string | null } {
-	const details: AgencyDetailsColumns = {
+): { readonly details: OrganizationDetailsColumns | null; readonly timezone: string | null } {
+	const details: OrganizationDetailsColumns = {
 		name: fields.name,
 		mainContactEmail: fields.mainContactEmail,
 		phoneNumber: fields.phoneNumber,
@@ -153,7 +153,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 	// Not suspense: this is a write hook, and a form that has not been submitted
 	// should not be what holds a page behind a fallback. Until the row arrives
 	// `canWrite` is false and the surfaces disable their controls.
-	const result = useLiveQuery((query) => query.from({ organization: organizations }), []);
+	const result = useLiveQuery((query) => query.from({ organization: organizations() }), []);
 	const row: Organization | undefined = result.data?.[0];
 
 	/**
@@ -185,7 +185,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 			next: (settings: OrganizationSettings) => OrganizationSettings,
 		) => {
 			if (row === undefined) {
-				throw new Error('Agency details are still loading.');
+				throw new Error('Organization details are still loading.');
 			}
 
 			const organizationId = row.id;
@@ -194,7 +194,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 				url: `${getServerUrl()}/organization-settings/${route}`,
 				body: { ...payload, expectedUpdatedAt: expectedUpdatedAt() },
 				apply: () => {
-					organizations.update(organizationId, (draft) => {
+					organizations().update(organizationId, (draft) => {
 						draft.settings = next(settings);
 					});
 				},
@@ -208,26 +208,26 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 		[row, expectedUpdatedAt],
 	);
 
-	const saveAgencyDetails = useCallback(
-		async (fields: AgencyDetailsFields) => {
+	const saveOrganizationDetails = useCallback(
+		async (fields: OrganizationDetailsFields) => {
 			if (row === undefined) {
-				throw new Error('Agency details are still loading.');
+				throw new Error('Organization details are still loading.');
 			}
 
 			const organizationId = row.id;
 			const settings = resolveOrganizationSettings(row.settings).settings;
-			const plan = agencyDetailsPlan(fields, row, settings.timezone);
+			const plan = organizationDetailsPlan(fields, row, settings.timezone);
 
 			if (plan.details !== null) {
 				const details = plan.details;
 				try {
 					await settleWrite(
-						mutateCollection(organizations, {
+						mutateCollection(organizations(), {
 							operation: 'update',
 							intent: 'identity.updateOrganizationDetails',
 							key: organizationId,
 							// All nine, and the library sends only the ones that differ.
-							// `agencyDetailsPlan` decided whether to write at all; the diff
+							// `organizationDetailsPlan` decided whether to write at all; the diff
 							// decides what the body says.
 							changes: {
 								name: details.name,
@@ -257,7 +257,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 				// command just streamed in rather than off the closure's copy, which is
 				// the render's and predates the write.
 				lastCommittedAt.current =
-					organizations.get(organizationId)?.updated_at?.toISOString() ?? null;
+					organizations().get(organizationId)?.updated_at?.toISOString() ?? null;
 			}
 
 			// Second, and only if it moved: `expectedUpdatedAt` now reads the stamp
@@ -325,7 +325,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 	);
 
 	return {
-		saveAgencyDetails,
+		saveOrganizationDetails,
 		setUnitDefaults,
 		setAdultCollectionTimingMode,
 		setLarvalInspectionEntryPolicy,

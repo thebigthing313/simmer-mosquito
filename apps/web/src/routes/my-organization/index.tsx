@@ -15,7 +15,7 @@ function MyOrganizationGeneralRoute() {
 	const { auth } = Route.useRouteContext();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
 	const { all: units } = useUnitLabels();
-	const agencyFields: readonly SettingField[] = [
+	const organizationFields: readonly SettingField[] = [
 		textField('Organization name', workspace.organization.name),
 		textField('Slug', workspace.organization.slug ?? '', {
 			editable: false,
@@ -36,7 +36,7 @@ function MyOrganizationGeneralRoute() {
 	return (
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<GeneralOrganizationSection
-				agencyFields={agencyFields}
+				organizationFields={organizationFields}
 				canManage={workspace.canManage}
 				canManageTags={workspace.canManageOperational}
 				organization={workspace.organization}

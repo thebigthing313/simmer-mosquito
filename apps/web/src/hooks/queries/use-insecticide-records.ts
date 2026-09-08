@@ -1,5 +1,6 @@
 /**
- * The agency's insecticides and their batches, as the chemical catalog needs them.
+ * The organization's insecticides and their batches, as the chemical catalog
+ * needs them.
  *
  * Two reads with different sync modes behind them. Products are eager — every
  * application form picks one — so the list is one query over the whole table.
@@ -13,6 +14,7 @@
  * there.
  */
 
+import type { InsecticideType } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { insecticide_batches } from '../../lib/collections/insecticide_batches';
 import { insecticides } from '../../lib/collections/insecticides';
@@ -25,7 +27,7 @@ export interface InsecticideRecord {
 	readonly id: string;
 	readonly tradeName: string;
 	readonly activeIngredient: string;
-	readonly type: 'larvicide' | 'adulticide' | 'pupicide' | 'other';
+	readonly type: InsecticideType;
 	readonly registrationNumber: string;
 	readonly defaultUnitId: string;
 	readonly labelUrl: string | null;
@@ -48,7 +50,7 @@ export function useInsecticideRecords(): readonly InsecticideRecord[] {
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ row: insecticides })
+				.from({ row: insecticides() })
 				.orderBy(({ row }) => row.is_active, 'desc')
 				.orderBy(({ row }) => row.trade_name, 'asc')
 				.select(({ row }) => ({
@@ -78,7 +80,7 @@ export function useInsecticideBatches(insecticideId: string): {
 			gcTime: batchesGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: insecticide_batches })
+					.from({ batch: insecticide_batches() })
 					.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
 					.orderBy(({ batch }) => batch.is_active, 'desc')
 					.orderBy(({ batch }) => batch.batch_name, 'asc')

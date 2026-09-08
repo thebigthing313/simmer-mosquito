@@ -27,7 +27,7 @@ function MyOrganizationAdultSurveillanceRoute() {
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
-				editDescription="Choose how adult collection timing is recorded by this agency."
+				editDescription="Choose how adult collection timing is recorded."
 				fields={adultFields}
 				id="adult"
 				meta="Trap collection methods, lures, and adult surveillance references"

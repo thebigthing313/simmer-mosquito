@@ -27,7 +27,7 @@ const workosUser: AuthUser = {
 	profilePictureUrl: null,
 };
 
-/** Enough of a signed-in agency identity for `/auth/me` to answer 200. */
+/** Enough of a signed-in organization identity for `/auth/me` to answer 200. */
 const localIdentity: ActiveLocalAuthIdentity = {
 	user: {
 		id: 'user-1',

@@ -6,17 +6,17 @@ import { organizations } from '../lib/collections/organizations';
 import { canManageCatalogs, canManageOperationalCatalogs, readOrgRole } from '../lib/write-access';
 
 export function useOrganizationWorkspace(auth: AuthMe | null) {
-	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations }), []);
+	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations() }), []);
 	const organization: Organization | null = result.data[0] ?? null;
 	if (organization === null) {
 		throw new Error('Unable to resolve active organization for this workspace.');
 	}
 	const role = readOrgRole(auth);
-	// Two floors, because this workspace holds catalogs from both. `canManage`
-	// is the owner/admin floor that configures the agency — settings, lookup
-	// catalogs, insecticides. `canManageOperational` is the manager floor for
-	// the catalogs that are part of running work: tags, vehicles, equipment,
-	// and editing an existing control method.
+	// Two floors, because this workspace holds catalogs from both. `canManage` is
+	// the owner/admin floor that configures the organization — settings, lookup
+	// catalogs, insecticides. `canManageOperational` is the manager floor for the
+	// catalogs that are part of running work: tags, vehicles, equipment, and
+	// editing an existing control method.
 	//
 	// One flag for both was #65: a manager the server would have accepted saw
 	// greyed-out controls, which is the safe direction but still wrong. Each

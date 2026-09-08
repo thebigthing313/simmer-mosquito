@@ -1,5 +1,12 @@
-import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import type { Kysely, SimmerDatabase } from '@simmer-mosquito/db';
+import {
+	createAddress,
+	createHabitat,
+	createOrganization,
+	describeDbIntegration,
+	fixturePoint,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
@@ -10,22 +17,22 @@ import { registerRecordMergeReadRoutes } from '../../record-merge-reads.js';
 /**
  * The merge read over real rows.
  *
- * The unit test covers what it refuses before querying. What only a database can
- * answer is whether the agency filter is actually threaded from the auth context
- * into the read. It takes an organization id as an argument, which is the kind
- * of thing that compiles perfectly while carrying the wrong value, and a
- * duplicate proposal naming another agency's row leads to a merge the writer
- * refuses with an id the user cannot see.
+ * The unit test covers what it refuses before querying. What only a database
+ * can answer is whether the organization filter is actually threaded from the
+ * auth context into the read. It takes an organization id as an argument, which
+ * is the kind of thing that compiles perfectly while carrying the wrong value,
+ * and a duplicate proposal naming another organization's row leads to a merge
+ * the writer refuses with an id the user cannot see.
  */
 describeDbIntegration('merge reads at the HTTP boundary', () => {
-	it('proposes duplicates from the calling agency and no other', async () => {
+	it('proposes duplicates from the calling organization and no other', async () => {
 		await withTestDb(async ({ db }) => {
-			const caller = await createOrganization(db, 'merge_read_caller');
-			const other = await createOrganization(db, 'merge_read_other');
-			const mine = await createAddress(db, caller, 'Depot');
-			const alsoMine = await createAddress(db, caller, 'depot');
-			await createAddress(db, other, 'Depot');
-			await createAddress(db, other, 'depot');
+			const caller = await createOrganization(db);
+			const other = await createOrganization(db);
+			const mine = await createAddress(db, caller, { display_name: 'Depot' });
+			const alsoMine = await createAddress(db, caller, { display_name: 'depot' });
+			await createAddress(db, other, { display_name: 'Depot' });
+			await createAddress(db, other, { display_name: 'depot' });
 
 			const response = await mergeApp(db, caller).request('/records/address/duplicates');
 
@@ -40,14 +47,14 @@ describeDbIntegration('merge reads at the HTTP boundary', () => {
 		});
 	});
 
-	it('answers nearby habitats for the calling agency, and 404 for anyone else', async () => {
-		// The agency id is threaded from the auth context into the read, which is
-		// the kind of thing that compiles perfectly while carrying the wrong value.
-		// A 404 rather than an empty list, so the endpoint cannot be used to probe
-		// for a habitat another agency owns.
+	it('answers nearby habitats for the calling organization, and 404 for anyone else', async () => {
+		// The organization id is threaded from the auth context into the read,
+		// which is the kind of thing that compiles perfectly while carrying the
+		// wrong value. A 404 rather than an empty list, so the endpoint cannot be
+		// used to probe for a habitat another organization owns.
 		await withTestDb(async ({ db }) => {
-			const caller = await createOrganization(db, 'nearby_route_caller');
-			const other = await createOrganization(db, 'nearby_route_other');
+			const caller = await createOrganization(db);
+			const other = await createOrganization(db);
 			const home = await createHabitatAt(db, caller, 'Catch basin 41', -90.5, 35.5);
 			const near = await createHabitatAt(db, caller, 'CB-41', -90.5, 35.5005);
 			await createHabitatAt(db, other, 'Someone else basin', -90.5, 35.5005);
@@ -68,12 +75,12 @@ describeDbIntegration('merge reads at the HTTP boundary', () => {
 		});
 	});
 
-	it('runs the agency default radius when the caller names none', async () => {
+	it('runs the organization default radius when the caller names none', async () => {
 		// The seeded default distance unit is `mile`, which reads as imperial, so
 		// the first step is 250 ft. A habitat 100 m out is past that and one 50 m
 		// out is inside it.
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'nearby_route_default');
+			const org = await createOrganization(db);
 			const home = await createHabitatAt(db, org, 'Culvert', -90.5, 35.5);
 			const inside = await createHabitatAt(db, org, 'Culvert (dup)', -90.5, 35.50045);
 			await createHabitatAt(db, org, 'Culvert, far end', -90.5, 35.5009);
@@ -106,47 +113,16 @@ function mergeApp(db: Db, organizationId: string): Hono<{ Variables: AuthVariabl
 	return app;
 }
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createAddress(db: Db, organizationId: string, displayName: string): Promise<string> {
-	const row = await db
-		.insertInto('addresses')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			display_name: displayName,
-			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createHabitatAt(
+/** A habitat at a place, which is what the nearby read measures. */
+function createHabitatAt(
 	db: Db,
 	organizationId: string,
 	habitatName: string,
 	lng: number,
 	lat: number,
 ): Promise<string> {
-	const row = await db
-		.insertInto('habitats')
-		.values({
-			organization_id: organizationId,
-			address_id: null,
-			geom: sql`st_setsrid(st_makepoint(${lng}, ${lat}), 4326)`,
-			habitat_name: habitatName,
-			description: 'Roadside ditch',
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createHabitat(db, organizationId, {
+		habitat_name: habitatName,
+		geom: fixturePoint(lng, lat),
+	});
 }

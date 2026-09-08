@@ -1,3 +1,4 @@
+import type { WorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	assertOrganizationProfileCanBeInvited,
 	getOperatorOrganization,
@@ -6,6 +7,7 @@ import {
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
 } from '@simmer-mosquito/db';
+import { SIMMER_ROLES } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -18,29 +20,11 @@ import {
 
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
-export interface AdminInvitationAuth {
-	findOrganizationMember(input: {
-		readonly email: string;
-		readonly workosOrganizationId: string;
-	}): Promise<{
-		readonly workosUserId: string;
-		readonly status: 'active' | 'inactive' | 'pending';
-	} | null>;
-	sendOrganizationInvitation(input: {
-		readonly email: string;
-		readonly workosOrganizationId: string;
-		readonly inviterWorkosUserId?: string;
-	}): Promise<{
-		readonly id: string;
-		readonly email: string;
-		readonly state: 'pending' | 'accepted' | 'expired' | 'revoked';
-		readonly organizationId: string | null;
-		readonly acceptedUserId: string | null;
-		readonly expiresAt: string;
-		readonly createdAt: string;
-		readonly updatedAt: string;
-	}>;
-}
+/** What inviting somebody into an organization needs of the WorkOS client. */
+export type AdminInvitationAuth = Pick<
+	WorkOsAuth,
+	'findOrganizationMember' | 'sendOrganizationInvitation'
+>;
 
 export function registerAdminInvitationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -87,8 +71,8 @@ export function registerAdminInvitationRoutes(
 			// Postgres first, then WorkOS, under the ordering rule in
 			// `docs/domain-command-contract.md`. Staging still refuses an address
 			// already spoken for, and sending before it meant the operator read that
-			// refusal while the invitee held a working link to an agency with no row
-			// for them.
+			// refusal while the invitee held a working link to an organization with
+			// no row for them.
 			const staged = await stageMembership(options.db, organizationId, payloadResult.payload);
 			if (!staged.ok) {
 				return context.json({ error: staged.code }, staged.status);
@@ -103,8 +87,8 @@ export function registerAdminInvitationRoutes(
 			});
 			if (!invitationResult.ok) {
 				// The Membership stays, with no invitation id on it. The role is still
-				// staged and still claimed the next time they enter the agency, and an
-				// operator who needs the mail can invite again.
+				// staged and still claimed the next time they enter the organization,
+				// and an operator who needs the mail can invite again.
 				return context.json(invitationResult.refusal, 502);
 			}
 
@@ -199,8 +183,8 @@ type SentInvitation = Awaited<ReturnType<AdminInvitationAuth['sendOrganizationIn
  * invited to it — `sendInvitation` throws on an existing member — and does not
  * need to be. What they are missing is the SIMMER role, which the caller stages
  * either way, to be claimed by provisioning the next time they enter the
- * agency. This is the ordinary shape of an operator support grant (ADR 0011),
- * not an edge case.
+ * organization. This is the ordinary shape of an operator support grant (ADR
+ * 0011), not an edge case.
  *
  * A `null` invitation is therefore success, not absence. Any other WorkOS
  * refusal comes back named: it used to leave the route throwing, which reached
@@ -247,7 +231,7 @@ async function inviteUnlessAlreadyReached(
 }
 
 /**
- * Everything that must be true of the agency and the named profile before
+ * Everything that must be true of the organization and the named profile before
  * WorkOS is touched at all.
  *
  * Grouped because they share a consequence: each is a refusal the caller can
@@ -361,17 +345,7 @@ async function readInvitePayload(request: {
 }
 
 function readRole(value: unknown): SimmerRole | null {
-	if (
-		value === 'owner' ||
-		value === 'admin' ||
-		value === 'manager' ||
-		value === 'collector' ||
-		value === 'viewer'
-	) {
-		return value;
-	}
-
-	return null;
+	return SIMMER_ROLES.includes(value as SimmerRole) ? (value as SimmerRole) : null;
 }
 
 function readRequiredText(value: unknown): string | null {

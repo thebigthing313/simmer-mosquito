@@ -14,12 +14,12 @@
  * routes exist to stop doing.
  *
  * These routes are additive. The older per-domain endpoints are still
- * registered, and both surfaces write through the same commands, permissions and
- * transaction, so a table served by both cannot disagree with itself. What has
- * changed is who calls them: `apps/web` posts every command write here, and the
- * older surface is left with `apps/admin` seeding a new agency through
- * `/foundation/*` and `/adult-surveillance/traps`. A new command goes here. See
- * `docs/domain-command-contract.md`, "The write surface".
+ * registered, and both surfaces write through the same commands, permissions
+ * and transaction, so a table served by both cannot disagree with itself. What
+ * has changed is who calls them: `apps/web` posts every command write here, and
+ * the older surface is left with `apps/admin` seeding a new organization
+ * through `/foundation/*` and `/adult-surveillance/traps`. A new command goes
+ * here. See `docs/domain-command-contract.md`, "The write surface".
  */
 
 import type { Hono, MiddlewareHandler } from 'hono';
@@ -99,10 +99,11 @@ export function tableCommandSpecs(
 	db: CommandDb,
 	/** Only `memberships` uses it — the four commands that also settle WorkOS. */
 	auth: MembershipAuth,
-	// biome-ignore lint/suspicious/noExplicitAny: each table names its own command
-	// union and its own row type; the list is heterogeneous by construction and
-	// only the shared `table`/`run`/`intents` shape is ever read off it.
-): readonly AnyTableCommands<any, any>[] {
+	// Each table names its own table, command union, row type and argument keys, so
+	// the list is heterogeneous by construction and only the shared
+	// `table`/`run`/`intents` shape is ever read off it.
+	// biome-ignore lint/suspicious/noExplicitAny: the list is heterogeneous by construction, see above
+): readonly AnyTableCommands<any, any, any, any>[] {
 	return [
 		habitatTableCommands(db),
 		inspectionTableCommands(db),
@@ -140,15 +141,16 @@ export function tableCommandSpecs(
 		regionTableCommands(db),
 		organizationSpeciesTableCommands(db),
 		addressTableCommands(db),
-		// The agency's own row and its people. Identity, and commands since ADR
-		// 0013 — including the four that also settle WorkOS, which is what
+		// The organization's own row and its people. Identity, and commands since
+		// ADR 0013 — including the four that also settle WorkOS, which is what
 		// `memberships` carries and no other table does.
 		organizationTableCommands(db),
 		profileTableCommands(db),
 		membershipTableCommands(db, auth),
-		// The stations an agency reads weather at, and the buckets it records.
-		// The spreadsheet import is not here: it is station-scoped and answers
-		// per-row results, so it has its own route in `weather-commands/import.ts`.
+		// The stations an organization reads weather at, and the buckets it
+		// records. The spreadsheet import is not here: it is station-scoped and
+		// answers per-row results, so it has its own route in
+		// `weather-commands/import.ts`.
 		weatherStationTableCommands(db),
 		weatherSummaryTableCommands(db),
 		// The crew every record type attaches — see `additional-personnel.ts`.

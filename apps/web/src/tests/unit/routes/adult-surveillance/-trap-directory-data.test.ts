@@ -23,10 +23,11 @@ import {
  * silently, which is why the fixtures below exercise both.
  */
 
-// A US agency zone rather than UTC: a fixture timestamped in the evening falls
-// on a different day in the two, which is what makes the year assertions able to
-// fail if the grouping ever reverts to the browser's or the server's zone.
-const AGENCY_TIME_ZONE = 'America/New_York';
+// A US organization zone rather than UTC: a fixture timestamped in the evening
+// falls on a different day in the two, which is what makes the year assertions
+// able to fail if the grouping ever reverts to the browser's or the server's
+// zone.
+const ORGANIZATION_TIME_ZONE = 'America/New_York';
 
 function collection(overrides: Partial<DirectoryCollection> = {}): DirectoryCollection {
 	return {
@@ -61,7 +62,7 @@ describe('groupByYear', () => {
 				collection({ id: 'b', collectedAt: '2026-07-14 06:00:00+00' }),
 				collection({ id: 'c', collectedAt: '2025-06-02 06:00:00+00' }),
 			],
-			AGENCY_TIME_ZONE,
+			ORGANIZATION_TIME_ZONE,
 		);
 
 		expect(years.map((year) => year.label)).toEqual(['2026', '2025', '2024']);
@@ -82,7 +83,7 @@ describe('groupByYear', () => {
 				collection({ id: 'text', collectedAt: asText }),
 				collection({ id: 'date', collectedAt: new Date(asText) }),
 			],
-			AGENCY_TIME_ZONE,
+			ORGANIZATION_TIME_ZONE,
 		);
 
 		expect(years).toHaveLength(1);
@@ -102,7 +103,7 @@ describe('groupByYear', () => {
 					collectionTimingMode: 'collection_date_duration',
 				}),
 			],
-			AGENCY_TIME_ZONE,
+			ORGANIZATION_TIME_ZONE,
 		);
 
 		expect(years).toHaveLength(1);
@@ -117,7 +118,7 @@ describe('groupByYear', () => {
 				collection({ id: 'august', collectedAt: '2026-08-20 06:00:00+00' }),
 				collection({ id: 'july', collectedAt: '2026-07-04 06:00:00+00' }),
 			],
-			AGENCY_TIME_ZONE,
+			ORGANIZATION_TIME_ZONE,
 		);
 
 		expect(years[0]?.collections.map((row) => row.id)).toEqual(['august', 'july', 'june']);
@@ -129,7 +130,7 @@ describe('groupByYear', () => {
 				collection({ id: 'dated', collectedAt: '2026-07-14 06:00:00+00' }),
 				collection({ id: 'out', collectedAt: null }),
 			],
-			AGENCY_TIME_ZONE,
+			ORGANIZATION_TIME_ZONE,
 		);
 
 		expect(years[0]?.key).toBe(UNDATED_GROUP_KEY);
@@ -152,37 +153,37 @@ describe('groupByYear', () => {
 					collectionTimingMode: 'collection_date_duration',
 				}),
 			],
-			AGENCY_TIME_ZONE,
+			ORGANIZATION_TIME_ZONE,
 		);
 
 		expect(years[0]?.label).toBe('Undated');
 	});
 
 	it('has no undated bucket when every collection is dated', () => {
-		const years = groupByYear([collection({ id: 'dated' })], AGENCY_TIME_ZONE);
+		const years = groupByYear([collection({ id: 'dated' })], ORGANIZATION_TIME_ZONE);
 
 		expect(years.map((year) => year.key)).toEqual(['2026']);
 	});
 
-	// A collection retrieved late on New Year's Eve is that season's, not the next
-	// one's. Grouping on the UTC prefix of `collectedAt` — which this did — moves
-	// it into a year the crew never worked it in, and the server, which now
-	// windows in the agency's zone, disagrees with the screen.
-	it('files a late-evening collection in the agency’s year, not UTC’s', () => {
+	// A collection retrieved late on New Year's Eve is that season's, not the
+	// next one's. Grouping on the UTC prefix of `collectedAt` — which this did —
+	// moves it into a year the crew never worked it in, and the server, which now
+	// windows in the organization's zone, disagrees with the screen.
+	it('files a late-evening collection in the organization’s year, not UTC’s', () => {
 		const newYearsEve = collection({
 			id: 'late',
 			// 2026-12-31 20:00 in New York; already 2027-01-01 in UTC.
 			collectedAt: '2027-01-01 01:00:00+00',
 		});
 
-		expect(groupByYear([newYearsEve], AGENCY_TIME_ZONE).map((year) => year.label)).toEqual([
+		expect(groupByYear([newYearsEve], ORGANIZATION_TIME_ZONE).map((year) => year.label)).toEqual([
 			'2026',
 		]);
 		expect(groupByYear([newYearsEve], 'UTC').map((year) => year.label)).toEqual(['2027']);
 	});
 
 	it('returns nothing for a trap that has never collected', () => {
-		expect(groupByYear([], AGENCY_TIME_ZONE)).toEqual([]);
+		expect(groupByYear([], ORGANIZATION_TIME_ZONE)).toEqual([]);
 	});
 });
 

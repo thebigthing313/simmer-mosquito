@@ -37,15 +37,15 @@ export function useMissionStops(missionId: string | null): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: mission_items })
+					.from({ item: mission_items() })
 					.where(({ item }) => eq(item.mission_id, missionId ?? unmatchableId))
 					.join(
-						{ request: requested_control_actions },
+						{ request: requested_control_actions() },
 						({ item, request }) => eq(item.requested_control_action_id, request.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ item, address }) => eq(item.address_id, address.id),
 						'left',
 					)

@@ -1,9 +1,7 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
 import {
@@ -25,19 +23,20 @@ import { type TrapOption, useTrapOptions } from '../../../hooks/queries/use-trap
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	CollectionFormPage,
 	type CollectionFormValues,
 	type CollectionSaveInput,
 	collectionFieldsFrom,
+	isCollectionLocation,
 	noLureValue,
 	noUnitValue,
 } from './-collection-form';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/collections/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -57,25 +56,23 @@ function EditCollectionRoute() {
 	const { id } = Route.useParams();
 	const { collection, isReady, isError } = useCollectionRecord(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="collection" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (collection === undefined) {
-		return <RecordUnavailable layout="centered" noun="collection" reason="not-found" />;
-	}
-
 	return (
-		<EditCollectionLoader
-			collection={collection}
-			collectionLures={lures}
-			collectionMethods={methods}
-			profiles={profiles}
-			traps={traps}
-			units={units}
-		/>
+		<RecordEditFrame
+			noun="collection"
+			reading={{ isError, isReady, record: collection }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditCollectionLoader
+					collection={record}
+					collectionLures={lures}
+					collectionMethods={methods}
+					profiles={profiles}
+					traps={traps}
+					units={units}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 
@@ -108,24 +105,29 @@ function EditCollectionLoader({
 			// inherits its trap's point and address, and moving it means moving the
 			// trap.
 			const isAdhoc = collection.trapId === null;
+			// The narrowed shape, not a boolean. The save reads its coordinates, and a
+			// boolean left the route asking the same question twice to get the
+			// compiler there.
 			const refinedPoint =
-				isAdhoc && geometryChanged && geometry !== null && geometry.type === 'Point';
+				isAdhoc && geometryChanged && geometry !== null && isCollectionLocation(geometry)
+					? geometry
+					: null;
 
 			await mutations.save({
 				collectionId: collection.id,
 				fields: collectionFieldsFrom(values, timeZone),
 				current: collectionFieldsFrom(formValuesFrom(collection, personnel, timeZone), timeZone),
 				geometry:
-					refinedPoint && geometry.type === 'Point'
-						? {
-								geometry: geometry as unknown as GeoJsonGeometry,
+					refinedPoint === null
+						? null
+						: {
+								geometry: refinedPoint,
 								centroid: {
-									lat: geometry.coordinates[1],
-									lng: geometry.coordinates[0],
+									lat: refinedPoint.coordinates[1],
+									lng: refinedPoint.coordinates[0],
 									geomType: 'point',
 								},
-							}
-						: null,
+							},
 			});
 			await setPersonnel({
 				target: { type: 'collection', id: collection.id },
@@ -151,7 +153,7 @@ function EditCollectionLoader({
 		);
 	}
 	if (!personnel.isReady) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 	}
 
 	return (
@@ -221,33 +223,16 @@ function formValuesFrom(
 }
 
 /**
- * A stored instant back as the `YYYY-MM-DD` a date field holds, on the agency's
- * clock.
+ * A stored instant back as the `YYYY-MM-DD` a date field holds, on the
+ * organization's clock.
  *
  * The zone is the point. `collectionEffectiveDate` reads these same columns in
- * the agency's zone everywhere else, so taking the UTC prefix here — which is
- * what the route this replaces did — showed a trap emptied at 10:30pm under the
- * next day in its own edit form while its detail page showed the day the crew
- * worked. Two halves of one record disagreeing, and a save then wrote the form's
- * answer back.
+ * the organization's zone everywhere else, so taking the UTC prefix here —
+ * which is what the route this replaces did — showed a trap emptied at 10:30pm
+ * under the next day in its own edit form while its detail page showed the day
+ * the crew worked. Two halves of one record disagreeing, and a save then wrote
+ * the form's answer back.
  */
 function operationalDay(value: Date | null, timeZone: string): string | null {
 	return value === null ? null : todayInTimeZone(timeZone, value);
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

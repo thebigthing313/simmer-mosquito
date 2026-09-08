@@ -6,7 +6,7 @@ const SIGNED_IN = {
 	user: { email: 'operator@example.test' },
 } as unknown as AuthMe;
 
-const REFUSED: AuthMe = { authenticated: false, reason: 'no session' };
+const REFUSED: AuthMe = { authenticated: false, error: 'unauthenticated', reason: 'no session' };
 
 describe('createAppAuthController', () => {
 	it('asks once and serves the answer from the snapshot', async () => {
@@ -24,8 +24,10 @@ describe('createAppAuthController', () => {
 		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(REFUSED);
 		const controller = createAppAuthController({ getAuthMe });
 
-		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
-		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
+		// The server's own category survives the cache, so a caller can tell a
+		// refusal apart from a round trip that never landed.
+		await expect(controller.load()).resolves.toEqual(REFUSED);
+		await expect(controller.load()).resolves.toEqual(REFUSED);
 		expect(getAuthMe).toHaveBeenCalledOnce();
 	});
 
@@ -39,7 +41,14 @@ describe('createAppAuthController', () => {
 			.mockResolvedValue(SIGNED_IN);
 		const controller = createAppAuthController({ getAuthMe });
 
-		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
+		// `unavailable` and not `unauthenticated`: the round trip broke, so there is
+		// no refusal from the server to carry. Nothing branches on the category yet,
+		// which is why the arm is still the same one (#698).
+		await expect(controller.load()).resolves.toEqual({
+			authenticated: false,
+			error: 'unavailable',
+			reason: 'Failed to fetch',
+		});
 
 		// The failure was not recorded, so the next guard asks again and finds the
 		// session that was there all along.
@@ -54,8 +63,9 @@ describe('createAppAuthController', () => {
 
 		getAuthMe.mockRejectedValueOnce(new Error('Failed to fetch'));
 
-		// `refresh` is what the enter-agency flow calls after re-sealing a session.
-		// A blip there must not read as "signed out" when we already know better.
+		// `refresh` is what the enter-organization flow calls after re-sealing a
+		// session. A blip there must not read as "signed out" when we already know
+		// better.
 		await expect(controller.refresh()).resolves.toMatchObject({ authenticated: true });
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: true });
 	});
@@ -93,8 +103,8 @@ describe('createAppAuthController', () => {
 	});
 
 	// The reason `refresh` and `renew` are two things. Signing in and entering an
-	// agency re-seal the cookie and then ask who they are; an answer from a round
-	// trip sent before the change describes the session they left.
+	// organization re-seal the cookie and then ask who they are; an answer from a
+	// round trip sent before the change describes the session they left.
 	it('never serves a caller that changed the session an answer from before it', async () => {
 		let release: (answer: AuthMe) => void = () => undefined;
 		const before = new Promise<AuthMe>((resolve) => {
@@ -260,9 +270,9 @@ describe('createAppAuthController', () => {
 	});
 
 	it('changes the session inside the same lock', async () => {
-		// Entering an agency re-seals the session, so it spends the token a renewal
-		// spends. Serializing it against this tab's renewals (#301) does nothing
-		// about the tab next door.
+		// Entering an organization re-seals the session, so it spends the token a
+		// renewal spends. Serializing it against this tab's renewals (#301) does
+		// nothing about the tab next door.
 		const { locks, held } = fakeLocks();
 		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
 		const controller = createAppAuthController({ getAuthMe, locks });

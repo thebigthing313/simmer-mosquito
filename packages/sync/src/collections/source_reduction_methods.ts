@@ -9,7 +9,6 @@
 
 import { createCollection } from '@tanstack/db';
 import { electricCollectionOptions } from '@tanstack/electric-db-collection';
-import { shapePathFor } from './functions/routes.js';
 import {
 	type SyncCollectionClientOptions,
 	syncCollectionConfig,
@@ -24,9 +23,6 @@ import {
  * past the collection into the schema module for the type of what it holds.
  */
 export type { SourceReductionMethod };
-
-/** Where this table's shape is served. Derived so client and server cannot drift. */
-export const sourceReductionMethodsShapePath = shapePathFor('source_reduction_methods');
 
 export function createSourceReductionMethodsCollection(options: SyncCollectionClientOptions) {
 	// The schema is passed here rather than through `syncCollectionConfig` because it

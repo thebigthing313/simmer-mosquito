@@ -174,7 +174,7 @@ export function useMissionMutations(): MissionMutations {
 						},
 					},
 					apply: () => {
-						missions.insert(mission);
+						missions().insert(mission);
 					},
 				}),
 			);
@@ -239,7 +239,7 @@ export function useMissionMutations(): MissionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(missions, {
+				mutateCollection(missions(), {
 					operation: 'update',
 					intent: intents,
 					key: missionId,
@@ -257,7 +257,7 @@ export function useMissionMutations(): MissionMutations {
 	const start = useCallback(
 		async (missionId: string) => {
 			await settleWrite(
-				mutateCollection(missions, {
+				mutateCollection(missions(), {
 					operation: 'update',
 					intent: 'missionDispatch.startMission',
 					key: missionId,
@@ -275,7 +275,7 @@ export function useMissionMutations(): MissionMutations {
 	const complete = useCallback(
 		async (missionId: string) => {
 			await settleWrite(
-				mutateCollection(missions, {
+				mutateCollection(missions(), {
 					operation: 'update',
 					intent: 'missionDispatch.completeMission',
 					key: missionId,
@@ -298,7 +298,7 @@ export function useMissionMutations(): MissionMutations {
 	const cancel = useCallback(
 		async (missionId: string, cancellationReason: string) => {
 			await settleWrite(
-				mutateCollection(missions, {
+				mutateCollection(missions(), {
 					operation: 'update',
 					intent: 'missionDispatch.cancelMission',
 					key: missionId,
@@ -320,7 +320,7 @@ export function useMissionMutations(): MissionMutations {
 	const reopen = useCallback(
 		async (missionId: string, reopenReason: string) => {
 			await settleWrite(
-				mutateCollection(missions, {
+				mutateCollection(missions(), {
 					operation: 'update',
 					intent: 'missionDispatch.reopenMission',
 					key: missionId,
@@ -344,7 +344,7 @@ export function useMissionMutations(): MissionMutations {
 	const remove = useCallback(
 		async (missionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(missions, {
+				mutateCollection(missions(), {
 					operation: 'delete',
 					intent: 'missionDispatch.deleteMission',
 					key: missionId,
@@ -377,9 +377,9 @@ export function useMissionMutations(): MissionMutations {
 				// request would never leave the browser. A move always rewrites at least
 				// the row it moved, which is why that cannot happen here.
 				apply: () => {
-					const positions = planStopPositions(plan, (id) => mission_items.get(id)?.position);
+					const positions = planStopPositions(plan, (id) => mission_items().get(id)?.position);
 					for (const [missionItemId, position] of positions) {
-						mission_items.update(missionItemId, (draft) => {
+						mission_items().update(missionItemId, (draft) => {
 							draft.position = position;
 						});
 					}

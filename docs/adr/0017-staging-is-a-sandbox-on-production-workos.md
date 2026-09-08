@@ -44,10 +44,13 @@ single `auth` object `main.ts` builds, which every route and every command
 already receives, and which `dev-impersonation.ts` already swaps at. A `Proxy`
 wraps it when `WORKOS_IDENTITY_WRITES_DISABLED` reads the exact string `true`.
 
-- It is an **allowlist**, in `apps/server/src/workos-identity-interlock.ts`.
-  Session and read methods pass; everything else refuses. A list of the writes
-  that exist today would be one `packages/auth` addition away from silently
-  mailing production from staging.
+- It is an **allowlist**, declared as `WORKOS_SESSION_AND_READ_METHODS` in
+  `packages/auth` and enforced in
+  `apps/server/src/workos-identity-interlock.ts`, which reads it (#619). The
+  declaration sits beside the methods it sorts, where `tsc` refuses a method on
+  neither half or on both. Session and read methods pass; everything else
+  refuses. A list of the writes that exist today would be one `packages/auth`
+  addition away from silently mailing production from staging.
 - The line is durable identity state against session state.
   `signInWithPassword` and `revokeSession` both write, but what they write is a
   session. `verifyEmailCode` is the one judgement call and is allowed: it is

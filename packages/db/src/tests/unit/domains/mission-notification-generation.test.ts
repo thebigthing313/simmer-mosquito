@@ -1,12 +1,12 @@
 /**
  * The cap on the registrations a refusal carries.
  *
- * `buffer_unit_not_convertible` is agency-wide, so an agency that fixed nothing
- * for a year can have every registration behind it. The refusal carries a page
- * of them and counts the rest, and the count is the part that goes wrong
- * silently: subtracting the cap instead of what was actually listed tells an
- * agency with exactly ten offenders that one is hidden, and sends somebody
- * looking for a row that is already on screen.
+ * `buffer_unit_not_convertible` is organization-wide, so an organization that
+ * fixed nothing for a year can have every registration behind it. The refusal
+ * carries a page of them and counts the rest, and the count is the part that
+ * goes wrong silently: subtracting the cap instead of what was actually listed
+ * tells an organization with exactly ten offenders that one is hidden, and
+ * sends somebody looking for a row that is already on screen.
  */
 
 import { describe, expect, it } from 'vitest';

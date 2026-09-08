@@ -1,5 +1,4 @@
 import {
-	createIssues,
 	jsonObject as normalizeJsonObject,
 	nullableText as normalizeNullableText,
 	optionalId as normalizeOptionalId,
@@ -7,23 +6,37 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
+	validatePointGeometry,
 } from '../command-validation.js';
 import {
 	type DomainId,
 	DomainValidationError,
 	type DomainValidationIssue,
 	type GeoJsonPoint,
+	type GeoJsonPolygon,
 	type JsonObject,
-	normalizeGeometry,
-	normalizePointGeometry,
-	type SupportedGeoJsonGeometry,
+	normalizeOwnedGeometry,
 } from '../shared.js';
+import type { UpdateFieldNormalizer } from '../update-command-fields.js';
 
-export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
-export type NotificationChannel = 'email' | 'sms' | 'phone';
-export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
-export type NotificationRegistrationGeometry = SupportedGeoJsonGeometry;
+export {
+	MISSION_NOTIFICATION_STATUSES,
+	type MissionNotificationStatus,
+	NOTIFICATION_CHANNELS,
+	type NotificationChannel,
+	REQUEST_INTAKE_TYPES,
+	type RequestIntakeType,
+} from '../column-vocabularies.js';
+/**
+ * Where a Registration is placed: one point, or one area.
+ *
+ * Two names rather than `SupportedGeoJsonGeometry`, so a reader of
+ * `CreateNotificationRegistrationCommand.geometry` is told which four shapes
+ * cannot be there. `validateRegistrationGeometry` is what holds the pair to the
+ * register, because its return no longer fits this name the day the policy
+ * moves.
+ */
+export type NotificationRegistrationGeometry = GeoJsonPoint | GeoJsonPolygon;
 
 export type PublicEngagementCommandType =
 	| 'publicEngagement.createContact'
@@ -203,32 +216,6 @@ export interface NotificationRegistrationSubscription {
 	readonly notificationTypeId: DomainId;
 }
 
-export const REQUEST_INTAKE_TYPES = ['online', 'phone', 'walk-in', 'other'] as const;
-export const NOTIFICATION_CHANNELS = ['email', 'sms', 'phone'] as const;
-export const MISSION_NOTIFICATION_STATUSES = ['pending', 'completed', 'failed', 'skipped'] as const;
-const REGISTRATION_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
-
-export function validateBase(
-	input: PublicEngagementCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateAgencyCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends PublicEngagementCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
-export function basePayload(input: PublicEngagementCommandInput): PublicEngagementCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
-}
-
 export function validateContactReference(
 	input: ContactReferenceInput,
 	path: string,
@@ -265,7 +252,7 @@ export function validateServiceRequestLocation(
 	}
 	return {
 		address: validateServiceRequestAddress(input.address, `${path}.address`, issues),
-		geometry: validatePointGeometry(input.geometry, `${path}.geometry`, issues),
+		geometry: validatePointGeometry('serviceRequest', input.geometry, `${path}.geometry`, issues),
 	};
 }
 
@@ -467,7 +454,11 @@ function normalizeInlineAddressDetails(
 	}
 	return {
 		displayName: normalizeRequiredText(input.displayName, `${path}.displayName`, issues, 200),
-		geometry: validatePointGeometry(input.geometry, `${path}.geometry`, issues),
+		// An Address, so the Address policy. The private copy this replaced named
+		// the Service Request kind for every geometry in the module, which nothing
+		// could observe while both policies are Point and only one call site is
+		// storing a row in `addresses`.
+		geometry: validatePointGeometry('address', input.geometry, `${path}.geometry`, issues),
 		country: normalizeCountry(input.country, `${path}.country`, issues),
 		addressLine1: normalizeNullableText(input.addressLine1, `${path}.addressLine1`, issues, 200),
 		addressLine2: normalizeNullableText(input.addressLine2, `${path}.addressLine2`, issues, 200),
@@ -565,46 +556,13 @@ export function validateRegistrationPurpose(
 	}
 }
 
-export function validatePhonePreferencePatch(
-	value: boolean | undefined,
-	hasValue: boolean,
-	preferredPhone: string | null | undefined,
-	hasPreferredPhone: boolean,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (!hasValue) {
-		return;
-	}
-	validateBoolean(value, path, issues);
-	if (value === true && hasPreferredPhone && preferredPhone === null) {
-		issues.push({ path, message: `${path} requires preferredPhone.` });
-	}
-}
-
-function validatePointGeometry(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): GeoJsonPoint {
-	try {
-		return normalizePointGeometry(value, path);
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			issues.push(...error.issues);
-			return { type: 'Point', coordinates: [0, 0] };
-		}
-		throw error;
-	}
-}
-
 function validateRegistrationGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): NotificationRegistrationGeometry {
 	try {
-		return normalizeGeometry(value, REGISTRATION_GEOMETRY_TYPES, path);
+		return normalizeOwnedGeometry('notificationRegistration', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
@@ -612,45 +570,6 @@ function validateRegistrationGeometry(
 		}
 		throw error;
 	}
-}
-
-export function validateIdList(
-	values: readonly DomainId[],
-	path: string,
-	issues: DomainValidationIssue[],
-): readonly DomainId[] {
-	if (!Array.isArray(values) || values.length === 0) {
-		issues.push({ path, message: `${path} must include at least one id.` });
-		return [];
-	}
-	const seen = new Set<string>();
-	return values.map((value, index) => {
-		requireUuid(value, `${path}.${index}`, issues);
-		const normalized = normalizeRequiredId(value);
-		if (seen.has(normalized)) {
-			issues.push({ path: `${path}.${index}`, message: `${path} must not contain duplicates.` });
-		}
-		seen.add(normalized);
-		return normalized;
-	});
-}
-
-export function normalizeOptionalTimestamp(
-	value: Date | null | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): Date | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-		issues.push({ path, message: `${path} must be a valid Date.` });
-		return null;
-	}
-	if (value.getTime() > Date.now()) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
-	}
-	return value;
 }
 
 function normalizeCountry(
@@ -711,19 +630,6 @@ export function normalizeEmail(
 	return normalized.toLowerCase();
 }
 
-export function normalizeStringUnion<TValue extends string>(
-	value: string | undefined,
-	allowedValues: readonly TValue[],
-	path: string,
-	issues: DomainValidationIssue[],
-): TValue {
-	if (value === undefined || !allowedValues.includes(value as TValue)) {
-		issues.push({ path, message: `${path} is not supported.` });
-		return (allowedValues[0] ?? '') as TValue;
-	}
-	return value as TValue;
-}
-
 export function normalizeBooleanDefault(
 	value: boolean | undefined,
 	path: string,
@@ -737,7 +643,14 @@ export function normalizeBooleanDefault(
 	return value === true;
 }
 
-export function validateBoolean(
+/** A flag the field sets, refused when it is not a boolean. */
+export const booleanField: UpdateFieldNormalizer<boolean | undefined, boolean> = (
+	value,
+	path,
+	issues,
+) => normalizeBooleanDefault(value, path, issues, false);
+
+function validateBoolean(
 	value: boolean | undefined,
 	path: string,
 	issues: DomainValidationIssue[],

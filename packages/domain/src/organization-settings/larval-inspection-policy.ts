@@ -1,3 +1,4 @@
+import { LARVAL_DENSITIES, RANGE_DENSITIES } from '../column-vocabularies.js';
 import { createIssues, throwIfIssues } from '../command-validation.js';
 import type { DomainValidationIssue } from '../shared.js';
 import {
@@ -9,8 +10,6 @@ import {
 	type ResolvedLarvalInspectionEntryPolicy,
 } from './types-and-defaults.js';
 
-const LARVAL_DENSITIES = ['none', 'light', 'medium', 'heavy', 'very_heavy'] as const;
-const RANGE_DENSITIES = ['light', 'medium', 'heavy', 'very_heavy'] as const;
 const LARVAL_INSPECTION_ENTRY_MODES = [
 	'density_only',
 	'count_and_dips_required',

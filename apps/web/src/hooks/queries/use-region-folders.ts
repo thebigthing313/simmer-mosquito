@@ -1,5 +1,5 @@
 /**
- * The folders an agency files its regions under.
+ * The folders an organization files its regions under.
  *
  * `region_folders` is eager — the tree cannot draw a partial folder list, which
  * is why the collection loads whole — so this is a plain read with no subset
@@ -27,7 +27,7 @@ export function useRegionFolders(): {
 } {
 	const result = useLiveQuery(
 		(query) =>
-			query.from({ folder: region_folders }).select(({ folder }) => ({
+			query.from({ folder: region_folders() }).select(({ folder }) => ({
 				id: folder.id,
 				name: folder.name,
 				description: folder.description,

@@ -1,13 +1,13 @@
 /**
- * An agency's own geography: drawing a region, renaming it, filing it, redrawing
- * its boundary, removing it.
+ * An organization's own geography: drawing a region, renaming it, filing it,
+ * redrawing its boundary, removing it.
  *
  * ## `geometry` is an argument, not a location source
  *
  * The surveillance tables take a *location source* — a shape the user drew, or a
  * row to copy a shape from — because the record's geometry is a snapshot of
  * something else. A region is the other case, the one the address book is also
- * in: the boundary *is* the record. So the command takes the polygon itself, and
+ * in: the boundary *is* the record. So the command takes the area itself, and
  * it rides as an argument because there is no column for it — `geom` never
  * syncs, and `geojson` is a generated read column nothing writes.
  *
@@ -39,7 +39,8 @@
  * that dialog is a decision about the product, not part of moving the write.
  */
 
-import { type GeoJsonPolygon, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import type { RegionGeometry } from '@simmer-mosquito/domain';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type Region, settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
@@ -76,7 +77,7 @@ export interface RegionUpdatePlan {
  *
  * Pure and exported for its tests. `geometry` is `null` when the boundary was
  * not touched, which is not the same as clearing it: naming the geometry command
- * with the polygon a region already has is a write with no edit behind it, and
+ * with the boundary a region already has is a write with no edit behind it, and
  * the domain refuses a command with nothing to change.
  *
  * `null` when nothing moved — an untouched save is not a write.
@@ -84,7 +85,7 @@ export interface RegionUpdatePlan {
 export function regionUpdatePlan(input: {
 	readonly fields: RegionFields;
 	readonly current: RegionFields;
-	readonly geometry: GeoJsonPolygon | null;
+	readonly geometry: RegionGeometry | null;
 }): RegionUpdatePlan | null {
 	const { fields, current, geometry } = input;
 	const intents: RegionUpdateIntent[] = [];
@@ -136,13 +137,13 @@ export interface RegionMutations {
 	readonly create: (
 		regionId: string,
 		fields: RegionFields,
-		geometry: GeoJsonPolygon,
+		geometry: RegionGeometry,
 	) => { readonly isPersisted: { readonly promise: Promise<unknown> } };
 	readonly save: (input: {
 		readonly regionId: string;
 		readonly fields: RegionFields;
 		readonly current: RegionFields;
-		readonly geometry: GeoJsonPolygon | null;
+		readonly geometry: RegionGeometry | null;
 	}) => Promise<void>;
 	/** The tree's inline rename, which is `updateRegionDetails` and nothing else. */
 	readonly rename: (regionId: string, name: string) => Promise<void>;
@@ -168,7 +169,7 @@ export function useRegionMutations(): RegionMutations {
 	const actorProfileId = identity?.profileId ?? null;
 
 	const create = useCallback(
-		(regionId: string, fields: RegionFields, geometry: GeoJsonPolygon) => {
+		(regionId: string, fields: RegionFields, geometry: RegionGeometry) => {
 			if (organizationId === null) {
 				throw new Error('Your profile is still loading.');
 			}
@@ -178,7 +179,7 @@ export function useRegionMutations(): RegionMutations {
 			}
 
 			const now = optimisticStamp();
-			const write = mutateCollection(regions, {
+			const write = mutateCollection(regions(), {
 				operation: 'insert',
 				intent: 'foundation.createRegion',
 				row: {
@@ -217,7 +218,7 @@ export function useRegionMutations(): RegionMutations {
 			readonly regionId: string;
 			readonly fields: RegionFields;
 			readonly current: RegionFields;
-			readonly geometry: GeoJsonPolygon | null;
+			readonly geometry: RegionGeometry | null;
 		}) => {
 			const plan = regionUpdatePlan(input);
 			if (plan === null) {
@@ -225,7 +226,7 @@ export function useRegionMutations(): RegionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: input.regionId,
@@ -245,7 +246,7 @@ export function useRegionMutations(): RegionMutations {
 	const rename = useCallback(
 		async (regionId: string, name: string) => {
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'update',
 					intent: 'foundation.updateRegionDetails',
 					key: regionId,
@@ -264,7 +265,7 @@ export function useRegionMutations(): RegionMutations {
 	const move = useCallback(
 		async (regionId: string, folderId: string | null) => {
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'update',
 					intent: 'foundation.moveRegionToFolder',
 					key: regionId,
@@ -283,7 +284,7 @@ export function useRegionMutations(): RegionMutations {
 	const remove = useCallback(
 		async (regionId: string) => {
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'delete',
 					intent: 'foundation.deleteRegion',
 					key: regionId,

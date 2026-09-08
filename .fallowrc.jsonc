@@ -3,6 +3,13 @@
 
 	// Nx/pnpm monorepo. Both globs are already in pnpm-workspace.yaml; fallow
 	// discovers them on its own, but stating them keeps the scope explicit.
+	//
+	// `scripts` is a third pnpm workspace package since #665 and is deliberately
+	// not listed. fallow already reads it: the entry points below name two
+	// modules under it, and the dependency check answers against the package.json
+	// beside them. Adding the pattern would move the gate scripts into the
+	// duplication corpus, which is a measurement of its own rather than a
+	// bookkeeping edit.
 	"workspaces": {
 		"patterns": ["apps/*", "packages/*"]
 	},
@@ -52,8 +59,63 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 9.0% is where the workspace sits, and 9.1 leaves a
+	// what makes it a gate: 5.5% is where the workspace sits, and 5.6 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// **Every number above this line was measured on a corpus with no test file
+	// in it, and every number below it was measured with the suites in.** #704
+	// set `ignoreDefaults: false` in the block below, which is what took
+	// fallow's built-in `**/*.test.*` out of the way, and the jump that came
+	// with it is the corpus growing rather than duplication arriving: 11,314
+	// duplicated lines of 1,146 files became 17,340 of 1,483, and 4.8% became
+	// 5.5%. 337 suites entered the scan and 124 of them carry a clone. The
+	// threshold went 5.1 to 5.6 for that reason alone. Nothing was copied on
+	// that branch and nothing was deduplicated on it, deliberately: it starts
+	// counting the suites, and cleaning them is separate work that needs this
+	// number to exist first. So do not read the 6,000 lines as a regression
+	// somebody tolerated, and do not compare a figure below to one above.
+	//
+	// It was 5.1 against 4.8% before #704, and the entries from here down are
+	// the older corpus.
+	//
+	// It was 5.2 against 5.0% when #646 collapsed the twelve command primitives
+	// `packages/domain` declared 44 times into `command-validation.ts`, and this
+	// one did move the absolute number: 12,572 duplicated lines to 12,118, in
+	// source rather than in tests, so both halves agree for once.
+	//
+	// It was 5.3 against 5.2% when #616 moved the row builders the integration
+	// suites kept rewriting into `packages/db/src/test-support/row-fixtures.ts`,
+	// and this is the clearest case yet of the ratio measuring the wrong thing.
+	// That branch deleted 102 of 147 builders, `createOrganization` alone having
+	// thirteen byte-identical copies, and the absolute number did not move at
+	// all: 12,462 duplicated lines before and after. Test files were in fallow's
+	// default duplicates ignores then, so **this gate never read a line of it**,
+	// which is the finding #704 was filed on and has since fixed. The
+	// ratio fell a tenth of a point only because about 1,300 lines left the
+	// denominator. Real copies came out, so the ratchet comes down, but do not
+	// read the tenth as having measured them.
+	//
+	// It was 5.4 against 5.2% when #605 checked this number while re-saving the
+	// health baseline, and the tenth of a point it gives back is not a cleanup.
+	// Absolute duplication went the other way over the same stretch: 12,552
+	// lines when #555 set the threshold, 12,572 now, across 302 files in 363
+	// clone groups. The ratio fell because the workspace grew, which is the
+	// second half of the "did the branch make it worse" paragraph further down:
+	// a branch that adds non-duplicated code lowers the ratio on its own. So
+	// read this move as taking back allowance no branch was using, not as copies
+	// coming out.
+	//
+	// It was 9.1 against 5.3% when #555 collapsed twenty copies of the linked
+	// record-name class and sixteen of `DetailRow`, and that gap is the entry to
+	// read before trusting this number. Nothing had lowered the ratchet since
+	// #108 while the denominator kept growing, so 3.8 points of allowance had
+	// accumulated that no branch was using — enough headroom to add every clone
+	// #555 took out, twice over, and still pass. #555 itself moved 12,754
+	// duplicated lines to 12,552, which does not round to a tenth of a point:
+	// sixteen copies of a seven-line component are each below fallow's minimum
+	// clone size, so the drift the copies had was invisible to this gate the
+	// whole time it was drifting. Lower the ratchet when a cleanup lands, not
+	// only when the ratio moves.
 	//
 	// It was 9.2 against 9.1% before #108 gave the organization-settings choice
 	// card one home — the same tinted frame had been written out in `adult.tsx`
@@ -125,7 +187,30 @@
 	},
 
 	"duplicates": {
-		"threshold": 9.1
+		// The corpus. fallow's built-in duplicates ignores are a list of
+		// generated-output directories plus one glob nobody here chose:
+		// `**/*.test.*`, which hid 337 files. That is what #704 turns off, and
+		// `ignoreDefaults: false` is the only switch for it, so the generated
+		// directories the defaults also carried are written out again below.
+		// Keep them: dropping the list wholesale would put build output back in.
+		//
+		// Run `pnpm fallow dupes --explain-skipped` to see what is still being
+		// skipped and by which pattern. A future fallow that adds a default
+		// pattern will not add it here, which is the cost of the override and
+		// the reason this comment names the switch.
+		"ignoreDefaults": false,
+		"ignore": [
+			"**/.next/**",
+			"**/.nuxt/**",
+			"**/.svelte-kit/**",
+			"**/.turbo/**",
+			"**/.parcel-cache/**",
+			"**/.vite/**",
+			"**/.cache/**",
+			"**/out/**",
+			"**/storybook-static/**"
+		],
+		"threshold": 5.6
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and
@@ -139,10 +224,16 @@
 	// into `node_modules/.bin`, which is what makes `--type-aware` runnable on
 	// Windows — see scripts/fallow.mjs. Keep its version in lockstep with fallow.
 	//
-	// `kysely-codegen` and `@tanstack/react-query-devtools` are run by hand, not
-	// imported: the first regenerates the DB types after a migration, the second
-	// is mounted ad hoc while debugging a query. Both were reported as unused and
-	// both are deliberately kept.
+	// `@tanstack/react-query-devtools` is mounted ad hoc while debugging a query
+	// rather than imported, so it reads as unused and is deliberately kept.
+	//
+	// `babel-plugin-react-compiler` is the React Compiler itself, and it is named
+	// by string rather than imported: `reactCompilerPreset()` returns a preset
+	// whose plugin entry is the package name, which `@babel/core` resolves out of
+	// the app directory at build time. So the app that runs the compiler is the
+	// app that owes the dependency, and no source file will ever name it. Its
+	// version is pinned exactly for the reason `scripts/package.json` pins it,
+	// which the header of `scripts/check-compiler-bailouts.mjs` gives.
 	//
 	// The two React Native entries are the same category as `@tanstack/db` — a
 	// version pin rather than an import. `react-native-gesture-handler` is a peer
@@ -154,8 +245,8 @@
 	"ignoreDependencies": [
 		"@tanstack/db",
 		"@tanstack/react-query-devtools",
+		"babel-plugin-react-compiler",
 		"fallow-type-aware",
-		"kysely-codegen",
 		"react-native-gesture-handler",
 		"react-native-worklets"
 	],
@@ -182,6 +273,15 @@
 			// describing a column, repeated across ~180 field declarations — they
 			// describe the schema rather than form an API anyone needs to name.
 			"files": ["packages/db/src/tables.ts"],
+			"rules": { "private-type-leaks": "off" }
+		},
+		{
+			// The row fixtures, and the same category as `tables.ts` above.
+			// `Overrides<T>` is local notation for one table's insert shape,
+			// repeated across every builder's second argument. A caller writes an
+			// object literal against it and never names it, so exporting it would
+			// add an unused export rather than a usable one.
+			"files": ["packages/db/src/test-support/row-fixtures.ts"],
 			"rules": { "private-type-leaks": "off" }
 		}
 	]

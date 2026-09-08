@@ -135,7 +135,8 @@ export function useMapboxMap({
 				// authorized vector tiles load; leave every other request untouched.
 				transformRequest: (url) =>
 					serverOrigin !== null && url.startsWith(serverOrigin)
-						? { url, credentials: 'include' }
+						? // session-credential-ignore: Mapbox GL fetches its own tiles and never reaches sessionFetch.
+							{ url, credentials: 'include' }
 						: { url },
 			});
 			if (attributionRef.current !== false) {

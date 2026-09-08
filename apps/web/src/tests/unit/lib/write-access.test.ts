@@ -8,7 +8,6 @@ import {
 	canWriteRecords,
 	hasAtLeastRole,
 	isBelowRole,
-	isWriteBlocked,
 	readOrgRole,
 } from '../../../lib/write-access';
 
@@ -48,7 +47,9 @@ describe('readOrgRole', () => {
 		expect(readOrgRole(null)).toBe('viewer');
 		expect(readOrgRole(authWithRole(null))).toBe('viewer');
 		expect(readOrgRole(authWithRole('superuser'))).toBe('viewer');
-		expect(readOrgRole({ authenticated: false, reason: 'no session' })).toBe('viewer');
+		expect(
+			readOrgRole({ authenticated: false, error: 'unauthenticated', reason: 'no session' }),
+		).toBe('viewer');
 	});
 });
 
@@ -62,7 +63,9 @@ describe('canWriteRecords', () => {
 	it('refuses viewers, and anyone whose role could not be read', () => {
 		expect(canWriteRecords(authWithRole('viewer'))).toBe(false);
 		expect(canWriteRecords(null)).toBe(false);
-		expect(canWriteRecords({ authenticated: false, reason: 'no session' })).toBe(false);
+		expect(
+			canWriteRecords({ authenticated: false, error: 'unauthenticated', reason: 'no session' }),
+		).toBe(false);
 	});
 });
 
@@ -118,7 +121,12 @@ describe('the role ladder', () => {
 	it('denies every floor when identity cannot be read', () => {
 		for (const minimum of ['admin', 'manager', 'collector'] as const) {
 			expect(hasAtLeastRole(null, minimum)).toBe(false);
-			expect(hasAtLeastRole({ authenticated: false, reason: 'no session' }, minimum)).toBe(false);
+			expect(
+				hasAtLeastRole(
+					{ authenticated: false, error: 'unauthenticated', reason: 'no session' },
+					minimum,
+				),
+			).toBe(false);
 		}
 	});
 });
@@ -137,9 +145,7 @@ describe('isBelowRole', () => {
 		expect(await isBelowRole(context, 'admin')).toBe(true);
 		expect(await isBelowRole(context, 'manager')).toBe(false);
 	});
-});
 
-describe('isWriteBlocked', () => {
 	it('awaits identity rather than reading a snapshot that may not exist yet', async () => {
 		// The guard runs on cold loads — a pasted URL, a bookmark, a refresh — where
 		// a synchronous snapshot read would be null and bounce everyone.
@@ -154,13 +160,13 @@ describe('isWriteBlocked', () => {
 			},
 		};
 
-		expect(await isWriteBlocked(context)).toBe(false);
+		expect(await isBelowRole(context, 'collector')).toBe(false);
 		expect(resolved).toBe(true);
 	});
 
-	it('blocks a viewer', async () => {
+	it('blocks a viewer from every floor', async () => {
 		const context = { auth: { load: () => Promise.resolve(authWithRole('viewer')) } };
-		expect(await isWriteBlocked(context)).toBe(true);
+		expect(await isBelowRole(context, 'collector')).toBe(true);
 	});
 });
 
@@ -174,7 +180,7 @@ describe('canRemoveMember', () => {
 	});
 
 	// The bound the server applies too: "admins may remove" without it would be
-	// "admins may remove every owner", and an agency with no owner cannot
+	// "admins may remove every owner", and an organization with no owner cannot
 	// appoint one.
 	it('does not offer removing somebody above your own role', () => {
 		expect(canRemoveMember(authWithRole('admin'), { id: 'membership_2', role: 'owner' })).toBe(

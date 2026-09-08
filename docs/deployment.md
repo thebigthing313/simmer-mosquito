@@ -7,7 +7,7 @@ SIMMER has three operating environments:
   `docker-compose.yml`. Nothing local points at Railway. See "Local
   development".
 - **staging** on Railway, deployed from the `staging` branch. It is a sandbox
-  agency staff sign into, holding a full-history clone of production and
+  organization staff sign into, holding a full-history clone of production and
   authenticating against WorkOS **production**, so a release candidate soaks
   there against real identities and real-shaped data. See "Pipeline" and
   "Refreshing the staging sandbox".
@@ -59,7 +59,7 @@ Postgres + Electric from `docker-compose.yml`. `apps/server` reads env from
 `apps/server/.env`; Vite reads from the repo-root `.env` (its `envDir` is the
 workspace root). Keep the shared keys in sync across both files.
 
-**Nothing local points at Railway.** Staging is a sandbox agency staff are
+**Nothing local points at Railway.** Staging is a sandbox organization staff are
 signed into to try upcoming features against a clone of their own data, so a
 local `pnpm dev:server` writing to it corrupts their test. There is no
 documented escape hatch back to it, because an escape hatch aimed at a
@@ -185,16 +185,24 @@ $env:STAGING_DATABASE_URL = '<staging public proxy URL>?sslmode=disable'
 holds migrations prod has not seen, by design, because that is what a soak is. A
 dump carries prod's `schema_migrations` along with prod's schema, so a clone
 taken mid-soak erases every unshipped migration and leaves the deployed staging
-branch running against a schema behind it. That failure is silent — the app
-starts answering wrong rather than erroring — so the refusal has to come before
+branch running against a schema behind it. That failure is silent, because the
+app starts answering wrong rather than erroring. The refusal has to come before
 the wipe. A refresh is therefore only safe **just after a promotion**, when
 `main` has shipped everything `staging` holds. It refuses the rest of the time,
 naming what diverged.
 
-Two other refusals. The run has to start from a checkout of `origin/staging`,
+Three other refusals. The run has to start from a checkout of `origin/staging`,
 because step 3 applies the migration set of whatever branch you are standing on
 and doing that from `develop` would push staging's database ahead of the code
-deployed on it. And the two URLs must differ and must be public proxy hosts.
+deployed on it. The two URLs must differ and must be public proxy hosts. And
+`STAGING_DATABASE_URL` must carry `sslmode`, which Railway's
+`DATABASE_PUBLIC_URL` does not: step 3's dbmate speaks Go's `pq`, which defaults
+to SSL and gets `pq: SSL is not enabled on the server` from the TCP proxy, while
+`pg_dump`, `pg_restore` and `psql` default to `prefer` and negotiate down, so
+steps 1 and 2 pass and hide it. Unchecked, that failure lands **after** the wipe
+(#405). The script refuses rather than appending the parameter for you, because
+appending it would silently drop TLS the day the URL points somewhere that has
+it.
 
 **Leave staging's Electric running throughout.** The clone resets the target
 with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the replication
@@ -207,12 +215,12 @@ refresh for a clean re-snapshot; its stored shape state predates the reload.
 
 Nothing relinks WorkOS ids here. Staging authenticates against WorkOS
 production, so the ids the dump carries are the ones staging wants. Signing in
-afterwards as a production identity and landing in the right agency is the check
-that the reload reached `users` and `organizations`.
+afterwards as a production identity and landing in the right organization is the
+check that the reload reached `users` and `organizations`.
 
-The daily `schema-drift.yml` run stays. It answers a different question — has
-staging drifted from the migration set — and a refresh that runs a few times a
-year is no substitute for asking every morning.
+The daily `schema-drift.yml` run stays. It answers a different question: has
+staging drifted from the migration set? A refresh that runs a few times a year
+is no substitute for asking every morning.
 
 ### How much history a local clone keeps
 
@@ -224,13 +232,14 @@ database that syncs, re-snapshots, and restores in a fraction of the time.
 So the **local** clone keeps the **last 3 years of dated records** by default and
 **all reference data**. The staging sandbox keeps everything: the trim is not a
 saving there, because the dump and the restore run at full volume either way and
-the prune is 1.17M deletes and eleven full-table rewrites on top (#371). Dated means the things an agency performs: inspections,
-applications, collections, biocontrol and source-reduction actions, outreach,
-service requests, requests for control, assignments, missions, weather
-summaries. Reference data is what it accumulates: habitats, traps, addresses,
-regions, contacts, routes, taxonomy, methods, products, units, profiles,
-memberships. A habitat is still the habitat it was in 2011, and deleting those
-would change what the app *is* rather than how much history it holds.
+the prune is 1.17M deletes and eleven full-table rewrites on top (#371). Dated
+means the things an organization performs: inspections, applications,
+collections, biocontrol and source-reduction actions, outreach, service
+requests, requests for control, assignments, missions, weather summaries.
+Reference data is what it accumulates: habitats, traps, addresses, regions,
+contacts, routes, taxonomy, methods, products, units, profiles, memberships. A
+habitat is still the habitat it was in 2011, and deleting those would change
+what the app *is* rather than how much history it holds.
 
 The dump itself is always whole, since prod is only ever read, and the trim runs
 on the target afterwards via `scripts/prune-history.sql`, which is also runnable
@@ -313,7 +322,7 @@ Why it is part of that clone rather than a follow-up:
 `workos_organization_id`, so an unrelinked row is invisible to a staging
 session, and worse than invisible. Signing in against an org id that resolves to
 nothing provisions a *fresh* organization, leaving the database with two rows
-for the same agency.
+for the same organization.
 
 So the script rewrites the ids itself, from `$WorkosOrgRelinks` /
 `$WorkosUserRelinks` near the top of the file, and then **verifies** that no
@@ -321,7 +330,8 @@ organization still carries a mapped prod id. That check is the point: a relink
 whose only verification is someone noticing a broken workspace is one clone away
 from being lost, which is exactly what #82 was.
 
-**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`.**
+**When a new organization exists in both environments, add it to
+`$WorkosOrgRelinks`.**
 The script prints any organization whose id is outside the map after relinking,
 that list should be empty, and anything in it will duplicate on next sign-in.
 Pass `-SkipRelink` only when you intend to work through `DEV_IMPERSONATE_*`.
@@ -440,9 +450,10 @@ WORKOS_REDIRECT_URI=https://<server-domain>/auth/callback
 
 **Both environments point at the same WorkOS directory, the production one.**
 `WORKOS_API_KEY`, `WORKOS_CLIENT_ID` and `SIMMER_OPERATOR_ORG_ID` hold the same
-values on staging as on production, which is what lets an agency user sign in to
-the sandbox with the credentials they already have and land in their own Agency
-(#377). Only the callback URL differs, and both are registered in WorkOS.
+values on staging as on production, which is what lets an organization user sign
+in to the sandbox with the credentials they already have and land in their own
+Organization (#377). Only the callback URL differs, and both are registered in
+WorkOS.
 
 `WORKOS_COOKIE_PASSWORD` is the one WorkOS value that **must differ between the
 two**. It is what seals the session cookie, so a shared value means a session
@@ -456,16 +467,18 @@ authenticates against WorkOS production, so without it an invitation sent from
 unreleased code mails a real address, a removal revokes somebody's real access,
 and a password reset mails a working link for a production account. With it set,
 every WorkOS identity write answers 403 `workos_identity_writes_disabled` and
-only SIMMER's own rows are written. Signing in, switching agency and signing out
-are unaffected; inviting, re-inviting, changing a role, removing access,
-resetting a password, signing up and creating an agency from the operator
-console all refuse. Nobody new can be onboarded on staging, which is the
-intended shape and not a gap.
+only SIMMER's own rows are written. Signing in, switching organization and
+signing out are unaffected; inviting, re-inviting, changing a role, removing
+access, resetting a password, signing up and creating an organization from the
+operator console all refuse. Nobody new can be onboarded on staging, which is
+the intended shape and not a gap.
 
 Read as the exact string `true`, and **absent means settle**, so the variable
 going missing in production cannot silently turn identity off. Production must
-not set it. `apps/server/src/workos-identity-interlock.ts` is the allowlist and
-ADR-adjacent reasoning; the decision is issue #376.
+not set it. `WORKOS_SESSION_AND_READ_METHODS` in `packages/auth` is the
+allowlist, and `apps/server/src/workos-identity-interlock.ts` is what reads it
+and refuses everything else; both carry the ADR-adjacent reasoning. The decision
+is issue #376.
 
 Set these on the Railway web service (all `VITE_*` are baked in at build time, so
 a change requires a rebuild/redeploy of the service):
@@ -520,25 +533,29 @@ VITE_SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
 VITE_SIMMER_ENVIRONMENT=staging   # staging only; omit in production
 ```
 
-The console wears the same banner as the agency workspace, and keeps syncing in
-a hidden tab on the same terms, off the same variable. See "Web service" above.
+The console wears the same banner as the organization workspace, and keeps
+syncing in a hidden tab on the same terms, off the same variable. See "Web
+service" above.
 
-Current organization ids: `org_01KRQEQBJJHF729PY0ED6P7875` (production),
-`org_01KZC6NB6PPMV9GKYVHS4VJAQF` (staging).
+Both Railway environments set it to the same id,
+`org_01KRQEQBJJHF729PY0ED6P7875`, because staging authenticates against WorkOS
+production and so reads production's organizations (ADR 0017). The staging
+WorkOS environment has its own SIMMER organization,
+`org_01KZC6NB6PPMV9GKYVHS4VJAQF`, and that is the one a local build wants.
 
 `VITE_SIMMER_OPERATOR_ORG_ID` is how the console answers WorkOS's organization
 challenge without asking. WorkOS refuses to mint a session for an account in more
 than one organization until one is chosen, and operators are routinely in
-several: `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
-agency's first owner. The console picks this one and refuses any account that is
-not a member of it: **being in the SIMMER organization is what operator access
-means.** There is no picker; a non-member is turned away rather than let in under
-some agency's identity.
+several: `createAdminOrganization`'s `linkRequesterAsOwner` makes the operator
+the new organization's first owner. The console picks this one and refuses any
+account that is not a member of it: **being in the SIMMER organization is what
+operator access means.** There is no picker; a non-member is turned away rather
+than let in under some organization's identity.
 
 Note this is a build-time `VITE_` value like the others, so changing it needs a
 redeploy, and that it is deliberately *not* server-side. If `/auth/sign-in`
 enforced it, it would also strip the picker from `apps/web`, where an operator
-who genuinely holds an agency membership still needs to choose.
+who genuinely holds an organization membership still needs to choose.
 
 #### Set both, and set them to the same organization
 
@@ -709,10 +726,10 @@ dupes`, and `fallow:health` run in `ci.yml`, and `verify` here runs typecheck,
 test, and build, and it never consults them. Duplication and complexity are read as
 "did this branch make it worse" against where the workspace already is, and a
 threshold judgement about the shape of the code is not a reason to refuse a
-release to an agency that is waiting on a fix. The cost is that a red CI on
-`main` does not stop anything shipping, which is how #136 sat red across several
-green production deploys: read a red `main` as work owed, not as a broken
-release, and check which job failed before treating it as either.
+release to an organization that is waiting on a fix. The cost is that a red CI
+on `main` does not stop anything shipping, which is how #136 sat red across
+several green production deploys: read a red `main` as work owed, not as a
+broken release, and check which job failed before treating it as either.
 
 The separate DB migration workflow (`db-migrate.yml`) remains available for
 targeted migration retries. `workflow_dispatch` on the deploy workflow allows a
@@ -721,12 +738,21 @@ manual deploy to a chosen environment from its matching branch.
 `schema-drift.yml` asks the question `db-migrate.yml` cannot: is staging's
 schema still the one `packages/db/migrations` produces? It runs at 16:00 UTC
 daily and on `workflow_dispatch`, and it covers what the migration workflow does
-not — a migration applied by hand, a `dbmate` run that half-failed, a fix made
+not: a migration applied by hand, a `dbmate` run that half-failed, a fix made
 straight on staging. It reads staging and writes nothing there: the expected
 schema is built by `dbmate` in a service container beside the job, and the
 comparison script opens both sessions read only before its first query. That
 constraint is #236's: the integration harness sends the whole migration set as
 one transaction, and running it against staging is the #166 outage.
+
+**The migration set it compares against is `staging`'s, not the default
+branch's.** A schedule fires only from the default branch, so the scheduled run
+checks out `develop`, and the comparison script comes from there. The migrations
+come from a second checkout of `staging` at `staging-tree`, because a push to
+`staging` is what migrated the database. Read them from `develop` instead and
+every migration waiting on a promotion reads as drift. For most of the `develop`
+to `staging` window that is at least one migration, and #498 is the false
+positive that came of it (#499).
 
 Two comparisons, both in `scripts/check-schema-drift.mjs`, which takes two
 connection URLs and runs anywhere:
@@ -825,7 +851,9 @@ As of 2026-09-01, the three-branch flow and the staging sandbox are in place
 (map #369):
 
 - `develop`, `staging` and `main` all carry rulesets, `develop` is the default
-  branch, and all six CI checks plus the two gates are required on each;
+  branch, and all five CI checks plus the two gates are required on each;
+  `main` dropped linear history on 2026-09-01, because `staging` carries a merge
+  commit per PR and the rule fired on every promotion (see `docs/releases.md`);
 - all eight Railway repo watchers deleted, `repoTriggers` reads 0, and a
   dispatched `railway-deploy.yml` run deployed all three staging services with
   none of them;
@@ -833,11 +861,20 @@ As of 2026-09-01, the three-branch flow and the staging sandbox are in place
   fast-forward promotion (#393), which put web 0.6.0 and admin 0.5.0 on
   `staging`;
 - staging pointed at WorkOS production, with a production identity signing in,
-  resolving to the existing Agency and creating no row;
+  resolving to the existing Organization and creating no row;
 - `WORKOS_IDENTITY_WRITES_DISABLED=true` on the staging server, and the two
   cookie passwords separated;
 - staging Electric returned to private, insecure and domainless, with all 59
   shapes valid across the restart and no re-snapshot.
 
-Two things this map built and nothing has watched run: the staging refresh end
-to end (#395) and hidden-tab sync against the deployed staging (#397).
+Both things this map built and had not watched run have since run:
+
+- the staging refresh end to end (#395): 2m 41s, of which about 100 seconds was
+  the clone, staging 384 MB to 811 MB against production's 698 MB, and
+  inspections 106,338 to 517,730. The Electric slot read `reserved` throughout,
+  and `electric_publication_default` went from 0 tables to the 4 the browsed
+  surfaces read, which is Electric rebuilding shapes rather than serving stale
+  state. Step 3 threw on the `DATABASE_PUBLIC_URL` Railway hands out, which is
+  fixed in #406;
+- hidden-tab sync against deployed staging (#397): on both web and admin, a
+  stream born hidden issues its snapshot and holds a live poll open.

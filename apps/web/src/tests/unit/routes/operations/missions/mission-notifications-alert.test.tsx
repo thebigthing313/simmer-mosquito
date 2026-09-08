@@ -8,12 +8,13 @@ import { StandingAlert } from '../../../../../routes/operations/missions/-missio
 /**
  * The standing alert a refused generation leaves on the mission.
  *
- * `buffer_unit_not_convertible` is the one worth pinning. It is agency-wide, so
- * one registration measuring its buffer in gallons blocks generation for every
- * mission, and nothing lists registrations across an agency: they are managed
- * from the contact that holds them. The unit codes alone are a refusal nobody
- * can act on, which is what #326 was. So this asserts the rows are there and
- * that each one points at its contact's registrations page.
+ * `buffer_unit_not_convertible` is the one worth pinning. It is
+ * organization-wide, so one registration measuring its buffer in gallons blocks
+ * generation for every mission, and nothing lists registrations across an
+ * organization: they are managed from the contact that holds them. The unit
+ * codes alone are a refusal nobody can act on, which is what #326 was. So this
+ * asserts the rows are there and that each one points at its contact's
+ * registrations page.
  */
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({

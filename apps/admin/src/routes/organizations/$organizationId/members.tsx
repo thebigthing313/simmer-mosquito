@@ -1,11 +1,9 @@
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import {
 	type AdminMembership,
@@ -15,13 +13,13 @@ import {
 } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
 import { membershipStatusTone, roleTone } from '../../../lib/tones';
-import { useAgencyMemberships, useInvalidateAgencies } from '../-agency-data';
+import { useInvalidateOrganizations, useOrganizationMemberships } from '../-organization-data';
 
 const ContactIcon = iconRegistry.entities.contact.icon;
 const SendIcon = iconRegistry.actions.send.icon;
 
 export const Route = createFileRoute('/organizations/$organizationId/members')({
-	component: AgencyMembersRoute,
+	component: OrganizationMembersRoute,
 });
 
 /**
@@ -32,35 +30,34 @@ export const Route = createFileRoute('/organizations/$organizationId/members')({
  * invitation whose recipient you have not spoken to.
  */
 const ROLE_OPTIONS = [
-	{ value: 'viewer', label: 'Viewer — read only' },
-	{ value: 'collector', label: 'Collector — records field work' },
-	{ value: 'manager', label: 'Manager — records and manages catalogs' },
-	{ value: 'admin', label: 'Admin — manages the agency' },
-	{ value: 'owner', label: 'Owner — full control' },
+	{ value: 'viewer', label: 'Viewer, read only' },
+	{ value: 'collector', label: 'Collector, records field work' },
+	{ value: 'manager', label: 'Manager, records and manages catalogs' },
+	{ value: 'admin', label: 'Admin, manages the organization' },
+	{ value: 'owner', label: 'Owner, full control' },
 ];
 
-function AgencyMembersRoute() {
+function OrganizationMembersRoute() {
 	const { organizationId } = Route.useParams();
-	const { data, isPending, error } = useAgencyMemberships(organizationId);
-	const invalidateAgencies = useInvalidateAgencies();
-	const [inviteError, setInviteError] = useState<string | null>(null);
-
+	const { data, isPending, error } = useOrganizationMemberships(organizationId);
+	const invalidateOrganizations = useInvalidateOrganizations();
 	const form = useAppForm({
 		defaultValues: { email: '', displayName: '', role: 'viewer' } as InviteAdminUserInput,
+		/*
+		 * Nothing is caught here. `useAppForm` records a rejection as a
+		 * `SaveFailure` for the one alert below to render, and leaves Send
+		 * pressable so a dropped invitation can be tried again (#754). The reset
+		 * and the toast stay on the success path.
+		 */
 		onSubmit: async ({ value, formApi }) => {
-			setInviteError(null);
-			try {
-				const result = await inviteAdminUser(organizationId, {
-					email: value.email.trim(),
-					displayName: value.displayName.trim(),
-					role: value.role,
-				});
-				await invalidateAgencies();
-				formApi.reset();
-				toast.success(inviteOutcome(result, value));
-			} catch (caught) {
-				setInviteError(caught instanceof Error ? caught.message : 'Unable to send the invitation.');
-			}
+			const result = await inviteAdminUser(organizationId, {
+				email: value.email.trim(),
+				displayName: value.displayName.trim(),
+				role: value.role,
+			});
+			await invalidateOrganizations();
+			formApi.reset();
+			toast.success(inviteOutcome(result, value));
 		},
 	});
 
@@ -70,9 +67,9 @@ function AgencyMembersRoute() {
 
 	return (
 		<AdminPage
-			description="People connected to this agency. An invitation creates a WorkOS invite and a pending membership at the role you choose."
+			description="People connected to this organization. An invitation creates a WorkOS invite and a pending membership at the role you choose."
 			icon={ContactIcon}
-			title={data === undefined ? 'Members' : `${data.organization.name} — Members`}
+			title={data === undefined ? 'Members' : `Members of ${data.organization.name}`}
 		>
 			{error !== null ? (
 				<AdminError error={error} />
@@ -90,7 +87,7 @@ function AgencyMembersRoute() {
 						) : memberships.length === 0 ? (
 							<div className="p-4">
 								<ListEmpty
-									description="Invite the agency's first owner or admin below."
+									description="Invite the first owner or admin below."
 									title="Nobody Connected Yet"
 								/>
 							</div>
@@ -113,12 +110,6 @@ function AgencyMembersRoute() {
 								}}
 							>
 								<form.FormErrorAlert title="Unable to Send Invitation" />
-								{inviteError === null ? null : (
-									<Alert variant="destructive">
-										<AlertTitle>Unable to Send Invitation</AlertTitle>
-										<AlertDescription>{inviteError}</AlertDescription>
-									</Alert>
-								)}
 								<div className="grid gap-5 sm:grid-cols-2">
 									<form.AppField
 										name="email"
@@ -164,7 +155,7 @@ function AgencyMembersRoute() {
 function inviteOutcome(result: InviteAdminUserResult, sent: InviteAdminUserInput): string {
 	const email = result.membership.invitedEmail ?? sent.email.trim();
 	return result.invitation === null
-		? `${email} already has access. The ${sent.role} role applies next time they enter this agency.`
+		? `${email} already has access. The ${sent.role} role applies next time they enter this organization.`
 		: `Invitation sent to ${email}.`;
 }
 
@@ -191,7 +182,7 @@ function MemberRow({ membership }: { readonly membership: AdminMembership }) {
 			 */}
 			{membership.userId === null ? (
 				<Badge tone="neutral" variant="outline">
-					No login yet
+					Never signed in
 				</Badge>
 			) : null}
 			{membership.isDefault ? (

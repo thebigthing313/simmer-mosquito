@@ -28,11 +28,11 @@
  * the mission rather than being refused for a mission nobody pressed Start on.
  *
  * The `*_by_profile_id` columns are mirrored optimistically so the row does not
- * flicker between what the page wrote and what the server stamped. They do reach
- * the wire — `withoutServerOwnedColumns` strips the tenant, the centroid and the
- * four audit columns, and these are none of those — and the server ignores them,
- * because a builder reads the fields it takes and the actor is one it takes from
- * the session rather than from the body.
+ * flicker between what the page wrote and what the server stamped. They do
+ * reach the wire — `withoutServerOwnedColumns` strips the organization id, the
+ * centroid and the four audit columns, and these are none of those — and the
+ * server ignores them, because a builder reads the fields it takes and the
+ * actor is one it takes from the session rather than from the body.
  *
  * Reordering is not here: it restacks the worklist and is a command on
  * the mission, in `use-mission-mutations.ts`.
@@ -135,7 +135,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'insert',
 					intent: 'missionDispatch.addMissionItemFromRequestedControlAction',
 					// No location source: the command names where the ground comes from,
@@ -178,7 +178,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'insert',
 					intent: 'missionDispatch.addMissionItem',
 					row: newStopRow({
@@ -199,7 +199,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 
 	const removeStop = useCallback(async (missionItemId: string) => {
 		await settleWrite(
-			mutateCollection(mission_items, {
+			mutateCollection(mission_items(), {
 				operation: 'delete',
 				intent: 'missionDispatch.removeMissionItem',
 				key: missionItemId,
@@ -210,7 +210,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const complete = useCallback(
 		async (missionItemId: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.completeMissionItem',
 					key: missionItemId,
@@ -236,7 +236,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const reopen = useCallback(
 		async (missionItemId: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.reopenMissionItem',
 					key: missionItemId,
@@ -255,7 +255,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const skip = useCallback(
 		async (missionItemId: string, skipReason: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.skipMissionItem',
 					key: missionItemId,
@@ -278,7 +278,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const unskip = useCallback(
 		async (missionItemId: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.unskipMissionItem',
 					key: missionItemId,

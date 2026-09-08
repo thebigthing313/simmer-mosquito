@@ -13,8 +13,8 @@ import type { MinimumRole } from '../../../../lib/write-access';
  * The thing worth pinning is the filter: `is_active` is not a delete, and a
  * registration switched off still appears on missions already generated. A list
  * that dropped it with no way to ask for it back would leave somebody hunting a
- * record they know exists, and there is no agency-wide registrations page left
- * to find it on.
+ * record they know exists, and there is no organization-wide registrations page
+ * left to find it on.
  *
  * The draft is the other half. Adding swaps the list for the form and cancelling
  * puts it back, which is the whole of the page's mode switching, and the form

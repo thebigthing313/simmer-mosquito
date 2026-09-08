@@ -1,11 +1,11 @@
 /**
  * The four notification tables, as commands.
  *
- * `notification_types` is the catalog an agency defines; a
+ * `notification_types` is the catalog an organization defines; a
  * `notification_registrations` row is a member of the public who wants telling
- * before a mission runs near them; `notification_registration_types` is the link
- * between the two; and `mission_notifications` is one actual notification owed
- * for one mission. Twenty commands.
+ * before a mission runs near them; `notification_registration_types` is the
+ * link between the two; and `mission_notifications` is one actual notification
+ * owed for one mission. Twenty commands.
  *
  * ## A `default:` that reopened
  *
@@ -60,23 +60,32 @@ import {
 	updateNotificationRegistrationLocationCommand,
 	updateNotificationTypeCommand,
 } from '@simmer-mosquito/domain';
-import { readNullableText, readNumber, readText } from '../command-payload.js';
+import { type CommandPayload, readNullableText, readNumber, readText } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
 import {
 	type NotificationTypeCommand,
 	type NotificationTypeRow,
 	writeNotificationTypeCommand,
-} from '../public-engagement-commands.js';
-import { writeMissionNotificationCommand } from '../public-engagement-records-commands/mission-notifications.js';
-import { writeRegistrationTypeCommand } from '../public-engagement-records-commands/notification-registration-types.js';
-import { writeRegistrationCommand } from '../public-engagement-records-commands/notification-registrations.js';
+} from '../writers/public-engagement.js';
+import { writeMissionNotificationCommand } from '../writers/public-engagement-records/mission-notifications.js';
+import { writeRegistrationTypeCommand } from '../writers/public-engagement-records/notification-registration-types.js';
+import { writeRegistrationCommand } from '../writers/public-engagement-records/notification-registrations.js';
 import type {
 	MissionNotificationRow,
 	RegistrationRow,
 	RegistrationTypeRow,
-} from '../public-engagement-records-commands/shared.js';
+} from '../writers/public-engagement-records/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
+
+/**
+ * The keys a registration write reads that are not its columns: who to reach,
+ * where they are, and which notification types they are signed up for.
+ */
+type RegistrationArgument = 'contact' | 'location' | 'subscriptions';
+
+/** The body of a write to this module's table. */
+type MissionNotificationPayload = CommandPayload<'mission_notifications'>;
 
 function flag(value: unknown): boolean {
 	return value === true;
@@ -84,7 +93,7 @@ function flag(value: unknown): boolean {
 
 export function notificationTypeTableCommands(
 	db: CommandDb,
-): TableCommands<NotificationTypeCommand, NotificationTypeRow> {
+): TableCommands<'notification_types', NotificationTypeCommand, NotificationTypeRow> {
 	return {
 		table: 'notification_types',
 		run: {
@@ -94,50 +103,57 @@ export function notificationTypeTableCommands(
 			key: 'notificationType',
 		},
 		intents: {
-			'publicEngagement.createNotificationType': ({ payload, agency, id }) =>
+			'publicEngagement.createNotificationType': ({ payload, organization, id }) =>
 				createNotificationTypeCommand({
-					...agency,
+					...organization,
 					notificationTypeId: id,
 					name: readText(payload.name) ?? '',
 					description: readNullableText(payload.description),
 				}),
 
-			'publicEngagement.updateNotificationType': ({ payload, agency, id }) =>
+			'publicEngagement.updateNotificationType': ({ payload, organization, id }) =>
 				updateNotificationTypeCommand({
-					...agency,
+					...organization,
 					notificationTypeId: id,
-					...('name' in payload ? { name: readText(payload.name) ?? '' } : {}),
-					...('description' in payload
+					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
 					acknowledgedHistoricalLabelChange: acknowledged(
-						payload.acknowledgedHistoricalLabelChange,
+						payload,
+						'acknowledgedHistoricalLabelChange',
 					),
 				}),
 
 			// Retiring a type is what its subscribers feel, which is what the
 			// acknowledgement is about — and why reactivating carries none.
-			'publicEngagement.deactivateNotificationType': ({ payload, agency, id }) =>
+			'publicEngagement.deactivateNotificationType': ({ payload, organization, id }) =>
 				deactivateNotificationTypeCommand({
-					...agency,
+					...organization,
 					notificationTypeId: id,
 					acknowledgedActiveSubscriptionImpact: acknowledged(
-						payload.acknowledgedActiveSubscriptionImpact,
+						payload,
+						'acknowledgedActiveSubscriptionImpact',
 					),
 				}),
 
-			'publicEngagement.reactivateNotificationType': ({ agency, id }) =>
-				reactivateNotificationTypeCommand({ ...agency, notificationTypeId: id }),
+			'publicEngagement.reactivateNotificationType': ({ organization, id }) =>
+				reactivateNotificationTypeCommand({ ...organization, notificationTypeId: id }),
 
-			'publicEngagement.deleteNotificationType': ({ agency, id }) =>
-				deleteNotificationTypeCommand({ ...agency, notificationTypeId: id }),
+			'publicEngagement.deleteNotificationType': ({ organization, id }) =>
+				deleteNotificationTypeCommand({ ...organization, notificationTypeId: id }),
 		},
 	};
 }
 
 export function notificationRegistrationTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, RegistrationRow> {
+): TableCommands<
+	'notification_registrations',
+	PublicEngagementCommand,
+	RegistrationRow,
+	RegistrationArgument
+> {
 	return {
 		table: 'notification_registrations',
 		run: {
@@ -147,9 +163,9 @@ export function notificationRegistrationTableCommands(
 			key: 'notificationRegistration',
 		},
 		intents: {
-			'publicEngagement.createNotificationRegistration': ({ payload, agency, id }) =>
+			'publicEngagement.createNotificationRegistration': ({ payload, organization, id }) =>
 				createNotificationRegistrationCommand({
-					...agency,
+					...organization,
 					notificationRegistrationId: id,
 					contact: payload.contact as ContactReferenceInput,
 					location: payload.location as NotificationRegistrationLocationInput,
@@ -164,62 +180,69 @@ export function notificationRegistrationTableCommands(
 						: { subscriptions: payload.subscriptions as never }),
 				}),
 
-			'publicEngagement.updateNotificationRegistrationContact': ({ payload, agency, id }) =>
+			'publicEngagement.updateNotificationRegistrationContact': ({ payload, organization, id }) =>
 				updateNotificationRegistrationContactCommand({
-					...agency,
+					...organization,
 					notificationRegistrationId: id,
 					contact: payload.contact as ContactReferenceInput,
 					acknowledgedHistoricalContactChange: acknowledged(
-						payload.acknowledgedHistoricalContactChange,
+						payload,
+						'acknowledgedHistoricalContactChange',
 					),
 				}),
 
 			// The three `acknowledgedFutureOnlyChange` commands all mean the same
 			// thing by it: notifications already sent stay as they were sent, and only
 			// missions from here on see the change.
-			'publicEngagement.updateNotificationRegistrationLocation': ({ payload, agency, id }) =>
+			'publicEngagement.updateNotificationRegistrationLocation': ({ payload, organization, id }) =>
 				updateNotificationRegistrationLocationCommand({
-					...agency,
+					...organization,
 					notificationRegistrationId: id,
 					location: payload.location as NotificationRegistrationLocationInput,
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 
 			// Both halves are required rather than presence-read: a distance without a
 			// unit is not a buffer, and clearing one means clearing both.
-			'publicEngagement.updateNotificationRegistrationBuffer': ({ payload, agency, id }) =>
+			'publicEngagement.updateNotificationRegistrationBuffer': ({ payload, organization, id }) =>
 				updateNotificationRegistrationBufferCommand({
-					...agency,
+					...organization,
 					notificationRegistrationId: id,
 					bufferDistance: readNumber(payload.buffer_distance) ?? null,
 					bufferUnitId: readNullableText(payload.buffer_unit_id),
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 
-			'publicEngagement.updateNotificationRegistrationFlags': ({ payload, agency, id }) =>
+			'publicEngagement.updateNotificationRegistrationFlags': ({ payload, organization, id }) =>
 				updateNotificationRegistrationFlagsCommand({
-					...agency,
+					...organization,
 					notificationRegistrationId: id,
-					...('has_bees' in payload ? { hasBees: flag(payload.has_bees) } : {}),
-					...('is_no_spray' in payload ? { isNoSpray: flag(payload.is_no_spray) } : {}),
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					...(payload.has_bees !== undefined ? { hasBees: flag(payload.has_bees) } : {}),
+					...(payload.is_no_spray !== undefined ? { isNoSpray: flag(payload.is_no_spray) } : {}),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 
-			'publicEngagement.deactivateNotificationRegistration': ({ agency, id }) =>
-				deactivateNotificationRegistrationCommand({ ...agency, notificationRegistrationId: id }),
+			'publicEngagement.deactivateNotificationRegistration': ({ organization, id }) =>
+				deactivateNotificationRegistrationCommand({
+					...organization,
+					notificationRegistrationId: id,
+				}),
 
-			'publicEngagement.reactivateNotificationRegistration': ({ agency, id }) =>
-				reactivateNotificationRegistrationCommand({ ...agency, notificationRegistrationId: id }),
+			'publicEngagement.reactivateNotificationRegistration': ({ organization, id }) =>
+				reactivateNotificationRegistrationCommand({
+					...organization,
+					notificationRegistrationId: id,
+				}),
 
-			'publicEngagement.deleteNotificationRegistration': ({ agency, id }) =>
-				deleteNotificationRegistrationCommand({ ...agency, notificationRegistrationId: id }),
+			'publicEngagement.deleteNotificationRegistration': ({ organization, id }) =>
+				deleteNotificationRegistrationCommand({ ...organization, notificationRegistrationId: id }),
 		},
 	};
 }
 
 export function notificationRegistrationTypeTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, RegistrationTypeRow> {
+): TableCommands<'notification_registration_types', PublicEngagementCommand, RegistrationTypeRow> {
 	return {
 		table: 'notification_registration_types',
 		run: {
@@ -231,19 +254,19 @@ export function notificationRegistrationTypeTableCommands(
 		intents: {
 			// A link row like `application_batches` and `formulation_insecticides`:
 			// subscribing is an insert into a table the client syncs.
-			'publicEngagement.subscribeNotificationRegistrationType': ({ payload, agency, id }) =>
+			'publicEngagement.subscribeNotificationRegistrationType': ({ payload, organization, id }) =>
 				subscribeNotificationRegistrationTypeCommand({
-					...agency,
+					...organization,
 					notificationRegistrationTypeId: id,
 					notificationRegistrationId: readText(payload.notification_registration_id) ?? '',
 					notificationTypeId: readText(payload.notification_type_id) ?? '',
 				}),
 
-			'publicEngagement.unsubscribeNotificationRegistrationType': ({ payload, agency, id }) =>
+			'publicEngagement.unsubscribeNotificationRegistrationType': ({ payload, organization, id }) =>
 				unsubscribeNotificationRegistrationTypeCommand({
-					...agency,
+					...organization,
 					notificationRegistrationTypeId: id,
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 		},
 	};
@@ -251,9 +274,9 @@ export function notificationRegistrationTypeTableCommands(
 
 export function missionNotificationTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, MissionNotificationRow> {
+): TableCommands<'mission_notifications', PublicEngagementCommand, MissionNotificationRow> {
 	// All four say when the status moved, and nothing else.
-	const statusChange = (payload: Record<string, unknown>) => {
+	const statusChange = (payload: MissionNotificationPayload) => {
 		const statusChangedAt = readDate(payload.status_changed_at);
 		return statusChangedAt === null ? {} : { statusChangedAt };
 	};
@@ -267,32 +290,32 @@ export function missionNotificationTableCommands(
 			key: 'missionNotification',
 		},
 		intents: {
-			'publicEngagement.completeMissionNotification': ({ payload, agency, id }) =>
+			'publicEngagement.completeMissionNotification': ({ payload, organization, id }) =>
 				completeMissionNotificationCommand({
-					...agency,
+					...organization,
 					missionNotificationId: id,
 					...statusChange(payload),
 				}),
 
-			'publicEngagement.failMissionNotification': ({ payload, agency, id }) =>
+			'publicEngagement.failMissionNotification': ({ payload, organization, id }) =>
 				failMissionNotificationCommand({
-					...agency,
+					...organization,
 					missionNotificationId: id,
 					...statusChange(payload),
 				}),
 
-			'publicEngagement.skipMissionNotification': ({ payload, agency, id }) =>
+			'publicEngagement.skipMissionNotification': ({ payload, organization, id }) =>
 				skipMissionNotificationCommand({
-					...agency,
+					...organization,
 					missionNotificationId: id,
 					...statusChange(payload),
 				}),
 
 			// Was the `default:` arm, which is why an unrecognised status used to land
 			// here rather than being refused.
-			'publicEngagement.reopenMissionNotification': ({ payload, agency, id }) =>
+			'publicEngagement.reopenMissionNotification': ({ payload, organization, id }) =>
 				reopenMissionNotificationCommand({
-					...agency,
+					...organization,
 					missionNotificationId: id,
 					...statusChange(payload),
 				}),

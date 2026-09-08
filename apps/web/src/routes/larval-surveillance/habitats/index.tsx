@@ -1,4 +1,4 @@
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { ComponentIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
@@ -30,6 +30,7 @@ import {
 	type HabitatTileFilters,
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 } from '../../../components/map';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitats } from '../../../lib/collections/habitats';
@@ -187,8 +188,16 @@ function HabitatsExplorerRoute() {
 	useFlyToSelection(map, selectedHabitat);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const habitatLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'habitats',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -209,9 +218,10 @@ function HabitatsExplorerRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={
 				<>
-					<SearchField
+					<SearchInput
 						label="Search habitats by name or description"
-						onChange={setSearchInput}
+						onChange={(event) => setSearchInput(event.target.value)}
+						onClear={clearSearch}
 						placeholder="Search name or description…"
 						value={searchInput}
 					/>
@@ -298,11 +308,11 @@ function HabitatsExplorerRoute() {
 				<>
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
-						habitatLayer={habitatLayer}
-						legend={legend}
 						inset={panel.inset}
+						layers={layers}
+						legend={legend}
 						onMapReady={handleMapReady}
 						searchWidth={panel.width}
 					/>
@@ -518,7 +528,7 @@ function useSelectedHabitat(
 			// already in the visible list or nothing is selected.
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : UNMATCHABLE_ID))
 					.select(({ habitat }) => ({
 						id: habitat.id,

@@ -25,7 +25,10 @@ export interface MapExtentQuery {
 	readonly geom: RawBuilder<unknown>;
 	/** The from-clause: table + alias, plus any join the predicates reference. */
 	readonly from: RawBuilder<unknown>;
-	/** Tenancy + filter predicates. Must not reference a tile-envelope CTE. */
+	/**
+	 * Organization-scope and filter predicates. Must not reference a
+	 * tile-envelope CTE.
+	 */
 	readonly where: readonly RawBuilder<boolean>[];
 }
 

@@ -1,7 +1,8 @@
 import type { InsecticideBatch as InsecticideBatchOption } from '@simmer-mosquito/sync';
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -34,14 +35,11 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import { useCallback, useMemo, useState } from 'react';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -50,7 +48,11 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
@@ -79,57 +81,35 @@ const applicationGcTimeMs = 30_000;
 // collection detail's read-only gate).
 const READ_ONLY_ROLES = new Set(['viewer']);
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-24', main: ['h-[360px]', 'h-48'], aside: ['h-72'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	return <ApplicationDetail applicationId={id} canEdit={canEdit} />;
-}
-
-function ApplicationDetail({
-	applicationId,
-	canEdit,
-}: {
-	readonly applicationId: string;
-	readonly canEdit: boolean;
-}) {
 	// One query for the application, its product, method, unit, applicator, rig and
 	// address — the lookups this page used to do for itself. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(applicationId, {
-		gcTime: applicationGcTimeMs,
-	});
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the application leaves the collection the moment the button
-	// is pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: APPLICATION_DELETE_REFUSALS,
-		ask: true,
-	});
+	const { application, isReady, isError } = useApplication(id, { gcTime: applicationGcTimeMs });
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/control-operations/chemical">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to applications
-				</Link>
-				{isError ? (
-					<RecordUnavailable noun="application" reason="error" />
-				) : !isReady ? (
-					<ApplicationDetailSkeleton />
-				) : application === undefined ? (
-					<RecordUnavailable noun="application" reason="not-found" />
-				) : (
-					<ApplicationDetailContent application={application} askDelete={run} canEdit={canEdit} />
-				)}
-				{dialog}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to applications', to: '/control-operations/chemical' }}
+			deleteRefusals={APPLICATION_DELETE_REFUSALS}
+			layout={layout}
+			noun="application"
+			reading={{ isError, isReady, record: application }}
+		>
+			{(record, askDelete) => (
+				<ApplicationDetailContent application={record} askDelete={askDelete} canEdit={canEdit} />
+			)}
+		</RecordDetailPage>
 	);
 }
 
@@ -139,9 +119,7 @@ function ApplicationDetailContent({
 	canEdit,
 }: {
 	readonly application: ChemicalApplication;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 	readonly canEdit: boolean;
 }) {
 	// The roster is still read, but only for the custom-field schema the chosen
@@ -167,65 +145,9 @@ function ApplicationDetailContent({
 			: (habitatNameById.get(application.habitatId) ?? 'Unknown habitat');
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<ApplicationIcon aria-hidden="true" className="size-3.5" />
-						Application
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{productName}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{amount} · {formatActionDate(application.actionDate)}
-					</p>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<ContextBadge
-						collectionId={application.collectionId}
-						habitatId={application.habitatId}
-						inspectionId={application.inspectionId}
-					/>
-					{canEdit ? (
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: application.id }} to="/control-operations/chemical/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					) : null}
-				</div>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<ApplicationLocationCard application={application} habitatName={habitatName} />
-						<RecordRegionsBand
-							noun="application"
-							recordId={application.id}
-							recordType="applications"
-						/>
-					</div>
-					<ApplicationBatchesCard
-						application={application}
-						canEdit={canEdit}
-						productName={productName}
-					/>
-					<DangerZoneCard
-						ask={askDelete}
-						name={productName}
-						noun="chemical application"
-						onDelete={(acknowledgements) => remove(application.id, acknowledgements)}
-						recordId={application.id}
-						recordType="application"
-						returnTo="/control-operations/chemical"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<ApplicationDetailsCard
 						amount={amount}
 						application={application}
@@ -240,9 +162,59 @@ function ApplicationDetailContent({
 						description="Field notes, product observations, and follow-up for this application."
 						target={{ type: 'application', id: application.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<PageHeader
+					actions={
+						<>
+							<ContextBadge
+								collectionId={application.collectionId}
+								habitatId={application.habitatId}
+								inspectionId={application.inspectionId}
+							/>
+							{canEdit ? (
+								<WriteOnly>
+									<Button asChild size="sm" variant="outline">
+										<Link
+											params={{ id: application.id }}
+											to="/control-operations/chemical/$id/edit"
+										>
+											<EditIcon aria-hidden="true" />
+											Edit
+										</Link>
+									</Button>
+								</WriteOnly>
+							) : null}
+						</>
+					}
+					eyebrow="Application"
+					icon={ApplicationIcon}
+					description={`${amount} · ${formatActionDate(application.actionDate)}`}
+					title={productName}
+				/>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<ApplicationLocationCard application={application} habitatName={habitatName} />
+				<RecordRegionsBand noun="application" recordId={application.id} recordType="applications" />
 			</div>
-		</>
+			<ApplicationBatchesCard
+				application={application}
+				canEdit={canEdit}
+				productName={productName}
+			/>
+			<DangerZoneCard
+				ask={askDelete}
+				name={productName}
+				noun="chemical application"
+				onDelete={(acknowledgements) => remove(application.id, acknowledgements)}
+				recordId={application.id}
+				recordType="application"
+				returnTo="/control-operations/chemical"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -278,6 +250,7 @@ function ApplicationLocationCard({
 			geomType={geometry.geomType ?? application.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
+			unsupportedShape={geometry.unsupportedShape}
 		/>
 	);
 }
@@ -309,7 +282,7 @@ function ApplicationBatchesCard({
 			gcTime: applicationGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: insecticide_batches })
+					.from({ batch: insecticide_batches() })
 					.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
 					.orderBy(({ batch }) => batch.batch_name, 'asc'),
 		},
@@ -353,7 +326,7 @@ function ApplicationBatchesCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="flex items-start justify-between gap-3">
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
@@ -523,30 +496,30 @@ function ApplicationDetailsCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Product">{productName}</DetailRow>
 					<DetailRow label="Amount">{amount}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(application.actionDate)}</DetailRow>
-					<DetailRow label="Method">
-						{application.methodName ?? <NotSet>No method</NotSet>}
+					<DetailRow empty="No method" label="Method">
+						{application.methodName}
 					</DetailRow>
-					<DetailRow label="Applicator">
-						{application.applicatorName ?? <NotSet>Unassigned</NotSet>}
+					<DetailRow empty="Unassigned" label="Applicator">
+						{application.applicatorName}
 					</DetailRow>
-					<DetailRow label="Vehicle">{application.vehicleName ?? <NotSet>None</NotSet>}</DetailRow>
-					<DetailRow label="Equipment">
-						{application.equipmentName ?? <NotSet>None</NotSet>}
+					<DetailRow empty="None" label="Vehicle">
+						{application.vehicleName}
 					</DetailRow>
-					<DetailRow label="Habitat">
-						{application.habitatId === null ? (
-							<NotSet>Standalone — no habitat</NotSet>
-						) : (
+					<DetailRow empty="None" label="Equipment">
+						{application.equipmentName}
+					</DetailRow>
+					<DetailRow empty="Standalone, no habitat" label="Habitat">
+						{application.habitatId === null ? null : (
 							<Link
-								className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className={recordLink()}
 								params={{ id: application.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -557,42 +530,11 @@ function ApplicationDetailsCard({
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={application.addressId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'application', id: application.id }} />
 			</CardContent>
 		</Card>
 	);
 }
 
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[92px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
-function NotSet({ children }: { readonly children: ReactNode }) {
-	return <span className="text-muted-foreground">{children}</span>;
-}
-
 // --- states ------------------------------------------------------------------
-
-function ApplicationDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-24" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-					<Skeleton className="h-48" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
-	);
-}

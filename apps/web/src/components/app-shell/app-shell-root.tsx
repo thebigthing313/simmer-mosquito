@@ -1,6 +1,5 @@
 import {
 	BreadcrumbLabelProvider,
-	EnvironmentBanner,
 	OutletContentFallback,
 	OutletShell,
 	SearchTriggerProvider,
@@ -8,11 +7,13 @@ import {
 	ShellProvider,
 	type ShellUser,
 } from '@simmer-mosquito/ui-web/components/app-shell';
+import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environment-banner';
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense, useRef, useState } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
+import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { organizations } from '../../lib/collections/organizations';
@@ -23,6 +24,7 @@ import {
 	webAccountLinks,
 	webShellDomains,
 	webStandalonePages,
+	withDailyWorkGroup,
 } from './navigation';
 
 function formatRole(role: string | null | undefined): string {
@@ -57,9 +59,20 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	// so a cold organization/profile shape never holds the entire workspace
 	// behind a full-screen fallback. Route content suspends into the boundary
 	// around `Outlet` below instead.
-	const organizationResult = useLiveQuery((query) => query.from({ row: organizations }), []);
+	const organizationResult = useLiveQuery((query) => query.from({ row: organizations() }), []);
 	const profileNameById = useProfileNames();
 	const timeZone = useOrganizationTimeZone();
+	// The first navigation built at render time. Memoised because it rebuilds a
+	// row per Profile, and the shell's context value is keyed on the array.
+	const dailyWork = useDailyWorkRoster();
+	const domains = useMemo(
+		() => withDailyWorkGroup(shellDomainsForRole(auth), dailyWork.listed),
+		[auth, dailyWork.listed],
+	);
+	const resolutionDomains = useMemo(
+		() => withDailyWorkGroup(webShellDomains, dailyWork.routable),
+		[dailyWork.routable],
+	);
 
 	const organization = (organizationResult.data ?? []).find(
 		(row) => row.id === localIdentity?.organizationId,
@@ -77,7 +90,9 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 		name: organization?.name ?? localIdentity?.organizationName ?? 'Organization',
 	};
 	const shellUser: ShellUser = {
-		name: profileName ?? user?.displayName ?? 'SIMMER User',
+		// Last resort, and the same shape as the Organization fallback above: the
+		// Profile has no name and the Account carries none either.
+		name: profileName ?? user?.displayName ?? 'Account',
 		email: user?.email ?? '',
 		role: formatRole(localIdentity?.role),
 	};
@@ -95,10 +110,11 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				currentOrganization={currentOrganization}
 				onSelectOrganization={() => undefined}
 				user={shellUser}
-				domains={shellDomainsForRole(auth)}
-				// Unfiltered, so a viewer who lands on a form path still gets a true
-				// rail and breadcrumb before the route guard redirects them.
-				resolutionDomains={webShellDomains}
+				domains={domains}
+				// Unfiltered, and carrying every Profile rather than only the active
+				// ones, so a viewer on a form path and a supervisor on a deactivated
+				// colleague's day both get a true rail and breadcrumb.
+				resolutionDomains={resolutionDomains}
 				standalonePages={webStandalonePages}
 				accountLinks={webAccountLinks}
 				version={__APP_VERSION__}

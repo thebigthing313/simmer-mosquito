@@ -27,10 +27,11 @@
  * ## An edit is up to two commands
  *
  * `updateInspectionFieldDetails` takes the whole result — date, inspector, wet,
- * dips, density, larvae, life stages — because an inspection *is* its result and
- * the domain validates the set against the agency's entry policy as a unit. The
- * ad hoc placement is a different builder that ignores all of it. So a save that
- * corrected the dip count and moved the point names both, as one write.
+ * dips, density, larvae, life stages — because an inspection *is* its result
+ * and the domain validates the set against the organization's entry policy as a
+ * unit. The ad hoc placement is a different builder that ignores all of it. So
+ * a save that corrected the dip count and moved the point names both, as one
+ * write.
  *
  * A habitat inspection has no location command at all: its geometry is the
  * habitat's, and moving it means editing the habitat.
@@ -45,9 +46,9 @@
  * syncs back.
  */
 
-import type { MultiRowCommandType } from '@simmer-mosquito/domain';
+import type { LarvalDensity, MultiRowCommandType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { type Inspection, type LarvalDensity, settleWrite } from '@simmer-mosquito/sync';
+import { type Inspection, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { assignment_items } from '../../lib/collections/assignment_items';
@@ -64,7 +65,7 @@ export interface InspectionCentroid {
 	readonly geomType: string;
 }
 
-/** What the inspector found. The domain validates the set against the agency's policy. */
+/** What the inspector found. The domain validates the set against the organization's policy. */
 export interface InspectionResult {
 	/** `YYYY-MM-DD` — the operational date, not a timestamp. */
 	readonly inspectionDate: string;
@@ -200,11 +201,11 @@ export function useInspectionMutations(): InspectionMutations {
 							body: stopInspectionRequestBody(row, placement, acknowledgements),
 						},
 						apply: () => {
-							inspections.insert(row);
+							inspections().insert(row);
 							// The stop the inspector was sent to, closed by the record that
 							// was the reason for it. Backdated like every lifecycle stamp,
 							// so a fast browser clock cannot have it refused as future.
-							assignment_items.update(placement.assignmentItemId, (draft) => {
+							assignment_items().update(placement.assignmentItemId, (draft) => {
 								draft.completed_at = lifecycleStamp();
 								draft.completed_by_profile_id = actorProfileId;
 								draft.skipped_at = null;
@@ -220,7 +221,7 @@ export function useInspectionMutations(): InspectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(inspections, {
+				mutateCollection(inspections(), {
 					operation: 'insert',
 					intent:
 						placement.kind === 'habitat'
@@ -287,7 +288,7 @@ export function useInspectionMutations(): InspectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(inspections, {
+				mutateCollection(inspections(), {
 					operation: 'update',
 					intent: intents,
 					key: inspectionId,
@@ -311,7 +312,7 @@ export function useInspectionMutations(): InspectionMutations {
 	const remove = useCallback(
 		async (inspectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(inspections, {
+				mutateCollection(inspections(), {
 					operation: 'delete',
 					intent: 'larvalSurveillance.deleteInspection',
 					key: inspectionId,
@@ -353,10 +354,10 @@ function resultColumns(result: InspectionResult) {
 /**
  * Whether the result changed at all.
  *
- * Compared as a whole rather than field by field because the command takes it as
- * a whole: the domain validates dips, density and larvae against each other and
- * against the agency's entry policy, so sending three of the twelve would be
- * validating a result nobody recorded.
+ * Compared as a whole rather than field by field because the command takes it
+ * as a whole: the domain validates dips, density and larvae against each other
+ * and against the organization's entry policy, so sending three of the twelve
+ * would be validating a result nobody recorded.
  */
 function resultMoved(next: InspectionResult, current: InspectionResult): boolean {
 	const a = resultColumns(next);
@@ -382,6 +383,11 @@ export function stopInspectionRequestBody(
 ): Record<string, unknown> {
 	return {
 		...requestColumns(row),
+		// Restated over the spread, which does carry the column, and today the one
+		// caller filled it from this same argument. It stays because the row's copy
+		// is `string | null`, the same shape an ad hoc inspection with no stop is
+		// built in, and this body is only ever the stop one. The argument is what
+		// says which stop, so a row assembled any other way cannot send a null.
 		assignment_item_id: placement.assignmentItemId,
 		// Nullable: the stop already names a habitat, so the ordinary call sends
 		// none and cannot disagree with it.

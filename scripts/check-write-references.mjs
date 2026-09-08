@@ -3,10 +3,10 @@
  * Asserts that every write naming another record's id runs the reference gate.
  *
  * A write's own `organization_id` comes from the session, so the row it creates
- * lands in the right agency. The ids it *references* come from the payload, and
- * the only thing standing behind them used to be the Postgres foreign key, which
- * is satisfied by the row existing anywhere. So org A could create a Chemical
- * Application naming org B's Habitat and get a 201 (#200).
+ * lands in the right organization. The ids it *references* come from the
+ * payload, and the only thing standing behind them used to be the Postgres
+ * foreign key, which is satisfied by the row existing anywhere. So org A could
+ * create a Chemical Application naming org B's Habitat and get a 201 (#200).
  *
  * `assertWriteReferences` in `packages/db/src/domains/write-references.ts` is the
  * check. Two seams call it:
@@ -24,15 +24,27 @@
  * ## What it looks at
  *
  * Every `.values({ … })` and `.set({ … })` in `apps/server/src` and
- * `packages/db/src`, minus tests and seeds, whose object names a column in
- * `RECORD_REFERENCE_COLUMNS`. The registry is read out of the module rather than
- * copied here, so the two cannot drift.
+ * `packages/db/src`, minus tests, seeds and `test-support`, whose object names a
+ * column in `RECORD_REFERENCE_COLUMNS`. The registry is read out of the module
+ * rather than copied here, so the two cannot drift.
+ *
+ * `test-support` is skipped for the reason `tests` is. The row fixtures in it
+ * seed a world for a suite to assert against, so they insert the ids the test
+ * hands them and gate nothing. One of the suites they seed is the gate's own
+ * (#616).
  *
  * An object that names none of those columns is not a reference write and is not
  * this check's business. A column that is in the schema but not in the registry
  * is the *integration* test's business: `write-reference-coverage` asks Postgres
- * for every foreign key pointing at a tenant-owned record and requires an entry.
- * Together they cover both directions; neither covers both on its own.
+ * for every foreign key pointing at an organization-owned record and requires an
+ * entry. Together they cover both directions; neither covers both on its own.
+ *
+ * That pairing holds only where there is a database. The integration suite skips
+ * silently without `TEST_DATABASE_URL`, so until #599 a column deleted from the
+ * registry left this gate's scope on every local run with nothing to see: a
+ * write whose only reference is that column stops being a reference write at
+ * all, and the sole trace is the column count moving by one in a summary line
+ * that prints on a pass. `MINIMUM_REFERENCE_COLUMNS` is what fails instead.
  *
  * ## The allowlist
  *
@@ -40,7 +52,7 @@
  * payload. `completed_by_profile_id` is the actor who completed the stop, the
  * same class of value as `created_by_profile_id`. There is no id to doubt, and
  * gating it would spend a query proving the session's own profile belongs to the
- * session's own agency.
+ * session's own organization.
  *
  * An entry that no longer matches anything is a failure. An allowlist that
  * outlives its call site is how a check goes quiet.
@@ -53,7 +65,7 @@ import { fileURLToPath } from 'node:url';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTRY_FILE = join(workspaceRoot, 'packages/db/src/domains/write-references.ts');
 const ROOTS = ['apps/server/src', 'packages/db/src'];
-const SKIP_DIRS = new Set(['tests', 'seeds', 'dist', 'node_modules']);
+const SKIP_DIRS = new Set(['tests', 'seeds', 'test-support', 'dist', 'node_modules']);
 
 /**
  * The writes that name a reference column but take it from the session.
@@ -64,15 +76,15 @@ const SKIP_DIRS = new Set(['tests', 'seeds', 'dist', 'node_modules']);
  */
 const SESSION_OWNED = new Map([
 	[
-		'apps/server/src/field-work-commands/assignment-lifecycle.ts',
+		'apps/server/src/writers/field-work/assignment-lifecycle.ts',
 		'the actor who completed or skipped the stop, from `AuthContext`',
 	],
 	[
-		'apps/server/src/mission-dispatch-commands/mission-execution.ts',
+		'apps/server/src/writers/mission-dispatch/mission-execution.ts',
 		'the actor who completed or skipped the stop, from `AuthContext`',
 	],
 	[
-		'apps/server/src/public-engagement-records-commands/mission-notifications.ts',
+		'apps/server/src/writers/public-engagement-records/mission-notifications.ts',
 		'the actor who changed the status, from `AuthContext`',
 	],
 	[
@@ -81,7 +93,7 @@ const SESSION_OWNED = new Map([
 	],
 	[
 		'packages/db/src/domains/identity-memberships.ts',
-		'the profile `assertOrganizationProfileCanBeInvited` already scoped to the agency',
+		'the profile `assertOrganizationProfileCanBeInvited` already scoped to the organization',
 	],
 	[
 		'packages/db/src/domains/identity-organizations.ts',
@@ -98,17 +110,40 @@ const THE_GATE = new Set([
 	'packages/db/src/domains/org-owned-writes.ts',
 ]);
 
+/**
+ * How many reference writes the scan reaches.
+ *
+ * `MINIMUM_REFERENCE_COLUMNS` floors the register; this floors the scan. The two
+ * fail on different edits. A directory added to `SKIP_DIRS`, a root renamed, or
+ * a `readdirSync` that stops recursing takes writes out of scope without
+ * touching the register, and the summary line would still say "every reference
+ * write is gated" over whatever was left. The number moves with the tree, in the
+ * same commit as whatever moved it.
+ */
+const MINIMUM_REFERENCE_WRITES = 45;
+
 function main() {
 	const columns = readRegistryColumns();
 	const usedAllowances = new Set();
 	const failures = [];
+	let writes = 0;
 
 	for (const file of sourceFiles()) {
+		writes += referenceWrites(file.source, columns).length;
 		failures.push(...checkFile(file, columns, usedAllowances));
 	}
 	failures.push(...staleAllowances(usedAllowances));
 
-	report(failures, columns.size);
+	if (writes < MINIMUM_REFERENCE_WRITES) {
+		throw new Error(
+			`This check reached ${writes} reference writes, fewer than the ` +
+				`${MINIMUM_REFERENCE_WRITES} it expects. Writes have left its scope rather than being ` +
+				'reported: check SKIP_DIRS and ROOTS in scripts/check-write-references.mjs, and lower ' +
+				'MINIMUM_REFERENCE_WRITES in the same commit only once you know why the number moved.',
+		);
+	}
+
+	report(failures, columns.size, writes);
 }
 
 /** The ungated reference writes in one file, as failures. */
@@ -150,6 +185,16 @@ function staleAllowances(usedAllowances) {
 // The registry
 // ---------------------------------------------------------------------------
 
+/**
+ * How many columns `RECORD_REFERENCE_COLUMNS` holds.
+ *
+ * The registry itself is read out of the module, so it cannot drift from this
+ * gate. What it can do is lose a column, and a lost column takes every write
+ * naming it out of scope rather than reporting one. The number moves when the
+ * registry does, in the same commit.
+ */
+const MINIMUM_REFERENCE_COLUMNS = 36;
+
 /** The keys of `RECORD_REFERENCE_COLUMNS`, read from the module that owns them. */
 function readRegistryColumns() {
 	const source = readFileSync(REGISTRY_FILE, 'utf8');
@@ -163,6 +208,16 @@ function readRegistryColumns() {
 	const columns = new Set([...body.matchAll(/^\t([a-z][a-z0-9_]*): /gm)].map(([, key]) => key));
 	if (columns.size === 0) {
 		throw new Error('RECORD_REFERENCE_COLUMNS read as empty. Has its shape changed?');
+	}
+	if (columns.size < MINIMUM_REFERENCE_COLUMNS) {
+		throw new Error(
+			`RECORD_REFERENCE_COLUMNS holds ${columns.size} columns, fewer than the ` +
+				`${MINIMUM_REFERENCE_COLUMNS} this check expects. A column has been dropped, and every ` +
+				'write whose only reference is that column has left the scope of this gate rather than ' +
+				'being reported. Put it back in packages/db/src/domains/write-references.ts, or, if the ' +
+				'schema no longer has the column, lower MINIMUM_REFERENCE_COLUMNS in ' +
+				'scripts/check-write-references.mjs in the same commit.',
+		);
 	}
 	return columns;
 }
@@ -255,7 +310,7 @@ function namedColumns(lines, columns) {
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(failures, columnCount) {
+function report(failures, columnCount, writeCount) {
 	if (failures.length > 0) {
 		console.error(`check-write-references: ${failures.length} problem(s).\n`);
 		for (const failure of failures) {
@@ -263,7 +318,10 @@ function report(failures, columnCount) {
 		}
 		process.exit(1);
 	}
-	console.log(`check-write-references: every reference write is gated (${columnCount} columns).`);
+	console.log(
+		`check-write-references: all ${writeCount} reference writes are gated ` +
+			`(${columnCount} columns).`,
+	);
 }
 
 main();

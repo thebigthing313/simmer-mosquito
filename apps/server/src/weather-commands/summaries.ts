@@ -32,6 +32,7 @@
 
 import { sql } from '@simmer-mosquito/db';
 import type { WeatherCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../return-columns.js';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
 	assertFresh,
@@ -44,7 +45,6 @@ import {
 	type SummaryMetrics,
 	type WeatherSummaryRow,
 	type WeatherTransaction,
-	weatherSummaryReturnColumns,
 } from './shared.js';
 
 /**
@@ -104,8 +104,8 @@ async function createSummary(
 		return null;
 	}
 	// Manual entry requires an *active* station, which update and delete do not:
-	// an inactive station is one an agency has stopped reading, so correcting its
-	// history stays open while adding to it does not.
+	// an inactive station is one an organization has stopped reading, so
+	// correcting its history stays open while adding to it does not.
 	if (!station.isActive) {
 		throw new CommandError(409, {
 			error: 'weather_station_inactive',
@@ -119,9 +119,9 @@ async function createSummary(
 				.insertInto('weather_summaries')
 				.values({
 					id: payload.weatherSummaryId,
-					// Set rather than left to the FK, because `shape-scopes.ts` reads this
-					// table as `organization-or-global`: a null here would sync the row to
-					// every agency.
+					// Set rather than left to the FK, because `shape-scopes.ts` reads
+					// this table as `organization-or-global`: a null here would sync the
+					// row to every organization.
 					organization_id: payload.organizationId,
 					weather_source_id: station.id,
 					start_date: localDateColumn(payload.startDate),
@@ -136,7 +136,7 @@ async function createSummary(
 					created_by_profile_id: payload.actorProfileId,
 					updated_by_profile_id: payload.actorProfileId,
 				})
-				.returning(weatherSummaryReturnColumns)
+				.returning(returnColumns.weather_summaries)
 				.executeTakeFirstOrThrow(),
 		{ duplicate: DUPLICATE_BUCKET },
 	);
@@ -198,7 +198,7 @@ async function updateSummary(
 					updated_at: sql`now()`,
 				})
 				.where('id', '=', summary.id)
-				.returning(weatherSummaryReturnColumns)
+				.returning(returnColumns.weather_summaries)
 				.executeTakeFirst(),
 		{ duplicate: DUPLICATE_BUCKET },
 	);
@@ -219,7 +219,7 @@ async function deleteSummary(
 	const row = await trx
 		.deleteFrom('weather_summaries')
 		.where('id', '=', summary.id)
-		.returning(weatherSummaryReturnColumns)
+		.returning(returnColumns.weather_summaries)
 		.executeTakeFirst();
 	return row ?? null;
 }

@@ -7,9 +7,10 @@
  * difference is that a descriptor described a shape for something else to
  * assemble, and this returns the assembled thing.
  *
- * Deliberately not general beyond this repo: the shape route convention, the
- * cookie credential, and the two Postgres types SIMMER actually stores are all
- * fixed here, because each is a decision rather than a parameter.
+ * Deliberately not general beyond this repo: the shape route convention and the
+ * two Postgres types SIMMER actually stores are fixed here, because each is a
+ * decision rather than a parameter. The credential is not one of them — see
+ * `session-fetch.ts` for why the host installs that instead.
  *
  * ## Why this returns a config and not the collection
  *
@@ -39,30 +40,15 @@
  */
 
 import type { SyncMode } from '@tanstack/db';
-import type { z } from 'zod';
 import { createMutationHandlers } from './mutation-handlers.js';
 import { shapePathFor } from './routes.js';
 import { sessionFetch } from './session-fetch.js';
 
 /**
- * Raw geometry that must never stream through a shape.
- *
- * `geom` is binary and `geojson` runs to megabytes per row; both are served by
- * the `/map/*` endpoints instead. What may sync is the trigger-maintained
- * centroid (`lat`, `lng`, `geom_type`), which is why this names columns rather
- * than refusing spatial tables outright.
- *
- * Exported rather than checked here because columns now come from the schema, and
- * the schema is not visible to this function — see the module comment. The
- * invariant is asserted across every collection module in the unit tests, which
- * is already how the descriptors enforce it.
+ * Re-exported from `synced-columns.ts`, where it moved so the contract entry can
+ * name it without this module's write path coming too. See that file.
  */
-export const serverOnlyGeometryColumns: readonly string[] = ['geom', 'geojson'];
-
-/** The columns a schema declares, which is what its shape route must serve. */
-export function syncedColumnsOf(schema: z.ZodObject<z.ZodRawShape>): readonly string[] {
-	return Object.keys(schema.shape);
-}
+export { syncedColumnsOf } from './synced-columns.js';
 
 /**
  * How Electric's text wire format becomes the values a row holds, keyed by
@@ -81,13 +67,13 @@ export function syncedColumnsOf(schema: z.ZodObject<z.ZodRawShape>): readonly st
  * **`date` is absent on purpose. Do not add it.** A `date` column is a calendar
  * day, and every way of turning one into a `Date` picks a timezone the column
  * does not have: `new Date('2026-08-14')` is UTC midnight, the previous day for
- * every agency west of Greenwich, and local midnight makes the stored value
- * differ between two clients reading the same row. Left alone it stays the
- * `YYYY-MM-DD` string Postgres sent — fixed-width and zero-padded, so
- * lexicographic order *is* chronological order, equality is `===`, and the subset
- * compiler emits `'2026-08-14'`, exactly the literal a `date` column wants.
- * `Temporal.PlainDate` would say all of that in the type system rather than in
- * this comment, and cannot be used yet: see issue #161.
+ * every organization west of Greenwich, and local midnight makes the stored
+ * value differ between two clients reading the same row. Left alone it stays
+ * the `YYYY-MM-DD` string Postgres sent — fixed-width and zero-padded, so
+ * lexicographic order *is* chronological order, equality is `===`, and the
+ * subset compiler emits `'2026-08-14'`, exactly the literal a `date` column
+ * wants. `Temporal.PlainDate` would say all of that in the type system rather
+ * than in this comment, and cannot be used yet: see issue #161.
  *
  * `timestamptz` does need parsing. Its Postgres text form is neither fixed-width
  * nor normalized, so string comparison misorders silently instead of failing, and
@@ -98,21 +84,6 @@ export function syncedColumnsOf(schema: z.ZodObject<z.ZodRawShape>): readonly st
 const shapeParsers = {
 	timestamptz: (value: string) => new Date(value),
 };
-
-/**
- * The session cookie is the whole authorization story; nothing about the agency
- * travels in the request itself.
- *
- * Annotated `typeof fetch` rather than given parameter types of its own. Electric
- * declares `fetchClient?: typeof fetch`, whose first parameter is
- * `RequestInfo | URL` — writing `(request: Request, …)` narrows it, and
- * `strictFunctionTypes` rejects a narrowed parameter in a function-type position.
- * That rejection is not reported where it happens: it invalidates the whole
- * config object, so the schema overload is dropped and the error surfaces as the
- * schemaless overload complaining that a schema is not assignable to `never`.
- */
-const fetchWithSession: typeof fetch = (request, init) =>
-	sessionFetch(request, { ...init, credentials: 'include' });
 
 /**
  * How long a collection survives with no subscribers before it is collected.
@@ -302,8 +273,8 @@ export function syncCollectionConfig<TRow extends SyncedRow>(
 
 		shapeOptions: {
 			// One route per table. The server owns the shape: it forces `table`,
-			// `columns`, and the tenant `where` from the session cookie, and strips any
-			// the client sends — so there is no `params` to set here.
+			// `columns`, and the organization `where` from the session cookie, and
+			// strips any the client sends — so there is no `params` to set here.
 			url: `${options.serverUrl}${shapePathFor(options.table)}`,
 
 			// Subset snapshot requests ride in a POST body so a large id set never hits
@@ -319,7 +290,20 @@ export function syncCollectionConfig<TRow extends SyncedRow>(
 			// Electric 2.0 deprecates GET for subsets regardless.
 			subsetMethod: 'POST',
 
-			fetchClient: fetchWithSession,
+			// The credential is the app's, installed once through
+			// `setSessionFetcher`; nothing about the organization travels in the
+			// request itself either way.
+			//
+			// `sessionFetch` is annotated `typeof fetch` rather than given parameter
+			// types of its own, and has to be. Electric declares
+			// `fetchClient?: typeof fetch`, whose first parameter is
+			// `RequestInfo | URL` — writing `(request: Request, …)` narrows it, and
+			// `strictFunctionTypes` rejects a narrowed parameter in a function-type
+			// position. That rejection is not reported where it happens: it
+			// invalidates the whole config object, so the schema overload is dropped
+			// and the error surfaces as the schemaless overload complaining that a
+			// schema is not assignable to `never`.
+			fetchClient: sessionFetch,
 
 			parser: shapeParsers,
 

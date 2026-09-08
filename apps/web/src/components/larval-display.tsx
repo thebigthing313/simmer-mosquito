@@ -1,4 +1,5 @@
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 
@@ -36,7 +37,7 @@ export function hasAnyLifeStage(stages: LifeStageFlags): boolean {
 }
 
 /**
- * Larvae per dip — the measure an agency's density bands are ranges of.
+ * Larvae per dip — the measure an organization's density bands are ranges of.
  *
  * The bands under Organization → Larval Surveillance are literally "more than
  * *n* and up to *m* larvae per dip", so this is the number a density badge was
@@ -120,7 +121,14 @@ export function densityLabel(density: LarvalDensity | null): string {
 
 export function DensityBadge({ density }: { readonly density: LarvalDensity | null }) {
 	if (density === null) {
-		return <span className="text-muted-foreground text-sm">—</span>;
+		// Wrapped rather than sized inside `AbsentValue`, which takes no props: this
+		// badge draws in list rows as well as tables, and `text-sm` is the size it
+		// has always held there.
+		return (
+			<span className="text-sm">
+				<AbsentValue />
+			</span>
+		);
 	}
 
 	// very_heavy escalates to the solid destructive variant so it reads as more

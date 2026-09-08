@@ -7,7 +7,7 @@
  *
  * The old PATCH decided between resolving a request and reopening it with
  * `payload.isResolved !== false && payload.resolvedAt !== null`, guarded by
- * `'resolvedAt' in payload || typeof payload.isResolved === 'boolean'`. Two keys,
+ * `payload.resolvedAt !== undefined || typeof payload.isResolved === 'boolean'`. Two keys,
  * one of them optional, combined into one direction — so a client clearing a
  * resolution date reopened the request, and a client sending `isResolved: true`
  * with no date resolved it at the server's clock. Neither is wrong exactly;
@@ -49,20 +49,34 @@ import {
 	updateRequestedControlActionDetailsCommand,
 	updateRequestedControlActionLocationAndContextCommand,
 } from '@simmer-mosquito/domain';
-import { readNullableText, readText } from '../command-payload.js';
+import { type CommandPayload, readNullableText, readText } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
-import { writeRequestedControlActionCommand } from '../control-operations-commands/requested-control-actions.js';
-import type { RequestedControlActionRow } from '../control-operations-commands/shared.js';
+import { writeRequestedControlActionCommand } from '../writers/control-operations/requested-control-actions.js';
+import type { RequestedControlActionRow } from '../writers/control-operations/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
-function requestContext(payload: Record<string, unknown>): ControlActionContext {
+/**
+ * The keys a requested-action write reads that are not its columns: where the
+ * work was asked for, and what it was asked against.
+ */
+type RequestedActionArgument = 'locationSource' | 'context';
+
+/** The body of a write to this module's table. */
+type RequestedActionPayload = CommandPayload<'requested_control_actions', RequestedActionArgument>;
+
+function requestContext(payload: RequestedActionPayload): ControlActionContext {
 	return (payload.context ?? { kind: 'none' }) as ControlActionContext;
 }
 
 export function requestedControlActionTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, RequestedControlActionRow> {
+): TableCommands<
+	'requested_control_actions',
+	ControlOperationsCommand,
+	RequestedControlActionRow,
+	RequestedActionArgument
+> {
 	return {
 		table: 'requested_control_actions',
 		run: {
@@ -72,9 +86,9 @@ export function requestedControlActionTableCommands(
 			key: 'requestedControlAction',
 		},
 		intents: {
-			'controlOperations.requestControlAction': ({ payload, agency, id }) =>
+			'controlOperations.requestControlAction': ({ payload, organization, id }) =>
 				requestControlActionCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
 					// Untyped: which four control types exist is the domain's list, and a
 					// second copy here could fall behind it.
@@ -88,59 +102,63 @@ export function requestedControlActionTableCommands(
 					requestedAt: readDate(payload.requested_at),
 				}),
 
-			'controlOperations.updateRequestedControlActionDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateRequestedControlActionDetails': ({ payload, organization, id }) =>
 				updateRequestedControlActionDetailsCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
-					...('control_type' in payload
+					...(payload.control_type !== undefined
 						? { controlType: (readText(payload.control_type) ?? '') as never }
 						: {}),
-					...('recommended_method_id' in payload
+					...(payload.recommended_method_id !== undefined
 						? { recommendedMethodId: readNullableText(payload.recommended_method_id) }
 						: {}),
-					...('summary' in payload ? { summary: readNullableText(payload.summary) } : {}),
-					...('requested_by_profile_id' in payload
+					...(payload.summary !== undefined ? { summary: readNullableText(payload.summary) } : {}),
+					...(payload.requested_by_profile_id !== undefined
 						? { requestedByProfileId: readNullableText(payload.requested_by_profile_id) }
 						: {}),
-					...('requested_at' in payload ? { requestedAt: readDate(payload.requested_at) } : {}),
+					...(payload.requested_at !== undefined
+						? { requestedAt: readDate(payload.requested_at) }
+						: {}),
 				}),
 
 			'controlOperations.updateRequestedControlActionLocationAndContext': ({
 				payload,
-				agency,
+				organization,
 				id,
 			}) =>
 				updateRequestedControlActionLocationAndContextCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
-					...('locationSource' in payload
+					...(payload.locationSource !== undefined
 						? {
 								locationSource: payload.locationSource as RequestedControlActionLocationSourceInput,
 							}
 						: {}),
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
-					...('context' in payload ? { context: requestContext(payload) } : {}),
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
+					...(payload.context !== undefined ? { context: requestContext(payload) } : {}),
 				}),
 
 			// `resolved_at` is read where the command says a resolution is what this
 			// is; an absent one means "now", which is what a technician closing a
 			// request in the field means by it.
-			'controlOperations.resolveRequestedControlAction': ({ payload, agency, id }) =>
+			'controlOperations.resolveRequestedControlAction': ({ payload, organization, id }) =>
 				resolveRequestedControlActionCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
 					resolvedAt: readDate(payload.resolved_at),
 				}),
 
-			'controlOperations.reopenRequestedControlAction': ({ agency, id }) =>
-				reopenRequestedControlActionCommand({ ...agency, requestedControlActionId: id }),
+			'controlOperations.reopenRequestedControlAction': ({ organization, id }) =>
+				reopenRequestedControlActionCommand({ ...organization, requestedControlActionId: id }),
 
-			'controlOperations.deleteRequestedControlAction': ({ payload, agency, id }) =>
+			'controlOperations.deleteRequestedControlAction': ({ payload, organization, id }) =>
 				deleteRequestedControlActionCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
-					acknowledgedActionDetach: acknowledged(payload.acknowledgedActionDetach),
-					acknowledgedMissionDetach: acknowledged(payload.acknowledgedMissionDetach),
+					acknowledgedActionDetach: acknowledged(payload, 'acknowledgedActionDetach'),
+					acknowledgedMissionDetach: acknowledged(payload, 'acknowledgedMissionDetach'),
 				}),
 		},
 	};

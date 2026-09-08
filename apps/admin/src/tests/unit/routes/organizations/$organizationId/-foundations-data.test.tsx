@@ -1,20 +1,22 @@
 /** @vitest-environment jsdom */
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getServerUrl } from '../../../../../api';
+import { getServerUrl, isAdminRefusal } from '../../../../../api';
+import { AdminError } from '../../../../../components/admin-page';
 import {
 	type LookupKind,
 	useCreateFoundation,
+	useOrganizationFoundations,
 } from '../../../../../routes/organizations/$organizationId/-foundations-data';
 
 /**
- * What the console posts when it stands an agency up.
+ * What the console posts when it stands an organization up.
  *
  * These six mutations used to write the operator endpoints, which took whatever
- * the panel handed them. #120 moved them onto the agency's own command
+ * the panel handed them. #120 moved them onto the organization's own command
  * endpoints, and each body now has to satisfy a domain command contract instead
  * — a contract nothing in this app enforces, and which no type checks, because
  * the bodies are object literals posted as JSON.
@@ -50,7 +52,7 @@ describe('foundation creates', () => {
 		cleanup();
 	});
 
-	it('posts a region folder to the agency endpoint, with a client-generated id', async () => {
+	it('posts a region folder to the organization endpoint, with a client-generated id', async () => {
 		await create((mutations) =>
 			mutations.regionFolder.mutate({ name: 'North County', description: '  ' }),
 		);
@@ -64,9 +66,9 @@ describe('foundation creates', () => {
 		]);
 	});
 
-	// The agency command names the field `geometry`; the operator endpoint called
-	// it `geojson`. Posting the old name is a validation failure on a required
-	// field, not a silently unlocated region.
+	// The organization command names the field `geometry`; the operator endpoint
+	// called it `geojson`. Posting the old name is a validation failure on a
+	// required field, not a silently unlocated region.
 	it('posts a region with `geometry`, not `geojson`', async () => {
 		await create((mutations) =>
 			mutations.region.mutate({
@@ -129,7 +131,7 @@ describe('foundation creates', () => {
 	});
 
 	// A catalog entry is created live and retired later, which is an update; the
-	// agency create rejects an `isActive` it has no way to honour.
+	// organization create rejects an `isActive` it has no way to honour.
 	it('posts a lookup without `isActive`', async () => {
 		await create((mutations) =>
 			mutations.lookup.mutate({
@@ -147,7 +149,7 @@ describe('foundation creates', () => {
 	});
 
 	// The one thing on this page with no type behind it at all: a snake_case
-	// `LookupKind` has to become the hyphenated segment the agency route is
+	// `LookupKind` has to become the hyphenated segment the organization route is
 	// registered under. A typo is a 404 at runtime and nothing else notices —
 	// the same failure mode `sync-shapes.test.ts` guards for shape paths.
 	it.each([
@@ -197,15 +199,56 @@ describe('foundation creates', () => {
 		});
 	});
 
-	// Every agency endpoint takes the organization from the session, never from
-	// the path — that is what entering the agency is for. An operator id leaking
-	// into a write path would mean the gate was decorative.
+	// Every organization endpoint takes the organization from the session, never
+	// from the path — that is what entering the organization is for. An operator
+	// id leaking into a write path would mean the gate was decorative.
 	it('names no organization in any write path', async () => {
 		await create((mutations) =>
 			mutations.regionFolder.mutate({ name: 'North County', description: '' }),
 		);
 
 		expect(posted[0]?.url).not.toContain(ORGANIZATION_ID);
+	});
+});
+
+/**
+ * What the operator sees when the read is refused.
+ *
+ * The read reached `/admin/*` on its own until #612 and threw a plain `Error`,
+ * so `AdminError` could not tell either operator refusal from a fault and drew
+ * the generic box for both. On a server with no `SIMMER_OPERATOR_ORG_ID` that
+ * box says "operator_not_configured" and nothing else, and the variable to set
+ * is named only by the screen below.
+ */
+describe('a refused foundations read', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	async function refusal(code: string, status: number): Promise<unknown> {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ error: code }), { status })),
+		);
+		const { result } = renderHook(() => useOrganizationFoundations(ORGANIZATION_ID), {
+			wrapper: Providers,
+		});
+		await waitFor(() => {
+			expect(result.current.error).not.toBeNull();
+		});
+		return result.current.error;
+	}
+
+	it('names the server variable to set rather than printing the code', async () => {
+		render(<AdminError error={await refusal('operator_not_configured', 403)} />);
+
+		expect(screen.queryByText('Server Not Configured')).not.toBeNull();
+		expect(screen.queryByText('Could Not Load')).toBeNull();
+	});
+
+	it('is a refusal the query client will not retry', async () => {
+		expect(isAdminRefusal(await refusal('organization_not_found', 404))).toBe(true);
 	});
 });
 

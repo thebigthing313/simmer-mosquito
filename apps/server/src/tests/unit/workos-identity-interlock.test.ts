@@ -5,10 +5,36 @@
  * wrapper is an allowlist, so a method nobody has classified refuses rather
  * than running; and the refusal reaches the caller as the one 403 rather than
  * as a 500 with a stack.
+ *
+ * It wraps a real `createWorkOsAuth` object rather than a double built from the
+ * lists under test. The double this replaced iterated those lists to decide
+ * which methods it carried, so its method set was the answer, and the thirteen
+ * names it repeated included `listUsers`, which is a WorkOS SDK call and has
+ * never been a method of this object (#619).
+ *
+ * The stubbed client below implements only the calls the session and read half
+ * makes. That is the other half of the assertion: a write that reached WorkOS
+ * would find nothing to call, so it cannot pass by answering quietly.
+ *
+ * It is handed to `createWorkOsAuth` rather than mocked into it (#714). The
+ * binding used to be `vi.mock('@workos-inc/node')`, which keys on the resolved
+ * module, so the SDK was a devDependency of this app for this file alone and
+ * without the specifier resolving from here it bound nothing: the first run of
+ * this suite reached the real WorkOS and came back with 401s, which most of the
+ * cases below would have swallowed as a mapped refusal. An argument cannot miss
+ * that way. `sdkCalls` stays, because which call arrived is still what says the
+ * object was bound to its target rather than replaced by the throwing shim.
  */
 
+import {
+	createWorkOsAuth,
+	WORKOS_IDENTITY_WRITE_METHODS,
+	WORKOS_SESSION_AND_READ_METHODS,
+	type WorkOsClient,
+	type WorkOsSessionAndReadMethod,
+} from '@simmer-mosquito/auth';
 import { Hono } from 'hono';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	WORKOS_IDENTITY_WRITES_DISABLED,
 	WORKOS_IDENTITY_WRITES_DISABLED_MESSAGE,
@@ -18,50 +44,140 @@ import {
 	workOsIdentityWritesDisabled,
 } from '../../workos-identity-interlock.js';
 
-/** The eight writes on the `auth` object, and the reason each one is a write. */
-const IDENTITY_WRITES = [
-	'signUpWithPassword',
-	'acceptInvitationWithPassword',
-	'requestPasswordReset',
-	'resetPassword',
-	'createOrganization',
-	'sendOrganizationInvitation',
-	'revokeInvitation',
-	'deactivateOrganizationMembership',
-] as const;
+/** Every WorkOS SDK call the object made, in order. */
+const sdkCalls: string[] = [];
 
-/** The session and read calls sign-in needs, which keep working. */
-const SESSION_AND_READS = [
-	'getAuthorizationUrl',
-	'authenticateCode',
-	'authenticateSession',
-	'switchOrganization',
-	'signInWithPassword',
-	'verifyEmailCode',
-	'authenticateWithOrganizationSelection',
-	'getInvitationByToken',
-	'getLogoutUrl',
-	'revokeSession',
-	'getOrganization',
-	'findOrganizationMember',
-	'listUsers',
-] as const;
+const authenticated = {
+	user: { id: 'user_1', email: 'signed-in@example.test', emailVerified: true },
+	organizationId: 'org_1',
+	sealedSession: 'sealed',
+};
+
+function stubWorkOsClient(): WorkOsClient {
+	const records =
+		<TAnswer>(name: string, answer: TAnswer) =>
+		(): TAnswer => {
+			sdkCalls.push(name);
+			return answer;
+		};
+
+	return {
+		userManagement: {
+			getAuthorizationUrl: records('getAuthorizationUrl', 'https://workos.test/authorize'),
+			authenticateWithCode: records('authenticateWithCode', Promise.resolve(authenticated)),
+			authenticateWithPassword: records('authenticateWithPassword', Promise.resolve(authenticated)),
+			authenticateWithEmailVerification: records(
+				'authenticateWithEmailVerification',
+				Promise.resolve(authenticated),
+			),
+			authenticateWithOrganizationSelection: records(
+				'authenticateWithOrganizationSelection',
+				Promise.resolve(authenticated),
+			),
+			findInvitationByToken: records(
+				'findInvitationByToken',
+				Promise.resolve({
+					id: 'invitation_1',
+					email: 'invitee@example.test',
+					state: 'pending',
+					organizationId: 'org_1',
+				}),
+			),
+			listUsers: records('listUsers', Promise.resolve({ data: [] })),
+		},
+	} as unknown as WorkOsClient;
+}
+
+const config = {
+	apiKey: 'sk_test',
+	clientId: 'client_test',
+	cookiePassword: 'x'.repeat(32),
+	redirectUri: 'https://app.example.test/auth/callback',
+};
+
+/** The object under test, over a client that records rather than calls WorkOS. */
+function stubbedWorkOsAuth() {
+	return createWorkOsAuth(config, stubWorkOsClient());
+}
+
+/**
+ * What each session or read call is handed, and the WorkOS call it reaches.
+ *
+ * Keyed by the classification, so a method that changes side or joins the
+ * object fails `tsc` here as well as at the interface.
+ *
+ * `reaches: null` is the four that answer before WorkOS. An absent session and
+ * a null organization both return early, and giving them anything else would
+ * need a sealed session WorkOS could unseal, so for those the assertion is that
+ * the call ran rather than met the interlock. The other eight assert the
+ * delegation as well: which SDK call arrived is what says the object was bound
+ * to its target rather than replaced by the throwing shim.
+ */
+const SESSION_AND_READS: Record<
+	WorkOsSessionAndReadMethod,
+	{ readonly args: readonly unknown[]; readonly reaches: string | null }
+> = {
+	getAuthorizationUrl: { args: [], reaches: 'getAuthorizationUrl' },
+	authenticateCode: { args: [{ code: 'code_1' }], reaches: 'authenticateWithCode' },
+	authenticateSession: { args: [undefined, { mayRefresh: false }], reaches: null },
+	switchOrganization: {
+		args: [{ sealedSession: undefined, workosOrganizationId: 'org_1' }],
+		reaches: null,
+	},
+	signInWithPassword: {
+		args: [{ email: 'signed-in@example.test', password: 'sup3rsecret' }],
+		reaches: 'authenticateWithPassword',
+	},
+	verifyEmailCode: {
+		args: [{ code: '123456', pendingAuthenticationToken: 'pat_1' }],
+		reaches: 'authenticateWithEmailVerification',
+	},
+	authenticateWithOrganizationSelection: {
+		args: [{ organizationId: 'org_1', pendingAuthenticationToken: 'pat_1' }],
+		reaches: 'authenticateWithOrganizationSelection',
+	},
+	getInvitationByToken: { args: ['itok_1'], reaches: 'findInvitationByToken' },
+	getLogoutUrl: { args: [undefined], reaches: null },
+	revokeSession: { args: [undefined], reaches: null },
+	getOrganization: { args: [null], reaches: null },
+	findOrganizationMember: {
+		args: [{ email: 'invitee@example.test', workosOrganizationId: 'org_1' }],
+		reaches: 'listUsers',
+	},
+};
+
+type AnyCall = (...args: readonly unknown[]) => unknown;
+
+beforeEach(() => {
+	sdkCalls.length = 0;
+});
 
 describe('withoutWorkOsIdentityWrites', () => {
-	it.each(IDENTITY_WRITES)('refuses %s', (method) => {
-		const auth = fakeAuth();
-		const wrapped = withoutWorkOsIdentityWrites(auth);
+	// `tsc` already holds the classification to `keyof WorkOsAuth`, so this asks
+	// the object rather than the interface: the two agree only while the literal
+	// is what the annotation says it is, and this is the case that reads a
+	// method count off something that ships instead of off a list.
+	it('classifies every method the auth object carries', () => {
+		const classified = [...WORKOS_IDENTITY_WRITE_METHODS, ...WORKOS_SESSION_AND_READ_METHODS];
 
-		expect(() => wrapped[method]()).toThrow(WorkOsIdentityWritesDisabledError);
-		expect(auth[method]).not.toHaveBeenCalled();
+		expect(Object.keys(stubbedWorkOsAuth()).sort()).toEqual(classified.sort());
 	});
 
-	it.each(SESSION_AND_READS)('passes %s through', async (method) => {
-		const auth = fakeAuth();
-		const wrapped = withoutWorkOsIdentityWrites(auth);
+	it.each(WORKOS_IDENTITY_WRITE_METHODS)('refuses %s', (method) => {
+		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
-		await expect(wrapped[method]('argument')).resolves.toBe('called');
-		expect(auth[method]).toHaveBeenCalledWith('argument');
+		expect(() => (wrapped[method] as AnyCall)()).toThrow(WorkOsIdentityWritesDisabledError);
+		expect(sdkCalls).toEqual([]);
+	});
+
+	it.each(WORKOS_SESSION_AND_READ_METHODS)('passes %s through', async (method) => {
+		const { args, reaches } = SESSION_AND_READS[method];
+		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
+
+		const refusal = await refusalFrom(() => (wrapped[method] as AnyCall)(...args));
+
+		expect(refusal).toBeNull();
+		expect(sdkCalls).toEqual(reaches === null ? [] : [reaches]);
 	});
 
 	// The whole reason it is an allowlist. A ninth WorkOS write added to
@@ -76,9 +192,9 @@ describe('withoutWorkOsIdentityWrites', () => {
 	});
 
 	it('names the refused method for the log', () => {
-		const wrapped = withoutWorkOsIdentityWrites(fakeAuth());
+		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
-		expect(() => wrapped.sendOrganizationInvitation()).toThrow(
+		expect(() => wrapped.sendOrganizationInvitation({} as never)).toThrow(
 			expect.objectContaining({ method: 'sendOrganizationInvitation' }),
 		);
 	});
@@ -97,7 +213,7 @@ describe('withoutWorkOsIdentityWrites', () => {
 	});
 
 	it('answers whether it is the wrapped object', () => {
-		const auth = fakeAuth();
+		const auth = stubbedWorkOsAuth();
 
 		expect(workOsIdentityWritesDisabled(auth)).toBe(false);
 		expect(workOsIdentityWritesDisabled(withoutWorkOsIdentityWrites(auth))).toBe(true);
@@ -148,14 +264,12 @@ describe('workOsIdentityWriteErrorHandler', () => {
 	});
 });
 
-/** Every method the `auth` object carries, answering the same way. */
-type AuthMethod = (typeof IDENTITY_WRITES)[number] | (typeof SESSION_AND_READS)[number];
-type AuthCall = (...args: readonly unknown[]) => Promise<string>;
-
-function fakeAuth(): Record<AuthMethod, ReturnType<typeof vi.fn<AuthCall>>> {
-	const auth = {} as Record<AuthMethod, ReturnType<typeof vi.fn<AuthCall>>>;
-	for (const method of [...IDENTITY_WRITES, ...SESSION_AND_READS]) {
-		auth[method] = vi.fn<AuthCall>(async () => 'called');
+/** What a call threw, or `null` when it answered. */
+async function refusalFrom(call: () => unknown): Promise<unknown> {
+	try {
+		await call();
+		return null;
+	} catch (error) {
+		return error;
 	}
-	return auth;
 }

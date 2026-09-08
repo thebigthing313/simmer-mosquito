@@ -96,8 +96,8 @@ export type RouteTypeIndex =
  * Where a row goes, or why it does not go anywhere yet.
  *
  * `pending` is a wait and the caller has to draw it as one; `unresolved` is a
- * row with no destination at all, which is a route this agency cannot see or a
- * kind that carries its own `to`.
+ * row with no destination at all, which is a route this organization cannot see
+ * or a kind that carries its own `to`.
  */
 export type DestinationResolution<TDestination> =
 	| { readonly status: 'ready'; readonly destination: TDestination }
@@ -143,12 +143,12 @@ function recordDestination(result: SearchRecordResult): DestinationResolution<Se
 /**
  * A comment row, and the one lookup on this whole surface.
  *
- * Sixteen of the seventeen target types resolve to a fixed route. `route` is the
- * exception: the comment document borrows nothing from its target, so the type
- * comes from the synced collection. Until that collection is ready the answer is
- * `pending` rather than a tree, because guessing either one is a confident wrong
- * answer; once it is ready, an id it does not hold names a route this agency
- * cannot see.
+ * Sixteen of the seventeen target types resolve to a fixed route. `route` is
+ * the exception: the comment document borrows nothing from its target, so the
+ * type comes from the synced collection. Until that collection is ready the
+ * answer is `pending` rather than a tree, because guessing either one is a
+ * confident wrong answer; once it is ready, an id it does not hold names a
+ * route this organization cannot see.
  */
 function commentDestination(
 	result: SearchCommentResult,

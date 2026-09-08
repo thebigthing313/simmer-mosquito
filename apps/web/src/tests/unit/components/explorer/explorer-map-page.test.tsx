@@ -250,8 +250,8 @@ describe('ExplorerMapPage', () => {
 		expect(screen.getByRole('button', { name: 'Filters' }).textContent).toBe('');
 	});
 
-	// The Regions tree and the Activity Monitor's day-grouped log are not flat
-	// lists, so they fill the rows slot with a body instead of rows.
+	// The Regions tree and Daily Work's grouped log are not flat lists, so they
+	// fill the rows slot with a body instead of rows.
 	it('draws a caller-supplied body in place of the rows', () => {
 		render(<Page body={<p>folder tree</p>} />);
 
@@ -264,8 +264,8 @@ describe('ExplorerMapPage', () => {
 		expect(screen.getByRole('button', { name: 'Hide results' })).toBeTruthy();
 	});
 
-	// Story 26 for a body caller: the Activity Monitor's log used to blank back to
-	// placeholders every time the reader changed the person or the date window.
+	// Story 26 for a body caller: the activity log used to blank back to
+	// placeholders every time the reader moved the date window under it.
 	it('leaves a body on screen while it reloads, rather than going back to placeholders', () => {
 		render(<Page body={<p>folder tree</p>} isLoading />);
 

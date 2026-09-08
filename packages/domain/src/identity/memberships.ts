@@ -24,26 +24,24 @@
  * `apps/server/src/membership-commands.ts`.
  */
 
+import { SIMMER_ROLES, type SimmerRole } from '../column-vocabularies.js';
 import {
 	createIssues,
 	requiredId as normalizeRequiredId,
 	nullableText,
+	organizationPayload,
 	requiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 } from '../command-validation.js';
-import type { SimmerRole } from '../roles.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
-import {
-	type AgencyIdentityCommandInput,
-	type AgencyIdentityCommandPayload,
-	agencyPayload,
-	type IdentityDomainCommand,
-	validateAgencyBase,
-	validateAgencyIdCommand,
+import type {
+	IdentityDomainCommand,
+	OrganizationIdentityCommandInput,
+	OrganizationIdentityCommandPayload,
 } from './shared.js';
-
-const ROLES: readonly SimmerRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
 
 /**
  * A role as it arrives, which may be nothing.
@@ -57,7 +55,7 @@ const ROLES: readonly SimmerRole[] = ['owner', 'admin', 'manager', 'collector', 
 export type RoleInput = SimmerRole | undefined;
 
 /**
- * Inviting somebody into the agency.
+ * Inviting somebody into the organization.
  *
  * `profileId` is the Profile the login attaches to, and it is one id either way:
  * an existing historical Profile the invite dialog picked, or one the client
@@ -65,7 +63,7 @@ export type RoleInput = SimmerRole | undefined;
  * not a flag the client asserts — a flag that disagreed with the row would be a
  * retry refused for telling the truth the second time.
  */
-export interface InviteCommandInput extends AgencyIdentityCommandInput {
+export interface InviteCommandInput extends OrganizationIdentityCommandInput {
 	readonly membershipId: DomainId;
 	readonly profileId: DomainId;
 	readonly invitedEmail: string;
@@ -76,7 +74,7 @@ export interface InviteCommandInput extends AgencyIdentityCommandInput {
 
 export type InviteCommand = IdentityDomainCommand<
 	'identity.invite',
-	AgencyIdentityCommandPayload & {
+	OrganizationIdentityCommandPayload & {
 		readonly membershipId: DomainId;
 		readonly profileId: DomainId;
 		readonly invitedEmail: string;
@@ -93,27 +91,27 @@ export type InviteCommand = IdentityDomainCommand<
  * else wearing the same row. The role can move, because the reason to re-invite
  * is usually that the first one named the wrong one.
  */
-export interface ReinviteCommandInput extends AgencyIdentityCommandInput {
+export interface ReinviteCommandInput extends OrganizationIdentityCommandInput {
 	readonly membershipId: DomainId;
 	readonly role: RoleInput;
 }
 
 export type ReinviteCommand = IdentityDomainCommand<
 	'identity.reinvite',
-	AgencyIdentityCommandPayload & {
+	OrganizationIdentityCommandPayload & {
 		readonly membershipId: DomainId;
 		readonly role: SimmerRole;
 	}
 >;
 
-export interface ChangeRoleCommandInput extends AgencyIdentityCommandInput {
+export interface ChangeRoleCommandInput extends OrganizationIdentityCommandInput {
 	readonly membershipId: DomainId;
 	readonly role: RoleInput;
 }
 
 export type ChangeRoleCommand = IdentityDomainCommand<
 	'identity.changeRole',
-	AgencyIdentityCommandPayload & {
+	OrganizationIdentityCommandPayload & {
 		readonly membershipId: DomainId;
 		readonly role: SimmerRole;
 	}
@@ -126,13 +124,13 @@ export type ChangeRoleCommand = IdentityDomainCommand<
  * held, and the Profile it points at goes on naming every record the person
  * created.
  */
-export interface EndMembershipCommandInput extends AgencyIdentityCommandInput {
+export interface EndMembershipCommandInput extends OrganizationIdentityCommandInput {
 	readonly membershipId: DomainId;
 }
 
 export type EndMembershipCommand = IdentityDomainCommand<
 	'identity.endMembership',
-	AgencyIdentityCommandPayload & {
+	OrganizationIdentityCommandPayload & {
 		readonly membershipId: DomainId;
 	}
 >;
@@ -146,7 +144,7 @@ export type MembershipCommand =
 
 export function inviteCommand(input: InviteCommandInput): InviteCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.membershipId, 'membershipId', issues);
 	requireUuid(input.profileId, 'profileId', issues);
 	const invitedEmail = validateEmail(input.invitedEmail, issues);
@@ -157,7 +155,7 @@ export function inviteCommand(input: InviteCommandInput): InviteCommand {
 	return {
 		type: 'identity.invite',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			membershipId: normalizeRequiredId(input.membershipId),
 			profileId: normalizeRequiredId(input.profileId),
 			invitedEmail,
@@ -168,14 +166,14 @@ export function inviteCommand(input: InviteCommandInput): InviteCommand {
 }
 
 export function reinviteCommand(input: ReinviteCommandInput): ReinviteCommand {
-	const issues = validateAgencyIdCommand(input, 'membershipId');
+	const issues = validateOrganizationIdCommand(input, 'membershipId');
 	const role = validateRole(input.role, issues);
 	throwIfIssues('Reinvite command is invalid.', issues);
 
 	return {
 		type: 'identity.reinvite',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			membershipId: normalizeRequiredId(input.membershipId),
 			role,
 		},
@@ -183,14 +181,14 @@ export function reinviteCommand(input: ReinviteCommandInput): ReinviteCommand {
 }
 
 export function changeRoleCommand(input: ChangeRoleCommandInput): ChangeRoleCommand {
-	const issues = validateAgencyIdCommand(input, 'membershipId');
+	const issues = validateOrganizationIdCommand(input, 'membershipId');
 	const role = validateRole(input.role, issues);
 	throwIfIssues('Change role command is invalid.', issues);
 
 	return {
 		type: 'identity.changeRole',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			membershipId: normalizeRequiredId(input.membershipId),
 			role,
 		},
@@ -198,13 +196,13 @@ export function changeRoleCommand(input: ChangeRoleCommandInput): ChangeRoleComm
 }
 
 export function endMembershipCommand(input: EndMembershipCommandInput): EndMembershipCommand {
-	const issues = validateAgencyIdCommand(input, 'membershipId');
+	const issues = validateOrganizationIdCommand(input, 'membershipId');
 	throwIfIssues('End membership command is invalid.', issues);
 
 	return {
 		type: 'identity.endMembership',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			membershipId: normalizeRequiredId(input.membershipId),
 		},
 	};
@@ -230,7 +228,7 @@ function validateEmail(value: string | undefined, issues: DomainValidationIssue[
 }
 
 function validateRole(value: RoleInput, issues: DomainValidationIssue[]): SimmerRole {
-	if (value === undefined || !ROLES.includes(value)) {
+	if (value === undefined || !SIMMER_ROLES.includes(value)) {
 		issues.push({
 			path: 'role',
 			message: 'role must be owner, admin, manager, collector, or viewer.',

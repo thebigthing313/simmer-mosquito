@@ -18,7 +18,7 @@ import {
  * things, and reading the row count cannot tell them apart.
  */
 export function useRouteTypeIndex(): RouteTypeIndex {
-	const lookup = useLiveQuery((builder) => builder.from({ row: routesCollection }), []);
+	const lookup = useLiveQuery((builder) => builder.from({ row: routesCollection() }), []);
 
 	if (!lookup.isReady) {
 		return { status: 'loading' };

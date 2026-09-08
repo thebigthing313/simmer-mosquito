@@ -44,18 +44,28 @@ export function useTrapRoutes(): {
 	readonly routes: readonly RouteSummary[];
 	readonly isReady: boolean;
 	readonly isLoading: boolean;
+	/**
+	 * The read failed. Distinct from a ready query holding no route: the edit
+	 * page offers a retry for one and "no such record" for the other.
+	 */
+	readonly isError: boolean;
 } {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ route: routes })
+				.from({ route: routes() })
 				.where(({ route }) => eq(route.route_type, 'trap'))
 				.orderBy(({ route }) => route.route_name, 'asc')
 				.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
 		[],
 	);
 
-	return { routes: result.data, isReady: result.isReady, isLoading: !result.isReady };
+	return {
+		routes: result.data,
+		isReady: result.isReady,
+		isLoading: !result.isReady,
+		isError: result.isError,
+	};
 }
 
 /** Stop counts per trap route, from the on-demand `route_items` subset. */
@@ -68,7 +78,7 @@ export function useRouteStopCounts(): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) => eq(item.entity_type, 'trap'))
 					.select(({ item }) => ({ routeId: item.route_id })),
 		},
@@ -94,8 +104,8 @@ export function useRouteStopCounts(): {
  * ## One query, not two
  *
  * This read the whole eager `traps` table into a `Map` and looked each stop's
- * trap up in it. The join does the same work without materialising every trap the
- * agency runs to name the twenty on this route.
+ * trap up in it. The join does the same work without materialising every trap
+ * the organization runs to name the twenty on this route.
  */
 export function useRouteStops(routeId: string | null): {
 	readonly stops: readonly RouteStopView[];
@@ -108,7 +118,7 @@ export function useRouteStops(routeId: string | null): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) =>
 						and(
 							// An unmatchable id keeps the hook order stable while no route is
@@ -121,7 +131,7 @@ export function useRouteStops(routeId: string | null): {
 					)
 					// `left`: a stop whose Trap has not streamed in yet still belongs in the
 					// itinerary, drawn as resolving rather than dropped.
-					.join({ trap: traps }, ({ item, trap }) => eq(item.entity_id, trap.id), 'left')
+					.join({ trap: traps() }, ({ item, trap }) => eq(item.entity_id, trap.id), 'left')
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item, trap }) => ({
 						routeItemId: item.id,

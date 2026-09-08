@@ -2,7 +2,9 @@ import type {
 	AuthUser,
 	SessionAuthenticationOptions,
 	SessionAuthenticationResult,
+	WorkOsAuth,
 } from '@simmer-mosquito/auth';
+import type { AuthenticatedMe, RefusedMeBody } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity, SimmerRole } from '@simmer-mosquito/db';
 import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 
@@ -17,7 +19,7 @@ export interface AuthContext {
 	readonly membership: ActiveLocalAuthIdentity['membership'];
 	readonly role: SimmerRole;
 	/**
-	 * The agency's IANA timezone — the authority for which calendar day a
+	 * The organization's IANA timezone — the authority for which calendar day a
 	 * timestamped record belongs to.
 	 *
 	 * On the context rather than fetched per read because *every* date-bounded
@@ -27,16 +29,17 @@ export interface AuthContext {
 	 */
 	readonly timeZone: string;
 	/**
-	 * Whether this session is signed in **as SIMMER** rather than as an agency.
+	 * Whether this session is signed in **as SIMMER** rather than as an
+	 * organization.
 	 *
 	 * The same test `createOperatorAuthContextMiddleware` makes — the selected
 	 * WorkOS organization is the operator organization — resolved once here so
 	 * that a route serving both kinds of caller can ask without a second query or
 	 * a second middleware.
 	 *
-	 * It exists because operators hold an ordinary agency membership too
-	 * (ADR 0011), so a role alone cannot tell an operator from an agency admin.
-	 * A command that only SIMMER may send says so through
+	 * It exists because operators hold an ordinary organization membership too
+	 * (ADR 0011), so a role alone cannot tell an operator from an organization
+	 * admin. A command that only SIMMER may send says so through
 	 * `CommandPermission`'s `operator` kind, and that kind reads this.
 	 *
 	 * `false` when `SIMMER_OPERATOR_ORG_ID` is unset, which is the safe reading:
@@ -73,12 +76,34 @@ export type AuthContextResult =
 			readonly sealedSession?: string;
 	  };
 
+/**
+ * The per-request session check, as a seam rather than as a view.
+ *
+ * Its own interface and not a `Pick<WorkOsAuth, 'authenticateSession'>`, because
+ * `dev-impersonation.ts` implements it without being a WorkOS client at all and
+ * `main.ts` threads it separately from `auth` for that reason. The assertion
+ * below is what keeps the two shapes in step anyway.
+ */
 export interface AuthSessionProvider {
 	authenticateSession(
 		sealedSession: string | undefined,
 		options: SessionAuthenticationOptions,
 	): Promise<SessionAuthenticationResult>;
 }
+
+/**
+ * Errors with the method name when the real WorkOS client stops fitting the seam.
+ *
+ * Deliberately the same three lines as in `packages/auth/src/index.ts` and in the
+ * generated drift suite at
+ * `packages/sync/src/tests/unit/collections/tables/drift.test.ts`, because a shared
+ * export was considered and refused: the idiom has no runtime and exporting it would
+ * put a dependency edge between packages that need nothing else from each other (#716).
+ */
+type Assert<T extends never> = T;
+type _WorkOsAuthIsASessionProvider = Assert<
+	WorkOsAuth extends AuthSessionProvider ? never : 'authenticateSession'
+>;
 
 export interface LocalAuthIdentityResolver {
 	resolveActiveLocalAuthIdentity(input: {
@@ -168,7 +193,22 @@ export async function resolveAuthContext(options: {
 	};
 }
 
-export function toAuthFailureBody(result: Extract<AuthContextResult, { ok: false }>) {
+/**
+ * The refusal body, whose type `packages/auth` owns.
+ *
+ * Annotated for the reason {@link toAuthMeBody} is, on the other arm of the
+ * same endpoint. Inferred, it put `error` on the wire while `UnauthenticatedMe`
+ * declared only `authenticated` and `reason`, so a rename on either side
+ * compiled on both and the field arrived `undefined` at every read site. That
+ * is the case #615 closed for the authenticated arm and left open here (#698).
+ *
+ * It also holds {@link AuthContextError} to the three refusals the clients
+ * name: a fourth kind, or a renamed one, fails here rather than reaching a
+ * client as a string nothing matches.
+ */
+export function toAuthFailureBody(
+	result: Extract<AuthContextResult, { ok: false }>,
+): RefusedMeBody {
 	return {
 		authenticated: false,
 		error: result.error.type,
@@ -176,7 +216,44 @@ export function toAuthFailureBody(result: Extract<AuthContextResult, { ok: false
 	};
 }
 
-export function toAuthMeBody(authContext: AuthContext) {
+/**
+ * The `/auth/me` body with every field of it present.
+ *
+ * `LocalIdentity` in `packages/auth` makes `organizationName` and
+ * `organizationSlug` optional, so {@link AuthenticatedMe} on its own refuses a
+ * renamed field and accepts a deleted one. That is half of the case #615 opens
+ * on, and `Required` is what closes it.
+ *
+ * Tightened on the producer rather than on the client declaration, which stays
+ * as it is: a reader parses a body it did not build and has to tolerate one
+ * that omits them, while the one thing that builds the body is held to all
+ * seven. Derived from `AuthenticatedMe` rather than naming the fields, so this
+ * cannot become the third copy of the shape.
+ */
+type CompleteAuthMe = AuthenticatedMe & {
+	readonly localIdentity: Required<AuthenticatedMe['localIdentity']>;
+};
+
+/**
+ * The `/auth/me` body, whose type `packages/auth` owns.
+ *
+ * Annotated rather than inferred because this function is the only producer of
+ * a contract three front ends read: 72 non-test modules under `apps/web`,
+ * `apps/admin` and `apps/mobile` name `localIdentity`, one of them
+ * `readOrgRole` in `apps/web/src/lib/write-access.ts`, the gate deciding
+ * whether the UI offers a write action at all. While the type was inferred here
+ * and written out by hand in `packages/auth`, renaming a field on this side
+ * compiled on both, and the field arrived `undefined` at every read site.
+ *
+ * {@link AuthenticatedMe} comes from `@simmer-mosquito/auth/browser` because
+ * the client half already lived there and moving it would buy a nicer import
+ * name for real churn. Reaching that subpath from the server costs nothing: it
+ * resolves to source rather than `dist/`, so it owes no `fallow` condition,
+ * `apps/server` already depends on the package and references it in tsconfig,
+ * and the module touches no DOM. Its own docblock says the `browser` name is
+ * historical.
+ */
+export function toAuthMeBody(authContext: AuthContext): CompleteAuthMe {
 	return {
 		authenticated: true,
 		user: authContext.workosUser,
@@ -188,23 +265,6 @@ export function toAuthMeBody(authContext: AuthContext) {
 			organizationSlug: authContext.organization.slug,
 			profileId: authContext.profile.id,
 			membershipId: authContext.membership.id,
-			role: authContext.role,
-		},
-	};
-}
-
-export function toPublicAuthContext(authContext: AuthContext) {
-	return {
-		workos: {
-			user: authContext.workosUser,
-			organizationId: authContext.workosOrganizationId,
-			role: authContext.workosRole,
-		},
-		simmer: {
-			user: authContext.user,
-			organization: authContext.organization,
-			profile: authContext.profile,
-			membership: authContext.membership,
 			role: authContext.role,
 		},
 	};

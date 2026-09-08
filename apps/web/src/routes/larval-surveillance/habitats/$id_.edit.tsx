@@ -1,19 +1,22 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
-import { RecordUnavailable } from '../../../components/record';
-import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
+import { toDrawGeometry } from '../../../components/map/use-map-draw';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import {
+	type HabitatRedraw,
+	useHabitatMutations,
+} from '../../../hooks/mutations/use-habitat-mutations';
 import {
 	type SchemaCatalogListing,
 	useHabitatTypeRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { type HabitatRecord, useHabitatRecord } from '../../../hooks/queries/use-habitat-record';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
 	type DrawGeometry,
@@ -24,7 +27,7 @@ import {
 
 export const Route = createFileRoute('/larval-surveillance/habitats/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/habitats/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -43,22 +46,20 @@ function EditHabitatRoute() {
 	const organizationId =
 		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="habitat" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (habitat === undefined) {
-		return <RecordUnavailable layout="centered" noun="habitat" reason="not-found" />;
-	}
-
 	return (
-		<EditHabitatLoader
-			habitat={habitat}
-			habitatTypes={habitatTypes}
-			organizationId={organizationId}
-		/>
+		<RecordEditFrame
+			noun="habitat"
+			reading={{ isError, isReady, record: habitat }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-32', 'h-24']} />}
+		>
+			{(record) => (
+				<EditHabitatLoader
+					habitat={record}
+					habitatTypes={habitatTypes}
+					organizationId={organizationId}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 
@@ -94,12 +95,13 @@ function EditHabitatLoader({
 		async ({
 			values,
 			geometry,
+			geometryChanged,
 		}: {
 			readonly values: HabitatFormValues;
 			readonly geometry: DrawGeometry;
+			readonly geometryChanged: boolean;
 		}) => {
-			const drawn = geometry as unknown as GeoJsonGeometry;
-			const geometryChanged = JSON.stringify(geometry) !== JSON.stringify(initialGeometry);
+			const drawn = geometry;
 
 			// Prime the detail's geometry cache so it shows this geometry the moment
 			// we navigate, rather than refetching and flashing an empty state.
@@ -109,7 +111,11 @@ function EditHabitatLoader({
 				await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } });
 			};
 
-			let redraw: Parameters<typeof mutations.save>[3] = null;
+			// The flag comes from the draw state, which is the only thing that knows.
+			// Deriving it here by serialising both shapes made an untouched save name
+			// `updateHabitatLocation`, which is manager-and-above, and a collector
+			// fixing a description was refused (#427).
+			let redraw: HabitatRedraw | null = null;
 			if (geometryChanged) {
 				const centroid = ownedCentroidFromGeoJson(drawn);
 				if (centroid === null) {
@@ -140,7 +146,7 @@ function EditHabitatLoader({
 			);
 			await done();
 		},
-		[habitat, initialGeometry, mutations, navigate, queryClient],
+		[habitat, mutations, navigate, queryClient],
 	);
 
 	if (geometryQuery.isError) {
@@ -154,7 +160,7 @@ function EditHabitatLoader({
 		);
 	}
 	if (geometryQuery.isPending) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-32', 'h-24']} />;
 	}
 
 	return (
@@ -193,7 +199,7 @@ async function fetchHabitatGeometry(
 	signal: AbortSignal,
 ): Promise<DrawGeometry | null> {
 	const url = new URL(`/map/habitats/${habitatId}`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
 		return null;
 	}
@@ -207,48 +213,7 @@ async function fetchHabitatGeometry(
 	return toDrawGeometry(body.habitat?.geojson ?? null);
 }
 
-// The draw flow owns single Point/LineString/Polygon geometries. Anything else
-// (legacy multi-geometries) can't be re-drawn vertex-by-vertex here, so it seeds
-// as "no geometry" — details are still editable and a redraw replaces it.
-function toDrawGeometry(geojson: unknown): DrawGeometry | null {
-	if (geojson === null || typeof geojson !== 'object') {
-		return null;
-	}
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
-	// Require coordinates to be present and non-empty: a type-only geometry would
-	// crash the summary/preview, so treat it as "no geometry" (redraw to set one).
-	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
-		return null;
-	}
-	if (
-		candidate.type === 'Point' ||
-		candidate.type === 'LineString' ||
-		candidate.type === 'Polygon'
-	) {
-		return geojson as DrawGeometry;
-	}
-	return null;
-}
-
 function nullableText(value: string): string | null {
 	const text = value.trim();
 	return text.length === 0 ? null : text;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-32 w-full" />
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

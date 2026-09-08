@@ -1,28 +1,38 @@
 import {
+	basePayload,
 	createIssues,
 	nullableText as normalizeNullableText,
+	normalizeOptionalTimestamp,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
+	validateIdList,
 	validateLocalDate,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
 import {
+	localDateField,
+	nullableReferenceIdField,
+	nullableTextField,
+	timestampField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	ASSIGNMENT_ITEM_TARGET_TYPES,
 	type AssignmentItemPlacement,
 	type AssignmentItemTarget,
-	basePayload,
 	type FieldWorkCommandInput,
 	type FieldWorkCommandPayload,
 	type FieldWorkDomainCommand,
-	normalizeOptionalTimestamp,
 	type RouteAssignmentItemIdMapping,
 	validateAssignmentPlacement,
-	validateBase,
-	validateIdCommand,
-	validateIdList,
 	validateTarget,
 } from './shared.js';
 
@@ -78,24 +88,23 @@ export type SelfAssignRouteCommand = FieldWorkDomainCommand<
 	}
 >;
 
-export interface UpdateAssignmentDetailsCommandInput extends FieldWorkCommandInput {
-	readonly assignmentId: DomainId;
-	readonly assignmentDate?: LocalDateString;
-	readonly assignmentName?: string | null;
-	readonly assignedToProfileId?: DomainId | null;
-	readonly dueAt?: Date | null;
-}
+export const ASSIGNMENT_UPDATE_FIELDS = {
+	assignmentDate: localDateField,
+	assignmentName: nullableTextField(200),
+	assignedToProfileId: nullableReferenceIdField,
+	dueAt: timestampField(true),
+} satisfies UpdateFieldSet;
+
+export type UpdateAssignmentDetailsCommandInput = FieldWorkCommandInput &
+	UpdateFieldsInput<typeof ASSIGNMENT_UPDATE_FIELDS> & {
+		readonly assignmentId: DomainId;
+	};
 
 export type UpdateAssignmentDetailsCommand = FieldWorkDomainCommand<
 	'fieldWork.updateAssignmentDetails',
 	FieldWorkCommandPayload & {
 		readonly assignmentId: DomainId;
-		readonly changes: Readonly<{
-			readonly assignmentDate?: LocalDateString;
-			readonly assignmentName?: string | null;
-			readonly assignedToProfileId?: DomainId | null;
-			readonly dueAt?: Date | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof ASSIGNMENT_UPDATE_FIELDS>;
 	}
 >;
 
@@ -118,16 +127,20 @@ export type AddAssignmentItemCommand = FieldWorkDomainCommand<
 	}
 >;
 
-export interface UpdateAssignmentItemCommandInput extends FieldWorkCommandInput {
-	readonly assignmentItemId: DomainId;
-	readonly directionsToNextItem?: string | null;
-}
+export const ASSIGNMENT_ITEM_UPDATE_FIELDS = {
+	directionsToNextItem: nullableTextField(4_000),
+} satisfies UpdateFieldSet;
+
+export type UpdateAssignmentItemCommandInput = FieldWorkCommandInput &
+	UpdateFieldsInput<typeof ASSIGNMENT_ITEM_UPDATE_FIELDS> & {
+		readonly assignmentItemId: DomainId;
+	};
 
 export type UpdateAssignmentItemCommand = FieldWorkDomainCommand<
 	'fieldWork.updateAssignmentItem',
 	FieldWorkCommandPayload & {
 		readonly assignmentItemId: DomainId;
-		readonly changes: Readonly<{ readonly directionsToNextItem?: string | null }>;
+		readonly changes: UpdateFieldsChanges<typeof ASSIGNMENT_ITEM_UPDATE_FIELDS>;
 	}
 >;
 
@@ -298,41 +311,15 @@ export function selfAssignRouteCommand(input: SelfAssignRouteCommandInput): Self
 export function updateAssignmentDetailsCommand(
 	input: UpdateAssignmentDetailsCommandInput,
 ): UpdateAssignmentDetailsCommand {
-	const issues = validateIdCommand(input, 'assignmentId', requireUuid);
-	const hasDate = input.assignmentDate !== undefined;
-	const hasName = input.assignmentName !== undefined;
-	const hasAssignedTo = input.assignedToProfileId !== undefined;
-	const hasDueAt = input.dueAt !== undefined;
-	if (!hasDate && !hasName && !hasAssignedTo && !hasDueAt) {
-		issues.push({ path: 'changes', message: 'At least one assignment detail must change.' });
-	}
-	if (hasDate) {
-		validateLocalDate(input.assignmentDate, 'assignmentDate', issues);
-	}
-	const assignmentName = hasName
-		? normalizeNullableText(input.assignmentName, 'assignmentName', issues, 200)
-		: undefined;
-	const assignedToProfileId = hasAssignedTo
-		? normalizeOptionalUuid(input.assignedToProfileId, 'assignedToProfileId', issues)
-		: undefined;
-	const dueAt = hasDueAt
-		? normalizeOptionalTimestamp(input.dueAt, 'dueAt', issues, true)
-		: undefined;
-	throwIfIssues('Update assignment details command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'fieldWork.updateAssignmentDetails',
-		payload: {
-			...basePayload(input),
-			assignmentId: normalizeRequiredId(input.assignmentId),
-			changes: {
-				...(hasDate ? { assignmentDate: input.assignmentDate } : {}),
-				...(hasName ? { assignmentName: assignmentName ?? null } : {}),
-				...(hasAssignedTo ? { assignedToProfileId: assignedToProfileId ?? null } : {}),
-				...(hasDueAt ? { dueAt: dueAt ?? null } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'assignmentId',
+		fields: ASSIGNMENT_UPDATE_FIELDS,
+		changeNoun: 'assignment',
+		emptyChangeMessage: 'At least one assignment detail must change.',
+		message: 'Update assignment details command is invalid.',
+	});
 }
 
 export function addAssignmentItemCommand(
@@ -379,30 +366,20 @@ export function addAssignmentItemCommand(
 export function updateAssignmentItemCommand(
 	input: UpdateAssignmentItemCommandInput,
 ): UpdateAssignmentItemCommand {
-	const issues = validateIdCommand(input, 'assignmentItemId', requireUuid);
-	const hasDirections = input.directionsToNextItem !== undefined;
-	if (!hasDirections) {
-		issues.push({ path: 'changes', message: 'At least one assignment item field must change.' });
-	}
-	const directionsToNextItem = hasDirections
-		? normalizeNullableText(input.directionsToNextItem, 'directionsToNextItem', issues, 4_000)
-		: undefined;
-	throwIfIssues('Update assignment item command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'fieldWork.updateAssignmentItem',
-		payload: {
-			...basePayload(input),
-			assignmentItemId: normalizeRequiredId(input.assignmentItemId),
-			changes: { ...(hasDirections ? { directionsToNextItem: directionsToNextItem ?? null } : {}) },
-		},
-	};
+		input,
+		idKey: 'assignmentItemId',
+		fields: ASSIGNMENT_ITEM_UPDATE_FIELDS,
+		changeNoun: 'assignment item',
+		message: 'Update assignment item command is invalid.',
+	});
 }
 
 export function removeAssignmentItemCommand(
 	input: AssignmentItemIdCommandInput,
 ): RemoveAssignmentItemCommand {
-	const issues = validateIdCommand(input, 'assignmentItemId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentItemId');
 	throwIfIssues('Remove assignment item command is invalid.', issues);
 	return {
 		type: 'fieldWork.removeAssignmentItem',
@@ -419,12 +396,7 @@ export function moveAssignmentItemsCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.assignmentId, 'assignmentId', issues);
-	const assignmentItemIds = validateIdList(
-		input.assignmentItemIds,
-		'assignmentItemIds',
-		issues,
-		requireUuid,
-	);
+	const assignmentItemIds = validateIdList(input.assignmentItemIds, 'assignmentItemIds', issues);
 	const placement = validateAssignmentPlacement(input.placement, 'placement', issues, requireUuid);
 	throwIfIssues('Move assignment items command is invalid.', issues);
 
@@ -440,7 +412,7 @@ export function moveAssignmentItemsCommand(
 }
 
 export function startAssignmentCommand(input: StartAssignmentCommandInput): StartAssignmentCommand {
-	const issues = validateIdCommand(input, 'assignmentId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentId');
 	const startedAt = normalizeOptionalTimestamp(input.startedAt, 'startedAt', issues, false);
 	throwIfIssues('Start assignment command is invalid.', issues);
 	return {
@@ -456,7 +428,7 @@ export function startAssignmentCommand(input: StartAssignmentCommandInput): Star
 export function completeAssignmentCommand(
 	input: CompleteAssignmentCommandInput,
 ): CompleteAssignmentCommand {
-	const issues = validateIdCommand(input, 'assignmentId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentId');
 	const completedAt = normalizeOptionalTimestamp(input.completedAt, 'completedAt', issues, false);
 	throwIfIssues('Complete assignment command is invalid.', issues);
 	return {
@@ -472,7 +444,7 @@ export function completeAssignmentCommand(
 export function cancelAssignmentCommand(
 	input: CancelAssignmentCommandInput,
 ): CancelAssignmentCommand {
-	const issues = validateIdCommand(input, 'assignmentId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentId');
 	const cancelledAt = normalizeOptionalTimestamp(input.cancelledAt, 'cancelledAt', issues, false);
 	const cancellationReason = normalizeNullableText(
 		input.cancellationReason,
@@ -493,7 +465,7 @@ export function cancelAssignmentCommand(
 }
 
 export function reopenAssignmentCommand(input: AssignmentIdCommandInput): ReopenAssignmentCommand {
-	const issues = validateIdCommand(input, 'assignmentId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentId');
 	throwIfIssues('Reopen assignment command is invalid.', issues);
 	return {
 		type: 'fieldWork.reopenAssignment',
@@ -504,7 +476,7 @@ export function reopenAssignmentCommand(input: AssignmentIdCommandInput): Reopen
 export function deleteAssignmentCommand(
 	input: DeleteAssignmentCommandInput,
 ): DeleteAssignmentCommand {
-	const issues = validateIdCommand(input, 'assignmentId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentId');
 	throwIfIssues('Delete assignment command is invalid.', issues);
 	return {
 		type: 'fieldWork.deleteAssignment',
@@ -519,7 +491,7 @@ export function deleteAssignmentCommand(
 export function completeAssignmentItemCommand(
 	input: CompleteAssignmentItemCommandInput,
 ): CompleteAssignmentItemCommand {
-	const issues = validateIdCommand(input, 'assignmentItemId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentItemId');
 	const completedAt = normalizeOptionalTimestamp(input.completedAt, 'completedAt', issues, false);
 	throwIfIssues('Complete assignment item command is invalid.', issues);
 	return {
@@ -535,7 +507,7 @@ export function completeAssignmentItemCommand(
 export function reopenAssignmentItemCommand(
 	input: AssignmentItemIdCommandInput,
 ): ReopenAssignmentItemCommand {
-	const issues = validateIdCommand(input, 'assignmentItemId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentItemId');
 	throwIfIssues('Reopen assignment item command is invalid.', issues);
 	return {
 		type: 'fieldWork.reopenAssignmentItem',
@@ -549,7 +521,7 @@ export function reopenAssignmentItemCommand(
 export function skipAssignmentItemCommand(
 	input: SkipAssignmentItemCommandInput,
 ): SkipAssignmentItemCommand {
-	const issues = validateIdCommand(input, 'assignmentItemId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentItemId');
 	const skippedAt = normalizeOptionalTimestamp(input.skippedAt, 'skippedAt', issues, false);
 	const skipReason = normalizeRequiredText(input.skipReason, 'skipReason', issues, 2_000);
 	throwIfIssues('Skip assignment item command is invalid.', issues);
@@ -567,7 +539,7 @@ export function skipAssignmentItemCommand(
 export function unskipAssignmentItemCommand(
 	input: AssignmentItemIdCommandInput,
 ): UnskipAssignmentItemCommand {
-	const issues = validateIdCommand(input, 'assignmentItemId', requireUuid);
+	const issues = validateIdCommand(input, 'assignmentItemId');
 	throwIfIssues('Unskip assignment item command is invalid.', issues);
 	return {
 		type: 'fieldWork.unskipAssignmentItem',

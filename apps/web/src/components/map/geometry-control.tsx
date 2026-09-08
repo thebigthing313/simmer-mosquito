@@ -1,4 +1,16 @@
-import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import {
+	getBaseGeometryType,
+	getOwnedGeometryBaseTypes,
+	getOwnedGeometryPolicy,
+	type OwnedGeometryKind,
+	ownedGeometryAllowsParts,
+} from '@simmer-mosquito/domain';
+import {
+	formatGeometryTypeLabel,
+	type GeoJsonGeometry,
+	type ImportGeometryKind,
+	isImportGeometryKind,
+} from '@simmer-mosquito/mapping';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -6,56 +18,53 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import {
 	ArrowLeftIcon,
 	CheckIcon,
+	CircleIcon,
 	iconRegistry,
 	Loader2Icon,
 	MapPinnedIcon,
+	SplineIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { GeometryImportDialog } from './geometry-import-dialog';
+import { GEOMETRY_TYPE_LABELS, GeometryPartList, GeometryPartSummary } from './geometry-parts';
 import { RegionBoundaryPicker } from './region-boundary-picker';
-import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-map-draw';
+import {
+	type DrawContinueDraft,
+	type DrawEditDraft,
+	type DrawGeometry,
+	type DrawGeometryType,
+	type DrawHoleDraft,
+	drawParts,
+	fitMapToGeometry,
+	isDrawGeometryType,
+	type MapDrawController,
+} from './use-map-draw';
 
 /**
  * The geometry-capture chrome every record that owns Point/LineString/Polygon
  * geometry shares: the type toggle, the current-shape summary, and the buttons
  * that drive `useMapDraw`.
  *
- * Which types a given record may store is a domain decision, not a UI one — see
- * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. Callers pass the
- * matching `allowedTypes`: {@link LOCATABLE_DRAW_TYPES} for records that may hold
- * any shape, {@link POINT_DRAW_TYPES} for the point-only ones.
+ * Which shapes a given record may store is a domain decision, not a UI one, so
+ * callers name the record kind and the control reads the register:
+ * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. A kind allowing
+ * one shape renders without its type toggle.
  *
- * Areas and lines can also be filled from a shape the agency already has — one of
- * its regions, or a KML/KMZ/GeoJSON file — instead of being traced by hand. Those
- * shortcuts commit through the same draw controller, so an adopted shape behaves
- * exactly like a drawn one and can be redrawn or cleared.
+ * A geometry can also be filled from a shape the organization already has
+ * instead of being traced by hand: a KML, KMZ or GeoJSON file on any record,
+ * and one of the organization's own regions where the record stores an area.
+ * Those shortcuts commit through the same draw controller, so an adopted shape
+ * behaves exactly like a drawn one and can be redrawn or cleared.
  */
 
 const UploadIcon = iconRegistry.actions.upload.icon;
-
-const GEOMETRY_TYPE_LABELS: Readonly<Record<DrawGeometryType, string>> = {
-	Point: 'Point',
-	LineString: 'Line',
-	Polygon: 'Polygon',
-};
-
-/** The full locatable set — matches the domain's `LOCATABLE_GEOMETRY_TYPES`. */
-const LOCATABLE_DRAW_TYPES: readonly DrawGeometryType[] = ['Point', 'LineString', 'Polygon'];
-
-/**
- * The point-only set — matches the domain's `ADDRESS_GEOMETRY_TYPES`, the policy
- * behind addresses, traps, collections, service requests, and weather stations.
- * A single allowed type renders the control without its type toggle.
- */
-export const POINT_DRAW_TYPES: readonly DrawGeometryType[] = ['Point'];
-
-/**
- * The area-only set, for records whose geometry is a boundary by definition —
- * regions. A single allowed type renders the control without its type toggle.
- */
-export const POLYGON_DRAW_TYPES: readonly DrawGeometryType[] = ['Polygon'];
+const AddIcon = iconRegistry.actions.add.icon;
+const EditIcon = iconRegistry.actions.edit.icon;
+const DeleteIcon = iconRegistry.actions.delete.icon;
+const ReshapeIcon = iconRegistry.actions.reshape.icon;
+const SplitIcon = iconRegistry.actions.split.icon;
 
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
@@ -65,16 +74,16 @@ export interface GeometryControlProps {
 	readonly onTypeChange?: (type: DrawGeometryType) => void;
 	readonly onDraw: () => void;
 	readonly onClear: () => void;
-	/** Types this record's geometry policy allows. Defaults to all three. */
-	readonly allowedTypes?: readonly DrawGeometryType[];
+	/** The record kind whose geometry this captures. Its policy sets the toggle. */
+	readonly geometryKind: OwnedGeometryKind;
 	readonly label?: string;
 	/** Marks the label with `*` when the record cannot be saved without geometry. */
 	readonly required?: boolean;
 	/** Snap the geometry back to the selected address; hidden when omitted. */
 	readonly onMoveToAddress?: () => void;
 	/**
-	 * The agency whose regions may be reused as a polygon. Pass it on any form
-	 * that captures areas — without it the "fill from a region" shortcut is
+	 * The organization whose regions may be reused as a polygon. Pass it on any
+	 * form that captures areas — without it the "fill from a region" shortcut is
 	 * hidden, since there is no org to search.
 	 */
 	readonly organizationId?: string;
@@ -93,24 +102,31 @@ export function GeometryControl({
 	onTypeChange,
 	onDraw,
 	onClear,
-	allowedTypes = LOCATABLE_DRAW_TYPES,
+	geometryKind,
 	label = 'Geometry',
 	required = false,
 	onMoveToAddress,
 	organizationId,
 	extraActions,
 }: GeometryControlProps) {
-	const [isImporting, setIsImporting] = useState(false);
+	const allowedTypes = getOwnedGeometryBaseTypes(geometryKind);
 	const hasGeometry = geometry !== null;
 	const isBusy = controller.isDrawing || controller.isRequestingPoint;
+	// Read off the shape this control is showing rather than off the controller,
+	// because the address form drives the controller for its "place on map" path
+	// alone and holds its point itself.
+	const parts = drawParts(geometry);
+	// One piece is what puts Continue and Cut hole on the control at all. At two
+	// they move onto the rows, where the piece each belongs to is the row it sits
+	// on.
+	const only = parts.length === 1 ? parts[0] : undefined;
+	// Hidden rather than disabled where the record cannot store the multi shape,
+	// so a Notification Registration never offers a piece it would refuse to save.
+	// The first piece is the draw button's, so it needs something to add to.
+	const canAddPart = hasGeometry && ownedGeometryAllowsParts(geometryKind, geometryType);
 	// Snapping to an address produces a point, so the affordance only belongs on
-	// the point tool — offering it under Line/Polygon would contradict the toggle.
+	// the point tool. Offering it under Line/Polygon would contradict the toggle.
 	const canMoveToAddress = onMoveToAddress !== undefined && geometryType === 'Point';
-	// Both shortcuts produce an area or a line, so they belong to those tools
-	// only; a point is faster to place by clicking than to source from a file.
-	const canUseRegion =
-		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0;
-	const canImportFile = geometryType === 'Polygon' || geometryType === 'LineString';
 
 	return (
 		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
@@ -159,12 +175,25 @@ export function GeometryControl({
 				</ToggleGroup>
 			) : null}
 
-			<div className="flex items-center gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2">
-				<MapPinnedIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-				<p className="m-0 min-w-0 flex-1 truncate text-foreground text-sm">
-					{geometrySummary(geometry)}
-				</p>
-			</div>
+			{parts.length > 1 ? (
+				<GeometryPartList
+					disabled={isBusy}
+					onContinue={controller.continuePart}
+					onCutHole={controller.startHole}
+					onEditVertices={controller.editPart}
+					onHighlight={controller.highlightPart}
+					onRemove={controller.removePart}
+					onRemoveHole={controller.removeHole}
+					onZoom={controller.zoomToPart}
+					parts={parts}
+				/>
+			) : (
+				<GeometryPartSummary
+					disabled={isBusy}
+					onRemoveHole={controller.removeHole}
+					part={parts[0]}
+				/>
+			)}
 
 			<div className="flex flex-wrap gap-2">
 				<Button
@@ -181,6 +210,56 @@ export function GeometryControl({
 					)}
 					{controller.isDrawing ? 'Drawing on the Map…' : drawLabel(geometryType, hasGeometry)}
 				</Button>
+				{/* A point is one position, so there is no end to carry on from. */}
+				{only !== undefined && only.type !== 'Point' ? (
+					<Button
+						disabled={isBusy}
+						onClick={() => controller.continuePart(0)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<EditIcon aria-hidden="true" data-icon="inline-start" />
+						Continue
+					</Button>
+				) : null}
+				{only !== undefined ? (
+					<Button
+						disabled={isBusy}
+						onClick={() => controller.editPart(0)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<SplineIcon aria-hidden="true" data-icon="inline-start" />
+						Edit vertices
+					</Button>
+				) : null}
+				{canAddPart ? (
+					<Button
+						disabled={isBusy}
+						onClick={controller.startPart}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<AddIcon aria-hidden="true" data-icon="inline-start" />
+						Add piece
+					</Button>
+				) : null}
+				{/* A hole is a ring inside a ring, so only an area has anywhere to put one. */}
+				{only?.type === 'Polygon' ? (
+					<Button
+						disabled={isBusy}
+						onClick={() => controller.startHole(0)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<CircleIcon aria-hidden="true" data-icon="inline-start" />
+						Cut hole
+					</Button>
+				) : null}
 				{canMoveToAddress ? (
 					<Button
 						disabled={isBusy}
@@ -202,44 +281,106 @@ export function GeometryControl({
 				) : null}
 			</div>
 
-			{/* Shapes an agency already holds — a region boundary, a file from GIS
-			    staff — beat re-tracing them by hand, so they sit beside the draw
-			    tool rather than replacing it: whatever lands here is still editable. */}
-			{canUseRegion || canImportFile ? (
-				<div className="flex flex-wrap items-center gap-2 border-border/40 border-t pt-2">
-					<span className="text-muted-foreground text-xs">Fill from</span>
-					{canUseRegion && organizationId !== undefined ? (
-						<RegionBoundaryPicker
-							disabled={isBusy}
-							onSelect={(polygon) => controller.commit(polygon)}
-							organizationId={organizationId}
-						/>
-					) : null}
-					{canImportFile ? (
-						<Button
-							aria-label="Fill this geometry from a KML, KMZ, or GeoJSON file"
-							disabled={isBusy}
-							onClick={() => setIsImporting(true)}
-							size="sm"
-							type="button"
-							variant="outline"
-						>
-							<UploadIcon aria-hidden="true" data-icon="inline-start" />
-							File
-						</Button>
-					) : null}
-				</div>
-			) : null}
+			<GeometrySources
+				controller={controller}
+				geometryKind={geometryKind}
+				geometryType={geometryType}
+				isBusy={isBusy}
+				onTypeChange={onTypeChange}
+				organizationId={organizationId}
+			/>
+		</div>
+	);
+}
+
+/**
+ * The shapes an organization already holds: one of its regions, or a KML, KMZ
+ * or GeoJSON file from GIS staff.
+ *
+ * Both beat re-tracing a boundary by hand, so they sit beside the draw tool
+ * rather than replacing it. Both commit through the same draw controller, so
+ * what lands here can still be redrawn or cleared.
+ */
+function GeometrySources({
+	controller,
+	geometryKind,
+	geometryType,
+	isBusy,
+	onTypeChange,
+	organizationId,
+}: {
+	readonly controller: MapDrawController;
+	readonly geometryKind: OwnedGeometryKind;
+	readonly geometryType: DrawGeometryType;
+	readonly isBusy: boolean;
+	readonly onTypeChange: ((type: DrawGeometryType) => void) | undefined;
+	readonly organizationId: string | undefined;
+}) {
+	const [isImporting, setIsImporting] = useState(false);
+	// A region boundary is an area, so the shortcut belongs to that tool only,
+	// and there has to be an organization to search.
+	const regionOrganizationId =
+		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0
+			? organizationId
+			: null;
+	// What the record stores, filtered to what the file parser can produce. The
+	// parser reads all six shapes, so the filter drops nothing today and every
+	// record offers the file import. It stays because the register and the parser
+	// are two packages with two unions, and a shape one of them gains ahead of the
+	// other has to fall out here rather than be offered and then refused.
+	const importableTypes: readonly ImportGeometryKind[] =
+		getOwnedGeometryPolicy(geometryKind).allowedTypes.filter(isImportGeometryKind);
+	const canImportFile = importableTypes.length > 0;
+
+	if (regionOrganizationId === null && !canImportFile) {
+		return null;
+	}
+
+	return (
+		<>
+			<div className="flex flex-wrap items-center gap-2 border-border/40 border-t pt-2">
+				<span className="text-muted-foreground text-xs">Fill from</span>
+				{regionOrganizationId === null ? null : (
+					<RegionBoundaryPicker
+						allowsParts={ownedGeometryAllowsParts(geometryKind, 'Polygon')}
+						disabled={isBusy}
+						onSelect={(boundary) => controller.commit(boundary)}
+						organizationId={regionOrganizationId}
+					/>
+				)}
+				{canImportFile ? (
+					<Button
+						aria-label="Fill this geometry from a KML, KMZ, or GeoJSON file"
+						disabled={isBusy}
+						onClick={() => setIsImporting(true)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<UploadIcon aria-hidden="true" data-icon="inline-start" />
+						File
+					</Button>
+				) : null}
+			</div>
 
 			{canImportFile ? (
 				<GeometryImportDialog
-					geometryType={geometryType === 'Polygon' ? 'Polygon' : 'LineString'}
+					allowedTypes={importableTypes}
 					onOpenChange={setIsImporting}
-					onSelect={(imported) => controller.commit(imported)}
+					onSelect={(imported) => {
+						// The dialog offers everything the record stores, so an adopted
+						// shape can be a kind the toggle is not on. Moving the toggle
+						// first lets its own clear land before the shape does.
+						const base = getBaseGeometryType(imported.type);
+						if (base !== geometryType) {
+							onTypeChange?.(base);
+						}
+						controller.commit(imported);
+					}}
 					open={isImporting}
 				/>
 			) : null}
-		</div>
+		</>
 	);
 }
 
@@ -251,10 +392,16 @@ export function GeometryControl({
 export function DrawToolbar({
 	controller,
 	geometryType,
+	geometryKind,
 	pointPrompt = 'Click the map to place the point.',
 }: {
 	readonly controller: MapDrawController;
 	readonly geometryType: DrawGeometryType;
+	/**
+	 * The record kind being drawn. The toolbar reads its policy to say why a
+	 * split refuses, which is the one line here that differs by record.
+	 */
+	readonly geometryKind: OwnedGeometryKind;
 	readonly pointPrompt?: string;
 }) {
 	if (controller.isRequestingPoint) {
@@ -270,18 +417,33 @@ export function DrawToolbar({
 		return null;
 	}
 
-	const isPoint = geometryType === 'Point';
+	// An edit of a point is a corner to drag, so the toolbar it needs is the full
+	// one. Only a point being *placed* finishes on its first click with nothing to
+	// undo or complete.
+	const editedPart = controller.editedPart;
+	const isPoint = geometryType === 'Point' && editedPart === null;
+	const selected = editedPart?.selected ?? null;
+	const isSketching = editedPart?.sketch != null;
+	// A point has one corner and no boundary for a line to cross. Which record
+	// kinds get this far is `OWNED_GEOMETRY_POLICIES` already: the shape being
+	// edited is one the register let the record store.
+	//
+	// Split is offered on the same terms, on a kind that cannot store a second
+	// piece included. The refusal it draws names the shapes that kind stores,
+	// which is the only place the user finds out why, and a hidden button says
+	// nothing at all.
+	const canSketch = editedPart !== null && controller.drawType !== 'Point';
 
 	return (
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
 			<div className="pointer-events-auto flex max-w-full flex-col gap-2 rounded-lg border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur-sm">
 				<p className="m-0 px-1 text-muted-foreground text-xs">
-					{drawInstruction(geometryType, controller.vertexCount)}
+					{toolbarInstruction(controller, geometryType, geometryKind)}
 				</p>
 				<div className="flex items-center gap-1.5">
 					{isPoint ? null : (
 						<Button
-							disabled={controller.vertexCount === 0}
+							disabled={!controller.canUndo}
 							onClick={controller.undo}
 							size="sm"
 							type="button"
@@ -291,6 +453,36 @@ export function DrawToolbar({
 							Undo
 						</Button>
 					)}
+					{/* Both gestures act on the open edit, and the sketch takes the map
+					    over while it runs, so neither is offered during the other. */}
+					{editedPart === null || isSketching ? null : (
+						<Button
+							disabled={selected === null}
+							onClick={() => {
+								if (selected !== null) {
+									controller.deleteVertex(selected);
+								}
+							}}
+							size="sm"
+							type="button"
+							variant="ghost"
+						>
+							<DeleteIcon aria-hidden="true" data-icon="inline-start" />
+							Delete vertex
+						</Button>
+					)}
+					{canSketch && !isSketching ? (
+						<Button onClick={controller.startReshape} size="sm" type="button" variant="ghost">
+							<ReshapeIcon aria-hidden="true" data-icon="inline-start" />
+							Reshape
+						</Button>
+					) : null}
+					{canSketch && !isSketching ? (
+						<Button onClick={controller.startSplit} size="sm" type="button" variant="ghost">
+							<SplitIcon aria-hidden="true" data-icon="inline-start" />
+							Split
+						</Button>
+					) : null}
 					<Button onClick={controller.cancel} size="sm" type="button" variant="ghost">
 						<XIcon aria-hidden="true" data-icon="inline-start" />
 						Cancel
@@ -322,45 +514,6 @@ function MapPrompt({ children }: { readonly children: React.ReactNode }) {
 	);
 }
 
-function geometrySummary(geometry: DrawGeometry | null): string {
-	if (geometry === null) {
-		return 'No geometry drawn yet.';
-	}
-	if (geometry.type === 'Point') {
-		const coordinates = geometry.coordinates;
-		if (!Array.isArray(coordinates) || coordinates.length < 2) {
-			return 'Point';
-		}
-		return `Point · ${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)}`;
-	}
-	if (geometry.type === 'LineString') {
-		const count = Array.isArray(geometry.coordinates) ? geometry.coordinates.length : 0;
-		return `Line · ${count} vertices`;
-	}
-	// The ring is closed (first === last), so the vertex the user placed last is
-	// not counted twice.
-	const ring = geometry.coordinates?.[0] ?? [];
-	return `Polygon · ${Math.max(ring.length - 1, 0)} vertices`;
-}
-
-/**
- * The draw flow owns single Point/LineString/Polygon geometries. Anything else
- * (a legacy multi-geometry) can't be re-drawn vertex-by-vertex, so it reads as
- * "no geometry" — the record keeps its stored shape unless the user redraws.
- */
-export function toDrawGeometry(geojson: unknown): DrawGeometry | null {
-	if (geojson === null || typeof geojson !== 'object') {
-		return null;
-	}
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
-	// A type-only geometry would crash the summary and the preview, so require
-	// coordinates to be present and non-empty.
-	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
-		return null;
-	}
-	return isDrawGeometryType(candidate.type) ? (candidate as DrawGeometry) : null;
-}
-
 /** Ease the map to frame `geometry` when it changes, but never mid-draw. */
 export function useFitToGeometry(
 	map: MapboxMap | null,
@@ -379,31 +532,11 @@ export function useFitToGeometry(
 			return;
 		}
 		lastFitRef.current = signature;
-
-		const bounds = boundsFromGeoJson(geometry);
-		if (bounds === null) {
-			return;
-		}
-		const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-		if (hasArea) {
-			map.fitBounds(
-				[
-					[bounds.west, bounds.south],
-					[bounds.east, bounds.north],
-				],
-				{ padding: 80, maxZoom: 17, duration: 600 },
-			);
-		} else {
-			map.easeTo({ center: [bounds.west, bounds.south], zoom: Math.max(map.getZoom(), 15) });
-		}
+		fitMapToGeometry(map, geometry);
 	}, [map, geometry, isDrawing]);
 }
 
 // --- helpers ----------------------------------------------------------------
-
-function isDrawGeometryType(value: unknown): value is DrawGeometryType {
-	return value === 'Point' || value === 'LineString' || value === 'Polygon';
-}
 
 function drawLabel(type: DrawGeometryType, hasGeometry: boolean): string {
 	const verb = hasGeometry ? 'Redraw' : 'Draw';
@@ -413,19 +546,181 @@ function drawLabel(type: DrawGeometryType, hasGeometry: boolean): string {
 	return `${verb} ${type === 'LineString' ? 'Line' : 'Polygon'}`;
 }
 
-function drawInstruction(type: DrawGeometryType, vertexCount: number): string {
-	if (type === 'Point') {
-		return 'Click the map to place the point.';
+/** What the toolbar says the current draw is, which is one of three things. */
+function toolbarInstruction(
+	controller: MapDrawController,
+	type: DrawGeometryType,
+	kind: OwnedGeometryKind,
+): string {
+	if (controller.holeDraft !== null) {
+		return holeInstruction(controller.vertexCount, controller.holeDraft);
 	}
-	const noun = type === 'LineString' ? 'line' : 'area';
-	const minimum = type === 'LineString' ? 2 : 3;
+	if (controller.continuedPart !== null) {
+		return continueInstruction(controller.vertexCount, controller.continuedPart);
+	}
+	if (controller.editedPart !== null) {
+		return editInstruction(controller.editedPart, kind);
+	}
+	return drawInstruction(type, controller.vertexCount, controller.isAddingPart);
+}
+
+/**
+ * What the toolbar says while a finished piece is being edited.
+ *
+ * Drag and click are named because the map is the only place either happens.
+ * Delete is not: it has a button of its own beside Finish. The piece is named
+ * once there are several, the way a hole names the one it is cut into.
+ */
+function editInstruction(draft: DrawEditDraft, kind: OwnedGeometryKind): string {
+	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the shape';
+	if (draft.sketch?.tool === 'split') {
+		return splitInstruction(draft, named, kind);
+	}
+	if (draft.sketch !== null) {
+		return reshapeInstruction(draft, named);
+	}
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	if (draft.problem === 'tooFewVertices') {
+		return 'Add a vertex back to finish.';
+	}
+	if (draft.problem === 'coversNoGround') {
+		return `That leaves nothing of ${named}.`;
+	}
+	return `Editing ${named} · drag a vertex, or click an edge to add one.`;
+}
+
+/**
+ * What the toolbar says while a reshape line is being sketched.
+ *
+ * The result is on the map from the second click, so past that the line says
+ * what Finish lands rather than describing the shape back.
+ */
+function reshapeInstruction(draft: DrawEditDraft, named: string): string {
+	if ((draft.sketch?.vertices ?? 0) < 2) {
+		return `Click the map to draw a line across the edge of ${named}.`;
+	}
+	if (draft.problem === 'tooFewCrossings') {
+		return 'The line has to cross the edge twice.';
+	}
+	// A line that folds the edge back over itself leaves an outline of two
+	// corners, which the vertex gestures name `tooFewVertices` and answer with
+	// "add one back". There is no vertex to add back here: the line took them, and
+	// redrawing it is the only way out. So both read as the collapse they are.
+	if (draft.problem === 'coversNoGround' || draft.problem === 'tooFewVertices') {
+		return `That leaves nothing of ${named}.`;
+	}
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	return `Reshaping ${named} · double-click or Finish to keep it.`;
+}
+
+/**
+ * What the toolbar says while a split line is being sketched.
+ *
+ * The record-kind refusal comes first and stays put, because it is true before
+ * the first click and no line will make it false. It names the shapes off
+ * `OWNED_GEOMETRY_POLICIES` rather than out of a list written here, so a policy
+ * that gains the multi shape changes the sentence with it.
+ */
+function splitInstruction(draft: DrawEditDraft, named: string, kind: OwnedGeometryKind): string {
+	if (draft.problem === 'cannotHoldParts') {
+		return `${storableShapes(kind)}, so there is nowhere to put the second piece.`;
+	}
+	if ((draft.sketch?.vertices ?? 0) < 2) {
+		return `Click the map to draw a line across ${named}.`;
+	}
+	if (draft.problem === 'doesNotDivide') {
+		return `The line has to cross ${named} and come out the other side.`;
+	}
+	if (draft.problem === 'coversNoGround' || draft.problem === 'tooFewVertices') {
+		return 'That leaves nothing on one side of the line.';
+	}
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	return `Splitting ${named} in two · double-click or Finish to keep it.`;
+}
+
+/** What a record of `kind` may store, read off the register and said in words. */
+function storableShapes(kind: OwnedGeometryKind): string {
+	const labels = getOwnedGeometryPolicy(kind).allowedTypes.map(formatGeometryTypeLabel);
+	const last = labels.at(-1);
+	if (labels.length < 2 || last === undefined) {
+		return `This record stores one ${last ?? 'shape'}`;
+	}
+	return `This record stores one ${labels.slice(0, -1).join(', ')} or ${last}`;
+}
+
+function drawInstruction(
+	type: DrawGeometryType,
+	vertexCount: number,
+	isAddingPart: boolean,
+): string {
+	if (type === 'Point') {
+		return isAddingPart
+			? 'Click the map to place another point.'
+			: 'Click the map to place the point.';
+	}
+	const noun = isAddingPart ? 'piece' : type === 'LineString' ? 'line' : 'area';
+	return progress(
+		vertexCount,
+		type === 'LineString' ? 2 : 3,
+		`Click the map to start the ${noun}.`,
+	);
+}
+
+/**
+ * What the toolbar says while a hole is being cut, which names the piece the
+ * moment the hole leaves it.
+ *
+ * The name is what makes the refusal actionable at several pieces: the map shows
+ * a red ring, and the number is what says which of the shapes on screen it was
+ * supposed to sit inside.
+ */
+function holeInstruction(vertexCount: number, draft: DrawHoleDraft): string {
+	// At one piece there is no row list, so the number is a term the user has not
+	// seen. It earns its place the moment there are several shapes on screen.
+	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the area';
+	if (draft.problem === 'escapes') {
+		return `The hole must stay inside ${named}.`;
+	}
+	if (draft.problem === 'swallows') {
+		return `The hole leaves nothing of ${named}.`;
+	}
+	const start =
+		draft.partCount > 1
+			? `Click the map to start the hole in piece ${draft.partNumber}.`
+			: 'Click the map to start the hole.';
+	return progress(vertexCount, 3, start);
+}
+
+/**
+ * What the toolbar says while a finished piece is being added to.
+ *
+ * It opens with the piece's vertices already on the map, so there is no "start
+ * here" line to write. The piece is named once there are several, the way a hole
+ * names the one it is cut into.
+ */
+function continueInstruction(vertexCount: number, draft: DrawContinueDraft): string {
+	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the shape';
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	const count = `${vertexCount} ${vertexCount === 1 ? 'vertex' : 'vertices'}`;
+	return `Continuing ${named} · ${count} · double-click or Finish to complete.`;
+}
+
+/** How far along a ring or a line is, once it has a vertex on the map. */
+function progress(vertexCount: number, minimum: number, start: string): string {
 	if (vertexCount === 0) {
-		return `Click the map to start the ${noun}.`;
+		return start;
 	}
 	const count = `${vertexCount} ${vertexCount === 1 ? 'vertex' : 'vertices'}`;
 	if (vertexCount < minimum) {
-		const remaining = minimum - vertexCount;
-		return `${count} · add ${remaining} more to finish.`;
+		return `${count} · add ${minimum - vertexCount} more to finish.`;
 	}
 	return `${count} · double-click or Finish to complete.`;
 }

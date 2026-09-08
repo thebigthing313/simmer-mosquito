@@ -46,7 +46,7 @@ export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, str
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) => inArray(habitat.id, sorted.length > 0 ? sorted : [unmatchableId]))
 					.select(({ habitat }) => ({
 						id: habitat.id,

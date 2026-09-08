@@ -1,4 +1,6 @@
 import type { WeatherSummaryListing } from '../../../hooks/queries/use-weather-summaries';
+import { calendarDateParts } from '../../../lib/local-date';
+import { unreadable } from '../../../lib/unreadable-input';
 
 export function weatherSourceTypeLabel(sourceType: string): string {
 	switch (sourceType) {
@@ -11,19 +13,26 @@ export function weatherSourceTypeLabel(sourceType: string): string {
 	}
 }
 
-/** e.g. "Mar 3 – Mar 9, 2026" for a summary's reporting period. */
+/** e.g. "Mar 3–Mar 9, 2026" for a summary's reporting period. */
 export function summaryPeriodLabel(summary: WeatherSummaryListing): string {
 	const start = formatDate(summary.startDate);
 	const end = formatDate(summary.endDate);
 	if (start === end) {
 		return start;
 	}
-	return `${start} – ${end}`;
+	return `${start}–${end}`;
 }
 
-export function formatRange(min: number | null, max: number | null, unit: string): string {
+/**
+ * A low-to-high reading, or `null` when the summary recorded neither end.
+ *
+ * The absence is `null` rather than a dash so that the caller draws it. A
+ * formatter that bakes in a display string is how these two drifted from the
+ * component every other column used.
+ */
+export function formatRange(min: number | null, max: number | null, unit: string): string | null {
 	if (min === null && max === null) {
-		return '—';
+		return null;
 	}
 	if (min !== null && max !== null) {
 		return min === max ? `${min}${unit}` : `${min}–${max}${unit}`;
@@ -31,23 +40,26 @@ export function formatRange(min: number | null, max: number | null, unit: string
 	return `${(min ?? max) as number}${unit}`;
 }
 
-export function formatMeasure(value: number | null, unit: string): string {
-	return value === null ? '—' : `${value}${unit}`;
+/** A single reading against its unit, or `null` when the summary has none. */
+export function formatMeasure(value: number | null, unit: string): string | null {
+	return value === null ? null : `${value}${unit}`;
 }
 
-function formatDate(value: string): string {
-	// Dates arrive as ISO date strings (YYYY-MM-DD); render them without pulling in
-	// a timezone shift by parsing the parts directly.
-	const parts = value.slice(0, 10).split('-');
-	const year = parts[0];
-	const month = parts[1];
-	const day = parts[2];
-	if (year === undefined || month === undefined || day === undefined) {
-		return value;
+/**
+ * `Aug 4, 2026` — a summary's day, built from the parts rather than rendered
+ * through `Intl`, so no zone can move it.
+ *
+ * The month name is looked up rather than formatted, which is why a month
+ * outside 1 to 12 is unreadable here and is only a rollover elsewhere: there is
+ * no thirteenth name to print.
+ */
+export function formatDate(value: string): string {
+	const parts = calendarDateParts(value);
+	const monthName = parts === undefined ? undefined : MONTHS[parts.month - 1];
+	if (parts === undefined || monthName === undefined) {
+		return unreadable('formatDate (weather summary)', value);
 	}
-	const monthIndex = Number.parseInt(month, 10) - 1;
-	const monthName = MONTHS[monthIndex] ?? month;
-	return `${monthName} ${Number.parseInt(day, 10)}, ${year}`;
+	return `${monthName} ${parts.day}, ${parts.year}`;
 }
 
 const MONTHS = [

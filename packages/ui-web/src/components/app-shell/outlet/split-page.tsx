@@ -5,11 +5,11 @@ import type React from 'react';
  * A two-column stage: a focused, scrolling record column beside a persistent
  * companion surface.
  *
- * In the agency workspace the companion is always a map — `MapSplitPage` is this
- * layout with a `MapCanvas` default — but the geometry of the split is not a map
- * fact. Record forms reach for the same shape, and the operator console needs it
- * without pulling a map renderer into a bundle that has no maps. So the split
- * lives here and the map lives in the app that owns one.
+ * In the organization workspace the companion is always a map — `MapSplitPage`
+ * is this layout with a `MapCanvas` default — but the geometry of the split is
+ * not a map fact. Record forms reach for the same shape, and the operator
+ * console needs it without pulling a map renderer into a bundle that has no
+ * maps. So the split lives here and the map lives in the app that owns one.
  *
  * The ratio is a fixed 40/60 (content/companion). The right region is
  * `relative` so a caller can layer floating chrome — a detail card, a legend —

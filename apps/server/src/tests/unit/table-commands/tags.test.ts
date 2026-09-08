@@ -12,7 +12,8 @@
 
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { CommandTable } from '../../../command-payload.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { tagTableCommands } from '../../../table-commands/tags.js';
@@ -21,10 +22,10 @@ const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const ACTOR = '22222222-2222-4222-8222-222222222222';
 const TAG = '33333333-3333-4333-8333-333333333333';
 
-function request(payload: Record<string, unknown>): IntentRequest {
+function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings: null },
 			profile: { id: ACTOR },
@@ -37,8 +38,8 @@ function request(payload: Record<string, unknown>): IntentRequest {
 const tags = tagTableCommands(undefined as never);
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
-	intent: AgencyCommandType,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
+	intent: OrganizationCommandType,
 	payload: Record<string, unknown>,
 ): TCommand {
 	const builder = spec.intents[intent];

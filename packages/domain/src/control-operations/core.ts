@@ -1,25 +1,25 @@
 import {
-	createIssues,
-	isFutureBeyondClockSkew,
+	basePayload,
 	nullableText as normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
-	requiredUuid as requireUuid,
 	throwIfIssues,
-	validateAgencyCommandContext,
+	validateIdCommand,
 } from '../command-validation.js';
 import {
-	type ControlActionLocationSource,
-	type ControlActionLocationSourceInput,
-	type RequestedControlActionLocationSource,
-	type RequestedControlActionLocationSourceInput,
-	validateControlActionLocationSource,
-	validateRequestedControlActionLocationSource,
+	type LocationSourceFlowName,
+	type LocationSourceFor,
+	type LocationSourceInputFor,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import type { ControlActionContext } from '../performed-control-actions.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
-export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
+export {
+	CONTROL_TYPES,
+	INSECTICIDE_TYPES,
+	type InsecticideType,
+} from '../column-vocabularies.js';
 
 export type ControlOperationsCommandType =
 	| 'controlOperations.createApplicationMethod'
@@ -113,8 +113,6 @@ export interface ControlCommandPayload {
 	readonly actorProfileId: DomainId;
 }
 
-export const CONTROL_TYPES = ['application', 'source_reduction', 'biocontrol', 'outreach'] as const;
-export const INSECTICIDE_TYPES = ['larvicide', 'adulticide', 'pupicide', 'other'] as const;
 export const SOURCE_REDUCTION_UNIT_TYPES = ['count', 'distance', 'area', 'volume'] as const;
 export const BIOCONTROL_UNIT_TYPES = ['count', 'volume', 'weight'] as const;
 
@@ -138,51 +136,37 @@ export function idCommand<
 	};
 }
 
-export type LocationSourceFlow = 'controlAction' | 'requestedControlAction';
+/**
+ * The two flows a control command patches a location on.
+ *
+ * Extracted from the register's own key union rather than written out, so a row
+ * that is renamed fails here instead of narrowing what these helpers accept.
+ */
+export type LocationSourceFlow = Extract<
+	LocationSourceFlowName,
+	'controlAction' | 'requestedControlAction'
+>;
 
-export function validateControlActionLocationSourceInput(
-	input: {
-		readonly locationSource?: ControlActionLocationSourceInput;
+/**
+ * The checks every location and context patch shares, held to one flow.
+ *
+ * `TFlow` is inferred from the `flow` argument alone, which is what relates the
+ * patch to its register row: `TInput`'s constraint names
+ * `LocationSourceInputFor<TFlow>`, so a patch carrying a source its flow does
+ * not list fails `tsc` here rather than at the run-time refusal below. The flow
+ * used to arrive as the `LocationSourceFlow` union, which widened the accepted
+ * input to both flows' sources and cost a cast on the way into
+ * {@link validateLocationSourceInput}.
+ *
+ * A constraint rather than a second parameter position, so nothing else can
+ * offer a candidate for `TFlow` and widen it back to the union.
+ */
+export function validateLocationContextPatchBase<
+	TFlow extends LocationSourceFlow,
+	TInput extends ControlCommandInput & {
+		readonly locationSource?: LocationSourceInputFor<TFlow>;
 	},
-	issues: DomainValidationIssue[],
-): ControlActionLocationSource {
-	if (input.locationSource !== undefined) {
-		return validateControlActionLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateControlActionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function validateRequestedControlActionLocationSourceInput(
-	input: {
-		readonly locationSource?: RequestedControlActionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): RequestedControlActionLocationSource {
-	if (input.locationSource !== undefined) {
-		return validateRequestedControlActionLocationSource(
-			input.locationSource,
-			'locationSource',
-			issues,
-		);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateRequestedControlActionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function validateLocationContextPatchBase<TInput extends ControlCommandInput>(
-	input: TInput,
-	idKey: keyof TInput & string,
-	flow: LocationSourceFlow,
-): DomainValidationIssue[] {
+>(input: TInput, idKey: keyof TInput & string, flow: TFlow): DomainValidationIssue[] {
 	const issues = validateIdCommand(input, idKey);
 	const hasLocation = 'locationSource' in input && input.locationSource !== undefined;
 	const hasAddress = 'addressId' in input && input.addressId !== undefined;
@@ -196,15 +180,7 @@ export function validateLocationContextPatchBase<TInput extends ControlCommandIn
 		});
 	}
 	if (hasLocation) {
-		validatePatchLocationSource(
-			input as {
-				readonly locationSource?:
-					| ControlActionLocationSourceInput
-					| RequestedControlActionLocationSourceInput;
-			},
-			flow,
-			issues,
-		);
+		validateLocationSourceInput(input, flow, issues);
 	}
 	if (hasAddress) {
 		normalizeOptionalUuid(input.addressId as string | null | undefined, 'addressId', issues);
@@ -219,19 +195,34 @@ export function validateLocationContextPatchBase<TInput extends ControlCommandIn
 	return issues;
 }
 
-export function locationContextChanges(
+/**
+ * The changed fields a location and context patch carries, held to one flow.
+ *
+ * `NoInfer` says that `flow` is the only place `TFlow` comes from. A generic
+ * inferred from two positions constrains neither: a second candidate off the
+ * input would widen `TFlow` back to the union of the two flows and take a source
+ * the row does not list, while the signature still read as if it checked. It
+ * costs nothing today, because `TFlow` sits inside an indexed access in
+ * `LocationSourceInputFor` and offers no candidate from there, but that is a
+ * property of how that type is written rather than of this signature, and the
+ * marker is what keeps the guarantee where a reader can see it. What proves the
+ * refusal either way is the compile-fail case in
+ * `tests/unit/control-operations.test.ts`.
+ *
+ * The return is read off the same row, which is what lets the five callers drop
+ * the cast they carried on this result.
+ */
+export function locationContextChanges<TFlow extends LocationSourceFlow>(
 	input: {
-		readonly locationSource?:
-			| ControlActionLocationSourceInput
-			| RequestedControlActionLocationSourceInput;
+		readonly locationSource?: NoInfer<LocationSourceInputFor<TFlow>>;
 		readonly addressId?: DomainId | null;
 		readonly requestedControlActionId?: DomainId | null;
 	},
 	context: ControlActionContext | undefined,
 	issues: DomainValidationIssue[],
-	flow: LocationSourceFlow,
+	flow: TFlow,
 ): Readonly<{
-	readonly locationSource?: ControlActionLocationSource | RequestedControlActionLocationSource;
+	readonly locationSource?: LocationSourceFor<TFlow>;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
@@ -242,7 +233,7 @@ export function locationContextChanges(
 	return {
 		...(hasLocation
 			? {
-					locationSource: validatePatchLocationSource(input, flow, issues),
+					locationSource: validateLocationSourceInput(input, flow, issues),
 				}
 			: {}),
 		...(hasAddress
@@ -259,63 +250,6 @@ export function locationContextChanges(
 				}
 			: {}),
 	};
-}
-
-function validatePatchLocationSource(
-	input: {
-		readonly locationSource?:
-			| ControlActionLocationSourceInput
-			| RequestedControlActionLocationSourceInput;
-	},
-	flow: LocationSourceFlow,
-	issues: DomainValidationIssue[],
-): ControlActionLocationSource | RequestedControlActionLocationSource {
-	return flow === 'controlAction'
-		? validateControlActionLocationSourceInput(
-				input as { readonly locationSource?: ControlActionLocationSourceInput },
-				issues,
-			)
-		: validateRequestedControlActionLocationSourceInput(
-				input as { readonly locationSource?: RequestedControlActionLocationSourceInput },
-				issues,
-			);
-}
-
-export function validateBase(input: ControlCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends ControlCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
-export function basePayload(input: ControlCommandInput): ControlCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
-}
-
-export function normalizeOptionalTimestamp(
-	value: Date | null | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-	allowFuture: boolean,
-): Date | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-		issues.push({ path, message: `${path} must be a valid Date.` });
-		return null;
-	}
-	if (!allowFuture && isFutureBeyondClockSkew(value)) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
-	}
-	return value;
 }
 
 export function normalizePositiveFiniteNumber(
@@ -356,19 +290,6 @@ export function normalizeNullableUrl(
 		return null;
 	}
 	return normalized;
-}
-
-export function normalizeStringUnion<TValue extends string>(
-	value: string | undefined,
-	allowedValues: readonly TValue[],
-	path: string,
-	issues: DomainValidationIssue[],
-): TValue {
-	if (value === undefined || !allowedValues.includes(value as TValue)) {
-		issues.push({ path, message: `${path} is not supported.` });
-		return (allowedValues[0] ?? '') as TValue;
-	}
-	return value as TValue;
 }
 
 function humanizeCommandType(type: string): string {

@@ -1,5 +1,5 @@
 /**
- * Every notification registration the agency holds.
+ * Every notification registration the organization holds.
  *
  * The whole set rather than a viewport page, because the explorer draws each
  * one's buffer and a registration whose centre is off screen can still cover
@@ -35,7 +35,7 @@ export function useRegistrationDirectory(): {
 } {
 	const result = useLiveQuery({
 		query: (query) =>
-			query.from({ registration: notification_registrations }).select(({ registration }) => ({
+			query.from({ registration: notification_registrations() }).select(({ registration }) => ({
 				id: registration.id,
 				contactId: registration.contact_id,
 				lat: registration.lat,

@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -117,6 +118,28 @@ describe('ExplorerRow', () => {
 		);
 		expect(screen.getByText('Aug 12')).toBeTruthy();
 		expect(screen.queryByText('2026')).toBeNull();
+	});
+
+	// A `title` paints a hover tooltip and is a weak source for an accessible
+	// name, so the dot names itself with `aria-label` and nothing else.
+	it('names the map-colour dot with a label, not a tooltip', () => {
+		render(
+			<ul>
+				<li>
+					<ExplorerRow
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						swatch={{ color: mapLifecycle.inaccessible, label: 'Inaccessible' }}
+						title="CAR - S1 - 12"
+					/>
+				</li>
+			</ul>,
+		);
+
+		const dot = screen.getByRole('img', { name: 'Inaccessible' });
+		expect(dot.getAttribute('title')).toBeNull();
 	});
 
 	// A weather station whose centroid has not synced has nothing to show, and a

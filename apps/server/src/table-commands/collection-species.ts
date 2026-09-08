@@ -24,19 +24,19 @@ import {
 	deleteCollectionSpeciesCountCommand,
 	updateCollectionSpeciesCountCommand,
 } from '@simmer-mosquito/domain';
-import { writeCollectionSpeciesCommand } from '../adult-surveillance-commands/collection-species-counts.js';
+import { readNullableText, readNumber, readText } from '../command-payload.js';
+import type { CommandDb } from '../command-write.js';
+import { writeCollectionSpeciesCommand } from '../writers/adult-surveillance/collection-species-counts.js';
 import {
 	type CollectionSpeciesRow,
 	readSpeciesSex,
 	readSpeciesStatus,
-} from '../adult-surveillance-commands/shared.js';
-import { readNullableText, readNumber, readText } from '../command-payload.js';
-import type { CommandDb } from '../command-write.js';
+} from '../writers/adult-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 
 export function collectionSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<AdultSurveillanceCommand, CollectionSpeciesRow> {
+): TableCommands<'collection_species', AdultSurveillanceCommand, CollectionSpeciesRow> {
 	return {
 		table: 'collection_species',
 		run: {
@@ -46,9 +46,9 @@ export function collectionSpeciesTableCommands(
 			key: 'collectionSpecies',
 		},
 		intents: {
-			'adultSurveillance.addCollectionSpeciesCount': ({ payload, agency, id }) =>
+			'adultSurveillance.addCollectionSpeciesCount': ({ payload, organization, id }) =>
 				addCollectionSpeciesCountCommand({
-					...agency,
+					...organization,
 					collectionSpeciesId: id,
 					collectionId: readText(payload.collection_id) ?? '',
 					speciesId: readText(payload.species_id) ?? '',
@@ -65,26 +65,30 @@ export function collectionSpeciesTableCommands(
 			// Six independently optional fields, so presence is genuinely the question
 			// here — a count corrected from 40 to 38 says nothing about the species,
 			// and re-sending the rest would be this layer inventing an edit.
-			'adultSurveillance.updateCollectionSpeciesCount': ({ payload, agency, id }) =>
+			'adultSurveillance.updateCollectionSpeciesCount': ({ payload, organization, id }) =>
 				updateCollectionSpeciesCountCommand({
-					...agency,
+					...organization,
 					collectionSpeciesId: id,
-					...('count' in payload ? { count: readNumber(payload.count) ?? Number.NaN } : {}),
-					...('species_id' in payload ? { speciesId: readText(payload.species_id) ?? '' } : {}),
-					...('sex' in payload ? { sex: readSpeciesSex(payload.sex) } : {}),
-					...('status' in payload ? { status: readSpeciesStatus(payload.status) } : {}),
-					...('identified_by_profile_id' in payload
+					...(payload.count !== undefined
+						? { count: readNumber(payload.count) ?? Number.NaN }
+						: {}),
+					...(payload.species_id !== undefined
+						? { speciesId: readText(payload.species_id) ?? '' }
+						: {}),
+					...(payload.sex !== undefined ? { sex: readSpeciesSex(payload.sex) } : {}),
+					...(payload.status !== undefined ? { status: readSpeciesStatus(payload.status) } : {}),
+					...(payload.identified_by_profile_id !== undefined
 						? { identifiedByProfileId: readNullableText(payload.identified_by_profile_id) }
 						: {}),
-					...('identified_date' in payload
+					...(payload.identified_date !== undefined
 						? { identifiedDate: readText(payload.identified_date) ?? '' }
 						: {}),
 				}),
 
 			// No acknowledgement: nothing hangs off a species count, so removing one
 			// takes nothing with it.
-			'adultSurveillance.deleteCollectionSpeciesCount': ({ agency, id }) =>
-				deleteCollectionSpeciesCountCommand({ ...agency, collectionSpeciesId: id }),
+			'adultSurveillance.deleteCollectionSpeciesCount': ({ organization, id }) =>
+				deleteCollectionSpeciesCountCommand({ ...organization, collectionSpeciesId: id }),
 		},
 	};
 }

@@ -5,6 +5,7 @@ import type {
 	Map as MapboxMap,
 } from 'mapbox-gl';
 import { useEffect } from 'react';
+import type { MapSourceGeoJson } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -39,7 +40,7 @@ const familyColor: ExpressionSpecification = [
 	mapFamily.control,
 	'publicEngagement',
 	mapFamily.publicEngagement,
-	'#6b7280',
+	mapInteraction.fallback,
 ];
 
 // `['get', 'id']` rather than `['id']`: the second reads a feature id, which a
@@ -50,7 +51,7 @@ function selectedFilter(selectedKey: string | null): ExpressionSpecification {
 
 export interface ActivityLayerConfig {
 	/** The activity points. `null` leaves the layer unmounted entirely. */
-	readonly data: GeoJSON.GeoJSON | null;
+	readonly data: MapSourceGeoJson | null;
 	/** The selected entry's key; drives the on-map highlight. */
 	readonly selectedKey?: string | null;
 	/** Fired with an entry key on click, or null when clicking empty map. */

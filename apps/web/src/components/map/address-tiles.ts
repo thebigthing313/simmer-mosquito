@@ -98,5 +98,3 @@ export function addressTileLayers(selectedId: string | null): CircleLayerSpecifi
 		},
 	];
 }
-
-export { ADDRESS_SELECTED_LAYER_IDS };

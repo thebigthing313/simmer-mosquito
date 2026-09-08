@@ -26,21 +26,17 @@
  * for the caller — a union only rules out names that do not exist at all.
  */
 
-// Each domain's barrel rather than the file inside it that declares the union.
-// This module is re-exported from the package root, so importing `shared.ts` or
-// `core.ts` directly puts those files into the public re-export graph — where the
-// helper names they have in common (`basePayload`, `validateBase`, and four more)
-// become ambiguous barrel re-exports, and `pnpm fallow dead-code` says so.
-import type { AdultSurveillanceCommandType } from './adult-surveillance/index.js';
-import type { ControlOperationsCommandType } from './control-operations/index.js';
-import type { FieldWorkCommandType } from './field-work/index.js';
-import type { FoundationCommandType } from './foundation/index.js';
-import type { IdentityCommandType } from './identity/index.js';
-import type { LarvalSurveillanceCommandType } from './larval-surveillance/index.js';
-import type { MissionDispatchCommandType } from './mission-dispatch/index.js';
-import type { OrganizationSettingsCommandType } from './organization-settings/index.js';
-import type { PublicEngagementCommandType } from './public-engagement/index.js';
-import type { WeatherCommandType } from './weather/index.js';
+// The file inside each domain that declares the union, not the barrel around it.
+import type { AdultSurveillanceCommandType } from './adult-surveillance/shared.js';
+import type { ControlOperationsCommandType } from './control-operations/core.js';
+import type { FieldWorkCommandType } from './field-work/shared.js';
+import type { FoundationCommandType } from './foundation/shared.js';
+import type { IdentityCommandType } from './identity/shared.js';
+import type { LarvalSurveillanceCommandType } from './larval-surveillance/shared.js';
+import type { MissionDispatchCommandType } from './mission-dispatch/shared.js';
+import type { OrganizationSettingsCommandType } from './organization-settings/types-and-defaults.js';
+import type { PublicEngagementCommandType } from './public-engagement/core.js';
+import type { WeatherCommandType } from './weather/shared.js';
 
 /**
  * The name of any command in the vocabulary.
@@ -143,8 +139,9 @@ export type DomainCommandType =
  * The global taxonomy names (`createGenus`, `updateSpecies` and their siblings)
  * appear only in `command-permissions.ts`. Their routes under `/admin` call
  * `createGenusWithTxid` and the like directly, with hand-written payload
- * readers, so no route ever builds one of these commands. They are also operator
- * writes rather than agency ones, which is why nothing has needed them yet.
+ * readers, so no route ever builds one of these commands. They are also
+ * operator writes rather than organization ones, which is why nothing has
+ * needed them yet.
  */
 export type MultiRowCommandType =
 	// Many rows the command names: a move restacks an id list, a merge retires one.

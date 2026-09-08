@@ -1,8 +1,8 @@
 # Releases and changelogs
 
-SIMMER is in production use by an agency. That changes what a version number is
-for: it is no longer bookkeeping, it is the thing a support conversation starts
-with. "Which build are you on, and what changed in it."
+SIMMER is in production use by an organization. That changes what a version
+number is for: it is no longer bookkeeping, it is the thing a support
+conversation starts with. "Which build are you on, and what changed in it."
 
 `apps/web` and `apps/admin` are versioned independently, both starting at
 **0.1.0**. Every other workspace package is unversioned on purpose; see
@@ -31,8 +31,11 @@ feature branch  ──▶  develop  ──▶  staging  ──▶  main (product
   `CHANGELOG.md` files, and both app versions bumped, **whether or not anything
   was pending**. Merging it deploys the Railway `staging` environment, and what
   is soaking there is a numbered release candidate.
-- **`staging` to `main` is a forced fast-forward.** No merge commit, no second
-  build, no reordering. What ships to production is the commit that soaked.
+- **`staging` to `main` is a fast-forward push.** No merge commit, no second
+  build, no reordering. What ships to production is the commit that soaked. It
+  is not forced, and that is load-bearing rather than a detail of phrasing: a
+  plain push only lands when `main` is behind `staging`, so git itself refuses
+  to overwrite a hotfix that has not merged back.
 
 `main` is the one branch whose ruleset does **not** require a PR, and that is a
 decision rather than an oversight. GitHub's merge button cannot fast-forward, so
@@ -44,11 +47,41 @@ git fetch origin
 git push origin origin/staging:main
 ```
 
-`main` keeps linear history, blocks force pushes, and carries an admin bypass
-that is load-bearing rather than a convenience. All six CI checks are required
-there, and on a push the two gate jobs report no check run at all rather than a
-passing one, so without the bypass the promotion is rejected on a check that can
-never appear on that event.
+`main` blocks deletion and force pushes, and requires the same seven checks as
+the other two branches. It carries an admin bypass, but that bypass is a way out
+rather than part of the promotion: a fast-forward onto an unchanged `main` trips
+no rule and prints no bypass notice.
+
+The first promotion did print one, and neither half of it was a fault:
+
+```
+remote: Bypassed rule violations for refs/heads/main:
+remote: - Cannot force-push to this branch
+remote: - This branch must not contain merge commits.
+```
+
+**The force push was a one-off.** `main`'s tip was the merge commit of the last
+release under the two-branch flow, where the promotion was GitHub's merge
+button. `staging` did not contain that commit, so that one promotion was not a
+fast-forward. Both of its parents were already on `staging` and no ordinary
+commit was dropped. Every promotion since is a clean fast-forward, so a
+force-push notice now means the two branches have diverged, and is worth
+stopping for rather than bypassing.
+
+**The merge-commit violation was permanent, and it is why `main` no longer
+requires linear history.** `develop` and `staging` both require a PR, GitHub's
+merge button writes a merge commit, and `main` fast-forwards to whatever
+`staging` holds. So the rule fired on every promotion by construction, and a
+rule bypassed every time enforces nothing while burying the notice that would
+mean something. Nothing else read it: `develop` and `staging` never required it,
+and no workflow or script asks about it.
+
+The two release gates are not a third reason, though this document used to say
+they were. `Changeset filed (or declined)` and `Release cut (or declined)` are
+`pull_request`-only jobs, so on a push they report `skipped` rather than no run
+at all, and GitHub counts a skipped required check as satisfied. The promotion
+commit already carries all seven checks from its push to `staging`, so the
+status-check rule passes on the promotion without a bypass.
 
 ## A version names the candidate, not the shipped build
 
@@ -56,14 +89,14 @@ This inverts what this document used to say, so the old reasoning is worth
 stating before the new one. Under the two-branch flow the cut happened on the
 promotion to `main`, and the argument was that a number nobody could yet be on
 would be a worse lie than no number at all: the version in the sidebar always
-named a build an agency actually had.
+named a build an organization actually had.
 
 The soak is what changed it. A release candidate now sits on `staging` for days
-in front of agency staff trying it against a clone of their own data, and a bug
-they report has to be reportable. "The one on staging" stops being an answer the
-moment there have been two candidates. So the number is minted at the cut and
-names the candidate from that moment, and `main` fast-forwards a number that
-already exists.
+in front of organization staff trying it against a clone of their own data, and
+a bug they report has to be reportable. "The one on staging" stops being an
+answer the moment there have been two candidates. So the number is minted at the
+cut and names the candidate from that moment, and `main` fast-forwards a number
+that already exists.
 
 The cost is real and small. Between the cut and the promotion there is a version
 production is not on, and a candidate that gets fixed before it ships takes its
@@ -130,8 +163,8 @@ change a user was told about; inventing a category for it would make a badly
 written changeset look like a decision. A release drawing ungrouped entries is
 a review miss, and reads like one.
 
-The audience is agency staff, so `DESIGN.md`'s copy rules apply: say what the
-thing does, don't explain the domain back to them, don't cite best practice.
+The audience is organization staff, so `DESIGN.md`'s copy rules apply: say what
+the thing does, don't explain the domain back to them, don't cite best practice.
 
 To see what is pending on your branch:
 
@@ -213,9 +246,15 @@ part below follows from that.
 5. Merge it, and `railway-deploy.yml` ships it.
 6. **Merge `main` back into `staging`, then `staging` into `develop`, as the
    last step of the fix.** Not optional and not later: until that happens the
-   fix is on no other branch, and the next promotion reverts it.
+   fix is on no other branch. Both branches require a pull request, so this is
+   two of them, and each trips a gate that is correct to decline:
 
-Two things to expect on the way back.
+   ```bash
+   gh pr create --base staging --head main  --label 'release cut declined'
+   gh pr create --base develop --head staging --label 'no changeset'
+   ```
+
+Three things to expect on the way back.
 
 **The changelogs conflict, and both sides are right.** The hotfix wrote `0.5.1`
 against `main`'s history while the candidate wrote `0.6.0` against `staging`'s.
@@ -227,6 +266,26 @@ correct: the branch sits at `main`'s version, below the candidate soaking on
 the branch is still below that candidate, and bumps again. The guard that makes
 a re-run safe on an ordinary cut compares against the highest numbered branch,
 and on a hotfix that is never this one (#375).
+
+**Skipping step 6 is caught, in two different ways and neither of them early.**
+The first merge is caught hard. The promotion is a plain push, so a `main`
+holding a fix `staging` lacks is not behind and git rejects it: the production
+fix cannot be quietly overwritten, and the one way past that is to type
+`--force`, which is why this document no longer calls the promotion forced. What
+that rejection cannot do is say why, and it arrives days later, after a
+candidate has already soaked and taken a version number.
+
+The second merge was caught by nothing. `develop` goes on building against code
+the fix never reached, the next cut carries that gap into `staging`, and the fix
+dies the day somebody resolves a conflict in its file the other way.
+
+So `Release cut (or declined)` reads both, on the `develop` to `staging` PR,
+ahead of the cut rather than after it (#412). The test is
+`git cherry origin/develop origin/main`: commits reachable from `main` and not
+from `develop`, merges dropped, the rest compared by patch id. Dropping the
+merges is what keeps it quiet, because `main` is always a promotion merge commit
+`develop` does not carry and a plain reachability test would fire on every cut.
+A hotfix is the only thing that can produce a `+` line.
 
 Nothing has run this path yet. Read step 6 as the part to get right.
 

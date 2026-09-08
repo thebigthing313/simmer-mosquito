@@ -1,7 +1,6 @@
 import type { SearchDocumentClass, SearchResponse } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 import { getServerUrl } from '../../auth';
 
 /**
@@ -11,7 +10,7 @@ import { getServerUrl } from '../../auth';
  * slow load, and the person never learns the query was refused. `main.tsx` sets
  * only `staleTime` and `refetchOnWindowFocus`, so the default is three automatic
  * retries on everything including a 400, and every caller that cares has to say
- * so — as `-activity-monitor-data.ts` already does.
+ * so — as `-activity-data.ts` already does.
  */
 export class SearchRequestError extends Error {
 	readonly refused: boolean;
@@ -82,7 +81,7 @@ async function fetchSearch(
 		url.searchParams.set('class', input.documentClass);
 	}
 
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new SearchRequestError(await refusalReason(response), response.status === 400);
 	}
@@ -104,20 +103,11 @@ async function refusalReason(response: Response): Promise<string> {
 }
 
 /**
- * The query, held back so a keystroke is not a request.
+ * How long a keystroke is held before it becomes a request.
  *
  * 200ms, and no client floor on length: the endpoint accepts one character and a
  * one-character record search is real in this domain, where handles are codes.
  * Routes and actions are matched against the *un-debounced* value, so the list
  * never goes empty while this catches up.
  */
-export function useDebouncedQuery(query: string, delayMs = 200): string {
-	const [debounced, setDebounced] = useState(query);
-
-	useEffect(() => {
-		const timer = setTimeout(() => setDebounced(query), delayMs);
-		return () => clearTimeout(timer);
-	}, [query, delayMs]);
-
-	return debounced;
-}
+export const SEARCH_QUERY_DEBOUNCE_MS = 200;

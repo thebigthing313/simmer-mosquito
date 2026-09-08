@@ -50,7 +50,7 @@ export function useRegistration(registrationId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ registration: notification_registrations })
+					.from({ registration: notification_registrations() })
 					.where(({ registration }) => eq(registration.id, id))
 					.select(({ registration }) => ({
 						id: registration.id,
@@ -85,7 +85,7 @@ export function useRegistrationSubscriptions(registrationId: string | null | und
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ link: notification_registration_types })
+					.from({ link: notification_registration_types() })
 					.where(({ link }) => eq(link.notification_registration_id, id))
 					.select(({ link }) => ({
 						id: link.id,

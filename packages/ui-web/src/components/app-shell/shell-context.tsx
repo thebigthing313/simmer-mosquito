@@ -55,12 +55,13 @@ export interface ShellContextValue {
 	 */
 	readonly getToday?: () => Date;
 	/**
-	 * The zone "today" is read in — the agency's, where there is one.
+	 * The zone "today" is read in — the organization's, where there is one.
 	 *
 	 * The header's date is the same operational day the rest of the app filters
 	 * by, so it has to be resolved the same way. Left undefined the browser
-	 * answers, which is right for surfaces with no agency behind them (the design
-	 * preview app, the operator console) and wrong for every agency page.
+	 * answers, which is right for surfaces with no organization behind them (the
+	 * design preview app, the operator console) and wrong for every organization
+	 * page.
 	 */
 	readonly timeZone?: string;
 }

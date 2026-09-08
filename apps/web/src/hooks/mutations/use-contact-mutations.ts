@@ -1,5 +1,6 @@
 /**
- * The agency's contact list: adding whoever called, correcting them, removing one.
+ * The organization's contact list: adding whoever called, correcting them,
+ * removing one.
  *
  * ## Who they are and how to reach them are two commands
  *
@@ -13,7 +14,7 @@
  * the server to work out which of the two commands it meant. {@link
  * ContactMutations.save} names one, the other, or both, from what actually
  * changed — so an edit that only fixed a spelling no longer claims to have
- * revisited how the agency may contact somebody.
+ * revisited how the organization may contact somebody.
  *
  * `mergeContacts` is not here. It writes N rows, one per contact folded into the
  * survivor, so it belongs in a transaction rather than a single mutation. It
@@ -134,7 +135,7 @@ export function useContactMutations(): ContactMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(contacts, {
+				mutateCollection(contacts(), {
 					operation: 'insert',
 					intent: 'publicEngagement.createContact',
 					row: {
@@ -170,7 +171,7 @@ export function useContactMutations(): ContactMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(contacts, {
+				mutateCollection(contacts(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: contactId,
@@ -187,7 +188,7 @@ export function useContactMutations(): ContactMutations {
 
 	const remove = useCallback(async (contactId: string) => {
 		await settleWrite(
-			mutateCollection(contacts, {
+			mutateCollection(contacts(), {
 				operation: 'delete',
 				intent: 'publicEngagement.deleteContact',
 				key: contactId,

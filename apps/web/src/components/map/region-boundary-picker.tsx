@@ -1,12 +1,12 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
-import { iconRegistry, Loader2Icon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue, useMemo, useState } from 'react';
@@ -14,15 +14,16 @@ import { OptionRow, PickerFallback } from '../../components/pickers/entity-picke
 import { useRegionFolders } from '../../hooks/queries/use-region-folders';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
 import { regions } from '../../lib/collections/regions';
-import type { DrawGeometry } from './use-map-draw';
+import { type DrawGeometry, drawParts, toDrawGeometry } from './use-map-draw';
 
 /**
- * "Use one of the agency's regions as this polygon."
+ * "Use one of the organization's regions as this polygon."
  *
- * Agencies already maintain their service areas, zones, and districts as regions
- * (`/gis/regions`), and records are routinely scoped to exactly one of them — so
- * re-tracing a district by hand is busywork. This searches the region list and
- * hands the chosen boundary back as a drawn polygon the user can still redraw.
+ * Organizations already maintain their service areas, zones, and districts as
+ * regions (`/gis/regions`), and records are routinely scoped to exactly one of
+ * them — so re-tracing a district by hand is busywork. This searches the region
+ * list and hands the chosen boundary back as a drawn polygon the user can still
+ * redraw.
  *
  * Regions sync on demand and their boundary is excluded from the sync shape, so
  * the list comes from a live subset query (like `AddressPicker`) and the polygon
@@ -33,7 +34,11 @@ const RegionIcon = iconRegistry.entities.region.icon;
 const searchGcTimeMs = 30_000;
 const resultLimit = 8;
 
-export type PolygonGeometry = DrawGeometry & { readonly type: 'Polygon' };
+/** A Region's boundary as the draw flow holds one: one area, or several as one. */
+export type RegionBoundaryGeometry = Extract<
+	DrawGeometry,
+	{ readonly type: 'Polygon' | 'MultiPolygon' }
+>;
 
 /** A Region as this picker lists one: enough to name it and tell two apart. */
 interface RegionOption {
@@ -45,12 +50,15 @@ interface RegionOption {
 
 export function RegionBoundaryPicker({
 	organizationId,
+	allowsParts,
 	disabled = false,
 	onSelect,
 }: {
 	readonly organizationId: string;
+	/** Whether the record adopting the boundary can store one in several pieces. */
+	readonly allowsParts: boolean;
 	readonly disabled?: boolean;
-	readonly onSelect: (geometry: PolygonGeometry) => void;
+	readonly onSelect: (geometry: RegionBoundaryGeometry) => void;
 }) {
 	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
@@ -65,16 +73,16 @@ export function RegionBoundaryPicker({
 		setError(null);
 		try {
 			const geometry = await fetchRegionGeometryOnce(queryClient, region.id);
-			const polygon = polygonFromGeoJson(geometry?.geojson ?? null);
-			if (polygon === null) {
+			const boundary = boundaryFromGeoJson(geometry?.geojson ?? null, allowsParts);
+			if (boundary === null) {
 				setError(
 					geometry?.geojson == null
 						? `${region.name} has no boundary saved.`
-						: `${region.name} has a multi-part boundary, which can't be used as a single polygon.`,
+						: `${region.name} has separate pieces, and this record holds one area.`,
 				);
 				return;
 			}
-			onSelect(polygon);
+			onSelect(boundary);
 			setOpen(false);
 			setSearch('');
 		} catch {
@@ -107,18 +115,13 @@ export function RegionBoundaryPicker({
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent align="start" className="grid w-80 gap-2 p-2">
-				<div className="relative">
-					<SearchIcon
-						aria-hidden="true"
-						className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-					/>
-					<Input
-						className="pl-9"
-						onChange={(event) => setSearch(event.target.value)}
-						placeholder="Search regions"
-						value={search}
-					/>
-				</div>
+				<SearchInput
+					label="Search regions"
+					onChange={(event) => setSearch(event.target.value)}
+					onClear={() => setSearch('')}
+					placeholder="Search regions"
+					value={search}
+				/>
 				<RegionResults
 					loadingId={loadingId}
 					onSelect={(region) => void adoptRegion(region)}
@@ -149,10 +152,10 @@ function RegionResults({
 		{
 			gcTime: searchGcTimeMs,
 			query: (query) => {
-				// No organization predicate: the shape is scoped to the agency
+				// No organization predicate: the shape is scoped to the organization
 				// server-side, so re-stating it here is redundant — and a stale column
 				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ region: regions });
+				const base = query.from({ region: regions() });
 				const filtered =
 					normalized.length === 0
 						? base
@@ -233,26 +236,35 @@ function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, stri
 }
 
 /**
- * Narrow a stored region boundary to the single polygon the draw flow edits.
- * Regions are drawn and imported as single polygons, but a MultiPolygon with one
- * member reads the same on the map, so it is unwrapped rather than refused.
+ * Read a stored region boundary as the shape the adopting record can hold.
+ *
+ * A boundary in several pieces is handed over whole wherever the record stores
+ * one, which is every record kind but the Notification Registration. That one
+ * takes a single area, so a multipart boundary is refused by name rather than
+ * quietly losing its other pieces.
+ *
+ * A one-piece MultiPolygon is a Polygon either way: the draw flow demotes it on
+ * the way through `geometryFromParts`, and nothing downstream ever sees a
+ * one-piece multi shape.
  */
-function polygonFromGeoJson(geojson: GeoJsonGeometry | null): PolygonGeometry | null {
-	if (geojson === null || typeof geojson !== 'object') {
+function boundaryFromGeoJson(
+	geojson: GeoJsonGeometry | null,
+	allowsParts: boolean,
+): RegionBoundaryGeometry | null {
+	const drawn = toDrawGeometry(geojson);
+	if (drawn === null) {
 		return null;
 	}
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
-	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
+	if (drawn.type === 'Polygon') {
+		return drawn;
+	}
+	if (drawn.type !== 'MultiPolygon') {
 		return null;
 	}
-	if (candidate.type === 'Polygon') {
-		return candidate as unknown as PolygonGeometry;
+	const parts = drawParts(drawn);
+	if (parts.length === 1) {
+		const only = parts[0];
+		return only?.type === 'Polygon' ? only : null;
 	}
-	if (candidate.type === 'MultiPolygon' && candidate.coordinates.length === 1) {
-		return {
-			type: 'Polygon',
-			coordinates: candidate.coordinates[0] as PolygonGeometry['coordinates'],
-		};
-	}
-	return null;
+	return allowsParts ? drawn : null;
 }

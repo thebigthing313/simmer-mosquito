@@ -64,6 +64,7 @@ import {
 	updateSourceReductionLocationAndContextCommand,
 } from '@simmer-mosquito/domain';
 import {
+	type CommandPayload,
 	readMissionExecutionOptions,
 	readNullableText,
 	readNumber,
@@ -75,14 +76,26 @@ import {
 	writeBiocontrolActionCommand,
 	writeOutreachActionCommand,
 	writeSourceReductionCommand,
-} from '../control-operations-commands/performed-actions.js';
+} from '../writers/control-operations/performed-actions.js';
 import type {
 	BiocontrolActionRow,
 	OutreachActionRow,
 	SourceReductionRow,
-} from '../control-operations-commands/shared.js';
+} from '../writers/control-operations/shared.js';
 import type { IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged, drawnGeometry } from './shared.js';
+
+/** The three tables this module serves, with one set of readers between them. */
+type ActionTable = 'source_reductions' | 'outreach_actions' | 'biocontrol_actions';
+
+/**
+ * The keys a performed-action write reads that are not its columns: the two
+ * spellings of where it happened, and what it was recorded against.
+ */
+type ActionArgument = 'locationSource' | 'geometry' | 'context';
+
+/** The body of a write to any of the three. */
+type ActionPayload = CommandPayload<ActionTable, ActionArgument>;
 
 /**
  * The surveillance record this action was made against.
@@ -92,12 +105,12 @@ import { acknowledged, drawnGeometry } from './shared.js';
  * a second copy of it that could disagree. An absent one is `kind: 'none'`,
  * which is a real answer — plenty of work is not attached to anything.
  */
-function actionContext(payload: Record<string, unknown>): ControlActionContext {
+function actionContext(payload: ActionPayload): ControlActionContext {
 	return (payload.context ?? { kind: 'none' }) as ControlActionContext;
 }
 
 /** What every action's ordinary create takes beyond its own measurements. */
-function actionPlacement(payload: Record<string, unknown>) {
+function actionPlacement(payload: ActionPayload) {
 	return {
 		locationSource: payload.locationSource as ControlActionLocationSourceInput,
 		addressId: readNullableText(payload.address_id),
@@ -114,8 +127,8 @@ function actionPlacement(payload: Record<string, unknown>) {
  * stop's own ground is the default, and an explicit `undefined` would read as an
  * instruction to clear it.
  */
-function missionPlacement(payload: Record<string, unknown>) {
-	const geometry = payload.geometry ?? drawnGeometry(payload);
+function missionPlacement(payload: ActionPayload) {
+	const geometry = payload.geometry ?? drawnGeometry(payload.locationSource);
 	return {
 		...(geometry === undefined ? {} : { geometry }),
 		addressId: readNullableText(payload.address_id),
@@ -126,9 +139,9 @@ function missionPlacement(payload: Record<string, unknown>) {
 	};
 }
 
-function missionStop({ payload, agency, id }: IntentRequest) {
+function missionStop({ payload, organization, id }: IntentRequest<ActionTable, ActionArgument>) {
 	return {
-		...agency,
+		...organization,
 		missionItemId: readText(payload.mission_item_id) ?? '',
 		...missionPlacement(payload),
 		id,
@@ -143,32 +156,34 @@ function missionStop({ payload, agency, id }: IntentRequest) {
  * one means leave it. `context` is read whole — half a context is not a state
  * the record can hold.
  */
-function placementChanges(payload: Record<string, unknown>) {
+function placementChanges(payload: ActionPayload) {
 	return {
-		...('locationSource' in payload
+		...(payload.locationSource !== undefined
 			? { locationSource: payload.locationSource as ControlActionLocationSourceInput }
 			: {}),
-		...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
-		...('context' in payload ? { context: actionContext(payload) } : {}),
-		...('requested_control_action_id' in payload
+		...(payload.address_id !== undefined
+			? { addressId: readNullableText(payload.address_id) }
+			: {}),
+		...(payload.context !== undefined ? { context: actionContext(payload) } : {}),
+		...(payload.requested_control_action_id !== undefined
 			? { requestedControlActionId: readNullableText(payload.requested_control_action_id) }
 			: {}),
 	};
 }
 
 /** The two fields every action's field-details edit shares. */
-function sharedFieldChanges(payload: Record<string, unknown>) {
+function sharedFieldChanges(payload: ActionPayload) {
 	return {
-		...('technician_profile_id' in payload
+		...(payload.technician_profile_id !== undefined
 			? { technicianProfileId: readNullableText(payload.technician_profile_id) }
 			: {}),
-		...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+		...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 	};
 }
 
 export function sourceReductionTableCommands(
 	db: CommandDb,
-): TableCommands<ActionCommand, SourceReductionRow> {
+): TableCommands<'source_reductions', ActionCommand, SourceReductionRow, ActionArgument> {
 	return {
 		table: 'source_reductions',
 		run: {
@@ -178,9 +193,9 @@ export function sourceReductionTableCommands(
 			key: 'sourceReduction',
 		},
 		intents: {
-			'controlOperations.recordSourceReduction': ({ payload, agency, id }) =>
+			'controlOperations.recordSourceReduction': ({ payload, organization, id }) =>
 				recordSourceReductionCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					sourceReductionMethodId: readText(payload.source_reduction_method_id) ?? '',
 					technicianProfileId: readNullableText(payload.technician_profile_id),
@@ -204,41 +219,46 @@ export function sourceReductionTableCommands(
 				});
 			},
 
-			'controlOperations.updateSourceReductionFieldDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateSourceReductionFieldDetails': ({ payload, organization, id }) =>
 				updateSourceReductionFieldDetailsCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					...sharedFieldChanges(payload),
-					...('source_reduction_date' in payload
+					...(payload.source_reduction_date !== undefined
 						? { sourceReductionDate: readText(payload.source_reduction_date) ?? '' }
 						: {}),
-					...('source_reduction_method_id' in payload
+					...(payload.source_reduction_method_id !== undefined
 						? { sourceReductionMethodId: readText(payload.source_reduction_method_id) ?? '' }
 						: {}),
-					...('sources_eliminated_amount' in payload
+					...(payload.sources_eliminated_amount !== undefined
 						? {
 								sourcesEliminatedAmount:
 									readNumber(payload.sources_eliminated_amount) ?? Number.NaN,
 							}
 						: {}),
-					...('sources_eliminated_unit_id' in payload
+					...(payload.sources_eliminated_unit_id !== undefined
 						? { sourcesEliminatedUnitId: readText(payload.sources_eliminated_unit_id) ?? '' }
 						: {}),
 				}),
 
-			'controlOperations.updateSourceReductionLocationAndContext': ({ payload, agency, id }) =>
+			'controlOperations.updateSourceReductionLocationAndContext': ({
+				payload,
+				organization,
+				id,
+			}) =>
 				updateSourceReductionLocationAndContextCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					...placementChanges(payload),
 				}),
 
-			'controlOperations.deleteSourceReduction': ({ payload, agency, id }) =>
+			'controlOperations.deleteSourceReduction': ({ payload, organization, id }) =>
 				deleteSourceReductionCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
-						payload.acknowledgedSupportRecordDeletion,
+						payload,
+						'acknowledgedSupportRecordDeletion',
 					),
 				}),
 		},
@@ -247,7 +267,7 @@ export function sourceReductionTableCommands(
 
 export function outreachActionTableCommands(
 	db: CommandDb,
-): TableCommands<ActionCommand, OutreachActionRow> {
+): TableCommands<'outreach_actions', ActionCommand, OutreachActionRow, ActionArgument> {
 	return {
 		table: 'outreach_actions',
 		run: {
@@ -257,9 +277,9 @@ export function outreachActionTableCommands(
 			key: 'outreachAction',
 		},
 		intents: {
-			'controlOperations.recordOutreachAction': ({ payload, agency, id }) =>
+			'controlOperations.recordOutreachAction': ({ payload, organization, id }) =>
 				recordOutreachActionCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					outreachMethodId: readText(payload.outreach_method_id) ?? '',
 					technicianProfileId: readNullableText(payload.technician_profile_id),
@@ -284,36 +304,37 @@ export function outreachActionTableCommands(
 				});
 			},
 
-			'controlOperations.updateOutreachActionFieldDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateOutreachActionFieldDetails': ({ payload, organization, id }) =>
 				updateOutreachActionFieldDetailsCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					...sharedFieldChanges(payload),
-					...('outreach_date' in payload
+					...(payload.outreach_date !== undefined
 						? { outreachDate: readText(payload.outreach_date) ?? '' }
 						: {}),
-					...('outreach_method_id' in payload
+					...(payload.outreach_method_id !== undefined
 						? { outreachMethodId: readText(payload.outreach_method_id) ?? '' }
 						: {}),
-					...('reach' in payload ? { reach: readNumber(payload.reach) ?? 0 } : {}),
-					...('reach_description' in payload
+					...(payload.reach !== undefined ? { reach: readNumber(payload.reach) ?? 0 } : {}),
+					...(payload.reach_description !== undefined
 						? { reachDescription: readNullableText(payload.reach_description) }
 						: {}),
 				}),
 
-			'controlOperations.updateOutreachActionLocationAndContext': ({ payload, agency, id }) =>
+			'controlOperations.updateOutreachActionLocationAndContext': ({ payload, organization, id }) =>
 				updateOutreachActionLocationAndContextCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					...placementChanges(payload),
 				}),
 
-			'controlOperations.deleteOutreachAction': ({ payload, agency, id }) =>
+			'controlOperations.deleteOutreachAction': ({ payload, organization, id }) =>
 				deleteOutreachActionCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
-						payload.acknowledgedSupportRecordDeletion,
+						payload,
+						'acknowledgedSupportRecordDeletion',
 					),
 				}),
 		},
@@ -322,7 +343,7 @@ export function outreachActionTableCommands(
 
 export function biocontrolActionTableCommands(
 	db: CommandDb,
-): TableCommands<ActionCommand, BiocontrolActionRow> {
+): TableCommands<'biocontrol_actions', ActionCommand, BiocontrolActionRow, ActionArgument> {
 	return {
 		table: 'biocontrol_actions',
 		run: {
@@ -332,9 +353,9 @@ export function biocontrolActionTableCommands(
 			key: 'biocontrolAction',
 		},
 		intents: {
-			'controlOperations.recordBiocontrolAction': ({ payload, agency, id }) =>
+			'controlOperations.recordBiocontrolAction': ({ payload, organization, id }) =>
 				recordBiocontrolActionCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					biocontrolMethodId: readText(payload.biocontrol_method_id) ?? '',
 					technicianProfileId: readNullableText(payload.technician_profile_id),
@@ -357,38 +378,43 @@ export function biocontrolActionTableCommands(
 				});
 			},
 
-			'controlOperations.updateBiocontrolActionFieldDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateBiocontrolActionFieldDetails': ({ payload, organization, id }) =>
 				updateBiocontrolActionFieldDetailsCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					...sharedFieldChanges(payload),
-					...('biocontrol_date' in payload
+					...(payload.biocontrol_date !== undefined
 						? { biocontrolDate: readText(payload.biocontrol_date) ?? '' }
 						: {}),
-					...('biocontrol_method_id' in payload
+					...(payload.biocontrol_method_id !== undefined
 						? { biocontrolMethodId: readText(payload.biocontrol_method_id) ?? '' }
 						: {}),
-					...('amount_released' in payload
+					...(payload.amount_released !== undefined
 						? { amountReleased: readNumber(payload.amount_released) ?? Number.NaN }
 						: {}),
-					...('release_unit_id' in payload
+					...(payload.release_unit_id !== undefined
 						? { releaseUnitId: readText(payload.release_unit_id) ?? '' }
 						: {}),
 				}),
 
-			'controlOperations.updateBiocontrolActionLocationAndContext': ({ payload, agency, id }) =>
+			'controlOperations.updateBiocontrolActionLocationAndContext': ({
+				payload,
+				organization,
+				id,
+			}) =>
 				updateBiocontrolActionLocationAndContextCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					...placementChanges(payload),
 				}),
 
-			'controlOperations.deleteBiocontrolAction': ({ payload, agency, id }) =>
+			'controlOperations.deleteBiocontrolAction': ({ payload, organization, id }) =>
 				deleteBiocontrolActionCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
-						payload.acknowledgedSupportRecordDeletion,
+						payload,
+						'acknowledgedSupportRecordDeletion',
 					),
 				}),
 		},

@@ -1,10 +1,11 @@
 /**
- * `/commands/profiles`: the agency's people, minus their logins.
+ * `/commands/profiles`: the organization's people, minus their logins.
  *
- * A Profile created here is **historical**: somebody the agency attributes work
- * to with no login behind it. Attaching a login is an invitation, which spans
- * WorkOS and is slice 3's; ending one is `people.endMembership`, also slice 3.
- * So this module writes two columns and never touches `memberships`.
+ * A Profile created here is **historical**: somebody the organization
+ * attributes work to with no login behind it. Attaching a login is an
+ * invitation, which spans WorkOS and is slice 3's; ending one is
+ * `people.endMembership`, also slice 3. So this module writes two columns and
+ * never touches `memberships`.
  *
  * There is no delete. A Profile is what records name, and the way to stop one
  * being offered is `is_active`, which `identity.updateProfile` writes.
@@ -23,26 +24,28 @@ import type { CommandDb } from '../command-write.js';
 import { type IdentityRow, writeIdentityCommand } from '../identity-commands.js';
 import type { TableCommands } from './dispatch.js';
 
-export function profileTableCommands(db: CommandDb): TableCommands<IdentityCommand, IdentityRow> {
+export function profileTableCommands(
+	db: CommandDb,
+): TableCommands<'profiles', IdentityCommand, IdentityRow> {
 	return {
 		table: 'profiles',
 		run: { db, write: writeIdentityCommand, notFound: 'profile_not_found', key: 'profile' },
 		intents: {
-			'identity.createProfile': ({ payload, agency, id }) =>
+			'identity.createProfile': ({ payload, organization, id }) =>
 				createProfileCommand({
-					...agency,
+					...organization,
 					profileId: id,
 					displayName: readText(payload.display_name) ?? '',
 					isActive: payload.is_active !== false,
 				}),
-			'identity.updateProfile': ({ payload, agency, id }) =>
+			'identity.updateProfile': ({ payload, organization, id }) =>
 				updateProfileCommand({
-					...agency,
+					...organization,
 					profileId: id,
-					...('display_name' in payload
+					...(payload.display_name !== undefined
 						? { displayName: readText(payload.display_name) ?? '' }
 						: {}),
-					...('is_active' in payload ? { isActive: payload.is_active === true } : {}),
+					...(payload.is_active !== undefined ? { isActive: payload.is_active === true } : {}),
 				}),
 		},
 	};

@@ -1,4 +1,8 @@
-import { circlePolygon } from '@simmer-mosquito/mapping';
+import {
+	circlePolygon,
+	type GeoJsonFeature,
+	type GeoJsonFeatureCollection,
+} from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../../auth';
@@ -106,10 +110,7 @@ export function useServiceRequestNearby(id: string) {
 async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
 	const response = await sessionFetch(
 		new URL(`/map/service-requests/${id}/nearby`, getServerUrl()),
-		{
-			credentials: 'include',
-			signal,
-		},
+		{ signal },
 	);
 	if (!response.ok) {
 		throw new Error(`Nearby request failed (${response.status}).`);
@@ -151,14 +152,11 @@ export function buildNearbyMapData(
 	center: { readonly lat: number; readonly lng: number },
 	response: NearbyResponse | undefined,
 	visibleFamilies: ReadonlySet<NearbyFamily>,
-): GeoJSON.FeatureCollection {
-	const features: GeoJSON.Feature[] = [];
+): GeoJsonFeatureCollection {
+	const features: GeoJsonFeature[] = [];
 
 	if (response !== undefined) {
-		const ring = circlePolygon(
-			{ lng: center.lng, lat: center.lat },
-			response.radius.meters,
-		) as unknown as GeoJSON.Polygon;
+		const ring = circlePolygon({ lng: center.lng, lat: center.lat }, response.radius.meters);
 		features.push({ type: 'Feature', properties: { role: 'ring' }, geometry: ring });
 		for (const item of response.items) {
 			const family = NEARBY_FAMILY_OF[item.category];

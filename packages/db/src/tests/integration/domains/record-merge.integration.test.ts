@@ -7,6 +7,24 @@ import {
 	sql,
 } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import {
+	createAddress,
+	createCollectionMethod,
+	createComment,
+	createContact,
+	createHabitat,
+	createMission,
+	createNotificationRegistration,
+	createNotificationType,
+	createOrganization,
+	createRoute,
+	createRouteItem,
+	createServiceRequest,
+	createTag,
+	createTagItem,
+	createTrap,
+	createMissionNotification as insertMissionNotification,
+} from '../../../test-support/row-fixtures.js';
 
 /**
  * The merge policy against real tables.
@@ -24,12 +42,13 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 describeDbIntegration('record merge policy', () => {
 	it('re-points every reference to an address and leaves the rows otherwise alone', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'address_merge');
-			const target = await createAddress(db, org, 'Depot');
-			const source = await createAddress(db, org, 'Depot (dup)');
-			const trapId = await createTrap(db, org, source);
-			const habitatId = await createHabitat(db, org, source, 'Ditch');
-			await createComment(db, org, 'address', source);
+			const org = await createOrganization(db);
+			const target = await createAddress(db, org, { display_name: 'Depot' });
+			const source = await createAddress(db, org, { display_name: 'Depot (dup)' });
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, { address_id: source });
+			const habitatId = await createHabitat(db, org, { address_id: source, habitat_name: 'Ditch' });
+			await createComment(db, org, { entityType: 'address', entityId: source });
 
 			const before = await db
 				.selectFrom('traps')
@@ -91,15 +110,23 @@ describeDbIntegration('record merge policy', () => {
 	 */
 	it('collapses a tag both habitats carried, and keeps the one already on the target', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_tag_merge');
-			const target = await createHabitat(db, org, null, 'Keep');
-			const source = await createHabitat(db, org, null, 'Fold');
-			const shared = await createTag(db, org, 'Standing water');
-			const sourceOnly = await createTag(db, org, 'Roadside');
+			const org = await createOrganization(db);
+			const target = await createHabitat(db, org, { habitat_name: 'Keep' });
+			const source = await createHabitat(db, org, { habitat_name: 'Fold' });
+			const shared = await createTag(db, org, { tag_name: 'Standing water' });
+			const sourceOnly = await createTag(db, org, { tag_name: 'Roadside' });
 
-			const targetTag = await createTagItem(db, org, shared, 'habitat', target);
-			await createTagItem(db, org, shared, 'habitat', source);
-			const movingTag = await createTagItem(db, org, sourceOnly, 'habitat', source);
+			const targetTag = await createTagItem(db, org, {
+				tagId: shared,
+				entityType: 'habitat',
+				entityId: target,
+			});
+			await createTagItem(db, org, { tagId: shared, entityType: 'habitat', entityId: source });
+			const movingTag = await createTagItem(db, org, {
+				tagId: sourceOnly,
+				entityType: 'habitat',
+				entityId: source,
+			});
 
 			await db.transaction().execute(async (trx) => {
 				await applyRecordMerge(trx, {
@@ -136,14 +163,14 @@ describeDbIntegration('record merge policy', () => {
 	 */
 	it('collapses a tag two sources shared when the target had none', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_two_sources');
-			const target = await createHabitat(db, org, null, 'Keep');
-			const first = await createHabitat(db, org, null, 'Fold A');
-			const second = await createHabitat(db, org, null, 'Fold B');
-			const shared = await createTag(db, org, 'Standing water');
+			const org = await createOrganization(db);
+			const target = await createHabitat(db, org, { habitat_name: 'Keep' });
+			const first = await createHabitat(db, org, { habitat_name: 'Fold A' });
+			const second = await createHabitat(db, org, { habitat_name: 'Fold B' });
+			const shared = await createTag(db, org, { tag_name: 'Standing water' });
 
-			await createTagItem(db, org, shared, 'habitat', first);
-			await createTagItem(db, org, shared, 'habitat', second);
+			await createTagItem(db, org, { tagId: shared, entityType: 'habitat', entityId: first });
+			await createTagItem(db, org, { tagId: shared, entityType: 'habitat', entityId: second });
 
 			await db.transaction().execute(async (trx) => {
 				await applyRecordMerge(trx, {
@@ -176,15 +203,30 @@ describeDbIntegration('record merge policy', () => {
 	 */
 	it('keeps the route stop the target already had, with its position and directions', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_route_merge');
-			const target = await createHabitat(db, org, null, 'Keep');
-			const source = await createHabitat(db, org, null, 'Fold');
-			const shared = await createRoute(db, org, 'Monday north');
-			const sourceOnly = await createRoute(db, org, 'Tuesday south');
+			const org = await createOrganization(db);
+			const target = await createHabitat(db, org, { habitat_name: 'Keep' });
+			const source = await createHabitat(db, org, { habitat_name: 'Fold' });
+			const shared = await createRoute(db, org, { route_name: 'Monday north' });
+			const sourceOnly = await createRoute(db, org, { route_name: 'Tuesday south' });
 
-			const targetStop = await createRouteItem(db, org, shared, target, 1, 'Left at the mill');
-			const duplicate = await createRouteItem(db, org, shared, source, 7, 'Nowhere');
-			const movingStop = await createRouteItem(db, org, sourceOnly, source, 3, 'Past the bridge');
+			const targetStop = await createRouteItem(
+				db,
+				org,
+				{ routeId: shared, entityType: 'habitat', entityId: target },
+				{ position: 1, directions_to_next_item: 'Left at the mill' },
+			);
+			const duplicate = await createRouteItem(
+				db,
+				org,
+				{ routeId: shared, entityType: 'habitat', entityId: source },
+				{ position: 7, directions_to_next_item: 'Nowhere' },
+			);
+			const movingStop = await createRouteItem(
+				db,
+				org,
+				{ routeId: sourceOnly, entityType: 'habitat', entityId: source },
+				{ position: 3, directions_to_next_item: 'Past the bridge' },
+			);
 
 			await db.transaction().execute(async (trx) => {
 				await applyRecordMerge(trx, {
@@ -241,14 +283,14 @@ describeDbIntegration('record merge policy', () => {
 	 */
 	it('re-points requests and registrations, and never the notifications already sent', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'contact_merge');
-			const target = await createContact(db, org, 'Sam Rivera');
-			const source = await createContact(db, org, 'S. Rivera');
-			const addressId = await createAddress(db, org, 'Depot');
-			const requestId = await createServiceRequest(db, org, source, addressId);
+			const org = await createOrganization(db);
+			const target = await createContact(db, org, { contact_name: 'Sam Rivera' });
+			const source = await createContact(db, org, { contact_name: 'S. Rivera' });
+			const addressId = await createAddress(db, org, { display_name: 'Depot' });
+			const requestId = await createServiceRequest(db, org, { addressId, contactId: source });
 			const registrationId = await createNotificationRegistration(db, org, source);
 			const notificationId = await createMissionNotification(db, org, source, registrationId);
-			await createComment(db, org, 'contact', source);
+			await createComment(db, org, { entityType: 'contact', entityId: source });
 
 			await db.transaction().execute(async (trx) => {
 				await applyRecordMerge(trx, {
@@ -287,15 +329,15 @@ describeDbIntegration('record merge policy', () => {
 		});
 	});
 
-	it('refuses a source that belongs to another agency, without saying so', async () => {
+	it('refuses a source that belongs to another organization, without saying so', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'merge_owner');
-			const other = await createOrganization(db, 'merge_other');
-			const target = await createAddress(db, org, 'Depot');
-			const foreign = await createAddress(db, other, 'Their depot');
+			const org = await createOrganization(db);
+			const other = await createOrganization(db);
+			const target = await createAddress(db, org, { display_name: 'Depot' });
+			const foreign = await createAddress(db, other, { display_name: 'Their depot' });
 
 			// Reported as missing rather than forbidden: a distinct answer would let
-			// one agency probe for another agency's ids.
+			// one organization probe for another organization's ids.
 			await expect(
 				db.transaction().execute(async (trx) =>
 					applyRecordMerge(trx, {
@@ -315,9 +357,9 @@ describeDbIntegration('record merge policy', () => {
 
 	it('refuses to merge into a retired habitat', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'merge_inactive');
-			const target = await createHabitat(db, org, null, 'Retired');
-			const source = await createHabitat(db, org, null, 'Fold');
+			const org = await createOrganization(db);
+			const target = await createHabitat(db, org, { habitat_name: 'Retired' });
+			const source = await createHabitat(db, org, { habitat_name: 'Fold' });
 			await db.updateTable('habitats').set({ is_active: false }).where('id', '=', target).execute();
 
 			await expect(
@@ -334,14 +376,17 @@ describeDbIntegration('record merge policy', () => {
 		});
 	});
 
-	it('leaves identical rows in a neighbouring agency untouched', async () => {
+	it('leaves identical rows in a neighbouring organization untouched', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'merge_scope');
-			const other = await createOrganization(db, 'merge_scope_other');
-			const target = await createAddress(db, org, 'Depot');
-			const source = await createAddress(db, org, 'Depot (dup)');
-			const theirAddress = await createAddress(db, other, 'Depot');
-			const theirTrap = await createTrap(db, other, theirAddress);
+			const org = await createOrganization(db);
+			const other = await createOrganization(db);
+			const target = await createAddress(db, org, { display_name: 'Depot' });
+			const source = await createAddress(db, org, { display_name: 'Depot (dup)' });
+			const theirAddress = await createAddress(db, other, { display_name: 'Depot' });
+			const theirMethodId = await createCollectionMethod(db, other);
+			const theirTrap = await createTrap(db, other, theirMethodId, {
+				address_id: theirAddress,
+			});
 
 			await db.transaction().execute(async (trx) => {
 				await applyRecordMerge(trx, {
@@ -387,232 +432,27 @@ async function liveCommentCount(db: Db, entityType: string, entityId: string): P
 	return rows.length;
 }
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createAddress(db: Db, organizationId: string, displayName: string): Promise<string> {
-	const row = await db
-		.insertInto('addresses')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			display_name: displayName,
-			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createHabitat(
-	db: Db,
-	organizationId: string,
-	addressId: string | null,
-	habitatName: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('habitats')
-		.values({
-			organization_id: organizationId,
-			address_id: addressId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			habitat_name: habitatName,
-			description: 'Roadside ditch',
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createTrap(db: Db, organizationId: string, addressId: string): Promise<string> {
-	const method = await db
-		.insertInto('collection_methods')
-		.values({ organization_id: organizationId, name: 'CDC light trap' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('traps')
-		.values({
-			organization_id: organizationId,
-			collection_method_id: method.id,
-			address_id: addressId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			trap_name: 'North gate',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createComment(
-	db: Db,
-	organizationId: string,
-	entityType: string,
-	entityId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('comments')
-		.values({
-			organization_id: organizationId,
-			entity_type: entityType,
-			entity_id: entityId,
-			comment_text: 'Note',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createTag(db: Db, organizationId: string, tagName: string): Promise<string> {
-	const row = await db
-		.insertInto('tags')
-		.values({ organization_id: organizationId, tag_name: tagName })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createTagItem(
-	db: Db,
-	organizationId: string,
-	tagId: string,
-	entityType: string,
-	entityId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('tag_items')
-		.values({
-			organization_id: organizationId,
-			tag_id: tagId,
-			entity_type: entityType,
-			entity_id: entityId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createRoute(db: Db, organizationId: string, routeName: string): Promise<string> {
-	const row = await db
-		.insertInto('routes')
-		.values({ organization_id: organizationId, route_name: routeName, route_type: 'habitat' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createRouteItem(
-	db: Db,
-	organizationId: string,
-	routeId: string,
-	habitatId: string,
-	position: number,
-	directions: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('route_items')
-		.values({
-			organization_id: organizationId,
-			route_id: routeId,
-			entity_type: 'habitat',
-			entity_id: habitatId,
-			position,
-			directions_to_next_item: directions,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createContact(db: Db, organizationId: string, contactName: string): Promise<string> {
-	const row = await db
-		.insertInto('contacts')
-		.values({ organization_id: organizationId, contact_name: contactName })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createServiceRequest(
-	db: Db,
-	organizationId: string,
-	contactId: string,
-	addressId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('service_requests')
-		.values({
-			organization_id: organizationId,
-			contact_id: contactId,
-			address_id: addressId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			request_date: sql`date '2026-08-01'`,
-			intake_type: 'phone',
-			details: 'Standing water behind the depot.',
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createNotificationRegistration(
-	db: Db,
-	organizationId: string,
-	contactId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('notification_registrations')
-		.values({
-			organization_id: organizationId,
-			contact_id: contactId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
+/**
+ * A mission notification, with the mission and the type it needs.
+ *
+ * The two parents are here rather than at the call site because the merge cases
+ * care only that a notification points at the source contact.
+ */
 async function createMissionNotification(
 	db: Db,
 	organizationId: string,
 	contactId: string,
 	registrationId: string,
 ): Promise<string> {
-	const notificationType = await db
-		.insertInto('notification_types')
-		.values({ organization_id: organizationId, name: 'Adulticiding' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const mission = await db
-		.insertInto('missions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'application',
-			scheduled_start_at: sql`now() + interval '1 day'`,
-			notification_type_id: notificationType.id,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('mission_notifications')
-		.values({
-			organization_id: organizationId,
-			mission_id: mission.id,
-			notification_registration_id: registrationId,
-			contact_id: contactId,
-			notification_type_id: notificationType.id,
-			channel: 'email',
-			destination: 'sam@example.test',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	const notificationTypeId = await createNotificationType(db, organizationId);
+	const missionId = await createMission(db, organizationId, {
+		scheduled_start_at: sql`now() + interval '1 day'`,
+		notification_type_id: notificationTypeId,
+	});
+	return insertMissionNotification(
+		db,
+		organizationId,
+		{ missionId, registrationId, contactId, notificationTypeId },
+		{ destination: 'sam@example.test' },
+	);
 }

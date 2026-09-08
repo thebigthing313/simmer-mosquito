@@ -1,10 +1,10 @@
 import { type RawBuilder, sql } from 'kysely';
 
 import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js';
-import type { MapExtent } from './map-extent.js';
+import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
-import { type MapFilterInput, type MapTileInput, mapSurface } from './map-surface.js';
-import type { SelectedRow } from './org-owned-writes.js';
+import { type MapSurfaceReaders, mapSurface } from './map-surface.js';
+import { geojsonToGeom, type SelectedRow } from './org-owned-writes.js';
 import { checkedValues } from './write-references.js';
 
 export interface CreateAddressInput {
@@ -121,17 +121,6 @@ export interface SafeRegion {
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
-}
-
-function geojsonToGeom(geojson: unknown): RawBuilder<string> {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
 }
 
 export async function createAddress(
@@ -296,42 +285,28 @@ export interface AddressMvtTileFilters {
 	readonly regionIds?: readonly string[];
 }
 
-export type AddressMvtTileInput = MapTileInput<AddressMvtTileFilters>;
-
-// Addresses are drawn, not listed, from here: the address book reads its rows
-// through the catalog above, so this surface is the tile and the framed extent
-// and nothing else.
-const addressSurface = mapSurface<AddressMvtTileFilters>({
-	layer: 'addresses',
-	from: sql`addresses a`,
-	alias: 'a',
-	geom: sql`a.geom`,
-	properties: [sql`a.id`, sql`a.display_name as "displayName"`],
-	filterWhere: addressFilterWhere,
-});
-
 /**
- * Address points as a Mapbox vector tile for the address-book explorer map.
- * Mirrors {@link getRegionMvtTile} but point-only (addresses geocode to a single
- * point). Each feature carries its `id` + `displayName` so the map can label and
- * select points without a second round-trip.
+ * The addresses map surface: address points as a vector tile for the address-book
+ * explorer map, and the extent that map frames on load and after a search
+ * change. Each feature carries its `id` and `displayName`, so the map can label
+ * and select a point without a second round-trip.
+ *
+ * Addresses are drawn, not listed, from here: the address book reads its rows
+ * through the catalog above, so this surface is the tile and the framed extent
+ * and nothing else.
+ *
+ * The layer is the argument rather than a literal, because it is the key this
+ * surface is registered under in `map-surface-register.ts`.
  */
-export async function getAddressMvtTile(
-	db: DbExecutor,
-	input: AddressMvtTileInput,
-): Promise<Uint8Array> {
-	return addressSurface.getTile(db, input);
-}
-
-/**
- * Extent of every address matching the tile filters, ignoring the viewport —
- * what the address-book map frames on load and after a search change.
- */
-export async function getAddressMapExtent(
-	db: DbExecutor,
-	input: MapFilterInput<AddressMvtTileFilters>,
-): Promise<MapExtent | null> {
-	return addressSurface.getExtent(db, input);
+export function addressSurface(layer: MapTilesetLayer): MapSurfaceReaders<AddressMvtTileFilters> {
+	return mapSurface<AddressMvtTileFilters>({
+		layer,
+		from: sql`addresses a`,
+		alias: 'a',
+		geom: sql`a.geom`,
+		properties: [sql`a.id`, sql`a.display_name as "displayName"`],
+		filterWhere: addressFilterWhere,
+	});
 }
 
 function addressFilterWhere(filters: AddressMvtTileFilters | undefined): RawBuilder<boolean>[] {
@@ -368,39 +343,23 @@ export interface RegionMvtTileFilters {
 	readonly ids?: readonly string[];
 }
 
-export type RegionMvtTileInput = MapTileInput<RegionMvtTileFilters>;
-
-// Like addresses, regions are drawn from here and read as rows through the
-// catalog below, so this surface is the tile and the framed extent only.
-const regionSurface = mapSurface<RegionMvtTileFilters>({
-	layer: 'regions',
-	from: sql`regions r`,
-	alias: 'r',
-	geom: sql`r.geom`,
-	properties: [sql`r.id`, sql`r.name`, sql`r.region_folder_id as "regionFolderId"`],
-	filterWhere: regionFilterWhere,
-});
-
 /**
- * Region polygons as a Mapbox vector tile for the regions explorer map. Mirrors
- * {@link getHabitatMvtTile} but polygon-only (regions are always areas).
+ * The regions map surface: region polygons as a vector tile for the regions
+ * explorer map, and the extent that map frames as the visible set changes.
+ * Polygon-only, since a region is always an area.
+ *
+ * Like addresses, regions are drawn from here and read as rows through the
+ * catalog below, so this surface is the tile and the framed extent only.
  */
-export async function getRegionMvtTile(
-	db: DbExecutor,
-	input: RegionMvtTileInput,
-): Promise<Uint8Array> {
-	return regionSurface.getTile(db, input);
-}
-
-/**
- * Extent of every region matching the tile filters, ignoring the viewport —
- * what the regions map frames as the visible set changes.
- */
-export async function getRegionMapExtent(
-	db: DbExecutor,
-	input: MapFilterInput<RegionMvtTileFilters>,
-): Promise<MapExtent | null> {
-	return regionSurface.getExtent(db, input);
+export function regionSurface(layer: MapTilesetLayer): MapSurfaceReaders<RegionMvtTileFilters> {
+	return mapSurface<RegionMvtTileFilters>({
+		layer,
+		from: sql`regions r`,
+		alias: 'r',
+		geom: sql`r.geom`,
+		properties: [sql`r.id`, sql`r.name`, sql`r.region_folder_id as "regionFolderId"`],
+		filterWhere: regionFilterWhere,
+	});
 }
 
 function regionFilterWhere(filters: RegionMvtTileFilters | undefined): RawBuilder<boolean>[] {

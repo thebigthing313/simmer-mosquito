@@ -7,6 +7,7 @@ export type {
 	FoundationCommandWarning,
 	FoundationDomainCommand,
 	FoundationWarningCode,
+	RegionGeometry,
 } from './shared.js';
 export * from './units.js';
 

@@ -144,14 +144,11 @@ function readJsonc(path) {
 }
 
 /**
- * The workspace's project directories, read from `pnpm-workspace.yaml` rather
- * than hard-coded, so a third directory alongside `apps` and `packages` cannot
- * leave half the workspace unchecked.
- *
- * Only `<dir>/*` patterns are understood — the only shape this workspace uses.
- * Anything else is an error rather than a skip, for the same reason.
+ * Every directory a workspace pattern names, read from `pnpm-workspace.yaml`
+ * rather than hard-coded, so a third directory alongside `apps` and `packages`
+ * cannot leave half the workspace unchecked.
  */
-function workspaceDirectories() {
+function workspaceProjectPaths() {
 	const yaml = readFileSync(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8');
 	const patterns = [];
 
@@ -160,42 +157,55 @@ function workspaceDirectories() {
 		if (match?.[1]) patterns.push(match[1]);
 	}
 
-	return patterns.map((pattern) => {
-		const match = /^([^*]+)\/\*$/.exec(pattern);
-		if (!match?.[1]) {
-			throw new Error(
-				`pnpm-workspace.yaml declares "${pattern}", which this check does not understand. ` +
-					'It reads `<dir>/*` patterns only — teach it the new shape rather than dropping the pattern.',
-			);
-		}
-		return match[1];
-	});
+	return patterns.flatMap(expandPattern);
+}
+
+/**
+ * The project paths one pattern names.
+ *
+ * Two shapes are understood, and they are the two this workspace writes. A
+ * `<dir>/*` pattern names a parent, so each of its subdirectories is a
+ * candidate. A plain `<dir>` names one project, which is what `scripts` is: one
+ * project rather than a parent of many. Anything else is an error rather than a
+ * skip, because a pattern this cannot read is a slice of the workspace going
+ * unchecked with nothing saying so.
+ */
+function expandPattern(pattern) {
+	if (!pattern.includes('*')) return [pattern];
+
+	const match = /^([^*]+)\/\*$/.exec(pattern);
+	if (!match?.[1]) {
+		throw new Error(
+			`pnpm-workspace.yaml declares "${pattern}", which this check does not understand. ` +
+				'It reads `<dir>/*` and plain `<dir>` patterns only — teach it the new shape rather than dropping the pattern.',
+		);
+	}
+
+	const directory = match[1];
+	const parent = join(workspaceRoot, directory);
+	if (!existsSync(parent)) return [];
+
+	return readdirSync(parent, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => `${directory}/${entry.name}`);
 }
 
 /** Every workspace project that compiles: one with both a package.json and a tsconfig.json. */
 function readProjects() {
 	const projects = [];
 
-	for (const directory of workspaceDirectories()) {
-		const parent = join(workspaceRoot, directory);
-		if (!existsSync(parent)) continue;
+	for (const path of workspaceProjectPaths()) {
+		const manifestPath = join(workspaceRoot, path, 'package.json');
+		const tsconfigPath = join(workspaceRoot, path, 'tsconfig.json');
+		if (!existsSync(manifestPath) || !existsSync(tsconfigPath)) continue;
 
-		for (const entry of readdirSync(parent, { withFileTypes: true })) {
-			if (!entry.isDirectory()) continue;
-
-			const path = `${directory}/${entry.name}`;
-			const manifestPath = join(workspaceRoot, path, 'package.json');
-			const tsconfigPath = join(workspaceRoot, path, 'tsconfig.json');
-			if (!existsSync(manifestPath) || !existsSync(tsconfigPath)) continue;
-
-			const manifest = readJsonc(manifestPath);
-			projects.push({
-				path,
-				name: manifest.name,
-				manifest,
-				tsconfig: readJsonc(tsconfigPath),
-			});
-		}
+		const manifest = readJsonc(manifestPath);
+		projects.push({
+			path,
+			name: manifest.name,
+			manifest,
+			tsconfig: readJsonc(tsconfigPath),
+		});
 	}
 
 	return projects;

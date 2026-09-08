@@ -30,24 +30,28 @@ export function useAdultCollection(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) => eq(collection.id, collectionId ?? unmatchableId))
 					// `left` throughout: an ad-hoc collection names no trap, most name no
 					// lure and no address, and an `inner` join would drop the row entirely
 					// rather than leave a field blank.
-					.join({ trap: traps }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
 					.join(
-						{ method: collection_methods },
+						{ trap: traps() },
+						({ collection, trap }) => eq(collection.trap_id, trap.id),
+						'left',
+					)
+					.join(
+						{ method: collection_methods() },
 						({ collection, method }) => eq(collection.collection_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ lure: collection_lures },
+						{ lure: collection_lures() },
 						({ collection, lure }) => eq(collection.collection_lure_id, lure.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ collection, address }) => eq(collection.address_id, address.id),
 						'left',
 					)

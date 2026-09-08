@@ -27,12 +27,12 @@ export function useLarvalActivityForDate(date: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ inspection: inspections })
+					.from({ inspection: inspections() })
 					.where(({ inspection }) => eq(inspection.inspection_date, date))
 					// `left`, not `inner`: an Ad Hoc Inspection has no Habitat, and an
 					// `inner` join would drop every one of them from the day's list.
 					.join(
-						{ habitat: habitats },
+						{ habitat: habitats() },
 						({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
 						'left',
 					)
@@ -41,12 +41,12 @@ export function useLarvalActivityForDate(date: string): {
 					// the query for the same reason the Habitat is: the row should arrive
 					// whole.
 					.join(
-						{ inspector: profiles },
+						{ inspector: profiles() },
 						({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
 						'left',
 					)
 					.join(
-						{ type: habitat_types },
+						{ type: habitat_types() },
 						({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
 						'left',
 					)

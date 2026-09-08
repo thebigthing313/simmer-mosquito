@@ -5,9 +5,10 @@ import { prefixesWithNoRoutes } from './support/registered-routes.js';
 
 /**
  * Beside `sync-shapes.test.ts`'s assertion on the shape proxy, and for the same
- * reason: these URLs are identical across tenants and the scope is read out of
- * the session inside the handler, so a response any shared cache may store is a
- * tenancy leak waiting on a proxy nobody remembered was there.
+ * reason: these URLs are identical across organizations and the scope is read
+ * out of the session inside the handler, so a response any shared cache may
+ * store leaks one organization's rows to another, waiting on a proxy nobody
+ * remembered was there.
  *
  * The tile route in particular sent one header — `content-type` — and nothing
  * else. No `cache-control`, no `vary`, no `ETag`.

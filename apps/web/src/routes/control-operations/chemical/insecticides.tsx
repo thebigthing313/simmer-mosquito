@@ -1,6 +1,6 @@
 /**
- * The insecticides catalog: the products an agency applies, each expanding to
- * the lots crews draw from.
+ * The insecticides catalog: the products an organization applies, each
+ * expanding to the lots crews draw from.
  *
  * Two record types with two sets of commands, so the surfaces live in the
  * modules beside this file (#169). This holds the two mutation hooks, the
@@ -96,13 +96,13 @@ function InsecticidesRoute() {
 		<CatalogPage
 			action={canManage ? addInsecticideDrawer : undefined}
 			canEdit={canManage}
-			description="The products your agency applies — active ingredient, EPA registration number, default usage unit, and the lots crews draw from."
+			description="The products you apply, with active ingredient, EPA registration number, default usage unit, and the lots crews draw from."
 			emptyDescription={
 				<>
 					Insecticides are the products behind every chemical application record.
 					{canManage
 						? ' Add your first product to get started.'
-						: ' An owner or admin can add products for your agency.'}
+						: ' An owner or admin can add products for you.'}
 				</>
 			}
 			emptyTitle="No Insecticides Yet"

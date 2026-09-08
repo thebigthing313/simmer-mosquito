@@ -4,11 +4,9 @@
  * involved in it.
  *
  * This lives in the domain rather than beside the query that produces it
- * because two layers have to agree on it — the reader that assembles the log
- * and the surface that renders it — and they cannot see each other:
- * `packages/db` deliberately depends on nothing but Kysely, so it declares its
- * own copy (as it already does for `LarvalDensity`). `apps/server` sees both
- * and pins them equal, which is the same seam the personnel entity types use.
+ * because two layers have to agree on it: the reader that assembles the log and
+ * the surface that renders it. `packages/db` imports these four lists and
+ * `apps/web` reads them off the same declaration, so there is nothing to pin.
  *
  * Nothing here describes a *command*. Activity is a read: it is assembled from
  * columns that other commands already wrote, and no command writes an "activity".

@@ -48,7 +48,7 @@ export function useMissions(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ mission: missions })
+					.from({ mission: missions() })
 					.where(({ mission }) =>
 						and(
 							gte(mission.scheduled_start_at, fromBound),

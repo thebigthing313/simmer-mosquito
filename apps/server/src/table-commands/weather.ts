@@ -18,11 +18,11 @@
  * tables: the point lives in `geom`, which never syncs, so `geometry` names the
  * shape to store rather than a column.
  *
- * ## The future-date rule needs the agency's zone
+ * ## The future-date rule needs the organization's zone
  *
  * A summary records weather that has already happened, so its bucket cannot end
- * after today. Which day "today" is depends on the agency's timezone, a
- * California agency entering yesterday's rain at 6pm is on a date UTC has
+ * after today. Which day "today" is depends on the organization's timezone, a
+ * California organization entering yesterday's rain at 6pm is on a date UTC has
  * already left, so the check cannot live in a domain builder, which is handed
  * no zone, and cannot live in the writer, which is handed a transaction and a
  * command and nothing else. It lives here, where `authContext.timeZone` is the
@@ -42,7 +42,12 @@ import {
 	updateWeatherSummaryCommand,
 	type WeatherCommand,
 } from '@simmer-mosquito/domain';
-import { readNullableText, readText } from '../command-payload.js';
+import {
+	type ColumnOf,
+	type CommandPayload,
+	readNullableText,
+	readText,
+} from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
 import type { WeatherStationRow, WeatherSummaryRow } from '../weather-commands/shared.js';
@@ -51,9 +56,22 @@ import { writeWeatherSummaryCommand } from '../weather-commands/summaries.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
+/**
+ * The point to store, and the row version a write is editing against.
+ */
+type StationArgument = 'geometry' | 'expectedUpdatedAt';
+
+/**
+ * The row version a write is editing against.
+ */
+type SummaryArgument = 'expectedUpdatedAt';
+
+/** The body of a `weather_summaries` write, so the pairs below index into it. */
+type SummaryPayload = CommandPayload<'weather_summaries', SummaryArgument>;
+
 export function weatherStationTableCommands(
 	db: CommandDb,
-): TableCommands<WeatherCommand, WeatherStationRow> {
+): TableCommands<'weather_sources', WeatherCommand, WeatherStationRow, StationArgument> {
 	return {
 		table: 'weather_sources',
 		run: {
@@ -63,9 +81,9 @@ export function weatherStationTableCommands(
 			key: 'weatherStation',
 		},
 		intents: {
-			'weather.createWeatherStation': ({ payload, agency, id }) =>
+			'weather.createWeatherStation': ({ payload, organization, id }) =>
 				createWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					stationName: readText(payload.source_name) ?? '',
 					stationCode: readNullableText(payload.source_code),
@@ -73,55 +91,59 @@ export function weatherStationTableCommands(
 					geometry: payload.geometry,
 				}),
 
-			'weather.updateWeatherStationDetails': ({ payload, agency, id }) =>
+			'weather.updateWeatherStationDetails': ({ payload, organization, id }) =>
 				updateWeatherStationDetailsCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
-					...('source_name' in payload ? { stationName: readText(payload.source_name) ?? '' } : {}),
-					...('source_code' in payload
+					...(payload.source_name !== undefined
+						? { stationName: readText(payload.source_name) ?? '' }
+						: {}),
+					...(payload.source_code !== undefined
 						? { stationCode: readNullableText(payload.source_code) }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalStationIdentityChange: acknowledged(
-						payload.acknowledgedHistoricalStationIdentityChange,
+						payload,
+						'acknowledgedHistoricalStationIdentityChange',
 					),
 				}),
 
-			'weather.updateWeatherStationLocation': ({ payload, agency, id }) =>
+			'weather.updateWeatherStationLocation': ({ payload, organization, id }) =>
 				updateWeatherStationLocationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 					geometry: payload.geometry,
 					acknowledgedHistoricalLocationChange: acknowledged(
-						payload.acknowledgedHistoricalLocationChange,
+						payload,
+						'acknowledgedHistoricalLocationChange',
 					),
 				}),
 
 			// `is_active` is a column the client can see, so a write that sets it
 			// arrives here as one of these two names rather than as a details edit
 			// carrying the column. Which of the two it is, is the client's to say.
-			'weather.deactivateWeatherStation': ({ payload, agency, id }) =>
+			'weather.deactivateWeatherStation': ({ payload, organization, id }) =>
 				deactivateWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 				}),
 
-			'weather.reactivateWeatherStation': ({ payload, agency, id }) =>
+			'weather.reactivateWeatherStation': ({ payload, organization, id }) =>
 				reactivateWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 				}),
 
-			'weather.deleteWeatherStation': ({ payload, agency, id }) =>
+			'weather.deleteWeatherStation': ({ payload, organization, id }) =>
 				deleteWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
-					acknowledgedSummaryDeletion: acknowledged(payload.acknowledgedSummaryDeletion),
+					acknowledgedSummaryDeletion: acknowledged(payload, 'acknowledgedSummaryDeletion'),
 				}),
 		},
 	};
@@ -129,7 +151,7 @@ export function weatherStationTableCommands(
 
 export function weatherSummaryTableCommands(
 	db: CommandDb,
-): TableCommands<WeatherCommand, WeatherSummaryRow> {
+): TableCommands<'weather_summaries', WeatherCommand, WeatherSummaryRow, SummaryArgument> {
 	return {
 		table: 'weather_summaries',
 		run: {
@@ -139,12 +161,12 @@ export function weatherSummaryTableCommands(
 			key: 'weatherSummary',
 		},
 		intents: {
-			'weather.createWeatherSummary': ({ payload, agency, authContext, id }) => {
+			'weather.createWeatherSummary': ({ payload, organization, authContext, id }) => {
 				const startDate = readText(payload.start_date) ?? '';
 				const endDate = readText(payload.end_date) ?? startDate;
 				assertNotFuture({ startDate, endDate }, authContext.timeZone);
 				return createWeatherSummaryCommand({
-					...agency,
+					...organization,
 					weatherSummaryId: id,
 					weatherStationId: readText(payload.weather_source_id) ?? '',
 					startDate,
@@ -155,16 +177,17 @@ export function weatherSummaryTableCommands(
 				});
 			},
 
-			'weather.updateWeatherSummary': ({ payload, agency, authContext, id }) => {
+			'weather.updateWeatherSummary': ({ payload, organization, authContext, id }) => {
 				const startDate =
-					'start_date' in payload ? (readText(payload.start_date) ?? '') : undefined;
-				const endDate = 'end_date' in payload ? (readText(payload.end_date) ?? '') : undefined;
+					payload.start_date !== undefined ? (readText(payload.start_date) ?? '') : undefined;
+				const endDate =
+					payload.end_date !== undefined ? (readText(payload.end_date) ?? '') : undefined;
 				// Only the ends this request moves. The stored half of a partly-moved
 				// bucket is already in the past by definition, and the writer is what
 				// re-checks the pair for ordering and overlap.
 				assertNotFuture({ startDate, endDate }, authContext.timeZone);
 				return updateWeatherSummaryCommand({
-					...agency,
+					...organization,
 					weatherSummaryId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 					...(startDate !== undefined ? { startDate } : {}),
@@ -173,9 +196,9 @@ export function weatherSummaryTableCommands(
 				});
 			},
 
-			'weather.deleteWeatherSummary': ({ payload, agency, id }) =>
+			'weather.deleteWeatherSummary': ({ payload, organization, id }) =>
 				deleteWeatherSummaryCommand({
-					...agency,
+					...organization,
 					weatherSummaryId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 				}),
@@ -190,7 +213,7 @@ export function weatherSummaryTableCommands(
  * domain requires at least one metric and counts an absent field the same as a
  * null one. A create that names none is refused by the builder.
  */
-function readMetrics(payload: Record<string, unknown>): Record<string, number | null> {
+function readMetrics(payload: SummaryPayload): Record<string, number | null> {
 	return {
 		temperatureMinF: readNumber(payload.temperature_min_f),
 		temperatureMaxF: readNumber(payload.temperature_max_f),
@@ -209,17 +232,25 @@ function readMetrics(payload: Record<string, unknown>): Record<string, number | 
  * that carries `null`: absent leaves the stored reading alone, null clears it.
  * So this cannot go through {@link readMetrics}, which fills in every field.
  */
-function readMetricPatch(payload: Record<string, unknown>): Record<string, number | null> {
+function readMetricPatch(payload: SummaryPayload): Record<string, number | null> {
 	const patch: Record<string, number | null> = {};
 	for (const [column, field] of METRIC_COLUMNS) {
-		if (column in payload) {
+		if (payload[column] !== undefined) {
 			patch[field] = readNumber(payload[column]);
 		}
 	}
 	return patch;
 }
 
-const METRIC_COLUMNS: readonly (readonly [string, string])[] = [
+/**
+ * The seven metric columns, beside the domain field each becomes.
+ *
+ * The left-hand names are typed as columns, so a migration that renames one
+ * fails here rather than at the dynamic read below. That read used to be
+ * invisible to everything: `payload[column]` says nothing a checker can follow,
+ * and these seven are exactly what a rename would strip.
+ */
+const METRIC_COLUMNS: readonly (readonly [ColumnOf<'weather_summaries'>, string])[] = [
 	['temperature_min_f', 'temperatureMinF'],
 	['temperature_max_f', 'temperatureMaxF'],
 	['precipitation_inches', 'precipitationInches'],
@@ -248,7 +279,7 @@ function readNumber(value: unknown): number | null {
 }
 
 /**
- * Refuse a bucket that runs past today in the agency's zone.
+ * Refuse a bucket that runs past today in the organization's zone.
  *
  * Raised as a `DomainValidationError` so it lands as the same `invalid_command`
  * 400 with an issue path that a builder rejection does. To a client this is one
@@ -272,7 +303,7 @@ function assertNotFuture(
 	}
 }
 
-/** Today, as the calendar day the agency is currently on. */
+/** Today, as the calendar day the organization is currently on. */
 function todayInTimeZone(timeZone: string): string {
 	return new Intl.DateTimeFormat('en-CA', {
 		timeZone,

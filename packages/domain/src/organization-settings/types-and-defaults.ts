@@ -1,8 +1,9 @@
+import type { AdultCollectionTimingMode, LarvalDensity, UnitType } from '../column-vocabularies.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
-export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
+export type { AdultCollectionTimingMode, LarvalDensity, UnitType };
+
 export type LarvalInspectionEntryMode = 'density_only' | 'count_and_dips_required' | 'hybrid';
-export type AdultCollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
 
 export interface LarvalDensityRange {
 	readonly minInclusive: number;
@@ -23,16 +24,6 @@ export interface LarvalInspectionEntryPolicy {
 
 export type ResolvedLarvalInspectionEntryPolicy = Required<LarvalInspectionEntryPolicy>;
 
-export type UnitType =
-	| 'weight'
-	| 'distance'
-	| 'area'
-	| 'volume'
-	| 'temperature'
-	| 'duration'
-	| 'count'
-	| 'speed';
-
 export type UnitDefaults = Readonly<Record<UnitType, string>>;
 
 export interface ServiceRequestContextSettings {
@@ -47,10 +38,11 @@ export interface ServiceRequestContextSettings {
 }
 
 /**
- * One key press records one species. Sex and physiological status are not bound to
- * the key — the adult entry modal carries a sticky mode that every press inherits —
- * so an agency needs one key per species rather than one per species/sex/status
- * combination, and the same binding set serves adult and larval identification.
+ * One key press records one species. Sex and physiological status are not bound
+ * to the key — the adult entry modal carries a sticky mode that every press
+ * inherits — so an organization needs one key per species rather than one per
+ * species/sex/status combination, and the same binding set serves adult and
+ * larval identification.
  */
 export interface SpeciesKeyBinding {
 	readonly key: string;
@@ -231,7 +223,7 @@ export const DEFAULT_SERVICE_REQUEST_CONTEXT: ServiceRequestContextSettings = {
 	},
 } as const;
 
-/** No bindings until an agency sets them up; key entry stays unavailable until then. */
+/** No bindings until an organization sets them up; key entry stays unavailable until then. */
 export const DEFAULT_SPECIES_KEY_BINDINGS: SpeciesKeyBindings = {
 	bindings: [],
 } as const;

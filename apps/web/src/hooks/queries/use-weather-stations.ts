@@ -1,5 +1,5 @@
 /**
- * Every weather station this agency can read, by name.
+ * Every weather station this organization can read, by name.
  *
  * The stations list, which draws its points as GeoJSON off these same rows rather
  * than standing up a tile route: there are tens of stations, not thousands, and
@@ -17,7 +17,7 @@ export function useWeatherStations(): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ source: weather_sources })
+				.from({ source: weather_sources() })
 				.orderBy(({ source }) => source.source_name, 'asc')
 				.select(({ source }) => ({
 					id: source.id,

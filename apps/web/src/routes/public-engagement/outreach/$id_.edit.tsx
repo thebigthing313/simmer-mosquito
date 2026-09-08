@@ -1,9 +1,8 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
@@ -19,7 +18,7 @@ import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	noTechnicianValue,
@@ -31,7 +30,7 @@ const outreachGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/public-engagement/outreach/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/public-engagement/outreach/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -51,27 +50,25 @@ function EditOutreachActionRoute() {
 
 	const { action, isReady, isError } = useOutreachAction(id, { gcTime: outreachGcTimeMs });
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="outreach action" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (action === undefined) {
-		return <RecordUnavailable layout="centered" noun="outreach action" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
-		<EditOutreachActionLoader
-			action={action}
-			canSubmit={organization !== null && actorProfileId !== null}
-			organizationId={organization?.id ?? ''}
-			outreachMethods={methods}
-			profiles={profiles}
-		/>
+		<RecordEditFrame
+			noun="outreach action"
+			reading={{ isError, isReady, record: action }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditOutreachActionLoader
+					action={record}
+					canSubmit={organization !== null && actorProfileId !== null}
+					organizationId={organization?.id ?? ''}
+					outreachMethods={methods}
+					profiles={profiles}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 
@@ -121,8 +118,7 @@ function EditOutreachActionLoader({
 			// The shape and the address are independent: only state a location when the
 			// user actually redrew it. Absent means "leave it", which is not the same
 			// request as re-sending the shape it already has.
-			const redrawn =
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const redrawn = geometryChanged && geometry !== null ? geometry : null;
 			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
 			// Which commands this save means is worked out by the hook, from what
@@ -181,7 +177,7 @@ function EditOutreachActionLoader({
 		);
 	}
 	if (geometryQuery.isPending || !personnel.isReady) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 	}
 
 	return (
@@ -223,21 +219,4 @@ function defaultsFromAction(
 		// Create-only field; the detail page's thread is where an edit adds a note.
 		comment: '',
 	};
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

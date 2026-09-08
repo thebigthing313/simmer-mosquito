@@ -25,8 +25,8 @@ type LandingCapability = {
 /**
  * The three capabilities are the three integrated mosquito management tactics
  * SIMMER covers today, ordered the way a program runs them. Copy stays
- * descriptive: the reader runs a mosquito control agency and does not need the
- * value of surveillance explained back to them.
+ * descriptive: the reader runs a mosquito control organization and does not
+ * need the value of surveillance explained back to them.
  */
 const CAPABILITIES: readonly LandingCapability[] = [
 	{
@@ -122,8 +122,8 @@ export function LandingStage({ variant = 'page' }: { readonly variant?: 'page' |
 						isAside && 'hidden lg:block',
 					)}
 				>
-					Built around the five tactics of integrated mosquito management, for the agencies that
-					keep communities protected.
+					Built around the five tactics of integrated mosquito management, for the organizations
+					that keep communities protected.
 				</p>
 			</div>
 		</section>

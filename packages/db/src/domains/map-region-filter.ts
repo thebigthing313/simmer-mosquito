@@ -2,12 +2,12 @@ import { type RawBuilder, sql } from 'kysely';
 
 // --- region membership --------------------------------------------------------
 //
-// A region is the agency's own operational geography — a district, a zone, a
-// city boundary — and "only show me this district" is a question every explorer
-// gets asked. No record carries a region column: a habitat belongs to a district
-// by *where it is*, so membership is a spatial test against the region boundary
-// rather than a foreign key, and it stays correct the moment a boundary is
-// redrawn.
+// A region is the organization's own operational geography — a district, a
+// zone, a city boundary — and "only show me this district" is a question every
+// explorer gets asked. No record carries a region column: a habitat belongs to
+// a district by *where it is*, so membership is a spatial test against the
+// region boundary rather than a foreign key, and it stays correct the moment a
+// boundary is redrawn.
 //
 // The predicate is shared by every map surface and by the detail-page read that
 // asks the inverse question, so the tiles, the paged list, the framed extent and
@@ -19,11 +19,18 @@ import { type RawBuilder, sql } from 'kysely';
  * The rule has three parts. A point is inside a region when it shares any point
  * with it, including a boundary. A line is inside when it shares any point with
  * it, so a habitat line running across a district boundary is still work in that
- * district and is not dropped for also leaving. A polygon is inside only when
- * the two *interiors* meet, so an area that shares an edge with a district and
+ * district and is not dropped for also leaving. An area is inside only when the
+ * two *interiors* meet, so an area that shares an edge with a district and
  * overlaps it nowhere is work next to the district rather than in it.
  *
- * ADR 0015 has the reasoning and the alternatives that were rejected.
+ * Area means Polygon or MultiPolygon. A MultiPolygon's interior is the union of
+ * its parts' interiors, so a record with one part interior-inside is a member and
+ * a record whose every part only abuts the boundary is not. MultiPoint and
+ * MultiLineString stay on plain intersection for the reason their single-part
+ * forms do.
+ *
+ * ADR 0015 has the reasoning and the alternatives that were rejected, and its
+ * 2026-09-03 amendment has the multipart half.
  */
 export function regionMembershipClause(input: {
 	/** The record's geometry column, e.g. ``sql`h.geom` ``. */
@@ -39,9 +46,10 @@ export function regionMembershipClause(input: {
 	 */
 	readonly geomType: RawBuilder<unknown>;
 	/**
-	 * The record's tenancy column, e.g. ``sql`h.organization_id` ``. The region set
-	 * is scoped to the record's own agency rather than to a separately passed id,
-	 * so a region id belonging to another agency can never widen a filtered read.
+	 * The record's organization column, e.g. ``sql`h.organization_id` ``. The
+	 * region set is scoped to the record's own organization rather than to a
+	 * separately passed id, so a region id belonging to another organization can
+	 * never widen a filtered read.
 	 */
 	readonly organizationId: RawBuilder<unknown>;
 	readonly regionIds: readonly string[];
@@ -73,9 +81,10 @@ export function regionMembershipClause(input: {
  * The branch itself, without the region set around it.
  *
  * Split out so the detail-page read can scope the region set its own way, every
- * live region of the caller's agency rather than a chosen few, and still run the
- * same test the multiselect runs. Two surfaces answering the same question
- * differently about one record is the failure ADR 0015 exists to prevent.
+ * live region of the caller's organization rather than a chosen few, and still
+ * run the same test the multiselect runs. Two surfaces answering the same
+ * question differently about one record is the failure ADR 0015 exists to
+ * prevent.
  *
  * The caller supplies `&&` and the soft-delete filter; this is only the exact
  * test that follows them.
@@ -91,8 +100,14 @@ export function regionMembershipMatch(input: {
 	// drawn wholly inside a district, `ST_Contains` and `ST_Within` drop one
 	// straddling a boundary, and `ST_Covers` counts the boundary-only case this
 	// rule exists to exclude.
+	//
+	// The areal set is two literal names rather than a normalization. A
+	// `replace(geom_type, 'st_multi', 'st_')` is a string trick that only looks
+	// like one, and `normalizeGeomType` is not callable here: `packages/db`
+	// carries `@simmer-mosquito/mapping` as a devDependency. The set is closed at
+	// two, because GeometryCollection is not a record geometry.
 	return sql<boolean>`case
-		when ${input.geomType} = 'st_polygon'
+		when ${input.geomType} in ('st_polygon', 'st_multipolygon')
 			then st_relate(${input.regionGeom}, ${input.geom}, 'T********')
 		else st_intersects(${input.regionGeom}, ${input.geom})
 	end`;

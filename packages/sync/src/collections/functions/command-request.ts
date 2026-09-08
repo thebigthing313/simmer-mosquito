@@ -135,12 +135,12 @@ export function refuseIfReadOnly(mutation: WriteTarget): void {
 }
 
 /**
- * Columns the server owns, on every table.
+ * The names this client strips from every outgoing body.
  *
- * Stripped from outgoing bodies not because sending them would be *rejected* —
- * the endpoints read the fields they want and ignore the rest — but because the
- * server overwrites them regardless, so a client value for any of them is noise
- * that reads as an intention.
+ * Stripped not because sending them would be *rejected*. The endpoints read the
+ * fields they want and ignore the rest. They are stripped because the server
+ * overwrites them regardless, so a client value for any of them is noise that
+ * reads as an intention.
  *
  * It also keeps a no-op detectable. An edit form stamps `updated_at` and
  * `updated_by_profile_id` on every save so the optimistic row looks right, which
@@ -148,9 +148,22 @@ export function refuseIfReadOnly(mutation: WriteTarget): void {
  * edit that changed nothing would still become a request, and the server would
  * refuse it for asking for nothing.
  *
- * The same set for all 55 tables — the tenant, the trigger-maintained centroid,
- * and the four audit columns — so it is a fact about how SIMMER writes rather
- * than knowledge about any one table.
+ * One list for every table, and deliberately wider than any one table's answer.
+ * The server's answer is per table: `ServerOwnedColumns` in
+ * `packages/db/src/tables.ts`, emitted from the `SERVER_OWNED` and
+ * `TRIGGER_MAINTAINED` rules in `scripts/generate-table-types.mjs`. `lat`, `lng`
+ * and `geom_type` are on that answer only where the `set_owned_centroid()`
+ * trigger fires, and stripping them everywhere costs nothing: a table without
+ * the trigger has no such column for a row to carry.
+ *
+ * The other direction is the one worth reading. `SERVER_OWNED` also names `geom`
+ * and `deleted_at`, and this list does not, because no row schema carries
+ * either: `OMIT` in `scripts/generate-table-schemas.mjs` keeps both off every
+ * client, so a body built from a row cannot name one.
+ *
+ * `pnpm check:server-owned-columns` holds this list to those two registers, in
+ * both directions. A name added to one and not the other fails there rather than
+ * going stale here, which is how a hand-kept strip list fails (#648).
  */
 const serverOwnedColumns: ReadonlySet<string> = new Set([
 	'organization_id',
@@ -180,10 +193,11 @@ function withoutServerOwnedColumns(source: object): CommandBody {
  *
  * `commandRequestFor` builds a single-row write's body out of what the library
  * diffed for it. A transaction has no such mutation to read — it states its own
- * body, because only the caller knows how a parent and its children fit into one
- * command — but the rules about what may be in one do not change: the server
- * still owns the tenant, the centroid and the four audit columns, and the
- * instructions still ride at the top level where the endpoints read them.
+ * body, because only the caller knows how a parent and its children fit into
+ * one command — but the rules about what may be in one do not change: the
+ * server still owns the organization id, the centroid and the four audit
+ * columns, and the instructions still ride at the top level where the endpoints
+ * read them.
  *
  * Restating those in each hook is how one of them ends up sending
  * `organization_id`, or spelling `acknowledgements` as a nested object the

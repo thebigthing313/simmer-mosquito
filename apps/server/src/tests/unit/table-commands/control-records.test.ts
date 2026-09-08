@@ -10,13 +10,19 @@
 
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { CommandTable } from '../../../command-payload.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import {
 	applicationBatchTableCommands,
 	applicationTableCommands,
 } from '../../../table-commands/applications.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
+import {
+	biocontrolActionTableCommands,
+	outreachActionTableCommands,
+	sourceReductionTableCommands,
+} from '../../../table-commands/performed-actions.js';
 import { requestedControlActionTableCommands } from '../../../table-commands/requested-control-actions.js';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
@@ -27,6 +33,9 @@ const UNIT = '55555555-5555-4555-8555-555555555555';
 const APPLICATION = '66666666-6666-4666-8666-666666666666';
 const BATCH = '77777777-7777-4777-8777-777777777777';
 const MISSION_ITEM = '88888888-8888-4888-8888-888888888888';
+const HABITAT = '99999999-9999-4999-8999-999999999999';
+const INSPECTION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const METHOD = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 const GEOMETRY = { kind: 'geometry', geometry: { type: 'Point', coordinates: [-81, 28] } };
 const WHEN = '2026-08-10';
@@ -35,11 +44,14 @@ const RESOLVED_AT = '2026-08-11T14:00:00.000Z';
 const applications = applicationTableCommands(undefined as never);
 const applicationBatches = applicationBatchTableCommands(undefined as never);
 const requests = requestedControlActionTableCommands(undefined as never);
+const sourceReductions = sourceReductionTableCommands(undefined as never);
+const outreachActions = outreachActionTableCommands(undefined as never);
+const biocontrolActions = biocontrolActionTableCommands(undefined as never);
 
-function request(payload: Record<string, unknown>): IntentRequest {
+function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings: null },
 			profile: { id: ACTOR },
@@ -50,9 +62,9 @@ function request(payload: Record<string, unknown>): IntentRequest {
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
-	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
+	intent: OrganizationCommandType,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {
@@ -190,6 +202,101 @@ describe('requested_control_actions intent map', () => {
 			requestedControlActionId: ROW,
 			controlType: 'source_reduction',
 			summary: 'Standing water behind the school',
+		});
+	});
+});
+
+/**
+ * ADR 0012: an action recorded off a mission stop stores what the same action
+ * recorded outside one stores.
+ *
+ * The mission branch is a second construction of the same command, and it once
+ * silently dropped `context` on all four types. The form sends the same keys
+ * either way and the writers read `payload.context ?? { kind: 'none' }`, so the
+ * action landed with null links and nothing threw. A client-side wire check
+ * cannot see it, because the keys are on the request body in both cases, so the
+ * assertion has to be on the command the intent map builds.
+ *
+ * This replaces `mission-execution-context.test.ts`, which asserted the same
+ * thing over the payload inference the per-domain routes did (#634).
+ */
+describe('a mission stop keeps the action\u2019s own context', () => {
+	const LARVAL = { kind: 'larval', habitatId: HABITAT, inspectionId: INSPECTION };
+	// Outreach reaches people, not habitats: its larval context is the inspection
+	// alone, and a habitat on it is refused by the domain.
+	const OUTREACH_LARVAL = { kind: 'larval', inspectionId: INSPECTION };
+
+	it.each([
+		[
+			'chemical application',
+			applications,
+			'missionDispatch.recordChemicalApplicationForMissionItem',
+			applicationBody(),
+			LARVAL,
+		],
+		[
+			'source reduction',
+			sourceReductions,
+			'missionDispatch.recordSourceReductionForMissionItem',
+			{
+				source_reduction_method_id: METHOD,
+				source_reduction_date: WHEN,
+				sources_eliminated_amount: 4,
+				sources_eliminated_unit_id: UNIT,
+			},
+			LARVAL,
+		],
+		[
+			'outreach action',
+			outreachActions,
+			'missionDispatch.recordOutreachActionForMissionItem',
+			{ outreach_method_id: METHOD, outreach_date: WHEN, reach: 12 },
+			OUTREACH_LARVAL,
+		],
+		[
+			'biocontrol action',
+			biocontrolActions,
+			'missionDispatch.recordBiocontrolActionForMissionItem',
+			{
+				biocontrol_method_id: METHOD,
+				biocontrol_date: WHEN,
+				amount_released: 3,
+				release_unit_id: UNIT,
+			},
+			LARVAL,
+		],
+	] as const)('carries it through the %s stop command', (_name, spec, intent, body, context) => {
+		const command = build(
+			spec as never,
+			intent,
+			request({
+				...body,
+				geometry: GEOMETRY.geometry,
+				mission_item_id: MISSION_ITEM,
+				context,
+			}),
+		);
+
+		expect(command.payload).toMatchObject({ missionItemId: MISSION_ITEM, context });
+	});
+
+	it('reads a stop with no context as an ordinary action', () => {
+		// `{ kind: 'none' }` rather than a missing key: the writers read
+		// `payload.context ?? { kind: 'none' }`, and an action with no larval or
+		// adult context is an ordinary action, not an invalid one.
+		const command = build(
+			applications,
+			'missionDispatch.recordChemicalApplicationForMissionItem',
+			request({
+				...applicationBody(),
+				geometry: GEOMETRY.geometry,
+				mission_item_id: MISSION_ITEM,
+			}),
+		);
+
+		expect(command.payload).toMatchObject({
+			missionItemId: MISSION_ITEM,
+			context: { kind: 'none' },
 		});
 	});
 });

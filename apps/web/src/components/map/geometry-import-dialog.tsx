@@ -4,10 +4,7 @@ import {
 	type ImportCandidate,
 	type ImportGeometryKind,
 	importCandidatesFrom,
-	importVertexCount,
 	isWgs84Geometry,
-	LINE_KINDS,
-	POLYGON_KINDS,
 	readImportFileText,
 } from '@simmer-mosquito/mapping';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -24,15 +21,31 @@ import {
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
+import {
+	ImportNotes,
+	type ImportNoun,
+	type ImportRefusalCounts,
+	importNoun,
+	importNounTitle,
+	importRowSummary,
+	importSkippedCount,
+	importSkippedSentence,
+} from './import-notes';
 import type { DrawGeometry } from './use-map-draw';
 
 /**
  * "Fill this geometry from a file."
  *
- * Agencies receive boundaries and routes as KML, KMZ, or GeoJSON from GIS staff
- * and partner agencies; this reads one in, lists every shape of the type the form
- * is capturing, and lets the user adopt one as the drawn geometry. Multi-part
- * geometries are split so each part can be picked separately.
+ * Organizations receive boundaries, routes, and trap and basin locations as
+ * KML, KMZ, or GeoJSON from GIS staff and partner organizations; this reads one
+ * in, lists every shape this record can store, and lets the user adopt one as
+ * the drawn geometry. A feature holding several pieces is one shape and stays
+ * whole; pruning a piece off it happens afterwards in the draw control, whose
+ * piece list already offers Remove.
+ *
+ * What it offers is the record's own storable shapes, filtered to what the
+ * parser can produce, so a record that takes areas and lines alike is offered
+ * both and adopting one moves the form's type toggle onto it.
  *
  * Parsing is the same module the bulk region import uses
  * (`@simmer-mosquito/mapping`);
@@ -54,19 +67,18 @@ interface ParsedFile {
 	readonly shapes: readonly ParsedShape[];
 	readonly skipped: number;
 	readonly truncated: boolean;
-	/** Shapes dropped because their coordinates are not WGS84 lng/lat. */
-	readonly projected: number;
+	readonly refusals: ImportRefusalCounts;
 }
 
 export function GeometryImportDialog({
 	open,
-	geometryType,
+	allowedTypes,
 	onOpenChange,
 	onSelect,
 }: {
 	readonly open: boolean;
-	/** Which shape the form is capturing; only matching geometries are offered. */
-	readonly geometryType: 'Polygon' | 'LineString';
+	/** What this record stores, filtered to what the parser can produce. */
+	readonly allowedTypes: readonly ImportGeometryKind[];
 	readonly onOpenChange: (open: boolean) => void;
 	readonly onSelect: (geometry: DrawGeometry) => void;
 }) {
@@ -74,7 +86,8 @@ export function GeometryImportDialog({
 	const [parseError, setParseError] = useState<string | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
-	const noun = geometryType === 'Polygon' ? 'polygon' : 'line';
+	const noun = importNoun(allowedTypes);
+	const nounTitle = importNounTitle(noun);
 
 	function reset() {
 		setParsed(null);
@@ -85,12 +98,10 @@ export function GeometryImportDialog({
 	async function readFile(file: File) {
 		reset();
 		try {
-			const kinds: readonly ImportGeometryKind[] =
-				geometryType === 'Polygon' ? POLYGON_KINDS : LINE_KINDS;
 			const { groups, error } = collectImportGroups(
 				await readImportFileText(file),
 				file.name,
-				kinds,
+				allowedTypes,
 			);
 			if (error !== undefined) {
 				setParseError(error);
@@ -98,7 +109,7 @@ export function GeometryImportDialog({
 			}
 			const result = importCandidatesFrom(groups, {
 				limit: MAX_CANDIDATES,
-				fallbackName: geometryType === 'Polygon' ? 'Polygon' : 'Line',
+				fallbackName: nounTitle,
 			});
 			// A projected file would save as geometry the server rejects and the map
 			// can't show, so those shapes are withheld and called out instead.
@@ -110,7 +121,11 @@ export function GeometryImportDialog({
 				shapes,
 				skipped: result.skipped,
 				truncated: result.truncated,
-				projected: result.candidates.length - shapes.length,
+				refusals: {
+					projected: result.candidates.length - shapes.length,
+					multipart: result.multipart,
+					mixed: result.mixed,
+				},
 			});
 			// A file holding exactly one usable shape needs no choosing.
 			setSelectedId(shapes.length === 1 ? (shapes[0]?.id ?? null) : null);
@@ -141,7 +156,7 @@ export function GeometryImportDialog({
 		>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Import {geometryType === 'Polygon' ? 'a Polygon' : 'a Line'}</DialogTitle>
+					<DialogTitle>Import a {nounTitle}</DialogTitle>
 					<DialogDescription>
 						Read a KML, KMZ, or GeoJSON file and use one of its shapes as this geometry. The file
 						stays on this device.
@@ -189,23 +204,11 @@ export function GeometryImportDialog({
 						Cancel
 					</Button>
 					<Button disabled={selectedId === null} onClick={applySelection} type="button">
-						Use This {geometryType === 'Polygon' ? 'Polygon' : 'Line'}
+						Use This {nounTitle}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function ProjectedCoordinatesNote({ count }: { readonly count: number }) {
-	if (count === 0) {
-		return null;
-	}
-	return (
-		<p className="m-0 text-muted-foreground text-xs">
-			{count} {count === 1 ? 'shape uses' : 'shapes use'} coordinates outside the longitude/latitude
-			range. Re-export the file as WGS84 (EPSG:4326) to use {count === 1 ? 'it' : 'them'}.
-		</p>
 	);
 }
 
@@ -216,7 +219,7 @@ function ImportShapeList({
 	onSelect,
 }: {
 	readonly parsed: ParsedFile;
-	readonly noun: string;
+	readonly noun: ImportNoun;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
 }) {
@@ -226,10 +229,10 @@ function ImportShapeList({
 		return (
 			<div className="grid gap-2">
 				<p className="m-0 rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
-					{parsed.fileName} holds no {noun}s
-					{parsed.skipped > 0 ? ` — ${parsed.skipped} other geometries were ignored` : ''}.
+					{parsed.fileName} holds no {noun.many}.
+					{parsed.skipped > 0 ? ` ${importSkippedSentence(parsed.skipped)}` : ''}
 				</p>
-				<ProjectedCoordinatesNote count={parsed.projected} />
+				<ImportNotes counts={parsed.refusals} noun={noun} />
 			</div>
 		);
 	}
@@ -239,10 +242,10 @@ function ImportShapeList({
 			<div className="flex items-center justify-between gap-2">
 				<span className="min-w-0 truncate text-muted-foreground text-xs">
 					{parsed.fileName}
-					{parsed.skipped > 0 ? ` · ${parsed.skipped} other geometries ignored` : ''}
+					{parsed.skipped > 0 ? ` · ${importSkippedCount(parsed.skipped)} ignored` : ''}
 				</span>
 				<Badge tone="neutral" variant="outline">
-					{count} {count === 1 ? noun : `${noun}s`}
+					{count} {count === 1 ? noun.one : noun.many}
 				</Badge>
 			</div>
 			<div className="grid max-h-72 gap-1 overflow-y-auto">
@@ -259,7 +262,7 @@ function ImportShapeList({
 						<span className="min-w-0 flex-1">
 							<span className="block truncate font-medium">{shape.name}</span>
 							<span className="block truncate text-muted-foreground text-xs">
-								{importVertexCount(shape.geometry)} vertices
+								{importRowSummary(shape.geometry, shape.note)}
 							</span>
 						</span>
 						{shape.id === selectedId ? <CheckIcon aria-hidden="true" /> : null}
@@ -271,7 +274,7 @@ function ImportShapeList({
 					Only the first {MAX_CANDIDATES} shapes in this file are listed.
 				</p>
 			) : null}
-			<ProjectedCoordinatesNote count={parsed.projected} />
+			<ImportNotes counts={parsed.refusals} noun={noun} />
 		</div>
 	);
 }

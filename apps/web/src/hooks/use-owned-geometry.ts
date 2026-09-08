@@ -1,9 +1,11 @@
+import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
-import { toDrawGeometry } from '../components/map/geometry-control';
+import { checkOwnedGeometry } from '../components/map/geojson-adapter';
 import type { DrawGeometry } from '../components/map/use-map-draw';
+import { toDrawGeometry } from '../components/map/use-map-draw';
 
 /**
  * Owned geometry is deliberately excluded from the Electric sync shapes — the
@@ -16,27 +18,39 @@ export interface OwnedGeometrySource {
 	readonly segment: string;
 	/** The key the endpoint nests its row under, e.g. `sourceReduction`. */
 	readonly bodyKey: string;
+	/**
+	 * Which register row says what this record may store, for the shape check the
+	 * fetch runs. It travels with the descriptor because the descriptor is the one
+	 * thing every caller of this hook already picks, and the hook itself cannot
+	 * tell a Chemical Application from a Notification Registration (#761).
+	 */
+	readonly geometryKind: OwnedGeometryKind;
 }
 
 export const CHEMICAL_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'chemical',
 	bodyKey: 'application',
+	geometryKind: 'controlAction',
 };
 export const SOURCE_REDUCTION_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'source-reduction',
 	bodyKey: 'sourceReduction',
+	geometryKind: 'controlAction',
 };
 export const BIOCONTROL_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'biocontrol',
 	bodyKey: 'biocontrolAction',
+	geometryKind: 'controlAction',
 };
 export const OUTREACH_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'outreach',
 	bodyKey: 'outreachAction',
+	geometryKind: 'controlAction',
 };
 export const REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'requested-control-actions',
 	bodyKey: 'requestedControlAction',
+	geometryKind: 'requestedControlAction',
 };
 
 /**
@@ -49,21 +63,22 @@ export const REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE: OwnedGeometrySource = {
 export const NOTIFICATION_REGISTRATION_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	segment: 'notification-registrations',
 	bodyKey: 'notificationRegistration',
+	geometryKind: 'notificationRegistration',
 };
 
 export interface OwnedGeometryQuery {
-	/**
-	 * The raw stored geometry, for display. Includes multi-geometries, which a
-	 * detail page can render even though the draw flow cannot edit them.
-	 */
+	/** The raw stored geometry, for display. */
 	readonly geojson: GeoJsonGeometry | null;
 	/** The stored PostGIS type (`st_polygon`), for labelling. */
 	readonly geomType: string | null;
 	/**
-	 * The same geometry narrowed to what the draw flow can edit — null for the
-	 * multi-geometries `toDrawGeometry` rejects. Edit forms use this.
+	 * The same geometry narrowed to what the draw flow can edit, which is all six
+	 * shapes now that the control draws in parts. A `GeometryCollection` is what is
+	 * left over, and it reads as null. Edit forms use this.
 	 */
 	readonly geometry: DrawGeometry | null;
+	/** Set when the column held a shape this record kind may not store (#761). */
+	readonly unsupportedShape: string | null;
 	readonly isPending: boolean;
 	readonly isError: boolean;
 }
@@ -71,6 +86,7 @@ export interface OwnedGeometryQuery {
 interface OwnedGeometryPayload {
 	readonly geojson: GeoJsonGeometry | null;
 	readonly geomType: string | null;
+	readonly unsupportedShape: string | null;
 }
 
 /**
@@ -103,6 +119,7 @@ export function useOwnedGeometry(
 		geojson,
 		geomType: query.data?.geomType ?? null,
 		geometry: toDrawGeometry(geojson),
+		unsupportedShape: query.data?.unsupportedShape ?? null,
 		isPending: query.isPending,
 		isError: query.isError,
 	};
@@ -114,9 +131,9 @@ async function fetchOwnedGeometry(
 	signal: AbortSignal,
 ): Promise<OwnedGeometryPayload> {
 	const url = new URL(`/map/${source.segment}/${id}`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
-		return { geojson: null, geomType: null };
+		return { geojson: null, geomType: null, unsupportedShape: null };
 	}
 	if (!response.ok) {
 		throw new Error(`Geometry request failed with ${response.status}`);
@@ -127,8 +144,10 @@ async function fetchOwnedGeometry(
 		{ readonly geojson?: unknown; readonly geomType?: unknown } | undefined
 	>;
 	const row = body[source.bodyKey];
+	const checked = checkOwnedGeometry(source.geometryKind, row?.geojson);
 	return {
-		geojson: (row?.geojson ?? null) as GeoJsonGeometry | null,
+		geojson: checked.geometry,
 		geomType: typeof row?.geomType === 'string' ? row.geomType : null,
+		unsupportedShape: checked.unsupportedShape,
 	};
 }

@@ -156,7 +156,7 @@ describe('species key bindings resolution', () => {
 describe('effective bindings', () => {
 	const organization = { bindings: [{ key: 'a', speciesId: aegypti }] };
 
-	it('uses the agency set when there is no personal set', () => {
+	it('uses the organization set when there is no personal set', () => {
 		expect(resolveEffectiveSpeciesKeyBindings({ organization })).toEqual(organization);
 		expect(resolveEffectiveSpeciesKeyBindings({ organization, user: null })).toEqual(organization);
 	});

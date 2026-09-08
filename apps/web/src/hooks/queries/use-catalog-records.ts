@@ -1,5 +1,5 @@
 /**
- * The agency's lookup catalogs, as their management pages need them.
+ * The organization's lookup catalogs, as their management pages need them.
  *
  * The wider read behind `use-catalog-rosters.ts`. A roster answers "what may this
  * field be set to" and returns three columns; these pages are where the catalog is
@@ -46,7 +46,7 @@ export interface CollectionMethodRecord extends SchemaCatalogRecord {
 	readonly actionThreshold: number | null;
 }
 
-/** A control method is a name and whatever extra fields the agency attached. */
+/** A control method is a name and whatever extra fields the organization attached. */
 export interface ControlMethodRecord extends NamedCatalogRecord {
 	readonly customSchema: unknown;
 }
@@ -68,7 +68,7 @@ function useCollectionMethodHalf(isActive: boolean): readonly CollectionMethodRe
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ row: collection_methods })
+				.from({ row: collection_methods() })
 				.where(({ row }) => eq(row.is_active, isActive))
 				.orderBy(({ row }) => row.name, 'asc')
 				.select(({ row }) => ({
@@ -94,7 +94,7 @@ function useHabitatTypeHalf(isActive: boolean): readonly SchemaCatalogRecord[] {
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ row: habitat_types })
+				.from({ row: habitat_types() })
 				.where(({ row }) => eq(row.is_active, isActive))
 				.orderBy(({ row }) => row.name, 'asc')
 				.select(({ row }) => ({
@@ -110,15 +110,15 @@ function useHabitatTypeHalf(isActive: boolean): readonly SchemaCatalogRecord[] {
 
 export function useCollectionLureRecords(): CatalogRecords<DescribedCatalogRecord> {
 	return {
-		activeRecords: useDescribedHalf(collection_lures, true),
-		inactiveRecords: useDescribedHalf(collection_lures, false),
+		activeRecords: useDescribedHalf(collection_lures(), true),
+		inactiveRecords: useDescribedHalf(collection_lures(), false),
 	};
 }
 
 export function useNotificationTypeRecords(): CatalogRecords<DescribedCatalogRecord> {
 	return {
-		activeRecords: useDescribedHalf(notification_types, true),
-		inactiveRecords: useDescribedHalf(notification_types, false),
+		activeRecords: useDescribedHalf(notification_types(), true),
+		inactiveRecords: useDescribedHalf(notification_types(), false),
 	};
 }
 
@@ -129,7 +129,7 @@ export function useNotificationTypeRecords(): CatalogRecords<DescribedCatalogRec
  * types are the same type and one query covers both.
  */
 function useDescribedHalf(
-	collection: typeof collection_lures,
+	collection: ReturnType<typeof collection_lures>,
 	isActive: boolean,
 ): readonly DescribedCatalogRecord[] {
 	return useLiveSuspenseQuery(
@@ -150,35 +150,35 @@ function useDescribedHalf(
 
 export function useApplicationMethodRecords(): CatalogRecords<ControlMethodRecord> {
 	return {
-		activeRecords: useControlMethodHalf(application_methods, true),
-		inactiveRecords: useControlMethodHalf(application_methods, false),
+		activeRecords: useControlMethodHalf(application_methods(), true),
+		inactiveRecords: useControlMethodHalf(application_methods(), false),
 	};
 }
 
 export function useSourceReductionMethodRecords(): CatalogRecords<ControlMethodRecord> {
 	return {
-		activeRecords: useControlMethodHalf(source_reduction_methods, true),
-		inactiveRecords: useControlMethodHalf(source_reduction_methods, false),
+		activeRecords: useControlMethodHalf(source_reduction_methods(), true),
+		inactiveRecords: useControlMethodHalf(source_reduction_methods(), false),
 	};
 }
 
 export function useOutreachMethodRecords(): CatalogRecords<ControlMethodRecord> {
 	return {
-		activeRecords: useControlMethodHalf(outreach_methods, true),
-		inactiveRecords: useControlMethodHalf(outreach_methods, false),
+		activeRecords: useControlMethodHalf(outreach_methods(), true),
+		inactiveRecords: useControlMethodHalf(outreach_methods(), false),
 	};
 }
 
 export function useBiocontrolMethodRecords(): CatalogRecords<ControlMethodRecord> {
 	return {
-		activeRecords: useControlMethodHalf(biocontrol_methods, true),
-		inactiveRecords: useControlMethodHalf(biocontrol_methods, false),
+		activeRecords: useControlMethodHalf(biocontrol_methods(), true),
+		inactiveRecords: useControlMethodHalf(biocontrol_methods(), false),
 	};
 }
 
 /** The four control-method catalogs, which have identical columns. */
 function useControlMethodHalf(
-	collection: typeof application_methods,
+	collection: ReturnType<typeof application_methods>,
 	isActive: boolean,
 ): readonly ControlMethodRecord[] {
 	return useLiveSuspenseQuery(

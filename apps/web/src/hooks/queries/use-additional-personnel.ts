@@ -57,7 +57,7 @@ export function useAdditionalPersonnel(
 			gcTime: additionalPersonnelGcTimeMs,
 			query: (query) =>
 				query
-					.from({ personnel: additional_personnel })
+					.from({ personnel: additional_personnel() })
 					.where(({ personnel }) =>
 						and(eq(personnel.entity_type, entityType), eq(personnel.entity_id, target.id)),
 					)

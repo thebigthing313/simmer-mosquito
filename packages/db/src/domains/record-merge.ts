@@ -1,6 +1,6 @@
-import { type RawBuilder, sql, type Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 
-import type { DbExecutor, SimmerDatabase } from '../index.js';
+import type { SimmerDatabase } from '../index.js';
 
 /**
  * Folding one record into another is never just the one row.
@@ -95,8 +95,8 @@ export interface MergeImpact {
  *
  * The domain builder already refuses a target listed as its own source and a
  * missing acknowledgement. Everything here needs the database: whether the rows
- * exist, belong to this agency, are still live, and, for habitats, whether the
- * survivor is active.
+ * exist, belong to this organization, are still live, and, for habitats,
+ * whether the survivor is active.
  */
 export class RecordMergeRefusedError extends Error {
 	readonly recordType: MergeableRecordType;
@@ -473,12 +473,12 @@ async function applyRule(
 }
 
 /**
- * Which of these ids are this agency's live rows.
+ * Which of these ids are this organization's live rows.
  *
  * One query rather than one per id, and it answers with the ids it found so the
- * caller can name the ones it did not. A row belonging to another agency is
- * reported missing rather than forbidden: the answer must not tell an agency
- * that another agency's record exists.
+ * caller can name the ones it did not. A row belonging to another organization
+ * is reported missing rather than forbidden: the answer must not tell an
+ * organization that another organization's record exists.
  */
 async function liveIds(
 	trx: Transaction<SimmerDatabase>,
@@ -517,7 +517,7 @@ export interface MergeInput {
  * the record itself alone: the writer owns the row it returns.
  *
  * @throws RecordMergeRefusedError when the target or a source is not a live row
- * of this agency, or the target is inactive.
+ * of this organization, or the target is inactive.
  */
 export async function applyRecordMerge(
 	trx: Transaction<SimmerDatabase>,

@@ -31,10 +31,10 @@
  * A new one is added when no existing mechanism can answer a flag's question
  * honestly, not when a handler wants its own function. `historyCheck` is the
  * seventh because none of the six fitted: `clearanceCheck` counts rows a write
- * removes, and a rename removes nothing — reusing it would tell an agency its
- * history was being deleted when it was being relabelled. `collisionCheck` is
- * the eighth for the same reason in the other direction: the rows it counts do
- * not read under the value being written, they compete with it, and its flag
+ * removes, and a rename removes nothing — reusing it would tell an organization
+ * its history was being deleted when it was being relabelled. `collisionCheck`
+ * is the eighth for the same reason in the other direction: the rows it counts
+ * do not read under the value being written, they compete with it, and its flag
  * takes only an explicit `true`.
  *
  * ## The trap this map does not fix
@@ -43,9 +43,11 @@
  * every guard below fires only for a client that sends `false` on purpose. No
  * surface does today. That is deliberate — the alternative refuses writes that
  * work now — and #319 is the client half.
+ *
+ * The six in `EXPLICIT_ACKNOWLEDGEMENTS` are the exception, and that list is
+ * further down with the reason for each.
  */
 
-import type { DeleteImpactEntry } from '@simmer-mosquito/db';
 import type { Acknowledgement } from '@simmer-mosquito/domain';
 
 /**
@@ -215,6 +217,60 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * this and the map disagree, so the number cannot rot in either direction.
  */
 export const UNCHECKED_ACKNOWLEDGEMENTS = 3;
+
+// ===========================================================================
+// How an absent flag reads
+// ===========================================================================
+
+/**
+ * The flags an absent value does not answer.
+ *
+ * Every other acknowledgement reads `!== false`: a client withholds one by
+ * sending `false`, and absent means confirmed, which is what the endpoints did
+ * before any of them was read. These four read `=== true` instead, and each has
+ * a reason the default would be wrong:
+ *
+ * - `acknowledgedDuplicateTrapCode` asks about a collision the caller cannot
+ *   have seen coming. Trap codes are indexed but not unique, so two traps may
+ *   legitimately share one, and a collision the server finds while writing is a
+ *   question rather than a rule. A body written before the collision existed
+ *   cannot have answered it.
+ * - the three mission flags guard a stop being completed over ground the
+ *   mission does not cover, against an action it did not request, or on top of
+ *   an action already recorded there. Each is a mismatch between what the crew
+ *   did and what the plan said, and the crew is standing in front of it. The
+ *   refusal is a 400 from the domain builder rather than the settled 409, which
+ *   is why all three are still `unchecked(316)` in the map above.
+ * - the two weather-import flags answer what the import's own assessment
+ *   counted: how many stored summaries a spreadsheet would overwrite, and how
+ *   many of its rows would fail. Neither number exists until the file has been
+ *   read, so the first request cannot have answered them and the second one is
+ *   what carries the answer.
+ *
+ * This list is the fork {@link acknowledged} used to hide. Before #426 the
+ * default reader answered `!== false` and six call sites wrote `=== true` by
+ * hand, so which posture a new command got was whichever reader its author
+ * copied. Now the posture is data on the flag and the reader looks it up.
+ *
+ * A flag added to the vocabulary takes the default. That is the right way round:
+ * the convention is what `docs/domain-command-contract.md` states, and the
+ * exception is the thing that has to be argued for here.
+ */
+export const EXPLICIT_ACKNOWLEDGEMENTS = [
+	'acknowledgedDuplicateTrapCode',
+	'acknowledgedMissionGeometryNotCovered',
+	'acknowledgedRequestedActionMismatch',
+	'acknowledgedCompletedItemAdditionalAction',
+	'acknowledgedUpdates',
+	'acknowledgedPartialImport',
+] as const satisfies readonly Acknowledgement[];
+
+const EXPLICIT = new Set<string>(EXPLICIT_ACKNOWLEDGEMENTS);
+
+/** Whether this flag is one an absent value does not answer. */
+export function isExplicitAcknowledgement(flag: Acknowledgement): boolean {
+	return EXPLICIT.has(flag);
+}
 
 // ===========================================================================
 // The state refusal

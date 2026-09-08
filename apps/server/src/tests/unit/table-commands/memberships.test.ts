@@ -19,6 +19,7 @@ import type { DomainValidationError } from '@simmer-mosquito/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
 import { CommandError } from '../../../command-endpoint.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { MembershipAuth } from '../../../membership-commands.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { membershipTableCommands } from '../../../table-commands/memberships.js';
@@ -152,7 +153,7 @@ describe('an invitation', () => {
 
 	// The Membership stays. It reads on the People page as somebody invited who
 	// never got a link, and a re-invitation repairs it. The other order sends a
-	// working link to somebody the agency has no row for.
+	// working link to somebody the organization has no row for.
 	it('answers 502 when WorkOS refuses, leaving the row written', async () => {
 		const auth = fakeAuth();
 		auth.sendOrganizationInvitation.mockRejectedValue(new Error('WorkOS is down'));
@@ -437,7 +438,7 @@ describe('ending a membership', () => {
 		expect(auth.deactivateOrganizationMembership).not.toHaveBeenCalled();
 	});
 
-	it('answers 404 for a membership in another agency', async () => {
+	it('answers 404 for a membership in another organization', async () => {
 		const db = removalDb(null);
 
 		const thrown = await secondSystem(db, fakeAuth())
@@ -498,10 +499,11 @@ describe('the staging identity interlock', () => {
 // ---------------------------------------------------------------------------
 
 const spec = membershipTableCommands(undefined as never, undefined as never) as TableCommands<
-	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's, and
-	// only `payload` is read off a built command here.
+	'memberships',
+	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's, and only `payload` is read off a built command here.
 	any,
-	unknown
+	unknown,
+	string
 >;
 
 function build(
@@ -510,14 +512,14 @@ function build(
 	id: string = MEMBERSHIP,
 ): BuiltCommand {
 	const builder = spec.intents[intent as never] as
-		| ((request: IntentRequest) => BuiltCommand)
+		| ((request: IntentRequest<CommandTable, string>) => BuiltCommand)
 		| undefined;
 	if (builder === undefined) {
 		throw new Error(`memberships does not accept ${intent}.`);
 	}
 	return builder({
 		payload,
-		agency: { organizationId: ORG, actorProfileId: ACTOR_PROFILE },
+		organization: { organizationId: ORG, actorProfileId: ACTOR_PROFILE },
 		authContext: authContext(),
 		id,
 	});
@@ -543,6 +545,24 @@ function secondSystem(db: unknown, auth: MembershipAuth) {
 		after: configured.after as (command: BuiltCommand, auth: AuthContext) => Promise<void>,
 	};
 }
+
+/**
+ * The rest of the invitation WorkOS answers with.
+ *
+ * Only `id` is read by anything below, and only `id` used to be returned:
+ * `MembershipAuth` narrowed the method to `{ id }` while the real one answers an
+ * `AuthInvitation`, so the double was free to answer a shape no WorkOS response
+ * has (#619).
+ */
+const INVITATION = {
+	email: 'invitee@example.test',
+	state: 'pending',
+	organizationId: 'org_workos',
+	acceptedUserId: null,
+	expiresAt: '2026-01-08T00:00:00.000Z',
+	createdAt: '2026-01-01T00:00:00.000Z',
+	updatedAt: '2026-01-01T00:00:00.000Z',
+} as const;
 
 /**
  * WorkOS, including the rule that made #218 fail on every call.
@@ -571,7 +591,7 @@ function fakeAuth(
 				throw new Error('Email already invited to organization.');
 			}
 			pending = issues;
-			return { id: issues };
+			return { ...INVITATION, id: issues };
 		}),
 		revokeInvitation: vi.fn(async (invitationId: string) => {
 			options.calls?.push('revoke');

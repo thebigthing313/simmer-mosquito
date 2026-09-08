@@ -95,12 +95,13 @@ re-read.
 
 ## The corpus is not 50 tables
 
-The ticket says roughly 50 multi-tenant tables. `packages/db/src/tables.ts`
-declares 50 `*Table` interfaces, but only about 30 of them carry a text column a
-person would ever type. Several central surfaces carry none at all:
-`inspections`, `applications`, `source_reductions`, `biocontrol_actions` and
-`collections` have no name, no code and no prose. `collections` in particular is
-identified by its trap and its date, not by a string.
+The ticket says roughly 50 organization-scoped tables.
+`packages/db/src/tables.ts` declares 50 `*Table` interfaces, but only about 30
+of them carry a text column a person would ever type. Several central surfaces
+carry none at all: `inspections`, `applications`, `source_reductions`,
+`biocontrol_actions` and `collections` have no name, no code and no prose.
+`collections` in particular is identified by its trap and its date, not by a
+string.
 
 There is no `packages/db/schema.sql` in the tree. It is dbmate's generated dump
 and it is not committed, so the DDL of record is the 28 files in
@@ -153,11 +154,11 @@ does not need to. A request number is an exact-equality lookup on a `bigint`,
 answered by a plain btree, and the palette should route a purely numeric query
 there before it builds a `tsquery` at all.
 
-Tenancy is already flat. 45 of the 50 tables carry `organization_id` directly,
-per ADR 0008 and `202605260002_tenant_scope_child_rows.sql`. The 5 that do not
-are `users`, `organizations`, `genera`, `species` and `units`, which are the
-tenancy roots and the global catalogs. So a search index never has to join to
-find its tenant. 44 of the 50 carry `deleted_at`.
+Organization scope is already flat. 45 of the 50 tables carry `organization_id`
+directly, per ADR 0008 and `202605260002_tenant_scope_child_rows.sql`. The 5
+that do not are `users`, `organizations`, `genera`, `species` and `units`, which
+are the scope roots and the global catalogs. So a search index never has to join
+to find the Organization a row belongs to. 44 of the 50 carry `deleted_at`.
 
 ## tsvector versus pg_trgm, and what half an identifier does
 
@@ -306,7 +307,7 @@ the next section.
 `organization_id = $1 and document @@ $2` has three plans available.
 
 **Multicolumn GIN with btree_gin.** GIN has no opclass for `uuid` on its own, so
-the tenant column needs `btree_gin`, which provides GIN operator classes for a
+`organization_id` needs `btree_gin`, which provides GIN operator classes for a
 list of scalar types including `uuid`. Its own documentation names this exact
 case: "for queries that test both a GIN-indexable column and a B-tree-indexable
 column, it might be more efficient to create a multicolumn GIN index that uses
@@ -322,16 +323,16 @@ conditions use" (11.3).
 **Two indexes, bitmap AND.** The planner "scans each needed index and prepares a
 bitmap in memory", then ANDs them (11.5). It works, and it costs: "any ordering
 of the original indexes is lost", and "each additional index scan adds extra
-time". Against a large agency this means materializing a bitmap over every row in
-that agency before intersecting with the text match, which is the opposite of
-what a top-10 query wants.
+time". Against a large Organization this means materializing a bitmap over every
+row in that Organization before intersecting with the text match, which is the
+opposite of what a top-10 query wants.
 
 **Partial index per organization.** Ruled out. The index count grows with the
 customer list, and each one needs a migration.
 
 Take the multicolumn GIN. The trigram index takes the same shape,
 `gin (organization_id, identifier gin_trgm_ops)`. The prefix btree is ordinary,
-`(organization_id, lower(identifier) text_pattern_ops)`, with the tenant column
+`(organization_id, lower(identifier) text_pattern_ops)`, with `organization_id`
 leading because 11.3's leading-column rule does apply to btree.
 
 One caveat the palette has to respect: `organization_id` arrives as a bind
@@ -542,6 +543,6 @@ this corpus is near a text-search limit and the point is not developed above.
 
 Two things #250 lists as unspecified are untouched here because they are not
 Postgres questions: whether results respect anything beyond organization and
-role, and whether an operator who entered an agency under ADR 0011 reaches
-another agency's records. Both change what `organization_id = $1` means and
-neither changes the index shape.
+role, and whether an operator who entered an Organization under ADR 0011 reaches
+another Organization's records. Both change what `organization_id = $1` means
+and neither changes the index shape.

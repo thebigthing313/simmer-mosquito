@@ -21,7 +21,7 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 /**
  * The chrome the three global catalogs share.
@@ -41,7 +41,15 @@ import { type FormEvent, type ReactNode, useState } from 'react';
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
-/** Below this the filter is noise — you can see the whole list already. */
+/**
+ * Below this the filter is noise — you can see the whole list already.
+ *
+ * `apps/web` declares the same number in
+ * `src/components/catalog/catalog-search.ts`. That is a deliberate second copy,
+ * not a shared source. The two apps share no catalog component, and the hook
+ * there is built around an active-versus-inactive split the global catalogs
+ * have no concept of, so changing one number does not change the other.
+ */
 const SEARCH_THRESHOLD = 6;
 
 export function CatalogRow({
@@ -53,7 +61,7 @@ export function CatalogRow({
 	readonly title: string;
 	readonly subtitle?: string | null | undefined;
 	readonly badges?: ReactNode | undefined;
-	/** Omitted on read-only lists — the agency foundations are create-only. */
+	/** Omitted on read-only lists — the organization foundations are create-only. */
 	readonly actions?: ReactNode | undefined;
 }) {
 	return (
@@ -94,9 +102,8 @@ export function CatalogList({ children }: { readonly children: ReactNode }) {
 /**
  * Counts on the left, filter on the right.
  *
- * The filter only appears once the list is long enough to need one — the same
- * threshold the agency workspace uses. A search box above five rows is chrome
- * pretending to be a feature.
+ * The filter only appears once the list is long enough to need one. A search
+ * box above five rows is chrome pretending to be a feature.
  */
 function CatalogToolbar({
 	total,
@@ -122,9 +129,10 @@ function CatalogToolbar({
 				{search.trim() === '' ? `${total} ${noun}` : `${shown} of ${total} ${noun}`}
 			</Badge>
 			<SearchInput
-				aria-label={`Search ${noun}`}
 				className="h-9 w-full max-w-[260px]"
+				label={`Search ${noun}`}
 				onChange={(event) => onSearchChange(event.target.value)}
+				onClear={() => onSearchChange('')}
 				placeholder={`Search ${noun}…`}
 				value={search}
 			/>
@@ -140,38 +148,48 @@ function CatalogToolbar({
  * about whether an empty search result should look like an empty catalog (it
  * should not — one means "add something", the other means "type less") and four
  * route components carrying render branching on top of their data and their
- * writes. Owning the sequence here keeps each page to the part that differs: its
- * query, its rows, and its copy.
+ * writes.
+ *
+ * The search is part of that sequence, so the frame holds it: the state, the
+ * trimmed and lowercased query, both counts, and the threshold. A page hands in
+ * its rows and one `matches` function naming the fields it searches, and gets
+ * the surviving rows back through its child function. Owning all of it here
+ * keeps each page to the part that differs: its query, its rows, and its copy.
+ *
+ * `matches` is never asked about an empty query, since a blank filter returns
+ * every row untouched, and the query it is handed is already trimmed and
+ * lowercased.
  */
-export function CatalogBody({
+export function CatalogBody<TRow>({
 	isReady,
-	total,
-	shown,
+	rows,
+	matches,
 	noun,
-	search,
-	onSearchChange,
 	empty,
 	banner,
 	children,
 }: {
 	readonly isReady: boolean;
-	/** Rows before filtering — decides empty-catalog vs no-matches. */
-	readonly total: number;
-	readonly shown: number;
-	/** Plural, lowercase: "genera", "units", "agencies". */
+	/** Every row, before filtering. Decides empty-catalog against no-matches. */
+	readonly rows: readonly TRow[];
+	readonly matches: (row: TRow, query: string) => boolean;
+	/** Plural, lowercase: "genera", "units", "organizations". */
 	readonly noun: string;
-	readonly search: string;
-	readonly onSearchChange: (next: string) => void;
 	readonly empty: ReactNode;
 	/** Rendered above the toolbar once there is data — a standing condition. */
 	readonly banner?: ReactNode | undefined;
-	readonly children: ReactNode;
+	/** Handed the rows that survived the filter, in the order they arrived. */
+	readonly children: (filtered: readonly TRow[]) => ReactNode;
 }) {
+	const [search, setSearch] = useState('');
+	const query = search.trim().toLowerCase();
+	const filtered = query === '' ? rows : rows.filter((row) => matches(row, query));
+
 	if (!isReady) {
 		return <ListLoading />;
 	}
 
-	if (total === 0) {
+	if (rows.length === 0) {
 		return <>{empty}</>;
 	}
 
@@ -180,12 +198,18 @@ export function CatalogBody({
 			{banner}
 			<CatalogToolbar
 				noun={noun}
-				onSearchChange={onSearchChange}
+				onSearchChange={setSearch}
 				search={search}
-				shown={shown}
-				total={total}
+				shown={filtered.length}
+				total={rows.length}
 			/>
-			{shown === 0 ? <ListNoMatches noun={noun} query={search.trim()} /> : children}
+			{/* The no-matches line quotes the trimmed query, not the lowercased one,
+			    so the reader is shown what they typed. */}
+			{filtered.length === 0 ? (
+				<ListNoMatches noun={noun} query={search.trim()} />
+			) : (
+				children(filtered)
+			)}
 		</div>
 	);
 }
@@ -208,9 +232,10 @@ export function EditRecordButton({
 /**
  * Delete, behind a confirmation that names the record.
  *
- * These are global reference rows every agency reads, so a deletion is not a
- * local mistake — it is one an operator makes on everyone's behalf. The dialog
- * therefore states what will be removed rather than asking "are you sure?".
+ * These are global reference rows every organization reads, so a deletion is
+ * not a local mistake — it is one an operator makes on everyone's behalf. The
+ * dialog therefore states what will be removed rather than asking "are you
+ * sure?".
  */
 export function DeleteRecordButton({
 	recordLabel,
@@ -329,93 +354,5 @@ export function RecordDialog({
 				{children}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-/**
- * The submit scaffold every catalog form repeats: draft values, a pending flag,
- * and an inline error.
- *
- * Every catalog form now lives in a dialog, so there is no reset-after-save
- * branch: the dialog closes, and the next open mounts a fresh form.
- */
-export function useCatalogForm<TValues>({
-	initial,
-	onSubmit,
-}: {
-	readonly initial: TValues;
-	readonly onSubmit: (values: TValues) => Promise<void>;
-}): {
-	readonly values: TValues;
-	readonly setValues: (next: TValues) => void;
-	readonly pending: boolean;
-	readonly error: string | null;
-	readonly submit: (event: FormEvent<HTMLFormElement>) => void;
-} {
-	const [values, setValues] = useState(initial);
-	const [pending, setPending] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	async function run() {
-		setPending(true);
-		setError(null);
-		try {
-			await onSubmit(values);
-		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : 'Unable to save.');
-		} finally {
-			setPending(false);
-		}
-	}
-
-	return {
-		values,
-		setValues,
-		pending,
-		error,
-		submit: (event) => {
-			event.preventDefault();
-			if (!pending) {
-				void run();
-			}
-		},
-	};
-}
-
-/** The shared body of a catalog form: fields, an error line, and the submit row. */
-export function CatalogForm({
-	error,
-	pending,
-	submitLabel,
-	disabled,
-	onCancel,
-	onSubmit,
-	children,
-}: {
-	readonly error: string | null;
-	readonly pending: boolean;
-	readonly submitLabel: string;
-	readonly disabled: boolean;
-	readonly onCancel: () => void;
-	readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-	readonly children: ReactNode;
-}) {
-	return (
-		<form className="grid gap-4" onSubmit={onSubmit}>
-			{children}
-			{error === null ? null : (
-				<p className="m-0 text-destructive text-sm" role="alert">
-					{error}
-				</p>
-			)}
-			<div className="flex justify-end gap-2">
-				<Button onClick={onCancel} type="button" variant="outline">
-					Cancel
-				</Button>
-				<Button disabled={pending || disabled} type="submit">
-					{pending ? 'Saving…' : submitLabel}
-				</Button>
-			</div>
-		</form>
 	);
 }

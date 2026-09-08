@@ -1,3 +1,5 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Avatar, AvatarFallback, AvatarImage } from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -12,7 +14,7 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthenticatedMe, requestPasswordReset } from '../auth';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
@@ -54,7 +56,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 	const membershipResult = useLiveQuery(
 		(query) =>
 			query
-				.from({ membership: memberships })
+				.from({ membership: memberships() })
 				.where(({ membership }) => eq(membership.id, membershipId ?? ''))
 				.findOne(),
 		[membershipId],
@@ -76,27 +78,23 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 						{initials(displayName)}
 					</AvatarFallback>
 				</Avatar>
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<ProfileIcon aria-hidden="true" className="size-3.5" />
-						Profile
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{displayName}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">{user.email}</p>
-				</div>
+				<PageHeader
+					description={user.email}
+					eyebrow="Profile"
+					icon={ProfileIcon}
+					title={displayName}
+				/>
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-2">
 				<Card variant="surface">
-					<CardHeader className="px-4 py-4">
+					<CardHeader padding="compact">
 						<CardTitle>Account</CardTitle>
 						<CardDescription>Your sign-in identity.</CardDescription>
 					</CardHeader>
 					<CardContent padding="compact">
-						<dl className="grid gap-2.5">
-							<DetailRow label="Name">{orNotSet(fullName)}</DetailRow>
+						<DetailList>
+							<DetailRow label="Name">{fullName}</DetailRow>
 							<DetailRow label="Email">{user.email}</DetailRow>
 							<DetailRow label="Email verified">
 								{user.emailVerified === true ? (
@@ -109,27 +107,23 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 									</Badge>
 								)}
 							</DetailRow>
-						</dl>
+						</DetailList>
 					</CardContent>
 				</Card>
 
 				<Card variant="surface">
-					<CardHeader className="px-4 py-4">
-						<CardTitle>Agency</CardTitle>
+					<CardHeader padding="compact">
+						<CardTitle>Organization</CardTitle>
 						<CardDescription>How your work is attributed.</CardDescription>
 					</CardHeader>
 					<CardContent padding="compact">
-						<dl className="grid gap-2.5">
-							<DetailRow label="Agency">
-								{orNotSet(localIdentity.organizationName ?? null)}
-							</DetailRow>
+						<DetailList>
+							<DetailRow label="Organization">{localIdentity.organizationName}</DetailRow>
 							<DetailRow label="Role">
 								{formatRole(membership?.role ?? localIdentity.role)}
 							</DetailRow>
 							<DetailRow label="Status">
-								{membership === undefined ? (
-									'—'
-								) : (
+								{membership === undefined ? null : (
 									<Badge
 										tone={membership.status === 'active' ? 'success' : 'neutral'}
 										variant="outline"
@@ -139,16 +133,14 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 								)}
 							</DetailRow>
 							<DetailRow label="Attributed as">
-								{orNotSet(
-									(profileId === null ? undefined : profileNameById.get(profileId)) ?? null,
-								)}
+								{profileId === null ? null : profileNameById.get(profileId)}
 							</DetailRow>
-						</dl>
+						</DetailList>
 					</CardContent>
 				</Card>
 
 				<Card variant="surface">
-					<CardHeader className="px-4 py-4">
+					<CardHeader padding="compact">
 						<CardTitle>Password</CardTitle>
 						<CardDescription>We email a reset link to {user.email}.</CardDescription>
 					</CardHeader>
@@ -159,7 +151,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 			</div>
 
 			<p className="m-0 text-muted-foreground text-sm">
-				Your name and role are set by your agency. Ask an owner to change them.
+				Your name and role are set by your organization. Ask an owner to change them.
 			</p>
 		</>
 	);
@@ -184,23 +176,6 @@ function PasswordResetButton({ email }: { readonly email: string }) {
 		<Button disabled={pending} onClick={handleClick} type="button" variant="outline">
 			{pending ? 'Sending…' : 'Send reset link'}
 		</Button>
-	);
-}
-
-function DetailRow({ children, label }: { readonly children: ReactNode; readonly label: string }) {
-	return (
-		<div className="grid grid-cols-[8.5rem_minmax(0,1fr)] items-center gap-3">
-			<dt className="text-muted-foreground text-sm">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground text-sm">{children}</dd>
-		</div>
-	);
-}
-
-function orNotSet(value: string | null): ReactNode {
-	return value === null || value.trim() === '' ? (
-		<span className="text-muted-foreground">—</span>
-	) : (
-		value
 	);
 }
 

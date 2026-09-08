@@ -20,12 +20,12 @@ import {
  *
  * `jsts` is a **devDependency oracle** and never ships. It is the same JTS
  * lineage PostGIS reaches through GEOS, so agreement with it is not independent
- * evidence that the *rule* is right. What it is evidence of is that the twenty-two
- * hand-written booleans are the ones the rule produces, checked without Postgres
- * and without the implementation under test. When mobile's hand-rolled predicate
- * arrives, a hand-written expectation checked only by a hand-rolled
- * implementation would be one pair of eyes checking itself, and this is the
- * second pair.
+ * evidence that the *rule* is right. What it is evidence of is that the
+ * thirty-four hand-written booleans are the ones the rule produces, checked
+ * without Postgres and without the implementation under test. When mobile's
+ * hand-rolled predicate arrives, a hand-written expectation checked only by a
+ * hand-rolled implementation would be one pair of eyes checking itself, and this
+ * is the second pair.
  *
  * The rule, in JTS terms: `RelateOp.relate(region, record)` once, read as the
  * DE-9IM interior cell for a polygon record and as plain intersection for a point
@@ -54,6 +54,32 @@ describe('region membership corpus, against the jsts oracle', () => {
 
 		expect(oracleAnswer(sharesAnEdge)).toBe(false);
 		expect(plainIntersection(sharesAnEdge)).toBe(true);
+	});
+
+	it('reads a multipart interior as the union of its parts', () => {
+		// The multipart pair, asserted directly for the same reason. The first is
+		// the case that answers wrongly today, because a MultiPolygon falls to
+		// plain intersection. The second proves the union is existential: one part
+		// inside is enough, and the other part being nowhere near does not matter.
+		const sharesAnEdge = caseById('multipolygon-all-parts-sharing-an-edge');
+		const onePartInside = caseById('multipolygon-one-part-inside');
+
+		expect(oracleAnswer(sharesAnEdge)).toBe(false);
+		expect(plainIntersection(sharesAnEdge)).toBe(true);
+		expect(oracleAnswer(onePartInside)).toBe(true);
+	});
+
+	it('reads the shape Split writes, whose parts share the line they were cut along', () => {
+		// Asserted directly for the reason the two blocks above are, and as a pair
+		// because each half is a different tripwire. The corpus docblock has the
+		// argument. No try/catch and no precision model: `RelateOp` is defined over
+		// a shared edge and answers what PostGIS answers.
+		const touching = caseById('multipolygon-split-parts-touching-the-southern-edge');
+		const across = caseById('multipolygon-split-parts-across-the-southern-edge');
+
+		expect(oracleAnswer(touching)).toBe(false);
+		expect(plainIntersection(touching)).toBe(true);
+		expect(oracleAnswer(across)).toBe(true);
 	});
 });
 

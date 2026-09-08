@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { roleLadderIds, roleLadderPeople, seedRoleLadder } from '../../seeds/role-ladder.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+import { createOrganization, createProfile, createUser } from '../../test-support/row-fixtures.js';
 
 /**
  * The role-ladder fixtures, seeded into real tables.
@@ -196,15 +197,15 @@ function daysAgo(value: Date): number {
 }
 
 /**
- * The path that matters once real accounts exist: an agency already has people,
- * invited into it with roles somebody chose, and the fixtures have to belong to
- * *them* — an assignment "assigned to the collector" is no use if it is assigned
- * to a stand-in the tester cannot sign in as.
+ * The path that matters once real accounts exist: an organization already has
+ * people, invited into it with roles somebody chose, and the fixtures have to
+ * belong to *them* — an assignment "assigned to the collector" is no use if it
+ * is assigned to a stand-in the tester cannot sign in as.
  */
-describeDbIntegration('role ladder fixtures over an existing agency', () => {
+describeDbIntegration('role ladder fixtures over an existing organization', () => {
 	it('attaches the fixtures to profiles that are already there', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createAgencyWithCollector(db);
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -236,7 +237,7 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 
 	it('leaves an existing membership’s role and profile untouched', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createAgencyWithCollector(db);
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -261,11 +262,11 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 		});
 	});
 
-	it('does not rename the agency it is pointed at', async () => {
+	it('does not rename the organization it is pointed at', async () => {
 		await withTestDb(async ({ db }) => {
-			// The footgun: an upsert that set the name would rebrand a live agency
-			// "Role Ladder Test District" on the way past.
-			const org = await createAgencyWithCollector(db);
+			// The footgun: an upsert that set the name would rebrand a live
+			// organization "Role Ladder Test District" on the way past.
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, { organizationId: org.organizationId });
 
@@ -283,7 +284,7 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 			// Only one collector exists, so the "somebody else's" party has to be
 			// created — otherwise `otherAssignmentId` would be assigned to the same
 			// person and prove nothing.
-			const org = await createAgencyWithCollector(db);
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -301,45 +302,31 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 	});
 });
 
-async function createAgencyWithCollector(
+async function organizationWithCollector(
 	db: Parameters<typeof seedRoleLadder>[0],
 ): Promise<{ readonly organizationId: string; readonly collectorProfileId: string }> {
-	const organization = await db
-		.insertInto('organizations')
-		.values({
-			workos_organization_id: 'workos_mcmec_test',
-			name: 'Middlesex County Mosquito Extermination Commission',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const profile = await db
-		.insertInto('profiles')
-		.values({ organization_id: organization.id, display_name: 'Adrian Collector' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const user = await db
-		.insertInto('users')
-		.values({
-			workos_user_id: 'user_01TESTCOLLECTOR',
-			email: 'you+simmer-collector@gmail.com',
-			display_name: 'Adrian Collector',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
+	const organizationId = await createOrganization(db, {
+		workos_organization_id: 'workos_mcmec_test',
+		name: 'Middlesex County Mosquito Extermination Commission',
+	});
+	const profileId = await createProfile(db, organizationId, { display_name: 'Adrian Collector' });
+	const userId = await createUser(db, {
+		workos_user_id: 'user_01TESTCOLLECTOR',
+		email: 'you+simmer-collector@gmail.com',
+		display_name: 'Adrian Collector',
+	});
 
 	await db
 		.insertInto('memberships')
 		.values({
-			organization_id: organization.id,
-			profile_id: profile.id,
-			user_id: user.id,
+			organization_id: organizationId,
+			profile_id: profileId,
+			user_id: userId,
 			role: 'collector',
 			status: 'active',
 			is_default: true,
 		})
 		.execute();
 
-	return { organizationId: organization.id, collectorProfileId: profile.id };
+	return { organizationId, collectorProfileId: profileId };
 }

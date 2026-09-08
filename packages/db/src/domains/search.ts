@@ -27,7 +27,7 @@ export const SEARCH_COMMENT_TABLE = 'comments';
  * would be the same decision written in two places that can disagree.
  */
 export interface SearchCorpusFields {
-	/** Text the agency itself typed as a handle. Searched by all four classes. */
+	/** Text the organization itself typed as a handle. Searched by all four classes. */
 	readonly identifierFields: readonly string[];
 	/** Free text. Reachable by the `text` class alone. */
 	readonly proseFields: readonly string[];
@@ -123,10 +123,11 @@ const WORD_SIMILARITY_THRESHOLD = 0.6;
  * The `fuzzy` class is capped at this many rows before the ladder and before
  * `total`.
  *
- * The threshold cannot be tuned instead: this agency's handles are codes on one
- * template, so `similarity` at 0.3 returns 394 fuzzy hits for a single habitat
- * name while 0.6 loses ordinary typos. Capping by rank is what keeps `total`
- * honest. 20 is above anything the palette's cap of 4 or a first page can show.
+ * The threshold cannot be tuned instead: this organization's handles are codes
+ * on one template, so `similarity` at 0.3 returns 394 fuzzy hits for a single
+ * habitat name while 0.6 loses ordinary typos. Capping by rank is what keeps
+ * `total` honest. 20 is above anything the palette's cap of 4 or a first page
+ * can show.
  */
 const FUZZY_CLASS_CAP = 20;
 
@@ -144,10 +145,11 @@ const TRIGRAM_MIN_QUERY_LENGTH = 3;
  * keystroke, so what this guards against is a plan regression turning the
  * palette into a stalled connection pool.
  *
- * Measured on a clone of production, 135,198 documents in one agency: a whole
- * query at three characters or more runs in **6.7 ms**, with all four branches
- * bitmap-scanning their own index and OR-ing together. One and two character
- * queries scan the agency's documents instead, at **81 ms** and **89 ms**.
+ * Measured on a clone of production, 135,198 documents in one organization: a
+ * whole query at three characters or more runs in **6.7 ms**, with all four
+ * branches bitmap-scanning their own index and OR-ing together. One and two
+ * character queries scan the organization's documents instead, at **81 ms** and
+ * **89 ms**.
  *
  * The timeout is thirty times the worse of those, and the scan is one a person
  * only reaches while typing the first two characters of a query that is
@@ -187,8 +189,8 @@ export async function searchDocuments(
 	/*
 	 * An identifier field equals the query. `@>` and not `= any(...)`: the two
 	 * mean the same thing and only one of them is an indexable operator for
-	 * `array_ops`, so `= any` seq-scanned the whole agency. Measured on staging,
-	 * 15.6 ms became 0.19 ms.
+	 * `array_ops`, so `= any` seq-scanned the whole organization. Measured on
+	 * staging, 15.6 ms became 0.19 ms.
 	 */
 	const exactPredicate = sql`d.search_text @> array[p.qq]`;
 
@@ -207,9 +209,9 @@ export async function searchDocuments(
 	 * staging, over the same 835 rows.
 	 *
 	 * Below three characters `gin_trgm_ops` degenerates and there is nothing to
-	 * add, so a one or two character query scans one agency's documents. That is
-	 * the measured and accepted gap: 41 ms over staging's 47,861 documents, so
-	 * roughly 115 ms over production's 135,198.
+	 * add, so a one or two character query scans one organization's documents.
+	 * That is the measured and accepted gap: 41 ms over staging's 47,861
+	 * documents, so roughly 115 ms over production's 135,198.
 	 */
 	const prefixPredicate = trigramUsable
 		? sql`d.search_text_joined like p.qq_contains and exists (

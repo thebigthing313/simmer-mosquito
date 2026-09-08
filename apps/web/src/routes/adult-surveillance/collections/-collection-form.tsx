@@ -1,4 +1,6 @@
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import {
+	getOwnedGeometryPolicy,
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
@@ -6,7 +8,6 @@ import {
 	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { CollectionTimingMode } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -17,21 +18,14 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POINT_DRAW_TYPES,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
@@ -53,6 +47,26 @@ export type CollectionSourceMode = 'trap' | 'adhoc';
 /** Non-empty sentinels: Radix Select forbids empty-string item values. */
 export const noLureValue = 'none';
 export const noUnitValue = 'none';
+
+/** What a collection stores, read off the register rather than named here. */
+const COLLECTION_LOCATION_SHAPES = getOwnedGeometryPolicy('collection').allowedTypes;
+
+/**
+ * Whether a placed shape is one an ad hoc collection stores.
+ *
+ * `useDrawLocation` below takes the same `collection` policy and offers nothing
+ * else, so this narrows what the two routes hold to what the optimistic centroid
+ * takes rather than gating a second time. Both halves read the register, for the
+ * same reason the station and Region predicates do: both routes used to ask
+ * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
+ * widens, and on Regions that copy refused a boundary the user could see on the
+ * map. `Point` written into the assertion was the last of that copy left.
+ */
+export function isCollectionLocation(
+	geometry: DrawGeometry,
+): geometry is DrawGeometryFor<'collection'> {
+	return COLLECTION_LOCATION_SHAPES.includes(geometry.type);
+}
 
 /**
  * Domain issue path → the form field holding it. Timing issues nest under the
@@ -142,6 +156,14 @@ function parseDateValue(value: string | null): Date {
 	return new Date(value ?? '');
 }
 
+/** Where the chosen trap stands, as the context outline the map draws behind the form. */
+function trapPoint(trap: TrapOption | null): GeoJsonGeometry | null {
+	if (trap === null) {
+		return null;
+	}
+	return { type: 'Point', coordinates: [trap.longitude, trap.latitude] };
+}
+
 export interface CollectionFormValues {
 	readonly sourceMode: CollectionSourceMode;
 	/** Target trap when `sourceMode === 'trap'`. */
@@ -152,7 +174,7 @@ export interface CollectionFormValues {
 	readonly collectionMethodId: string;
 	/** `noLureValue` or a lure id. */
 	readonly collectionLureId: string;
-	readonly timingMode: CollectionTimingMode;
+	readonly timingMode: AdultCollectionTimingMode;
 	/** `YYYY-MM-DD` the trap was set (exact mode, optional). */
 	readonly startedAt: string | null;
 	/** `YYYY-MM-DD` specimens were retrieved (exact mode, required). */
@@ -218,8 +240,8 @@ export interface CollectionFormPageProps {
 export function defaultCollectionFormValues(
 	today: string,
 	trapId: string | null,
-	/** The agency's default timing mode, from organization settings. */
-	timingMode: CollectionTimingMode,
+	/** The default timing mode, from organization settings. */
+	timingMode: AdultCollectionTimingMode,
 ): CollectionFormValues {
 	return {
 		sourceMode: 'trap',
@@ -261,10 +283,17 @@ export function CollectionFormPage({
 	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
 		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
 	);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [saveError, setSaveError] = useState<string | null>(null);
-	const [locationError, setLocationError] = useState<string | null>(null);
+	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
+	// carries its own drawn point (the address, if any, is reference only). Only
+	// the first value is read, so the trap the form opens on frames the map from
+	// the first paint and later picks come through `setReferenceGeometry`.
+	const location = useDrawLocation({
+		geometryKind: 'collection',
+		initialGeometry,
+		initialReferenceGeometry: trapPoint(selectedTrap),
+		missingMessage: 'Place the collection point on the map.',
+	});
+	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
 
 	const methodOptions = useMemo(
 		() =>
@@ -281,67 +310,6 @@ export function CollectionFormPage({
 		[collectionMethods],
 	);
 
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	// The draw layer renders and edits the collection's own point; the trap's point
-	// is separate reference geometry, so only it needs a map feature of its own.
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
-	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
-	// carries its own drawn point (the address, if any, is reference only).
-	const trapPoint = useMemo<GeoJsonGeometry | null>(
-		() =>
-			selectedTrap === null
-				? null
-				: ({
-						type: 'Point',
-						coordinates: [selectedTrap.longitude, selectedTrap.latitude],
-					} as GeoJsonGeometry),
-		[selectedTrap],
-	);
-	// The collection's own point is framed last so it wins when a trap pick and a
-	// draw land on the same render.
-	useFitToGeometry(map, trapPoint, draw.isDrawing);
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
-
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryChanged(true);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start('Point');
-	}, [start]);
-
-	const clearPoint = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
-
 	const form = useAppForm({
 		defaultValues,
 		validators: {
@@ -349,27 +317,20 @@ export function CollectionFormPage({
 				validateCollection(value, geometry),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			const error = validate(value);
 			if (error !== null) {
-				setSaveError(error);
+				throw new Error(error);
+			}
+			if (value.sourceMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
-			if (value.sourceMode === 'adhoc' && geometry === null) {
-				setLocationError('Place the collection point on the map.');
-				return;
-			}
-			try {
-				await onSave({
-					values: value,
-					trap: value.sourceMode === 'trap' ? selectedTrap : null,
-					geometry: value.sourceMode === 'adhoc' ? geometry : null,
-					geometryChanged,
-				});
-			} catch (thrown) {
-				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save collection.');
-			}
+			await onSave({
+				values: value,
+				trap: value.sourceMode === 'trap' ? selectedTrap : null,
+				geometry: value.sourceMode === 'adhoc' ? geometry : null,
+				geometryChanged: location.geometryChanged,
+			});
 		},
 	});
 
@@ -385,14 +346,14 @@ export function CollectionFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas
-							controls={{ layers: false }}
-							geoJson={trapPoint as unknown as GeoJSON.GeoJSON | null}
-							onMapReady={handleMapReady}
-						/>
+						{/* The draw layer renders and edits the collection's own point; the
+						    trap's point is separate reference geometry, so only it needs a map
+						    feature of its own. */}
+						<MapCanvas geoJson={referenceGeometry} onMapReady={location.onMapReady} />
 						<DrawToolbar
+							geometryKind="collection"
 							controller={draw}
-							geometryType="Point"
+							geometryType={geometryType}
 							pointPrompt="Click the map to place the collection point."
 						/>
 					</>
@@ -402,12 +363,6 @@ export function CollectionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Collection" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Collection</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<TimingSection form={form} units={units} />
 
@@ -460,7 +415,7 @@ export function CollectionFormPage({
 
 				<LocationSection
 					description="A trap collection sits where the trap sits. A one-off carries its own point; an address is optional reference, and the point can be refined off it."
-					error={locationError}
+					error={location.locationError}
 					title="Source and location"
 				>
 					<form.AppField name="sourceMode">
@@ -499,6 +454,7 @@ export function CollectionFormPage({
 												onSelect={(trap) => {
 													field.handleChange(trap?.id ?? null);
 													setSelectedTrap(trap);
+													location.setReferenceGeometry(trapPoint(trap));
 													// Derive method + lure from the trap.
 													form.setFieldValue('collectionMethodId', trap?.collectionMethodId ?? '');
 													form.setFieldValue(
@@ -527,12 +483,12 @@ export function CollectionFormPage({
 									<form.AppField name="addressId">
 										{(field) => (
 											<AddressPicker
-												create={{ requestMapPoint }}
+												create={{ requestMapPoint: location.requestMapPoint }}
 												label="Address"
 												onSelect={(address) => {
 													field.handleChange(address?.id ?? null);
-													setLocationError(null);
-													selectAddress(address);
+													location.clearError();
+													location.selectAddress(address);
 												}}
 												organizationId={organizationId}
 												value={field.state.value}
@@ -540,15 +496,15 @@ export function CollectionFormPage({
 										)}
 									</form.AppField>
 									<GeometryControl
-										allowedTypes={POINT_DRAW_TYPES}
 										controller={draw}
 										geometry={geometry}
-										geometryType="Point"
+										geometryType={geometryType}
+										geometryKind="collection"
 										label="Point"
 										required
-										onClear={clearPoint}
-										onDraw={startDraw}
-										{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+										onClear={location.clear}
+										onDraw={location.startDraw}
+										{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 									/>
 								</>
 							)
@@ -596,9 +552,9 @@ export function CollectionFormPage({
 					</form.AppField>
 				</FormSection>
 
-				{/* Agencies attach their own fields to a collection method; render
-							    whichever the method on this collection declares — whether it was
-							    picked directly or inherited from the trap. */}
+				{/* Organizations attach their own fields to a collection method;
+							    render whichever the method on this collection declares — whether
+							    it was picked directly or inherited from the trap. */}
 				<form.Subscribe selector={(state) => state.values.collectionMethodId}>
 					{(methodId) => {
 						const schema = customSchemaFor(collectionMethods, methodId);
@@ -613,7 +569,7 @@ export function CollectionFormPage({
 								>
 									{(field) => (
 										<field.MetadataField
-											description="Extra details your agency collects for this method."
+											description="Extra details you collect for this method."
 											mode={{ kind: 'schema', schema }}
 										/>
 									)}
@@ -625,8 +581,8 @@ export function CollectionFormPage({
 
 				<FormSection title="Results">
 					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-muted-foreground text-sm">
-						Record the species identified — and mark a zero result or bycatch — on the collection’s
-						detail page after saving.
+						Record the species identified on the collection’s detail page after saving. Mark a zero
+						result or bycatch there too.
 					</p>
 				</FormSection>
 
@@ -689,7 +645,7 @@ function TimingSection({
 					pending: isPendingCollection(state.values),
 				})}
 			>
-				{({ timingMode, pending }: { timingMode: CollectionTimingMode; pending: boolean }) =>
+				{({ timingMode, pending }: { timingMode: AdultCollectionTimingMode; pending: boolean }) =>
 					timingMode === 'exact_timestamps' ? (
 						<div className="grid gap-5 sm:grid-cols-2">
 							<form.AppField name="startedAt">

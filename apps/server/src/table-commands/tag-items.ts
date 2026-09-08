@@ -25,12 +25,14 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import type { TagItemRow } from '../field-work-commands/shared.js';
-import { writeTagItemCommand } from '../field-work-commands/tag-items.js';
+import type { TagItemRow } from '../writers/field-work/shared.js';
+import { writeTagItemCommand } from '../writers/field-work/tag-items.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
-export function tagItemTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, TagItemRow> {
+export function tagItemTableCommands(
+	db: CommandDb,
+): TableCommands<'tag_items', FieldWorkCommand, TagItemRow> {
 	return {
 		table: 'tag_items',
 		run: {
@@ -40,17 +42,18 @@ export function tagItemTableCommands(db: CommandDb): TableCommands<FieldWorkComm
 			key: 'tagItem',
 		},
 		intents: {
-			'fieldWork.assignTag': ({ payload, agency, id }) =>
+			'fieldWork.assignTag': ({ payload, organization, id }) =>
 				assignTagCommand({
-					...agency,
+					...organization,
 					tagItemId: id,
 					tagId: readText(payload.tag_id) ?? '',
-					target: readEntityTarget(payload),
+					target: readEntityTarget(payload.entity_type, payload.entity_id),
 				}),
 
 			// Only the link row's id: which record the Tag was on is what the server
 			// looks up, and it is also how the ownership check reaches it.
-			'fieldWork.unassignTag': ({ agency, id }) => unassignTagCommand({ ...agency, tagItemId: id }),
+			'fieldWork.unassignTag': ({ organization, id }) =>
+				unassignTagCommand({ ...organization, tagItemId: id }),
 		},
 	};
 }

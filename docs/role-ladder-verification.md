@@ -4,7 +4,7 @@ How to check, by hand, that SIMMER refuses what it says it refuses.
 
 The ladder is enforced in `apps/server/src/command-permissions.ts` and mirrored
 in `apps/web/src/lib/write-access.ts`. The writes that are not commands, meaning
-the agency's own details and the people surface, declare their floors in
+the organization's own details and the people surface, declare their floors in
 `apps/server/src/roles.ts` instead, which says why they cannot join the map.
 Both are unit-tested, and the reads the
 ownership rules depend on are covered against Postgres in
@@ -16,19 +16,20 @@ the reordering bug in #36 was found in the first place.
 
 ```sh
 # Against whichever database the app you are testing is pointed at.
-# `SIMMER_ROLE_LADDER_ORGANIZATION_ID` points it at an agency that already
-# exists, which is the normal case once real accounts have been invited into
-# one. Omit it and the seed builds its own throwaway organization instead.
-SIMMER_ROLE_LADDER_ORGANIZATION_ID=<your agency id> \
+# `SIMMER_ROLE_LADDER_ORGANIZATION_ID` points it at an organization that
+# already exists, which is the normal case once real accounts have been invited
+# into one. Omit it and the seed builds its own throwaway organization instead.
+SIMMER_ROLE_LADDER_ORGANIZATION_ID=<your organization id> \
   pnpm --filter @simmer-mosquito/db seed:role-ladder
 ```
 
-Pointed at an existing agency, the seed **reads its people and leaves them
-alone**: it maps each membership role to a profile and attaches the fixtures to
-those, so "the assignment assigned to the collector" belongs to the account you
-will actually sign in as. It never writes a role, renames a profile, or renames
-the organization. If the agency has only one collector it creates the second one
-itself, because the "somebody else's record" cases need two.
+Pointed at an existing organization, the seed **reads its people and leaves
+them alone**: it maps each membership role to a profile and attaches the
+fixtures to those, so "the assignment assigned to the collector" belongs to the
+account you will actually sign in as. It never writes a role, renames a profile,
+or renames the organization. If the organization has only one collector it
+creates the second one itself, because the "somebody else's record" cases need
+two.
 
 Idempotent, and worth re-running before a session: the expired comment and the
 stale control action are backdated from *now*, so a stale seed leaves them
@@ -39,6 +40,29 @@ With no organization id it builds its own ("Role Ladder Test District") with six
 profiles: Owner, Admin, Manager, **two** Collectors, and Viewer. Two collectors,
 because every ownership rule has a "somebody else's" case, and using the
 Manager's profile for that would conflate *not yours* with *not your role*.
+
+### The organization has to exist in WorkOS
+
+Sign-in resolves the organization from **WorkOS**, not from the seed: `main.ts`
+reads the organization off the session and hands it to `upsertWorkOsIdentity`.
+So an organization the seed invented is one nobody can sign into, however
+correct its memberships are. The accounts sign in to whichever organization
+WorkOS does have them in, arrive with no invited membership waiting, and are
+provisioned as **viewers**, so the ladder then reads as though every role is
+refused everything.
+
+`SIMMER_ROLE_LADDER_WORKOS_ORGANIZATION_ID` is what closes that. Set it to the
+WorkOS organization the five accounts belong to and the seeded roles are the
+ones you sign in as. Omit it and the seed says so before it exits.
+
+Do not solve this by pointing the ladder at the organization your local clone
+came from. Two things go wrong. The seed **skips any role that already has a
+profile**, so in an organization with real owners and managers those two rungs
+get no membership at all and no login. And one early sign-in leaves an active
+`viewer` membership that `memberships_organization_user_unique` will not let a
+later seed replace, so the ladder has to be repaired by hand. Its own
+organization, with its own WorkOS organization behind it, is independent of the
+clone.
 
 ## Accounts
 
@@ -56,9 +80,9 @@ waiting for it (`packages/db/src/domains/identity-memberships.ts`):
 3. neither → `owner` if the organization has no members yet, otherwise
    **`viewer`**
 
-So invite each account into the agency at the role you want *before* its first
-sign-in. Do it the other way round and every account lands as a viewer, and the
-ladder will look like it refuses everything.
+So invite each account into the organization at the role you want *before* its
+first sign-in. Do it the other way round and every account lands as a viewer,
+and the ladder will look like it refuses everything.
 
 ### One mailbox, several accounts
 
@@ -109,7 +133,32 @@ Anyone with no id still gets a profile and an invited membership, which is
 enough to be an assignee, to author a comment, and to be the subject of an
 API-driven check.
 
-Keep all of this to **staging**. These are real accounts and real rows in
+### The whole local run, after a clone
+
+`scripts/clone-prod-db.ps1` drops everything, so the ladder is seeded again each
+time. The WorkOS side survives a clone and is set up once: an organization named
+"Role Ladder Test District" in WorkOS **staging** with the five accounts as its
+members, and each account in that organization *only*, because a second
+organization makes which organization a sign-in lands in a question rather than
+an answer.
+
+```sh
+# 1. Seed. One line per rung, plus the WorkOS organization behind them.
+DATABASE_URL=postgres://postgres:postgres@localhost:55432/simmer_mosquito SIMMER_ROLE_LADDER_WORKOS_ORGANIZATION_ID=org_… SIMMER_ROLE_LADDER_OWNER=user_… SIMMER_ROLE_LADDER_OWNER_EMAIL=you+simmer-owner@gmail.com SIMMER_ROLE_LADDER_ADMIN=user_… SIMMER_ROLE_LADDER_ADMIN_EMAIL=you+simmer-admin@gmail.com SIMMER_ROLE_LADDER_MANAGER=user_… SIMMER_ROLE_LADDER_MANAGER_EMAIL=you+simmer-manager@gmail.com SIMMER_ROLE_LADDER_COLLECTOR=user_… SIMMER_ROLE_LADDER_COLLECTOR_EMAIL=you+simmer-collector@gmail.com SIMMER_ROLE_LADDER_VIEWER=user_… SIMMER_ROLE_LADDER_VIEWER_EMAIL=you+simmer-viewer@gmail.com   pnpm --filter @simmer-mosquito/db seed:role-ladder
+
+# 2. Start the API against the local backends, then assert the 42 cases.
+pnpm dev:server
+SIMMER_CHECK_PASSWORD='…' pnpm --filter @simmer-mosquito/server check:role-ladder
+```
+
+Seed before every check run, not only after a clone: four of the allowed cases
+write, and the dated fixtures are backdated from *now*.
+
+Keep all of this to **local dev**, which is where the ladder now runs. The
+accounts are WorkOS *staging* logins, and the staging deployment authenticates
+against WorkOS **production** (ADR 0017), so they do not exist there and every
+staging refresh deletes anything seeded into it. Local dev is the one
+environment on WorkOS staging. They are still real accounts and real rows in
 whichever environment the keys point at.
 
 The two roles that matter most are **Collector** and **Manager**. Owner and
@@ -119,7 +168,7 @@ from Owner only where a command names the `admin` floor.
 ## What has been run
 
 **The API half is a script.** `apps/server/src/check-role-ladder.ts` signs in as
-each rung and asserts 31 cases against the endpoints, including the reason text
+each rung and asserts 42 cases against the endpoints, including the reason text
 on every refusal. Run it instead of clicking through the list below:
 
 ```sh
@@ -127,6 +176,16 @@ SIMMER_CHECK_PASSWORD='…' pnpm --filter @simmer-mosquito/server check:role-lad
 ```
 
 Re-seed first: four of the allowed cases write, and later runs drift without it.
+
+**All 42 passed on 2026-09-01**, on local dev against a fresh production clone,
+which is the first run since the ladder moved off staging (#407). Two of the
+cases had stopped meaning anything and were fixed there: the settings refusal
+names `organizationSettings.updateTimezone` since settings became commands, and
+the role change moved to `PATCH /commands/memberships/:id`, so the script had
+been asking `/organization/memberships/:id/role`, a route that no longer exists.
+Every rung got a 404 from it, and because the owner case reads a 404 as
+"the floor passed", the one endpoint where an escalation would matter was
+passing on a missing route.
 
 **The browser half was walked on 2026-08-05** as Collector and Manager, which is
 the part no script can do: whether a refused control is *offered*. Everything
@@ -185,7 +244,7 @@ Refused, with a reason:
   types, insecticides, formulations, notification types)
 - delete any control action, which is manager-and-above in code, stricter than the
   domain doc, pending #63
-- change a setting, edit the agency's details, or add a profile: the three
+- change a setting, edit the organization's details, or add a profile: the three
   surfaces that have no commands, all admin-and-above (#130)
 
 Worth checking in the browser as well as through the API: after #49 the UI
@@ -202,12 +261,12 @@ succeed.
 
 Refused: the owner/admin catalogs above. This is the rung that did not exist
 before #50, so it is the one most worth checking. Also refused: settings, the
-agency's details, and the people surface.
+organization's details, and the people surface.
 
 ### As an admin
 
-As Manager, plus the owner/admin catalogs, settings, the agency's details, and
-the people surface: adding a profile, inviting somebody, ending an access.
+As Manager, plus the owner/admin catalogs, settings, the organization's details,
+and the people surface: adding a profile, inviting somebody, ending an access.
 
 Refused, and the only thing an Admin is refused: **changing somebody's role**.
 That is owner-only, because an Admin who could set a role could set their own to

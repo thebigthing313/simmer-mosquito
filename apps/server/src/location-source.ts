@@ -13,8 +13,8 @@
  * the discrimination it had just discarded, with `as string` casts and a switch.
  *
  * Those four switches were also a second, looser copy of the whitelist: the
- * larval one accepted `serviceRequest`, which `HABITAT_LOCATION_SOURCE_KINDS`
- * forbids. That arm was unreachable, and nothing said so.
+ * larval one accepted `serviceRequest`, which the habitat row of
+ * `LOCATION_SOURCE_FLOWS` forbids. That arm was unreachable, and nothing said so.
  *
  * `docs/domain-command-contract.md` gives the split this module keeps: builders
  * own which sources a workflow permits, handlers own the lookup and snapshot.
@@ -32,7 +32,7 @@ import {
 	type SimmerDatabase,
 	type Transaction,
 } from '@simmer-mosquito/db';
-import type { LocationSource } from '@simmer-mosquito/domain';
+import { geometryCoversGround, type LocationSource } from '@simmer-mosquito/domain';
 
 import { CommandError } from './command-endpoint.js';
 
@@ -77,9 +77,9 @@ export async function resolveLocationGeom(
 /**
  * Another row's geometry, or the 404 its absence means.
  *
- * `loadGeojson` lives in `packages/db` and answers `undefined`, because "absent,
- * another agency's, or deleted" is one fact at that layer and the HTTP status it
- * becomes is this one's to name.
+ * `loadGeojson` lives in `packages/db` and answers `undefined`, because
+ * "absent, another organization's, or deleted" is one fact at that layer and
+ * the HTTP status it becomes is this one's to name.
  */
 export async function loadOr404(
 	trx: Transaction<SimmerDatabase>,
@@ -90,6 +90,18 @@ export async function loadOr404(
 	const geojson = await loadGeojson(trx, table, id, organizationId);
 	if (geojson === undefined) {
 		throw new CommandError(404, { error: `${table}_not_found` });
+	}
+	// The covers-ground rule on the inherited path. `validateGeometry` refuses a
+	// drawn geometry and `geojsonToGeom` is the backstop, but this is the only
+	// layer that knows which record the geometry came from, so "go fix that
+	// habitat" is sayable only here. Nothing in production is in this state; the
+	// induction that an inherited geometry needs no normalization holds today by
+	// measurement, and this is what makes it hold by construction.
+	if (!geometryCoversGround(geojson)) {
+		throw new CommandError(400, {
+			error: 'source_geometry_covers_no_ground',
+			source: { table, id },
+		});
 	}
 	return geojsonToGeom(geojson);
 }

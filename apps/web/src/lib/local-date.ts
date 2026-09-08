@@ -1,5 +1,5 @@
 /**
- * Calendar dates, in the agency's local time.
+ * Calendar dates, in the organization's local time.
  *
  * A date column here is a *calendar date* — the day an inspection happened, the
  * day an assignment is scheduled for — not an instant. `new Date('2026-08-04')`
@@ -23,6 +23,10 @@ import { getToday } from './get-today';
  * instant falls on in the zone, the same question with a different subject.
  */
 export function todayInTimeZone(timeZone: string | undefined, instant?: Date): string {
+	// `en-CA` is a format shape rather than a display locale: it is the tag that
+	// orders the parts year-month-day, which is the `YYYY-MM-DD` this returns and
+	// what every date column holds. It is not the `en-US` display pin, and
+	// swapping it to one would return `08/04/2026` and break every caller.
 	return new Intl.DateTimeFormat('en-CA', {
 		timeZone: timeZone || undefined,
 		year: 'numeric',
@@ -41,7 +45,8 @@ export function parseLocalDate(value: string | null | undefined): Date | undefin
 	return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-interface CalendarDateParts {
+/** A calendar date read apart, before any zone decides what instant it names. */
+export interface CalendarDateParts {
 	readonly year: number;
 	readonly month: number;
 	readonly day: number;
@@ -58,19 +63,58 @@ const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
  *
  * Read out as numbers rather than as a Date because which *instant* that
  * calendar day begins at is a separate question, answered differently for the
- * browser's zone and the agency's, and answering it too early is what
+ * browser's zone and the organization's, and answering it too early is what
  * {@link parseLocalDate} can only do one way.
  *
  * One match rather than a split and three range checks: every value that
  * reaches here is a date column, a date input, or something already rejected,
  * and the shape is the whole of what makes it readable.
+ *
+ * ## The only leading-`YYYY-MM-DD` parse in this app
+ *
+ * There were ten. Nine were a hand-rolled `slice(0, 10).split('-')` and three
+ * `Number` conversions, spread across a map card, two detail pages, four display
+ * modules and this file's own private copy, and they disagreed: four of the
+ * helpers built on one had no guard at all and reached `toISOString` on an
+ * Invalid Date, throwing `RangeError: Invalid time value` into the render tree
+ * (#609). Anything reading a calendar date out of a string comes here.
+ *
+ * It is stricter than the copies it replaced. The regex wants zero-padded
+ * parts, so `2026-8-4` reads as unreadable where a `split` took it. Nothing
+ * produces that form: a Postgres `date` renders zero-padded and an
+ * `<input type="date">` holds zero-padded, and no date literal written under
+ * `apps/web/src` is loose.
+ *
+ * ## What a formatter does when this returns undefined
+ *
+ * It hands the value back and warns, through `lib/unreadable-input`. It does not
+ * render the em dash. That glyph is absence, which is a value the record does
+ * not carry, and a failed read is a value that arrived and would not render. A
+ * formatter that spells the second like the first makes a broken column look
+ * like an empty one, which is what eight of them were doing.
  */
-function calendarDateParts(value: string | null | undefined): CalendarDateParts | undefined {
+export function calendarDateParts(value: string | null | undefined): CalendarDateParts | undefined {
 	const match = value === null || value === undefined ? null : CALENDAR_DATE.exec(value);
 	if (match === null) {
 		return undefined;
 	}
 	return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+/**
+ * A calendar date as the instant that day began at UTC.
+ *
+ * The step every date label takes after {@link calendarDateParts}, because a
+ * label is rendered on the UTC clock: build the day there and format it there,
+ * and the two cancel, so no zone can move it. Five formatters were writing this
+ * `Date.UTC` line out in full, one per module (#609).
+ *
+ * It cannot be an Invalid Date. The parts are numbers by the time they arrive,
+ * and `Date.UTC` rolls a month of 13 into January rather than refusing it, which
+ * is what those five already did.
+ */
+export function utcCalendarDay(parts: CalendarDateParts): Date {
+	return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
 }
 
 /**
@@ -110,8 +154,8 @@ export function formatLocalDate(date: Date): string {
 }
 
 /**
- * The start of an agency-local calendar day as a lower bound for a `timestamptz`
- * column.
+ * The start of an organization-local calendar day as a lower bound for a
+ * `timestamptz` column.
  *
  * A bare `YYYY-MM-DD` cannot be compared against a `timestamptz` in a sync
  * predicate: Postgres would cast it, but Electric rejects it outright with
@@ -124,10 +168,10 @@ export function formatLocalDate(date: Date): string {
  * two comparisons disagree and same-day rows arrive from the server only to be
  * filtered out on the client.
  *
- * The day starts where the *agency* says it does. Without the zone this began at
- * the browser's midnight, so the same window asked for different records
- * depending on who opened the page — and at the edge the difference is a record
- * missing from the range, not a record shown on the wrong day.
+ * The day starts where the *organization* says it does. Without the zone this
+ * began at the browser's midnight, so the same window asked for different
+ * records depending on who opened the page — and at the edge the difference is
+ * a record missing from the range, not a record shown on the wrong day.
  *
  * An unreadable date yields the epoch — an effectively absent lower bound, which
  * shows too much rather than silently showing nothing.
@@ -185,14 +229,15 @@ export function operationalDayAsTimestamp(
 const WALL_TIME = /^(\d{2}):(\d{2})$/;
 
 /**
- * The instant a wall time on a calendar day names in the agency's zone.
+ * The instant a wall time on a calendar day names in the organization's zone.
  *
- * The inverse of reading a stored instant back on the agency's clock. A form asks
- * for a day and a time because that is how the work is planned; the column is one
- * `timestamptz`, and which instant that pair names is only a fact once a zone
- * says so. Left to the browser, the same typed "16:00" is a different instant for
- * a dispatcher working from home two zones away — and it is read back on the
- * agency's clock either way, so it comes back as a time nobody typed.
+ * The inverse of reading a stored instant back on the organization's clock. A
+ * form asks for a day and a time because that is how the work is planned; the
+ * column is one `timestamptz`, and which instant that pair names is only a fact
+ * once a zone says so. Left to the browser, the same typed "16:00" is a
+ * different instant for a dispatcher working from home two zones away — and it
+ * is read back on the organization's clock either way, so it comes back as a
+ * time nobody typed.
  *
  * Null rather than an Invalid Date when either half is unreadable, so the domain
  * builder reports the missing field instead of the browser reporting NaN.
@@ -215,13 +260,14 @@ export function localTimeAsInstant(
 }
 
 /**
- * The instant an operational date is stamped at: midday on that day, agency time.
+ * The instant an operational date is stamped at: midday on that day,
+ * organization time.
  *
  * A typed calendar day has to be widened to an instant because the column is a
  * `timestamptz`, and midday is the widest berth on either side of the day it
  * names. Which midday is the whole question. Midday *UTC* has twelve hours of
  * headroom, so it survives every zone strictly inside ±12 and no further: an
- * agency on `Pacific/Auckland` types the 4th, the row is 01:00 on the 5th
+ * organization on `Pacific/Auckland` types the 4th, the row is 01:00 on the 5th
  * locally, and the day is read back wrong everywhere.
  *
  * Midday is also, half the time, still ahead — and `validateOperationalDate`
@@ -250,12 +296,13 @@ export function operationalDayAsInstant(
 const MIDDAY = '12:00';
 
 /**
- * A stored instant back as the `HH:MM` a time field holds, on the agency's clock.
+ * A stored instant back as the `HH:MM` a time field holds, on the
+ * organization's clock.
  *
  * The inverse of {@link localTimeAsInstant}, and it has to be, or a form loses
- * the time it was given: hydrate in the browser's zone and save in the agency's
- * and an untouched due time drifts by the difference every time the record is
- * opened and saved.
+ * the time it was given: hydrate in the browser's zone and save in the
+ * organization's and an untouched due time drifts by the difference every time
+ * the record is opened and saved.
  *
  * Empty rather than a placeholder for an absent or unreadable instant, because
  * that is what an unset time field holds and what the callers already spell.
@@ -273,6 +320,12 @@ export function localTimeOfDay(
 	if (Number.isNaN(parsed.getTime())) {
 		return '';
 	}
+	// `en-GB` is a format shape rather than a display locale, the way `en-CA` is
+	// in {@link todayInTimeZone}: this returns the bare `HH:MM` a time field
+	// holds, not a label anybody reads, so it is outside the `en-US` display pin.
+	// `hourCycle` is what forces the 24-hour clock and the tag is the belt to
+	// that brace, since a tag whose own default is 12-hour would put the shape
+	// one dropped option away from an AM marker no time field can parse.
 	return new Intl.DateTimeFormat('en-GB', {
 		timeZone: timeZone || undefined,
 		hourCycle: 'h23',
@@ -315,7 +368,8 @@ function instantReading(wall: number, timeZone: string): number {
 }
 
 /**
- * The instant a calendar day began in `timeZone` — the agency's midnight, as UTC.
+ * The instant a calendar day began in `timeZone` — the organization's midnight,
+ * as UTC.
  *
  * Daylight saving is why this cannot be a subtraction. A zone's offset is not a
  * property of the zone but of the zone *at an instant*: America/New_York is

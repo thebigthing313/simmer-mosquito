@@ -1,36 +1,54 @@
 /**
  * The history check and the collision check, refusing over real HTTP.
  *
- * Every case sends its flag as `false`, which is the only way to withhold one:
- * `acknowledged()` reads an absent flag as confirmed, deliberately, so that no
- * write a client makes today starts failing. Nothing in `apps/web` sends
- * `false` for any of these yet, and #319 is that half. Without these cases the
- * guards would be correct and unexercised, and would stay that way until a form
- * asked, by which point nobody would remember what the answer was supposed to
- * be.
+ * Every acknowledgement case sends its flag as `false`, which is the only way
+ * to withhold one: `acknowledged()` reads an absent flag as confirmed,
+ * deliberately, so that no write a client makes today starts failing. Nothing
+ * in `apps/web` sends `false` for any of these yet, and #319 is that half.
+ * Without these cases the guards would be correct and unexercised, and would
+ * stay that way until a form asked, by which point nobody would remember what
+ * the answer was supposed to be.
  *
- * Every case also asserts the row is untouched. Both checks run before the
- * first write, and a refusal that has already written half of what it was going
- * to is worse than no refusal.
+ * Every acknowledgement case also asserts the row is untouched. Both checks run
+ * before the first write, and a refusal that has already written half of what
+ * it was going to is worse than no refusal.
  *
  * The pair to read together is the rename with citing rows and the rename
  * without them. The second is the whole of the "what counts as history"
  * decision: any citing row asks, none asks nothing, and there is no interval
  * anywhere.
+ *
+ * The trap section holds one refusal that is neither a history question nor a
+ * collision: a Trap has to keep a name or a code, and the rule is here because
+ * this is where the trap write surface is driven over real HTTP. It is a
+ * refusal rather than a question, so it takes no flag and nothing gets past it.
  */
 
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createCollection,
+	createCollectionMethod,
+	createContact,
+	createNotificationRegistration,
+	createNotificationRegistrationType,
+	createNotificationType,
+	createOrganization,
+	createOrganizationSpecies,
+	createProfile,
+	createSpecies,
+	createTrap,
+	createUser,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables, OperatorAuthContext } from '../../auth-middleware.js';
-import { registerFoundationCommandRoutes } from '../../foundation-commands/index.js';
-import { registerPublicEngagementCommandRoutes } from '../../public-engagement-commands.js';
 import { registerTableCommandRoutes } from '../../table-commands/dispatch.js';
 import { speciesTableCommands } from '../../table-commands/taxonomy.js';
+import { command, commandApp } from './support/command-app.js';
 
 describeDbIntegration('history and collision refusals', () => {
 	// -----------------------------------------------------------------------
@@ -39,22 +57,25 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses a catalog rename with collections behind it, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'method_rename_withheld');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const methodId = await createCollectionMethod(db, org);
 			const trapId = await createTrap(db, org, methodId);
-			await createCollection(db, org, trapId, methodId);
-
-			const response = await lookupApp(db, org, actor).request(
-				`/foundation/collection-methods/${methodId}`,
+			await createCollection(
+				db,
+				org,
+				{ trapId: trapId, collectionMethodId: methodId },
 				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						name: 'CDC light trap (rev 2)',
-						acknowledgedHistoricalLabelChange: false,
-					}),
+					collected_at: sql`timestamptz '2026-08-02 06:00:00+00'`,
 				},
+			);
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collection_methods/${methodId}`,
+				command('PATCH', ['foundation.updateCollectionMethod'], {
+					name: 'CDC light trap (rev 2)',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -79,20 +100,16 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('renames a catalog row nothing cites without asking', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'method_rename_free');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const methodId = await createCollectionMethod(db, org);
 
-			const response = await lookupApp(db, org, actor).request(
-				`/foundation/collection-methods/${methodId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						name: 'CDC light trap (rev 2)',
-						acknowledgedHistoricalLabelChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collection_methods/${methodId}`,
+				command('PATCH', ['foundation.updateCollectionMethod'], {
+					name: 'CDC light trap (rev 2)',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			// Withheld and accepted anyway. Nothing reads under this name yet, so
@@ -109,22 +126,25 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('leaves an edit that changes no label alone, however much history there is', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'method_notes_edit');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const methodId = await createCollectionMethod(db, org);
 			const trapId = await createTrap(db, org, methodId);
-			await createCollection(db, org, trapId, methodId);
-
-			const response = await lookupApp(db, org, actor).request(
-				`/foundation/collection-methods/${methodId}`,
+			await createCollection(
+				db,
+				org,
+				{ trapId: trapId, collectionMethodId: methodId },
 				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						description: 'Runs on a six-volt battery.',
-						acknowledgedHistoricalLabelChange: false,
-					}),
+					collected_at: sql`timestamptz '2026-08-02 06:00:00+00'`,
 				},
+			);
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collection_methods/${methodId}`,
+				command('PATCH', ['foundation.updateCollectionMethod'], {
+					description: 'Runs on a six-volt battery.',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -137,22 +157,25 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses a trap recode with collections behind it, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'trap_recode_withheld');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const methodId = await createCollectionMethod(db, org);
 			const trapId = await createTrap(db, org, methodId);
-			await createCollection(db, org, trapId, methodId);
-
-			const response = await trapApp(db, org, actor).request(
-				`/adult-surveillance/traps/${trapId}`,
+			await createCollection(
+				db,
+				org,
+				{ trapId: trapId, collectionMethodId: methodId },
 				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						trapCode: 'NG-2',
-						acknowledgedHistoricalLabelChange: false,
-					}),
+					collected_at: sql`timestamptz '2026-08-02 06:00:00+00'`,
 				},
+			);
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], {
+					trap_code: 'NG-2',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -172,27 +195,156 @@ describeDbIntegration('history and collision refusals', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// A trap edit that would leave the trap with no label at all
+	// -----------------------------------------------------------------------
+
+	it('refuses clearing a trap name when the trap carries no code, and writes nothing', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, { trap_name: 'North gate' });
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], { trap_name: null }),
+			);
+
+			expect(response.status).toBe(400);
+			await expect(response.json()).resolves.toMatchObject({
+				error: 'trap_display_required',
+				reason: 'A trap needs a name or a code. Keep one of the two.',
+			});
+
+			const trap = await db
+				.selectFrom('traps')
+				.select(['trap_name'])
+				.where('id', '=', trapId)
+				.executeTakeFirstOrThrow();
+			expect(trap.trap_name).toBe('North gate');
+		});
+	});
+
+	// The other direction of the same rule. Neither field is the one that has to
+	// survive, so a suite covering only the name would leave half of it untested.
+	it('refuses clearing a trap code when the trap carries no name', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, {
+				trap_name: null,
+				trap_code: 'NG-1',
+			});
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], { trap_code: null }),
+			);
+
+			expect(response.status).toBe(400);
+			await expect(response.json()).resolves.toMatchObject({ error: 'trap_display_required' });
+		});
+	});
+
+	it('refuses clearing both labels in one edit', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, {
+				trap_name: 'North gate',
+				trap_code: 'NG-1',
+			});
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], {
+					trap_name: null,
+					trap_code: null,
+				}),
+			);
+
+			expect(response.status).toBe(400);
+			await expect(response.json()).resolves.toMatchObject({ error: 'trap_display_required' });
+		});
+	});
+
+	it('takes a cleared trap name when a code is left behind', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, {
+				trap_name: 'North gate',
+				trap_code: 'NG-1',
+			});
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], { trap_name: null }),
+			);
+
+			expect(response.status).toBe(200);
+
+			const trap = await db
+				.selectFrom('traps')
+				.select(['trap_name', 'trap_code'])
+				.where('id', '=', trapId)
+				.executeTakeFirstOrThrow();
+			expect(trap.trap_name).toBeNull();
+			expect(trap.trap_code).toBe('NG-1');
+		});
+	});
+
+	// The description is not a label, so an edit naming it alone is not made to
+	// answer this rule even on a trap that would fail it.
+	it('takes a description edit on a trap carrying only a name', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, { trap_name: 'North gate' });
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], {
+					description: 'Beside the gate',
+				}),
+			);
+
+			expect(response.status).toBe(200);
+
+			const trap = await db
+				.selectFrom('traps')
+				.select(['description'])
+				.where('id', '=', trapId)
+				.executeTakeFirstOrThrow();
+			expect(trap.description).toBe('Beside the gate');
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// Retiring a notification type, where the count is the live subscriptions
 	// -----------------------------------------------------------------------
 
 	it('refuses retiring a notification type people are still subscribed to', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'type_retire_withheld');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
-			const typeId = await createNotificationType(db, org);
-			const registrationId = await createNotificationRegistration(db, org);
+			const typeId = await createNotificationType(db, org, { name: 'Adulticide notice' });
+			const registrationId = await createNotificationRegistration(
+				db,
+				org,
+				await createContact(db, org),
+			);
 			await createSubscription(db, org, registrationId, typeId);
 
-			const response = await notificationApp(db, org, actor).request(
-				`/public-engagement/notification-types/${typeId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						isActive: false,
-						acknowledgedActiveSubscriptionImpact: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/notification_types/${typeId}`,
+				command('PATCH', ['publicEngagement.deactivateNotificationType'], {
+					acknowledgedActiveSubscriptionImpact: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -214,14 +366,14 @@ describeDbIntegration('history and collision refusals', () => {
 	});
 
 	// -----------------------------------------------------------------------
-	// The taxonomy, whose count is every agency's at once
+	// The taxonomy, whose count is every organization's at once
 	// -----------------------------------------------------------------------
 
-	it('refuses a species rename and counts across every agency', async () => {
+	it('refuses a species rename and counts across every organization', async () => {
 		await withTestDb(async ({ db }) => {
-			const first = await createOrganization(db, 'taxon_first');
-			const second = await createOrganization(db, 'taxon_second');
-			const operator = await createOperatorUser(db, 'taxon_operator');
+			const first = await createOrganization(db);
+			const second = await createOrganization(db);
+			const operator = await createUser(db);
 			const speciesId = await createSpecies(db);
 			await createOrganizationSpecies(db, first, speciesId);
 			await createOrganizationSpecies(db, second, speciesId);
@@ -240,9 +392,12 @@ describeDbIntegration('history and collision refusals', () => {
 			await expect(response.json()).resolves.toMatchObject({
 				error: 'acknowledgement_required',
 				flag: 'acknowledgedTaxonomyMeaningChange',
-				// Two agencies, one number. The operator already reads every agency,
-				// so the total leaks nothing, and a breakdown is a report.
-				consequences: [{ key: 'speciesAgencyLists', count: 2, singular: 'agency species list' }],
+				// Two organizations, one number. The operator already reads every
+				// organization, so the total leaks nothing, and a breakdown is a
+				// report.
+				consequences: [
+					{ key: 'speciesOrganizationLists', count: 2, singular: 'organization species list' },
+				],
 			});
 
 			const species = await db
@@ -260,28 +415,27 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses a trap whose code another active trap already carries', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'trap_code_collision');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const methodId = await createCollectionMethod(db, org);
-			await createTrap(db, org, methodId, 'NG-1');
+			await createTrap(db, org, methodId, { trap_code: 'NG-1' });
 			const newTrapId = '00000000-0000-4000-8000-0000000003a1';
 
-			const response = await trapApp(db, org, actor).request('/adult-surveillance/traps', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/traps',
+				command('POST', ['adultSurveillance.createTrap'], {
 					id: newTrapId,
-					collectionMethodId: methodId,
-					trapCode: ' ng-1 ',
+					collection_method_id: methodId,
+					trap_code: ' ng-1 ',
 					locationSource: {
 						kind: 'geometry',
 						geometry: { type: 'Point', coordinates: [-90.4, 35.6] },
 					},
 					acknowledgedDuplicateTrapCode: false,
 				}),
-			});
+			);
 
-			// Case and spacing aside: the agency reads them as one code, so the
+			// Case and spacing aside: the organization reads them as one code, so the
 			// question is asked on the reading rather than on the bytes.
 			expect(response.status).toBe(409);
 			await expect(response.json()).resolves.toMatchObject({
@@ -301,25 +455,24 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('takes a trap code no active trap carries, whatever the flag says', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'trap_code_free');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const methodId = await createCollectionMethod(db, org);
 			const newTrapId = '00000000-0000-4000-8000-0000000003a2';
 
-			const response = await trapApp(db, org, actor).request('/adult-surveillance/traps', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/traps',
+				command('POST', ['adultSurveillance.createTrap'], {
 					id: newTrapId,
-					collectionMethodId: methodId,
-					trapCode: 'NG-1',
+					collection_method_id: methodId,
+					trap_code: 'NG-1',
 					locationSource: {
 						kind: 'geometry',
 						geometry: { type: 'Point', coordinates: [-90.4, 35.6] },
 					},
 					acknowledgedDuplicateTrapCode: false,
 				}),
-			});
+			);
 
 			expect(response.status).toBe(201);
 		});
@@ -343,7 +496,7 @@ function authMiddleware(organizationId: string, profileId: string) {
 	});
 }
 
-/** The operator door, which carries a SIMMER user id and no agency at all. */
+/** The operator door, which carries a SIMMER user id and no organization at all. */
 function operatorMiddleware(userId: string) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
 		context.set('operatorContext', {
@@ -351,33 +504,6 @@ function operatorMiddleware(userId: string) {
 		} as OperatorAuthContext);
 		await next();
 	});
-}
-
-function lookupApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerFoundationCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function trapApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerAdultSurveillanceCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function notificationApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerPublicEngagementCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
 }
 
 function speciesApp(db: Db, operatorUserId: string) {
@@ -397,157 +523,14 @@ function speciesApp(db: Db, operatorUserId: string) {
 // Fixtures
 // ===========================================================================
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createProfile(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('profiles')
-		.values({ organization_id: organizationId, display_name: 'Technician' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createOperatorUser(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('users')
-		.values({
-			workos_user_id: `workos_${slug}`,
-			email: `${slug}@simmer.test`,
-			display_name: 'Operator',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createCollectionMethod(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('collection_methods')
-		.values({ organization_id: organizationId, name: 'CDC light trap' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createTrap(
+function createSubscription(
 	db: Db,
 	organizationId: string,
-	collectionMethodId: string,
-	trapCode?: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('traps')
-		.values({
-			organization_id: organizationId,
-			collection_method_id: collectionMethodId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			trap_name: 'North gate',
-			...(trapCode === undefined ? {} : { trap_code: trapCode }),
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createCollection(
-	db: Db,
-	organizationId: string,
-	trapId: string,
-	collectionMethodId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('collections')
-		.values({
-			organization_id: organizationId,
-			trap_id: trapId,
-			collection_method_id: collectionMethodId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			collection_timing_mode: 'exact_timestamps',
-			started_at: sql`timestamptz '2026-08-01 06:00:00+00'`,
-			collected_at: sql`timestamptz '2026-08-02 06:00:00+00'`,
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createSpecies(db: Db): Promise<string> {
-	const genus = await db
-		.insertInto('genera')
-		.values({ abbreviation: 'Cx', name: 'Culex' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('species')
-		.values({ genus_id: genus.id, epithet: 'pipiens', display_name: 'Culex pipiens' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createOrganizationSpecies(
-	db: Db,
-	organizationId: string,
-	speciesId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('organization_species')
-		.values({ organization_id: organizationId, species_id: speciesId })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createNotificationType(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('notification_types')
-		.values({ organization_id: organizationId, name: 'Adulticide notice' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createNotificationRegistration(db: Db, organizationId: string): Promise<string> {
-	const contact = await db
-		.insertInto('contacts')
-		.values({ organization_id: organizationId, contact_name: 'R. Alvarez' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('notification_registrations')
-		.values({
-			organization_id: organizationId,
-			contact_id: contact.id,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createSubscription(
-	db: Db,
-	organizationId: string,
-	notificationRegistrationId: string,
+	registrationId: string,
 	notificationTypeId: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('notification_registration_types')
-		.values({
-			organization_id: organizationId,
-			notification_registration_id: notificationRegistrationId,
-			notification_type_id: notificationTypeId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createNotificationRegistrationType(db, organizationId, {
+		registrationId,
+		notificationTypeId,
+	});
 }

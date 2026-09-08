@@ -38,9 +38,10 @@ const RUNNING = {
 };
 
 /**
- * Retired, and the shape says nothing about it: `PickableTrap` no longer carries
- * `isActive`, so a caller cannot hand the picker a lifecycle to act on even by
- * accident. The trap is retired in the agency's data; this is the row for it.
+ * Retired, and the shape says nothing about it: `PickableTrap` no longer
+ * carries `isActive`, so a caller cannot hand the picker a lifecycle to act on
+ * even by accident. The trap is retired in the organization's data; this is the
+ * row for it.
  */
 const RETIRED = {
 	id: '22222222-2222-4222-8222-222222222222',
@@ -76,9 +77,9 @@ describe('the trap picker', () => {
 		expect(screen.queryByText('MP-1 - Mill Pond')).toBeNull();
 	});
 
-	// The empty state distinguishes "this agency has no traps" from "your term
+	// The empty state distinguishes "there are no traps" from "your term
 	// matched none", and the retired rows now count towards the first.
-	it('says the agency has traps when only the search missed', () => {
+	it('says the organization has traps when only the search missed', () => {
 		const input = openPicker([RETIRED]);
 		fireEvent.change(input, { target: { value: 'nothing like this' } });
 

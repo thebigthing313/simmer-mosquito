@@ -125,7 +125,7 @@ describe('CORS preflights over the real middleware', () => {
 	 * and `electric-schema`. Cross-origin, a header the server does not expose is
 	 * invisible, and the client answers that by erroring the collection and
 	 * marking it ready anyway — so the table syncs "successfully" with no rows,
-	 * and `apps/web` renders an agency whose row was in the response as a
+	 * and `apps/web` renders an organization whose row was in the response as a
 	 * workspace that failed to load. Every request is a 200 throughout, and
 	 * `curl` shows the header, so nothing else catches it.
 	 */

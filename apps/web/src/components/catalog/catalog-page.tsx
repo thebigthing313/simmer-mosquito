@@ -1,12 +1,10 @@
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
 import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import type { RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
 import type { CatalogSearch } from './catalog-search';
-
-const SearchIcon = iconRegistry.actions.search.icon;
 
 /** The uppercase label a catalog groups its rows under. */
 export const CATALOG_GROUP_HEADING =
@@ -93,20 +91,14 @@ export function CatalogFilteredList<Row>({
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<CatalogCountBadges active={search.activeCount} inactive={search.inactiveCount} />
 				{search.showSearch ? (
-					<div className="relative w-full max-w-[260px]">
-						<SearchIcon
-							aria-hidden="true"
-							className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-						/>
-						<Input
-							aria-label={searchLabel}
-							className="h-9 pl-9"
-							onChange={(event) => search.setSearch(event.target.value)}
-							placeholder={searchPlaceholder}
-							type="search"
-							value={search.search}
-						/>
-					</div>
+					<SearchInput
+						className="h-9 w-full max-w-[260px]"
+						label={searchLabel}
+						onChange={(event) => search.setSearch(event.target.value)}
+						onClear={() => search.setSearch('')}
+						placeholder={searchPlaceholder}
+						value={search.search}
+					/>
 				) : null}
 			</div>
 			{search.hasMatches ? (

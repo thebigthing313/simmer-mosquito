@@ -28,8 +28,8 @@ On Windows or from Codex automation, prefer `pnpm.cmd ...` as described in
 `apps/server` and the frontends always run locally, and so do Postgres and
 Electric: `docker compose up -d postgres electric`, then `pnpm db:migrate` and
 the sync-baseline seed, on the `.env.example` values. **Nothing local points at
-Railway.** Staging is a sandbox agency staff sign into. See `docs/deployment.md`,
-"Local development", for the full setup.
+Railway.** Staging is a sandbox organization staff sign into. See
+`docs/deployment.md`, "Local development", for the full setup.
 
 Seed realistic data with `scripts/clone-prod-db.ps1`, which clones prod into the
 compose Postgres, keeps three years of dated records, and relinks the cloned
@@ -44,7 +44,7 @@ at `https://localhost:5175`).
 - `apps/preview`: internal design-system and component preview app.
 - `apps/server`: Hono HTTP control plane for auth, sync proxies, and command
   endpoints.
-- `apps/web`: agency-facing Vite React SPA shell.
+- `apps/web`: organization-facing Vite React SPA shell.
 - `packages/auth`: WorkOS AuthKit/session helpers.
 - `packages/config`: shared environment parsing.
 - `packages/db`: SQL migrations and Kysely/Postgres helpers.

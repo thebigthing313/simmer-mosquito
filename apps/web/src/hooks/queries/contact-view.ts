@@ -5,9 +5,9 @@
  *
  * ## Why the name is still four columns
  *
- * A Contact is whoever the agency has a way of reaching, and which way that is
- * varies: a resident who left a phone number, a property manager known by their
- * company, an email address and nothing else. `contactDisplayName` in
+ * A Contact is whoever the organization has a way of reaching, and which way
+ * that is varies: a resident who left a phone number, a property manager known
+ * by their company, an email address and nothing else. `contactDisplayName` in
  * `routes/public-engagement/-public-engagement-display.ts` takes the first of
  * name, company, email, phone that is not blank, and falls back to a short id.
  *

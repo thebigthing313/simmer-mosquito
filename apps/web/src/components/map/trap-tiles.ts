@@ -5,7 +5,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -26,7 +25,6 @@ export interface TrapTileFilters extends RegionScopedTileFilters {
 }
 
 export const TRAP_SOURCE_ID = 'traps';
-const _TRAP_SOURCE_LAYER = 'traps';
 
 /**
  * What each trap status paints, and the only place it is written down.
@@ -49,13 +47,10 @@ export const TRAP_STATUS_COLORS = {
 const colors = {
 	...TRAP_STATUS_COLORS,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a trap. Order = hit priority. */
 export const TRAP_INTERACTIVE_LAYER_IDS = interactiveLayerIds(TRAP_SOURCE_ID);
-
-const TRAP_SELECTED_LAYER_IDS = selectedLayerIds(TRAP_SOURCE_ID);
 
 export const TRAP_LAYER_IDS = allLayerIds(TRAP_SOURCE_ID);
 
@@ -102,5 +97,3 @@ function trapTileParams(filters?: TrapTileFilters): URLSearchParams {
 export function trapTileLayers(selectedId: string | null): GeometryTileLayer[] {
 	return geometryTileLayers(TRAP_SOURCE_ID, { fill: statusColor, line: statusColor }, selectedId);
 }
-
-export { TRAP_SELECTED_LAYER_IDS };

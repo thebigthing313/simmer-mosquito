@@ -20,7 +20,7 @@ describe('collection schemas', () => {
 	});
 
 	it('keeps the invitation columns off the memberships schema', () => {
-		// `memberships` streams eager to every signed-in agency user, viewers
+		// `memberships` streams eager to every signed-in organization user, viewers
 		// included, because the role ladder needs `role`, `status` and
 		// `profile_id`. An invited address belongs to somebody who has not
 		// accepted, and `workos_invitation_id` is a handle on a live grant in

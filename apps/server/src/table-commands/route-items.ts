@@ -33,24 +33,29 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeRouteItemCommand } from '../field-work-commands/route-items.js';
-import type { RouteItemRow } from '../field-work-commands/shared.js';
+import { writeRouteItemCommand } from '../writers/field-work/route-items.js';
+import type { RouteItemRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
+/**
+ * Where in the route a stop goes. Not a column: the order is a list, not a field.
+ */
+type RouteItemArgument = 'placement';
+
 export function routeItemTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, RouteItemRow> {
+): TableCommands<'route_items', FieldWorkCommand, RouteItemRow, RouteItemArgument> {
 	return {
 		table: 'route_items',
 		run: { db, write: writeRouteItemCommand, notFound: 'route_item_not_found', key: 'routeItem' },
 		intents: {
-			'fieldWork.addRouteItem': ({ payload, agency, id }) =>
+			'fieldWork.addRouteItem': ({ payload, organization, id }) =>
 				addRouteItemCommand({
-					...agency,
+					...organization,
 					routeItemId: id,
 					routeId: readText(payload.route_id) ?? '',
-					target: readEntityTarget(payload) as RouteItemTarget,
+					target: readEntityTarget(payload.entity_type, payload.entity_id) as RouteItemTarget,
 					// Absent means append, which is what the domain defaults to. Sending
 					// `placement: undefined` would say the same thing; leaving the key out
 					// keeps the builder's own default the only place that decision is made.
@@ -60,17 +65,17 @@ export function routeItemTableCommands(
 					directionsToNextItem: readNullableText(payload.directions_to_next_item),
 				}),
 
-			'fieldWork.updateRouteItem': ({ payload, agency, id }) =>
+			'fieldWork.updateRouteItem': ({ payload, organization, id }) =>
 				updateRouteItemCommand({
-					...agency,
+					...organization,
 					routeItemId: id,
 					directionsToNextItem: readNullableText(payload.directions_to_next_item),
 				}),
 
 			// No acknowledgement: a stop holds nothing of its own, so dropping one takes
 			// nothing with it. The gap it leaves in `position` stays there.
-			'fieldWork.removeRouteItem': ({ agency, id }) =>
-				removeRouteItemCommand({ ...agency, routeItemId: id }),
+			'fieldWork.removeRouteItem': ({ organization, id }) =>
+				removeRouteItemCommand({ ...organization, routeItemId: id }),
 		},
 	};
 }

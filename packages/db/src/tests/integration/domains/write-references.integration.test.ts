@@ -7,22 +7,28 @@ import {
 	sql,
 } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import {
+	createAddress,
+	createCollectionMethod,
+	createOrganization,
+	createTrap,
+} from '../../../test-support/row-fixtures.js';
 
 /**
  * The forward half of the delete registry's question, against real tables.
  *
  * Three of these could not be asked without Postgres. A foreign key is
- * satisfied by the row existing anywhere, so "belongs to another agency" and
- * "is soft-deleted" both compile and both insert; only a query knows. The
+ * satisfied by the row existing anywhere, so "belongs to another organization"
+ * and "is soft-deleted" both compile and both insert; only a query knows. The
  * fourth, the unchanged-value case on an update, is the one a writer breaks by
  * gating on the payload id without reading what is stored, and it stays
  * invisible until something is deactivated.
  */
 describeDbIntegration('catalog reference gate', () => {
-	it('allows a live, active row of the writing agency', async () => {
+	it('allows a live, active row of the writing organization', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'gate_allow');
-			const methodId = await createCollectionMethod(db, org, true);
+			const org = await createOrganization(db);
+			const methodId = await createCollectionMethod(db, org, { is_active: true });
 
 			await expect(
 				assertWriteReferences(db, {
@@ -36,8 +42,8 @@ describeDbIntegration('catalog reference gate', () => {
 
 	it('refuses an inactive row, and says so rather than calling it missing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'gate_inactive');
-			const methodId = await createCollectionMethod(db, org, false);
+			const org = await createOrganization(db);
+			const methodId = await createCollectionMethod(db, org, { is_active: false });
 
 			const refusal = await capture(db, org, methodId);
 			expect(refusal?.reason).toBe('inactive');
@@ -45,30 +51,30 @@ describeDbIntegration('catalog reference gate', () => {
 		});
 	});
 
-	it('refuses a soft-deleted row and another agency’s row alike', async () => {
+	it('refuses a soft-deleted row and another organization’s row alike', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await createOrganization(db, 'gate_mine');
-			const theirs = await createOrganization(db, 'gate_theirs');
+			const mine = await createOrganization(db);
+			const theirs = await createOrganization(db);
 
-			const deleted = await createCollectionMethod(db, mine, true);
+			const deleted = await createCollectionMethod(db, mine, { is_active: true });
 			await db
 				.updateTable('collection_methods')
 				.set({ deleted_at: sql`now()` })
 				.where('id', '=', deleted)
 				.execute();
-			const otherAgency = await createCollectionMethod(db, theirs, true);
+			const otherOrganization = await createCollectionMethod(db, theirs, { is_active: true });
 
 			// The two answer alike on purpose: a refusal that told them apart would
-			// be a way to probe for another agency's ids.
+			// be a way to probe for another organization's ids.
 			expect((await capture(db, mine, deleted))?.reason).toBe('missing');
-			expect((await capture(db, mine, otherAgency))?.reason).toBe('missing');
+			expect((await capture(db, mine, otherOrganization))?.reason).toBe('missing');
 		});
 	});
 
 	it('refuses nothing when the reference is unchanged on an update', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'gate_unchanged');
-			const methodId = await createCollectionMethod(db, org, true);
+			const org = await createOrganization(db);
+			const methodId = await createCollectionMethod(db, org, { is_active: true });
 			const trapId = await createTrap(db, org, methodId);
 
 			await db
@@ -91,9 +97,15 @@ describeDbIntegration('catalog reference gate', () => {
 
 	it('refuses a changed reference on an update', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'gate_changed');
-			const current = await createCollectionMethod(db, org, true, 'CDC light trap');
-			const retired = await createCollectionMethod(db, org, false, 'Gravid trap');
+			const org = await createOrganization(db);
+			const current = await createCollectionMethod(db, org, {
+				is_active: true,
+				name: 'CDC light trap',
+			});
+			const retired = await createCollectionMethod(db, org, {
+				is_active: false,
+				name: 'Gravid trap',
+			});
 			const trapId = await createTrap(db, org, current);
 
 			await expect(
@@ -108,7 +120,7 @@ describeDbIntegration('catalog reference gate', () => {
 
 	it('ignores a reference being cleared', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'gate_cleared');
+			const org = await createOrganization(db);
 
 			await expect(
 				assertWriteReferences(db, {
@@ -125,13 +137,13 @@ describeDbIntegration('catalog reference gate', () => {
  * The record half, which #200 is about.
  *
  * A record reference asks the first two questions only. There is no `is_active`
- * on an Address, so the third has nothing to read and no meaning: an agency
- * does not retire an Address from use, it stops referring to it.
+ * on an Address, so the third has nothing to read and no meaning: an
+ * organization does not retire an Address from use, it stops referring to it.
  */
 describeDbIntegration('record reference gate', () => {
-	it('allows a live row of the writing agency', async () => {
+	it('allows a live row of the writing organization', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'record_allow');
+			const org = await createOrganization(db);
 			const addressId = await createAddress(db, org);
 
 			await expect(
@@ -144,10 +156,10 @@ describeDbIntegration('record reference gate', () => {
 		});
 	});
 
-	it('refuses another agency’s row', async () => {
+	it('refuses another organization’s row', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await createOrganization(db, 'record_mine');
-			const theirs = await createOrganization(db, 'record_theirs');
+			const mine = await createOrganization(db);
+			const theirs = await createOrganization(db);
 			const theirAddress = await createAddress(db, theirs);
 
 			// The foreign key is satisfied: the row exists. This is the whole of
@@ -158,9 +170,9 @@ describeDbIntegration('record reference gate', () => {
 		});
 	});
 
-	it('refuses a soft-deleted row of its own agency', async () => {
+	it('refuses a soft-deleted row of its own organization', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'record_deleted');
+			const org = await createOrganization(db);
 			const addressId = await createAddress(db, org);
 			await db
 				.updateTable('addresses')
@@ -174,8 +186,8 @@ describeDbIntegration('record reference gate', () => {
 
 	it('refuses nothing when the reference is unchanged on an update', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'record_unchanged');
-			const methodId = await createCollectionMethod(db, org, true);
+			const org = await createOrganization(db);
+			const methodId = await createCollectionMethod(db, org, { is_active: true });
 			const addressId = await createAddress(db, org);
 			const trapId = await createTrap(db, org, methodId);
 			await db
@@ -204,9 +216,9 @@ describeDbIntegration('record reference gate', () => {
 
 	it('gates a catalog and a record named by the same write', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await createOrganization(db, 'record_mixed_mine');
-			const theirs = await createOrganization(db, 'record_mixed_theirs');
-			const methodId = await createCollectionMethod(db, mine, true);
+			const mine = await createOrganization(db);
+			const theirs = await createOrganization(db);
+			const methodId = await createCollectionMethod(db, mine, { is_active: true });
 			const theirAddress = await createAddress(db, theirs);
 
 			await expect(
@@ -252,48 +264,6 @@ async function capture(
 	}
 }
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-/** `name` is unique per agency, so each row in a test needs its own. */
-async function createCollectionMethod(
-	db: Db,
-	organizationId: string,
-	isActive: boolean,
-	name = 'CDC light trap',
-): Promise<string> {
-	const row = await db
-		.insertInto('collection_methods')
-		.values({ organization_id: organizationId, name, is_active: isActive })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createTrap(
-	db: Db,
-	organizationId: string,
-	collectionMethodId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('traps')
-		.values({
-			organization_id: organizationId,
-			collection_method_id: collectionMethodId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			trap_name: 'North gate',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
 function addressReference(id: string) {
 	return { column: 'address_id', record: 'addresses', id, label: 'address' } as const;
 }
@@ -317,18 +287,4 @@ async function captureRecord(
 		}
 		throw error;
 	}
-}
-
-async function createAddress(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('addresses')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			display_name: '14 Levee Road',
-			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
 }

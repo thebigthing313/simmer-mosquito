@@ -109,7 +109,8 @@ export function SampleMapCard({
 				</MapCardDetail>
 				{identifications.map((row) => (
 					<MapCardDetail icon={MosquitoIcon} key={row.speciesId}>
-						<span className="italic">{row.speciesName}</span> · {row.larvaeCount.toLocaleString()}
+						<span className="italic">{row.speciesName}</span> ·{' '}
+						{row.larvaeCount.toLocaleString('en-US')}
 					</MapCardDetail>
 				))}
 				{sample.hasNonMosquito ? (

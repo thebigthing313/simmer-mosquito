@@ -32,7 +32,7 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb, RunCommandsConfig } from '../command-write.js';
-import { type ControlAssetCommand, writeControlAssetCommand } from '../control-asset-commands.js';
+import { type ControlAssetCommand, writeControlAssetCommand } from '../writers/control-assets.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
@@ -50,88 +50,90 @@ function assetRun(db: CommandDb): RunCommandsConfig<ControlAssetCommand, AssetRe
 
 export function vehicleTableCommands(
 	db: CommandDb,
-): TableCommands<ControlAssetCommand, AssetResponse> {
+): TableCommands<'vehicles', ControlAssetCommand, AssetResponse> {
 	return {
 		table: 'vehicles',
 		run: assetRun(db),
 		intents: {
-			'controlOperations.createVehicle': ({ payload, agency, id }) =>
+			'controlOperations.createVehicle': ({ payload, organization, id }) =>
 				createVehicleCommand({
-					...agency,
+					...organization,
 					vehicleId: id,
 					vehicleName: readText(payload.vehicle_name) ?? '',
 					metadata: payload.metadata ?? null,
 				}),
 
-			'controlOperations.updateVehicle': ({ payload, agency, id }) =>
+			'controlOperations.updateVehicle': ({ payload, organization, id }) =>
 				updateVehicleCommand({
-					...agency,
+					...organization,
 					vehicleId: id,
-					...('vehicle_name' in payload
+					...(payload.vehicle_name !== undefined
 						? { vehicleName: readText(payload.vehicle_name) ?? '' }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalVehicleLabelChange: acknowledged(
-						payload.acknowledgedHistoricalVehicleLabelChange,
+						payload,
+						'acknowledgedHistoricalVehicleLabelChange',
 					),
 				}),
 
 			// `is_active` is a column a client can watch change; which way it moved is
 			// the command's to say. The old PATCH read the boolean for its direction.
-			'controlOperations.deactivateVehicle': ({ agency, id }) =>
-				deactivateVehicleCommand({ ...agency, vehicleId: id }),
+			'controlOperations.deactivateVehicle': ({ organization, id }) =>
+				deactivateVehicleCommand({ ...organization, vehicleId: id }),
 
-			'controlOperations.reactivateVehicle': ({ agency, id }) =>
-				reactivateVehicleCommand({ ...agency, vehicleId: id }),
+			'controlOperations.reactivateVehicle': ({ organization, id }) =>
+				reactivateVehicleCommand({ ...organization, vehicleId: id }),
 
-			'controlOperations.deleteVehicle': ({ agency, id }) =>
-				deleteVehicleCommand({ ...agency, vehicleId: id }),
+			'controlOperations.deleteVehicle': ({ organization, id }) =>
+				deleteVehicleCommand({ ...organization, vehicleId: id }),
 		},
 	};
 }
 
 export function equipmentTableCommands(
 	db: CommandDb,
-): TableCommands<ControlAssetCommand, AssetResponse> {
+): TableCommands<'equipment', ControlAssetCommand, AssetResponse> {
 	return {
 		table: 'equipment',
 		run: assetRun(db),
 		intents: {
-			'controlOperations.createEquipment': ({ payload, agency, id }) =>
+			'controlOperations.createEquipment': ({ payload, organization, id }) =>
 				createEquipmentCommand({
-					...agency,
+					...organization,
 					equipmentId: id,
 					equipmentName: readText(payload.equipment_name) ?? '',
 					serialNumber: readNullableText(payload.serial_number),
 					metadata: payload.metadata ?? null,
 				}),
 
-			'controlOperations.updateEquipment': ({ payload, agency, id }) =>
+			'controlOperations.updateEquipment': ({ payload, organization, id }) =>
 				updateEquipmentCommand({
-					...agency,
+					...organization,
 					equipmentId: id,
-					...('equipment_name' in payload
+					...(payload.equipment_name !== undefined
 						? { equipmentName: readText(payload.equipment_name) ?? '' }
 						: {}),
 					// Present-and-null clears the serial number; absent leaves it. A piece
 					// of equipment can genuinely lose the label it was tracked by.
-					...('serial_number' in payload
+					...(payload.serial_number !== undefined
 						? { serialNumber: readNullableText(payload.serial_number) }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalEquipmentLabelChange: acknowledged(
-						payload.acknowledgedHistoricalEquipmentLabelChange,
+						payload,
+						'acknowledgedHistoricalEquipmentLabelChange',
 					),
 				}),
 
-			'controlOperations.deactivateEquipment': ({ agency, id }) =>
-				deactivateEquipmentCommand({ ...agency, equipmentId: id }),
+			'controlOperations.deactivateEquipment': ({ organization, id }) =>
+				deactivateEquipmentCommand({ ...organization, equipmentId: id }),
 
-			'controlOperations.reactivateEquipment': ({ agency, id }) =>
-				reactivateEquipmentCommand({ ...agency, equipmentId: id }),
+			'controlOperations.reactivateEquipment': ({ organization, id }) =>
+				reactivateEquipmentCommand({ ...organization, equipmentId: id }),
 
-			'controlOperations.deleteEquipment': ({ agency, id }) =>
-				deleteEquipmentCommand({ ...agency, equipmentId: id }),
+			'controlOperations.deleteEquipment': ({ organization, id }) =>
+				deleteEquipmentCommand({ ...organization, equipmentId: id }),
 		},
 	};
 }

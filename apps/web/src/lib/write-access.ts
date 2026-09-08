@@ -1,8 +1,8 @@
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import { SIMMER_ROLES, type SimmerRole } from '@simmer-mosquito/domain';
 import type { AuthMe } from '../auth';
 
 /**
- * Whether the signed-in membership may create or change agency records.
+ * Whether the signed-in membership may create or change organization records.
  *
  * Viewers are the read-only role, and read-only has to mean it on both sides of
  * a control: hiding the "Record Application" button but leaving
@@ -15,13 +15,7 @@ import type { AuthMe } from '../auth';
  * called from route `beforeLoad` guards, which run before any component does.
  */
 
-const ORG_ROLES: ReadonlySet<string> = new Set<SimmerRole>([
-	'owner',
-	'admin',
-	'manager',
-	'collector',
-	'viewer',
-]);
+const ORG_ROLES: ReadonlySet<string> = new Set<SimmerRole>(SIMMER_ROLES);
 
 /**
  * The signed-in membership's role, defaulting to `viewer`.
@@ -78,12 +72,12 @@ export function canPlanWork(auth: AuthMe | null): boolean {
 }
 
 /**
- * Whether this membership configures the agency.
+ * Whether this membership configures the organization.
  *
  * Owner/admin: the lookup catalogs (collection methods, lures, habitat types),
  * species curation, control methods, insecticides and formulations, and the
- * notification type catalog. A manager runs the agency's work with these; only
- * an owner or admin decides what they are.
+ * notification type catalog. A manager runs the organization's work with these;
+ * only an owner or admin decides what they are.
  */
 export function canManageCatalogs(auth: AuthMe | null): boolean {
 	return hasAtLeastRole(auth, 'admin');
@@ -91,10 +85,10 @@ export function canManageCatalogs(auth: AuthMe | null): boolean {
 
 /**
  * Whether this membership manages people: invitations, and the profiles the
- * agency attributes work to.
+ * organization attributes work to.
  *
- * Owner/admin, so an agency can delegate onboarding rather than routing every
- * new crew member through one person. Handing out a *role* is a different
+ * Owner/admin, so an organization can delegate onboarding rather than routing
+ * every new crew member through one person. Handing out a *role* is a different
  * question — see {@link canManageRoles}.
  */
 export function canManagePeople(auth: AuthMe | null): boolean {
@@ -155,11 +149,11 @@ function readMembershipId(auth: AuthMe | null): string | null {
 	return auth?.authenticated === true ? auth.localIdentity.membershipId : null;
 }
 
-const ORG_ROLE_ORDER: readonly SimmerRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
+const ORG_ROLE_ORDER: readonly SimmerRole[] = SIMMER_ROLES;
 
 /**
  * Whether this membership manages the catalogs that are part of running work
- * rather than part of configuring the agency.
+ * rather than part of configuring the organization.
  *
  * Manager-and-above: tags, vehicles, equipment, and *editing* an existing
  * control method (its name and its custom fields). Adding or retiring a method
@@ -178,29 +172,16 @@ export function canManageOperationalCatalogs(auth: AuthMe | null): boolean {
 }
 
 /**
- * The `beforeLoad` half of the check, for the create/edit routes.
+ * The `beforeLoad` half of the check, under every route guard.
  *
  * Awaits `context.auth.load()` rather than reading the snapshot: on a cold load
- * — a pasted URL, a bookmark, a refresh — the guard runs before identity has
+ * (a pasted URL, a bookmark, a refresh) the guard runs before identity has
  * resolved, and a snapshot read there would be `null`, which resolves to
  * `viewer` and would bounce everyone.
  *
- * Callers throw their own typed `redirect`, so each form sends its viewer
- * somewhere useful (the list it was opened from, the record it was editing)
- * rather than to a shared dead end.
- */
-export async function isWriteBlocked(context: {
-	readonly auth: { readonly load: () => Promise<AuthMe> };
-}): Promise<boolean> {
-	return !canWriteRecords(await context.auth.load());
-}
-
-/**
- * The same guard at a higher floor, for the routes a collector cannot use.
- *
- * `isWriteBlocked` is this with `minimum: 'collector'`; it keeps its own name
- * because it reads better at the call sites that only care about viewers, and
- * because most of them predate the rest of the ladder.
+ * Routes do not call this with a role of their own. `isBelowWriteFloor` in
+ * `write-surfaces.ts` looks the floor up in the register and calls this, so a
+ * surface's floor is one fact rather than one per call site.
  */
 export async function isBelowRole(
 	context: { readonly auth: { readonly load: () => Promise<AuthMe> } },

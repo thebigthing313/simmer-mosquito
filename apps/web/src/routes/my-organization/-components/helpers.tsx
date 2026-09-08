@@ -1,25 +1,24 @@
 import type {
 	AdultCollectionTimingMode,
+	LarvalDensity,
 	LarvalDensityRange,
 	LarvalDensityRanges,
 	OrganizationSettings,
+	RangeDensity,
 	ServiceRequestContextSettings,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
-import type { AgencyDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
+import type { OrganizationDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { titleCaseToken } from '../../../lib/record-display';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { defaultDensityRangeValues } from './constants';
 import type {
-	AgencyDetailsFormValues,
 	DensityRangeFormValue,
 	DensityRangeFormValues,
-	DensityRangeKey,
-	LarvalDensityDisplayKey,
+	OrganizationDetailsFormValues,
 	PublicSettingsFormValues,
 	SelectOption,
 	SelectSettingField,
@@ -33,7 +32,7 @@ export function formatRole(role: SimmerRole): string {
 	return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
-export function AgencyDetailLine({
+export function OrganizationDetailLine({
 	label,
 	value,
 }: {
@@ -63,10 +62,10 @@ export function formatMailingAddress(organization: Organization): string {
 	return parts.length === 0 ? 'Not set' : parts.join(', ');
 }
 
-export function agencyDetailsFormValues(
+export function organizationDetailsFormValues(
 	organization: Organization,
 	settings: OrganizationSettings,
-): AgencyDetailsFormValues {
+): OrganizationDetailsFormValues {
 	return {
 		name: organization.name,
 		mainContactEmail: organization.main_contact_email ?? '',
@@ -84,12 +83,14 @@ export function agencyDetailsFormValues(
  * What the details sheet typed, as the write takes it.
  *
  * The form holds strings because an emptied input is `''`; the columns are
- * nullable because an agency that has no second address line has none. Trimming
- * and that conversion is the whole of what a form owes a write — every other
- * rule about these values belongs to the domain, which is what the seven routes
- * run.
+ * nullable because an organization that has no second address line has none.
+ * Trimming and that conversion is the whole of what a form owes a write — every
+ * other rule about these values belongs to the domain, which is what the seven
+ * routes run.
  */
-export function agencyDetailsFieldsFrom(values: AgencyDetailsFormValues): AgencyDetailsFields {
+export function organizationDetailsFieldsFrom(
+	values: OrganizationDetailsFormValues,
+): OrganizationDetailsFields {
 	return {
 		name: requiredTextValue(values.name, 'Organization name'),
 		mainContactEmail: nullableTextValue(values.mainContactEmail),
@@ -313,7 +314,7 @@ function densityRangeFromFormValue(
 }
 
 function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
-	const sequence: Array<readonly [DensityRangeKey, LarvalDensityRange]> = [
+	const sequence: Array<readonly [RangeDensity, LarvalDensityRange]> = [
 		['light', ranges.light],
 		['medium', ranges.medium],
 		['heavy', ranges.heavy],
@@ -346,11 +347,11 @@ function requiredFiniteNumber(value: string, label: string): number {
 	return numberValue;
 }
 
-export function densityKeyForSettings(density: DensityRangeKey): keyof LarvalDensityRanges {
+export function densityKeyForSettings(density: RangeDensity): keyof LarvalDensityRanges {
 	return density === 'very_heavy' ? 'veryHeavy' : density;
 }
 
-export function densityLabel(density: LarvalDensityDisplayKey | string): string {
+export function densityLabel(density: LarvalDensity | string): string {
 	return density === 'very_heavy'
 		? 'Very heavy'
 		: density.charAt(0).toUpperCase() + density.slice(1);

@@ -5,7 +5,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -31,7 +30,6 @@ export interface CollectionTileFilters extends RegionScopedTileFilters {
 }
 
 export const COLLECTION_SOURCE_ID = 'collections';
-const _COLLECTION_SOURCE_LAYER = 'collections';
 
 /**
  * Status palette. Points are coloured by where a collection sits in the round:
@@ -49,7 +47,6 @@ const colors = {
 	zeroResult: mapStatus.neutral,
 	problem: mapStatus.problem,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /**
@@ -68,8 +65,6 @@ export const COLLECTION_STATUS_COLORS: Readonly<Record<CollectionStatus, string>
 
 /** Layers the user can click to select a collection. Order = hit priority. */
 export const COLLECTION_INTERACTIVE_LAYER_IDS = interactiveLayerIds(COLLECTION_SOURCE_ID);
-
-const COLLECTION_SELECTED_LAYER_IDS = selectedLayerIds(COLLECTION_SOURCE_ID);
 
 export const COLLECTION_LAYER_IDS = allLayerIds(COLLECTION_SOURCE_ID);
 
@@ -129,5 +124,3 @@ export function collectionTileLayers(selectedId: string | null): GeometryTileLay
 		selectedId,
 	);
 }
-
-export { COLLECTION_SELECTED_LAYER_IDS };

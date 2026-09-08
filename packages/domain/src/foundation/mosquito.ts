@@ -2,22 +2,31 @@ import {
 	createIssues,
 	nullableText as normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
+	normalizeRequiredDomainId,
 	requiredText as normalizeRequiredText,
+	organizationPayload,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
-	type AgencyFoundationCommandInput,
-	type AgencyFoundationCommandPayload,
-	agencyPayload,
+	normalizeUpdateFields,
+	nullableReferenceIdField,
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+} from '../update-command-fields.js';
+import {
 	type FoundationDomainCommand,
-	normalizeRequiredDomainId,
 	type OperatorFoundationCommandInput,
 	type OperatorFoundationCommandPayload,
+	type OrganizationFoundationCommandInput,
+	type OrganizationFoundationCommandPayload,
 	operatorPayload,
-	validateAgencyBase,
-	validateAgencyIdCommand,
 	validateOperatorBase,
 	validateOperatorIdCommand,
 } from './shared.js';
@@ -37,21 +46,22 @@ export type CreateGenusCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateGenusCommandInput extends OperatorFoundationCommandInput {
-	readonly genusId: DomainId;
-	readonly abbreviation?: string;
-	readonly name?: string;
-	readonly acknowledgedTaxonomyLabelChange?: boolean;
-}
+export const GENUS_UPDATE_FIELDS = {
+	abbreviation: requiredTextField(20),
+	name: requiredTextField(200),
+} satisfies UpdateFieldSet;
+
+export type UpdateGenusCommandInput = OperatorFoundationCommandInput &
+	UpdateFieldsInput<typeof GENUS_UPDATE_FIELDS> & {
+		readonly genusId: DomainId;
+		readonly acknowledgedTaxonomyLabelChange?: boolean;
+	};
 
 export type UpdateGenusCommand = FoundationDomainCommand<
 	'foundation.updateGenus',
 	OperatorFoundationCommandPayload & {
 		readonly genusId: DomainId;
-		readonly changes: Readonly<{
-			readonly abbreviation?: string;
-			readonly name?: string;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof GENUS_UPDATE_FIELDS>;
 		readonly acknowledgedTaxonomyLabelChange: boolean;
 	}
 >;
@@ -84,25 +94,24 @@ export type CreateSpeciesCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateSpeciesCommandInput extends OperatorFoundationCommandInput {
-	readonly speciesId: DomainId;
-	readonly genusId?: DomainId | null;
-	readonly epithet?: string;
-	readonly commonName?: string | null;
-	readonly displayName?: string;
-	readonly acknowledgedTaxonomyMeaningChange?: boolean;
-}
+export const SPECIES_UPDATE_FIELDS = {
+	genusId: nullableReferenceIdField,
+	epithet: requiredTextField(200),
+	commonName: nullableTextField(200),
+	displayName: requiredTextField(200),
+} satisfies UpdateFieldSet;
+
+export type UpdateSpeciesCommandInput = OperatorFoundationCommandInput &
+	UpdateFieldsInput<typeof SPECIES_UPDATE_FIELDS> & {
+		readonly speciesId: DomainId;
+		readonly acknowledgedTaxonomyMeaningChange?: boolean;
+	};
 
 export type UpdateSpeciesCommand = FoundationDomainCommand<
 	'foundation.updateSpecies',
 	OperatorFoundationCommandPayload & {
 		readonly speciesId: DomainId;
-		readonly changes: Readonly<{
-			readonly genusId?: DomainId | null;
-			readonly epithet?: string;
-			readonly commonName?: string | null;
-			readonly displayName?: string;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof SPECIES_UPDATE_FIELDS>;
 		readonly acknowledgedTaxonomyMeaningChange: boolean;
 	}
 >;
@@ -116,26 +125,27 @@ export type DeleteSpeciesCommand = FoundationDomainCommand<
 	OperatorFoundationCommandPayload & { readonly speciesId: DomainId }
 >;
 
-export interface SelectOrganizationSpeciesCommandInput extends AgencyFoundationCommandInput {
+export interface SelectOrganizationSpeciesCommandInput extends OrganizationFoundationCommandInput {
 	readonly organizationSpeciesId: DomainId;
 	readonly speciesId: DomainId;
 }
 
 export type SelectOrganizationSpeciesCommand = FoundationDomainCommand<
 	'foundation.selectOrganizationSpecies',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly organizationSpeciesId: DomainId;
 		readonly speciesId: DomainId;
 	}
 >;
 
-export interface UnselectOrganizationSpeciesCommandInput extends AgencyFoundationCommandInput {
+export interface UnselectOrganizationSpeciesCommandInput
+	extends OrganizationFoundationCommandInput {
 	readonly organizationSpeciesId: DomainId;
 }
 
 export type UnselectOrganizationSpeciesCommand = FoundationDomainCommand<
 	'foundation.unselectOrganizationSpecies',
-	AgencyFoundationCommandPayload & { readonly organizationSpeciesId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly organizationSpeciesId: DomainId }
 >;
 
 export function createGenusCommand(input: CreateGenusCommandInput): CreateGenusCommand {
@@ -158,25 +168,19 @@ export function createGenusCommand(input: CreateGenusCommandInput): CreateGenusC
 
 export function updateGenusCommand(input: UpdateGenusCommandInput): UpdateGenusCommand {
 	const issues = validateOperatorIdCommand(input, 'genusId');
-	const hasAbbreviation = input.abbreviation !== undefined;
-	const hasName = input.name !== undefined;
-	if (!hasAbbreviation && !hasName) {
-		issues.push({ path: 'changes', message: 'At least one genus field must change.' });
-	}
-	const abbreviation = hasAbbreviation
-		? normalizeRequiredText(input.abbreviation, 'abbreviation', issues, 20)
-		: undefined;
-	const name = hasName ? normalizeRequiredText(input.name, 'name', issues, 200) : undefined;
+	const changes = normalizeUpdateFields(
+		input,
+		GENUS_UPDATE_FIELDS,
+		'At least one genus field must change.',
+		issues,
+	);
 	throwIfIssues('Update genus command is invalid.', issues);
 	return {
 		type: 'foundation.updateGenus',
 		payload: {
 			...operatorPayload(input),
 			genusId: normalizeRequiredDomainId(input.genusId),
-			changes: {
-				...(abbreviation !== undefined ? { abbreviation } : {}),
-				...(name !== undefined ? { name } : {}),
-			},
+			changes,
 			acknowledgedTaxonomyLabelChange: input.acknowledgedTaxonomyLabelChange ?? false,
 		},
 	};
@@ -215,35 +219,19 @@ export function createSpeciesCommand(input: CreateSpeciesCommandInput): CreateSp
 
 export function updateSpeciesCommand(input: UpdateSpeciesCommandInput): UpdateSpeciesCommand {
 	const issues = validateOperatorIdCommand(input, 'speciesId');
-	const hasGenus = input.genusId !== undefined;
-	const hasEpithet = input.epithet !== undefined;
-	const hasCommon = input.commonName !== undefined;
-	const hasDisplay = input.displayName !== undefined;
-	if (!hasGenus && !hasEpithet && !hasCommon && !hasDisplay) {
-		issues.push({ path: 'changes', message: 'At least one species field must change.' });
-	}
-	const genusId = hasGenus ? normalizeOptionalUuid(input.genusId, 'genusId', issues) : undefined;
-	const epithet = hasEpithet
-		? normalizeRequiredText(input.epithet, 'epithet', issues, 200)
-		: undefined;
-	const commonName = hasCommon
-		? normalizeNullableText(input.commonName, 'commonName', issues, 200)
-		: undefined;
-	const displayName = hasDisplay
-		? normalizeRequiredText(input.displayName, 'displayName', issues, 200)
-		: undefined;
+	const changes = normalizeUpdateFields(
+		input,
+		SPECIES_UPDATE_FIELDS,
+		'At least one species field must change.',
+		issues,
+	);
 	throwIfIssues('Update species command is invalid.', issues);
 	return {
 		type: 'foundation.updateSpecies',
 		payload: {
 			...operatorPayload(input),
 			speciesId: normalizeRequiredDomainId(input.speciesId),
-			changes: {
-				...(hasGenus ? { genusId: genusId ?? null } : {}),
-				...(epithet !== undefined ? { epithet } : {}),
-				...(hasCommon ? { commonName: commonName ?? null } : {}),
-				...(displayName !== undefined ? { displayName } : {}),
-			},
+			changes,
 			acknowledgedTaxonomyMeaningChange: input.acknowledgedTaxonomyMeaningChange ?? false,
 		},
 	};
@@ -262,14 +250,14 @@ export function selectOrganizationSpeciesCommand(
 	input: SelectOrganizationSpeciesCommandInput,
 ): SelectOrganizationSpeciesCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.organizationSpeciesId, 'organizationSpeciesId', issues);
 	requireUuid(input.speciesId, 'speciesId', issues);
 	throwIfIssues('Select organization species command is invalid.', issues);
 	return {
 		type: 'foundation.selectOrganizationSpecies',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			organizationSpeciesId: normalizeRequiredDomainId(input.organizationSpeciesId),
 			speciesId: normalizeRequiredDomainId(input.speciesId),
 		},
@@ -279,12 +267,12 @@ export function selectOrganizationSpeciesCommand(
 export function unselectOrganizationSpeciesCommand(
 	input: UnselectOrganizationSpeciesCommandInput,
 ): UnselectOrganizationSpeciesCommand {
-	const issues = validateAgencyIdCommand(input, 'organizationSpeciesId');
+	const issues = validateOrganizationIdCommand(input, 'organizationSpeciesId');
 	throwIfIssues('Unselect organization species command is invalid.', issues);
 	return {
 		type: 'foundation.unselectOrganizationSpecies',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			organizationSpeciesId: normalizeRequiredDomainId(input.organizationSpeciesId),
 		},
 	};

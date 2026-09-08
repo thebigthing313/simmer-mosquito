@@ -1,23 +1,19 @@
-import { type Kysely, type RawBuilder, sql } from 'kysely';
+import { type RawBuilder, sql } from 'kysely';
 
 import type {
-	CollectionTimingMode,
+	AdultCollectionTimingMode,
 	DbExecutor,
 	GeoJsonGeometry,
 	OwnedGeometryInfo,
-	SimmerDatabase,
 } from '../index.js';
-import type { MapExtent } from './map-extent.js';
+import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
-	type MapByIdInput,
-	type MapFilterInput,
-	type MapPageInput,
-	type MapPageResult,
+	type MapDisplayColumns,
 	type MapRecordSurfaceReaders,
-	type MapTileInput,
 	mapRecordSurface,
 } from './map-surface.js';
+import { geojsonToGeom } from './org-owned-writes.js';
 import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 import { checkedValues } from './write-references.js';
 
@@ -35,6 +31,21 @@ export interface CreateTrapInput {
 	readonly updatedByProfileId?: string | null;
 }
 
+/**
+ * A Trap as the operator console reads one over REST.
+ *
+ * This row is deliberately wider than the synced row, and `geojson` is where
+ * they differ: `OMIT` in `scripts/generate-table-schemas.mjs` keeps that column
+ * off the sync wire because geometry is served by `/map/*`, and the console has
+ * neither a shape stream nor a tile endpoint. So the select carries it, the
+ * mapper folds it into {@link OwnedGeometryInfo} with `lat`, `lng` and
+ * `geom_type`, and no caller ever sees a column by that name.
+ *
+ * The column list behind this is not the hand-written kind #635 collapsed. The
+ * mapper names every column it needs, so dropping one from the select fails
+ * `tsc` rather than answering with a column nobody reads. Measured and closed as
+ * #766.
+ */
 export interface SafeTrap {
 	readonly id: string;
 	readonly organizationId: string;
@@ -59,7 +70,7 @@ export interface CreateCollectionInput {
 	readonly collectionLureId?: string | null;
 	readonly geojson?: GeoJsonGeometry | null;
 	readonly addressId?: string | null;
-	readonly timingMode?: CollectionTimingMode;
+	readonly timingMode?: AdultCollectionTimingMode;
 	readonly collectedAt?: Date | null;
 	readonly collectedByProfileId?: string | null;
 	readonly startedAt?: Date | null;
@@ -87,7 +98,7 @@ export interface SafeCollection {
 	readonly collectedByProfileId: string | null;
 	readonly startedAt: Date | null;
 	readonly setByProfileId: string | null;
-	readonly timingMode: CollectionTimingMode;
+	readonly timingMode: AdultCollectionTimingMode;
 	readonly collectionDate: Date | null;
 	readonly durationAmount: number | null;
 	readonly durationUnitId: string | null;
@@ -99,17 +110,6 @@ export interface SafeCollection {
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
-}
-
-function geojsonToGeom(geojson: GeoJsonGeometry): RawBuilder<string> {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
 }
 
 const trapReturnColumns = [
@@ -298,7 +298,7 @@ async function resolveCollectionSnapshot(
 }
 
 function resolveCollectionTiming(input: CreateCollectionInput): {
-	readonly timingMode: CollectionTimingMode;
+	readonly timingMode: AdultCollectionTimingMode;
 	readonly startedAt: Date | null;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: Date | null;
@@ -427,7 +427,7 @@ function toSafeCollection(row: {
 	readonly collected_by_profile_id: string | null;
 	readonly started_at: Date | null;
 	readonly set_by_profile_id: string | null;
-	readonly collection_timing_mode: CollectionTimingMode;
+	readonly collection_timing_mode: AdultCollectionTimingMode;
 	readonly collection_date: Date | null;
 	readonly duration_amount: number | null;
 	readonly duration_unit_id: string | null;
@@ -486,10 +486,6 @@ export interface TrapMapFilters {
 	readonly regionIds?: readonly string[];
 }
 
-export type TrapMvtTileInput = MapTileInput<TrapMapFilters>;
-export type TrapPageInput = MapPageInput<TrapMapFilters>;
-export type TrapByIdInput = MapByIdInput;
-
 export interface SafeTrapDisplayRow {
 	readonly id: string;
 	readonly organizationId: string;
@@ -508,40 +504,46 @@ export interface SafeTrapDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export type TrapPageResult = MapPageResult<SafeTrapDisplayRow>;
+const trapDisplayColumns: MapDisplayColumns<SafeTrapDisplayRow> = {
+	id: sql`t.id`,
+	organizationId: sql`t.organization_id`,
+	lat: sql`t.lat`,
+	lng: sql`t.lng`,
+	geojson: sql`t.geojson`,
+	geomType: sql`t.geom_type`,
+	collectionMethodId: sql`t.collection_method_id`,
+	collectionLureId: sql`t.collection_lure_id`,
+	addressId: sql`t.address_id`,
+	trapName: sql`t.trap_name`,
+	trapCode: sql`t.trap_code`,
+	description: sql`t.description`,
+	isActive: sql`t.is_active`,
+	createdAt: sql`t.created_at`,
+	updatedAt: sql`t.updated_at`,
+};
 
-const trapDisplayColumns = sql`
-	t.id,
-	t.organization_id as "organizationId",
-	t.lat,
-	t.lng,
-	t.geojson,
-	t.geom_type as "geomType",
-	t.collection_method_id as "collectionMethodId",
-	t.collection_lure_id as "collectionLureId",
-	t.address_id as "addressId",
-	t.trap_name as "trapName",
-	t.trap_code as "trapCode",
-	t.description,
-	t.is_active as "isActive",
-	t.created_at as "createdAt",
-	t.updated_at as "updatedAt"
-`;
-
-const trapSurface = mapRecordSurface<TrapMapFilters, SafeTrapDisplayRow>({
-	layer: 'traps',
-	from: sql`traps t`,
-	alias: 't',
-	geom: sql`t.geom`,
-	properties: [sql`t.id`, sql`t.is_active as "isActive"`],
-	filterWhere: trapFilterWhere,
-	display: {
-		columns: trapDisplayColumns,
-		// Sorted by what the client shows first ("code - name"), so the list reads
-		// in the order it is drawn.
-		orderBy: sql`coalesce(t.trap_code, t.trap_name) asc nulls last, t.created_at desc, t.id`,
-	},
-});
+/**
+ * The traps map surface, with the layer it stamps into its tiles handed in by the
+ * register it is declared in.
+ */
+export function trapSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<TrapMapFilters, SafeTrapDisplayRow> {
+	return mapRecordSurface<TrapMapFilters, SafeTrapDisplayRow>({
+		layer,
+		from: sql`traps t`,
+		alias: 't',
+		geom: sql`t.geom`,
+		properties: [sql`t.id`, sql`t.is_active as "isActive"`],
+		filterWhere: trapFilterWhere,
+		display: {
+			columns: trapDisplayColumns,
+			// Sorted by what the client shows first ("code - name"), so the list reads
+			// in the order it is drawn.
+			orderBy: sql`coalesce(t.trap_code, t.trap_name) asc nulls last, t.created_at desc, t.id`,
+		},
+	});
+}
 
 function trapFilterWhere(filters: TrapMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -575,38 +577,6 @@ function trapFilterWhere(filters: TrapMapFilters | undefined): RawBuilder<boolea
 	return clauses;
 }
 
-export async function getTrapMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: TrapMvtTileInput,
-): Promise<Uint8Array> {
-	return trapSurface.getTile(db, input);
-}
-
-export async function listTrapDisplayRowsPage(
-	db: Kysely<SimmerDatabase>,
-	input: TrapPageInput,
-): Promise<TrapPageResult> {
-	return trapSurface.listPage(db, input);
-}
-
-export async function getTrapDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: TrapByIdInput,
-): Promise<SafeTrapDisplayRow | undefined> {
-	return trapSurface.getById(db, input);
-}
-
-/**
- * Extent of every trap matching the map filters, ignoring the viewport — what
- * the explorer map frames on load and after a filter change.
- */
-export async function getTrapMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<TrapMapFilters>,
-): Promise<MapExtent | null> {
-	return trapSurface.getExtent(db, input);
-}
-
 // --- collections ------------------------------------------------------------
 
 export interface CollectionMapFilters {
@@ -621,22 +591,6 @@ export interface CollectionMapFilters {
 	readonly dateTo?: string;
 }
 
-/**
- * Every collection read carries the agency's timezone, because every one of them
- * has to decide which calendar day a `collected_at` instant fell on. It is not a
- * filter — the operator never chooses it — so it rides on the input beside the
- * filters rather than inside them.
- */
-export interface CollectionTimeZoneInput {
-	/** The agency's IANA timezone, from `AuthContext`. */
-	readonly timeZone: string;
-}
-
-export type CollectionMvtTileInput = MapTileInput<CollectionMapFilters> & CollectionTimeZoneInput;
-export type CollectionPageInput = MapPageInput<CollectionMapFilters> & CollectionTimeZoneInput;
-export type CollectionExtentInput = MapFilterInput<CollectionMapFilters> & CollectionTimeZoneInput;
-export type CollectionByIdInput = MapByIdInput;
-
 export interface SafeCollectionDisplayRow {
 	readonly id: string;
 	readonly organizationId: string;
@@ -648,29 +602,23 @@ export interface SafeCollectionDisplayRow {
 	readonly collectionMethodId: string;
 	readonly collectedAt: string | null;
 	readonly collectionDate: string | null;
-	readonly collectionTimingMode: CollectionTimingMode;
+	readonly collectionTimingMode: AdultCollectionTimingMode;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
 	/** Resolved by precedence; see {@link CollectionStatus}. */
 	readonly status: CollectionStatus;
+	/** Who set the trap, when the organization records it. */
+	readonly setByProfileId: string | null;
+	/** Who emptied it. */
+	readonly collectedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
 
-export type CollectionPageResult = MapPageResult<SafeCollectionDisplayRow>;
-
 /**
- * The zone the by-id read is built with.
- *
- * That read projects raw columns and neither filters nor orders by the effective
- * date, so no zone-dependent decision is made — UTC keeps it out of the cache's
- * way rather than standing for any agency's clock.
- */
-const DEFAULT_SURFACE_TIME_ZONE = 'UTC';
-
-/**
- * The single date a collection is filtered and ordered by, in the agency's zone.
+ * The single date a collection is filtered and ordered by, in the
+ * organization's zone.
  *
  * The two timing modes store it in different columns — an exact timestamp in
  * `collected_at`, a plain date in `collection_date` (with `collected_at` null) —
@@ -678,8 +626,8 @@ const DEFAULT_SURFACE_TIME_ZONE = 'UTC';
  *
  * The timestamp half must be converted before it is reduced to a day. A bare
  * `collected_at::date` uses the *database server's* session timezone, so a trap
- * emptied at 9pm in a US agency files under the next day and drops out of the
- * range the operator actually asked for. `at time zone` with an IANA name
+ * emptied at 9pm in a US organization files under the next day and drops out of
+ * the range the operator actually asked for. `at time zone` with an IANA name
  * applies the offset in force at that instant, so this stays right across a
  * daylight-saving change rather than an hour off for half the season.
  */
@@ -693,12 +641,13 @@ function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
  * The four states a collection can be in, resolved server-side by precedence so
  * the map colour and the result rail can never disagree about what one is.
  *
- * `pending` first, because it says the record is not finished: the trap is still
- * out and there is nothing to report a problem or a count about yet. It reads
- * the row's own `collection_timing_mode` rather than the agency's current
- * setting, because a null `collected_at` means "not emptied" only under exact
- * timestamps. Under date-plus-duration every finished collection has one, and a
- * status keyed off the column alone would paint the whole surface pending.
+ * `pending` first, because it says the record is not finished: the trap is
+ * still out and there is nothing to report a problem or a count about yet. It
+ * reads the row's own `collection_timing_mode` rather than the organization's
+ * current setting, because a null `collected_at` means "not emptied" only under
+ * exact timestamps. Under date-plus-duration every finished collection has one,
+ * and a status keyed off the column alone would paint the whole surface
+ * pending.
  */
 export type CollectionStatus = 'pending' | 'problem' | 'zero_result' | 'collected';
 
@@ -718,68 +667,101 @@ const collectionStatusExpression = sql`
 	end
 `;
 
-const collectionDisplayColumns = sql`
-	c.id,
-	c.organization_id as "organizationId",
-	c.trap_id as "trapId",
-	c.lat,
-	c.lng,
-	c.geojson,
-	c.geom_type as "geomType",
-	c.collection_method_id as "collectionMethodId",
-	c.collected_at::text as "collectedAt",
-	c.collection_date::text as "collectionDate",
-	c.collection_timing_mode as "collectionTimingMode",
-	c.has_problem as "hasProblem",
-	c.is_zero_result as "isZeroResult",
-	c.has_bycatch as "hasBycatch",
-	(${collectionStatusExpression}) as "status",
-	c.set_by_profile_id as "setByProfileId",
-	c.collected_by_profile_id as "collectedByProfileId",
-	c.created_at as "createdAt",
-	c.updated_at as "updatedAt"
-`;
+const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
+	id: sql`c.id`,
+	organizationId: sql`c.organization_id`,
+	trapId: sql`c.trap_id`,
+	lat: sql`c.lat`,
+	lng: sql`c.lng`,
+	geojson: sql`c.geojson`,
+	geomType: sql`c.geom_type`,
+	collectionMethodId: sql`c.collection_method_id`,
+	collectedAt: sql`c.collected_at::text`,
+	collectionDate: sql`c.collection_date::text`,
+	collectionTimingMode: sql`c.collection_timing_mode`,
+	hasProblem: sql`c.has_problem`,
+	isZeroResult: sql`c.is_zero_result`,
+	hasBycatch: sql`c.has_bycatch`,
+	status: sql`(${collectionStatusExpression})`,
+	setByProfileId: sql`c.set_by_profile_id`,
+	collectedByProfileId: sql`c.collected_by_profile_id`,
+	createdAt: sql`c.created_at`,
+	updatedAt: sql`c.updated_at`,
+};
 
 /**
- * The collections surface, built for one agency's timezone.
+ * The collections map surface, one reader object over a definition per timezone.
  *
- * Parameterized rather than declared once because the zone reaches into both
- * halves of the surface: the predicates that decide which collections fall in
- * the window, and the order the result rail reads in. Built separately they
- * could disagree — a list ordered by one notion of "the day" and filtered by
- * another — so both come from {@link collectionEffectiveDateExpr}.
+ * The definition is parameterized by the zone rather than declared once, because
+ * the zone reaches into both halves of the surface: the predicates that decide
+ * which collections fall in the window, and the order the result rail reads in.
+ * Built separately they could disagree, a list ordered by one notion of "the
+ * day" and filtered by another, so both come from
+ * {@link collectionEffectiveDateExpr}.
  *
- * Cached per zone: an agency has one, so this holds a handful of entries for the
- * life of the process rather than rebuilding the definition per request.
+ * Every reader takes the zone off its input, which is what lets this be one
+ * entry in the register beside the ten surfaces that need no zone at all. The
+ * cache is private to the surface: an organization has one zone, so it holds a
+ * handful of entries for the life of the process rather than rebuilding the
+ * definition per request. The by-id read makes no zone-dependent decision, and
+ * asking it for the caller's zone rather than for a default costs nothing,
+ * because that zone is the one the same organization's other reads have already
+ * built.
  */
-const collectionSurfaces = new Map<
-	string,
-	MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow>
->();
-
-function collectionSurface(
-	timeZone: string,
+export function collectionSurface(
+	layer: MapTilesetLayer,
 ): MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> {
-	const zone = assertIanaTimeZone(timeZone);
-	const cached = collectionSurfaces.get(zone);
-	if (cached !== undefined) {
-		return cached;
-	}
-	const effectiveDate = collectionEffectiveDateExpr(zone);
-	const surface = mapRecordSurface<CollectionMapFilters, SafeCollectionDisplayRow>({
-		layer: 'collections',
-		from: sql`collections c`,
-		alias: 'c',
-		geom: sql`c.geom`,
-		properties: [sql`c.id`, sql`(${collectionStatusExpression}) as "status"`],
-		filterWhere: (filters) => collectionFilterWhere(filters, effectiveDate),
-		display: {
-			columns: collectionDisplayColumns,
-			orderBy: sql`${effectiveDate} desc nulls last, c.created_at desc, c.id`,
+	const byZone = new Map<
+		string,
+		MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow>
+	>();
+
+	const forZone = (
+		timeZone: string,
+	): MapRecordSurfaceReaders<CollectionMapFilters, SafeCollectionDisplayRow> => {
+		const zone = assertIanaTimeZone(timeZone);
+		const cached = byZone.get(zone);
+		if (cached !== undefined) {
+			return cached;
+		}
+		const effectiveDate = collectionEffectiveDateExpr(zone);
+		const surface = mapRecordSurface<CollectionMapFilters, SafeCollectionDisplayRow>({
+			layer,
+			from: sql`collections c`,
+			alias: 'c',
+			geom: sql`c.geom`,
+			properties: [sql`c.id`, sql`(${collectionStatusExpression}) as "status"`],
+			filterWhere: (filters) => collectionFilterWhere(filters, effectiveDate),
+			display: {
+				columns: collectionDisplayColumns,
+				orderBy: sql`${effectiveDate} desc nulls last, c.created_at desc, c.id`,
+			},
+		});
+		byZone.set(zone, surface);
+		return surface;
+	};
+
+	// `async` on every one of these, so a zone the caller made up is a rejected
+	// promise rather than a synchronous throw: `assertIanaTimeZone` runs while the
+	// surface is being built, which is before any query, and every caller of a
+	// reader awaits it.
+	return {
+		async getTile(db, input) {
+			return forZone(input.timeZone).getTile(db, input);
 		},
-	});
-	collectionSurfaces.set(zone, surface);
-	return surface;
+		async getExtent(db, input) {
+			return forZone(input.timeZone).getExtent(db, input);
+		},
+		async listPage(db, input) {
+			return forZone(input.timeZone).listPage(db, input);
+		},
+		async listByBounds(db, input) {
+			return forZone(input.timeZone).listByBounds(db, input);
+		},
+		async getById(db, input) {
+			return forZone(input.timeZone).getById(db, input);
+		},
+	};
 }
 
 function collectionFilterWhere(
@@ -810,38 +792,4 @@ function collectionFilterWhere(
 		}),
 	);
 	return clauses;
-}
-
-export async function getCollectionMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: CollectionMvtTileInput,
-): Promise<Uint8Array> {
-	return collectionSurface(input.timeZone).getTile(db, input);
-}
-
-export async function listCollectionDisplayRowsPage(
-	db: Kysely<SimmerDatabase>,
-	input: CollectionPageInput,
-): Promise<CollectionPageResult> {
-	return collectionSurface(input.timeZone).listPage(db, input);
-}
-
-export async function getCollectionDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: CollectionByIdInput,
-): Promise<SafeCollectionDisplayRow | undefined> {
-	// No zone needed: this projects raw columns and neither filters nor orders by
-	// the effective date, so which day the instant falls on never comes up.
-	return collectionSurface(DEFAULT_SURFACE_TIME_ZONE).getById(db, input);
-}
-
-/**
- * Extent of every collection matching the map filters, ignoring the viewport —
- * what the explorer map frames on load and after a filter change.
- */
-export async function getCollectionMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: CollectionExtentInput,
-): Promise<MapExtent | null> {
-	return collectionSurface(input.timeZone).getExtent(db, input);
 }

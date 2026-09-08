@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	addCalendarDays,
+	calendarDateParts,
 	formatLocalDate,
 	localDayStartAsTimestamp,
 	localTimeAsInstant,
@@ -8,6 +9,41 @@ import {
 	operationalDayAsInstant,
 	parseLocalDate,
 } from '../../../lib/local-date';
+
+describe('calendarDateParts', () => {
+	it('reads the year, month and day as numbers', () => {
+		expect(calendarDateParts('2026-08-04')).toEqual({ year: 2026, month: 8, day: 4 });
+	});
+
+	it('reads the day a timestamp begins on', () => {
+		expect(calendarDateParts('2026-08-04T17:30:00Z')).toEqual({ year: 2026, month: 8, day: 4 });
+	});
+
+	it('treats empty, null and undefined alike as no date', () => {
+		expect(calendarDateParts('')).toBeUndefined();
+		expect(calendarDateParts(null)).toBeUndefined();
+		expect(calendarDateParts(undefined)).toBeUndefined();
+	});
+
+	/**
+	 * This is where it is stricter than the nine `slice(0, 10).split('-')` copies
+	 * #609 replaced with it. Those took `2026-8-4` and this refuses it.
+	 *
+	 * Nothing produces that form: a Postgres `date` renders zero-padded, an
+	 * `<input type="date">` holds zero-padded, and a scan of every date literal
+	 * under `apps/web/src` found none written the loose way. So the strictness
+	 * costs nothing and the shape is the whole of what makes a value readable.
+	 */
+	it('refuses a date whose parts are not zero-padded', () => {
+		expect(calendarDateParts('2026-8-4')).toBeUndefined();
+	});
+
+	it('refuses a date that is not a date at all', () => {
+		expect(calendarDateParts('not-a-date')).toBeUndefined();
+		expect(calendarDateParts('2026-08')).toBeUndefined();
+		expect(calendarDateParts('04/08/2026')).toBeUndefined();
+	});
+});
 
 describe('parseLocalDate', () => {
 	it('reads a calendar date as that day in local time', () => {
@@ -119,7 +155,7 @@ describe('localDayStartAsTimestamp', () => {
 
 	// The whole point of the zone argument: the same requested day has to mean the
 	// same instant to every reader, not whichever midnight their laptop is on.
-	it('starts the day where the agency does, not where the browser does', () => {
+	it('starts the day where the organization does, not where the browser does', () => {
 		// 2026-07-24 in New York is UTC-4 in July, so its midnight is 04:00Z.
 		expect(localDayStartAsTimestamp('2026-07-24', 'America/New_York')).toBe(
 			'2026-07-24 04:00:00+00',
@@ -170,7 +206,7 @@ describe('localDayStartAsTimestamp', () => {
 		expect(local).toBe('2026-09-06');
 	});
 
-	it('falls back to the browser when the agency zone has not streamed yet', () => {
+	it('falls back to the browser when the organization zone has not streamed yet', () => {
 		expect(localDayStartAsTimestamp('2026-07-24', undefined)).toBe(
 			localDayStartAsTimestamp('2026-07-24', ''),
 		);
@@ -178,7 +214,7 @@ describe('localDayStartAsTimestamp', () => {
 });
 
 describe('localTimeAsInstant', () => {
-	it('names the instant a wall time falls on in the agency zone', () => {
+	it('names the instant a wall time falls on in the organization zone', () => {
 		// 09:30 on 4 August is 13:30Z in New York, which is UTC-4 in August.
 		expect(localTimeAsInstant('2026-08-04', '09:30', 'America/New_York')).toBe(
 			'2026-08-04T13:30:00.000Z',
@@ -200,7 +236,7 @@ describe('operationalDayAsInstant', () => {
 	/** Well clear of every day these tests stamp, so nothing clamps. */
 	const LONG_AFTER = new Date('2027-01-01T00:00:00.000Z');
 
-	it('stamps midday where the agency is, not midday UTC', () => {
+	it('stamps midday where the organization is, not midday UTC', () => {
 		// New Zealand is UTC+12 in August, so its midday on the 4th is midnight UTC
 		// that same morning. Stamped at noon UTC instead, the row is 01:00 on the
 		// 5th in Auckland and every surface reads it back as the wrong day.
@@ -210,10 +246,11 @@ describe('operationalDayAsInstant', () => {
 	});
 
 	it('does not stamp today ahead of now', () => {
-		// A collection keyed at 09:00 on the morning it was made. The agency's
-		// midday is three hours out, and `validateOperationalDate` rejects an
-		// operational date more than the clock-skew tolerance in the future — so a
-		// bare midday stamp would refuse the most ordinary entry there is.
+		// A collection keyed at 09:00 on the morning it was made. The
+		// organization's midday is three hours out, and `validateOperationalDate`
+		// rejects an operational date more than the clock-skew tolerance in the
+		// future — so a bare midday stamp would refuse the most ordinary entry
+		// there is.
 		const morning = new Date('2026-08-04T13:00:00.000Z');
 		expect(operationalDayAsInstant('2026-08-04', 'America/New_York', morning)).toBe(
 			'2026-08-04T13:00:00.000Z',
@@ -233,10 +270,10 @@ describe('operationalDayAsInstant', () => {
 });
 
 describe('localTimeOfDay', () => {
-	it('reads an instant back on the agency clock, not the browser one', () => {
+	it('reads an instant back on the organization clock, not the browser one', () => {
 		// The inverse of `localTimeAsInstant`: 13:30Z is 09:30 in New York in
 		// August. A form that hydrates in the browser's zone and saves in the
-		// agency's shows a due time nobody set the moment the two differ.
+		// organization's shows a due time nobody set the moment the two differ.
 		expect(localTimeOfDay('2026-08-04T13:30:00.000Z', 'America/New_York')).toBe('09:30');
 	});
 

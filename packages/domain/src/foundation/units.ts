@@ -1,9 +1,10 @@
 /**
  * The global unit catalog, as commands.
  *
- * Units of measure are SIMMER's rather than an agency's — no `organization_id`,
- * and every agency records amounts against them — so these are operator
- * commands like the taxonomy's, typed on `OperatorFoundationCommandInput`.
+ * Units of measure are SIMMER's rather than an organization's — no
+ * `organization_id`, and every organization records amounts against them — so
+ * these are operator commands like the taxonomy's, typed on
+ * `OperatorFoundationCommandInput`.
  *
  * ## Why `code` carries an acknowledgement and the other fields do not
  *
@@ -30,16 +31,29 @@
  */
 
 import {
+	UNIT_SYSTEMS,
+	UNIT_TYPES,
+	type UnitSystem,
+	type UnitType,
+} from '../column-vocabularies.js';
+import {
 	createIssues,
+	normalizeRequiredDomainId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
 } from '../command-validation.js';
-import type { UnitType } from '../organization-settings/types-and-defaults.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import {
+	normalizeUpdateFields,
+	requiredTextField,
+	type UpdateFieldNormalizer,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+} from '../update-command-fields.js';
+import {
 	type FoundationDomainCommand,
-	normalizeRequiredDomainId,
 	type OperatorFoundationCommandInput,
 	type OperatorFoundationCommandPayload,
 	operatorPayload,
@@ -47,28 +61,7 @@ import {
 	validateOperatorIdCommand,
 } from './shared.js';
 
-/**
- * Which system of measurement a unit belongs to.
- *
- * Declared here rather than imported from `packages/db`: the domain owns its own
- * vocabulary, and a package that cannot import the database should not learn an
- * enum from it. `UnitType` is already the domain's own, in
- * `organization-settings`, so that one is imported rather than restated.
- */
-export type UnitSystem = 'si' | 'imperial' | 'us_customary';
-
-export const UNIT_TYPES: readonly UnitType[] = [
-	'weight',
-	'distance',
-	'area',
-	'volume',
-	'temperature',
-	'duration',
-	'count',
-	'speed',
-];
-
-export const UNIT_SYSTEMS: readonly UnitSystem[] = ['si', 'imperial', 'us_customary'];
+export { UNIT_SYSTEMS, UNIT_TYPES, type UnitSystem, type UnitType };
 
 export interface CreateUnitCommandInput extends OperatorFoundationCommandInput {
 	readonly unitId: DomainId;
@@ -91,27 +84,34 @@ export type CreateUnitCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateUnitCommandInput extends OperatorFoundationCommandInput {
-	readonly unitId: DomainId;
-	readonly code?: string;
-	readonly unitName?: string;
-	readonly abbreviation?: string;
-	readonly unitType?: string;
-	readonly unitSystem?: string;
-	readonly acknowledgedUnitCodeChange?: boolean;
-}
+const unitTypeField: UpdateFieldNormalizer<string | undefined, UnitType> = (value, _path, issues) =>
+	normalizeUnitType(value, issues) ?? UNIT_TYPES[0];
+
+const unitSystemField: UpdateFieldNormalizer<string | undefined, UnitSystem> = (
+	value,
+	_path,
+	issues,
+) => normalizeUnitSystem(value, issues) ?? UNIT_SYSTEMS[0];
+
+export const UNIT_UPDATE_FIELDS = {
+	code: requiredTextField(40),
+	unitName: requiredTextField(100),
+	abbreviation: requiredTextField(20),
+	unitType: unitTypeField,
+	unitSystem: unitSystemField,
+} satisfies UpdateFieldSet;
+
+export type UpdateUnitCommandInput = OperatorFoundationCommandInput &
+	UpdateFieldsInput<typeof UNIT_UPDATE_FIELDS> & {
+		readonly unitId: DomainId;
+		readonly acknowledgedUnitCodeChange?: boolean;
+	};
 
 export type UpdateUnitCommand = FoundationDomainCommand<
 	'foundation.updateUnit',
 	OperatorFoundationCommandPayload & {
 		readonly unitId: DomainId;
-		readonly changes: Readonly<{
-			readonly code?: string;
-			readonly unitName?: string;
-			readonly abbreviation?: string;
-			readonly unitType?: UnitType;
-			readonly unitSystem?: UnitSystem;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof UNIT_UPDATE_FIELDS>;
 		readonly acknowledgedUnitCodeChange: boolean;
 	}
 >;
@@ -195,31 +195,18 @@ export function createUnitCommand(input: CreateUnitCommandInput): CreateUnitComm
 
 export function updateUnitCommand(input: UpdateUnitCommandInput): UpdateUnitCommand {
 	const issues = validateOperatorIdCommand(input, 'unitId');
-	const hasCode = input.code !== undefined;
-	const hasName = input.unitName !== undefined;
-	const hasAbbreviation = input.abbreviation !== undefined;
-	const hasType = input.unitType !== undefined;
-	const hasSystem = input.unitSystem !== undefined;
-
-	if (!hasCode && !hasName && !hasAbbreviation && !hasType && !hasSystem) {
-		issues.push({ path: 'changes', message: 'At least one unit field must change.' });
-	}
-
-	const code = hasCode ? normalizeRequiredText(input.code, 'code', issues, 40) : undefined;
-	const unitName = hasName
-		? normalizeRequiredText(input.unitName, 'unitName', issues, 100)
-		: undefined;
-	const abbreviation = hasAbbreviation
-		? normalizeRequiredText(input.abbreviation, 'abbreviation', issues, 20)
-		: undefined;
-	const unitType = normalizeUnitType(input.unitType, issues);
-	const unitSystem = normalizeUnitSystem(input.unitSystem, issues);
+	const changes = normalizeUpdateFields(
+		input,
+		UNIT_UPDATE_FIELDS,
+		'At least one unit field must change.',
+		issues,
+	);
 
 	// Only when the code is what moved. `unit-conversion.ts` matches units by
 	// code, so a rename unhooks this unit from every total that crosses units —
 	// silently, because an unknown code makes a total unavailable rather than
 	// wrong.
-	if (hasCode && input.acknowledgedUnitCodeChange !== true) {
+	if (changes.code !== undefined && input.acknowledgedUnitCodeChange !== true) {
 		issues.push({
 			path: 'acknowledgedUnitCodeChange',
 			message:
@@ -234,13 +221,7 @@ export function updateUnitCommand(input: UpdateUnitCommandInput): UpdateUnitComm
 		payload: {
 			...operatorPayload(input),
 			unitId: normalizeRequiredDomainId(input.unitId),
-			changes: {
-				...(code !== undefined ? { code } : {}),
-				...(unitName !== undefined ? { unitName } : {}),
-				...(abbreviation !== undefined ? { abbreviation } : {}),
-				...(unitType !== undefined ? { unitType } : {}),
-				...(unitSystem !== undefined ? { unitSystem } : {}),
-			},
+			changes,
 			acknowledgedUnitCodeChange: input.acknowledgedUnitCodeChange ?? false,
 		},
 	};

@@ -19,6 +19,17 @@ name: Schema drift
 # there, runs no migration there, and opens no writing transaction — the script
 # sets each session read only before its first query. Everything that is built
 # is built in the service container beside the job.
+#
+# The two sides come from two branches, deliberately. A schedule fires only
+# from the default branch, so the scheduled run checks out `develop` at the
+# workspace root, and `scripts/check-schema-drift.mjs` comes from there. A fix
+# to the script then takes effect on the next run rather than on the next
+# promotion. The migration set is `staging`'s, checked out beside it into
+# `staging-tree`, because `db-migrate.yml` migrates the staging database on a
+# push to `staging`. Read the migrations from the default branch instead and
+# every migration sitting on `develop` and not yet promoted reads as drift.
+# That is the whole `develop` to `staging` window, and it is what filed #498
+# (#499).
 
 on:
   schedule:
@@ -97,14 +108,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # `path` puts this tree beside the default branch's rather than over it.
+      # Pinning the whole checkout to `staging` would take the comparison script
+      # from whatever last soaked, and a fix to the script would then wait on a
+      # promotion. Only the migration set belongs to `staging`.
+      #
+      # It lands after the install so that no step reading the repository for
+      # its own purposes runs with two copies of it on disk.
+      - name: Check out the migration set staging runs
+        uses: actions/checkout@v7
+        with:
+          ref: staging
+          path: staging-tree
+
       # Applied into the container's own `public` schema, serially, exactly as
-      # the migration workflow applies them to staging. `--no-dump-schema`
-      # because nothing here is going to commit a schema file.
+      # the migration workflow applies them to staging, and from the same files.
+      # `--no-dump-schema` because nothing here commits a schema file. That is
+      # why `--schema-file` can stay on the default branch's path.
       - name: Build the expected schema
         run: |
           pnpm exec dbmate \
             --url "$REFERENCE_DATABASE_URL" \
-            --migrations-dir packages/db/migrations \
+            --migrations-dir staging-tree/packages/db/migrations \
             --schema-file packages/db/schema.sql \
             --no-dump-schema \
             --wait \
@@ -120,6 +145,8 @@ jobs:
           psql "$DATABASE_URL" -Atc \
             "select nspname from pg_namespace order by nspname" | tee schemas-before.txt
 
+      # The script is the default branch's. The migration set it reads is
+      # `staging`'s, the same one the reference container was built from.
       - name: Compare
         id: compare
         continue-on-error: true
@@ -130,7 +157,7 @@ jobs:
           node scripts/check-schema-drift.mjs \
             --observed "$DATABASE_URL" \
             --expected "$REFERENCE_DATABASE_URL" \
-            --migrations-dir packages/db/migrations 2>&1 | tee drift-report.txt
+            --migrations-dir staging-tree/packages/db/migrations 2>&1 | tee drift-report.txt
 
       - name: List staging schemas after
         env:

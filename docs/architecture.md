@@ -1,17 +1,18 @@
 # SIMMER architecture
 
 SIMMER is the Strategic Integrated Mosquito Management Enterprise Resources
-platform. The product serves mosquito control agencies with a web management
-console and a field-focused mobile app.
+platform. The product serves mosquito control organizations with a web
+management console and a field-focused mobile app.
 
-The architecture is Postgres-centered, sync-native, and multi-tenant. Railway is
-the primary operational home for deployed services. WorkOS owns authentication
-identity. SIMMER owns agency data, authorization decisions, domain workflows,
-and historical attribution.
+The architecture is Postgres-centered and sync-native. Railway is the primary
+operational home for deployed services. WorkOS owns authentication identity.
+SIMMER owns organization data, authorization decisions, domain workflows, and
+historical attribution.
 
 ## Product shape
 
-The MVP covers the full agency operating surface from the previous SIMMER work:
+The MVP covers the full organization operating surface from the previous SIMMER
+work:
 
 - Adult surveillance: traps and collections.
 - Larval surveillance: habitats, inspections, and samples.
@@ -23,7 +24,7 @@ follow once the foundation is settled.
 
 ## Deployment shape
 
-Production is one shared multi-tenant deployment serving many agencies.
+Production is one shared deployment serving many organizations.
 
 Railway hosts:
 
@@ -48,25 +49,26 @@ Services intentionally postponed:
 
 ## Applications
 
-`apps/web` is a Vite React SPA using TanStack Router. It is the agency-facing
-web app for authenticated agency workflows. The current shell exposes
-WorkOS-backed browser auth, AuthContext display, and Electric/TanStack DB tracer
-surfaces while the first product workflow shape is settled. It is not a
-TanStack Start app.
+`apps/web` is a Vite React SPA using TanStack Router. It is the
+organization-facing web app for authenticated organization workflows. The
+current shell exposes WorkOS-backed browser auth, AuthContext display, and
+Electric/TanStack DB tracer surfaces while the first product workflow shape is
+settled. It is not a TanStack Start app.
 
 The web app is online-only in v1. It uses sync-native reads and optimistic
 domain-command writes for responsiveness and consistency, but it does not offer
 offline persistence, offline command queues, or offline conflict resolution.
-All agency roles use the web app for the workflows their role permits.
+All organization roles use the web app for the workflows their role permits.
 
 `apps/admin` is a Vite React SPA using TanStack Router. It is the SIMMER
-operator control plane, not an agency administration surface. Its scope is
-in-app operator auth, agency creation and support metadata, agency-scoped user
-invitation and membership support, agency foundation bootstrapping (regions,
-addresses, method/lure/habitat lookups, enabled species, and first traps),
-global mosquito taxonomy management, and global unit management. Agency-owned
-operational catalogs and workflows remain in `apps/web` unless a future
-support/repair tool is explicitly operator-owned.
+operator control plane, not an organization administration surface. Its scope is
+in-app operator auth, organization creation and support metadata,
+organization-scoped user invitation and membership support, organization
+foundation bootstrapping (regions, addresses, method/lure/habitat lookups,
+enabled species, and first traps), global mosquito taxonomy management, and
+global unit management. Organization-owned operational catalogs and workflows
+remain in `apps/web` unless a future support/repair tool is explicitly
+operator-owned.
 
 It is built on the same platform as `apps/web` rather than beside it: the
 two-rail app shell, the TanStack Form field kit, the browser auth client, and
@@ -74,7 +76,7 @@ the panel/search primitives are all shared packages, and each app supplies only
 its own navigation model, identity wiring, and routes. Reads follow the same
 split as the web app: `useLiveQuery` over Electric-backed collections for the
 global catalogs, `useQuery` for the operator-scoped `/admin/*` JSON endpoints,
-which are not tenant-scoped and so have no shape to authorize. The console
+which are not organization-scoped and so have no shape to authorize. The console
 deliberately carries no map: geometry for the foundation endpoints comes from
 KML/KMZ/GeoJSON files and typed coordinates, keeping `mapbox-gl` out of its
 bundle.
@@ -82,8 +84,8 @@ bundle.
 Access is all-or-nothing, unlike the web app's role ladder: a session in the one
 WorkOS organization that is SIMMER (`SIMMER_OPERATOR_ORG_ID`) reaches every
 `/admin/*` endpoint, and any other session reaches none, including the same
-person's while they are signed in to an agency they administer. The console
-renders that refusal as an explanation rather than an error.
+person's while they are signed in to an organization they administer. The
+console renders that refusal as an explanation rather than an error.
 
 `apps/preview` is an internal Vite React/TanStack Router application for
 component preview, design-token inspection, visual-regression surfaces, and
@@ -96,7 +98,7 @@ It currently exists as a scaffold: it signs in against the same `/auth/*`
 endpoints the web apps use, holds the resulting sealed session in SecureStore
 rather than a cookie (ADR 0016), and renders the resolved `AuthContext`. TanStack
 DB, ElectricSQL, local persistence, offline transactions, and the map are all
-still ahead of it — the mobile matrix in `docs/sync.md` describes the plan, not
+still ahead of it. The mobile matrix in `docs/sync.md` describes the plan, not
 the app.
 
 It has no `packages/ui-mobile` yet. Components are app-local until a second
@@ -127,8 +129,8 @@ Existing:
   surfaces, type, spacing, radius, motion, and CSS/TypeScript consumers.
 - `packages/domain`: framework-agnostic domain types, commands, validators, and
   aggregate helpers.
-- `packages/mapping`: provider-neutral geometry, GeoJSON, feature reference, and
-  viewport helpers.
+- `packages/mapping`: provider-neutral geometry, GeoJSON, sketch, import and
+  measurement helpers.
 - `packages/sync`: framework-agnostic TanStack DB collection factories, per-table
   row schemas generated from the database, and the optimistic command adapters.
 - `packages/ui-web`: shadcn-style web component source, shared styles, and the
@@ -286,7 +288,7 @@ and timestamps. It does not own the primary authorization model.
 WorkOS identities are separate from SIMMER domain identities.
 
 - `users`: global login identities linked to WorkOS users.
-- `organizations`: SIMMER agencies linked to WorkOS organizations.
+- `organizations`: SIMMER customer organizations linked to WorkOS organizations.
 - `profiles`: org-scoped people used for historical attribution. Profiles may
   exist without login access.
 - `memberships`: current access relationship between user, organization,
@@ -304,15 +306,16 @@ later without changing the invited role.
 **None of the WorkOS half of that runs on staging.** Staging authenticates
 against the WorkOS production directory, so it refuses every WorkOS identity
 write with a 403 and writes only SIMMER's own rows. Signing in and switching
-Agency work; inviting, changing a role, removing access, resetting a password,
-signing up and creating an Agency do not. See ADR 0017 before changing anything
-that calls WorkOS.
+Organization work; inviting, changing a role, removing access, resetting a
+password, signing up and creating an Organization do not. See ADR 0017 before
+changing anything that calls WorkOS.
 
-## Tenancy
+## Organization scope
 
-`organization_id` is stored on tenant-owned parent/root records. Child records
-derive tenant through foreign keys. Add `organization_id` to child tables only
-when query, sync, lifecycle, or indexing pressure proves it useful.
+`organization_id` is stored on organization-owned parent/root records. Child
+records derive their organization through foreign keys. Add `organization_id`
+to child tables only when query, sync, lifecycle, or indexing pressure proves
+it useful.
 
 This is an intentional departure from RLS-driven schemas that require
 `organization_id` everywhere.
@@ -326,7 +329,7 @@ that proves it is worth the indirection.
 
 Keep three concepts separate:
 
-- Tenant ownership: `organization_id`.
+- Organization ownership: `organization_id`.
 - Domain performer: `inspected_by_profile_id`, `collected_by_profile_id`,
   `applied_by_profile_id`, `received_by_profile_id`, and similar verb-shaped
   fields.
@@ -346,9 +349,28 @@ A separate deleted-data audit table is not part of the initial design.
 ## Schema and types
 
 SQL migrations are the source of truth. dbmate applies migrations. Kysely is the
-server query builder. `kysely-codegen` should generate database table types from
-the migrated database once the schema grows beyond the initial hand-written
-slice.
+server query builder.
+
+`pnpm db:migrate` applies the migrations and dumps the realised schema to
+`packages/db/schema.sql`, which is checked in. `pnpm generate:table-types` reads
+that dump and writes `packages/db/src/tables.ts`: the `SimmerDatabase` interface,
+one interface per table, and the enum unions behind the Postgres enum types. It
+needs no database, because the dump is the database's own answer. Nothing in that
+file is hand-maintained, and `pnpm check:table-types` in CI's `verify` job fails
+on a difference between it and the dump.
+
+The client's half of the same columns is the row schemas in `packages/sync`,
+scaffolded by `pnpm generate:schemas` and then owned by hand. What holds the two
+together is the type-level drift check in
+`packages/sync/src/tests/unit/collections/tables/drift.test.ts`, which fails
+`tsc` when a table has a column no schema covers, a schema has a field no column
+covers, or the two disagree about a column's type. `pnpm check:schemas` in the
+`verify` job asks the same question of the generator rather than of the
+compiler: it holds each row schema's field list to what the generator emits, and
+the collection factories, the two barrels and that drift suite to the emitted
+text byte for byte. The field list is where withholding lives, so a column
+dropped from `WITHHELD` in `scripts/withheld-columns.mjs` fails there rather
+than quietly going back on the wire.
 
 These legacy tables from the old system are deliberately absent until a
 workflow needs them: `deleted_data`, `roles`, `tag_groups`, `species_groups`,
@@ -386,7 +408,7 @@ Testing emphasis:
 
 ## Billing
 
-Agency billing is manual for MVP. Government agencies usually will not keep a
+Billing is manual for MVP. A government organization usually will not keep a
 credit card on file inside the app.
 
 SIMMER stores manual subscription metadata per organization, such as trial,

@@ -111,7 +111,7 @@ export function ControlMethodsPage({
 					{emptyDescription}
 					{canManage
 						? ' Add your first method to get started.'
-						: ' An owner or admin can add methods for your agency.'}
+						: ' An owner or admin can add methods for you.'}
 				</>
 			}
 			emptyTitle={`No ${singularLabel}s yet`}

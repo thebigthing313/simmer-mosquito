@@ -1,17 +1,11 @@
-import {
-	createIssues,
-	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
-} from '../command-validation.js';
+import { createIssues, requiredUuid as requireUuid, validateBase } from '../command-validation.js';
 import {
 	type AdHocInspectionLocationSource,
 	type AdHocInspectionLocationSourceInput,
-	type HabitatLocationSource,
-	type HabitatLocationSourceInput,
 	validateAdHocInspectionLocationSource,
-	validateHabitatLocationSource,
 } from '../location-intent.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
+import type { UpdateFieldNormalizer } from '../update-command-fields.js';
 
 export type ImmatureStageFlag =
 	| 'hasFirstInstar'
@@ -69,20 +63,6 @@ export interface SampleSpeciesIdLike extends LarvalCommandInput {
 	readonly sampleSpeciesId: DomainId;
 }
 
-export function validateBase(input: LarvalCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends LarvalCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
 export function validateSampleBase(input: {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
@@ -113,50 +93,18 @@ export function validatePositiveInteger(
 	}
 }
 
-export function normalizeNullableText(value: string | null | undefined): string | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
+/** Where an ad hoc Inspection sits, as an update command's field descriptor names it. */
+export const adHocInspectionLocationSourceField: UpdateFieldNormalizer<
+	AdHocInspectionLocationSourceInput | undefined,
+	AdHocInspectionLocationSource
+> = (value, path, issues) => validateAdHocInspectionLocationSource(value, path, issues);
 
-export function validateHabitatLocationSourceInput(
-	input: {
-		readonly locationSource?: HabitatLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): HabitatLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateHabitatLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateHabitatLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function validateAdHocInspectionLocationSourceInput(
-	input: {
-		readonly locationSource?: AdHocInspectionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): AdHocInspectionLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateAdHocInspectionLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateAdHocInspectionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function basePayload(input: LarvalCommandInput): LarvalCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
-}
+/** How many larvae one sample held, as a field descriptor names it. */
+export const larvaeCountField: UpdateFieldNormalizer<number | undefined, number> = (
+	value,
+	path,
+	issues,
+) => {
+	validatePositiveInteger(value, path, issues);
+	return value as number;
+};

@@ -1,4 +1,6 @@
+import type { SpeciesSex, SpeciesStatus } from '../column-vocabularies.js';
 import {
+	basePayload,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
@@ -7,24 +9,31 @@ import {
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
+	actorDefaultProfileIdField,
+	normalizeUpdateFields,
+	notFutureLocalDateField,
+	passThroughField,
+	referenceIdField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+} from '../update-command-fields.js';
+import {
 	type AdultCommandInput,
 	type AdultCommandPayload,
-	basePayload,
 	type DomainCommand,
+	speciesCountField,
 	validateSpeciesCount,
 	validateSpeciesCountBase,
 } from './shared.js';
-
-export type CollectionSpeciesSex = 'male' | 'female';
-export type CollectionSpeciesStatus = 'damaged' | 'unfed' | 'bloodfed' | 'gravid';
 
 export interface AddCollectionSpeciesCountCommandInput extends AdultCommandInput {
 	readonly collectionSpeciesId: DomainId;
 	readonly collectionId: DomainId;
 	readonly speciesId: DomainId;
 	readonly count: number;
-	readonly sex?: CollectionSpeciesSex | null;
-	readonly status?: CollectionSpeciesStatus | null;
+	readonly sex?: SpeciesSex | null;
+	readonly status?: SpeciesStatus | null;
 	readonly identifiedByProfileId?: DomainId | null;
 	readonly identifiedDate: LocalDateString;
 }
@@ -34,8 +43,8 @@ export interface CollectionSpeciesCountPayload extends AdultCommandPayload {
 	readonly collectionId: DomainId;
 	readonly speciesId: DomainId;
 	readonly count: number;
-	readonly sex: CollectionSpeciesSex | null;
-	readonly status: CollectionSpeciesStatus | null;
+	readonly sex: SpeciesSex | null;
+	readonly status: SpeciesStatus | null;
 	readonly identifiedByProfileId: DomainId;
 	readonly identifiedDate: LocalDateString;
 }
@@ -45,26 +54,23 @@ export type AddCollectionSpeciesCountCommand = DomainCommand<
 	CollectionSpeciesCountPayload
 >;
 
-export interface UpdateCollectionSpeciesCountCommandInput extends AdultCommandInput {
-	readonly collectionSpeciesId: DomainId;
-	readonly count?: number;
-	readonly speciesId?: DomainId;
-	readonly sex?: CollectionSpeciesSex | null;
-	readonly status?: CollectionSpeciesStatus | null;
-	readonly identifiedByProfileId?: DomainId | null;
-	readonly identifiedDate?: LocalDateString;
-}
+export const COLLECTION_SPECIES_COUNT_UPDATE_FIELDS = {
+	count: speciesCountField,
+	speciesId: referenceIdField,
+	sex: passThroughField<SpeciesSex | null>(),
+	status: passThroughField<SpeciesStatus | null>(),
+	identifiedByProfileId: actorDefaultProfileIdField,
+	identifiedDate: notFutureLocalDateField,
+} satisfies UpdateFieldSet;
+
+export type UpdateCollectionSpeciesCountCommandInput = AdultCommandInput &
+	UpdateFieldsInput<typeof COLLECTION_SPECIES_COUNT_UPDATE_FIELDS> & {
+		readonly collectionSpeciesId: DomainId;
+	};
 
 export interface UpdateCollectionSpeciesCountCommandPayload extends AdultCommandPayload {
 	readonly collectionSpeciesId: DomainId;
-	readonly changes: Readonly<{
-		readonly count?: number;
-		readonly speciesId?: DomainId;
-		readonly sex?: CollectionSpeciesSex | null;
-		readonly status?: CollectionSpeciesStatus | null;
-		readonly identifiedByProfileId?: DomainId;
-		readonly identifiedDate?: LocalDateString;
-	}>;
+	readonly changes: UpdateFieldsChanges<typeof COLLECTION_SPECIES_COUNT_UPDATE_FIELDS>;
 }
 
 export type UpdateCollectionSpeciesCountCommand = DomainCommand<
@@ -114,24 +120,12 @@ export function updateCollectionSpeciesCountCommand(
 	input: UpdateCollectionSpeciesCountCommandInput,
 ): UpdateCollectionSpeciesCountCommand {
 	const issues = validateSpeciesCountBase(input);
-	const hasCount = input.count !== undefined;
-	const hasSpecies = input.speciesId !== undefined;
-	const hasSex = input.sex !== undefined;
-	const hasStatus = input.status !== undefined;
-	const hasIdentifiedBy = input.identifiedByProfileId !== undefined;
-	const hasIdentifiedDate = input.identifiedDate !== undefined;
-	if (!hasCount && !hasSpecies && !hasSex && !hasStatus && !hasIdentifiedBy && !hasIdentifiedDate) {
-		issues.push({ path: 'changes', message: 'At least one species count field must change.' });
-	}
-	if (hasCount) {
-		validateSpeciesCount(input.count, 'count', issues);
-	}
-	if (hasSpecies) {
-		requireUuid(input.speciesId, 'speciesId', issues);
-	}
-	if (hasIdentifiedDate) {
-		validateNotFutureLocalDate(input.identifiedDate, 'identifiedDate', issues);
-	}
+	const changes = normalizeUpdateFields(
+		input,
+		COLLECTION_SPECIES_COUNT_UPDATE_FIELDS,
+		'At least one species count field must change.',
+		issues,
+	);
 	throwIfIssues('Update collection species count command is invalid.', issues);
 
 	return {
@@ -139,21 +133,7 @@ export function updateCollectionSpeciesCountCommand(
 		payload: {
 			...basePayload(input),
 			collectionSpeciesId: normalizeRequiredId(input.collectionSpeciesId),
-			changes: {
-				...(hasCount ? { count: input.count } : {}),
-				...(hasSpecies ? { speciesId: normalizeRequiredId(input.speciesId) } : {}),
-				...(hasSex ? { sex: input.sex } : {}),
-				...(hasStatus ? { status: input.status } : {}),
-				...(hasIdentifiedBy
-					? {
-							identifiedByProfileId: normalizeActorDefaultProfileId(
-								input.identifiedByProfileId,
-								input.actorProfileId,
-							),
-						}
-					: {}),
-				...(hasIdentifiedDate ? { identifiedDate: input.identifiedDate } : {}),
-			},
+			changes,
 		},
 	};
 }

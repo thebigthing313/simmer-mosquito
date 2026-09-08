@@ -21,6 +21,7 @@ import {
 	type MergeFieldRow,
 	mergeFieldProblems,
 	mergeFieldRows,
+	mergeFieldSummary,
 	mergeFieldUpdates,
 } from '../../../../components/cleanup/merge-field-plan';
 import type { DuplicateRecord } from '../../../../hooks/use-merge-candidates';
@@ -271,5 +272,85 @@ describe('mergeFieldProblems', () => {
 
 	it('says nothing about an optional field left empty', () => {
 		expect(mergeFieldProblems('contact', { contact_name: '', company: '' })).toEqual([]);
+	});
+});
+
+/**
+ * The same register, read as one record rather than as a decision.
+ *
+ * The cleanup row shows what a merge can carry, so that a set can be judged
+ * without opening every record in it. Reading the register here is what keeps
+ * the row and the merge form from drifting: a column added for a merge shows up
+ * on the row it is judged from, in the same place and under the same label.
+ */
+describe('mergeFieldSummary', () => {
+	it('reads a contact back in the register order, without repeating the name', () => {
+		expect(
+			mergeFieldSummary(
+				'contact',
+				record(KEPT, 'Maria Alvarez', {
+					contact_name: 'Maria Alvarez',
+					company: 'Alvarez Property Mgmt',
+					department: 'Operations',
+					title: 'Manager',
+					email: 'm.alvarez@example.com',
+					preferred_phone: '(555) 214-8890',
+					alternate_phone: '(555) 900-4417',
+				}),
+			),
+		).toEqual([
+			{ column: 'company', label: 'Company', value: 'Alvarez Property Mgmt' },
+			{ column: 'department', label: 'Department', value: 'Operations' },
+			{ column: 'title', label: 'Title', value: 'Manager' },
+			{ column: 'email', label: 'Email', value: 'm.alvarez@example.com' },
+			{ column: 'preferred_phone', label: 'Preferred phone', value: '(555) 214-8890' },
+			{ column: 'alternate_phone', label: 'Alternate phone', value: '(555) 900-4417' },
+		]);
+	});
+
+	it('reads an address back in the register order, without repeating the name', () => {
+		expect(
+			mergeFieldSummary(
+				'address',
+				record(KEPT, '412 Oak St', {
+					display_name: '412 Oak St',
+					address_line_1: '412 Oak St',
+					address_line_2: 'Apt 3',
+					locality: 'Marion',
+					region: 'AR',
+					postal_code: '72364',
+				}),
+			),
+		).toEqual([
+			{ column: 'address_line_1', label: 'Address line 1', value: '412 Oak St' },
+			{ column: 'address_line_2', label: 'Address line 2', value: 'Apt 3' },
+			{ column: 'locality', label: 'Locality', value: 'Marion' },
+			{ column: 'region', label: 'Region', value: 'AR' },
+			{ column: 'postal_code', label: 'Postal code', value: '72364' },
+		]);
+	});
+
+	it('leaves out a column the record does not fill in, in every spelling of empty', () => {
+		// Absent, null, empty and spaces are one answer. A labelled blank reads like
+		// a different one, so none of them reach the row.
+		expect(
+			mergeFieldSummary(
+				'contact',
+				record(KEPT, 'Maria Alvarez', {
+					contact_name: 'Maria Alvarez',
+					company: null,
+					department: '',
+					title: '   ',
+					email: 'm.alvarez@example.com',
+				}),
+			),
+		).toEqual([{ column: 'email', label: 'Email', value: 'm.alvarez@example.com' }]);
+	});
+
+	it('says nothing for a record that fills in none of them, on both record types', () => {
+		expect(mergeFieldSummary('contact', record(KEPT, 'Maria Alvarez', {}))).toEqual([]);
+		expect(
+			mergeFieldSummary('address', record(KEPT, '412 Oak St', { display_name: '412 Oak St' })),
+		).toEqual([]);
 	});
 });

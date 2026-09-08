@@ -4,7 +4,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -31,20 +30,16 @@ export interface ChemicalTileFilters extends RegionScopedTileFilters {
 }
 
 export const CHEMICAL_SOURCE_ID = 'chemical';
-const _CHEMICAL_SOURCE_LAYER = 'chemical';
 
 /** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
 	base: mapDomain.chemical,
 	line: mapDomain.chemicalLine,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a chemical application. Order = hit priority. */
 export const CHEMICAL_INTERACTIVE_LAYER_IDS = interactiveLayerIds(CHEMICAL_SOURCE_ID);
-
-const CHEMICAL_SELECTED_LAYER_IDS = selectedLayerIds(CHEMICAL_SOURCE_ID);
 
 export const CHEMICAL_LAYER_IDS = allLayerIds(CHEMICAL_SOURCE_ID);
 
@@ -90,5 +85,3 @@ export function chemicalTileLayers(selectedId: string | null): GeometryTileLayer
 		selectedId,
 	);
 }
-
-export { CHEMICAL_SELECTED_LAYER_IDS };

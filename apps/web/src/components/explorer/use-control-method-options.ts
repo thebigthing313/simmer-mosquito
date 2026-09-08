@@ -18,10 +18,10 @@ import type { FilterOption } from './multi-select-filter';
  * ids rather than names.
  *
  * Retired methods stay in the lists, for the reason they do in
- * `useHabitatTypeOptions`: an explorer looks backwards, and a season's work done
- * with a method the agency has since dropped is exactly what an operator
- * filtering by it is asking for. The pickers on the forms are the surfaces that
- * should offer only what is current.
+ * `useHabitatTypeOptions`: an explorer looks backwards, and a season's work
+ * done with a method the organization has since dropped is exactly what an
+ * operator filtering by it is asking for. The pickers on the forms are the
+ * surfaces that should offer only what is current.
  *
  * The catalogs are eager and small, so these suspend rather than drawing a
  * pending state: they are loaded before an explorer can be reached.
@@ -33,22 +33,22 @@ interface CatalogOptions {
 
 /** Application methods — how an insecticide was put out. */
 export function useApplicationMethodOptions(): CatalogOptions {
-	return useNamedCatalog(application_methods);
+	return useNamedCatalog(application_methods());
 }
 
 /** Source reduction methods — what was done to remove the source. */
 export function useSourceReductionMethodOptions(): CatalogOptions {
-	return useNamedCatalog(source_reduction_methods);
+	return useNamedCatalog(source_reduction_methods());
 }
 
 /** Biocontrol methods — which organism was released. */
 export function useBiocontrolMethodOptions(): CatalogOptions {
-	return useNamedCatalog(biocontrol_methods);
+	return useNamedCatalog(biocontrol_methods());
 }
 
 /** Outreach methods — how the public was reached. */
 export function useOutreachMethodOptions(): CatalogOptions {
-	return useNamedCatalog(outreach_methods);
+	return useNamedCatalog(outreach_methods());
 }
 
 /**
@@ -85,15 +85,16 @@ export function useControlMethodNames(): ReadonlyMap<string, string> {
 /**
  * Insecticides, by trade name.
  *
- * Its own hook rather than a fourth call to {@link useNamedCatalog}, because the
- * column is `trade_name` rather than `name` — `shorthand` is an agency's internal
- * abbreviation for data entry, not a name an operator should have to read.
+ * Its own hook rather than a fourth call to {@link useNamedCatalog}, because
+ * the column is `trade_name` rather than `name` — `shorthand` is an
+ * organization's internal abbreviation for data entry, not a name an operator
+ * should have to read.
  */
 export function useInsecticideOptions(): CatalogOptions {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ product: insecticides })
+				.from({ product: insecticides() })
 				.orderBy(({ product }) => product.trade_name, 'asc')
 				.select(({ product }) => ({ id: product.id, label: product.trade_name })),
 		[],

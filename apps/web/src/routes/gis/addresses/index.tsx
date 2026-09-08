@@ -1,4 +1,4 @@
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -16,7 +16,7 @@ import {
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
 import {
 	type AddressListing,
 	useOrganizationAddresses,
@@ -65,7 +65,7 @@ function AddressesExplorerRoute() {
 	const search = query.search;
 	const regionIds = query.regions;
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
-	const { input: searchInput, setInput: setSearch } = useDebouncedTextFilter(search, commitSearch);
+	const { searchInput, setSearch, clearSearch } = useAddressSearch(search, commitSearch);
 	const setRegionIds = useCallback(
 		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
@@ -116,16 +116,19 @@ function AddressesExplorerRoute() {
 	// points and the list stay in lockstep as the query changes.
 	const serverUrl = getServerUrl();
 	const trimmedSearch = search.trim();
-	const addressLayer = useMemo(
-		() => ({
-			serverUrl,
-			selectedId: focusedId,
-			filters: {
-				...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
-				...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'addresses',
+				serverUrl,
+				selectedId: focusedId,
+				filters: {
+					...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
+					...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
+				},
+				onSelectFeature: (id: string | null) => setFocusedId(id),
 			},
-			onSelectFeature: (id: string | null) => setFocusedId(id),
-		}),
+		],
 		[serverUrl, focusedId, trimmedSearch, regionKey],
 	);
 	const clearAll = useCallback(() => {
@@ -141,9 +144,10 @@ function AddressesExplorerRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={
 				<>
-					<SearchField
+					<SearchInput
 						label="Search addresses"
-						onChange={setSearch}
+						onChange={(event) => setSearch(event.target.value)}
+						onClear={clearSearch}
 						placeholder="Search addresses…"
 						value={searchInput}
 					/>
@@ -195,11 +199,11 @@ function AddressesExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
-						addressLayer={addressLayer}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						inset={panel.inset}
+						layers={layers}
 						onMapReady={setMap}
 						searchWidth={panel.width}
 					/>
@@ -232,6 +236,28 @@ function AddressesExplorerRoute() {
 			}}
 		/>
 	);
+}
+
+/**
+ * The search box's two halves: the field the operator is looking at, and the
+ * committed term on the URL that is actually cutting the list. Clearing has to
+ * reach both, or the box empties and the list stays narrowed.
+ */
+function useAddressSearch(
+	urlSearch: string,
+	commitSearch: (next: string) => void,
+): {
+	readonly searchInput: string;
+	readonly setSearch: (next: string) => void;
+	readonly clearSearch: () => void;
+} {
+	const { input, setInput, clear } = useDebouncedTextFilter(urlSearch, commitSearch);
+	const clearSearch = useCallback(() => {
+		clear();
+		commitSearch('');
+	}, [clear, commitSearch]);
+
+	return { searchInput: input, setSearch: setInput, clearSearch };
 }
 
 function AddressRowItem({

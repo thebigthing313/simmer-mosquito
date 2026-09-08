@@ -24,7 +24,7 @@ export function ContactFieldsBlock({
 		<>
 			<ContactFieldGroup
 				level={headingLevel}
-				description="A contact needs at least one identifier — a name, company, phone, or email."
+				description="A contact needs at least one of a name, company, phone, or email."
 				title="Identity"
 			>
 				<form.AppField name={`${prefix}contactName`}>

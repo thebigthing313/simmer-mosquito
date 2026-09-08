@@ -45,14 +45,19 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
-import { writeAssignmentItemCommand } from '../field-work-commands/assignment-items.js';
-import type { AssignmentItemRow } from '../field-work-commands/shared.js';
+import { writeAssignmentItemCommand } from '../writers/field-work/assignment-items.js';
+import type { AssignmentItemRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
+/**
+ * Where in the run a stop goes. Not a column: the order is a list, not a field.
+ */
+type AssignmentItemArgument = 'placement';
+
 export function assignmentItemTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, AssignmentItemRow> {
+): TableCommands<'assignment_items', FieldWorkCommand, AssignmentItemRow, AssignmentItemArgument> {
 	return {
 		table: 'assignment_items',
 		run: {
@@ -62,40 +67,40 @@ export function assignmentItemTableCommands(
 			key: 'assignmentItem',
 		},
 		intents: {
-			'fieldWork.addAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.addAssignmentItem': ({ payload, organization, id }) =>
 				addAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					assignmentId: readText(payload.assignment_id) ?? '',
-					target: readEntityTarget(payload) as AssignmentItemTarget,
+					target: readEntityTarget(payload.entity_type, payload.entity_id) as AssignmentItemTarget,
 					...(payload.placement === undefined
 						? {}
 						: { placement: payload.placement as AssignmentItemPlacement }),
 					directionsToNextItem: readNullableText(payload.directions_to_next_item),
 				}),
 
-			'fieldWork.updateAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.updateAssignmentItem': ({ payload, organization, id }) =>
 				updateAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					directionsToNextItem: readNullableText(payload.directions_to_next_item),
 				}),
 
-			'fieldWork.completeAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.completeAssignmentItem': ({ payload, organization, id }) =>
 				completeAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					completedAt: readDate(payload.completed_at),
 				}),
 
 			// Reopen and unskip read nothing: they clear a state rather than date one,
 			// so there is no moment for the start-time rule to judge.
-			'fieldWork.reopenAssignmentItem': ({ agency, id }) =>
-				reopenAssignmentItemCommand({ ...agency, assignmentItemId: id }),
+			'fieldWork.reopenAssignmentItem': ({ organization, id }) =>
+				reopenAssignmentItemCommand({ ...organization, assignmentItemId: id }),
 
-			'fieldWork.skipAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.skipAssignmentItem': ({ payload, organization, id }) =>
 				skipAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					skippedAt: readDate(payload.skipped_at),
 					// Required by the domain: a stop passed over without a reason is a hole
@@ -103,11 +108,11 @@ export function assignmentItemTableCommands(
 					skipReason: readText(payload.skip_reason) ?? '',
 				}),
 
-			'fieldWork.unskipAssignmentItem': ({ agency, id }) =>
-				unskipAssignmentItemCommand({ ...agency, assignmentItemId: id }),
+			'fieldWork.unskipAssignmentItem': ({ organization, id }) =>
+				unskipAssignmentItemCommand({ ...organization, assignmentItemId: id }),
 
-			'fieldWork.removeAssignmentItem': ({ agency, id }) =>
-				removeAssignmentItemCommand({ ...agency, assignmentItemId: id }),
+			'fieldWork.removeAssignmentItem': ({ organization, id }) =>
+				removeAssignmentItemCommand({ ...organization, assignmentItemId: id }),
 		},
 	};
 }

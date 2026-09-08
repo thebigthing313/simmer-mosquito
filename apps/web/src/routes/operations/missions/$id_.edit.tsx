@@ -1,14 +1,13 @@
 import { createMissionCommand } from '@simmer-mosquito/domain';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	MISSION_FIELD_PATHS,
 	MissionFormPage,
@@ -18,7 +17,7 @@ import {
 
 export const Route = createFileRoute('/operations/missions/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/operations/missions/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -31,16 +30,17 @@ export const Route = createFileRoute('/operations/missions/$id_/edit')({
 
 function EditMissionRoute() {
 	const { id } = Route.useParams();
-	const { mission, isReady } = useMission(id);
+	const { mission, isReady, isError } = useMission(id);
 
-	if (mission === undefined) {
-		return isReady ? (
-			<RecordUnavailable layout="centered" noun="mission" reason="not-found" />
-		) : (
-			<EditFormSkeleton />
-		);
-	}
-	return <EditMissionForm mission={mission} />;
+	return (
+		<RecordEditFrame
+			noun="mission"
+			reading={{ isError, isReady, record: mission }}
+			skeleton={<EditFormSkeleton frame="pane" rows={['h-24', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => <EditMissionForm mission={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
@@ -112,19 +112,5 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 			submitLabel="Save Changes"
 			validate={validate}
 		/>
-	);
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 content-start gap-5 px-5 py-5">
-			<Skeleton className="h-6 w-40" />
-			<Skeleton className="h-24 w-full" />
-			<div className="grid grid-cols-2 gap-4">
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-9 w-full" />
-			</div>
-			<Skeleton className="h-24 w-full" />
-		</div>
 	);
 }

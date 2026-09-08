@@ -1,9 +1,8 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import {
 	type CatalogListing,
@@ -13,7 +12,7 @@ import {
 } from '../../../hooks/queries/use-catalog-rosters';
 import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	TrapFormPage,
@@ -24,7 +23,7 @@ import {
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/traps/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -41,17 +40,17 @@ function EditTrapRoute() {
 	const lures = useCollectionLureRoster();
 	const { trap, isReady, isError } = useTrapRecord(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="trap" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (trap === undefined) {
-		return <RecordUnavailable layout="centered" noun="trap" reason="not-found" />;
-	}
-
-	return <EditTrapLoader collectionLures={lures} collectionMethods={methods} trap={trap} />;
+	return (
+		<RecordEditFrame
+			noun="trap"
+			reading={{ isError, isReady, record: trap }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditTrapLoader collectionLures={lures} collectionMethods={methods} trap={record} />
+			)}
+		</RecordEditFrame>
+	);
 }
 
 function EditTrapLoader({
@@ -81,8 +80,7 @@ function EditTrapLoader({
 			// user actually refined the point. Naming the configuration command with the
 			// point the trap already has is a write with no edit behind it, and the
 			// centroid it would reseed is the one already on screen.
-			const shape =
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const shape = geometryChanged && geometry !== null ? geometry : null;
 			const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
 			if (shape !== null && centroid === null) {
 				throw new Error('Unable to determine the trap location.');
@@ -131,22 +129,5 @@ function EditTrapLoader({
 			/>
 			{dialog}
 		</>
-	);
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
 	);
 }

@@ -140,7 +140,7 @@ describe('assessing a file against a station', () => {
 
 	// The review has to agree with the server about which rows are future-dated,
 	// or the screen says "Add" for a line the commit is about to refuse.
-	it('fails a row dated after the agency today', () => {
+	it('fails a row dated after the organization today', () => {
 		const result = assessParsedRows([parsed(2, '2026-06-30')], [], ids(), '2026-06-15');
 
 		expect(result.rows[0]?.action).toBe('fail');

@@ -1,3 +1,4 @@
+import { navDestination } from '../resolve-nav';
 import { useActiveShellLocation, useShell } from '../shell-context';
 import type { ShellNavItem } from '../types';
 import { SecondarySidebarGroup } from './secondary-sidebar-group';
@@ -14,8 +15,9 @@ export function SecondarySidebarContent() {
 	const domain = domains.find((candidate) => candidate.id === activeDomain.id) ?? activeDomain;
 
 	function handleSelect(navItem: ShellNavItem) {
-		if (navItem.to !== undefined) {
-			onNavigate(navItem.to);
+		const path = navDestination(navItem);
+		if (path !== null) {
+			onNavigate(path);
 		}
 	}
 

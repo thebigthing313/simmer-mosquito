@@ -1,8 +1,9 @@
+import { ADULT_COLLECTION_TIMING_MODES, UNIT_TYPES } from '../column-vocabularies.js';
 import {
 	createIssues,
 	requiredId as normalizeRequiredId,
 	throwIfIssues,
-	validateAgencyCommandContext,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import { resolveLarvalInspectionEntryPolicy } from './larval-inspection-policy.js';
@@ -31,18 +32,6 @@ import {
 	type UpdateUnitDefaultsCommand,
 	type UpdateUnitDefaultsCommandInput,
 } from './types-and-defaults.js';
-
-const ADULT_COLLECTION_TIMING_MODES = ['exact_timestamps', 'collection_date_duration'] as const;
-const UNIT_TYPES = [
-	'weight',
-	'distance',
-	'area',
-	'volume',
-	'temperature',
-	'duration',
-	'count',
-	'speed',
-] as const;
 
 interface OrganizationSettingsCommandInput {
 	readonly organizationId: DomainId;
@@ -178,7 +167,7 @@ export function updateSpeciesKeyBindingsCommand(
 
 function validateCommandBase(input: OrganizationSettingsCommandInput): DomainValidationIssue[] {
 	const issues = createIssues();
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 	normalizeExpectedUpdatedAt(input.expectedUpdatedAt, 'expectedUpdatedAt', issues);
 	return issues;
 }

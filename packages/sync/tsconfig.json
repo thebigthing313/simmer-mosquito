@@ -4,7 +4,12 @@
 		"lib": ["ES2022", "DOM"],
 		"outDir": "dist",
 		"rootDir": "src",
-		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+		// For `tests/unit/contract.test.ts` alone, which reads the package's own
+		// source to walk what the `./contract` entry imports. Nothing under `src`
+		// outside `src/tests` may name a Node builtin: this package runs in a
+		// browser and in React Native, and `lib` above says so.
+		"types": ["node"]
 	},
 	"include": ["src/**/*.ts"],
 	// `drift.test.ts` reads the Kysely table types to check the generated schemas

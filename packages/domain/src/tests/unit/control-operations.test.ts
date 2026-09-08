@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { DomainValidationError } from '../../adult-surveillance/index.js';
 import {
+	locationContextChanges,
+	validateLocationContextPatchBase,
+} from '../../control-operations/core.js';
+import {
 	calculateFormulationComponentAmounts,
 	createApplicationMethodCommand,
 	createInsecticideCommand,
@@ -40,6 +44,9 @@ const requestedControlActionId = '13131313-1313-4313-8313-131313131313';
 const outreachMethodId = '14141414-1414-4414-8414-141414141414';
 const outreachActionId = '15151515-1515-4515-8515-151515151515';
 const sourceReductionId = '16161616-1616-4616-8616-161616161616';
+const serviceRequestId = '17171717-1717-4717-8717-171717171717';
+const missionItemId = '18181818-1818-4818-8818-181818181818';
+const trapId = '19191919-1919-4919-8919-191919191919';
 const pointGeometry = { type: 'Point' as const, coordinates: [-90, 35] as const };
 const polygonGeometry = {
 	type: 'Polygon' as const,
@@ -431,5 +438,95 @@ describe('formulation helpers', () => {
 		expect(isSourceReductionUnitType('weight')).toBe(false);
 		expect(isBiocontrolUnitType('weight')).toBe(true);
 		expect(isBiocontrolUnitType('distance')).toBe(false);
+	});
+});
+
+/**
+ * The flow constraint on the two patch helpers, which `tsc` checks rather than
+ * vitest.
+ *
+ * The `@ts-expect-error` cases are the assertions. Both helpers used to take the
+ * flow as the `LocationSourceFlow` union, which widened the location source they
+ * accepted to both flows' sources, so a requested action patch carrying a
+ * mission item source compiled. A signature that goes back to that would
+ * suppress nothing, and `tsc` would fail on the directive itself.
+ *
+ * The `expect` beside each case only proves the case ran.
+ */
+describe('location and context patch flow constraint', () => {
+	const controlActionFlow = 'controlAction';
+	const requestedFlow = 'requestedControlAction';
+
+	const controlActionSources = [
+		{ kind: 'geometry', geometry: pointGeometry },
+		{ kind: 'address', addressId },
+		{ kind: 'serviceRequest', serviceRequestId },
+		{ kind: 'habitat', habitatId },
+		{ kind: 'inspection', inspectionId },
+		{ kind: 'requestedControlAction', requestedControlActionId },
+		{ kind: 'missionItem', missionItemId },
+	] as const;
+
+	it('takes every source kind the control action row lists', () => {
+		for (const locationSource of controlActionSources) {
+			const patch = { organizationId, actorProfileId, applicationId, locationSource };
+
+			expect(validateLocationContextPatchBase(patch, 'applicationId', controlActionFlow)).toEqual(
+				[],
+			);
+		}
+	});
+
+	it('refuses a source kind the requested action row leaves out', () => {
+		const patch = {
+			organizationId,
+			actorProfileId,
+			requestedControlActionId,
+			locationSource: { kind: 'missionItem', missionItemId } as const,
+		};
+
+		// @ts-expect-error A requested action is not dispatched, so it takes no mission item.
+		validateLocationContextPatchBase(patch, 'requestedControlActionId', requestedFlow);
+		// @ts-expect-error The same row, and the same refusal on the changes helper.
+		locationContextChanges(patch, undefined, [], requestedFlow);
+
+		expect(patch.locationSource.kind).toBe('missionItem');
+	});
+
+	it('refuses a source kind the control action row leaves out', () => {
+		const patch = {
+			organizationId,
+			actorProfileId,
+			applicationId,
+			locationSource: { kind: 'trap', trapId } as const,
+		};
+
+		// @ts-expect-error A control action reads its place from a record, and a Trap is not one.
+		validateLocationContextPatchBase(patch, 'applicationId', controlActionFlow);
+		// @ts-expect-error The same row, and the same refusal on the changes helper.
+		locationContextChanges(patch, undefined, [], controlActionFlow);
+
+		expect(patch.locationSource.kind).toBe('trap');
+	});
+
+	it('still refuses the unsupported kind at run time', () => {
+		const issues = validateLocationContextPatchBase(
+			{
+				organizationId,
+				actorProfileId,
+				requestedControlActionId,
+				// The compiler refuses this above. The cast is what lets the case reach
+				// the run-time check, which stays the second line of defence for a
+				// caller outside the compiler's reach.
+				locationSource: { kind: 'missionItem', missionItemId } as never,
+			},
+			'requestedControlActionId',
+			requestedFlow,
+		);
+
+		expect(issues).toContainEqual({
+			path: 'locationSource.kind',
+			message: 'locationSource.kind is not supported for this location source flow.',
+		});
 	});
 });

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { listNearbyRecords, sql } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+import { createOrganization } from '../../test-support/row-fixtures.js';
 
 describeDbIntegration('service-request nearby', () => {
 	// One call exercises the full seven-branch union, so this validates the SQL
@@ -8,17 +9,13 @@ describeDbIntegration('service-request nearby', () => {
 	// only habitats are seeded — Postgres plans every branch regardless of data.
 	it('returns records within the radius and excludes those outside it', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_nearby', name: 'Nearby District' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 
 			// ~33 m north of the center — comfortably inside a 500 m radius.
 			await db
 				.insertInto('habitats')
 				.values({
-					organization_id: org.id,
+					organization_id: organizationId,
 					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5003), 4326)`,
 					habitat_name: 'Near Pond',
 					description: '',
@@ -29,7 +26,7 @@ describeDbIntegration('service-request nearby', () => {
 			await db
 				.insertInto('habitats')
 				.values({
-					organization_id: org.id,
+					organization_id: organizationId,
 					geom: sql`st_setsrid(st_makepoint(-90.5, 35.545), 4326)`,
 					habitat_name: 'Far Pond',
 					description: '',
@@ -38,7 +35,7 @@ describeDbIntegration('service-request nearby', () => {
 				.execute();
 
 			const rows = await listNearbyRecords(db, {
-				organizationId: org.id,
+				organizationId,
 				center: { lat: 35.5, lng: -90.5 },
 				radiusMeters: 500,
 				dateFrom: '2026-07-01',
@@ -58,16 +55,12 @@ describeDbIntegration('service-request nearby', () => {
 	// The nearby view is date-bounded, so the same failure as the collections
 	// explorer applies here: a collection emptied in the evening converts to the
 	// next day in the database server's zone and falls out of the window.
-	it('dates a collection by the agency’s day, not the database server’s', async () => {
+	it('dates a collection by the organization’s day, not the database server’s', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_nearby_tz', name: 'Evening District' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 			const method = await db
 				.insertInto('collection_methods')
-				.values({ organization_id: org.id, name: 'CDC light trap' })
+				.values({ organization_id: organizationId, name: 'CDC light trap' })
 				.returning(['id'])
 				.executeTakeFirstOrThrow();
 
@@ -75,7 +68,7 @@ describeDbIntegration('service-request nearby', () => {
 			await db
 				.insertInto('collections')
 				.values({
-					organization_id: org.id,
+					organization_id: organizationId,
 					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5003), 4326)`,
 					collection_method_id: method.id,
 					collection_timing_mode: 'exact_timestamps',
@@ -87,7 +80,7 @@ describeDbIntegration('service-request nearby', () => {
 			const onTheFifteenth = async (timeZone: string) =>
 				(
 					await listNearbyRecords(db, {
-						organizationId: org.id,
+						organizationId,
 						center: { lat: 35.5, lng: -90.5 },
 						radiusMeters: 500,
 						dateFrom: '2026-03-15',

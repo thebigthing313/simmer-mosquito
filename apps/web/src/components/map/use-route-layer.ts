@@ -1,5 +1,5 @@
-import { mapProgress } from '@simmer-mosquito/design-tokens';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { mapInteraction, mapLifecycle, mapProgress } from '@simmer-mosquito/design-tokens';
+import type { GeoJsonGeometry, GeoJsonPoint } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -10,6 +10,7 @@ import type {
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
 import { useEffect, useMemo, useRef } from 'react';
+import { toMapboxGeometry } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -80,20 +81,32 @@ function shapeFeatureId(stopId: string): string {
 /** Layers a click or hover may land on, pins first so a pin inside its own area wins. */
 const INTERACTIVE_LAYER_IDS = [STOP_LAYER_ID, SHAPE_FILL_LAYER_ID, SHAPE_LINE_LAYER_ID] as const;
 
-/** Field-room palette; kept in hex because GL paint can't read CSS tokens. */
+/**
+ * What a route map paints, read off the shared palette.
+ *
+ * Four of these used to be local hexes under a comment saying they predated the
+ * register and were left alone. They were a second inactive grey, a second
+ * inaccessible red, a pale amber emphasis ring, and the off-white casing spelt
+ * out twice, so a stop retired on this map read as a different retirement from
+ * the same stop on the habitat explorer (#618).
+ *
+ * `path` and `stop` are one colour because the dashed connector is not a state
+ * of its own: it is the route drawn between its stops, so it takes the tone a
+ * stop with nothing wrong with it wears.
+ *
+ * `label` is the point casing rather than a colour of its own. The ordinal is
+ * knocked out of the pin it sits on, which is the same job a casing does.
+ */
 const colors = {
-	path: '#0c5331',
-	stop: '#0c5331',
-	stopInactive: '#8a9a93',
-	stopInaccessible: '#e5484d',
-	// The progress tones come from the shared palette rather than two more local
-	// hexes; the four above predate it and are left alone so restyling the route
-	// map stays its own change.
+	path: mapLifecycle.active,
+	stop: mapLifecycle.active,
+	stopInactive: mapLifecycle.inactive,
+	stopInaccessible: mapLifecycle.inaccessible,
 	stopDone: mapProgress.done,
 	stopSkipped: mapProgress.skipped,
-	stroke: '#f9fdfb',
-	ring: '#e4c04a',
-	label: '#f9fdfb',
+	stroke: mapInteraction.pointStroke,
+	ring: mapInteraction.selected,
+	label: mapInteraction.pointStroke,
 } as const;
 
 const emphasized: ExpressionSpecification = [
@@ -203,14 +216,18 @@ function buildData(stops: readonly RouteStopFeature[]): GeoJSON.FeatureCollectio
 	// A stop whose own shape is a point already has one — the pin. Only lines and
 	// areas add a feature, and they carry the *stop's* id in `properties` so a
 	// click on the area selects the stop, not the shape.
-	const shapes: GeoJSON.Feature[] = located
-		.filter((stop) => isDrawableShape(stop.geometry))
-		.map((stop) => ({
-			type: 'Feature',
-			id: shapeFeatureId(stop.id),
-			geometry: stop.geometry as unknown as GeoJSON.Geometry,
-			properties: { id: stop.id, kind: 'shape', ordinal: stop.ordinal, tone: stop.tone },
-		}));
+	const shapes: GeoJSON.Feature[] = located.flatMap((stop) =>
+		isDrawableShape(stop.geometry)
+			? [
+					{
+						type: 'Feature' as const,
+						id: shapeFeatureId(stop.id),
+						geometry: toMapboxGeometry(stop.geometry),
+						properties: { id: stop.id, kind: 'shape', ordinal: stop.ordinal, tone: stop.tone },
+					},
+				]
+			: [],
+	);
 
 	const line =
 		points.length >= 2
@@ -231,7 +248,9 @@ function buildData(stops: readonly RouteStopFeature[]): GeoJSON.FeatureCollectio
 }
 
 /** Anything but a bare point, which the numbered pin already draws. */
-function isDrawableShape(geometry: GeoJsonGeometry | null | undefined): boolean {
+function isDrawableShape(
+	geometry: GeoJsonGeometry | null | undefined,
+): geometry is Exclude<GeoJsonGeometry, GeoJsonPoint> {
 	return geometry != null && geometry.type !== 'Point';
 }
 

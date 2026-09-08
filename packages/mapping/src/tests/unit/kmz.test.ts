@@ -133,7 +133,8 @@ describe('readImportFileText', () => {
 
 	it('unpacks a KMZ that was handed over named .kml', async () => {
 		// The name never reaches here — the bytes are what decides — which is the
-		// point: agencies email these files around and the extension gets swapped.
+		// point: organizations email these files around and the extension gets
+		// swapped.
 		const kmz = await buildZip([{ name: 'doc.kml', content: KML }]);
 		expect(await readImportFileText(new File([kmz], 'district.kml'))).toBe(KML);
 	});

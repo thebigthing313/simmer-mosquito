@@ -1,5 +1,6 @@
 import type { GeoJSONSource, LayerSpecification, Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { type MapSourceGeoJson, toMapboxGeoJson } from './geojson-adapter';
 import { isMapLive } from './use-mapbox-map';
 
 /**
@@ -47,8 +48,13 @@ export function useGeoJsonSource({
 	readonly map: MapboxMap | null;
 	readonly isLoaded: boolean;
 	readonly sourceId: string;
-	/** `null` makes the hook a no-op: nothing is added and nothing torn down. */
-	readonly data: GeoJSON.GeoJSON | null;
+	/**
+	 * `null` makes the hook a no-op: nothing is added and nothing torn down.
+	 *
+	 * Either vocabulary, converted by {@link toMapboxGeoJson} at the two points
+	 * this hook hands a value to Mapbox. See `geojson-adapter.ts`.
+	 */
+	readonly data: MapSourceGeoJson | null;
 	/**
 	 * The layers to add, in order. Called on every ensure rather than read once,
 	 * so it may close over live values — a selected id, say — without the source
@@ -110,15 +116,16 @@ export function useGeoJsonSource({
 				return;
 			}
 
+			const mapboxData = toMapboxGeoJson(current);
 			const source = activeMap.getSource(sourceId) as GeoJSONSource | undefined;
 			if (source === undefined) {
 				activeMap.addSource(sourceId, {
 					type: 'geojson',
-					data: current,
+					data: mapboxData,
 					...sourceOptionsRef.current,
 				});
 			} else {
-				source.setData(current);
+				source.setData(mapboxData);
 			}
 
 			const specs = layersRef.current();
@@ -200,7 +207,7 @@ export function useGeoJsonSource({
 		}
 		try {
 			const source = map.getSource(sourceId) as GeoJSONSource | undefined;
-			source?.setData(data);
+			source?.setData(toMapboxGeoJson(data));
 		} catch {
 			// Map style not available; nothing to update.
 		}

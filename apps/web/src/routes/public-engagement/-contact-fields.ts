@@ -97,7 +97,7 @@ export function validateContactForm(values: ContactFormValues): string | null {
 	const hasEmail = values.email.trim().length > 0;
 
 	if (!hasName && !hasCompany && !hasPreferred && !hasAlternate && !hasEmail) {
-		return 'Enter at least one identifier — a name, company, phone, or email.';
+		return 'Enter at least one of a name, company, phone, or email.';
 	}
 	if (hasAlternate && !hasPreferred) {
 		return 'An alternate phone requires a preferred phone.';

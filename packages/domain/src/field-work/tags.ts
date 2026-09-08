@@ -1,22 +1,30 @@
 import {
+	basePayload,
 	createIssues,
 	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
-	basePayload,
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	type FieldWorkCommandInput,
 	type FieldWorkCommandPayload,
 	type FieldWorkDomainCommand,
 	normalizeHexColor,
 	TAG_TARGET_TYPES,
 	type TagTarget,
-	validateBase,
-	validateIdCommand,
 	validateTarget,
 } from './shared.js';
 
@@ -37,22 +45,22 @@ export type CreateTagCommand = FieldWorkDomainCommand<
 	}
 >;
 
-export interface UpdateTagCommandInput extends FieldWorkCommandInput {
-	readonly tagId: DomainId;
-	readonly tagName?: string;
-	readonly description?: string | null;
-	readonly color?: string | null;
-}
+export const TAG_UPDATE_FIELDS = {
+	tagName: requiredTextField(200),
+	description: nullableTextField(2_000),
+	color: normalizeHexColor,
+} satisfies UpdateFieldSet;
+
+export type UpdateTagCommandInput = FieldWorkCommandInput &
+	UpdateFieldsInput<typeof TAG_UPDATE_FIELDS> & {
+		readonly tagId: DomainId;
+	};
 
 export type UpdateTagCommand = FieldWorkDomainCommand<
 	'fieldWork.updateTag',
 	FieldWorkCommandPayload & {
 		readonly tagId: DomainId;
-		readonly changes: Readonly<{
-			readonly tagName?: string;
-			readonly description?: string | null;
-			readonly color?: string | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof TAG_UPDATE_FIELDS>;
 	}
 >;
 
@@ -121,34 +129,14 @@ export function createTagCommand(input: CreateTagCommandInput): CreateTagCommand
 }
 
 export function updateTagCommand(input: UpdateTagCommandInput): UpdateTagCommand {
-	const issues = validateIdCommand(input, 'tagId', requireUuid);
-	const hasName = input.tagName !== undefined;
-	const hasDescription = input.description !== undefined;
-	const hasColor = input.color !== undefined;
-	if (!hasName && !hasDescription && !hasColor) {
-		issues.push({ path: 'changes', message: 'At least one tag field must change.' });
-	}
-	const tagName = hasName
-		? normalizeRequiredText(input.tagName, 'tagName', issues, 200)
-		: undefined;
-	const description = hasDescription
-		? normalizeNullableText(input.description, 'description', issues, 2_000)
-		: undefined;
-	const color = hasColor ? normalizeHexColor(input.color, 'color', issues) : undefined;
-	throwIfIssues('Update tag command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'fieldWork.updateTag',
-		payload: {
-			...basePayload(input),
-			tagId: normalizeRequiredId(input.tagId),
-			changes: {
-				...(tagName !== undefined ? { tagName } : {}),
-				...(hasDescription ? { description: description ?? null } : {}),
-				...(hasColor ? { color: color ?? null } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'tagId',
+		fields: TAG_UPDATE_FIELDS,
+		changeNoun: 'tag',
+		message: 'Update tag command is invalid.',
+	});
 }
 
 function tagIdPayload(
@@ -158,19 +146,19 @@ function tagIdPayload(
 }
 
 export function activateTagCommand(input: TagIdCommandInput): ActivateTagCommand {
-	const issues = validateIdCommand(input, 'tagId', requireUuid);
+	const issues = validateIdCommand(input, 'tagId');
 	throwIfIssues('Activate tag command is invalid.', issues);
 	return { type: 'fieldWork.activateTag', payload: tagIdPayload(input) };
 }
 
 export function deactivateTagCommand(input: TagIdCommandInput): DeactivateTagCommand {
-	const issues = validateIdCommand(input, 'tagId', requireUuid);
+	const issues = validateIdCommand(input, 'tagId');
 	throwIfIssues('Deactivate tag command is invalid.', issues);
 	return { type: 'fieldWork.deactivateTag', payload: tagIdPayload(input) };
 }
 
 export function deleteTagCommand(input: TagIdCommandInput): DeleteTagCommand {
-	const issues = validateIdCommand(input, 'tagId', requireUuid);
+	const issues = validateIdCommand(input, 'tagId');
 	throwIfIssues('Delete tag command is invalid.', issues);
 	return { type: 'fieldWork.deleteTag', payload: tagIdPayload(input) };
 }
@@ -195,7 +183,7 @@ export function assignTagCommand(input: AssignTagCommandInput): AssignTagCommand
 }
 
 export function unassignTagCommand(input: UnassignTagCommandInput): UnassignTagCommand {
-	const issues = validateIdCommand(input, 'tagItemId', requireUuid);
+	const issues = validateIdCommand(input, 'tagItemId');
 	throwIfIssues('Unassign tag command is invalid.', issues);
 	return {
 		type: 'fieldWork.unassignTag',

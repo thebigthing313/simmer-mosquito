@@ -1,121 +1,38 @@
 import {
 	type AddressMvtTileFilters,
-	type AddressMvtTileInput,
-	type ApplicationByIdInput,
 	type ApplicationMapFilters,
-	type ApplicationMvtTileInput,
-	type ApplicationPageInput,
-	type ApplicationPageResult,
-	type BiocontrolByIdInput,
 	type BiocontrolMapFilters,
-	type BiocontrolMvtTileInput,
-	type BiocontrolPageInput,
-	type BiocontrolPageResult,
-	type CollectionByIdInput,
 	type CollectionMapFilters,
-	type CollectionMvtTileInput,
-	type CollectionPageInput,
-	type CollectionPageResult,
 	countActiveHabitatsByType,
 	countProfileActivity,
 	getAddressById,
-	getAddressMapExtent,
-	getAddressMvtTile,
-	getApplicationDisplayRowById,
-	getApplicationMapExtent,
-	getApplicationMvtTile,
-	getBiocontrolDisplayRowById,
-	getBiocontrolMapExtent,
-	getBiocontrolMvtTile,
-	getCollectionDisplayRowById,
-	getCollectionMapExtent,
-	getCollectionMvtTile,
-	getHabitatDisplayRowById,
-	getHabitatMapExtent,
-	getHabitatMvtTile,
-	getInspectionDisplayRowById,
-	getInspectionMapExtent,
-	getInspectionMvtTile,
 	getNotificationRegistrationGeometryById,
 	getOrganizationSettingsRaw,
-	getOutreachDisplayRowById,
-	getOutreachMapExtent,
-	getOutreachMvtTile,
 	getRegionById,
-	getRegionMapExtent,
-	getRegionMvtTile,
 	getRequestedControlActionDisplayRowById,
-	getSampleDisplayRowById,
-	getSampleMapExtent,
-	getSampleMvtTile,
-	getSourceReductionDisplayRowById,
-	getSourceReductionMapExtent,
-	getSourceReductionMvtTile,
-	getTrapDisplayRowById,
-	getTrapMapExtent,
-	getTrapMvtTile,
-	type HabitatByIdInput,
-	type HabitatDisplayPageResult,
 	type HabitatMvtTileFilters,
-	type HabitatMvtTileInput,
-	type HabitatSearchInput,
-	type HabitatSiteDisplayRow,
-	type HabitatTypeUsageRow,
-	type InspectionByIdInput,
-	type InspectionDensity,
-	type InspectionDisplayPageResult,
 	type InspectionMvtTileFilters,
-	type InspectionMvtTileInput,
-	inspectionDensityValues,
 	type Kysely,
-	listApplicationDisplayRowsPage,
-	listBiocontrolDisplayRowsPage,
-	listCollectionDisplayRowsPage,
-	listHabitatDisplayRowsByBounds,
-	listInspectionDisplayRowsByBounds,
 	listMissionItemGeometry,
-	listOutreachDisplayRowsPage,
 	listProfileActivity,
-	listSampleDisplayRowsByBounds,
-	listSourceReductionDisplayRowsPage,
-	listTrapDisplayRowsPage,
+	MAP_SURFACES,
 	type MapExtent,
-	type OutreachByIdInput,
+	type MapTilesetLayer,
 	type OutreachMapFilters,
-	type OutreachMvtTileInput,
-	type OutreachPageInput,
-	type OutreachPageResult,
 	type RegionMvtTileFilters,
-	type RegionMvtTileInput,
-	type SafeApplicationDisplayRow,
-	type SafeBiocontrolDisplayRow,
-	type SafeCollectionDisplayRow,
-	type SafeHabitatDisplayRow,
-	type SafeInspectionDisplayRow,
-	type SafeOutreachDisplayRow,
-	type SafeSampleDisplayRow,
-	type SafeSourceReductionDisplayRow,
-	type SafeTrapDisplayRow,
-	type SampleByIdInput,
-	type SampleDisplayPageResult,
 	type SampleListFilters,
-	type SampleMvtTileInput,
 	type SampleStatus,
 	type SimmerDatabase,
-	type SourceReductionByIdInput,
 	type SourceReductionMapFilters,
-	type SourceReductionMvtTileInput,
-	type SourceReductionPageInput,
-	type SourceReductionPageResult,
 	sampleStatusValues,
 	searchHabitatSites,
-	type TrapByIdInput,
 	type TrapMapFilters,
-	type TrapMvtTileInput,
-	type TrapPageInput,
-	type TrapPageResult,
 } from '@simmer-mosquito/db';
-import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
+import {
+	LARVAL_DENSITIES,
+	type LarvalDensity,
+	resolveOrganizationSettings,
+} from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -125,10 +42,11 @@ const maxSupportedZoom = 22;
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The region narrowing every map surface accepts. Regions are the agency's own
- * operational geography, so "only this district" is asked of habitats, traps,
- * applications, and everything else alike — one param name across every tileset
- * keeps a deep link from one explorer readable by the next.
+ * The region narrowing every map surface accepts. Regions are the
+ * organization's own operational geography, so "only this district" is asked of
+ * habitats, traps, applications, and everything else alike — one param name
+ * across every tileset keeps a deep link from one explorer readable by the
+ * next.
  */
 const regionFilterParam = 'regionId';
 
@@ -139,11 +57,10 @@ type TileDb = Kysely<SimmerDatabase>;
  *
  * This is the seam the tests substitute at: a route handler must be drivable
  * without Postgres, so each reader has to be replaceable. That was previously
- * done with forty-five optional fields on the registration options and
- * forty-two `??` defaults behind them, plus thirty-two function-type aliases to
- * declare the fields with — an interface as complicated as the thing it hid,
- * and a test helper that spent seventy lines threading ten of the forty-five
- * through conditional spreads.
+ * done with an optional field per reader on the registration options, a `??`
+ * default behind each and a function-type alias to declare each field with — an
+ * interface as complicated as the thing it hid, and a test helper that spent
+ * seventy lines threading ten of them through conditional spreads.
  *
  * One object, one spread. A new route adds a line here and a line at its
  * registration, and it is injectable from the moment it exists — which the old
@@ -152,54 +69,68 @@ type TileDb = Kysely<SimmerDatabase>;
  * routes could not be driven without a database at all.
  */
 const defaultMapReaders = {
-	getHabitatTile: getHabitatMvtTile,
-	getRegionTile: getRegionMvtTile,
-	getAddressTile: getAddressMvtTile,
-	getInspectionTile: getInspectionMvtTile,
-	getSampleTile: getSampleMvtTile,
-	getApplicationTile: getApplicationMvtTile,
-	getSourceReductionTile: getSourceReductionMvtTile,
-	getBiocontrolTile: getBiocontrolMvtTile,
-	getOutreachTile: getOutreachMvtTile,
-	getTrapTile: getTrapMvtTile,
-	getCollectionTile: getCollectionMvtTile,
+	// The eleven map surfaces, read off `MAP_SURFACES` in `packages/db`: one entry
+	// per tileset name, and the four readers of one entry are one surface object,
+	// so the tile a route draws and the rows its rail lists are the same set by
+	// construction. The reader names are this file's, because they are the seam a
+	// test substitutes at; what they resolve to is the register's.
+	getHabitatTile: MAP_SURFACES.habitats.getTile,
+	getHabitatExtent: MAP_SURFACES.habitats.getExtent,
+	listHabitatDisplayRows: MAP_SURFACES.habitats.listByBounds,
+	getHabitatDisplayRow: MAP_SURFACES.habitats.getById,
 
-	getHabitatExtent: getHabitatMapExtent,
-	getRegionExtent: getRegionMapExtent,
-	getAddressExtent: getAddressMapExtent,
-	getInspectionExtent: getInspectionMapExtent,
-	getSampleExtent: getSampleMapExtent,
-	getApplicationExtent: getApplicationMapExtent,
-	getSourceReductionExtent: getSourceReductionMapExtent,
-	getBiocontrolExtent: getBiocontrolMapExtent,
-	getOutreachExtent: getOutreachMapExtent,
-	getTrapExtent: getTrapMapExtent,
-	getCollectionExtent: getCollectionMapExtent,
+	getInspectionTile: MAP_SURFACES.inspections.getTile,
+	getInspectionExtent: MAP_SURFACES.inspections.getExtent,
+	listInspectionDisplayRows: MAP_SURFACES.inspections.listByBounds,
+	getInspectionDisplayRow: MAP_SURFACES.inspections.getById,
 
-	listHabitatDisplayRows: listHabitatDisplayRowsByBounds,
-	listInspectionDisplayRows: listInspectionDisplayRowsByBounds,
-	listSampleDisplayRows: listSampleDisplayRowsByBounds,
-	listApplicationDisplayRows: listApplicationDisplayRowsPage,
-	listSourceReductionDisplayRows: listSourceReductionDisplayRowsPage,
-	listBiocontrolDisplayRows: listBiocontrolDisplayRowsPage,
-	listOutreachDisplayRows: listOutreachDisplayRowsPage,
-	listTrapDisplayRows: listTrapDisplayRowsPage,
-	listCollectionDisplayRows: listCollectionDisplayRowsPage,
+	getSampleTile: MAP_SURFACES.samples.getTile,
+	getSampleExtent: MAP_SURFACES.samples.getExtent,
+	listSampleDisplayRows: MAP_SURFACES.samples.listByBounds,
+	getSampleDisplayRow: MAP_SURFACES.samples.getById,
 
-	getHabitatDisplayRow: getHabitatDisplayRowById,
+	getTrapTile: MAP_SURFACES.traps.getTile,
+	getTrapExtent: MAP_SURFACES.traps.getExtent,
+	listTrapDisplayRows: MAP_SURFACES.traps.listPage,
+	getTrapDisplayRow: MAP_SURFACES.traps.getById,
+
+	getCollectionTile: MAP_SURFACES.collections.getTile,
+	getCollectionExtent: MAP_SURFACES.collections.getExtent,
+	listCollectionDisplayRows: MAP_SURFACES.collections.listPage,
+	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
+
+	getApplicationTile: MAP_SURFACES.chemical.getTile,
+	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
+	listApplicationDisplayRows: MAP_SURFACES.chemical.listPage,
+	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
+
+	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
+	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
+	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listPage,
+	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
+
+	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
+	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
+	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listPage,
+	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
+
+	getOutreachTile: MAP_SURFACES.outreach.getTile,
+	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
+	listOutreachDisplayRows: MAP_SURFACES.outreach.listPage,
+	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
+
+	// Addresses and regions are drawn from their surface and read as rows through
+	// their own catalog, so their by-id readers are not surface methods.
+	getRegionTile: MAP_SURFACES.regions.getTile,
+	getRegionExtent: MAP_SURFACES.regions.getExtent,
+	getAddressTile: MAP_SURFACES.addresses.getTile,
+	getAddressExtent: MAP_SURFACES.addresses.getExtent,
+
+	// The ten readers that are nobody's surface method.
 	getRegionRow: getRegionById,
 	getAddressRow: getAddressById,
-	getInspectionDisplayRow: getInspectionDisplayRowById,
-	getSampleDisplayRow: getSampleDisplayRowById,
-	getApplicationDisplayRow: getApplicationDisplayRowById,
-	getSourceReductionDisplayRow: getSourceReductionDisplayRowById,
-	getBiocontrolDisplayRow: getBiocontrolDisplayRowById,
-	getOutreachDisplayRow: getOutreachDisplayRowById,
 	getRequestedControlActionRow: getRequestedControlActionDisplayRowById,
 	getNotificationRegistrationGeometry: getNotificationRegistrationGeometryById,
-	getTrapDisplayRow: getTrapDisplayRowById,
-	getCollectionDisplayRow: getCollectionDisplayRowById,
-
 	searchHabitatDisplayRows: searchHabitatSites,
 	countHabitatTypeUsage: countActiveHabitatsByType,
 	listMissionItems: listMissionItemGeometry,
@@ -241,8 +172,6 @@ type BboxPageInput<TFilters> = PageInput<TFilters> & { readonly bounds: MapBound
 // entry's parse/getTile pair internally type-safe; only the erasure to `unknown`
 // filters crosses the boundary, and the pair is defined together so they can't drift.
 interface TileSetDefinition {
-	/** The `:tileset` path segment this entry answers to. */
-	readonly key: string;
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<unknown>;
 	readonly getTile: (
 		db: TileDb,
@@ -263,7 +192,6 @@ interface TileSetDefinition {
 }
 
 function defineTileSet<F>(def: {
-	readonly key: string;
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<F>;
 	readonly getTile: (
 		db: TileDb,
@@ -497,9 +425,9 @@ export function registerMapTileRoutes(
 	// filter can each answer part of this; none can reach `additional_personnel`,
 	// and the collections surface has no personnel filter at all.
 	//
-	// Tenancy alone, like every other `/map/*` read: agency data is viewable by
-	// anyone in the agency, and a floor here would be theatre while those five
-	// filters stay open to any member.
+	// Organization scope alone, like every other `/map/*` read: organization data
+	// is viewable by anyone in the organization, and a floor here would be
+	// theatre while those five filters stay open to any member.
 	app.get('/map/profiles/:profileId/activity', options.authContextMiddleware, async (context) => {
 		const profileId = context.req.param('profileId');
 		if (!uuidPattern.test(profileId)) {
@@ -513,9 +441,9 @@ export function registerMapTileRoutes(
 		const { dateFrom, dateTo } = queryResult;
 
 		const organizationId = context.get('authContext').organization.id;
-		// Dates are the agency's, not the database server's: a trap placed at 9pm
-		// belongs to the day the crew worked. Everything timestamped is converted
-		// into this zone before it is filed under a day.
+		// Dates are the organization's, not the database server's: a trap placed at
+		// 9pm belongs to the day the crew worked. Everything timestamped is
+		// converted into this zone before it is filed under a day.
 		const timeZone = resolveOrganizationSettings(
 			await readers.getOrganizationSettings(options.db, { organizationId }),
 		).settings.timezone;
@@ -686,15 +614,15 @@ function registerPagedRoute<TInput, TRow>(
 }
 
 /**
- * A read of one row by id, tenant-scoped.
+ * A read of one row by id, organization-scoped.
  *
  * Thirteen copies, differing in a noun and a reader. The most recently added one
  * was written the same way, which is the argument for this existing: the copy
  * was the path of least resistance.
  *
  * The 404 says "not found" for a row that is not there *and* for one that
- * belongs to another agency — the reader scopes by `organizationId`, so the two
- * are indistinguishable from here, deliberately.
+ * belongs to another organization — the reader scopes by `organizationId`, so
+ * the two are indistinguishable from here, deliberately.
  */
 function registerByIdRoute<TRow>(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -712,7 +640,18 @@ function registerByIdRoute<TRow>(
 		readonly foundNoun?: string;
 		readonly get: (
 			db: TileDb,
-			input: { readonly id: string; readonly organizationId: string },
+			input: {
+				readonly id: string;
+				readonly organizationId: string;
+				/**
+				 * The organization's zone, on every by-id read for the reason
+				 * `PageInput` carries one: the map surfaces share an input shape, and
+				 * which of them reads a zone is a fact about the schema rather than
+				 * about this file. The four readers here that are not surface methods
+				 * ignore it.
+				 */
+				readonly timeZone: string;
+			},
 		) => Promise<TRow | undefined>;
 		/** For the two routes that answer geometry rather than the row. */
 		readonly toResponse?: (row: TRow) => unknown;
@@ -727,7 +666,11 @@ function registerByIdRoute<TRow>(
 		}
 
 		const authContext = context.get('authContext');
-		const row = await route.get(options.db, { id, organizationId: authContext.organization.id });
+		const row = await route.get(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+			timeZone: authContext.timeZone,
+		});
 
 		if (row === undefined) {
 			return context.json(
@@ -749,78 +692,75 @@ function registerByIdRoute<TRow>(
  * tile the map draws and the extent the camera frames. They are declared
  * together because a tileset that framed one filter set while drawing another
  * would look like a map bug and be a wiring bug.
+ *
+ * Keyed by {@link MapTilesetLayer}, `packages/db`'s register of the layer names
+ * its map surfaces declare, so the compiler refuses a key that is not one of
+ * them and demands every one that is. The client register is the half it cannot
+ * reach, and `pnpm check:tileset-keys` is what holds that one; the register's
+ * own header is where the whole mechanism is written down.
  */
 function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSetDefinition> {
-	const tileSets: readonly TileSetDefinition[] = [
-		defineTileSet({
-			key: 'habitats',
+	const tileSets: Record<MapTilesetLayer, TileSetDefinition> = {
+		habitats: defineTileSet({
 			parseFilters: parseHabitatTileFilters,
 			getTile: readers.getHabitatTile,
 			getExtent: readers.getHabitatExtent,
 		}),
-		defineTileSet({
-			key: 'regions',
+		regions: defineTileSet({
 			parseFilters: parseRegionTileFilters,
 			getTile: readers.getRegionTile,
 			getExtent: readers.getRegionExtent,
 		}),
-		defineTileSet({
-			key: 'addresses',
+		addresses: defineTileSet({
 			parseFilters: parseAddressTileFilters,
 			getTile: readers.getAddressTile,
 			getExtent: readers.getAddressExtent,
 		}),
-		defineTileSet({
-			key: 'inspections',
+		inspections: defineTileSet({
 			parseFilters: parseInspectionTileFilters,
 			getTile: readers.getInspectionTile,
 			getExtent: readers.getInspectionExtent,
 		}),
-		defineTileSet({
-			key: 'samples',
+		samples: defineTileSet({
 			parseFilters: parseSampleTileFilters,
 			getTile: readers.getSampleTile,
 			getExtent: readers.getSampleExtent,
 		}),
-		defineTileSet({
-			key: 'chemical',
+		chemical: defineTileSet({
 			parseFilters: parseApplicationMapFilters,
 			getTile: readers.getApplicationTile,
 			getExtent: readers.getApplicationExtent,
 		}),
-		defineTileSet({
-			key: 'source-reduction',
+		'source-reduction': defineTileSet({
 			parseFilters: parseSourceReductionMapFilters,
 			getTile: readers.getSourceReductionTile,
 			getExtent: readers.getSourceReductionExtent,
 		}),
-		defineTileSet({
-			key: 'biocontrol',
+		biocontrol: defineTileSet({
 			parseFilters: parseBiocontrolMapFilters,
 			getTile: readers.getBiocontrolTile,
 			getExtent: readers.getBiocontrolExtent,
 		}),
-		defineTileSet({
-			key: 'outreach',
+		outreach: defineTileSet({
 			parseFilters: parseOutreachMapFilters,
 			getTile: readers.getOutreachTile,
 			getExtent: readers.getOutreachExtent,
 		}),
-		defineTileSet({
-			key: 'traps',
+		traps: defineTileSet({
 			parseFilters: parseTrapMapFilters,
 			getTile: readers.getTrapTile,
 			getExtent: readers.getTrapExtent,
 		}),
-		defineTileSet({
-			key: 'collections',
+		collections: defineTileSet({
 			parseFilters: parseCollectionMapFilters,
 			getTile: readers.getCollectionTile,
 			getExtent: readers.getCollectionExtent,
 		}),
-	];
+	};
 
-	return new Map(tileSets.map((tileSet) => [tileSet.key, tileSet]));
+	// Back to plain string keys: the `:tileset` param is whatever the caller
+	// typed, and a lookup narrowed to the union would have to assert it first.
+	return new Map(Object.entries(tileSets));
 }
 
 /**
@@ -910,10 +850,10 @@ interface PageInput<TFilters> {
 	readonly limit: number;
 	readonly offset: number;
 	/**
-	 * The agency's timezone, on every paged read whether or not its surface reads
-	 * one. Uniform rather than per-surface because the surfaces that need it are
-	 * the ones dated by a `timestamptz`, and which those are is a fact about the
-	 * schema that changes without this file changing.
+	 * The organization's timezone, on every paged read whether or not its surface
+	 * reads one. Uniform rather than per-surface because the surfaces that need
+	 * it are the ones dated by a `timestamptz`, and which those are is a fact
+	 * about the schema that changes without this file changing.
 	 */
 	readonly timeZone: string;
 }
@@ -1344,13 +1284,13 @@ function parseOptionalTextFilter(
 	return { ok: true, value: trimmed };
 }
 
-const inspectionDensitySet = new Set<string>(inspectionDensityValues);
+const inspectionDensitySet = new Set<string>(LARVAL_DENSITIES);
 
 function parseOptionalDensityListFilter(
 	searchParams: URLSearchParams,
 	param: string,
 ):
-	| { readonly ok: true; readonly value: readonly InspectionDensity[] | undefined }
+	| { readonly ok: true; readonly value: readonly LarvalDensity[] | undefined }
 	| { readonly ok: false; readonly reason: string } {
 	const values = searchParams
 		.getAll(param)
@@ -1368,12 +1308,12 @@ function parseOptionalDensityListFilter(
 		if (!inspectionDensitySet.has(value)) {
 			return {
 				ok: false,
-				reason: `${param} must be one of: ${inspectionDensityValues.join(', ')}.`,
+				reason: `${param} must be one of: ${LARVAL_DENSITIES.join(', ')}.`,
 			};
 		}
 	}
 
-	return { ok: true, value: [...new Set(values)] as InspectionDensity[] };
+	return { ok: true, value: [...new Set(values)] as LarvalDensity[] };
 }
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;

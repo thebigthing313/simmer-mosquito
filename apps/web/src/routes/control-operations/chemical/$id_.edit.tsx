@@ -1,10 +1,9 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
@@ -33,7 +32,7 @@ import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-l
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	ApplicationFormPage,
 	type ApplicationFormValues,
@@ -43,7 +42,7 @@ import {
 
 export const Route = createFileRoute('/control-operations/chemical/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/control-operations/chemical/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -71,31 +70,29 @@ function EditApplicationRoute() {
 	// on-demand, so this is status-gated rather than suspending; see the hook.
 	const { application, isReady, isError } = useApplication(id, { gcTime: applicationGcTimeMs });
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="application" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (application === undefined) {
-		return <RecordUnavailable layout="centered" noun="application" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
-		<EditApplicationLoader
-			application={application}
-			applicationMethods={methods}
-			canSubmit={organization !== null && actorProfileId !== null}
-			equipment={equipment}
-			insecticides={insecticides}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			units={units}
-			vehicles={vehicles}
-		/>
+		<RecordEditFrame
+			noun="application"
+			reading={{ isError, isReady, record: application }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditApplicationLoader
+					application={record}
+					applicationMethods={methods}
+					canSubmit={organization !== null && actorProfileId !== null}
+					equipment={equipment}
+					insecticides={insecticides}
+					organizationId={organization?.id ?? ''}
+					profiles={profiles}
+					units={units}
+					vehicles={vehicles}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 
@@ -159,8 +156,7 @@ function EditApplicationLoader({
 			// The shape and the address are independent: only state a location when the
 			// user actually redrew it. Absent means "leave it", which is not the same
 			// request as re-sending the shape it already has.
-			const redrawn =
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const redrawn = geometryChanged && geometry !== null ? geometry : null;
 			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
 			// The batch clearance goes out unanswered and comes back as a refusal only
@@ -242,7 +238,7 @@ function EditApplicationLoader({
 		);
 	}
 	if (geometryQuery.isPending || !personnel.isReady || !batches.isReady) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 	}
 
 	return (
@@ -306,21 +302,4 @@ function defaultsFromApplication(
 
 function nullableSelection(value: string): string | null {
 	return value === noSelectionValue || value === '' ? null : value;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

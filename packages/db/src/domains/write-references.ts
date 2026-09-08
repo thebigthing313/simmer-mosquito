@@ -15,18 +15,18 @@ import { type DeletableRecordType, deletableRecordTable } from './record-deletio
  * Two kinds of reference, one rule apart:
  *
  * - A **catalog** reference qualifies when the row belongs to the writing
- *   agency, is not soft-deleted, and is active.
+ *   organization, is not soft-deleted, and is active.
  * - A **record** reference qualifies on the first two. There is no `is_active`
  *   on an Inspection or an Address, and no meaning for one: an operational
- *   record is not something an agency retires from use.
+ *   record is not something an organization retires from use.
  *
- * The agency half used to be nobody's job for either. A foreign key satisfies
- * itself on the row existing anywhere, so it cannot see `organization_id` and
- * cannot see `deleted_at`. #123 closed that for the catalogs, because its
- * forward gate had to load the row to read `is_active` and refusing another
- * agency's id cost nothing once it had it. #200 is the rest: an Address, a
- * Habitat, a Profile, a Contact still took their id from the payload with
- * nothing checking whose it was.
+ * The organization half used to be nobody's job for either. A foreign key
+ * satisfies itself on the row existing anywhere, so it cannot see
+ * `organization_id` and cannot see `deleted_at`. #123 closed that for the
+ * catalogs, because its forward gate had to load the row to read `is_active`
+ * and refusing another organization's id cost nothing once it had it. #200 is
+ * the rest: an Address, a Habitat, a Profile, a Contact still took their id
+ * from the payload with nothing checking whose it was.
  */
 
 /** The catalogs, as data: the coverage test walks this list. */
@@ -60,18 +60,19 @@ export function catalogRecordTypes(): readonly CatalogRecordType[] {
 /**
  * The tables a command body may name an id in, other than the catalogs.
  *
- * Every one is tenant-owned and soft-deleting, which is what makes the same
- * two-column query answer for it. `write-reference-coverage.integration.test.ts`
- * asks the live schema to confirm both, so a table added here without an
- * `organization_id` fails rather than gating on a column that is not there.
+ * Every one is organization-owned and soft-deleting, which is what makes the
+ * same two-column query answer for it.
+ * `write-reference-coverage.integration.test.ts` asks the live schema to
+ * confirm both, so a table added here without an `organization_id` fails rather
+ * than gating on a column that is not there.
  *
  * Global tables are deliberately absent. `species`, `genera` and `units` have
- * no `organization_id` and are shared by every agency, so there is no tenancy
- * question to ask of them.
+ * no `organization_id` and are shared by every organization, so there is no
+ * organization question to ask of them.
  *
  * So are the two weather tables, for a subtler reason. `weather_sources` and
  * `weather_summaries` carry a *nullable* `organization_id`, kept that way for a
- * provider-owned station with no agency behind it. `organization_id = $1`
+ * provider-owned station with no organization behind it. `organization_id = $1`
  * compares unequal to null, so this gate would refuse a global station rather
  * than allow it. `weather-commands/shared.ts` writes that predicate out itself
  * and every weather writer reads its station through it.
@@ -109,8 +110,9 @@ export function referencedRecordTables(): readonly ReferencedRecordTable[] {
  *
  * Keyed by column rather than by table because the writers hand this the row
  * they are about to write, and a column is what a row has. The schema allows
- * that: no column name in it points at two different tenant-owned tables, which
- * `write-reference-coverage.integration.test.ts` asks Postgres to confirm.
+ * that: no column name in it points at two different organization-owned tables,
+ * which `write-reference-coverage.integration.test.ts` asks Postgres to
+ * confirm.
  *
  * The three attribution columns are deliberately absent. `created_by_profile_id`,
  * `updated_by_profile_id` and `deleted_by_profile_id` are written from the
@@ -199,7 +201,7 @@ export function recordReferencesIn(values: Record<string, unknown>): RecordRefer
 }
 
 /**
- * The values, once every record id in them is one this agency may name.
+ * The values, once every record id in them is one this organization may name.
  *
  * Wraps an insert's own object rather than sitting on the line above it, so the
  * gate and the row it guards cannot drift apart:
@@ -364,9 +366,19 @@ function referenceKey(reference: WriteReference): string {
 /**
  * Which of the references already hold the value stored on the record.
  *
- * One read by primary key. A record that is missing or another agency's returns
- * nothing, so every reference counts as changed and the check runs; the write
- * itself is scoped by `organization_id` and will find no row to update.
+ * One read by primary key. A record that is missing or another organization's
+ * returns nothing, so every reference counts as changed and the check runs; the
+ * write itself is scoped by `organization_id` and will find no row to update.
+ *
+ * The `organization_id` predicate here is deliberately uncovered, and this
+ * paragraph is what says so, because the last two mutation runs both stopped to
+ * ask. #616 changed it and `write-references.integration.test.ts` stayed at 11
+ * passed; #701 confirmed the same number and decided against a case. The
+ * paragraph above is the reason: the write this read serves is already scoped by
+ * organization, so the predicate is a second lock on a door that is shut, and a
+ * case pinning it would pin the lock rather than the door. The scope that does
+ * decide an outcome is `readReferencedRows` below, whose own predicate fails
+ * three cases when it is dropped.
  */
 async function readStoredReferences(
 	db: DbExecutor,

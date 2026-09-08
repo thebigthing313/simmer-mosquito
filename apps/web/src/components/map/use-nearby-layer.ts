@@ -1,3 +1,4 @@
+import { mapContext, mapDomain, mapFamily, mapInteraction } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -6,6 +7,7 @@ import type {
 	Map as MapboxMap,
 } from 'mapbox-gl';
 import { useEffect } from 'react';
+import type { MapSourceGeoJson } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -28,17 +30,50 @@ const POINTS_LAYER_ID = `${SOURCE_ID}-points`;
 const SELECTED_LAYER_ID = `${SOURCE_ID}-selected`;
 const CENTER_LAYER_ID = `${SOURCE_ID}-center`;
 
-/** Family colors (hex approximations of the field-green / survey-purple / operations-blue tokens). */
+/**
+ * This page's three groups, in the shared family hues.
+ *
+ * The values used to be written out here under a comment calling them "hex
+ * approximations" of the family tokens. They were not approximations: they were
+ * `mapFamily`'s three values byte for byte, under three other key names (#618).
+ *
+ * The key names survive because the cut is genuinely this page's own. A service
+ * request is read against the fixed points near it, the visits made near it and
+ * the work done near it, which is not the larval / adult / control split the
+ * register names. The three groups borrow three of the four family hues rather
+ * than inventing a palette, so a habitat is one green on this map and on every
+ * other; which group takes which hue says nothing beyond telling three groups
+ * apart.
+ *
+ * The legend on the service-request detail route reads this same constant, so
+ * a swatch cannot describe a colour the layer is not painting.
+ */
 export const NEARBY_FAMILY_COLORS = {
-	infrastructure: '#1f9d63',
-	surveillance: '#9333a8',
-	control: '#2f56c9',
+	infrastructure: mapFamily.larval,
+	surveillance: mapFamily.adult,
+	control: mapFamily.control,
 } as const;
 
-const CENTER_COLOR = '#e0a92e';
-const CENTER_STROKE = '#3a2c05';
-const RING_COLOR = '#d9a441';
-const SELECTED_RING = '#0c1b12';
+/**
+ * The rest of what this overlay paints.
+ *
+ * Each of these was a local hex, and between them they made amber mean three
+ * things on one screen: the request, the radius around it, and (in near-black)
+ * the record the operator had picked. Each now reads the role the register
+ * already had a name for, so every colour on this map means one thing.
+ *
+ * The request is drawn in its own family mark, because that is what it is; the
+ * radius is drawn as context, because it is ground rather than a record; and
+ * selection is amber, like selection everywhere else.
+ */
+const colors = {
+	center: mapFamily.publicEngagement,
+	centerStroke: mapDomain.outreachLine,
+	ring: mapContext.outline,
+	ringFill: mapContext.fill,
+	selected: mapInteraction.selected,
+	pointStroke: mapInteraction.pointStroke,
+} as const;
 
 const NO_SELECTION = '__no-selection__';
 
@@ -55,7 +90,7 @@ const familyColor: ExpressionSpecification = [
 	NEARBY_FAMILY_COLORS.surveillance,
 	'control',
 	NEARBY_FAMILY_COLORS.control,
-	'#6b7280',
+	mapInteraction.fallback,
 ];
 
 /**
@@ -72,7 +107,7 @@ function selectedFilter(selectedIds: readonly string[]): ExpressionSpecification
 
 export interface NearbyLayerConfig {
 	/** Ring + center + nearby features, each tagged with a `role` property. */
-	readonly data: GeoJSON.GeoJSON | null;
+	readonly data: MapSourceGeoJson | null;
 	/** Currently selected nearby record ids; drives the on-map highlight. */
 	readonly selectedIds?: readonly string[];
 	/** Fired with a nearby record id on click, or null when clicking empty map. */
@@ -90,14 +125,14 @@ function nearbyLayers(): (
 			type: 'fill',
 			source: SOURCE_ID,
 			filter: ringOnly,
-			paint: { 'fill-color': RING_COLOR, 'fill-opacity': 0.06 },
+			paint: { 'fill-color': colors.ringFill, 'fill-opacity': 0.06 },
 		},
 		{
 			id: RING_LINE_LAYER_ID,
 			type: 'line',
 			source: SOURCE_ID,
 			filter: ringOnly,
-			paint: { 'line-color': RING_COLOR, 'line-width': 1.5, 'line-dasharray': [2, 2] },
+			paint: { 'line-color': colors.ring, 'line-width': 1.5, 'line-dasharray': [2, 2] },
 		},
 		{
 			id: POINTS_LAYER_ID,
@@ -107,7 +142,7 @@ function nearbyLayers(): (
 			paint: {
 				'circle-color': familyColor,
 				'circle-radius': 6,
-				'circle-stroke-color': '#ffffff',
+				'circle-stroke-color': colors.pointStroke,
 				'circle-stroke-width': 1.5,
 			},
 		},
@@ -120,7 +155,7 @@ function nearbyLayers(): (
 			paint: {
 				'circle-color': 'rgba(0,0,0,0)',
 				'circle-radius': 10,
-				'circle-stroke-color': SELECTED_RING,
+				'circle-stroke-color': colors.selected,
 				'circle-stroke-width': 2.5,
 			},
 		},
@@ -131,9 +166,9 @@ function nearbyLayers(): (
 			source: SOURCE_ID,
 			filter: centerOnly,
 			paint: {
-				'circle-color': CENTER_COLOR,
+				'circle-color': colors.center,
 				'circle-radius': 8,
-				'circle-stroke-color': CENTER_STROKE,
+				'circle-stroke-color': colors.centerStroke,
 				'circle-stroke-width': 2.5,
 			},
 		},

@@ -8,15 +8,16 @@
  *
  * The last is the one with a wrong answer that looks right. A summary records
  * weather that already happened, so its bucket cannot end after today, and
- * "today" is the agency's calendar day, not the server's. Checked against UTC, a
- * California agency entering the afternoon's rain at 5pm local is submitting
- * tomorrow, and gets refused for a date it is standing in.
+ * "today" is the organization's calendar day, not the server's. Checked against
+ * UTC, a California organization entering the afternoon's rain at 5pm local is
+ * submitting tomorrow, and gets refused for a date it is standing in.
  */
 
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { CommandTable } from '../../../command-payload.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import {
@@ -31,10 +32,13 @@ const STATION = '44444444-4444-4444-8444-444444444444';
 
 const PIN = { type: 'Point', coordinates: [-121.49, 38.58] };
 
-function request(payload: Record<string, unknown>, timeZone = 'America/New_York'): IntentRequest {
+function request(
+	payload: Record<string, unknown>,
+	timeZone = 'America/New_York',
+): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings: null },
 			profile: { id: ACTOR },
@@ -46,9 +50,9 @@ function request(payload: Record<string, unknown>, timeZone = 'America/New_York'
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
-	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
+	intent: OrganizationCommandType,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {
@@ -89,9 +93,9 @@ describe('weather stations', () => {
 			request({ source_name: 'North Gauge', source_code: '   ', geometry: PIN }),
 		);
 
-		// The column is unique per agency where it is non-null, so a station saved
-		// with a blank code field must not claim the empty string, the second one
-		// saved that way would collide with the first.
+		// The column is unique per organization where it is non-null, so a station
+		// saved with a blank code field must not claim the empty string, the second
+		// one saved that way would collide with the first.
 		expect(command.payload).toMatchObject({ stationCode: null });
 	});
 
@@ -216,7 +220,7 @@ describe('weather summaries', () => {
 		expect(changesOf(command)).toEqual({ precipitationInches: 1.25 });
 	});
 
-	it('refuses a bucket that ends after today in the agency zone', () => {
+	it('refuses a bucket that ends after today in the organization zone', () => {
 		const tomorrow = daysFromNow(2);
 
 		expect(() =>
@@ -234,16 +238,16 @@ describe('weather summaries', () => {
 	});
 
 	/**
-	 * The zone has to be the agency's, and this is what proves it is not the
-	 * server's.
+	 * The zone has to be the organization's, and this is what proves it is not
+	 * the server's.
 	 *
 	 * At 06:00 UTC the calendar has already turned in Auckland and has not yet
-	 * turned in Los Angeles, so one and the same date is today for one agency and
-	 * tomorrow for the other. A check against UTC, or against whichever zone the
-	 * test machine happens to sit in, cannot tell those two apart, and would pass
-	 * this on some machines and fail it on others.
+	 * turned in Los Angeles, so one and the same date is today for one
+	 * organization and tomorrow for the other. A check against UTC, or against
+	 * whichever zone the test machine happens to sit in, cannot tell those two
+	 * apart, and would pass this on some machines and fail it on others.
 	 */
-	it('reads today from the agency zone rather than the server clock', () => {
+	it('reads today from the organization zone rather than the server clock', () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-06-15T06:00:00.000Z'));
 

@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
@@ -23,7 +22,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { todayInTimeZone } from '../-overview-data';
 import {
 	CollectionFormPage,
@@ -31,6 +30,7 @@ import {
 	type CollectionSaveInput,
 	collectionFieldsFrom,
 	defaultCollectionFormValues,
+	isCollectionLocation,
 } from './-collection-form';
 
 const createCollectionSearchSchema = z.object({
@@ -68,7 +68,7 @@ export const Route = createFileRoute('/adult-surveillance/collections/create')({
 	// schema is not known yet — which erases `trapId` from `Route.useSearch()`.
 	validateSearch: (search) => createCollectionSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/collections/create')) {
 			throw redirect({ replace: true, to: '/adult-surveillance/collections' });
 		}
 	},
@@ -121,7 +121,7 @@ function CreateCollectionRoute() {
 				const centroid =
 					isTrap && trap !== null
 						? { lat: trap.latitude, lng: trap.longitude, geomType: 'point' }
-						: geometry !== null && geometry.type === 'Point'
+						: geometry !== null && isCollectionLocation(geometry)
 							? {
 									lat: geometry.coordinates[1],
 									lng: geometry.coordinates[0],
@@ -238,5 +238,5 @@ function placementFor(input: {
 	if (input.geometry === null) {
 		throw new Error('Unable to determine the collection location.');
 	}
-	return { kind: 'adhoc', geometry: input.geometry as unknown as GeoJsonGeometry };
+	return { kind: 'adhoc', geometry: input.geometry };
 }

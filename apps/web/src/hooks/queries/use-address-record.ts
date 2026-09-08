@@ -45,7 +45,7 @@ export function useAddressRecord(addressId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: addresses })
+					.from({ address: addresses() })
 					.where(({ address }) => eq(address.id, id))
 					.select(({ address }) => ({
 						id: address.id,

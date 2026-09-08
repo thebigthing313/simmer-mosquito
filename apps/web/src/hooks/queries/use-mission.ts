@@ -33,7 +33,7 @@ export function useMission(missionId: string | null): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ mission: missions })
+					.from({ mission: missions() })
 					.where(({ mission }) => eq(mission.id, missionId ?? unmatchableId))
 					.select(({ mission }) => ({
 						id: mission.id,

@@ -1,13 +1,4 @@
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -31,6 +22,7 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -45,8 +37,8 @@ import {
 	usePeopleDirectory,
 } from '../../../hooks/queries/use-people-directory';
 import { errorMessageForSave } from '../../../lib/save-error';
-import { canManageRoles, canRemoveMember, grantableRoles } from '../../../lib/write-access';
-import { AddIcon, CloseIcon, DeleteIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
+import { canManageRoles, grantableRoles } from '../../../lib/write-access';
+import { AddIcon, CloseIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
 import {
 	formatRole,
 	requiredTextValue,
@@ -238,9 +230,16 @@ function ProfileRowItem({
 		<article className="grid min-w-0 items-start gap-3 rounded-md border border-border/40 bg-card px-3 py-2.5 md:grid-cols-[minmax(220px,1fr)_auto]">
 			<div className="grid min-w-0 gap-1">
 				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<span className="font-medium wrap-anywhere text-sm leading-snug text-foreground">
+					{/* A Profile has no detail page of its own, so the name goes where the
+					    row action goes. Same absence of gates: every member may read
+					    Daily Work, and a deactivated Profile still has records behind it. */}
+					<Link
+						className={cn(recordLink({ size: 'sm' }), 'w-fit wrap-anywhere leading-snug')}
+						params={{ profileId: person.profileId }}
+						to="/daily-work/$profileId"
+					>
 						{person.displayName}
-					</span>
+					</Link>
 					<Badge tone={person.isActive ? 'success' : 'neutral'} variant="outline">
 						{person.isActive ? 'Active' : 'Inactive'}
 					</Badge>
@@ -257,7 +256,7 @@ function ProfileRowItem({
 					)}
 				</div>
 				<p className="m-0 text-sm leading-snug text-muted-foreground">
-					{person.email ?? 'No login link'}
+					{person.email ?? 'No email'}
 				</p>
 			</div>
 			{/* One grid cell, however many actions: the article's second column is
@@ -265,11 +264,12 @@ function ProfileRowItem({
 			    its own. */}
 			<div className="flex items-center gap-2">
 				{/* Straight from the roster to this person's day. Not gated on
-				    `canManage`: agency records are readable by anyone in the agency,
-				    and the Activity Monitor is an ordinary agency read. */}
+				    `canManage`, and not on `isActive` either: a deactivated Profile
+				    still has a day's worth of records behind it, and Daily Work is an
+				    ordinary Organization read that any member may make. */}
 				<Button asChild size="sm" variant="outline">
-					<Link search={{ profile: person.profileId }} to="/activity-monitor">
-						Activity
+					<Link params={{ profileId: person.profileId }} to="/daily-work/$profileId">
+						Daily Work
 					</Link>
 				</Button>
 				{canManage ? (

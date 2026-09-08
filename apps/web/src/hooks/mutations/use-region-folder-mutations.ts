@@ -47,7 +47,7 @@ export function useRegionFolderMutations(): RegionFolderMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(region_folders, {
+				mutateCollection(region_folders(), {
 					operation: 'insert',
 					intent: 'foundation.createRegionFolder',
 					row: {
@@ -75,7 +75,7 @@ export function useRegionFolderMutations(): RegionFolderMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(region_folders, {
+				mutateCollection(region_folders(), {
 					operation: 'update',
 					intent: 'foundation.updateRegionFolder',
 					key: folderId,

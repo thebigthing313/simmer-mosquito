@@ -16,7 +16,7 @@ function MyOrganizationKeyBindingsRoute() {
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
-				editDescription="Assign a key to each species this agency identifies."
+				editDescription="Assign a key to each species you identify."
 				fields={[]}
 				id="key-bindings"
 				meta="Keys for tallying species during adult and larval identification"

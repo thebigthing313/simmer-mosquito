@@ -1,4 +1,9 @@
-import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
+import {
+	SPECIES_SEXES,
+	SPECIES_STATUSES,
+	type SpeciesSex,
+	type SpeciesStatus,
+} from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { todayInTimeZone } from '../../lib/local-date';
 import { formatDate, formatWeekdayDate } from './-overview-data';
@@ -15,11 +20,12 @@ import { formatDate, formatWeekdayDate } from './-overview-data';
  * and always leaves `collectedAt` null. Reading only `collectedAt` mislabels
  * every date+duration collection as "Pending", so fall back to `collectionDate`.
  *
- * The instant becomes a day in the *agency's* zone, matching how the server
- * windows and orders these rows (`collectionEffectiveDateExpr`). Returning the
- * raw timestamp let every caller take its UTC prefix, so a trap emptied at
- * 10:30pm read as the next day on screen while the server filed it under the day
- * the crew worked — the two halves of the same record disagreeing.
+ * The instant becomes a day in the *organization's* zone, matching how the
+ * server windows and orders these rows (`collectionEffectiveDateExpr`).
+ * Returning the raw timestamp let every caller take its UTC prefix, so a trap
+ * emptied at 10:30pm read as the next day on screen while the server filed it
+ * under the day the crew worked — the two halves of the same record
+ * disagreeing.
  *
  * `collectedAt` is taken as a `Date` or a string because the two read paths spell
  * it differently: the query hooks in `hooks/queries` hand up the `Date` the row
@@ -88,9 +94,9 @@ type Tone = 'neutral' | 'info' | 'catalog' | 'warning' | 'danger' | 'success';
 /**
  * Sex is categorical, not a status, so it reads on the two non-status tones:
  * `catalog` (pink) for female and `info` (blue) for male. Females are what the
- * agency acts on — they are the biters, the ones tested for virus, the ones
- * driving thresholds — so they take the tone that stands out against a table of
- * neutral rows.
+ * organization acts on — they are the biters, the ones tested for virus, the
+ * ones driving thresholds — so they take the tone that stands out against a
+ * table of neutral rows.
  */
 const sexMeta: Record<SpeciesSex, { readonly label: string; readonly tone: Tone }> = {
 	female: { label: 'Female', tone: 'catalog' },
@@ -138,12 +144,16 @@ export function SpeciesStatusBadge({ status }: { readonly status: SpeciesStatus 
 	);
 }
 
-/** Ordered option lists, low → high salience, for form selects. */
-export const SPECIES_SEX_VALUES: readonly SpeciesSex[] = ['female', 'male'];
+/**
+ * Ordered option lists for form selects, low to high salience, which is not the
+ * order the column stores.
+ *
+ * Female first because a male is not what a count is usually after, and
+ * `damaged` last because it is the outcome rather than a physiological state.
+ */
+export const SPECIES_SEX_VALUES: readonly SpeciesSex[] = [...SPECIES_SEXES].reverse();
 export const SPECIES_STATUS_VALUES: readonly SpeciesStatus[] = [
-	'unfed',
-	'bloodfed',
-	'gravid',
+	...SPECIES_STATUSES.filter((status) => status !== 'damaged'),
 	'damaged',
 ];
 
@@ -304,7 +314,7 @@ export function SpeciesDistributionBars({
 						<div className="flex items-baseline justify-between gap-2 text-sm">
 							<span className="truncate text-foreground italic">{entry.name}</span>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-								{entry.total.toLocaleString()} · {percent.toFixed(0)}%
+								{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
 							</span>
 						</div>
 						<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

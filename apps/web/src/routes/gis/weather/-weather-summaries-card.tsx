@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -30,13 +31,15 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { WriteOnly } from '../../../components/write-only';
 import { useWeatherSummaryMutations } from '../../../hooks/mutations/use-weather-summary-mutations';
 import {
 	useWeatherSummaries,
+	useWeatherSummaryYears,
 	type WeatherSummaryListing,
 } from '../../../hooks/queries/use-weather-summaries';
 import { formatMeasure, formatRange, summaryPeriodLabel } from './-weather-display';
@@ -48,13 +51,22 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 const ImportIcon = iconRegistry.actions.upload.icon;
 
 /**
- * A station's readings, and the three ways to change them.
+ * A station's readings, a year at a time, and the three ways to change them.
  *
- * The card is also what keeps the write path working. `weather_summaries` is an
- * on-demand collection, and a write into a subset nothing is querying waits out a
- * txid confirmation that never arrives, so the dialog is mounted inside the page
- * that is already querying this station's summaries rather than on a route of its
- * own.
+ * ## Why a year at a time
+ *
+ * A station logged daily for ten years is 3,650 readings, and the card used to
+ * put all of them in one table. The tabs are the years the station has readings
+ * in, newest first, and the table under them is one year's.
+ *
+ * ## Why the tab follows the write
+ *
+ * `weather_summaries` is on-demand, and a write into a subset the live query
+ * does not cover waits out a txid that never arrives on it. `settleWrite`
+ * swallows that five-second timeout, so it is a slow save over a row the user
+ * cannot see rather than a failure, and moving the tab to the written year fixes
+ * both. This is also why the dialog is mounted here rather than on a route of
+ * its own: the card is what keeps the station's subset queried at all.
  */
 export function WeatherSummariesCard({
 	stationId,
@@ -63,7 +75,9 @@ export function WeatherSummariesCard({
 	readonly stationId: string;
 	readonly isStationActive: boolean;
 }) {
-	const { summaries, isReady, isError } = useWeatherSummaries(stationId);
+	const { years, isReady: yearsReady, isError: yearsError } = useWeatherSummaryYears(stationId);
+	const { activeYear, tabYears, chooseYear } = useActiveYear(stationId, years);
+	const { summaries, isReady, isError } = useWeatherSummaries(stationId, activeYear);
 	const mutations = useWeatherSummaryMutations();
 	const [editing, setEditing] = useState<{ readonly summary: WeatherSummaryListing | null } | null>(
 		null,
@@ -85,46 +99,35 @@ export function WeatherSummariesCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
-				<CardTitle>Recent Summaries</CardTitle>
+			<CardHeader padding="compact" className="flex flex-wrap items-center justify-between gap-2">
+				<CardTitle>Summaries</CardTitle>
 				<SummaryActions
 					isStationActive={isStationActive}
 					onRecord={() => setEditing({ summary: null })}
 					stationId={stationId}
 				/>
 			</CardHeader>
-			<CardContent padding="compact">
+			<CardContent className="grid gap-3" padding="compact">
 				{removeError === null ? null : (
-					<p className="m-0 mb-3 text-destructive text-sm">{removeError}</p>
+					<p className="m-0 text-destructive text-sm">{removeError}</p>
 				)}
-				{isError ? (
-					<SummariesEmpty
-						description="Weather summaries could not be loaded. Try again shortly."
-						title="Summaries Unavailable"
-					/>
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1, 2].map((index) => (
-							<Skeleton className="h-10 w-full" key={index} />
-						))}
-					</div>
-				) : summaries.length === 0 ? (
-					<SummariesEmpty
-						description="No weather summaries have been recorded for this station yet."
-						title="No Summaries"
-					/>
-				) : (
-					<SummariesTable
-						onEdit={(summary) => setEditing({ summary })}
-						onRemove={setConfirming}
-						summaries={summaries}
-					/>
+				{tabYears.length < 2 ? null : (
+					<YearTabs onChange={chooseYear} value={activeYear} years={tabYears} />
 				)}
+				<SummariesBody
+					isError={isError || yearsError}
+					isReady={isReady && yearsReady}
+					onEdit={(summary) => setEditing({ summary })}
+					onRemove={setConfirming}
+					summaries={summaries}
+					year={activeYear}
+				/>
 			</CardContent>
 
 			{editing === null ? null : (
 				<WeatherSummaryDialog
 					onClose={() => setEditing(null)}
+					onWriteYear={chooseYear}
 					stationId={stationId}
 					summary={editing.summary}
 				/>
@@ -145,7 +148,135 @@ export function WeatherSummariesCard({
 	);
 }
 
-/** Import a file, or record one reading by hand. */
+/**
+ * Which year the card is showing, and which years it offers.
+ *
+ * The station rides along with the chosen year because the router keeps the card
+ * mounted across a move from one station to another, and 2019 chosen on one
+ * station is not a year the next one has.
+ */
+function useActiveYear(
+	stationId: string,
+	years: readonly number[],
+): {
+	/** The newest year until the user picks one, and the picked year after that. */
+	readonly activeYear: number | null;
+	readonly tabYears: readonly number[];
+	readonly chooseYear: (year: number) => void;
+} {
+	const [chosen, setChosen] = useState<{
+		readonly stationId: string;
+		readonly year: number;
+	} | null>(null);
+	const chosenYear = chosen?.stationId === stationId ? chosen.year : null;
+
+	return {
+		activeYear: chosenYear ?? years[0] ?? null,
+		tabYears: useMemo(() => tabbedYears(years, chosenYear), [years, chosenYear]),
+		chooseYear: useCallback((year: number) => setChosen({ stationId, year }), [stationId]),
+	};
+}
+
+/**
+ * The four states one year of readings can be in.
+ *
+ * Its own component so the card above it is the header, the tabs and the two
+ * dialogs, which is the shape every record surface in the app has.
+ */
+function SummariesBody({
+	isError,
+	isReady,
+	summaries,
+	year,
+	onEdit,
+	onRemove,
+}: {
+	readonly isError: boolean;
+	readonly isReady: boolean;
+	readonly summaries: readonly WeatherSummaryListing[];
+	readonly year: number | null;
+	readonly onEdit: (summary: WeatherSummaryListing) => void;
+	readonly onRemove: (summary: WeatherSummaryListing) => void;
+}) {
+	if (isError) {
+		return (
+			<SummariesEmpty
+				description="Weather summaries could not be loaded. Try again shortly."
+				title="Summaries Unavailable"
+			/>
+		);
+	}
+	if (!isReady) {
+		return (
+			<div className="grid gap-2">
+				{[0, 1, 2].map((index) => (
+					<Skeleton className="h-10 w-full" key={index} />
+				))}
+			</div>
+		);
+	}
+	if (summaries.length === 0) {
+		return (
+			<SummariesEmpty
+				description={
+					year === null
+						? 'No weather summaries have been recorded for this station yet.'
+						: `Nothing was recorded at this station in ${year}.`
+				}
+				title="No Summaries"
+			/>
+		);
+	}
+	return <SummariesTable onEdit={onEdit} onRemove={onRemove} summaries={summaries} />;
+}
+
+/**
+ * The years the tabs offer.
+ *
+ * The years the station has readings in, plus the one the user is looking at.
+ * The second half is for the moment after a write into a year that had none: the
+ * optimistic row lands in the collection immediately, but a refused or failed
+ * write never does, and a tab that vanished under the user would take the empty
+ * state with it.
+ */
+export function tabbedYears(years: readonly number[], chosen: number | null): readonly number[] {
+	if (chosen === null || years.includes(chosen)) {
+		return years;
+	}
+	return [...years, chosen].sort((left, right) => right - left);
+}
+
+/**
+ * One tab per year, newest first.
+ *
+ * Drawn only when there are two, because a single tab is a label that looks
+ * pressable. One sideways-scrolling row rather than the wrapping `line` variant,
+ * which breaks over a decade of years.
+ */
+function YearTabs({
+	years,
+	value,
+	onChange,
+}: {
+	readonly years: readonly number[];
+	readonly value: number | null;
+	readonly onChange: (year: number) => void;
+}) {
+	return (
+		<Tabs onValueChange={(next) => onChange(Number(next))} value={String(value ?? '')}>
+			<div className="-mx-1 overflow-x-auto px-1">
+				<TabsList aria-label="Year">
+					{years.map((year) => (
+						<TabsTrigger key={year} value={String(year)}>
+							{year}
+						</TabsTrigger>
+					))}
+				</TabsList>
+			</div>
+		</Tabs>
+	);
+}
+
 /**
  * The question a hard delete has to ask.
  *
@@ -182,6 +313,7 @@ function ConfirmSummaryDelete({
 	);
 }
 
+/** Import a file, or record one reading by hand. */
 function SummaryActions({
 	stationId,
 	isStationActive,
@@ -217,13 +349,7 @@ function SummaryActions({
 	);
 }
 
-/**
- * The readings themselves.
- *
- * Its own component so the card above it is the three states, loading, empty,
- * loaded, and nothing else, which is the shape every record surface in the app
- * has.
- */
+/** The readings themselves. */
 function SummariesTable({
 	summaries,
 	onEdit,
@@ -253,16 +379,22 @@ function SummariesTable({
 								{summaryPeriodLabel(summary)}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatRange(summary.temperatureMinF, summary.temperatureMaxF, '')}
+								{formatRange(summary.temperatureMinF, summary.temperatureMaxF, '') ?? (
+									<AbsentValue />
+								)}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatMeasure(summary.precipitationInches, '')}
+								{formatMeasure(summary.precipitationInches, '') ?? <AbsentValue />}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatRange(summary.relativeHumidityMin, summary.relativeHumidityMax, '')}
+								{formatRange(summary.relativeHumidityMin, summary.relativeHumidityMax, '') ?? (
+									<AbsentValue />
+								)}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatRange(summary.windSpeedMinMph, summary.windSpeedMaxMph, '')}
+								{formatRange(summary.windSpeedMinMph, summary.windSpeedMaxMph, '') ?? (
+									<AbsentValue />
+								)}
 							</TableCell>
 							<TableCell className="text-right">
 								<WriteOnly minimum="manager">

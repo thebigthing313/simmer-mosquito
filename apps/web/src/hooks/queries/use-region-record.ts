@@ -40,7 +40,7 @@ export function useRegionRecord(regionId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ region: regions })
+					.from({ region: regions() })
 					.where(({ region }) => eq(region.id, id))
 					.select(({ region }) => ({
 						id: region.id,

@@ -1,17 +1,23 @@
 import {
-	createIssues,
+	basePayload,
+	normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	throwIfIssues,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
-	basePayload,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
-	normalizeNullableText,
-	validateIdCommand,
 	validateSampleBase,
 } from './shared.js';
 
@@ -43,16 +49,20 @@ export type AddUnlabeledInspectionSampleCommand = LarvalDomainCommand<
 	}
 >;
 
-export interface UpdateInspectionSampleCommandInput extends LarvalCommandInput {
-	readonly sampleId: DomainId;
-	readonly displayName?: string;
-}
+export const INSPECTION_SAMPLE_UPDATE_FIELDS = {
+	displayName: requiredTextField(),
+} satisfies UpdateFieldSet;
+
+export type UpdateInspectionSampleCommandInput = LarvalCommandInput &
+	UpdateFieldsInput<typeof INSPECTION_SAMPLE_UPDATE_FIELDS> & {
+		readonly sampleId: DomainId;
+	};
 
 export type UpdateInspectionSampleCommand = LarvalDomainCommand<
 	'larvalSurveillance.updateInspectionSample',
 	LarvalCommandPayload & {
 		readonly sampleId: DomainId;
-		readonly changes: Readonly<{ readonly displayName?: string }>;
+		readonly changes: UpdateFieldsChanges<typeof INSPECTION_SAMPLE_UPDATE_FIELDS>;
 	}
 >;
 
@@ -142,28 +152,15 @@ export function addUnlabeledInspectionSampleCommand(
 export function updateInspectionSampleCommand(
 	input: UpdateInspectionSampleCommandInput,
 ): UpdateInspectionSampleCommand {
-	const issues = createIssues();
-	const idIssues = validateIdCommand(input, 'sampleId');
-	issues.push(...idIssues);
-	const hasDisplayName = input.displayName !== undefined;
-	if (!hasDisplayName) {
-		issues.push({ path: 'changes', message: 'At least one sample field must change.' });
-	}
-	const displayName = hasDisplayName
-		? normalizeRequiredText(input.displayName, 'displayName', issues)
-		: undefined;
-	throwIfIssues('Update inspection sample command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'larvalSurveillance.updateInspectionSample',
-		payload: {
-			...basePayload(input),
-			sampleId: normalizeRequiredId(input.sampleId),
-			changes: {
-				...(displayName !== undefined ? { displayName } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'sampleId',
+		fields: INSPECTION_SAMPLE_UPDATE_FIELDS,
+		changeNoun: 'sample',
+		emptyChangeMessage: 'At least one sample field must change.',
+		message: 'Update inspection sample command is invalid.',
+	});
 }
 
 export function deleteInspectionSampleCommand(

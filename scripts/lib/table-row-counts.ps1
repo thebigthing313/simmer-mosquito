@@ -33,7 +33,7 @@ order by c.relname;
 # in only once someone has read the restore output and understands why that
 # table differs on a healthy run.
 $PublicTableRowCountExemptions = @{
-	'spatial_ref_sys' = 'PostGIS projection definitions. `create extension postgis` writes them and the dump carries them again as extension config data, so the restore collides with itself there. It holds no agency data whatever the count comes to.'
+	'spatial_ref_sys' = 'PostGIS projection definitions. `create extension postgis` writes them and the dump carries them again as extension config data, so the restore collides with itself there. It holds no organization data whatever the count comes to.'
 }
 
 # Turn `name|count` lines from `psql -A -t -F '|'` into a name -> count map.

@@ -6,9 +6,9 @@
  * formulations — and then counted the active ones in JavaScript.
  *
  * Five `count()` aggregates instead. The aggregate is computed in the query
- * pipeline, so a catalog that gains a row emits one changed number rather than a
- * new array of every row in the table; and the filter is a predicate, so an
- * agency's retired methods are never materialized at all.
+ * pipeline, so a catalog that gains a row emits one changed number rather than
+ * a new array of every row in the table; and the filter is a predicate, so an
+ * organization's retired methods are never materialized at all.
  */
 
 import type { Collection } from '@tanstack/db';
@@ -29,11 +29,11 @@ export interface ControlCatalogCounts {
 
 export function useControlCatalogCounts(): ControlCatalogCounts {
 	return {
-		applicationMethods: useActiveCount(application_methods),
-		insecticides: useActiveCount(insecticides),
-		formulations: useActiveCount(formulations),
-		sourceReductionMethods: useActiveCount(source_reduction_methods),
-		biocontrolMethods: useActiveCount(biocontrol_methods),
+		applicationMethods: useActiveCount(application_methods()),
+		insecticides: useActiveCount(insecticides()),
+		formulations: useActiveCount(formulations()),
+		sourceReductionMethods: useActiveCount(source_reduction_methods()),
+		biocontrolMethods: useActiveCount(biocontrol_methods()),
 	};
 }
 

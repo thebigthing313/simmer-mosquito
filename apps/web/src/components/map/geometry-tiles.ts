@@ -66,7 +66,7 @@ export function interactiveLayerIds(sourceId: string): readonly string[] {
 }
 
 /** The highlight layers, drawn above the base stack. */
-export function selectedLayerIds(sourceId: string): readonly string[] {
+function selectedLayerIds(sourceId: string): readonly string[] {
 	return [
 		`${sourceId}-selected-fill`,
 		`${sourceId}-selected-outline`,

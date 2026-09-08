@@ -1,9 +1,7 @@
-import type { GeoJsonGeometry, GeoJsonPolygon } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
 	type RegionFolderListing,
@@ -11,9 +9,10 @@ import {
 } from '../../../hooks/queries/use-region-folders';
 import { type RegionRecord, useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-region-geometry';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
+	isRegionBoundary,
 	noRegionFolderValue,
 	RegionFormPage,
 	type RegionFormValues,
@@ -22,7 +21,7 @@ import {
 
 export const Route = createFileRoute('/gis/regions/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/regions/$id/edit')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/regions/$id' });
 		}
 	},
@@ -35,20 +34,32 @@ function EditRegionRoute() {
 	const { region, isReady, isError } = useRegionRecord(id);
 	const geometryQuery = useRegionGeometry(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="region" reason="error" />;
-	}
-	if (!isReady || geometryQuery.isLoading) {
-		return <EditFormSkeleton />;
-	}
-	if (region === undefined) {
-		return <RecordUnavailable layout="centered" noun="region" reason="not-found" />;
-	}
-
+	// What reaches here is already one of the shapes a Region may store, checked in
+	// `useRegionGeometry`'s fetch (#761). The cast that is left is not a claim about
+	// the shape: `DrawGeometry` holds two-element positions and a stored geometry
+	// may carry an altitude, which is `toDrawGeometry`'s business and the draw
+	// flow's, not this seam's.
 	const initialGeometry = (geometryQuery.data?.geojson ?? null) as DrawGeometry | null;
+	const skeleton = <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 
 	return (
-		<EditRegionLoader initialGeometry={initialGeometry} region={region} regionFolders={folders} />
+		<RecordEditFrame
+			noun="region"
+			reading={{ isError, isReady, record: region }}
+			skeleton={skeleton}
+		>
+			{(record) =>
+				geometryQuery.isLoading ? (
+					skeleton
+				) : (
+					<EditRegionLoader
+						initialGeometry={initialGeometry}
+						region={record}
+						regionFolders={folders}
+					/>
+				)
+			}
+		</RecordEditFrame>
 	);
 }
 
@@ -78,9 +89,7 @@ function EditRegionLoader({
 			// `null` unless the user actually redrew it: the form holds the boundary it
 			// loaded, and sending that back names a command with nothing to change.
 			const boundary =
-				geometryChanged && geometry !== null && geometry.type === 'Polygon'
-					? (geometry as unknown as GeoJsonPolygon)
-					: null;
+				geometryChanged && geometry !== null && isRegionBoundary(geometry) ? geometry : null;
 
 			// `current` comes back through the same round trip as the edited values, so
 			// a field nobody touched compares equal to itself and the save names only
@@ -92,7 +101,7 @@ function EditRegionLoader({
 				geometry: boundary,
 			});
 			if (boundary !== null) {
-				seedRegionGeometryCache(queryClient, region.id, boundary as unknown as GeoJsonGeometry);
+				seedRegionGeometryCache(queryClient, region.id, boundary);
 			}
 			await navigate({ to: '/gis/regions/$id', params: { id: region.id } });
 		},
@@ -126,21 +135,4 @@ function formValuesFrom(region: RegionRecord): RegionFormValues {
 		description: region.description ?? '',
 		metadata: (region.metadata ?? null) as RegionFormValues['metadata'],
 	};
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

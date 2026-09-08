@@ -1,5 +1,5 @@
+import type { ControlType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlType } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -19,6 +19,8 @@ import {
 } from '../../hooks/queries/use-catalog-rosters';
 import { useMissionStops } from '../../hooks/queries/use-mission-stops';
 import { addressPrimaryLabel } from '../../lib/address-format';
+import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
+import { unreadable } from '../../lib/unreadable-input';
 
 /**
  * The reads and writes behind the operations section — requested control actions
@@ -204,19 +206,16 @@ export interface MissionStopView {
  * west of Greenwich renders it as the 3rd. Rebuilt in UTC, where it cannot move.
  */
 export function formatOperationalDate(value: string): string {
-	const parts = value.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return value;
+	const parts = calendarDateParts(value);
+	if (parts === undefined) {
+		return unreadable('formatOperationalDate', value);
 	}
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',
 		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(year, month - 1, day)));
+	}).format(utcCalendarDay(parts));
 }
 
 // --- reads ------------------------------------------------------------------
@@ -271,7 +270,7 @@ async function fetchMissionItemGeometry(
 	signal: AbortSignal,
 ): Promise<readonly { readonly id: string; readonly geojson: GeoJsonGeometry }[]> {
 	const url = new URL(`/map/missions/${missionId}/items`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
 		return [];
 	}

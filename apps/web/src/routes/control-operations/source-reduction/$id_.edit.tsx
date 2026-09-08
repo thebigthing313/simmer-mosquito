@@ -1,9 +1,8 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
@@ -23,7 +22,7 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	noTechnicianValue,
 	SourceReductionFormPage,
@@ -36,7 +35,7 @@ const sourceReductionGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/control-operations/source-reduction/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -61,42 +60,27 @@ function EditSourceReductionRoute() {
 		isError,
 	} = useSourceReduction(id, { gcTime: sourceReductionGcTimeMs });
 
-	if (isError) {
-		return (
-			<RecordUnavailable
-				layout="centered"
-				noun="source reduction action"
-				reason="error"
-				title="Source Reduction Unavailable"
-			/>
-		);
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (sourceReduction === undefined) {
-		return (
-			<RecordUnavailable
-				layout="centered"
-				noun="source reduction action"
-				reason="not-found"
-				title="Source Reduction Unavailable"
-			/>
-		);
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
-		<EditSourceReductionLoader
-			canSubmit={organization !== null && actorProfileId !== null}
-			methods={methods}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			sourceReduction={sourceReduction}
-			units={units}
-		/>
+		<RecordEditFrame
+			noun="source reduction action"
+			reading={{ isError, isReady, record: sourceReduction }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+			unavailableTitle="Source Reduction Unavailable"
+		>
+			{(record) => (
+				<EditSourceReductionLoader
+					canSubmit={organization !== null && actorProfileId !== null}
+					methods={methods}
+					organizationId={organization?.id ?? ''}
+					profiles={profiles}
+					sourceReduction={record}
+					units={units}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 
@@ -138,8 +122,7 @@ function EditSourceReductionLoader({
 			// The point and the address/habitat are independent: only state a location
 			// when the user actually refined the point. Absent means "leave it", which
 			// is not the same request as re-sending the shape it already has.
-			const refinedShape =
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const refinedShape = geometryChanged && geometry !== null ? geometry : null;
 			const centroid = refinedShape === null ? null : ownedCentroidFromGeoJson(refinedShape);
 
 			// Which commands this save means is worked out by the hook, from what
@@ -194,7 +177,7 @@ function EditSourceReductionLoader({
 		);
 	}
 	if (geometryQuery.isPending || !personnel.isReady) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 	}
 
 	return (
@@ -238,21 +221,4 @@ function defaultsFromSourceReduction(
 		// Create-only field; the detail page's thread is where an edit adds a note.
 		comment: '',
 	};
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

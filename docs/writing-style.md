@@ -6,10 +6,10 @@ and bodies, changesets, issue comments, handoff notes, markdown under `docs/`,
 code comments, and user-facing copy in the apps.
 
 Product copy carries one extra rule: never explain the domain back to the user.
-Field, catalog, and navigation copy is written for people who run a mosquito
-control agency, so it names the thing and stops. Changeset bodies have their own
-shape in `docs/releases.md`. Where a more specific document conflicts with this
-one, it wins.
+Field, catalog, and navigation copy is written for people who run mosquito
+control for a living, so it names the thing and stops. Changeset bodies have
+their own shape in `docs/releases.md`. Where a more specific document conflicts
+with this one, it wins.
 
 These are the rules of the `unslop` skill, checked in so they bind Claude Code,
 Codex, and any other agent that reads `AGENTS.md` or `CLAUDE.md`, whether or not
@@ -51,7 +51,16 @@ first paint".
 ## Style
 
 - No em dashes. End the sentence or use a comma. Swapping in parentheses or an
-  en dash trades one tell for another.
+  en dash trades one tell for another. This is a rule about punctuation inside a
+  sentence. A standalone glyph picked as a UI symbol is not prose and is not in
+  scope, which is what `AbsentValue` in `packages/ui-web` draws for a column
+  whose record carries no value there.
+- That glyph marks absence and never a failed render. A value the record does
+  not carry is a fact; a value that arrived and would not format is a bug, and
+  spelling the second like the first makes a broken column look like an empty
+  one. A formatter handed input it cannot read hands the value back and warns.
+  `apps/web/src/lib/unreadable-input.ts` is that rule, and #609 is the eight
+  formatters that were drawing the dash for it.
 - Colons introduce a list or an example. They are not mid-sentence connectors.
 - Do not bold every proper noun.
 - No inline-header lists where the bold label restates the line
@@ -60,6 +69,31 @@ first paint".
 - Sentence case headings.
 - No decorative emoji.
 - Straight quotes.
+
+The dash rule is the one a machine can hold, and two gates hold it.
+
+`pnpm check:prose` has the markdown. Biome reads no markdown, so nothing checked
+a word of this document's own subject until #594, and fourteen em dashes had
+collected under `docs/`. The gate reads every tracked `.md` except the generated
+changelogs, for an em dash anywhere and an en dash between spaces. An unspaced
+en dash in a range is correct and is left alone. A dash that is right carries a
+marker on the line above, and a marker that excuses nothing fails. The marker is
+`<!-- prose-ignore: one sentence ending in a full stop. -->`.
+
+`pnpm check:copy-dashes` has the copy, which was carrying 62 em dashes and 4
+spaced en dashes while `docs/` sat at zero (#584). It reads the string literals
+and JSX text in the three apps that ship screens, through the same `copyStrings`
+that `pnpm check:vocabulary` reads, for the same two dashes. The standalone
+glyph passes: a whole string literal that is nothing but the em dash is the UI
+symbol carved out above. A template's fixed chunk between two interpolations is
+not, because that is a separator in the middle of one sentence. Its marker is
+`// copy-dash-ignore: one sentence ending in a full stop.` and it carries the
+same two rules.
+
+Code comments are read by neither, and that is measured rather than assumed:
+3,059 em dashes live in `.ts`, `.tsx` and `.mjs` here, so widening either gate
+is a sweep and not a flag. Nothing else in this document is gated, and the rest
+of it binds the same either way.
 
 ## Talking to the user
 
@@ -83,9 +117,23 @@ surface"), bedrock, scaffolding (metaphor), paradigm, gold-plating, ratchet
 "Substrate" is "base". "Wedge in" is "add". "Gold-plating" is "more than the job
 needs". "Evacuate" is "move out".
 
-This repo has its own real terms. Agency, Profile, Membership, shape, command,
-collection, and the rest of `CONTEXT.md` are domain vocabulary, not jargon. Use
-them exactly.
+This repo has its own real terms. Organization, Profile, Membership, shape,
+command, collection, and the rest of `CONTEXT.md` are domain vocabulary, not
+jargon. Use them exactly.
+
+Organization is the one to spell out, because the word it replaced was narrower.
+An Organization is the customer, the group that runs mosquito control and owns
+its records, settings, and field work. It can be an abatement district, a city
+or county program, a health department, a university, or a contractor. Nothing
+in the schema enumerates the kinds, so any narrower word names one of them and
+misnames the rest. That is why agency sits on the Avoid list beside tenant, and
+why `pnpm check:vocabulary` reads app copy for both words.
+
+An Organization is also a record SIMMER owns, with an id, memberships, and
+settings, so text somebody typed is not one. Where a Contact works is that text.
+Its label is Company, and writing Organization there would put two organizations
+on one row, one of them the key every authorization filter reads. ADR 0019 is
+the decision.
 
 ## Plain speech
 

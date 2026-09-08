@@ -1,19 +1,16 @@
 import {
 	createIssues,
 	nullableText as normalizeNullableText,
-	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
 	validateOperatorCommandContext,
 } from '../command-validation.js';
 import {
 	type DomainId,
 	DomainValidationError,
 	type DomainValidationIssue,
-	type GeoJsonPoint,
+	type GeoJsonMultiPolygon,
 	type GeoJsonPolygon,
-	normalizePointGeometry,
-	normalizePolygonGeometry,
+	normalizeOwnedGeometry,
 } from '../shared.js';
 
 export type FoundationCommandType =
@@ -76,12 +73,12 @@ export interface FoundationDomainCommand<TType extends FoundationCommandType, TP
 	readonly payload: TPayload;
 }
 
-export interface AgencyFoundationCommandInput {
+export interface OrganizationFoundationCommandInput {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
 
-export interface AgencyFoundationCommandPayload {
+export interface OrganizationFoundationCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
@@ -94,28 +91,11 @@ export interface OperatorFoundationCommandPayload {
 	readonly operatorUserId: DomainId;
 }
 
-export function validateAgencyBase(
-	input: AgencyFoundationCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateAgencyCommandContext(input, issues);
-}
-
 export function validateOperatorBase(
 	input: OperatorFoundationCommandInput,
 	issues: DomainValidationIssue[],
 ): void {
 	validateOperatorCommandContext(input, issues);
-}
-
-export function validateAgencyIdCommand<T extends AgencyFoundationCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateAgencyBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
 }
 
 export function validateOperatorIdCommand<T extends OperatorFoundationCommandInput>(
@@ -128,29 +108,22 @@ export function validateOperatorIdCommand<T extends OperatorFoundationCommandInp
 	return issues;
 }
 
-export function validatePointGeometry(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): GeoJsonPoint {
-	try {
-		return normalizePointGeometry(value, path);
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			issues.push(...error.issues);
-			return { type: 'Point', coordinates: [0, 0] };
-		}
-		throw error;
-	}
-}
+/**
+ * What a Region may store: one area, or several on the same row.
+ *
+ * Two names rather than `SupportedGeoJsonGeometry`, so a reader of
+ * `CreateRegionCommand.geometry` is told which four shapes cannot be there.
+ */
+export type RegionGeometry = GeoJsonPolygon | GeoJsonMultiPolygon;
 
-export function validatePolygonGeometry(
+/** A Region's geometry, against the Region policy in the register. */
+export function validateRegionGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
-): GeoJsonPolygon {
+): RegionGeometry {
 	try {
-		return normalizePolygonGeometry(value, path);
+		return normalizeOwnedGeometry('region', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
@@ -168,27 +141,6 @@ export function validatePolygonGeometry(
 		}
 		throw error;
 	}
-}
-
-export function validateIdList(
-	values: readonly DomainId[],
-	path: string,
-	issues: DomainValidationIssue[],
-): readonly DomainId[] {
-	if (!Array.isArray(values) || values.length === 0) {
-		issues.push({ path, message: `${path} must include at least one id.` });
-		return [];
-	}
-	const seen = new Set<string>();
-	return values.map((value, index) => {
-		requireUuid(value, `${path}.${index}`, issues);
-		const normalized = normalizeRequiredId(value);
-		if (seen.has(normalized)) {
-			issues.push({ path: `${path}.${index}`, message: `${path} must not contain duplicates.` });
-		}
-		seen.add(normalized);
-		return normalized;
-	});
 }
 
 export function normalizeCountry(
@@ -233,16 +185,8 @@ export function normalizePostalCode(
 	return normalized;
 }
 
-export function agencyPayload(input: AgencyFoundationCommandInput): AgencyFoundationCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
-}
-
 export function operatorPayload(
 	input: OperatorFoundationCommandInput,
 ): OperatorFoundationCommandPayload {
 	return validateOperatorCommandContext(input, createIssues());
-}
-
-export function normalizeRequiredDomainId(value: DomainId): DomainId {
-	return normalizeRequiredId(value);
 }

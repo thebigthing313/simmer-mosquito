@@ -1,16 +1,14 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	type AddressFields,
 	useAddressMutations,
 } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
 	AddressFormPage,
@@ -20,7 +18,7 @@ import {
 
 export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/addresses/$id/edit')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/addresses/$id' });
 		}
 	},
@@ -40,26 +38,33 @@ function EditAddressRoute() {
 	const address = addressResult.address;
 	const geometryQuery = useAddressGeometry(id);
 
-	if (addressResult.isError) {
-		return <RecordUnavailable layout="centered" noun="address" reason="error" />;
-	}
-	if (!addressResult.isReady || geometryQuery.isLoading) {
-		return <EditFormSkeleton />;
-	}
-	if (address === undefined) {
-		return <RecordUnavailable layout="centered" noun="address" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const initialGeometry = (geometryQuery.data?.geojson ?? null) as AddressPointGeometry | null;
+	const skeleton = <EditFormSkeleton rows={[['h-9', 'h-9', 'h-9', 'h-9'], 'h-24']} />;
 
 	return (
-		<EditAddressLoader
-			address={address}
-			canSubmit={organization !== null && actorProfileId !== null}
-			initialGeometry={initialGeometry}
-		/>
+		<RecordEditFrame
+			noun="address"
+			reading={{
+				isError: addressResult.isError,
+				isReady: addressResult.isReady,
+				record: address,
+			}}
+			skeleton={skeleton}
+		>
+			{(record) =>
+				geometryQuery.isLoading ? (
+					skeleton
+				) : (
+					<EditAddressLoader
+						address={record}
+						canSubmit={organization !== null && actorProfileId !== null}
+						initialGeometry={initialGeometry}
+					/>
+				)
+			}
+		</RecordEditFrame>
 	);
 }
 
@@ -106,7 +111,7 @@ function EditAddressLoader({
 				refinedPoint ? geometry : null,
 			);
 			if (refinedPoint && geometry !== null) {
-				seedAddressGeometryCache(queryClient, address.id, geometry as unknown as GeoJsonGeometry);
+				seedAddressGeometryCache(queryClient, address.id, geometry);
 			}
 			await navigate({ to: '/gis/addresses/$id', params: { id: address.id } });
 		},
@@ -147,24 +152,6 @@ function defaultsFromAddress(address: AddressRecord): AddressFormValues {
 function nullableText(value: string): string | null {
 	const text = value.trim();
 	return text.length === 0 ? null : text;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }
 
 /** The record as the save compares against, in the write hook's vocabulary. */

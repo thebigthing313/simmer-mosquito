@@ -87,7 +87,7 @@ export function ImportPreview({ assessed }: { readonly assessed: readonly Assess
 			</div>
 			{assessed.length > shown.length ? (
 				<p className="m-0 text-muted-foreground text-xs">
-					Showing the first {shown.length} of {assessed.length.toLocaleString()} readings.
+					Showing the first {shown.length} of {assessed.length.toLocaleString('en-US')} readings.
 				</p>
 			) : null}
 		</div>

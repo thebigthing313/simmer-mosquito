@@ -1,4 +1,3 @@
-import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
@@ -11,10 +10,11 @@ import { useServiceRequestRecord } from '../../../hooks/queries/use-service-requ
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { contactFieldsFromValues } from '../-contact-fields';
 import {
 	defaultServiceRequestFormValues,
+	isRequestLocation,
 	ServiceRequestFormPage,
 	type ServiceRequestSaveInput,
 	serviceRequestFieldsFrom,
@@ -26,7 +26,7 @@ export const Route = createFileRoute('/public-engagement/service-requests/create
 	// yet — which erases lat/lng from `Route.useSearch()`.
 	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/public-engagement/service-requests/create')) {
 			throw redirect({ replace: true, to: '/public-engagement/service-requests' });
 		}
 	},
@@ -46,9 +46,9 @@ function CreateServiceRequestRoute() {
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
-	// The day the public reported it is an operational date, so it is the agency's
-	// day rather than the browser's — an intake taker keying in a call at 11pm
-	// files it under the day the agency is still working.
+	// The day the public reported it is an operational date, so it is the
+	// organization's day rather than the browser's — an intake taker keying in a
+	// call at 11pm files it under the day the organization is still working.
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 
@@ -63,7 +63,7 @@ function CreateServiceRequestRoute() {
 
 	const onSave = useCallback(
 		async ({ values, geometry }: ServiceRequestSaveInput) => {
-			if (geometry === null || geometry.type !== 'Point') {
+			if (geometry === null || !isRequestLocation(geometry)) {
 				throw new Error('Place the request location on the map.');
 			}
 
@@ -90,7 +90,7 @@ function CreateServiceRequestRoute() {
 				fields: serviceRequestFieldsFrom(values),
 				contactId: requestContactId,
 				addressId,
-				geometry: geometry as GeoJsonPoint,
+				geometry,
 			});
 			await navigate({
 				to: '/public-engagement/service-requests/$id',
@@ -107,7 +107,7 @@ function CreateServiceRequestRoute() {
 			header={{
 				title: 'New Service Request',
 				description:
-					'Log a request from the public — link or create a contact and address, and place its location.',
+					'Log a request from the public. Link or create a contact and address, then place its location.',
 				backTo: '/public-engagement/service-requests',
 				backLabel: 'Service Requests',
 			}}

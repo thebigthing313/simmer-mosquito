@@ -25,9 +25,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 		/*
 		 * Deliberately no organization check, unlike apps/web's root.
 		 *
-		 * A SIMMER operator administers agencies from outside them and need not be
-		 * a member of any, so a null `localIdentity.organizationId` is normal here
-		 * rather than the broken state web treats it as.
+		 * A SIMMER operator administers organizations from outside them and need
+		 * not be a member of any, so a null `localIdentity.organizationId` is
+		 * normal here rather than the broken state web treats it as.
 		 *
 		 * What actually gates this console is the operator allowlist, and only the
 		 * server knows it — `/auth/me` answers "are you signed in", not "are you an

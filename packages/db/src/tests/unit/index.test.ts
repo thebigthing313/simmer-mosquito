@@ -152,7 +152,7 @@ describe('validateMembershipRemoval', () => {
 		).toBeNull();
 	});
 
-	it('refuses a membership that is not this agency’s', () => {
+	it('refuses a membership that is not this organization’s', () => {
 		expect(
 			validateMembershipRemoval({ membership: null, isSelf: false, activeOwnerCount: 2 }),
 		).toBe('membership_not_found');
@@ -166,8 +166,8 @@ describe('validateMembershipRemoval', () => {
 		).toBe('membership_is_self');
 	});
 
-	// A one-way door: an agency with no active owner cannot hand out a role or
-	// invite anyone, including a replacement owner.
+	// A one-way door: an organization with no active owner cannot hand out a role
+	// or invite anyone, including a replacement owner.
 	it('refuses the last active owner', () => {
 		expect(
 			validateMembershipRemoval({

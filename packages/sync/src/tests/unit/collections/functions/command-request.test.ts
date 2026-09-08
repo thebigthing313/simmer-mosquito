@@ -19,7 +19,7 @@ interface TestRow {
 
 const row: TestRow = {
 	id: 'habitat-1',
-	organization_id: 'agency-1',
+	organization_id: 'organization-1',
 	lat: 41.2,
 	lng: -95.9,
 	geom_type: 'Point',
@@ -431,8 +431,9 @@ describe('commandRequestFor', () => {
 
 describe('commandBodyFromRow', () => {
 	it('strips the columns the server owns, as a diffed body would', () => {
-		// A transaction states its own body, so nothing diffed it — but the tenant,
-		// the centroid and the audit columns are still not the client's to send.
+		// A transaction states its own body, so nothing diffed it — but the
+		// organization id, the centroid and the audit columns are still not the
+		// client's to send.
 		const body = commandBodyFromRow(row);
 
 		expect(body).toEqual({

@@ -5,7 +5,7 @@ import {
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
+	validateBase,
 	validateLocalDate,
 } from '../command-validation.js';
 import {
@@ -20,7 +20,8 @@ import {
 	type DomainValidationIssue,
 	type JsonObject,
 	type LocalDateString,
-	normalizeLocatableGeometry,
+	normalizeOwnedGeometry,
+	type OwnedGeometryKind,
 	type SupportedGeoJsonGeometry,
 } from '../shared.js';
 
@@ -156,36 +157,14 @@ export type MissionExecutionPayload = {
 	readonly metadata: JsonObject | null;
 };
 
-export const CONTROL_TYPES = ['application', 'source_reduction', 'biocontrol', 'outreach'] as const;
-
-export function validateBase(
-	input: MissionDispatchCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateAgencyCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends MissionDispatchCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
-export function basePayload(input: MissionDispatchCommandInput): MissionDispatchCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
-}
-
 function validateLocatableGeometry(
+	kind: OwnedGeometryKind,
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): SupportedGeoJsonGeometry {
 	try {
-		return normalizeLocatableGeometry(value, path);
+		return normalizeOwnedGeometry(kind, value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
@@ -234,31 +213,6 @@ export function normalizeTimestamp(
 	return value;
 }
 
-export function normalizeOptionalTimestamp(
-	value: Date | null | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-	allowFuture: boolean,
-): Date | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	return normalizeTimestamp(value, path, issues, allowFuture);
-}
-
-export function normalizeStringUnion<TValue extends string>(
-	value: string | undefined,
-	allowedValues: readonly TValue[],
-	path: string,
-	issues: DomainValidationIssue[],
-): TValue {
-	if (value === undefined || !allowedValues.includes(value as TValue)) {
-		issues.push({ path, message: `${path} is not supported.` });
-		return (allowedValues[0] ?? '') as TValue;
-	}
-	return value as TValue;
-}
-
 export function validateMissionItemPlacement(
 	placement: MissionItemPlacement | undefined,
 	path: string,
@@ -273,27 +227,6 @@ export function validateMissionItemPlacement(
 		return { kind: placement.kind, missionItemId: normalizeRequiredId(placement.missionItemId) };
 	}
 	return { kind: placement.kind };
-}
-
-export function validateIdList(
-	values: readonly DomainId[],
-	path: string,
-	issues: DomainValidationIssue[],
-): readonly DomainId[] {
-	if (!Array.isArray(values) || values.length === 0) {
-		issues.push({ path, message: `${path} must include at least one id.` });
-		return [];
-	}
-	const seen = new Set<string>();
-	return values.map((value, index) => {
-		requireUuid(value, `${path}.${index}`, issues);
-		const normalized = normalizeRequiredId(value);
-		if (seen.has(normalized)) {
-			issues.push({ path: `${path}.${index}`, message: `${path} must not contain duplicates.` });
-		}
-		seen.add(normalized);
-		return normalized;
-	});
 }
 
 export function validateMissionItemLocationInput(
@@ -326,7 +259,14 @@ export function validateMissionItemLocationInput(
 		return {};
 	}
 	if (hasGeometry) {
-		return { geometry: validateLocatableGeometry(input.geometry, `${path}.geometry`, issues) };
+		return {
+			geometry: validateLocatableGeometry(
+				'missionItem',
+				input.geometry,
+				`${path}.geometry`,
+				issues,
+			),
+		};
 	}
 	return {
 		locationSource: validateMissionItemLocationSource(
@@ -411,7 +351,7 @@ export function validateMissionExecutionBase(
 	validateBase(input, issues);
 	requireUuid(input.missionItemId, 'missionItemId', issues);
 	if (input.geometry !== undefined) {
-		validateLocatableGeometry(input.geometry, 'geometry', issues);
+		validateLocatableGeometry('controlAction', input.geometry, 'geometry', issues);
 	}
 	if (input.addressId !== undefined) {
 		normalizeOptionalUuid(input.addressId, 'addressId', issues);
@@ -444,7 +384,7 @@ export function missionExecutionPayload(
 		acknowledgedCompletedItemAdditionalAction:
 			input.acknowledgedCompletedItemAdditionalAction ?? false,
 		...(input.geometry !== undefined
-			? { geometry: validateLocatableGeometry(input.geometry, 'geometry', issues) }
+			? { geometry: validateLocatableGeometry('controlAction', input.geometry, 'geometry', issues) }
 			: {}),
 		...(input.addressId !== undefined
 			? { addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues) }

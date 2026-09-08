@@ -12,7 +12,6 @@ export type {
 	AdultSurveillanceCommandType,
 	CollectedCollectionTiming,
 	CollectionTiming,
-	CollectionTimingMode,
 	DateDurationCollectionTiming,
 	DomainCommand,
 	ExactCollectedCollectionTiming,

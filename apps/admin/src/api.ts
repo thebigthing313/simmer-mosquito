@@ -1,21 +1,31 @@
 import { createAuthClient } from '@simmer-mosquito/auth/browser';
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import { configured, trimTrailingSlash } from '@simmer-mosquito/config';
+import type {
+	MembershipStatus,
+	OrganizationBillingMode,
+	OrganizationSubscriptionStatus,
+	SimmerRole,
+} from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
+import { refusalMessage } from './lib/refusal-messages';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
 /**
  * Identity and the in-app sign-in flow come from the shared browser client —
- * the console signs in through the same public `/auth/*` endpoints the agency
- * workspace does, and `/auth/*` CORS already admits `ADMIN_APP_ORIGIN`. What
- * follows below is the operator control plane proper: the `/admin/*` endpoints
- * only this app calls.
+ * the console signs in through the same public `/auth/*` endpoints the
+ * organization workspace does, and `/auth/*` CORS already admits
+ * `ADMIN_APP_ORIGIN`. What follows below is the operator control plane proper:
+ * the `/admin/*` endpoints only this app calls.
  */
 export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/browser';
 
 /**
- * A failed `/admin/*` request, carrying the server's machine-readable `error`
- * code alongside the human message.
+ * A failed request from the console, carrying the server's machine-readable
+ * `error` code alongside the human message.
+ *
+ * Every `/admin/*` call raises one, and so does a Foundations write, which
+ * reaches an organization endpoint through {@link postOrganizationCommand}.
  *
  * The code matters for two cases, and they are the ones that decide whether the
  * console works at all. Both are 403s from
@@ -72,16 +82,15 @@ export function isOperatorNotConfiguredError(error: unknown): boolean {
 }
 
 /** One declaration, in `packages/domain`; re-exported for this app's call sites. */
-export type { SimmerRole } from '@simmer-mosquito/domain';
-export type MembershipStatus = 'active' | 'inactive' | 'invited';
-export interface AdminAgency {
+export type { MembershipStatus, SimmerRole } from '@simmer-mosquito/domain';
+export interface AdminOrganization {
 	readonly id: string;
 	readonly workosOrganizationId: string | null;
 	readonly name: string;
 	readonly slug: string | null;
 	readonly subscription: {
-		readonly subscriptionStatus: 'trial' | 'active' | 'suspended' | 'canceled';
-		readonly billingMode: 'manual_invoice';
+		readonly subscriptionStatus: OrganizationSubscriptionStatus;
+		readonly billingMode: OrganizationBillingMode;
 		readonly billingContactName: string | null;
 		readonly billingContactEmail: string | null;
 		readonly subscriptionNotes: string | null;
@@ -120,14 +129,86 @@ export interface AdminMembership {
 	readonly updatedAt: string;
 }
 
-export interface AgencyMembershipsResult {
-	readonly organization: AdminAgency;
+export interface OrganizationMembershipsResult {
+	readonly organization: AdminOrganization;
 	readonly memberships: AdminMembership[];
 }
 
-export interface CreateAdminAgencyInput {
+export interface FoundationAddress {
+	readonly id: string;
+	readonly displayName: string;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+	readonly country: string;
+}
+
+export interface FoundationRegionFolder {
+	readonly id: string;
 	readonly name: string;
-	readonly subscriptionStatus: AdminAgency['subscription']['subscriptionStatus'];
+	readonly description: string | null;
+}
+
+export interface FoundationRegion {
+	readonly id: string;
+	readonly regionFolderId: string | null;
+	readonly name: string;
+	readonly description: string | null;
+}
+
+export interface FoundationGenus {
+	readonly id: string;
+	readonly name: string;
+	readonly abbreviation: string;
+}
+
+export interface FoundationSpecies {
+	readonly id: string;
+	readonly genusId: string | null;
+	readonly displayName: string;
+	readonly commonName: string | null;
+}
+
+export interface FoundationOrganizationSpecies {
+	readonly id: string;
+	readonly speciesId: string;
+}
+
+export interface FoundationLookup {
+	readonly id: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly actionThreshold: number | null;
+	readonly isActive: boolean;
+}
+
+export interface FoundationTrap {
+	readonly id: string;
+	readonly collectionMethodId: string;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly isActive: boolean;
+}
+
+/** Everything a new organization needs standing up, in one operator read. */
+export interface OrganizationFoundations {
+	readonly addresses: readonly FoundationAddress[];
+	readonly regionFolders: readonly FoundationRegionFolder[];
+	readonly regions: readonly FoundationRegion[];
+	readonly genera: readonly FoundationGenus[];
+	readonly species: readonly FoundationSpecies[];
+	readonly organizationSpecies: readonly FoundationOrganizationSpecies[];
+	readonly lookups: {
+		readonly collectionMethods: readonly FoundationLookup[];
+		readonly collectionLures: readonly FoundationLookup[];
+		readonly habitatTypes: readonly FoundationLookup[];
+	};
+	readonly traps: readonly FoundationTrap[];
+}
+
+export interface CreateAdminOrganizationInput {
+	readonly name: string;
+	readonly subscriptionStatus: AdminOrganization['subscription']['subscriptionStatus'];
 	readonly billingContactName: string;
 	readonly billingContactEmail: string;
 	readonly subscriptionNotes: string;
@@ -149,13 +230,7 @@ export interface InviteAdminUserInput {
 }
 
 export function getServerUrl(): string {
-	// Empty read as absent, not as a URL — `??` does not fall back on `''`, and
-	// a build variable arrives empty rather than missing whenever a field is
-	// left blank or a Docker `ARG` is declared without being passed.
-	const configured = import.meta.env.VITE_SERVER_URL?.trim();
-	return trimTrailingSlash(
-		configured === undefined || configured === '' ? DEFAULT_SERVER_URL : configured,
-	);
+	return trimTrailingSlash(configured(import.meta.env.VITE_SERVER_URL) ?? DEFAULT_SERVER_URL);
 }
 
 /**
@@ -163,9 +238,9 @@ export function getServerUrl(): string {
  *
  * WorkOS will not mint a session for an account that belongs to more than one
  * organization until one is chosen. Operators routinely belong to more than one
- * — `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
- * agency's first owner — so the prompt is a designed-for case, not stale data,
- * and it will keep coming back.
+ * — `createAdminOrganization`'s `linkRequesterAsOwner` makes the operator the
+ * new organization's first owner — so the prompt is a designed-for case, not
+ * stale data, and it will keep coming back.
  *
  * The console answers it without asking, because the answer is always the same:
  * an operator working in the control plane is acting as SIMMER. The server now
@@ -174,16 +249,17 @@ export function getServerUrl(): string {
  * puts the session in the org the console needs.
  *
  * Deliberately **not** server-side. Keyed off operator identity in
- * `/auth/sign-in` it would strip the picker from `apps/web` too, and an operator
- * who genuinely holds an agency membership needs that choice there — the agency
- * workspace reads the organization for everything it shows.
+ * `/auth/sign-in` it would strip the picker from `apps/web` too, and an
+ * operator who genuinely holds an organization membership needs that choice
+ * there — the organization workspace reads the organization for everything it
+ * shows.
  *
  * Unset, or set to an organization this account is not in, falls back to the
  * picker rather than failing.
  */
 export function getOperatorOrganizationId(): string | null {
-	const value = import.meta.env.VITE_SIMMER_OPERATOR_ORG_ID;
-	return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+	const value: string | undefined = import.meta.env.VITE_SIMMER_OPERATOR_ORG_ID;
+	return configured(value) ?? null;
 }
 
 const authClient = createAuthClient({ serverUrl: getServerUrl() });
@@ -195,12 +271,13 @@ export const { getAuthMe, selectOrganization, signIn, switchOrganization, verify
  * Where "Sign out" goes.
  *
  * `/auth/logout` clears the cookie and then returns the browser to `APP_ORIGIN`
- * — the *agency* workspace — unless the caller names somewhere else. Asked
- * without a `returnTo`, the console signed the operator out and dropped them on
- * `apps/web`'s sign-in page, on a different origin, with nothing on it pointing
- * back here. That is worst on the screen that most often offers the button:
- * "Not an Operator Account", where the operator's next move is to sign in as
- * someone who *is* one, and the only page that lets them do that is this app's.
+ * — the *organization* workspace — unless the caller names somewhere else.
+ * Asked without a `returnTo`, the console signed the operator out and dropped
+ * them on `apps/web`'s sign-in page, on a different origin, with nothing on it
+ * pointing back here. That is worst on the screen that most often offers the
+ * button: "Not an Operator Account", where the operator's next move is to sign
+ * in as someone who *is* one, and the only page that lets them do that is this
+ * app's.
  *
  * The server honours `returnTo` only for origins it already trusts (`APP_ORIGIN`
  * and `ADMIN_APP_ORIGIN`), so this reads the console's own origin rather than a
@@ -213,79 +290,130 @@ export function adminLogoutUrl(serverUrl = getServerUrl()): string {
 	return url.toString();
 }
 
-export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<AdminAgency[]> {
-	const response = await sessionFetch(`${serverUrl}/admin/organizations`, {
-		credentials: 'include',
-		headers: { accept: 'application/json' },
-	});
-	const body = await readResponseBody<
-		{ readonly organizations: AdminAgency[] } | { readonly error: string; readonly reason?: string }
-	>(response);
-
-	if (!response.ok || !('organizations' in body)) {
-		throw adminApiError(response, body, 'Unable to load agencies.');
+export async function listAdminOrganizations(
+	serverUrl = getServerUrl(),
+): Promise<AdminOrganization[]> {
+	const unreadable = 'Unable to load organizations.';
+	const { organizations } = await getJson<{ readonly organizations?: AdminOrganization[] }>(
+		'/admin/organizations',
+		unreadable,
+		serverUrl,
+	);
+	// A 200 carrying neither the list nor an `error` is a fault, not a refusal.
+	// Handing the directory `undefined` would draw the empty state, which reads
+	// as "the platform has no organizations on it".
+	if (organizations === undefined) {
+		throw new Error(unreadable);
 	}
 
-	return body.organizations;
+	return organizations;
 }
 
-export async function createAdminAgency(
-	input: CreateAdminAgencyInput,
+export async function createAdminOrganization(
+	input: CreateAdminOrganizationInput,
 	serverUrl = getServerUrl(),
-): Promise<AdminAgency> {
-	return postJson<AdminAgency>(`${serverUrl}/admin/organizations`, {
-		...input,
-		billingMode: 'manual_invoice',
-	});
+): Promise<AdminOrganization> {
+	return postJson<AdminOrganization>(
+		'/admin/organizations',
+		{ ...input, billingMode: 'manual_invoice' },
+		serverUrl,
+	);
 }
 
-export async function listAgencyMemberships(
-	agencyId: string,
+export async function listOrganizationMemberships(
+	organizationId: string,
 	serverUrl = getServerUrl(),
-): Promise<AgencyMembershipsResult> {
-	const response = await sessionFetch(`${serverUrl}/admin/organizations/${agencyId}/memberships`, {
-		credentials: 'include',
-		headers: { accept: 'application/json' },
-	});
-	const body = await readResponseBody<
-		AgencyMembershipsResult | { readonly error: string; readonly reason?: string }
-	>(response);
+): Promise<OrganizationMembershipsResult> {
+	return getJson<OrganizationMembershipsResult>(
+		`/admin/organizations/${organizationId}/memberships`,
+		'Unable to load memberships.',
+		serverUrl,
+	);
+}
 
-	if (!response.ok || 'error' in body) {
-		throw adminApiError(response, body, 'Unable to load memberships.');
-	}
-
-	return body;
+/**
+ * One read for everything the Foundations page stands an organization up with:
+ * its regions and addresses, the lookups its forms choose from, the species it
+ * sees locally, and its traps.
+ *
+ * It lives here because the console has one door to `/admin/*`. The page built
+ * its own until #612, which threw a plain `Error`, so the code never reached
+ * {@link isOperatorNotConfiguredError} or {@link isAdminRefusal}: the page drew
+ * a red box saying "operator not configured" and the query client retried the
+ * 403 three times first.
+ */
+export async function getOrganizationFoundations(
+	organizationId: string,
+	serverUrl = getServerUrl(),
+): Promise<OrganizationFoundations> {
+	return getJson<OrganizationFoundations>(
+		`/admin/organizations/${organizationId}/foundations`,
+		'Unable to load foundations.',
+		serverUrl,
+	);
 }
 
 export interface InviteAdminUserResult {
 	/**
-	 * `null` when the address already reaches the agency through WorkOS, so no
-	 * invitation was sent. The role is staged either way.
+	 * `null` when the address already reaches the organization through WorkOS, so
+	 * no invitation was sent. The role is staged either way.
 	 */
 	readonly invitation: { readonly id: string; readonly email: string } | null;
 	readonly membership: AdminMembership;
 }
 
 export async function inviteAdminUser(
-	agencyId: string,
+	organizationId: string,
 	input: InviteAdminUserInput,
 	serverUrl = getServerUrl(),
 ): Promise<InviteAdminUserResult> {
 	return postJson<InviteAdminUserResult>(
-		`${serverUrl}/admin/organizations/${agencyId}/invitations`,
+		`/admin/organizations/${organizationId}/invitations`,
 		input,
+		serverUrl,
 	);
 }
 
-async function postJson<T>(url: string, input: unknown): Promise<T> {
-	return writeJson<T>(url, 'POST', input);
+/**
+ * A write to one of the *organization's* own endpoints, sent from the console.
+ *
+ * The Foundations page creates through `/foundation/*` and
+ * `/adult-surveillance/*` as a member of the organization it entered (ADR
+ * 0011), so what it posts and where is that page's to decide, and the bodies
+ * stay there. What it cannot decide on its own is the refusal, because a second
+ * reader is how the same 403 came to read two ways. So the path comes from the
+ * page and the answer is read here.
+ *
+ * A thin call onto the same {@link postJson} the two `/admin/*` writes use, and
+ * named rather than exported bare on purpose: the name is what keeps this from
+ * becoming a second door to `/admin/*`.
+ *
+ * `path` is a plain string, and that is deliberate rather than unfinished. One
+ * module calls this, `-foundations-data.ts`, so a union of the paths it posts
+ * would be a second copy of that file's list, stale the first time the page
+ * adds a create, and one of those paths is built from the lookup kind, so the
+ * union would have to enumerate those as well. A runtime refusal of a path
+ * starting `/admin/` would only ever fire on a mistake nobody has made. Narrow
+ * the type when a second module needs an organization write from the console:
+ * two callers is where the convention stops being readable from the call sites,
+ * and where the union stops being a union of one.
+ */
+export async function postOrganizationCommand<T>(path: string, command: unknown): Promise<T> {
+	return postJson<T>(path, command, getServerUrl());
 }
 
-async function writeJson<T>(url: string, method: 'POST', input: unknown): Promise<T> {
-	const response = await sessionFetch(url, {
-		method,
-		credentials: 'include',
+/** Every `/admin/*` read. The path is a path, so the server URL is applied once. */
+async function getJson<T>(path: string, fallback: string, serverUrl: string): Promise<T> {
+	const response = await sessionFetch(`${serverUrl}${path}`, {
+		headers: { accept: 'application/json' },
+	});
+
+	return readJsonResponse<T>(response, fallback);
+}
+
+async function postJson<T>(path: string, input: unknown, serverUrl: string): Promise<T> {
+	const response = await sessionFetch(`${serverUrl}${path}`, {
+		method: 'POST',
 		headers: {
 			accept: 'application/json',
 			'content-type': 'application/json',
@@ -293,15 +421,15 @@ async function writeJson<T>(url: string, method: 'POST', input: unknown): Promis
 		body: JSON.stringify(input),
 	});
 
-	return readJsonResponse<T>(response);
+	return readJsonResponse<T>(response, 'Request failed.');
 }
 
-async function readJsonResponse<T>(response: Response): Promise<T> {
+async function readJsonResponse<T>(response: Response, fallback: string): Promise<T> {
 	const body = await readResponseBody<T | { readonly error: string; readonly reason?: string }>(
 		response,
 	);
 	if (!response.ok || (isRecord(body) && 'error' in body)) {
-		throw adminApiError(response, body, 'Request failed.');
+		throw adminApiError(response, body, fallback);
 	}
 
 	return body as T;
@@ -329,13 +457,26 @@ function adminApiError(response: Response, body: unknown, fallback: string): Adm
 	});
 }
 
+/**
+ * What a refusal reads as, in three steps and never as a code.
+ *
+ * The register is asked first, then the server's own `reason`, then the
+ * caller's fallback. `refusal-messages.ts` carries why the register comes
+ * before `reason` and what may be entered in it; the short version is that a
+ * code in it is a code no admin-reachable refusal writes a sentence for, and
+ * three of them send a `reason` that is a code.
+ *
+ * `body.error` is never returned. A code the register has not thought about
+ * takes the fallback, which is a sentence every caller already supplies.
+ */
 function responseErrorMessage(body: unknown, fallback: string): string {
 	if (isRecord(body)) {
+		const mapped = refusalMessage(typeof body.error === 'string' ? body.error : null);
+		if (mapped !== null) {
+			return mapped;
+		}
 		if (typeof body.reason === 'string' && body.reason.trim() !== '') {
 			return body.reason;
-		}
-		if (typeof body.error === 'string' && body.error.trim() !== '') {
-			return body.error;
 		}
 	}
 	return fallback;
@@ -343,8 +484,4 @@ function responseErrorMessage(body: unknown, fallback: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function trimTrailingSlash(value: string): string {
-	return value.replace(/\/+$/, '');
 }

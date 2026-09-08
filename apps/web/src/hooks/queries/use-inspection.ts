@@ -41,28 +41,28 @@ export function useInspection(inspectionId: string): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ inspection: inspections })
+					.from({ inspection: inspections() })
 					.where(({ inspection }) => eq(inspection.id, inspectionId))
 					// `left` throughout: an Ad Hoc Inspection has no Habitat, an inspection
 					// need not name a type, and nobody may have been recorded as inspector.
 					// An `inner` join would return no row at all for any of those.
 					.join(
-						{ habitat: habitats },
+						{ habitat: habitats() },
 						({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
 						'left',
 					)
 					.join(
-						{ type: habitat_types },
+						{ type: habitat_types() },
 						({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
 						'left',
 					)
 					.join(
-						{ inspector: profiles },
+						{ inspector: profiles() },
 						({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ inspection, address }) => eq(inspection.address_id, address.id),
 						'left',
 					)

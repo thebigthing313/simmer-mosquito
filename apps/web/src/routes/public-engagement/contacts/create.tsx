@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useContact } from '../../../hooks/queries/use-contact-record';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type ContactFormValues,
 	contactFieldsFromValues,
@@ -13,7 +13,7 @@ import { ContactFormPage } from './-contact-form';
 
 export const Route = createFileRoute('/public-engagement/contacts/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/public-engagement/contacts/create')) {
 			throw redirect({ replace: true, to: '/public-engagement/contacts' });
 		}
 	},
@@ -44,7 +44,7 @@ function CreateContactRoute() {
 			defaultValues={defaultContactFormValues()}
 			header={{
 				title: 'Create Contact',
-				description: 'Add a public person or organization to the agency contact list.',
+				description: 'Add a person to the contact list.',
 				backTo: '/public-engagement/contacts',
 				backLabel: 'Contacts',
 			}}

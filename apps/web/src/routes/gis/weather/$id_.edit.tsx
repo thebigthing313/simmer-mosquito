@@ -1,17 +1,16 @@
-import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 import {
 	type DrawGeometry,
+	isStationLocation,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
@@ -24,7 +23,7 @@ import {
  */
 export const Route = createFileRoute('/gis/weather/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/weather/$id/edit')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/weather/$id' });
 		}
 	},
@@ -35,15 +34,17 @@ function EditWeatherStationRoute() {
 	const { id } = Route.useParams();
 	// Stations are eager and carry their own coordinates, so unlike a region there
 	// is no separate geometry fetch to wait on.
-	const { station, isReady } = useWeatherStation(id);
+	const { station, isReady, isError } = useWeatherStation(id);
 
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (station === undefined) {
-		return <RecordUnavailable layout="centered" noun="weather station" reason="not-found" />;
-	}
-	return <EditWeatherStationForm station={station} />;
+	return (
+		<RecordEditFrame
+			noun="weather station"
+			reading={{ isError, isReady, record: station }}
+			skeleton={<EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => <EditWeatherStationForm station={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditWeatherStationForm({ station }: { readonly station: WeatherStation }) {
@@ -68,9 +69,7 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 			// `null` unless the user actually moved the pin: the form holds the point
 			// it loaded, and sending that back names a command with nothing to change.
 			const point =
-				geometryChanged && geometry !== null && geometry.type === 'Point'
-					? (geometry as unknown as GeoJsonPoint)
-					: null;
+				geometryChanged && geometry !== null && isStationLocation(geometry) ? geometry : null;
 
 			// The two questions go out unanswered and come back as refusals if the
 			// station has readings, which is the only time either matters. See
@@ -141,21 +140,5 @@ function pointFrom(station: WeatherStation): DrawGeometry | null {
 	return {
 		type: 'Point',
 		coordinates: [station.longitude, station.latitude],
-	} as unknown as DrawGeometry;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
+	};
 }

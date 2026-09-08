@@ -1,11 +1,11 @@
 /**
  * The `tags` table, as commands.
  *
- * The label vocabulary an agency defines, and the ninth catalog with the same
- * five commands as the other eight — create, update, retire, restore, delete.
- * `tag_items.ts` is the other half and a different surface entirely: assigning a
- * Tag to a record and defining one are not the same permission or the same
- * screen.
+ * The label vocabulary an organization defines, and the ninth catalog with the
+ * same five commands as the other eight — create, update, retire, restore,
+ * delete. `tag_items.ts` is the other half and a different surface entirely:
+ * assigning a Tag to a record and defining one are not the same permission or
+ * the same screen.
  *
  * ## What the old routes inferred
  *
@@ -37,18 +37,18 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import type { TagCommand } from '../foundation-commands/shared.js';
-import { writeFoundationTagCommand } from '../foundation-commands/tags.js';
+import type { TagCommand } from '../writers/foundation/shared.js';
+import { writeFoundationTagCommand } from '../writers/foundation/tags.js';
 import type { TableCommands } from './dispatch.js';
 
-export function tagTableCommands(db: CommandDb): TableCommands<TagCommand, TagRow> {
+export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagCommand, TagRow> {
 	return {
 		table: 'tags',
 		run: { db, write: writeFoundationTagCommand, notFound: 'tag_not_found', key: 'tag' },
 		intents: {
-			'fieldWork.createTag': ({ payload, agency, id }) =>
+			'fieldWork.createTag': ({ payload, organization, id }) =>
 				createTagCommand({
-					...agency,
+					...organization,
 					tagId: id,
 					tagName: readText(payload.tag_name) ?? '',
 					description: readNullableText(payload.description),
@@ -58,22 +58,25 @@ export function tagTableCommands(db: CommandDb): TableCommands<TagCommand, TagRo
 			// Each field is read only when it arrived: the domain refuses an update
 			// with nothing to change, and a save that renamed a Tag without touching
 			// its colour must not claim to have cleared one.
-			'fieldWork.updateTag': ({ payload, agency, id }) =>
+			'fieldWork.updateTag': ({ payload, organization, id }) =>
 				updateTagCommand({
-					...agency,
+					...organization,
 					tagId: id,
-					...('tag_name' in payload ? { tagName: readText(payload.tag_name) ?? '' } : {}),
-					...('description' in payload
+					...(payload.tag_name !== undefined ? { tagName: readText(payload.tag_name) ?? '' } : {}),
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
-					...('color' in payload ? { color: readNullableText(payload.color) } : {}),
+					...(payload.color !== undefined ? { color: readNullableText(payload.color) } : {}),
 				}),
 
-			'fieldWork.activateTag': ({ agency, id }) => activateTagCommand({ ...agency, tagId: id }),
+			'fieldWork.activateTag': ({ organization, id }) =>
+				activateTagCommand({ ...organization, tagId: id }),
 
-			'fieldWork.deactivateTag': ({ agency, id }) => deactivateTagCommand({ ...agency, tagId: id }),
+			'fieldWork.deactivateTag': ({ organization, id }) =>
+				deactivateTagCommand({ ...organization, tagId: id }),
 
-			'fieldWork.deleteTag': ({ agency, id }) => deleteTagCommand({ ...agency, tagId: id }),
+			'fieldWork.deleteTag': ({ organization, id }) =>
+				deleteTagCommand({ ...organization, tagId: id }),
 		},
 	};
 }

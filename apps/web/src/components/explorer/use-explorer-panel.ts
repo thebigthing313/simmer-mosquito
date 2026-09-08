@@ -73,9 +73,8 @@ export interface ExplorerPanel {
 export function useExplorerPanel(options?: {
 	/**
 	 * Start with the filter card open. For a surface whose filters *are* the page
-	 * rather than a way of narrowing it: the Activity Monitor has nothing to show
-	 * until someone picks a person, so a shut card there hides the only control
-	 * that makes the page do anything.
+	 * rather than a way of narrowing it: Daily Work is one person on one day, so a
+	 * shut card there hides the only control the page has.
 	 */
 	readonly filtersOpen?: boolean;
 }): ExplorerPanel {

@@ -1,9 +1,10 @@
 /**
- * The plumbing every agency command endpoint shares once authorization is done.
+ * The plumbing every organization command endpoint shares once authorization is
+ * done.
  *
- * A command endpoint is the same shape in all seven agency domains: read the
- * body, map it onto a domain command, run that command in a transaction, and
- * turn any refusal into a typed 4xx. Only the mapping and the runner differ
+ * A command endpoint is the same shape in all seven organization domains: read
+ * the body, map it onto a domain command, run that command in a transaction,
+ * and turn any refusal into a typed 4xx. Only the mapping and the runner differ
  * between endpoints; everything around them was copy-pasted 95 times.
  *
  * What deliberately does *not* live here is `authContextMiddleware`. It stays
@@ -59,10 +60,10 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  * refuses to remove. `reason` is set where the client can act on the
  * distinction; the four surveillance domains never set it.
  *
- * `409` is the global catalogs' case. An agency delete that other rows block is
- * decided before the delete runs, by `applyRecordDeletion`, and arrives as
- * `RecordDeleteBlockedError`; the taxonomy has no such registry and no
- * `deleted_at`, so its refusal comes back from Postgres as a foreign key
+ * `409` is the global catalogs' case. An organization delete that other rows
+ * block is decided before the delete runs, by `applyRecordDeletion`, and
+ * arrives as `RecordDeleteBlockedError`; the taxonomy has no such registry and
+ * no `deleted_at`, so its refusal comes back from Postgres as a foreign key
  * violation inside the transaction. Same answer, raised from a different place.
  */
 export class CommandError extends Error {
@@ -71,26 +72,22 @@ export class CommandError extends Error {
 		// invitation is a failure of a system upstream of this one, not of the
 		// request that reached it.
 		readonly status: 400 | 403 | 404 | 409 | 502,
-		readonly body: { readonly error: string; readonly reason?: string },
+		readonly body: {
+			readonly error: string;
+			readonly reason?: string;
+			/**
+			 * The record a refusal is about, where the caller named it only
+			 * indirectly. A location source carries an id and inherits that row's
+			 * geometry, so a refusal over the inherited shape has to say which row
+			 * to go and fix.
+			 */
+			readonly source?: { readonly table: string; readonly id: string };
+		},
 	) {
 		super(body.error);
 	}
 }
 
-/**
- * Turn the refusals a command endpoint can raise into responses.
- *
- * Four of them. `CommandError` carries its own status; the other three are
- * domain refusals raised from inside `packages/db`, each with a registry or a
- * lifecycle behind it that the handler has no way to restate.
- *
- * They are all here rather than caught per route on purpose. A refusal handled
- * in the module that raises it escapes as a 500 the moment another module reaches
- * that code, which is the argument `CommandError` above makes at length.
- *
- * Anything else rethrows: an error nobody declared is a bug, and a 500 with a
- * stack is more useful than a 400 that hides it.
- */
 /** The withheld-confirmation refusal an error is, or `null`. */
 function acknowledgementRefusal(error: unknown): {
 	readonly message: string;
@@ -118,9 +115,32 @@ function acknowledgementRefusal(error: unknown): {
 	return null;
 }
 
+/**
+ * Turn the refusals a command endpoint can raise into responses.
+ *
+ * `CommandError` carries its own status. `DomainValidationError` is the
+ * domain's own refusal and answers the same 400 wherever it was raised. The
+ * rest come from inside `packages/db`, each with a registry or a lifecycle
+ * behind it that the handler has no way to restate.
+ *
+ * They are all here rather than caught per route on purpose. A refusal handled
+ * in the module that raises it escapes as a 500 the moment another module reaches
+ * that code, which is the argument `CommandError` above makes at length.
+ *
+ * Anything else rethrows: an error nobody declared is a bug, and a 500 with a
+ * stack is more useful than a 400 that hides it.
+ */
 export function handleCommandError(context: CommandContext, error: unknown) {
 	if (error instanceof CommandError) {
 		return context.json(error.body, error.status);
+	}
+	// A rule the domain refused, raised past the build phase. `commandEndpoint`
+	// catches one around the builder, but a rule that needs a stored row can only
+	// run inside the transaction, and a client is owed the same `invalid_command`
+	// body with the same issue list either way. None of the refusal classes
+	// extends another, so where this arm sits shadows nothing.
+	if (error instanceof DomainValidationError) {
+		return context.json(invalidCommandBody(error), 400);
 	}
 	if (error instanceof RecordDeleteBlockedError) {
 		return context.json(deleteBlockedBody(error), 409);
@@ -134,10 +154,10 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		return context.json(acknowledgementRequiredBody(withheld), 409);
 	}
 	// A merge names rows the caller has to have seen to name, so a refusal is
-	// either that one of them is gone, which is a 404 and the same answer as a row
-	// of another agency, or that the survivor is retired, which is a state the
-	// caller can fix, so 409. `reason` is the discriminator, and is what the form
-	// maps to a message about the right field.
+	// either that one of them is gone, which is a 404 and the same answer as a
+	// row of another organization, or that the survivor is retired, which is a
+	// state the caller can fix, so 409. `reason` is the discriminator, and is
+	// what the form maps to a message about the right field.
 	if (error instanceof RecordMergeRefusedError) {
 		return context.json(
 			{ error: 'merge_refused', reason: error.reason, message: error.message },
@@ -145,8 +165,8 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		);
 	}
 	// A write that named a row it may not use, catalog or otherwise. Missing is a
-	// 404 and the same answer as another agency's row or a soft-deleted one,
-	// because telling them apart would make this a way to probe for ids.
+	// 404 and the same answer as another organization's row or a soft-deleted
+	// one, because telling them apart would make this a way to probe for ids.
 	// Inactive is a 409: the row is there and somebody can reactivate it or pick
 	// another, and only a catalog can be in that state.
 	if (error instanceof ReferenceRefusedError) {
@@ -202,45 +222,17 @@ export type CommandsResult<TCommand> =
 	| { readonly ok: true; readonly commands: readonly TCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody };
 
-/**
- * Run a domain builder and turn its rejection into a body rather than a throw.
- *
- * Domain builders signal a context-free violation — a missing field, an
- * out-of-range number — by throwing `DomainValidationError`. The endpoints want
- * that as a 400 with the issue list attached, and want anything else to keep
- * propagating.
- */
-export function createCommand<TCommand>(build: () => TCommand): CommandResult<TCommand> {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return { ok: false, body: invalidCommandBody(error) };
-		}
-		throw error;
-	}
-}
-
 function invalidCommandBody(error: DomainValidationError): InvalidCommandBody {
 	return { error: 'invalid_command', message: error.message, issues: error.issues };
 }
 
-/** The refusal a PATCH gets when its payload changed nothing. */
-export function invalidUpdate(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: { error: 'invalid_command', message, issues: [{ path: 'changes', message }] },
-	};
-}
+/** The two fields every organization command carries, read off the resolved session. */
+export type OrganizationContext = {
+	readonly organizationId: string;
+	readonly actorProfileId: string;
+};
 
-/** The two fields every agency command carries, read off the resolved session. */
-export type AgencyContext = { readonly organizationId: string; readonly actorProfileId: string };
-
-export function agencyCommandContext(authContext: AuthContext): AgencyContext {
+export function organizationCommandContext(authContext: AuthContext): OrganizationContext {
 	return {
 		organizationId: authContext.organization.id,
 		actorProfileId: authContext.profile.id,
@@ -301,7 +293,7 @@ export interface CommandRequest<TPayload = Record<string, unknown>> {
 	 */
 	readonly payload: TPayload;
 	/** `organizationId` and `actorProfileId`, ready to spread into a builder. */
-	readonly agency: AgencyContext;
+	readonly organization: OrganizationContext;
 	/** The whole resolved session, for the builders that need more than the two ids. */
 	readonly authContext: AuthContext;
 	/** A path parameter, e.g. `param('trapId')`. */
@@ -312,8 +304,9 @@ export interface CommandRequest<TPayload = Record<string, unknown>> {
  * How the endpoint treats the request body.
  *
  * `'optional'` is for the deletes that accept a body of acknowledgement flags
- * but do not require one: an absent or unparseable body yields `{}`, so a
- * `payload.acknowledgedX !== false` read defaults to acknowledged either way.
+ * but do not require one: an absent or unparseable body yields `{}`, and
+ * `acknowledged` reads a flag that is not there the way it reads one the body
+ * omitted.
  */
 export type CommandBody = 'required' | 'optional' | 'none';
 
@@ -351,9 +344,9 @@ export interface CommandEndpoint<TCommand, TPayload = Record<string, unknown>> {
 /**
  * Assemble the handler half of a command route.
  *
- * Owns the body read and its `invalid_payload` 400, the agency context, and the
- * `invalid_command` 400 — the four steps that were identical at every call
- * site. The verb, the path, and `authContextMiddleware` stay in the route
+ * Owns the body read and its `invalid_payload` 400, the organization context,
+ * and the `invalid_command` 400 — the four steps that were identical at every
+ * call site. The verb, the path, and `authContextMiddleware` stay in the route
  * registration; the mapping and the runner stay in {@link CommandEndpoint}.
  */
 export function commandEndpoint<TCommand, TPayload = Record<string, unknown>>(
@@ -387,7 +380,7 @@ export function commandEndpoint<TCommand, TPayload = Record<string, unknown>>(
 		try {
 			built = await endpoint.build({
 				payload,
-				agency: agencyCommandContext(authContext),
+				organization: organizationCommandContext(authContext),
 				authContext,
 				// Hono widens `param` to `string | undefined` when it cannot see the
 				// path; every name read here appears in the path it was registered

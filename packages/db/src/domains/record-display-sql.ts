@@ -48,12 +48,13 @@ export function inspectionResultSql(alias: string): string {
 }
 
 /**
- * A `timestamptz` as the calendar date it fell on **in the agency's timezone**.
+ * A `timestamptz` as the calendar date it fell on **in the organization's
+ * timezone**.
  *
  * Postgres converts `timestamptz::date` using the session's timezone, which is
- * the database server's, not the agency's. For a US agency on a UTC server that
- * silently files an evening's work under the next day — and a date-bounded read
- * then omits it from the range that was actually asked for.
+ * the database server's, not the organization's. For a US organization on a UTC
+ * server that silently files an evening's work under the next day — and a
+ * date-bounded read then omits it from the range that was actually asked for.
  *
  * The zone is validated by {@link assertIanaTimeZone} before it reaches here,
  * because it is interpolated rather than bound: `at time zone` takes an

@@ -88,7 +88,7 @@ export function useLinkedControlActions(inspectionId: string): {
 			gcTime: linkedActionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ application: applications })
+					.from({ application: applications() })
 					.where(({ application }) => eq(application.inspection_id, inspectionId))
 					.select(({ application }) => ({
 						id: application.id,
@@ -107,7 +107,7 @@ export function useLinkedControlActions(inspectionId: string): {
 			gcTime: linkedActionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sourceReduction: source_reductions })
+					.from({ sourceReduction: source_reductions() })
 					.where(({ sourceReduction }) => eq(sourceReduction.inspection_id, inspectionId))
 					.select(({ sourceReduction }) => ({
 						id: sourceReduction.id,
@@ -126,7 +126,7 @@ export function useLinkedControlActions(inspectionId: string): {
 			gcTime: linkedActionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ outreachAction: outreach_actions })
+					.from({ outreachAction: outreach_actions() })
 					.where(({ outreachAction }) => eq(outreachAction.inspection_id, inspectionId))
 					.select(({ outreachAction }) => ({
 						id: outreachAction.id,
@@ -144,7 +144,7 @@ export function useLinkedControlActions(inspectionId: string): {
 			gcTime: linkedActionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ biocontrolAction: biocontrol_actions })
+					.from({ biocontrolAction: biocontrol_actions() })
 					.where(({ biocontrolAction }) => eq(biocontrolAction.inspection_id, inspectionId))
 					.select(({ biocontrolAction }) => ({
 						id: biocontrolAction.id,
@@ -163,7 +163,7 @@ export function useLinkedControlActions(inspectionId: string): {
 			gcTime: linkedActionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ requestedControlAction: requested_control_actions })
+					.from({ requestedControlAction: requested_control_actions() })
 					.where(({ requestedControlAction }) =>
 						eq(requestedControlAction.inspection_id, inspectionId),
 					)

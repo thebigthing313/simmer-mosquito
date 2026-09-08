@@ -8,7 +8,6 @@ import {
 import { Hono } from 'hono';
 import type { setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
-import { toPublicAuthContext } from './auth-context.js';
 import { createAuthMailer } from './auth-email.js';
 import {
 	type AuthVariables,
@@ -45,7 +44,7 @@ const auth = env.workosIdentityWritesDisabled
 	: workOsAuth;
 if (env.workosIdentityWritesDisabled) {
 	console.warn(
-		'[workos-interlock] WORKOS_IDENTITY_WRITES_DISABLED=true — every WorkOS identity write refuses with 403 workos_identity_writes_disabled. Invitations, role changes, removals, password resets, sign-ups and agency creation will not settle.',
+		'[workos-interlock] WORKOS_IDENTITY_WRITES_DISABLED=true — every WorkOS identity write refuses with 403 workos_identity_writes_disabled. Invitations, role changes, removals, password resets, sign-ups and organization creation will not settle.',
 	);
 }
 const db = createDb({
@@ -122,18 +121,20 @@ for (const surface of CORS_SURFACES) {
 	app.use(surface.prefix, cors(corsOptionsFor(surface, allowedCorsOrigins())));
 }
 
-// The map and shape reads, gzipped. Registered before the tenancy headers below
-// so it wraps them: it appends `accept-encoding` to the `vary` they set, and
-// appending only works from the outside. `response-compression.ts` has the
-// measurements and says why it is not `hono/compress`.
+// The map and shape reads, gzipped. Registered before the organization-scope
+// headers below so it wraps them: it appends `accept-encoding` to the `vary`
+// they set, and appending only works from the outside.
+// `response-compression.ts` has the measurements and says why it is not
+// `hono/compress`.
 for (const prefix of COMPRESSED_READ_PREFIXES) {
 	app.use(prefix, compressReads);
 }
 
-// Organization-scoped reads on URLs that are byte-identical across tenants.
-// `cache-headers.ts` explains why; the short version is that a tile URL carries
-// no organization id and one login can switch between agencies without the URL
-// changing. Registered before the routes so it wraps them.
+// Organization-scoped reads on URLs that are byte-identical across
+// organizations. `cache-headers.ts` explains why; the short version is that a
+// tile URL carries no organization id and one login can switch between
+// organizations without the URL changing. Registered before the routes so it
+// wraps them.
 for (const prefix of PRIVATE_READ_PREFIXES) {
 	app.use(prefix, privateNoStore);
 }
@@ -154,21 +155,6 @@ registerAllRoutes(app, {
 	authContextMiddleware,
 	operatorAuthContextMiddleware,
 });
-
-if (env.nodeEnv !== 'production') {
-	app.use(
-		'/debug/*',
-		cors({
-			origin: allowedCorsOrigins(),
-			credentials: true,
-			allowMethods: ['GET', 'OPTIONS'],
-		}),
-	);
-
-	app.get('/debug/auth-context', authContextMiddleware, (context) =>
-		context.json(toPublicAuthContext(context.get('authContext'))),
-	);
-}
 
 const server = serve(
 	{

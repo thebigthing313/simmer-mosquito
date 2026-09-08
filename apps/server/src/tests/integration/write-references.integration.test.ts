@@ -1,27 +1,34 @@
-import { type Kysely, ReferenceRefusedError, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import { type Kysely, ReferenceRefusedError, type SimmerDatabase } from '@simmer-mosquito/db';
+import {
+	createAddress,
+	createCollectionMethod,
+	createOrganization,
+	createProfile,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import {
 	createTrapCommand,
 	recordAdHocInspectionCommand,
 	updateTrapConfigurationCommand,
 } from '@simmer-mosquito/domain';
 import { expect, it } from 'vitest';
-import { writeTrapCommand } from '../../adult-surveillance-commands/traps.js';
-import { writeInspectionCommand } from '../../larval-surveillance-commands/inspections.js';
+import { writeTrapCommand } from '../../writers/adult-surveillance/traps.js';
+import { writeInspectionCommand } from '../../writers/larval-surveillance/inspections.js';
 
 /**
- * A write may not name another agency's record (#200).
+ * A write may not name another organization's record (#200).
  *
- * The agency a write lands in comes from the session, so a new row is never
- * mis-filed. The ids it *refers* to came off the payload, and the only thing
- * behind them was the Postgres foreign key, which is satisfied by the row
+ * The organization a write lands in comes from the session, so a new row is
+ * never mis-filed. The ids it *refers* to came off the payload, and the only
+ * thing behind them was the Postgres foreign key, which is satisfied by the row
  * existing anywhere. Org A could create a Trap standing at org B's Address and
  * get a 201.
  *
  * These run against Postgres because the claim is a query's. A fake transaction
  * would show the gate being called; only a real database shows that the
- * predicate finds nothing across agencies and that no row is left behind when
- * it refuses.
+ * predicate finds nothing across organizations and that no row is left behind
+ * when it refuses.
  *
  * Two writers rather than thirty, chosen for the two seams every writer reaches
  * the gate through: an insert wrapped in `checkedValues` and an update through
@@ -29,11 +36,11 @@ import { writeInspectionCommand } from '../../larval-surveillance-commands/inspe
  * `pnpm check:write-references`'s claim, made statically over the whole tree,
  * which is a stronger reading than thirty near-identical fixtures would be.
  */
-describeDbIntegration('cross-agency references', () => {
-	it('refuses a create naming another agency’s address, and writes nothing', async () => {
+describeDbIntegration('cross-organization references', () => {
+	it('refuses a create naming another organization’s address, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_create_mine');
-			const theirs = await agency(db, 'refs_create_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 			const theirAddress = await createAddress(db, theirs.organizationId);
 			const trapId = crypto.randomUUID();
 
@@ -63,10 +70,10 @@ describeDbIntegration('cross-agency references', () => {
 		});
 	});
 
-	it('names the address in the refusal rather than saying which agency owns it', async () => {
+	it('names the address in the refusal rather than saying which organization owns it', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_reason_mine');
-			const theirs = await agency(db, 'refs_reason_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 			const theirAddress = await createAddress(db, theirs.organizationId);
 
 			const refusal = await capture(() =>
@@ -74,17 +81,17 @@ describeDbIntegration('cross-agency references', () => {
 			);
 
 			expect(refusal?.reference).toBe('addresses');
-			// `missing`, not `elsewhere`: telling "another agency's" apart from "no
-			// such row" would make the refusal a way to probe for ids.
+			// `missing`, not `elsewhere`: telling "another organization's" apart from
+			// "no such row" would make the refusal a way to probe for ids.
 			expect(refusal?.reason).toBe('missing');
 			expect(refusal?.message).toBe('That address is not available.');
 		});
 	});
 
-	it('refuses an update that repoints a record at another agency’s address', async () => {
+	it('refuses an update that repoints a record at another organization’s address', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_update_mine');
-			const theirs = await agency(db, 'refs_update_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 			const ourAddress = await createAddress(db, mine.organizationId);
 			const theirAddress = await createAddress(db, theirs.organizationId);
 
@@ -111,13 +118,14 @@ describeDbIntegration('cross-agency references', () => {
 		});
 	});
 
-	it('refuses a create naming another agency’s profile as the inspector', async () => {
+	it('refuses a create naming another organization’s profile as the inspector', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_profile_mine');
-			const theirs = await agency(db, 'refs_profile_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 
 			// A Profile rather than an Address, because a profile id is the one an
-			// operator moving between agencies is most likely to still be holding.
+			// operator moving between organizations is most likely to still be
+			// holding.
 			const command = recordAdHocInspectionCommand({
 				organizationId: mine.organizationId,
 				actorProfileId: mine.profileId,
@@ -141,51 +149,26 @@ type Db = Kysely<SimmerDatabase>;
 
 const POINT = { type: 'Point', coordinates: [-90.5, 35.5] } as const;
 
-interface Agency {
+interface SeededOrganization {
 	readonly organizationId: string;
 	readonly profileId: string;
 	readonly collectionMethodId: string;
 }
 
-async function agency(db: Db, slug: string): Promise<Agency> {
-	const organization = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const profile = await db
-		.insertInto('profiles')
-		.values({ organization_id: organization.id, display_name: 'Field tech' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const method = await db
-		.insertInto('collection_methods')
-		.values({ organization_id: organization.id, name: 'CDC light trap', is_active: true })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
+async function seedOrganization(db: Db): Promise<SeededOrganization> {
+	const organizationId = await createOrganization(db);
 	return {
-		organizationId: organization.id,
-		profileId: profile.id,
-		collectionMethodId: method.id,
+		organizationId,
+		profileId: await createProfile(db, organizationId, { display_name: 'Field tech' }),
+		collectionMethodId: await createCollectionMethod(db, organizationId, { is_active: true }),
 	};
 }
 
-async function createAddress(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('addresses')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			display_name: '14 Levee Road',
-			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-function writeTrapCommandFor(db: Db, actor: Agency, input: { readonly addressId: string }) {
+function writeTrapCommandFor(
+	db: Db,
+	actor: SeededOrganization,
+	input: { readonly addressId: string },
+) {
 	const command = createTrapCommand({
 		organizationId: actor.organizationId,
 		actorProfileId: actor.profileId,

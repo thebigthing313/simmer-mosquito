@@ -107,7 +107,7 @@ function EntryList({ entries }: { readonly entries: readonly string[] }) {
 /**
  * `YYYY-MM-DD` is a calendar date, not an instant. Parsing it through `Date`
  * would read it as UTC midnight and draw the day before for anyone west of
- * Greenwich, which is every agency we have.
+ * Greenwich, which is every organization we have.
  */
 function formatReleaseDate(date: string): string {
 	const [year, month, day] = date.split('-').map(Number);

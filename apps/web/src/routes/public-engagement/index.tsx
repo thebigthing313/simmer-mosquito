@@ -1,7 +1,10 @@
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
@@ -71,21 +74,12 @@ function PublicEngagementOverviewRoute() {
 	return (
 		<OutletSimpleLayout>
 			<div className="grid gap-6">
-				<header className="grid gap-1.5">
-					<div className="flex items-center gap-2 text-muted-foreground">
-						<PublicIcon aria-hidden="true" className="size-4" />
-						<span className="font-medium text-xs uppercase tracking-wide">
-							Community engagement
-						</span>
-					</div>
-					<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-						Public Engagement
-					</h1>
-					<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-						Service requests reported by the public, the outreach your crews do, and the contacts
-						behind both.
-					</p>
-				</header>
+				<PageHeader
+					description="Service requests reported by the public, the outreach your crews do, and the contacts behind both."
+					eyebrow="Community engagement"
+					icon={PublicIcon}
+					title="Public Engagement"
+				/>
 
 				{/*
 				 * `items-start` so a short panel keeps its own height rather than
@@ -154,11 +148,7 @@ function PanelRow({
 				<span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
 			)}
 			<div className="grid min-w-0 flex-1">
-				<Link
-					className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					params={params}
-					to={to}
-				>
+				<Link className={cn(recordLink({ size: 'sm' }), 'truncate')} params={params} to={to}>
 					{primary}
 				</Link>
 				<span className="min-w-0 text-muted-foreground text-xs">{secondary}</span>
@@ -173,11 +163,12 @@ function PanelRow({
 // --- open service requests --------------------------------------------------
 
 /**
- * What is still waiting on the agency, newest first.
+ * What is still waiting on the organization, newest first.
  *
  * The panel previews the most recent few and hands the rest to the explorer —
- * an agency in season carries more open requests than a summary can usefully
- * list, and the count in the header is the number that matters at a glance.
+ * an organization in season carries more open requests than a summary can
+ * usefully list, and the count in the header is the number that matters at a
+ * glance.
  */
 function OpenServiceRequestsPanel({
 	requests,
@@ -284,7 +275,8 @@ const EVENT_PRESENTATION: Readonly<
 };
 
 /**
- * What has happened to the agency's service requests lately, newest first.
+ * What has happened to the organization's service requests lately, newest
+ * first.
  *
  * Unlike the panels above it this is a chronology rather than a worklist: the
  * same request appears as often as it was touched, and an event is worth a row
@@ -346,6 +338,7 @@ function ServiceRequestActivityPanel({
 							event={event}
 							key={event.key}
 							requestTitle={titleById.get(event.requestId) ?? 'a service request'}
+							timeZone={timeZone}
 						/>
 					))}
 				</ul>
@@ -358,16 +351,25 @@ function ActivityRow({
 	event,
 	requestTitle,
 	actorName,
+	timeZone,
 }: {
 	readonly event: ServiceRequestEvent;
 	readonly requestTitle: string;
 	readonly actorName: string | null;
+	/**
+	 * The Organization's, not the reader's. An event carries an instant — the
+	 * request was created, a comment was left, it was closed — and which day that
+	 * fell on is only a fact once a zone says so. Read in UTC, as this was, a
+	 * request logged at the end of an Eastern shift files under tomorrow, and the
+	 * feed disagrees with the date on the request it links to.
+	 */
+	readonly timeZone: string;
 }) {
 	const { verb, icon: KindIcon } = EVENT_PRESENTATION[event.kind];
 
 	return (
 		<PanelRow
-			date={formatMonthDay(event.at.toISOString().slice(0, 10))}
+			date={formatMonthDay(todayInTimeZone(timeZone, event.at))}
 			icon={<KindIcon aria-hidden="true" className="size-4" />}
 			params={{ id: event.requestId }}
 			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}

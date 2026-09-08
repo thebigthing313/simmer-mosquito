@@ -1,10 +1,10 @@
 /**
  * The `organization_species` table, as commands.
  *
- * Which of the global species an agency identifies against. The rows carry no
- * fields of their own beyond the two ids, so this is the smallest map on the
- * surface — and the one where naming the command earns the most, because both
- * commands write the same two columns and differ only in direction.
+ * Which of the global species an organization identifies against. The rows
+ * carry no fields of their own beyond the two ids, so this is the smallest map
+ * on the surface — and the one where naming the command earns the most, because
+ * both commands write the same two columns and differ only in direction.
  *
  * `unselectOrganizationSpecies` is a soft delete, not a hard one, and
  * `enableOrganizationSpecies` in `packages/db` upserts a previously unselected
@@ -26,13 +26,13 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeOrganizationSpeciesCommand } from '../foundation-geography-commands/organization-species.js';
-import type { OrganizationSpeciesRow } from '../foundation-geography-commands/shared.js';
+import { writeOrganizationSpeciesCommand } from '../writers/foundation-geography/organization-species.js';
+import type { OrganizationSpeciesRow } from '../writers/foundation-geography/shared.js';
 import type { TableCommands } from './dispatch.js';
 
 export function organizationSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<FoundationCommand, OrganizationSpeciesRow> {
+): TableCommands<'organization_species', FoundationCommand, OrganizationSpeciesRow> {
 	return {
 		table: 'organization_species',
 		run: {
@@ -42,15 +42,15 @@ export function organizationSpeciesTableCommands(
 			key: 'organizationSpecies',
 		},
 		intents: {
-			'foundation.selectOrganizationSpecies': ({ payload, agency, id }) =>
+			'foundation.selectOrganizationSpecies': ({ payload, organization, id }) =>
 				selectOrganizationSpeciesCommand({
-					...agency,
+					...organization,
 					organizationSpeciesId: id,
 					speciesId: readText(payload.species_id) ?? '',
 				}),
 
-			'foundation.unselectOrganizationSpecies': ({ agency, id }) =>
-				unselectOrganizationSpeciesCommand({ ...agency, organizationSpeciesId: id }),
+			'foundation.unselectOrganizationSpecies': ({ organization, id }) =>
+				unselectOrganizationSpeciesCommand({ ...organization, organizationSpeciesId: id }),
 		},
 	};
 }

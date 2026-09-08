@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { operationalDayAsInstant } from '../../../../lib/local-date';
-import { collectionEffectiveDate } from '../../../../routes/adult-surveillance/-adult-display';
+import {
+	collectionEffectiveDate,
+	SPECIES_SEX_VALUES,
+	SPECIES_STATUS_VALUES,
+} from '../../../../routes/adult-surveillance/-adult-display';
 
 /**
  * The two halves of an operational date, checked against each other.
@@ -22,7 +26,7 @@ describe('a typed collection date, stamped and read back', () => {
 	});
 
 	it('agrees on the day a clamped same-day stamp falls on', () => {
-		// Keyed at 09:00 local, so the stamp is now rather than the agency's
+		// Keyed at 09:00 local, so the stamp is now rather than the organization's
 		// midday. Any instant that day answers the same question — that is what
 		// makes the clamp safe.
 		const zone = 'America/New_York';
@@ -41,5 +45,20 @@ describe('a typed collection date, stamped and read back', () => {
 				'Pacific/Auckland',
 			),
 		).toBe('2026-08-05');
+	});
+});
+
+/**
+ * Both lists are now derived from the register rather than typed out, and both
+ * are read in order by the adult entry pickers. The register runs `male, female`
+ * and `damaged, unfed, bloodfed, gravid`, which is neither of these.
+ */
+describe('the adult entry option lists', () => {
+	it('offers female before male', () => {
+		expect(SPECIES_SEX_VALUES).toEqual(['female', 'male']);
+	});
+
+	it('offers the physiological states first and damaged last', () => {
+		expect(SPECIES_STATUS_VALUES).toEqual(['unfed', 'bloodfed', 'gravid', 'damaged']);
 	});
 });

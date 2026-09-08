@@ -1,13 +1,14 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
-import { RecordUnavailable } from '../../../components/record';
+import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
+import { toDrawGeometry } from '../../../components/map/use-map-draw';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
@@ -27,7 +28,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultInspectionFormValues,
@@ -40,7 +41,7 @@ import {
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/inspections/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -72,35 +73,38 @@ function EditInspectionRoute() {
 		{
 			gcTime: inspectionGcTimeMs,
 			query: (query) =>
-				query.from({ sample: samples }).where(({ sample }) => eq(sample.inspection_id, id)),
+				query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
 		},
 		[id],
 	);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="inspection" reason="error" />;
-	}
-	if (!isReady || !personnel.isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (inspection === undefined) {
-		return <RecordUnavailable layout="centered" noun="inspection" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+	const skeleton = <EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />;
 
 	return (
-		<EditInspectionLoader
-			canSubmit={organization !== null && actorProfileId !== null}
-			existingPersonnel={personnel.rows}
-			habitatTypes={habitatTypes}
-			inspection={inspection}
-			organizationId={organization?.id ?? ''}
-			personnelProfileIds={personnel.profileIds}
-			policy={settings.larvalSurveillance.inspectionEntryPolicy}
-			profiles={profiles}
-		/>
+		<RecordEditFrame
+			noun="inspection"
+			reading={{ isError, isReady, record: inspection }}
+			skeleton={skeleton}
+		>
+			{(record) =>
+				personnel.isReady ? (
+					<EditInspectionLoader
+						canSubmit={organization !== null && actorProfileId !== null}
+						existingPersonnel={personnel.rows}
+						habitatTypes={habitatTypes}
+						inspection={record}
+						organizationId={organization?.id ?? ''}
+						personnelProfileIds={personnel.profileIds}
+						policy={settings.larvalSurveillance.inspectionEntryPolicy}
+						profiles={profiles}
+					/>
+				) : (
+					skeleton
+				)
+			}
+		</RecordEditFrame>
 	);
 }
 
@@ -156,7 +160,7 @@ function EditInspectionLoader({
 			// habitat's, which this form cannot move it off.
 			const redrawn =
 				isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry)
-					? ((adhocGeometry ?? null) as GeoJsonGeometry | null)
+					? adhocGeometry
 					: null;
 			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 			if (redrawn !== null && centroid === null) {
@@ -254,7 +258,7 @@ function EditInspectionLoader({
 		);
 	}
 	if (geometryQuery.isPending) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />;
 	}
 
 	return (
@@ -317,7 +321,7 @@ async function fetchInspectionGeometry(
 	signal: AbortSignal,
 ): Promise<GeoJsonGeometry | null> {
 	const url = new URL(`/map/inspections/${inspectionId}`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
 		return null;
 	}
@@ -328,43 +332,5 @@ async function fetchInspectionGeometry(
 	const body = (await response.json()) as {
 		readonly inspection?: { readonly geojson?: unknown };
 	};
-	return (body.inspection?.geojson ?? null) as GeoJsonGeometry | null;
-}
-
-// The draw flow owns single Point/LineString/Polygon geometries. Anything else
-// (a legacy multi-geometry) cannot be re-drawn vertex-by-vertex here, so it seeds
-// as "no geometry" — the findings are still editable and a redraw replaces it.
-function toDrawGeometry(geojson: unknown): DrawGeometry | null {
-	if (geojson === null || typeof geojson !== 'object') {
-		return null;
-	}
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
-	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
-		return null;
-	}
-	if (
-		candidate.type === 'Point' ||
-		candidate.type === 'LineString' ||
-		candidate.type === 'Polygon'
-	) {
-		return geojson as DrawGeometry;
-	}
-	return null;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-24 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
+	return checkOwnedGeometry('inspection', body.inspection?.geojson).geometry;
 }

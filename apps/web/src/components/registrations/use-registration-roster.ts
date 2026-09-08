@@ -14,10 +14,10 @@ export interface RegistrationRoster {
 /**
  * One contact's registrations, with the units their buffers are written in.
  *
- * Filtered from the agency-wide directory rather than read per contact, because
- * that directory is already what the sync layer holds and a per-contact read
- * would be a second shape over the same rows. An agency's registrations number
- * in the hundreds, not the millions.
+ * Filtered from the organization-wide directory rather than read per contact,
+ * because that directory is already what the sync layer holds and a per-contact
+ * read would be a second shape over the same rows. An organization's
+ * registrations number in the hundreds, not the millions.
  *
  * Inactive ones are hidden by default and offered behind a filter. A retired
  * registration still appears on missions already generated, so it is not gone,

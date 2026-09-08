@@ -2,7 +2,6 @@ import {
 	expandFormulationApplicationCommands,
 	recordChemicalApplicationCommand,
 } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -14,25 +13,16 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { locationDescription } from '../../../components/map/location-description';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -165,9 +155,9 @@ export interface ApplicationFormPageProps {
 	readonly applicationMethods: readonly SchemaCatalogListing[];
 	readonly insecticides: readonly InsecticideListing[];
 	/**
-	 * The agency's saved mixes. Passing them turns on formulation entry — leave
-	 * them out where a single application row is being edited, since the record
-	 * itself only ever holds one product.
+	 * The organization's saved mixes. Passing them turns on formulation entry —
+	 * leave them out where a single application row is being edited, since the
+	 * record itself only ever holds one product.
 	 */
 	readonly formulations?: readonly FormulationListing[];
 	/** Every mix's component rows; the chosen mix's are picked out of these. */
@@ -238,38 +228,13 @@ export function ApplicationFormPage({
 	submitLabel,
 	onSave,
 }: ApplicationFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? 'Point',
-	);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [locationError, setLocationError] = useState<string | null>(null);
-	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		geometryKind: 'controlAction',
+		initialGeometry,
+		missingMessage: 'Map where the product was applied.',
+		required: requireLocation,
 	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+	const { addressCoord, draw, geometry, geometryType } = location;
 
 	const insecticideOptions = useMemo(
 		() => lifecycleOptions(insecticides, (row) => row.isActive, insecticideDisplayName),
@@ -428,60 +393,17 @@ export function ApplicationFormPage({
 			},
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			const invalid = validate(value, componentsFor(value.formulationId).length);
 			if (invalid !== null) {
-				setSaveError(invalid);
+				throw new Error(invalid);
+			}
+			if (!location.requireGeometry()) {
 				return;
 			}
-			if (requireLocation && geometry === null) {
-				setLocationError('Map where the product was applied.');
-				return;
-			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save application.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
-
-	// Seeding from an address (or moving onto one) replaces the drawn shape with a
-	// point, so the tool selector follows it.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryType('Point');
-		setGeometryChanged(true);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	// Switching tools replaces the shape, so the old one is cleared rather than
-	// silently saved under the wrong type.
-	const handleTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setGeometryType(next);
-			setGeometry(null);
-			setGeometryChanged(true);
-			if (draw.isDrawing) {
-				start(next);
-			}
-		},
-		[draw.isDrawing, start],
-	);
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start(geometryType);
-	}, [geometryType, start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -495,8 +417,12 @@ export function ApplicationFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
-						<DrawToolbar controller={draw} geometryType={geometryType} />
+						<MapCanvas onMapReady={location.onMapReady} />
+						<DrawToolbar
+							geometryKind="controlAction"
+							controller={draw}
+							geometryType={geometryType}
+						/>
 					</>
 				}
 				onSubmit={() => {
@@ -504,12 +430,6 @@ export function ApplicationFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Application" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Application</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<form.AppField name="applicationDate">
 					{(field) => (
@@ -529,7 +449,7 @@ export function ApplicationFormPage({
 								emptyValue={noSelectionValue}
 								label="Applicator"
 								options={profileOptions}
-								placeholder="Unassigned — search profiles"
+								placeholder="Search profiles, or leave unassigned"
 							/>
 						)}
 					</form.AppField>
@@ -553,18 +473,22 @@ export function ApplicationFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the product was applied — a point for a spot treatment, a line or area for a treated swath. An address is optional reference, and a habitat links the treatment to a known larval site."
-					error={locationError}
+					description={locationDescription({
+						geometryKind: 'controlAction',
+						subject: 'The geometry is where the product was applied.',
+						habitat: true,
+					})}
+					error={location.locationError}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
-								create={{ requestMapPoint }}
+								create={{ requestMapPoint: location.requestMapPoint }}
 								label="Address"
 								onSelect={(address) => {
 									field.handleChange(address?.id ?? null);
-									setLocationError(null);
-									selectAddress(address);
+									location.clearError();
+									location.selectAddress(address);
 								}}
 								organizationId={organizationId}
 								value={field.state.value}
@@ -576,13 +500,14 @@ export function ApplicationFormPage({
 						controller={draw}
 						geometry={geometry}
 						geometryType={geometryType}
+						geometryKind="controlAction"
 						label="Geometry"
 						required={requireLocation}
-						onClear={clearGeometry}
-						onDraw={startDraw}
-						onTypeChange={handleTypeChange}
+						onClear={location.clear}
+						onDraw={location.startDraw}
+						onTypeChange={location.changeType}
 						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 					/>
 
 					<form.AppField name="habitatId">
@@ -851,7 +776,7 @@ export function ApplicationFormPage({
 					</div>
 				</FormSection>
 
-				{/* Agencies attach their own fields to an application method; render
+				{/* Organizations attach their own fields to an application method; render
 							    whichever the selected one declares, and nothing when it declares
 							    none (including when no method is chosen). */}
 				<form.Subscribe selector={(state) => state.values.applicationMethodId}>
@@ -868,7 +793,7 @@ export function ApplicationFormPage({
 								>
 									{(field) => (
 										<field.MetadataField
-											description="Extra details your agency collects for this method."
+											description="Extra details you collect for this method."
 											mode={{ kind: 'schema', schema }}
 										/>
 									)}
@@ -998,7 +923,7 @@ function InsecticideBatchOptions({
 			gcTime: batchOptionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: insecticide_batches })
+					.from({ batch: insecticide_batches() })
 					.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
 					.orderBy(({ batch }) => batch.batch_name, 'asc'),
 		},

@@ -54,33 +54,43 @@ import {
 	updateCollectionFieldDetailsCommand,
 } from '@simmer-mosquito/domain';
 import {
-	type CollectionCommand,
-	writeCollectionCommand,
-} from '../adult-surveillance-commands/collections.js';
-import { type CollectionRow, pendingStartedAt } from '../adult-surveillance-commands/shared.js';
-import {
+	type CommandPayload,
 	readExecutionOptions,
 	readNullableText,
 	readNumber,
 	readText,
 } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
+import {
+	type CollectionCommand,
+	writeCollectionCommand,
+} from '../writers/adult-surveillance/collections.js';
+import { type CollectionRow, pendingStartedAt } from '../writers/adult-surveillance/shared.js';
 import type { IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
 /**
+ * The keys a collection write reads that are not its columns: where the trap
+ * was, and the assignment stop a set or pull closes.
+ */
+type CollectionArgument = 'locationSource' | 'assignmentItemId' | 'completedAt';
+
+/** The body of a write to this module's table. */
+type CollectionPayload = CommandPayload<'collections', CollectionArgument>;
+
+/**
  * How long the trap was out, read from the six columns that record it.
  *
- * Two shapes, because agencies record this two ways and the setting says which —
- * exact timestamps, or a collection date with a duration. See the
- * `adult-collection-timing-modes` note: reading one agency's collections under
- * the other's mode empties a surface without erroring.
+ * Two shapes, because organizations record this two ways and the setting says
+ * which — exact timestamps, or a collection date with a duration. See the
+ * `adult-collection-timing-modes` note: reading one organization's collections
+ * under the other's mode empties a surface without erroring.
  *
  * `collected_at` is what separates a pending collection from a collected one,
  * and it is the one place `readDate`'s null return is load-bearing rather than
  * cosmetic — the timing carries the field or it does not.
  */
-function collectionTiming(payload: Record<string, unknown>): CollectionTiming {
+function collectionTiming(payload: CollectionPayload): CollectionTiming {
 	if (payload.collection_timing_mode === 'collection_date_duration') {
 		return {
 			mode: 'collection_date_duration',
@@ -105,18 +115,18 @@ function collectionTiming(payload: Record<string, unknown>): CollectionTiming {
  * Here the name is the claim, and the domain's `validateCollectedTiming` is
  * what settles it.
  */
-function collectedTiming(payload: Record<string, unknown>): CollectedCollectionTiming {
+function collectedTiming(payload: CollectionPayload): CollectedCollectionTiming {
 	return collectionTiming(payload) as CollectedCollectionTiming;
 }
 
-function hasTimingColumns(payload: Record<string, unknown>): boolean {
+function hasTimingColumns(payload: CollectionPayload): boolean {
 	return (
-		'collection_timing_mode' in payload ||
-		'started_at' in payload ||
-		'collected_at' in payload ||
-		'collection_date' in payload ||
-		'duration_amount' in payload ||
-		'duration_unit_id' in payload
+		payload.collection_timing_mode !== undefined ||
+		payload.started_at !== undefined ||
+		payload.collected_at !== undefined ||
+		payload.collection_date !== undefined ||
+		payload.duration_amount !== undefined ||
+		payload.duration_unit_id !== undefined
 	);
 }
 
@@ -126,9 +136,13 @@ function hasTimingColumns(payload: Record<string, unknown>): boolean {
  * They close an assignment stop in the same transaction that writes the
  * collection, so the work can never exist with the stop still pending.
  */
-function stopExecution({ payload, agency, id }: IntentRequest) {
+function stopExecution({
+	payload,
+	organization,
+	id,
+}: IntentRequest<'collections', CollectionArgument>) {
 	return {
-		...agency,
+		...organization,
 		collectionId: id,
 		assignmentItemId: readText(payload.assignmentItemId) ?? '',
 		completedAt: readDate(payload.completedAt),
@@ -137,7 +151,7 @@ function stopExecution({ payload, agency, id }: IntentRequest) {
 }
 
 /** The trap defaults a stop-set may override, which otherwise come from the trap. */
-function trapOverrides(payload: Record<string, unknown>) {
+function trapOverrides(payload: CollectionPayload) {
 	return {
 		// Nullable rather than absent: the stop already names a trap, so the
 		// ordinary call sends none and cannot disagree with it, and the writer falls
@@ -151,15 +165,15 @@ function trapOverrides(payload: Record<string, unknown>) {
 
 export function collectionTableCommands(
 	db: CommandDb,
-): TableCommands<CollectionCommand, CollectionRow> {
+): TableCommands<'collections', CollectionCommand, CollectionRow, CollectionArgument> {
 	return {
 		table: 'collections',
 		run: { db, write: writeCollectionCommand, notFound: 'collection_not_found', key: 'collection' },
 		intents: {
 			// --- Setting a trap ------------------------------------------------
-			'adultSurveillance.setTrapCollection': ({ payload, agency, id }) =>
+			'adultSurveillance.setTrapCollection': ({ payload, organization, id }) =>
 				setTrapCollectionCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					trapId: readText(payload.trap_id) ?? '',
 					startedAt: pendingStartedAt(collectionTiming(payload)),
@@ -167,9 +181,9 @@ export function collectionTableCommands(
 					metadata: payload.metadata ?? null,
 				}),
 
-			'adultSurveillance.setAdHocCollection': ({ payload, agency, id }) =>
+			'adultSurveillance.setAdHocCollection': ({ payload, organization, id }) =>
 				setAdHocCollectionCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					collectionMethodId: readText(payload.collection_method_id) ?? '',
 					locationSource: payload.locationSource as AdultCollectionLocationSourceInput,
@@ -181,9 +195,9 @@ export function collectionTableCommands(
 				}),
 
 			// --- Recording one already emptied ----------------------------------
-			'adultSurveillance.recordCollectedTrapCollection': ({ payload, agency, id }) =>
+			'adultSurveillance.recordCollectedTrapCollection': ({ payload, organization, id }) =>
 				recordCollectedTrapCollectionCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					trapId: readText(payload.trap_id) ?? '',
 					timing: collectedTiming(payload),
@@ -191,14 +205,15 @@ export function collectionTableCommands(
 					collectedByProfileId: readNullableText(payload.collected_by_profile_id),
 					hasProblem: payload.has_problem === true,
 					acknowledgedPendingTrapCollection: acknowledged(
-						payload.acknowledgedPendingTrapCollection,
+						payload,
+						'acknowledgedPendingTrapCollection',
 					),
 					metadata: payload.metadata ?? null,
 				}),
 
-			'adultSurveillance.recordCollectedAdHocCollection': ({ payload, agency, id }) =>
+			'adultSurveillance.recordCollectedAdHocCollection': ({ payload, organization, id }) =>
 				recordCollectedAdHocCollectionCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					collectionMethodId: readText(payload.collection_method_id) ?? '',
 					locationSource: payload.locationSource as AdultCollectionLocationSourceInput,
@@ -241,9 +256,9 @@ export function collectionTableCommands(
 				}),
 
 			// --- Emptying, cancelling, correcting -------------------------------
-			'adultSurveillance.collectCollection': ({ payload, agency, id }) =>
+			'adultSurveillance.collectCollection': ({ payload, organization, id }) =>
 				collectCollectionCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					collectedAt: readDate(payload.collected_at) ?? new Date(Number.NaN),
 					collectedByProfileId: readNullableText(payload.collected_by_profile_id),
@@ -251,73 +266,81 @@ export function collectionTableCommands(
 					metadata: payload.metadata ?? null,
 				}),
 
-			'adultSurveillance.cancelPendingCollection': ({ agency, id }) =>
-				cancelPendingCollectionCommand({ ...agency, collectionId: id }),
+			'adultSurveillance.cancelPendingCollection': ({ organization, id }) =>
+				cancelPendingCollectionCommand({ ...organization, collectionId: id }),
 
-			'adultSurveillance.updateCollectionFieldDetails': ({ payload, agency, id }) =>
+			'adultSurveillance.updateCollectionFieldDetails': ({ payload, organization, id }) =>
 				updateCollectionFieldDetailsCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					// The six timing columns move as one — a collection is either exactly
 					// timestamped or dated with a duration, and half of each is not a state
 					// the row can hold. So they are read together or not at all.
 					...(hasTimingColumns(payload) ? { timing: collectionTiming(payload) } : {}),
-					...('set_by_profile_id' in payload
+					...(payload.set_by_profile_id !== undefined
 						? { setByProfileId: readNullableText(payload.set_by_profile_id) }
 						: {}),
-					...('collected_by_profile_id' in payload
+					...(payload.collected_by_profile_id !== undefined
 						? { collectedByProfileId: readNullableText(payload.collected_by_profile_id) }
 						: {}),
-					...('has_problem' in payload ? { hasProblem: payload.has_problem === true } : {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.has_problem !== undefined
+						? { hasProblem: payload.has_problem === true }
+						: {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 				}),
 
-			'adultSurveillance.updateAdHocCollectionConfiguration': ({ payload, agency, id }) =>
+			'adultSurveillance.updateAdHocCollectionConfiguration': ({ payload, organization, id }) =>
 				updateAdHocCollectionConfigurationCommand({
-					...agency,
+					...organization,
 					collectionId: id,
-					...('collection_method_id' in payload
+					...(payload.collection_method_id !== undefined
 						? { collectionMethodId: readText(payload.collection_method_id) ?? '' }
 						: {}),
-					...('locationSource' in payload
+					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as AdultCollectionLocationSourceInput }
 						: {}),
-					...('collection_lure_id' in payload
+					...(payload.collection_lure_id !== undefined
 						? { collectionLureId: readNullableText(payload.collection_lure_id) }
 						: {}),
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
 				}),
 
 			// --- The result ------------------------------------------------------
 			// `is_zero_result` is not a field to set: marking one clears every species
 			// count on the collection, and clearing it does not put them back. Two
 			// names rather than a boolean read for its direction.
-			'adultSurveillance.markCollectionZeroResult': ({ payload, agency, id }) =>
+			'adultSurveillance.markCollectionZeroResult': ({ payload, organization, id }) =>
 				markCollectionZeroResultCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					acknowledgedSpeciesCountsClearance: acknowledged(
-						payload.acknowledgedSpeciesCountsClearance,
+						payload,
+						'acknowledgedSpeciesCountsClearance',
 					),
 				}),
 
-			'adultSurveillance.clearCollectionZeroResult': ({ agency, id }) =>
-				clearCollectionZeroResultCommand({ ...agency, collectionId: id }),
+			'adultSurveillance.clearCollectionZeroResult': ({ organization, id }) =>
+				clearCollectionZeroResultCommand({ ...organization, collectionId: id }),
 
 			// Bycatch is an observation rather than a state transition, so unlike the
 			// pair above the value is the point.
-			'adultSurveillance.setCollectionBycatch': ({ payload, agency, id }) =>
+			'adultSurveillance.setCollectionBycatch': ({ payload, organization, id }) =>
 				setCollectionBycatchCommand({
-					...agency,
+					...organization,
 					collectionId: id,
 					hasBycatch: payload.has_bycatch === true,
 				}),
 
-			'adultSurveillance.deleteCollection': ({ payload, agency, id }) =>
+			'adultSurveillance.deleteCollection': ({ payload, organization, id }) =>
 				deleteCollectionCommand({
-					...agency,
+					...organization,
 					collectionId: id,
-					acknowledgedSpeciesCountDeletion: acknowledged(payload.acknowledgedSpeciesCountDeletion),
+					acknowledgedSpeciesCountDeletion: acknowledged(
+						payload,
+						'acknowledgedSpeciesCountDeletion',
+					),
 				}),
 		},
 	};

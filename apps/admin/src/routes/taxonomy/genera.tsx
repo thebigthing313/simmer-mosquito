@@ -1,26 +1,23 @@
 import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AdminPage } from '../../components/admin-page';
 import {
 	CatalogBody,
 	CatalogDialog,
 	type CatalogDialogState,
-	CatalogForm,
 	CatalogList,
 	CatalogRow,
 	DeleteRecordButton,
 	EditRecordButton,
-	useCatalogForm,
 } from '../../components/catalog';
 import { type GenusListing, useGenusRoster } from '../../hooks/queries/use-genus-roster';
 import { createGenus, deleteGenus, updateGenus } from '../../lib/collections/writes';
+import { EMPTY_GENUS, GenusForm, type GenusFormValues } from './-genus-form';
 
 const GenusIcon = iconRegistry.generic.component.icon;
 const AddIcon = iconRegistry.actions.add.icon;
@@ -28,13 +25,6 @@ const AddIcon = iconRegistry.actions.add.icon;
 export const Route = createFileRoute('/taxonomy/genera')({
 	component: GeneraRoute,
 });
-
-interface GenusFormValues {
-	readonly abbreviation: string;
-	readonly name: string;
-}
-
-const EMPTY_GENUS: GenusFormValues = { abbreviation: '', name: '' };
 
 async function addGenus(values: GenusFormValues) {
 	await createGenus({ name: values.name.trim(), abbreviation: values.abbreviation.trim() });
@@ -61,6 +51,13 @@ async function removeGenus(genus: GenusListing) {
 /** `'new'` opens the create dialog; a row opens the same dialog to edit it. */
 type GenusDialog = CatalogDialogState<GenusListing>;
 
+/** The fields the filter reads. The query arrives trimmed and lowercased. */
+function matchesGenus(genus: GenusListing, query: string): boolean {
+	return (
+		genus.name.toLowerCase().includes(query) || genus.abbreviation.toLowerCase().includes(query)
+	);
+}
+
 /**
  * The global genus list.
  *
@@ -70,24 +67,13 @@ type GenusDialog = CatalogDialogState<GenusListing>;
  * so the row is on screen before the round trip and a txid confirmation that
  * arrives late is treated as pending rather than as failure.
  *
- * What is left here is search and the dialog — the two things that are genuinely
- * this component's state.
+ * What is left here is the dialog — the one thing that is genuinely this
+ * component's state. The filter belongs to `CatalogBody`, which is handed the
+ * rows and the one function naming the fields it reads.
  */
 function GeneraRoute() {
 	const { genera: all, speciesCountById, isReady } = useGenusRoster();
-	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<GenusDialog>(null);
-
-	const genera = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		return query === ''
-			? all
-			: all.filter(
-					(genus) =>
-						genus.name.toLowerCase().includes(query) ||
-						genus.abbreviation.toLowerCase().includes(query),
-				);
-	}, [all, search]);
 
 	return (
 		<AdminPage
@@ -97,7 +83,7 @@ function GeneraRoute() {
 					Add Genus
 				</Button>
 			}
-			description="Mosquito genera, shared by every agency. Species are recorded against one, so a genus in use cannot be removed."
+			description="Mosquito genera, shared by everyone. Species are recorded against one, so a genus in use cannot be removed."
 			icon={GenusIcon}
 			title="Genera"
 		>
@@ -116,29 +102,29 @@ function GeneraRoute() {
 					/>
 				}
 				isReady={isReady}
+				matches={matchesGenus}
 				noun="genera"
-				onSearchChange={setSearch}
-				search={search}
-				shown={genera.length}
-				total={all.length}
+				rows={all}
 			>
-				<CatalogList>
-					{genera.map((genus) => (
-						<GenusListRow
-							genus={genus}
-							key={genus.id}
-							onDelete={() => void removeGenus(genus)}
-							onEdit={() => setDialog(genus)}
-							speciesCount={speciesCountById.get(genus.id) ?? 0}
-						/>
-					))}
-				</CatalogList>
+				{(genera) => (
+					<CatalogList>
+						{genera.map((genus) => (
+							<GenusListRow
+								genus={genus}
+								key={genus.id}
+								onDelete={() => void removeGenus(genus)}
+								onEdit={() => setDialog(genus)}
+								speciesCount={speciesCountById.get(genus.id) ?? 0}
+							/>
+						))}
+					</CatalogList>
+				)}
 			</CatalogBody>
 
 			<CatalogDialog
-				createDescription="Added to the global list every agency identifies against."
+				createDescription="Added to the global list everyone identifies against."
 				createTitle="Add Genus"
-				editDescription="Changes apply to every agency using this genus."
+				editDescription="Changes apply to everyone using this genus."
 				editTitle={(genus) => `Edit ${genus.name}`}
 				onClose={() => setDialog(null)}
 				state={dialog}
@@ -180,7 +166,7 @@ function GenusListRow({
 					<DeleteRecordButton
 						consequence={
 							speciesCount === 0
-								? `${genus.name} is not used by any species and will be removed for every agency.`
+								? `${genus.name} is not used by any species and will be removed for everyone.`
 								: `${genus.name} has ${speciesCount} ${speciesCount === 1 ? 'species' : 'species entries'} recorded against it. The server will refuse this while they exist.`
 						}
 						onDelete={onDelete}
@@ -196,54 +182,5 @@ function GenusListRow({
 			subtitle={genus.abbreviation}
 			title={genus.name}
 		/>
-	);
-}
-
-function GenusForm({
-	values,
-	submitLabel,
-	onCancel,
-	onSubmit,
-}: {
-	readonly values: GenusFormValues;
-	readonly submitLabel: string;
-	readonly onCancel: () => void;
-	readonly onSubmit: (values: GenusFormValues) => Promise<void>;
-}) {
-	const form = useCatalogForm({ initial: values, onSubmit });
-	const { values: draft, setValues } = form;
-
-	return (
-		<CatalogForm
-			disabled={draft.name.trim() === '' || draft.abbreviation.trim() === ''}
-			error={form.error}
-			onCancel={onCancel}
-			onSubmit={form.submit}
-			pending={form.pending}
-			submitLabel={submitLabel}
-		>
-			<Field>
-				<FieldLabel htmlFor="genus-name">Name</FieldLabel>
-				<Input
-					id="genus-name"
-					maxLength={120}
-					onChange={(event) => setValues({ ...draft, name: event.target.value })}
-					placeholder="e.g. Aedes"
-					required
-					value={draft.name}
-				/>
-			</Field>
-			<Field>
-				<FieldLabel htmlFor="genus-abbreviation">Abbreviation</FieldLabel>
-				<Input
-					id="genus-abbreviation"
-					maxLength={16}
-					onChange={(event) => setValues({ ...draft, abbreviation: event.target.value })}
-					placeholder="e.g. Ae."
-					required
-					value={draft.abbreviation}
-				/>
-			</Field>
-		</CatalogForm>
 	);
 }

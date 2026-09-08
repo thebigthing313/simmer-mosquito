@@ -1,6 +1,13 @@
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import {
+	contrastRatio,
+	NON_TEXT_AA,
+	parseCssColor,
+	type RgbColor,
+	TEXT_AA,
+} from '@simmer-mosquito/design-tokens/color';
 import { describe, expect, it } from 'vitest';
+import { readDeclarations } from '../../../../../scripts/lib/stylesheet-tokens.mjs';
 
 /**
  * Contrast guard for the semantic token set.
@@ -17,6 +24,28 @@ import { describe, expect, it } from 'vitest';
  * than the obvious pairs. They read the real stylesheets and resolve the real
  * `var()` and `color-mix()` chains, so editing a token is what moves them —
  * there is no duplicated copy of the palette here to drift out of sync.
+ *
+ * The colour maths comes from `@simmer-mosquito/design-tokens/color`, which
+ * means `packages/design-tokens` has to be built before this suite runs, the
+ * same way `apps/server`'s integration suites need `packages/db` built. All of
+ * it, including the `color-mix()`: this file kept its own interpolation until
+ * #707, and the two had drifted apart. This one mixed in rectangular
+ * coordinates and composited `transparent` toward white, where the register
+ * mixes in polar OKLCH the short way around the hue circle and answers `null`
+ * for a mix the browser leaves see-through. Chrome settled it in #706 and the
+ * register is what it settled on.
+ *
+ * What stays here is the `var()` substitution below, which is the half a
+ * browser does for free: following a token's chain until what is left is
+ * colour syntax the parser can read. The design-token screen in `apps/preview`
+ * gets that substitution from `getComputedStyle` and hands the same kind of
+ * text to the same parser, which is why the parser is the shared half and the
+ * substitution is not.
+ *
+ * The declaration reader is not here either. `scripts/lib/stylesheet-tokens.mjs`
+ * holds it, because `check-registered-tokens.mjs` asks a different question of
+ * the same two files and a second parse of them would be the copy that drifts
+ * (#632).
  */
 
 const TOKENS_CSS = fileURLToPath(
@@ -24,85 +53,16 @@ const TOKENS_CSS = fileURLToPath(
 );
 const STYLES_CSS = fileURLToPath(new URL('../../styles.css', import.meta.url));
 
-// --- colour maths -----------------------------------------------------------
-
-type Rgb = readonly [number, number, number];
-
-function oklchToRgb(L: number, C: number, hDeg: number): Rgb {
-	const h = (hDeg * Math.PI) / 180;
-	const a = C * Math.cos(h);
-	const b = C * Math.sin(h);
-	const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-	const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-	const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
-	const lin = [
-		4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-		-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-		-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
-	];
-	return lin.map((v) => {
-		const enc = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
-		return Math.min(255, Math.max(0, Math.round(enc * 255)));
-	}) as unknown as Rgb;
-}
-
-function rgbToOklch(rgb: Rgb): readonly [number, number, number] {
-	const [r, g, b] = rgb.map((v) => {
-		const c = v / 255;
-		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-	}) as unknown as Rgb;
-	const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-	const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-	const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-	const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
-	const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
-	const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
-	let h = (Math.atan2(B, A) * 180) / Math.PI;
-	if (h < 0) h += 360;
-	return [L, Math.hypot(A, B), h];
-}
-
-function relativeLuminance(rgb: Rgb): number {
-	const [r, g, b] = rgb.map((v) => {
-		const c = v / 255;
-		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-	}) as unknown as Rgb;
-	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function contrastRatio(a: Rgb, b: Rgb): number {
-	const la = relativeLuminance(a);
-	const lb = relativeLuminance(b);
-	const hi = Math.max(la, lb);
-	const lo = Math.min(la, lb);
-	return (hi + 0.05) / (lo + 0.05);
-}
-
 // --- token resolution -------------------------------------------------------
+
+const WHITE: RgbColor = { r: 255, g: 255, b: 255 };
 
 /** `--name: value;` pairs from both stylesheets, later files winning. */
 function readVariables(): ReadonlyMap<string, string> {
 	const vars = new Map<string, string>();
 	for (const file of [TOKENS_CSS, STYLES_CSS]) {
-		const css = readFileSync(file, 'utf8')
-			.replace(/\/\*[\s\S]*?\*\//g, '')
-			.replace(/\s+/g, ' ');
-		// balanced-paren capture: values contain nested `color-mix(...)`
-		const re = /(--[a-z0-9-]+)\s*:/gi;
-		let match = re.exec(css);
-		while (match !== null) {
-			let depth = 0;
-			let i = match.index + match[0].length;
-			let end = i;
-			for (; i < css.length; i++) {
-				const ch = css[i];
-				if (ch === '(') depth++;
-				else if (ch === ')') depth--;
-				else if (ch === ';' && depth === 0) break;
-			}
-			end = i;
-			vars.set(match[1] as string, css.slice(match.index + match[0].length, end).trim());
-			match = re.exec(css);
+		for (const { name, value } of readDeclarations(file)) {
+			vars.set(name, value);
 		}
 	}
 	return vars;
@@ -110,106 +70,60 @@ function readVariables(): ReadonlyMap<string, string> {
 
 const VARS = readVariables();
 
-function splitTopLevel(input: string): string[] {
-	const parts: string[] = [];
-	let depth = 0;
-	let current = '';
-	for (const ch of input) {
-		if (ch === '(') depth++;
-		if (ch === ')') depth--;
-		if (ch === ',' && depth === 0) {
-			parts.push(current.trim());
-			current = '';
-			continue;
-		}
-		current += ch;
-	}
-	if (current.trim() !== '') parts.push(current.trim());
-	return parts;
-}
+/** A `var()` reference, anywhere in a value rather than as the whole of one. */
+const VAR_REFERENCE = /var\(\s*(--[a-z0-9-]+)\s*\)/gi;
 
-/** Resolves `var()`, `color-mix(in oklch, …)`, `oklch()` and hex to sRGB. */
-function resolve(value: string, seen = new Set<string>()): Rgb {
-	const v = value.trim();
-
-	const varMatch = /^var\(\s*(--[a-z0-9-]+)\s*\)$/i.exec(v);
-	if (varMatch) {
-		const name = varMatch[1] as string;
+/**
+ * Every `var()` in a value replaced by the text the token it names holds.
+ *
+ * This is the half a browser does before anything else looks at the value, and
+ * the half the register cannot do: `parseCssColor` reads colour syntax and
+ * knows nothing about the custom properties around it. Substitution is textual
+ * and goes all the way down, so a `var()` sitting inside a `color-mix()`
+ * argument comes out as the colour it names and the mix is still one string
+ * when the parser gets it.
+ *
+ * `seen` is the path from the token asked for down to this one. A token that
+ * names itself would otherwise substitute forever.
+ */
+function substitute(value: string, seen: ReadonlySet<string>): string {
+	return value.replace(VAR_REFERENCE, (_, name: string) => {
 		if (seen.has(name)) throw new Error(`circular token reference: ${name}`);
 		const next = VARS.get(name);
 		if (next === undefined) throw new Error(`unknown token: ${name}`);
-		return resolve(next, new Set(seen).add(name));
-	}
-
-	if (v.startsWith('color-mix(')) {
-		const args = splitTopLevel(v.slice('color-mix('.length, -1));
-		const [space, first, second] = args;
-		if (space?.trim() !== 'in oklch') {
-			throw new Error(`only "in oklch" mixes are supported, got: ${space}`);
-		}
-		const parse = (arg: string): { colour: string; pct: number | null } => {
-			const m = /\s(\d+(?:\.\d+)?)%$/.exec(arg);
-			return m
-				? { colour: arg.slice(0, m.index).trim(), pct: Number(m[1]) }
-				: { colour: arg.trim(), pct: null };
-		};
-		const a = parse(first as string);
-		const b = parse(second as string);
-		const aPct = a.pct ?? (b.pct === null ? 50 : 100 - b.pct);
-		const p = aPct / 100;
-
-		// `transparent` composites toward the other colour, which is what these
-		// tokens rely on for their washes.
-		const toPolar = (arg: { colour: string }, other: Rgb) =>
-			arg.colour === 'transparent' ? rgbToOklch(other) : rgbToOklch(resolve(arg.colour, seen));
-		const bRgbForA =
-			b.colour === 'transparent' ? ([255, 255, 255] as const) : resolve(b.colour, seen);
-		const aRgbForB =
-			a.colour === 'transparent' ? ([255, 255, 255] as const) : resolve(a.colour, seen);
-		const [L1, C1, H1] = toPolar(a, bRgbForA);
-		const [L2, C2, H2] = toPolar(b, aRgbForB);
-		const rect = (L: number, C: number, H: number) =>
-			[L, C * Math.cos((H * Math.PI) / 180), C * Math.sin((H * Math.PI) / 180)] as const;
-		const [la, aa, ba] = rect(L1, C1, H1);
-		const [lb, ab, bb] = rect(L2, C2, H2);
-		const L = la * p + lb * (1 - p);
-		const A = aa * p + ab * (1 - p);
-		const B = ba * p + bb * (1 - p);
-		let h = (Math.atan2(B, A) * 180) / Math.PI;
-		if (h < 0) h += 360;
-		return oklchToRgb(L, Math.hypot(A, B), h);
-	}
-
-	const oklchMatch = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*\)$/i.exec(v);
-	if (oklchMatch) {
-		const rawL = Number(oklchMatch[1]);
-		return oklchToRgb(
-			oklchMatch[2] === '%' ? rawL / 100 : rawL,
-			Number(oklchMatch[3]),
-			Number(oklchMatch[4]),
-		);
-	}
-
-	const hexMatch = /^#([0-9a-f]{6})$/i.exec(v);
-	if (hexMatch) {
-		const hex = hexMatch[1] as string;
-		return [0, 2, 4].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as unknown as Rgb;
-	}
-
-	if (v === 'white') return [255, 255, 255];
-	if (v === 'black') return [0, 0, 0];
-
-	throw new Error(`unsupported colour value: ${v}`);
+		return substitute(next, new Set(seen).add(name));
+	});
 }
 
-const token = (name: string): Rgb => resolve(`var(${name})`);
+/** One token value as a colour, or a throw naming what stopped it. */
+function resolve(value: string): RgbColor {
+	const substituted = substitute(value, new Set()).trim();
+	const colour = parseCssColor(substituted);
+	if (colour === null) throw new Error(`unsupported colour value: ${substituted}`);
+	return colour;
+}
+
+const token = (name: string): RgbColor => resolve(`var(${name})`);
+
+/** A colour a browser could paint: three whole channels, none out of range. */
+function expectPaintable({ r, g, b }: RgbColor): void {
+	for (const channel of [r, g, b]) {
+		expect(Number.isInteger(channel)).toBe(true);
+		expect(channel).toBeGreaterThanOrEqual(0);
+		expect(channel).toBeLessThanOrEqual(255);
+	}
+}
 const ratio = (fg: string, bg: string): number => contrastRatio(token(fg), token(bg));
 
 // --- the guard --------------------------------------------------------------
 
-/** WCAG 2.2 AA. Normal text 4.5:1; UI components and focus indicators 3:1. */
-const TEXT_AA = 4.5;
-const NON_TEXT_AA = 3;
+/**
+ * The two floors this file asserts against come from the colour register rather
+ * than being restated here. `TEXT_AA` is WCAG 1.4.3 for normal text and
+ * `NON_TEXT_AA` is 1.4.11 for user-interface components and focus indicators.
+ * The register says why the second one is not the large-text allowance, which
+ * carries the same number.
+ */
 
 /** Every surface a control can sit on, and therefore that a ring must clear. */
 const LIGHT_SURFACES = ['--background', '--card', '--muted', '--surface-strong', '--accent'];
@@ -242,9 +156,7 @@ describe('semantic token contrast', () => {
 		it('destructive fill carries its own foreground', () => {
 			expect(ratio('--destructive-foreground', '--destructive')).toBeGreaterThanOrEqual(TEXT_AA);
 			// The destructive Button variant hard-codes `text-white`.
-			expect(contrastRatio([255, 255, 255], token('--destructive'))).toBeGreaterThanOrEqual(
-				TEXT_AA,
-			);
+			expect(contrastRatio(WHITE, token('--destructive'))).toBeGreaterThanOrEqual(TEXT_AA);
 		});
 
 		it('status tones are readable on their paired backgrounds', () => {
@@ -264,11 +176,17 @@ describe('semantic token contrast', () => {
 		});
 
 		it('form control borders are distinguishable from their surface', () => {
-			for (const surface of ['--background', '--card']) {
-				expect(
-					ratio('--input', surface),
-					`--input on ${surface} must clear ${NON_TEXT_AA}:1 (WCAG 1.4.11)`,
-				).toBeGreaterThanOrEqual(NON_TEXT_AA);
+			// `--border-strong` is the same job by the other name: DESIGN.md puts it
+			// on a 3:1 floor because it draws control boundaries rather than
+			// dividers. It was unreachable as a utility until #632 registered it, so
+			// the floor had never been asserted.
+			for (const border of ['--input', '--border-strong']) {
+				for (const surface of ['--background', '--card']) {
+					expect(
+						ratio(border, surface),
+						`${border} on ${surface} must clear ${NON_TEXT_AA}:1 (WCAG 1.4.11)`,
+					).toBeGreaterThanOrEqual(NON_TEXT_AA);
+				}
 			}
 		});
 	});
@@ -307,10 +225,19 @@ describe('semantic token contrast', () => {
 	describe('resolver', () => {
 		it('resolves var, nested color-mix, and both oklch lightness forms', () => {
 			// --background -> var -> color-mix(in oklch, var(--simmer-green-50) 54%, oklch(99% …))
-			expect(token('--background')).toHaveLength(3);
+			expectPaintable(token('--background'));
 			// tokens.css writes some values with decimal L rather than percent
-			expect(token('--simmer-purple')).toHaveLength(3);
+			expectPaintable(token('--simmer-purple'));
 			expect(() => token('--does-not-exist')).toThrow(/unknown token/);
+		});
+
+		it('refuses a token the browser leaves see-through', () => {
+			// `--simmer-workshop-chrome` is 94% of a colour and nothing else, so it
+			// takes the colour of whatever it is painted over and has no contrast
+			// answer of its own. The resolver this file used to carry composited it
+			// toward white and gave one anyway. Nothing below asserts on a token
+			// like that, and a refusal is what a new assertion on one should get.
+			expect(() => token('--simmer-workshop-chrome')).toThrow(/unsupported colour value/);
 		});
 	});
 });

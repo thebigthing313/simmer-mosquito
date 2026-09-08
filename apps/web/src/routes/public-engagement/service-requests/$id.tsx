@@ -1,4 +1,6 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -38,7 +40,11 @@ import { MapCanvas } from '../../../components/map';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { ReasonDialog } from '../../../components/reason-dialog';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	type RecordDetailLayout,
+	RecordDetailSkeleton,
+	RecordUnavailable,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
@@ -92,9 +98,21 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
+/**
+ * The placeholder, in the frame's shape rather than one written here.
+ *
+ * The rest of `RecordDetailPage` does not fit this page: what a ready service
+ * request renders is a map split across the whole stage, not a column inside
+ * the page measure. The skeleton and the unavailable state are the parts that
+ * do, so those are shared and the fork stays.
+ */
+const layout: RecordDetailLayout = {
+	skeleton: { eyebrow: 'w-28', title: 'w-56', main: ['h-40', 'h-56'] },
+};
+
 function ServiceRequestDetailRoute() {
 	const { id } = Route.useParams();
-	const { request, isReady } = useServiceRequestRecord(id);
+	const { request, isError, isReady } = useServiceRequestRecord(id);
 	// Held here rather than in the danger zone, and rendered here too. The delete
 	// is optimistic, so the request leaves the collection the moment the button is
 	// pressed and the content below unmounts before the registry's refusal comes
@@ -105,20 +123,32 @@ function ServiceRequestDetailRoute() {
 		ask: true,
 	});
 
+	// Ahead of readiness and ahead of presence, for the reason the frame states:
+	// a read that failed is not a record that is missing, and telling the reader
+	// to stop looking is the wrong answer to a transient failure.
+	if (isError) {
+		return (
+			<ServiceRequestStatePage>
+				<RecordUnavailable noun="request" reason="error" title="Service Request Unavailable" />
+			</ServiceRequestStatePage>
+		);
+	}
 	if (!isReady) {
-		return <ServiceRequestStatePage>{<ServiceRequestDetailSkeleton />}</ServiceRequestStatePage>;
+		return (
+			<ServiceRequestStatePage>
+				<RecordDetailSkeleton layout={layout} />
+			</ServiceRequestStatePage>
+		);
 	}
 	if (request === undefined) {
 		return (
 			<>
 				<ServiceRequestStatePage>
-					{
-						<RecordUnavailable
-							noun="request"
-							reason="not-found"
-							title="Service Request Unavailable"
-						/>
-					}
+					<RecordUnavailable
+						noun="request"
+						reason="not-found"
+						title="Service Request Unavailable"
+					/>
 				</ServiceRequestStatePage>
 				{dialog}
 			</>
@@ -289,18 +319,18 @@ function RequestDetailsCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<p className="m-0 whitespace-pre-wrap text-foreground text-sm">{request.details}</p>
-				<dl className="grid gap-2.5 border-border/50 border-t pt-4">
+				<DetailList className="border-border/50 border-t pt-4">
 					<DetailRow label="Intake">{intakeTypeLabel(request.intakeType)}</DetailRow>
 					<DetailRow label="Date">{formatRequestDate(request.requestDate)}</DetailRow>
-					<DetailRow label="Received by">
-						{receivedByName ?? <span className="text-muted-foreground">Unknown</span>}
+					<DetailRow empty="Unknown" label="Received by">
+						{receivedByName}
 					</DetailRow>
-				</dl>
+				</DetailList>
 			</CardContent>
 		</Card>
 	);
@@ -377,7 +407,6 @@ function ContextMap({
 	return (
 		<>
 			<MapCanvas
-				controls={{ layers: false }}
 				nearbyLayer={{
 					data: mapData,
 					selectedIds: selectedId === null ? [] : [selectedId],
@@ -472,7 +501,7 @@ function NearbyPanel({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle className="flex items-center gap-2">
 					<MapPinnedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 					Nearby Activity
@@ -514,7 +543,7 @@ function nearbySummary(response: NearbyResponse | undefined): string {
 	}
 	const count = response.items.length;
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
-	const window = `${formatRequestDate(response.dateFrom)} – ${formatRequestDate(response.dateTo)}`;
+	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
 	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
 }
 
@@ -721,7 +750,7 @@ function RequestPartiesCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Contact &amp; Location</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-5" padding="compact">
@@ -770,7 +799,7 @@ function ContactParty({ contactId }: { readonly contactId: string }) {
 	return (
 		<>
 			<Link
-				className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className={cn(recordLink({ size: 'sm' }), 'w-fit')}
 				params={{ id: contact.id }}
 				to="/public-engagement/contacts/$id"
 			>
@@ -809,7 +838,7 @@ function AddressParty({ addressId }: { readonly addressId: string }) {
 	return (
 		<>
 			<Link
-				className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className={cn(recordLink({ size: 'sm' }), 'w-fit')}
 				params={{ id: address.id }}
 				to="/gis/addresses/$id"
 			>
@@ -849,10 +878,7 @@ function PartyRow({
 				{href === undefined ? (
 					value
 				) : (
-					<a
-						className="rounded-sm hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						href={href}
-					>
+					<a className={recordLink({ tone: 'inherit', underline: 'hover' })} href={href}>
 						{value}
 					</a>
 				)}
@@ -903,6 +929,7 @@ const CLOSE_COPY: LifecycleCopy = {
 	action: 'Close Request',
 	title: 'Close this request',
 	description: 'What was found, and what was done about it. This goes on the request as a comment.',
+	// vocabulary-ignore site: ordinary English in a field tech's voice, not the abstraction.
 	placeholder: 'No standing water found on site.',
 	unexplained: 'Closed',
 };
@@ -976,27 +1003,5 @@ function CloseReopenButton({
 				title={copy.title}
 			/>
 		</div>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[100px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
-function ServiceRequestDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-28" />
-				<Skeleton className="h-8 w-56" />
-			</div>
-			<Skeleton className="h-40" />
-			<Skeleton className="h-56" />
-		</>
 	);
 }

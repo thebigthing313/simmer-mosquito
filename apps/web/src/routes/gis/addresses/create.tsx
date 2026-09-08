@@ -1,11 +1,10 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache } from './-address-data';
 import {
 	AddressFormPage,
@@ -20,7 +19,7 @@ export const Route = createFileRoute('/gis/addresses/create')({
 	// yet — which erases lat/lng from `Route.useSearch()`.
 	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/gis/addresses/create')) {
 			throw redirect({ replace: true, to: '/gis/addresses' });
 		}
 	},
@@ -69,7 +68,7 @@ function CreateAddressRoute() {
 				values.country.trim().toUpperCase(),
 				geometry,
 			);
-			seedAddressGeometryCache(queryClient, addressId, geometry as unknown as GeoJsonGeometry);
+			seedAddressGeometryCache(queryClient, addressId, geometry);
 			await navigate({ to: '/gis/addresses/$id', params: { id: addressId } });
 		},
 		[mutations, navigate, queryClient, organization],
@@ -81,7 +80,7 @@ function CreateAddressRoute() {
 			defaultValues={defaultAddressFormValues()}
 			header={{
 				title: 'Create Address',
-				description: 'Add a geocoded address to the agency address book.',
+				description: 'Add a geocoded address to the address book.',
 				backTo: '/gis/addresses',
 				backLabel: 'Address Book',
 			}}

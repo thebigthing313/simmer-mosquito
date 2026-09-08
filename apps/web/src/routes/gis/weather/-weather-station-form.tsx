@@ -1,22 +1,20 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import { createWeatherStationCommand } from '@simmer-mosquito/domain';
+import { createWeatherStationCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import {
 	LocationSection as LocationBand,
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POINT_DRAW_TYPES,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type {
+	DrawGeometry,
+	DrawGeometryFor,
+	DrawGeometryType,
+	MapDrawController,
+} from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -33,6 +31,26 @@ const STATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	stationCode: 'code',
 	metadata: 'metadata',
 };
+
+/** What a weather station stores, read off the register rather than named here. */
+const STATION_LOCATION_SHAPES = getOwnedGeometryPolicy('weatherStation').allowedTypes;
+
+/**
+ * Whether a placed shape is one a weather station stores.
+ *
+ * The draw control takes the same `weatherStation` policy and offers nothing
+ * else, so this narrows what the routes hold to what the write seam takes rather
+ * than gating a second time. Both halves read the register, for the same reason
+ * the Region predicate does: the routes used to ask `type === 'Point'`, which is
+ * a copy of the matrix that goes stale the day the policy widens, and on Regions
+ * that copy refused a boundary the user could see on the map. `Point` written
+ * into the assertion was the last of that copy left.
+ */
+export function isStationLocation(
+	geometry: DrawGeometry,
+): geometry is DrawGeometryFor<'weatherStation'> {
+	return STATION_LOCATION_SHAPES.includes(geometry.type);
+}
 
 export interface WeatherStationFormValues {
 	readonly name: string;
@@ -67,9 +85,9 @@ export interface WeatherStationFormPageProps {
 /**
  * The form's values, as the write seam takes them.
  *
- * The code is empty-to-null rather than empty-to-empty. It is unique per agency
- * where it is non-null, so a second station saved with a blank code box would
- * collide with the first if the empty string were stored.
+ * The code is empty-to-null rather than empty-to-empty. It is unique per
+ * organization where it is non-null, so a second station saved with a blank
+ * code box would collide with the first if the empty string were stored.
  */
 export function weatherStationFieldsFrom(values: WeatherStationFormValues): WeatherStationFields {
 	const code = values.code.trim();
@@ -101,30 +119,12 @@ export function WeatherStationFormPage({
 	submitLabel,
 	onSave,
 }: WeatherStationFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [geometryError, setGeometryError] = useState<string | null>(null);
-	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setGeometryError(null);
-		}
-	}, []);
-
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		geometryKind: 'weatherStation',
+		initialGeometry,
+		missingMessage: 'Place the station on the map before saving.',
 	});
-	const { start } = draw;
-
-	useFitToGeometry(map, geometry, draw.isDrawing);
+	const { draw, geometry, geometryType } = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -149,28 +149,12 @@ export function WeatherStationFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			if (geometry === null) {
-				setGeometryError('Place the station on the map before saving.');
+			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save weather station.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
-
-	const startDraw = useCallback(() => {
-		setGeometryError(null);
-		start('Point');
-	}, [start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -184,8 +168,12 @@ export function WeatherStationFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
-						<DrawToolbar controller={draw} geometryType="Point" />
+						<MapCanvas onMapReady={location.onMapReady} />
+						<DrawToolbar
+							geometryKind="weatherStation"
+							controller={draw}
+							geometryType={geometryType}
+						/>
 						<MapLegend mode={mode} />
 					</>
 				}
@@ -194,12 +182,6 @@ export function WeatherStationFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Weather Station" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Weather Station</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<div className="grid gap-5 sm:grid-cols-2">
 					<form.AppField
@@ -214,7 +196,7 @@ export function WeatherStationFormPage({
 					<form.AppField name="code">
 						{(field) => (
 							<field.TextField
-								description="Optional short code, unique across the agency's stations."
+								description="Optional short code, unique across your stations."
 								label="Code"
 								placeholder="e.g. NG-1"
 							/>
@@ -224,10 +206,11 @@ export function WeatherStationFormPage({
 
 				<LocationSection
 					controller={draw}
-					error={geometryError}
+					error={location.locationError}
 					geometry={geometry}
-					onClear={clearGeometry}
-					onDraw={startDraw}
+					geometryType={geometryType}
+					onClear={location.clear}
+					onDraw={location.startDraw}
 				/>
 
 				<form.AppField name="metadata">
@@ -253,13 +236,15 @@ export function WeatherStationFormPage({
  */
 function LocationSection({
 	geometry,
+	geometryType,
 	controller,
 	error,
 	onDraw,
 	onClear,
 }: {
 	readonly geometry: DrawGeometry | null;
-	readonly controller: ReturnType<typeof useMapDraw>;
+	readonly geometryType: DrawGeometryType;
+	readonly controller: MapDrawController;
 	readonly error: string | null;
 	readonly onDraw: () => void;
 	readonly onClear: () => void;
@@ -271,10 +256,10 @@ function LocationSection({
 			title="Station location"
 		>
 			<GeometryControl
-				allowedTypes={POINT_DRAW_TYPES}
 				controller={controller}
 				geometry={geometry}
-				geometryType="Point"
+				geometryType={geometryType}
+				geometryKind="weatherStation"
 				label="Location"
 				onClear={onClear}
 				onDraw={onDraw}

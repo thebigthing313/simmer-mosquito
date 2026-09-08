@@ -7,39 +7,40 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 /**
  * The operator console's domains: the three things a SIMMER operator owns.
  *
- * This is platform-side administration, not agency administration. Agencies are
- * the customers; taxonomy and units are the global reference data every agency
- * reads. Anything an agency owns for itself — its habitats, traps, catalogs, and
- * people-facing settings — belongs in `apps/web` and is deliberately absent.
+ * This is platform-side administration, not organization administration.
+ * Organizations are the customers; taxonomy and units are the global reference
+ * data every organization reads. Anything an organization owns for itself — its
+ * habitats, traps, catalogs, and people-facing settings — belongs in `apps/web`
+ * and is deliberately absent.
  *
  * Unlike web's navigation there are no role floors here. Access is all or
  * nothing: the server's operator allowlist admits an account to every `/admin/*`
  * endpoint or to none of them, so there is nothing per-item to filter and no
  * `shellDomainsForRole` equivalent to write.
  *
- * Agency drill-downs (an agency's detail, members, and foundations) are reached
+ * Organization drill-downs (its detail, members, and foundations) are reached
  * from the directory and read as breadcrumbs, the same way web treats a record
  * page. They are destinations, not navigation.
  */
 export const adminShellDomains: readonly ShellDomain[] = [
 	{
-		id: 'agencies',
-		label: 'Agencies',
-		summary: 'Mosquito control agencies on the platform, and the people in them',
+		id: 'organizations',
+		label: 'Organizations',
+		summary: 'Mosquito control organizations on the platform, and the people in them',
 		icon: iconRegistry.entities.organization.icon,
 		groups: [
 			{
-				id: 'agencies-main',
+				id: 'organizations-main',
 				items: [
 					{
-						id: 'agencies-directory',
+						id: 'organizations-directory',
 						label: 'Directory',
 						to: '/organizations',
 						icon: iconRegistry.entities.organization.icon,
 					},
 					{
-						id: 'agencies-create',
-						label: 'Create Agency',
+						id: 'organizations-create',
+						label: 'Create Organization',
 						to: '/organizations/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -50,7 +51,7 @@ export const adminShellDomains: readonly ShellDomain[] = [
 	{
 		id: 'taxonomy',
 		label: 'Mosquito Taxonomy',
-		summary: 'The global genus and species list every agency identifies against',
+		summary: 'The global genus and species list everyone identifies against',
 		icon: iconRegistry.entities.taxonomy.icon,
 		groups: [
 			{

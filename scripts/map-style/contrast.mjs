@@ -11,13 +11,19 @@
  * disappears over is the one nobody panned to during review.
  *
  * WCAG 1.4.11 puts non-text graphical objects on a 3:1 floor. Map marks are
- * graphical objects, so that is the threshold used here.
+ * graphical objects, so that is the rule this enforces, and `NON_TEXT_AA` is
+ * imported from the colour register rather than written here as a bare
+ * `THRESHOLD`. A name saying only "the number" cannot disagree with anything,
+ * which is how the same 3 sat beside WCAG 1.4.3's large-text allowance for a
+ * while and read as the same rule (#708).
  *
  * Marks are read from the real `@simmer-mosquito/design-tokens` build rather than
- * restated, so this cannot drift from what the layers actually paint. That does
- * mean `packages/design-tokens` has to be built first.
+ * restated, so this cannot drift from what the layers actually paint, and the
+ * contrast maths comes from that package too. Both mean `packages/design-tokens`
+ * has to be built first.
  */
 
+import { contrastRatio, NON_TEXT_AA, parseCssColor } from '@simmer-mosquito/design-tokens/color';
 import {
 	mapContext,
 	mapDensity,
@@ -28,8 +34,6 @@ import {
 	mapStatus,
 } from '@simmer-mosquito/design-tokens/map-palette';
 import { VARIANTS } from './palette.mjs';
-
-const THRESHOLD = 3;
 
 /** The basemap surfaces a data mark can realistically be drawn over. */
 const SURFACES = ['ground', 'groundAlt', 'park', 'parkDeep', 'water', 'wetland', 'building'];
@@ -44,24 +48,19 @@ const GROUPS = {
 	density: mapDensity,
 };
 
-function channel(value) {
-	const c = value / 255;
-	return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(hex) {
-	const n = Number.parseInt(hex.slice(1), 16);
-	const r = channel((n >> 16) & 255);
-	const g = channel((n >> 8) & 255);
-	const b = channel(n & 255);
-	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+/**
+ * Every colour on both sides of a comparison here is a hex literal out of a
+ * palette module, so anything else is a bug in the palette rather than a value
+ * to skip past with a zero.
+ */
+function toRgb(value) {
+	const parsed = parseCssColor(value);
+	if (parsed === null) throw new Error(`not a colour: ${value}`);
+	return parsed;
 }
 
 function contrast(a, b) {
-	const la = luminance(a);
-	const lb = luminance(b);
-	const [hi, lo] = la > lb ? [la, lb] : [lb, la];
-	return (hi + 0.05) / (lo + 0.05);
+	return contrastRatio(toRgb(a), toRgb(b));
 }
 
 /**
@@ -113,7 +112,7 @@ for (const variant of VARIANTS) {
 					contrast(hex, surfaceHex),
 					casing === null ? 0 : contrast(casing, surfaceHex),
 				);
-				if (best < THRESHOLD) weakOn.push(surfaceName);
+				if (best < NON_TEXT_AA) weakOn.push(surfaceName);
 				worst = Math.min(worst, best);
 			}
 			if (weakOn.length > 0) {
@@ -124,7 +123,7 @@ for (const variant of VARIANTS) {
 	}
 
 	rows.sort((a, b) => b.weakOn.length - a.weakOn.length || a.worst - b.worst);
-	console.log(`\n${variant.name}   (${surfaces.length} basemap surfaces, ${THRESHOLD}:1 floor)`);
+	console.log(`\n${variant.name}   (${surfaces.length} basemap surfaces, ${NON_TEXT_AA}:1 floor)`);
 	console.log('─'.repeat(78));
 	if (rows.length === 0) {
 		console.log('  every mark clears the floor on every surface, by fill or by casing.');
@@ -141,9 +140,9 @@ for (const variant of VARIANTS) {
 
 console.log('');
 if (failures.length > 0) {
-	console.log(`${failures.length} mark/variant combination(s) below ${THRESHOLD}:1 somewhere.`);
+	console.log(`${failures.length} mark/variant combination(s) below ${NON_TEXT_AA}:1 somewhere.`);
 	console.log('See README → "What the contrast pass found" before treating any of it as a bug.');
 	if (process.argv.includes('--fail')) process.exit(1);
 } else {
-	console.log(`All marks clear ${THRESHOLD}:1 on every basemap surface, by fill or by casing.`);
+	console.log(`All marks clear ${NON_TEXT_AA}:1 on every basemap surface, by fill or by casing.`);
 }

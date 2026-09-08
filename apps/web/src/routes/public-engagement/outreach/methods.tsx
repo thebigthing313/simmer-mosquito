@@ -23,9 +23,10 @@ function OutreachMethodsRoute() {
 			canManage={canManage}
 			mutations={mutations}
 			records={records}
-			customFieldsDescription="Add fields your crews record on every action — audience, language, or materials handed out."
-			description="The ways your agency reaches the public — door hangers, site visits, presentations, mailers, and social posts."
-			emptyDescription="Add the outreach methods your agency uses so crews can record them in the field."
+			customFieldsDescription="Add fields your crews record on every action, such as audience, language, or materials handed out."
+			// vocabulary-ignore site: a site visit is the industry name for this outreach method.
+			description="The ways you reach the public: door hangers, site visits, presentations, mailers, and social posts."
+			emptyDescription="Add the outreach methods you use so crews can record them in the field."
 			icon={OutreachIcon}
 			namePlaceholder="e.g. Door hanger"
 			singularLabel="outreach method"

@@ -1,23 +1,28 @@
 import {
+	basePayload,
 	createIssues,
+	normalizeRequiredDomainId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
-	validateLocalDate,
+	validateBase,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
-	basePayload,
+	localDateField,
+	normalizeUpdateFields,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+} from '../update-command-fields.js';
+import {
 	type ExpectedUpdatedAtInput,
 	type ExpectedUpdatedAtPayload,
 	normalizeExpectedUpdatedAt,
 	normalizeMetricPatch,
-	normalizeRequiredDomainId,
 	normalizeSummaryMetrics,
-	validateBase,
 	validateDateRange,
 	validateMetricPairOrdering,
 	validateMetricSet,
-	WEATHER_SUMMARY_METRIC_FIELDS,
 	type WeatherCommandInput,
 	type WeatherCommandPayload,
 	type WeatherDomainCommand,
@@ -44,25 +49,25 @@ export type CreateWeatherSummaryCommand = WeatherDomainCommand<
 		}
 >;
 
-export interface UpdateWeatherSummaryCommandInput
-	extends WeatherCommandInput,
-		ExpectedUpdatedAtInput,
-		Partial<WeatherSummaryMetrics> {
-	readonly weatherSummaryId: DomainId;
-	readonly startDate?: LocalDateString;
-	readonly endDate?: LocalDateString;
-}
+export const WEATHER_SUMMARY_RANGE_UPDATE_FIELDS = {
+	startDate: localDateField,
+	endDate: localDateField,
+} satisfies UpdateFieldSet;
+
+export type UpdateWeatherSummaryCommandInput = WeatherCommandInput &
+	ExpectedUpdatedAtInput &
+	Partial<WeatherSummaryMetrics> &
+	UpdateFieldsInput<typeof WEATHER_SUMMARY_RANGE_UPDATE_FIELDS> & {
+		readonly weatherSummaryId: DomainId;
+	};
 
 export type UpdateWeatherSummaryCommand = WeatherDomainCommand<
 	'weather.updateWeatherSummary',
 	WeatherCommandPayload &
 		ExpectedUpdatedAtPayload & {
 			readonly weatherSummaryId: DomainId;
-			readonly changes: Partial<WeatherSummaryMetrics> &
-				Readonly<{
-					readonly startDate?: LocalDateString;
-					readonly endDate?: LocalDateString;
-				}>;
+			readonly changes: UpdateFieldsChanges<typeof WEATHER_SUMMARY_RANGE_UPDATE_FIELDS> &
+				Partial<WeatherSummaryMetrics>;
 		}
 >;
 
@@ -115,22 +120,26 @@ export function updateWeatherSummaryCommand(
 	validateBase(input, issues);
 	requireUuid(input.weatherSummaryId, 'weatherSummaryId', issues);
 	normalizeExpectedUpdatedAt(input.expectedUpdatedAt, 'expectedUpdatedAt', issues);
-	const hasStart = input.startDate !== undefined;
-	const hasEnd = input.endDate !== undefined;
-	const hasMetric = WEATHER_SUMMARY_METRIC_FIELDS.some((field) => input[field] !== undefined);
-	if (!hasStart && !hasEnd && !hasMetric) {
+
+	// The range and the metrics are two registers, so neither one alone can say
+	// whether this edit changes anything.
+	const rangeChanges = normalizeUpdateFields(
+		input,
+		WEATHER_SUMMARY_RANGE_UPDATE_FIELDS,
+		null,
+		issues,
+	);
+	const metricChanges = normalizeMetricPatch(input, issues);
+	if (Object.keys(rangeChanges).length === 0 && Object.keys(metricChanges).length === 0) {
 		issues.push({ path: 'changes', message: 'At least one weather summary field must change.' });
 	}
-	if (hasStart) {
-		validateLocalDate(input.startDate, 'startDate', issues);
-	}
-	if (hasEnd) {
-		validateLocalDate(input.endDate, 'endDate', issues);
-	}
-	if (hasStart && hasEnd && input.endDate < input.startDate) {
+	if (
+		rangeChanges.startDate !== undefined &&
+		rangeChanges.endDate !== undefined &&
+		rangeChanges.endDate < rangeChanges.startDate
+	) {
 		issues.push({ path: 'endDate', message: 'endDate must be on or after startDate.' });
 	}
-	const metricChanges = normalizeMetricPatch(input, issues);
 	validateMetricPairOrdering(metricChanges, issues);
 	throwIfIssues('Update weather summary command is invalid.', issues);
 	return {
@@ -143,11 +152,7 @@ export function updateWeatherSummaryCommand(
 				createIssues(),
 			),
 			weatherSummaryId: normalizeRequiredDomainId(input.weatherSummaryId),
-			changes: {
-				...(hasStart ? { startDate: input.startDate } : {}),
-				...(hasEnd ? { endDate: input.endDate } : {}),
-				...metricChanges,
-			},
+			changes: { ...rangeChanges, ...metricChanges },
 		},
 	};
 }

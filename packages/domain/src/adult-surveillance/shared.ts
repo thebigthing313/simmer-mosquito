@@ -1,11 +1,10 @@
 import {
+	basePayload,
 	createIssues,
-	isFutureBeyondClockSkew,
 	jsonObject as normalizeMetadata,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
-	validateNotFutureLocalDate,
+	validateBase,
 } from '../command-validation.js';
 import {
 	type AdultCollectionLocationSource,
@@ -17,12 +16,11 @@ import {
 } from '../location-intent.js';
 import type { UnitType } from '../organization-settings/types-and-defaults.js';
 import type { DomainId, DomainValidationIssue, JsonObject } from '../shared.js';
-import { validateOperationalDate } from '../surveillance-records.js';
+import type { UpdateFieldNormalizer } from '../update-command-fields.js';
 
 export type {
 	CollectedCollectionTiming,
 	CollectionTiming,
-	CollectionTimingMode,
 	DateDurationCollectionTiming,
 	ExactCollectedCollectionTiming,
 	ExactPendingCollectionTiming,
@@ -81,20 +79,6 @@ export interface CollectionBasePayload extends AdultCommandPayload {
 	readonly metadata: JsonObject | null;
 }
 
-export function validateBase(input: AdultCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends AdultCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
 export function validateCollectionBase(input: CollectionBaseInput): DomainValidationIssue[] {
 	const issues = createIssues();
 	validateBase(input, issues);
@@ -127,41 +111,27 @@ export function validateTrapDisplay(
 	}
 }
 
-export function validateTrapLocationSourceInput(
-	input: {
-		readonly locationSource?: TrapLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): TrapLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateTrapLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateTrapLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
+/** Where a Trap sits, as an update command's field descriptor names it. */
+export const trapLocationSourceField: UpdateFieldNormalizer<
+	TrapLocationSourceInput | undefined,
+	TrapLocationSource
+> = (value, path, issues) => validateTrapLocationSource(value, path, issues);
 
-export function validateAdultCollectionLocationSourceInput(
-	input: {
-		readonly locationSource?: AdultCollectionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): AdultCollectionLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateAdultCollectionLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateAdultCollectionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
+/** Where an ad hoc Collection sits, as an update command's field descriptor names it. */
+export const adultCollectionLocationSourceField: UpdateFieldNormalizer<
+	AdultCollectionLocationSourceInput | undefined,
+	AdultCollectionLocationSource
+> = (value, path, issues) => validateAdultCollectionLocationSource(value, path, issues);
+
+/** How many of one species were counted, as a field descriptor names it. */
+export const speciesCountField: UpdateFieldNormalizer<number | undefined, number> = (
+	value,
+	path,
+	issues,
+) => {
+	validateSpeciesCount(value, path, issues);
+	return value as number;
+};
 
 export function validateSpeciesCount(
 	count: number | undefined,
@@ -173,14 +143,6 @@ export function validateSpeciesCount(
 	}
 }
 
-export function normalizeNullableText(value: string | null | undefined): string | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
-
 export function collectionBasePayload(input: CollectionBaseInput): CollectionBasePayload {
 	const issues = createIssues();
 	return {
@@ -188,14 +150,6 @@ export function collectionBasePayload(input: CollectionBaseInput): CollectionBas
 		collectionId: normalizeRequiredId(input.collectionId),
 		metadata: normalizeMetadata(input.metadata, 'metadata', issues),
 	};
-}
-
-export function basePayload(input: AdultCommandInput): AdultCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
-}
-
-function isValidDate(value: Date | undefined): value is Date {
-	return value instanceof Date && !Number.isNaN(value.getTime());
 }
 
 /**

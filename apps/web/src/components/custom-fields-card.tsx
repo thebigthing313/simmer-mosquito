@@ -1,3 +1,4 @@
+import { DetailList } from '@simmer-mosquito/ui-web/components/detail-row';
 import {
 	customFieldEntries,
 	formatCustomFieldValue,
@@ -11,15 +12,15 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 
 /**
- * The name/value pairs an agency's custom schema puts on a record.
+ * The name/value pairs an organization's custom schema puts on a record.
  *
  * Labels **wrap** rather than truncate. Every other label on a detail page is
- * one we wrote and can keep short; these are typed by the agency into the method
- * or type editor, at whatever length their program needs — "Applicator License
- * Number", "Standing Water Depth (in)". Clipped to a 120px column those read as
- * "Applicator Lic…" and "Standing Water…", and a field's label is the entire
- * explanation of what its value means, so a clipped one leaves a number on the
- * page with nothing saying what it counts.
+ * one we wrote and can keep short; these are typed by the organization into the
+ * method or type editor, at whatever length their program needs — "Applicator
+ * License Number", "Standing Water Depth (in)". Clipped to a 120px column those
+ * read as "Applicator Lic…" and "Standing Water…", and a field's label is the
+ * entire explanation of what its value means, so a clipped one leaves a number
+ * on the page with nothing saying what it counts.
  *
  * The column stays fixed so the values still line up as a list; a long label
  * takes a second line rather than pushing the value around. The tooltip that a
@@ -29,14 +30,26 @@ import {
  * Rendered as a bare `<dl>` so callers choose the frame: {@link CustomFieldsCard}
  * gives it a card of its own, while the habitat page folds it into the details
  * card under its own heading.
+ *
+ * `allowsExtraKeys` is the caller's answer to what an undeclared key means here,
+ * because the entry cannot say: a surface that accepts extra keys has no retired
+ * fields to mark. The habitat form is the one that sets `allowExtra` on its
+ * `MetadataField`, so a habitat may carry keys its type never declared and those
+ * are notes somebody typed, not fields that went away. Every other surface
+ * writes only what its schema declares, so an undeclared key there is a dropped
+ * field and keeps the badge. The default is the badge, so a caller that says
+ * nothing is unchanged.
  */
 export function CustomFieldsList({
 	entries,
+	allowsExtraKeys = false,
 }: {
 	readonly entries: ReturnType<typeof customFieldEntries>;
+	/** Whether the surface writing this record accepts keys its schema does not declare. */
+	readonly allowsExtraKeys?: boolean;
 }) {
 	return (
-		<dl className="grid gap-2.5">
+		<DetailList>
 			{entries.map((entry) => {
 				const value = formatCustomFieldValue(entry);
 				return (
@@ -46,7 +59,7 @@ export function CustomFieldsList({
 					>
 						<dt className="m-0 min-w-0 wrap-anywhere text-pretty text-muted-foreground leading-snug">
 							{entry.label}
-							{entry.declared ? null : (
+							{entry.declared || allowsExtraKeys ? null : (
 								<>
 									{' '}
 									<Badge tone="neutral" variant="outline">
@@ -61,14 +74,15 @@ export function CustomFieldsList({
 					</div>
 				);
 			})}
-		</dl>
+		</DetailList>
 	);
 }
 
 /**
- * Read-only view of the custom fields an agency attached to a record's method or
- * type. Renders nothing when the method declares no fields and the record carries
- * no values, so records without custom fields are not given an empty card.
+ * Read-only view of the custom fields an organization attached to a record's
+ * method or type. Renders nothing when the method declares no fields and the
+ * record carries no values, so records without custom fields are not given an
+ * empty card.
  *
  * Declared-but-blank fields still show as "Not recorded" — a crew reading the
  * record should see what the method asks for, not just what was filled in.
@@ -91,7 +105,7 @@ export function CustomFieldsCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>{title}</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">

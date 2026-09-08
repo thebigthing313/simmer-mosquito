@@ -7,30 +7,30 @@
  * Both shared helpers take an `OrgOwnedTable`, which the schema derives as "has
  * a non-null `organization_id`, a `deleted_at`, and an `updated_at`". Neither
  * weather table qualifies. `weather_sources.organization_id` is nullable so a
- * future provider-owned station can exist with no agency behind it, which
+ * future provider-owned station can exist with no organization behind it, which
  * `docs/weather-domain.md` keeps as plumbing for `source_type = 'nws'` while v1
  * writes only `'organization'` rows. `weather_summaries` is nullable for the
  * same reason, and has no `deleted_at` at all, because a summary delete is a
  * hard delete.
  *
- * So the tenancy predicate is written out here instead. It is the same predicate
- * It is the same predicate on `id`, `organization_id`, and for stations
- * `deleted_at is null`, and what
- * makes writing it out safe is that it is written once, here, rather than at
- * each of the ten call sites.
+ * So the organization predicate is written out here instead. It is the same
+ * predicate on `id`, `organization_id`, and for stations `deleted_at is null`,
+ * and what makes writing it out safe is that it is written once, here, rather
+ * than at each of the ten call sites.
  *
- * A null `organization_id` compares unequal to every agency id, so a global row
- * is unreachable through these helpers rather than merely unlikely to be named.
- * That matters more than usual: `shape-scopes.ts` reads both tables as
- * `organization-or-global`, so a row written with a null org would sync to every
- * agency. Every insert below sets it.
+ * A null `organization_id` compares unequal to every organization id, so a
+ * global row is unreachable through these helpers rather than merely unlikely
+ * to be named. That matters more than usual: `shape-scopes.ts` reads both
+ * tables as `organization-or-global`, so a row written with a null org would
+ * sync to every organization. Every insert below sets it.
  */
 
-import { localDateColumn, type SelectedRow, sql } from '@simmer-mosquito/db';
+import { localDateColumn, sql } from '@simmer-mosquito/db';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { CommandError } from '../command-endpoint.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
+import type { CommandRow } from '../return-columns.js';
 
 export type WeatherDb = CommandDb;
 export type WeatherTransaction = CommandTransaction;
@@ -45,54 +45,9 @@ export interface RouteOptions {
 // Response shaping
 // ===========================================================================
 
-/**
- * `geom` and `geojson` are absent for the same reason they are absent from the
- * client's row schema: geometry is served by the `/map/*` endpoints, and the
- * generated `lat`/`lng`/`geom_type` columns are what a collection carries.
- */
-export const weatherStationReturnColumns = [
-	'id',
-	'organization_id',
-	'lat',
-	'lng',
-	'geom_type',
-	'source_type',
-	'source_name',
-	'source_code',
-	'provider_source_id',
-	'is_active',
-	'metadata',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type WeatherStationRow = CommandRow<'weather_sources'>;
 
-export type WeatherStationRow = SelectedRow<'weather_sources', typeof weatherStationReturnColumns>;
-
-export const weatherSummaryReturnColumns = [
-	'id',
-	'organization_id',
-	'weather_source_id',
-	'start_date',
-	'end_date',
-	'temperature_min_f',
-	'temperature_max_f',
-	'precipitation_inches',
-	'relative_humidity_min',
-	'relative_humidity_max',
-	'wind_speed_min_mph',
-	'wind_speed_max_mph',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type WeatherSummaryRow = SelectedRow<
-	'weather_summaries',
-	typeof weatherSummaryReturnColumns
->;
+export type WeatherSummaryRow = CommandRow<'weather_summaries'>;
 
 // ===========================================================================
 // Scoped reads
@@ -106,12 +61,13 @@ export interface StationState {
 }
 
 /**
- * The agency's own station, or `undefined`.
+ * The organization's own station, or `undefined`.
  *
- * `source_type` is not filtered. An agency's rows are all `'organization'` in
- * v1, and a station that somehow carried the other type while naming this
- * organization would still be that agency's row to manage, filtering it out
- * would answer 404 for a row the agency can see in its own list.
+ * `source_type` is not filtered. An organization's rows are all
+ * `'organization'` in v1, and a station that somehow carried the other type
+ * while naming this organization would still be that organization's row to
+ * manage, filtering it out would answer 404 for a row the organization can see
+ * in its own list.
  */
 export async function loadStation(
 	trx: WeatherTransaction,
@@ -130,7 +86,7 @@ export async function loadStation(
 		: { id: row.id, isActive: row.is_active, updatedAt: row.updated_at };
 }
 
-/** A summary and the station it hangs off, scoped to the agency in one read. */
+/** A summary and the station it hangs off, scoped to the organization in one read. */
 export interface SummaryState {
 	readonly id: string;
 	readonly weatherStationId: string;
@@ -160,12 +116,13 @@ export interface SummaryMetrics {
 }
 
 /**
- * The agency's own summary, or `undefined`.
+ * The organization's own summary, or `undefined`.
  *
- * Joined to the station rather than trusting `weather_summaries.organization_id`
- * alone. The column is what the sync scope reads and every write here sets it,
- * but the station is where the tenancy is anchored, a summary is reachable only
- * through one, and the join is also what enforces "never a deleted station".
+ * Joined to the station rather than trusting
+ * `weather_summaries.organization_id` alone. The column is what the sync scope
+ * reads and every write here sets it, but the station is where the organization
+ * scope is anchored, a summary is reachable only through one, and the join is
+ * also what enforces "never a deleted station".
  *
  * The dates come back as text. A `date` column read as a `Date` is a timestamp at
  * local midnight, and every comparison the overlap rules make is between calendar

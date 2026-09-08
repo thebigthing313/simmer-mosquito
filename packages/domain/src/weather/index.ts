@@ -1,5 +1,5 @@
 export * from './import.js';
-export * from './shared.js';
+export type { WeatherCommandType, WeatherDomainCommand } from './shared.js';
 export * from './stations.js';
 export * from './summaries.js';
 

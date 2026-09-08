@@ -1,6 +1,6 @@
 import { toDbEntityType } from '@simmer-mosquito/domain';
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -145,7 +145,17 @@ function ServiceRequestsExplorerRoute() {
 		[setFilters],
 	);
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
-	const { input: search, setInput: setSearch } = useDebouncedTextFilter(query.search, commitSearch);
+	const {
+		input: search,
+		setInput: setSearch,
+		clear: clearSearchInput,
+	} = useDebouncedTextFilter(query.search, commitSearch);
+	// Both halves: the field the operator is looking at, and the committed term on
+	// the URL that is actually cutting the list.
+	const clearSearch = useCallback(() => {
+		clearSearchInput();
+		commitSearch('');
+	}, [clearSearchInput, commitSearch]);
 	// Both halves: the field the operator is looking at, and the committed set on
 	// the URL that is actually cutting the list. One patch, one navigation, since
 	// two calls would each read the same prior search and the second would undo
@@ -240,6 +250,7 @@ function ServiceRequestsExplorerRoute() {
 					activeFilterCount={activeFilterCount}
 					availableTags={availableTags}
 					onClearAll={clearAll}
+					onClearSearch={clearSearch}
 					regions={regions}
 					search={search}
 					selectedRegionIds={selectedRegionIds}
@@ -281,7 +292,7 @@ function ServiceRequestsExplorerRoute() {
 						contextMenu={{
 							create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
 						}}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData={mappedBounds}
 						geoJson={geoJson}
 						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
@@ -329,6 +340,7 @@ function RequestFilters({
 	activeFilterCount,
 	availableTags,
 	onClearAll,
+	onClearSearch,
 	regions,
 	search,
 	selectedRegionIds,
@@ -342,6 +354,7 @@ function RequestFilters({
 	readonly activeFilterCount: number;
 	readonly availableTags: readonly Tag[];
 	readonly onClearAll: () => void;
+	readonly onClearSearch: () => void;
 	readonly regions: ReturnType<typeof useRegionOptions>;
 	readonly search: string;
 	readonly selectedRegionIds: ReadonlySet<string>;
@@ -355,9 +368,10 @@ function RequestFilters({
 	const hasTagFilter = availableTags.length > 0 || selectedTagIds.size > 0;
 	return (
 		<>
-			<SearchField
+			<SearchInput
 				label="Search service requests"
-				onChange={setSearch}
+				onChange={(event) => setSearch(event.target.value)}
+				onClear={onClearSearch}
 				placeholder="Search requests…"
 				value={search}
 			/>
@@ -566,7 +580,7 @@ function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<
 			gcTime: requestsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: tag_items })
+					.from({ item: tag_items() })
 					.where(({ item }) => inArray(item.tag_id, queryIds))
 					.select(({ item }) => ({ entityId: item.entity_id })),
 		},

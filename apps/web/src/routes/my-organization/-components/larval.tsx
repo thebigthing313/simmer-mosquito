@@ -1,10 +1,13 @@
 import type {
+	LarvalDensity,
 	LarvalDensityRange,
 	LarvalDensityRanges,
 	LarvalInspectionEntryMode,
 	OrganizationSettings,
+	RangeDensity,
 	ResolvedLarvalInspectionEntryPolicy,
 } from '@simmer-mosquito/domain';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -51,7 +54,6 @@ import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
-import { EmptyValue } from '../../../components/empty-value';
 import {
 	type CatalogMutations,
 	useHabitatTypeMutations,
@@ -80,12 +82,7 @@ import {
 	watchWrite,
 } from './helpers';
 import { LookupListFrame, SettingChoiceCard } from './layout/layout';
-import type {
-	DensityRangeFormValue,
-	DensityRangeFormValues,
-	DensityRangeKey,
-	LarvalDensityDisplayKey,
-} from './types';
+import type { DensityRangeFormValue, DensityRangeFormValues } from './types';
 
 export function LarvalSurveillanceSettings({
 	canManage,
@@ -188,7 +185,7 @@ function DensityRangeTile({
 	density,
 	range,
 }: {
-	readonly density: LarvalDensityDisplayKey;
+	readonly density: LarvalDensity;
 	readonly range: LarvalDensityRange | null;
 }) {
 	const label = densityLabel(density);
@@ -343,7 +340,7 @@ function DensityRangeEditor({
 	onChange,
 	value,
 }: {
-	readonly density: DensityRangeKey;
+	readonly density: RangeDensity;
 	readonly disabled: boolean;
 	readonly onChange: (value: DensityRangeFormValue) => void;
 	readonly value: DensityRangeFormValue;
@@ -463,7 +460,7 @@ function HabitatTypeTable({
 										<span className="wrap-anywhere">{habitatType.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{habitatType.description ?? <EmptyValue />}
+										{habitatType.description ?? <AbsentValue />}
 									</TableCell>
 									<TableCell className="w-(--habitat-fields-column)">
 										<CustomFieldsCell schema={habitatType.customSchema} />

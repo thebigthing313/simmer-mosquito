@@ -1,15 +1,3 @@
-import { type Kysely, type RawBuilder, sql } from 'kysely';
-
-import type { SimmerDatabase } from '../index.js';
-import {
-	assertIanaTimeZone,
-	habitatStatusSql,
-	inspectionResultSql,
-	localDateSql,
-	trapLabelSql,
-	trapStatusSql,
-} from './record-display-sql.js';
-
 /**
  * One Profile's field work, across every record type that attributes work to a
  * person, in one round-trip.
@@ -24,51 +12,33 @@ import {
  * signal there is, and their pins mean "created this site record".
  */
 /**
- * This package depends on nothing but Kysely, so the activity vocabulary the
- * domain owns is restated here rather than imported — the same arrangement
- * `LarvalDensity` already has. `apps/server` sees both packages and pins these
- * lists equal, because a drift is a category this reader can emit that the page
- * cannot name, and nothing about that fails.
+ * The vocabulary comes from the domain, which is the one declaration of it.
+ *
+ * This package restated all four lists until #432, on the stated grounds that it
+ * depends on nothing but Kysely and cannot see `packages/domain`. That has not
+ * been true since ADR 0013: `package.json` lists the domain as a dependency and
+ * `tables.ts` imports from it. The restated copies were pinned equal by a test
+ * in `apps/server`, which was the only place that could see both; that test goes
+ * with them.
  */
-export const dbActivityCategories = [
-	'habitat',
-	'inspection',
-	'trap',
-	'collection',
-	'application',
-	'sourceReduction',
-	'biocontrol',
-	'outreach',
-	'serviceRequest',
-] as const;
+import type {
+	ActivityCategory,
+	ActivityFamily,
+	ActivityInvolvement,
+	ActivityRole,
+} from '@simmer-mosquito/domain';
+import { type Kysely, type RawBuilder, sql } from 'kysely';
+import type { SimmerDatabase } from '../index.js';
+import {
+	assertIanaTimeZone,
+	habitatStatusSql,
+	inspectionResultSql,
+	localDateSql,
+	trapLabelSql,
+	trapStatusSql,
+} from './record-display-sql.js';
 
-export type ActivityCategory = (typeof dbActivityCategories)[number];
-
-export const dbActivityFamilies = ['larval', 'adult', 'control', 'publicEngagement'] as const;
-
-export type ActivityFamily = (typeof dbActivityFamilies)[number];
-
-/** Whether the Profile is named on the record itself, or assisted on it. */
-export const dbActivityInvolvements = ['primary', 'assisting'] as const;
-
-export type ActivityInvolvement = (typeof dbActivityInvolvements)[number];
-
-/** What the Profile did to the record. */
-export const dbActivityRoles = [
-	'created',
-	'inspected',
-	'set',
-	'collected',
-	'applied',
-	'reduced',
-	'released',
-	'engaged',
-	'received',
-	'closed',
-	'assisted',
-] as const;
-
-export type ActivityRole = (typeof dbActivityRoles)[number];
+export type { ActivityCategory, ActivityFamily, ActivityInvolvement, ActivityRole };
 
 export interface ProfileActivityRow {
 	readonly category: ActivityCategory;
@@ -118,9 +88,9 @@ export interface ProfileActivityInput {
 	/** Inclusive upper bound on the activity date (`YYYY-MM-DD`). */
 	readonly dateTo: string;
 	/**
-	 * The agency's IANA timezone. Timestamps become calendar dates in it, so a
-	 * trap set at 9pm files under the day the crew worked rather than the day
-	 * the database server rolled over.
+	 * The organization's IANA timezone. Timestamps become calendar dates in it,
+	 * so a trap set at 9pm files under the day the crew worked rather than the
+	 * day the database server rolled over.
 	 */
 	readonly timeZone: string;
 	/** Safety cap on total rows returned across all branches. */
@@ -191,11 +161,11 @@ const ADDRESS_JOIN = 'left join addresses ad on ad.id = r.address_id';
 const ADDRESS_NAME = `nullif(btrim(ad.display_name), '')`;
 
 /**
- * The nine record shapes, dated in one agency's timezone.
+ * The nine record shapes, dated in one organization's timezone.
  *
  * Built per call rather than declared as constants because six of these date
  * expressions convert a `timestamptz`, and which calendar day that lands on is
- * the agency's question rather than the database server's.
+ * the organization's question rather than the database server's.
  */
 function recordShapes(timeZone: string): {
 	readonly habitat: RecordShape;
@@ -368,9 +338,9 @@ function primaryBranches(shapes: RecordShapes, timeZone: string): readonly Prima
 			role: 'set',
 			profileColumn: 'set_by_profile_id',
 			// A collection is dated by whichever of the two mutually-exclusive timing
-			// shapes it was recorded in — `collections_timing_shape` guarantees exactly
-			// one is populated, so reading either column alone silently empties adult
-			// surveillance for every agency on the other mode.
+			// shapes it was recorded in — `collections_timing_shape` guarantees
+			// exactly one is populated, so reading either column alone silently
+			// empties adult surveillance for every organization on the other mode.
 			date: `coalesce(${localDate('r.started_at')}, r.collection_date)`,
 			occurredAt: 'r.started_at',
 		},
@@ -419,10 +389,11 @@ function shapeByEntityType(
  * Every record the Profile is named on or assisted with, in `[dateFrom,
  * dateTo]`, across the nine categories — one `union all`, one round-trip.
  *
- * Each branch scopes to the agency first so the `(organization_id, <date> desc,
- * …)` indexes stay usable, and excludes soft-deleted rows — on the record and,
- * for the assisting branches, on the personnel link too. Ordered newest-first
- * and capped; the caller reports truncation rather than trimming quietly.
+ * Each branch scopes to the organization first so the `(organization_id, <date>
+ * desc, …)` indexes stay usable, and excludes soft-deleted rows — on the record
+ * and, for the assisting branches, on the personnel link too. Ordered
+ * newest-first and capped; the caller reports truncation rather than trimming
+ * quietly.
  */
 export async function listProfileActivity(
 	db: Kysely<SimmerDatabase>,

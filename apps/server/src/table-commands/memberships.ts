@@ -1,5 +1,5 @@
 /**
- * `/commands/memberships`: who may sign in to this agency, and as what.
+ * `/commands/memberships`: who may sign in to this organization, and as what.
  *
  * The four commands ADR 0013 left until last, and the only table on the surface
  * whose writes are not finished when the transaction commits. WorkOS holds the
@@ -34,6 +34,7 @@ import {
 	endMembershipCommand,
 	inviteCommand,
 	reinviteCommand,
+	SIMMER_ROLES,
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
@@ -45,10 +46,16 @@ import {
 } from '../membership-commands.js';
 import type { TableCommands } from './dispatch.js';
 
+/**
+ * The name on the `profiles` row an invitation creates or attaches to. A column,
+ * just not this table's.
+ */
+type MembershipArgument = 'display_name';
+
 export function membershipTableCommands(
 	db: CommandDb,
 	auth: MembershipAuth,
-): TableCommands<MembershipCommand, MembershipRow> {
+): TableCommands<'memberships', MembershipCommand, MembershipRow, MembershipArgument> {
 	return {
 		table: 'memberships',
 		run: {
@@ -59,26 +66,24 @@ export function membershipTableCommands(
 			secondSystem: membershipSecondSystem(db, auth),
 		},
 		intents: {
-			'identity.invite': ({ payload, agency, id }) =>
+			'identity.invite': ({ payload, organization, id }) =>
 				inviteCommand({
-					...agency,
+					...organization,
 					membershipId: id,
 					profileId: readText(payload.profile_id) ?? '',
 					invitedEmail: readText(payload.invited_email) ?? '',
 					displayName: readText(payload.display_name),
 					role: readRole(payload.role),
 				}),
-			'identity.reinvite': ({ payload, agency, id }) =>
-				reinviteCommand({ ...agency, membershipId: id, role: readRole(payload.role) }),
-			'identity.changeRole': ({ payload, agency, id }) =>
-				changeRoleCommand({ ...agency, membershipId: id, role: readRole(payload.role) }),
-			'identity.endMembership': ({ agency, id }) =>
-				endMembershipCommand({ ...agency, membershipId: id }),
+			'identity.reinvite': ({ payload, organization, id }) =>
+				reinviteCommand({ ...organization, membershipId: id, role: readRole(payload.role) }),
+			'identity.changeRole': ({ payload, organization, id }) =>
+				changeRoleCommand({ ...organization, membershipId: id, role: readRole(payload.role) }),
+			'identity.endMembership': ({ organization, id }) =>
+				endMembershipCommand({ ...organization, membershipId: id }),
 		},
 	};
 }
-
-const ROLES: readonly string[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
 
 /**
  * A role off an untrusted body.
@@ -89,5 +94,7 @@ const ROLES: readonly string[] = ['owner', 'admin', 'manager', 'collector', 'vie
  * error rather than as the 400 it is.
  */
 function readRole(value: unknown): SimmerRole | undefined {
-	return typeof value === 'string' && ROLES.includes(value) ? (value as SimmerRole) : undefined;
+	return typeof value === 'string' && SIMMER_ROLES.includes(value as SimmerRole)
+		? (value as SimmerRole)
+		: undefined;
 }

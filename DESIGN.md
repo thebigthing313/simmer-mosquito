@@ -1,6 +1,6 @@
 ---
 name: SIMMER
-description: Map-centric mosquito control operations UI for focused agency work.
+description: Map-centric UI for focused mosquito control operations work.
 colors:
   field-green: "oklch(52.71% 0.1114 159.1429)"
   deep-field-green: "oklch(39.15% 0.0882 156.38)"
@@ -33,7 +33,7 @@ typography:
     letterSpacing: "normal"
   headline:
     fontFamily: "Poppins, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.45rem"
+    fontSize: "1.5rem"
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: "normal"
@@ -115,8 +115,8 @@ components:
 
 SIMMER should feel like a calm operational workspace built around geography:
 professional, natural, and focused. It is not a marketing surface and not a
-generic admin console. It is where agency and SIMMER Operator work becomes
-legible enough to trust.
+generic admin console. It is where organization and SIMMER Operator work
+becomes legible enough to trust.
 
 The product register is restrained, but not bland. Use tinted neutrals, grounded
 green, and earned yellow attention to keep dense workflows readable. The
@@ -185,7 +185,10 @@ to maps and field records without becoming decorative.
 - **Text / Muted / Quiet**: Primary copy, supporting copy, and metadata labels.
   Be aware there is almost no room left between Muted and Quiet at AA: a third
   *lighter* tier cannot really exist on surfaces this pale. Separate quiet
-  metadata by size, weight, or position instead of by going lighter.
+  metadata by size, weight, or position instead of by going lighter. Text is
+  `--foreground` in the stylesheet, and `text-foreground` is how you reach it. A
+  `--text` alias of the same value sat beside it unregistered until #632 deleted
+  it: two names for one colour, one of which worked.
 - **Attention / Warning**: Attention surface tint and warning text treatment.
   Attention is a fill, not the focus ring; the two were aliased until the ring
   had to darken for contrast.
@@ -223,6 +226,24 @@ palette, it goes in **both** places, and the check is empirical: build, then gre
 the emitted CSS for the class. A utility that generates no rule is invisible in
 the source and invisible on screen.
 
+Fifteen more roles were left behind in the same file and found again in #632:
+the surface and border neutrals, the type scale, the line heights, and three
+aliases of roles that were already registered under another name. Twelve were
+registered and three were deleted, and `pnpm check:registered-tokens` is what
+stops the file splitting a third time. It fails on a role declared in `:root`
+that no `@theme` entry names, and on a class that reaches for one.
+
+The rule is not "spell the name twice". A role is registered when an `@theme`
+entry **references** it, under the namespace for its kind: `--color-*` for a
+colour, `--text-*` for a font size, `--leading-*` for a line height,
+`--radius-*` for a corner. `--type-heading` is reached as `text-heading` for
+that reason. Two traps live in the namespaces. `--text-*` and `--color-*` share
+the `text-` utility prefix, so no colour may be named `caption`, `small`,
+`body`, `title` or `heading`. And a role registered under a name Tailwind
+already ships overrides the built-in silently: `--leading-tight` would have
+moved 42 call sites from 1.25 to 1.2 with nothing in the diff saying so, which
+is why the heading line height is `--leading-heading`.
+
 **The Solid Indicator Rule.** A focus ring is never drawn at partial alpha. An
 alpha ring composites toward the surface it is supposed to contrast against, so
 it gets *less* visible exactly where it needs to be more. SIMMER's ring sat at
@@ -242,12 +263,41 @@ strong weight contrast.
 ### Hierarchy
 - **Display** (700, clamp(1.8rem, 4vw, 2.6rem), 1.1): Rare onboarding,
   empty-state, or route-level moments.
-- **Headline** (700, 1.45rem, 1.2): Page headings and workflow section leads.
+- **Headline** (700, 1.5rem, 1.2): Page headings and workflow section leads.
 - **Title** (700, 1.1rem, 1.25): Panels, drawers, record groups, and dialogs.
 - **Body** (400, 1rem, 1.55): Explanatory copy, record summaries, and readable
   prose. Cap line length at 65-75ch.
 - **Label** (800, 0.76rem, uppercase only when it improves scanning): Eyebrows,
   metadata labels, sidebar headings, table headers, and sync labels.
+
+### Registered scale
+
+The sizes and line heights the stylesheet declares, and the utility each one
+generates. These are what a screen can reach by name; the hierarchy above is
+what a screen is meant to look like.
+
+| Utility | Value | Role |
+| --- | --- | --- |
+| `text-caption` | 0.75rem | Metadata and captions |
+| `text-small` | 0.875rem | Dense rows, secondary copy |
+| `text-body` | 1rem | Readable prose |
+| `text-title` | 1.125rem | Panels, drawers, dialogs |
+| `text-heading` | 1.5rem | Page headings |
+| `leading-heading` | 1.2 | Headings, at any size |
+| `leading-body` | 1.55 | Prose |
+| `leading-compact` | 1.4 | Dense rows and controls |
+
+The scale and the hierarchy now agree on 1.5rem. They disagreed from the day
+both were written: Headline said 1.45rem, `text-heading` said 1.5rem, and no page
+heading in the product had ever been 1.45rem. Sixteen of the twenty-two headings
+were already at 1.5rem, written as `text-2xl` or as `text-[1.5rem]`, so the
+document moved to the size the product had settled on rather than moving
+twenty-two call sites for 0.05rem (#647). Page headings reach it as
+`text-heading` now, and `PageHeader` in `packages/ui-web` is the one component
+that draws them.
+
+The row's weight is a live disagreement and #647 did not settle it. Headline says
+700 and every page heading writes `font-semibold`, which is 600.
 
 ### Named rules
 
@@ -402,8 +452,17 @@ Both front ends wear the same two-rail shell from
 secondary panel of that domain's navigation, and a breadcrumb header. The
 operator console no longer has chrome of its own. It supplies a navigation
 model and identity, and the shell does the rest. Its rail carries three domains
-(Agencies, Mosquito Taxonomy, Units) and its switcher names the control plane
-rather than an agency, because every page there spans all of them.
+(Organizations, Mosquito Taxonomy, Units) and its switcher names the control
+plane rather than an organization, because every page there spans all of them.
+
+**Rows built from data.** A navigation item may point at a record rather than a
+page: `to` stays the route template and `params` carries the ids, so
+`/daily-work/$profileId` is still typed against the route tree while the id
+arrives at render time. The shell puts the two back together in one place,
+`navDestination`, which is what matches the row against the current path, sends
+the click, and ends the breadcrumb trail on the record's own label instead of
+its id. A group built this way draws nothing at all when its list is empty,
+because a heading over no rows says less than no heading.
 
 **The Desktop Floor Rule.** SIMMER web is a desktop application. The two-rail
 shell spends 304px on fixed chrome, and both rails stay visible at every width.
@@ -423,12 +482,13 @@ Use full-height right-side geometry, no decorative shadow, and a scrim only when
 the drawer blocks the main workflow.
 
 **The One Create Shape Rule.** Creating a record is a full page when the record
-is long, and a dialog when it is short. The same choice holds for editing it. Both apps use `RecordFormPage` for the long ones (a dozen forms in the
-agency workspace; creating an agency in the console) and a dialog for the short
-catalog rows. Creating an organization used to be a 520px sheet, which put the
-one decision worth deliberating, whether the operator links themselves as the
-agency's first owner, below the fold. That is the shape this rule exists to
-prevent.
+is long, and a dialog when it is short. The same choice holds for editing it.
+Both apps use `RecordFormPage` for the long ones (a dozen forms in the
+organization workspace; creating an organization in the console) and a dialog
+for the short catalog rows. Creating an organization used to be a 520px sheet,
+which put the one decision worth deliberating, whether the operator links
+themselves as the organization's first owner, below the fold. That is the shape
+this rule exists to prevent.
 
 A create form pinned permanently above its own list is not a third option. It
 spends vertical space on every visit to serve the rarest action, and it makes
@@ -496,8 +556,8 @@ read custom properties and must be literals. That constraint is real; scattering
 the literals is not. Every colour a layer paints with is named once in
 `@simmer-mosquito/design-tokens/map-palette`, in four groups:
 
-- **Interaction**: `selected`, `selectedStroke`, `pointStroke`. Roles that mean
-  the same thing on every layer.
+- **Interaction**: `selected`, `selectedStroke`, `pointStroke`, `vertexStroke`,
+  `fallback`. Roles that mean the same thing on every layer.
 - **Lifecycle**: `active`, `inactive`, `inaccessible`. Shared by every locatable
   record type; composed from the brand scale so a brand change reaches the map.
 - **Domain**: the per-type hue that lets an operator tell a trap from a
@@ -511,6 +571,12 @@ matches what the draw tool paints. It drifted once, to amber on addresses and
 regions and green on seven other layers, which meant selection said something
 different depending on which record you clicked. Green is also already spoken
 for as a *domain* mark, so a green halo on an active trap says nothing.
+
+It drifted a second time in the six modules the first pass left holding their
+own colours, and reached three: amber on the tile layers, dark green on the
+record overlay, near-black on the service-request map. `pnpm check:map-palette`
+now refuses a hex literal anywhere under `apps/web/src/components/map`, so a
+fourth has to be written in the register, where a reader can see it (#618).
 
 **The Legend Truth Rule.** A map legend reads its swatches from the same
 constants the layers paint with. Never a literal. A hand-typed legend swatch

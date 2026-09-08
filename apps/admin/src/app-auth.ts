@@ -1,9 +1,10 @@
 import {
+	cookieFetch,
 	createAppAuthController,
 	createSessionRecovery,
 	sessionLostDestination,
 } from '@simmer-mosquito/auth/browser';
-import { setSessionRecovery } from '@simmer-mosquito/sync/session-fetch';
+import { setSessionFetcher, setSessionRecovery } from '@simmer-mosquito/sync/session-fetch';
 import { getAuthMe } from './api';
 
 /**
@@ -17,7 +18,7 @@ export const publicPaths: ReadonlySet<string> = new Set(['/sign-in']);
 /**
  * The operator session, as one module-level value the router and the shell both
  * read. The controller itself lives in `@simmer-mosquito/auth/browser`, shared
- * with the agency workspace; this is the console's binding of it.
+ * with the organization workspace; this is the console's binding of it.
  */
 export const appAuthController = createAppAuthController({ getAuthMe });
 
@@ -56,3 +57,9 @@ const recoverSession = createSessionRecovery({
 // package barrel re-exports all fifty-four collection modules and their row
 // schemas, and `main.tsx` imports this module.
 setSessionRecovery(recoverSession);
+
+// How every shape stream and every command write carries the session, installed
+// beside the recovery because both are facts about this host rather than about a
+// table. The console is a browser and holds the sealed session in an httpOnly
+// cookie, which is what `packages/sync` used to write as a literal.
+setSessionFetcher(cookieFetch);

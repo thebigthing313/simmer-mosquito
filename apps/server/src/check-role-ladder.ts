@@ -24,6 +24,7 @@
  */
 
 import type { SimmerRole } from '@simmer-mosquito/db';
+import { SIMMER_ROLES } from '@simmer-mosquito/domain';
 
 const API = process.env.SIMMER_CHECK_API ?? 'http://localhost:3000';
 const PASSWORD = process.env.SIMMER_CHECK_PASSWORD;
@@ -56,12 +57,24 @@ const SETTINGS_TIMEZONE = '/organization-settings/timezone';
 /**
  * The two identity tables on the command surface (ADR 0013, slice 1).
  *
- * The agency's own row is addressed by id, and the script does not know which
- * agency it signed in as. It does not need to: the floor is read before the
- * handler compares the id, so a fresh UUID refuses at the right place for a
- * `deny` and lands on a harmless 400 for an `allow`.
+ * The organization's own row is addressed by id, and the script does not know
+ * which organization it signed in as. It does not need to: the floor is read
+ * before the handler compares the id, so a fresh UUID refuses at the right
+ * place for a `deny` and lands on a harmless 400 for an `allow`.
  */
 const PROFILES_PATH = '/commands/profiles';
+/**
+ * Roles moved here with ADR 0013's third slice. There is no
+ * `/organization/memberships/:id/role` any more, and a check still pointed at it
+ * answers 404 to every rung — which the owner case read as the floor passing.
+ *
+ * The id segment is what makes it a `PATCH` route at all, so a fresh UUID is
+ * load-bearing rather than decorative: without one the dispatcher never matches
+ * and the 404 comes back instead of the refusal.
+ */
+function membershipPath(): string {
+	return `/commands/memberships/${uuid()}`;
+}
 function organizationPath(): string {
 	return `/commands/organizations/${uuid()}`;
 }
@@ -88,7 +101,7 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		deny('create a tag', 'POST', '/foundation/tags', tag(), 'Viewers have read-only'),
 		deny('create a route', 'POST', '/field-work/routes', route(), 'Viewers have read-only'),
 		deny('start their own assignment', 'PATCH', assignment(FIXTURES.ownAssignment), started()),
-		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
+		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'Viewers have read-only'),
 	],
 
 	collector: [
@@ -159,11 +172,17 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 			'performed',
 		),
 
-		// Settings have no commands and are checked in middleware before the body
-		// is read. People are commands since ADR 0013's first slice, so the refusal
-		// comes from `COMMAND_PERMISSIONS` and names the command rather than the
+		// Settings and people are both commands now — settings since they moved onto
+		// `mutateCollection`, people since ADR 0013's first slice — so both refusals
+		// come from `COMMAND_PERMISSIONS` and name the command rather than the
 		// surface. Both floors are admin, so a collector is refused by either (#130).
-		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
+		deny(
+			'change a setting',
+			'PATCH',
+			SETTINGS_TIMEZONE,
+			timezone(),
+			'organizationSettings.updateTimezone',
+		),
 		deny('add a profile', 'POST', PROFILES_PATH, profile(), 'identity.createProfile'),
 	],
 
@@ -186,9 +205,15 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		deny('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
 		deny('create a habitat type', 'POST', '/foundation/habitat-types', lookup()),
 		deny('delete an insecticide', 'DELETE', `/control-products/insecticides/${uuid()}`),
-		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
 		deny(
-			'edit the agency’s details',
+			'change a setting',
+			'PATCH',
+			SETTINGS_TIMEZONE,
+			timezone(),
+			'organizationSettings.updateTimezone',
+		),
+		deny(
+			'edit the organization’s details',
 			'PATCH',
 			organizationPath(),
 			details(),
@@ -204,16 +229,16 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		// Deliberately unwritable: `allow` means "not refused", so a 400 for a body
 		// the builder rejects proves the floor let it through. That keeps the check
 		// from writing anything, because a real timezone or profile would be a live
-		// edit to whichever agency the fixtures point at.
+		// edit to whichever organization the fixtures point at.
 		//
 		// The two command routes still carry `intents`, because dispatch reads the
 		// intent list before it consults the floor and a body without one answers
 		// 400 without ever reaching the check this script is making. The
-		// organization id in the path is a fresh UUID rather than the agency's, so
-		// the handler refuses it as not the signed-in agency, which is the same
-		// harmless 400.
+		// organization id in the path is a fresh UUID rather than the
+		// organization's, so the handler refuses it as not the signed-in
+		// organization, which is the same harmless 400.
 		allow('reach settings', 'PATCH', SETTINGS_TIMEZONE, {}),
-		allow('reach the agency’s details', 'PATCH', organizationPath(), {
+		allow('reach the organization’s details', 'PATCH', organizationPath(), {
 			intents: ['identity.updateOrganizationDetails'],
 		}),
 		allow('reach the people surface', 'POST', PROFILES_PATH, {
@@ -225,18 +250,18 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		deny(
 			'change somebody’s role',
 			'PATCH',
-			`/organization/memberships/${uuid()}/role`,
-			{ role: 'owner' },
-			'owners can change a role',
+			membershipPath(),
+			{ intents: ['identity.changeRole'] },
+			'identity.changeRole',
 		),
 	],
 
 	owner: [
 		allow('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
-		// A membership id that does not exist: a 404 proves the floor passed
-		// without promoting anybody.
-		allow('change somebody’s role', 'PATCH', `/organization/memberships/${uuid()}/role`, {
-			role: 'manager',
+		// The intent with nothing to act on: the floor is read before the payload,
+		// so a 400 proves it passed without promoting anybody.
+		allow('change somebody’s role', 'PATCH', membershipPath(), {
+			intents: ['identity.changeRole'],
 		}),
 	],
 };
@@ -246,7 +271,8 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 let passed = 0;
 const failures: string[] = [];
 
-for (const role of ['viewer', 'collector', 'manager', 'admin', 'owner'] as const) {
+// Weakest first, so the output reads as a ladder being climbed.
+for (const role of [...SIMMER_ROLES].reverse()) {
 	const email = `${EMAIL_PREFIX}${role}@${EMAIL_DOMAIN}`;
 	const cookie = await signIn(email);
 	if (cookie === null) {

@@ -8,7 +8,7 @@
  *
  * Compare `buildHabitatUpdateCommands` in
  * `larval-surveillance-commands/habitats.ts`, which is eighty lines of
- * `'habitatName' in payload`, `'locationSource' in payload`, and
+ * `payload.habitatName !== undefined`, `payload.locationSource !== undefined`, and
  * `typeof payload.isInaccessible === 'boolean'` reconstructing what the user
  * meant from which keys arrived. None of that is here, because the request says.
  *
@@ -40,21 +40,28 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeHabitatCommand } from '../larval-surveillance-commands/habitats.js';
-import type { HabitatRow } from '../larval-surveillance-commands/shared.js';
+import { writeHabitatCommand } from '../writers/larval-surveillance/habitats.js';
+import type { HabitatRow } from '../writers/larval-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 
+/**
+ * The keys a habitat write reads that are not its columns: where it is, the
+ * inspection a habitat can be created from, and the habitats a merge folds away.
+ * `inspection_id` is `snake_case` because it is the `inspections` row's id.
+ */
+type HabitatArgument = 'locationSource' | 'inspection_id' | 'sourceHabitatIds';
+
 export function habitatTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, HabitatRow> {
+): TableCommands<'habitats', LarvalSurveillanceCommand, HabitatRow, HabitatArgument> {
 	return {
 		table: 'habitats',
 		run: { db, write: writeHabitatCommand, notFound: 'habitat_not_found', key: 'habitat' },
 		intents: {
-			'larvalSurveillance.createHabitat': ({ payload, agency, id }) =>
+			'larvalSurveillance.createHabitat': ({ payload, organization, id }) =>
 				createHabitatCommand({
-					...agency,
+					...organization,
 					habitatId: id,
 					// Passed through untyped: which location kinds a habitat accepts is the
 					// domain builder's rule, and re-stating it here would be a second copy
@@ -67,9 +74,9 @@ export function habitatTableCommands(
 					metadata: payload.metadata ?? null,
 				}),
 
-			'larvalSurveillance.createHabitatFromInspection': ({ payload, agency, id }) =>
+			'larvalSurveillance.createHabitatFromInspection': ({ payload, organization, id }) =>
 				createHabitatFromInspectionCommand({
-					...agency,
+					...organization,
 					habitatId: id,
 					inspectionId: readText(payload.inspection_id) ?? '',
 					habitatName: readNullableText(payload.habitat_name),
@@ -80,79 +87,86 @@ export function habitatTableCommands(
 			// The three updates read only what they take. A save that changed the name
 			// and redrew the shape names both `updateHabitatDetails` and
 			// `updateHabitatLocation`, and each reads its own half of one payload.
-			'larvalSurveillance.updateHabitatDetails': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateHabitatDetails': ({ payload, organization, id }) =>
 				updateHabitatDetailsCommand({
-					...agency,
+					...organization,
 					habitatId: id,
-					...('habitat_name' in payload
+					...(payload.habitat_name !== undefined
 						? { habitatName: readNullableText(payload.habitat_name) }
 						: {}),
-					...('description' in payload ? { description: readText(payload.description) ?? '' } : {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.description !== undefined
+						? { description: readText(payload.description) ?? '' }
+						: {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 				}),
 
-			'larvalSurveillance.updateHabitatLocation': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateHabitatLocation': ({ payload, organization, id }) =>
 				updateHabitatLocationCommand({
-					...agency,
+					...organization,
 					habitatId: id,
 					locationSource: payload.locationSource as never,
 					acknowledgedHabitatLocationSemanticsChange: acknowledged(
-						payload.acknowledgedHabitatLocationSemanticsChange,
+						payload,
+						'acknowledgedHabitatLocationSemanticsChange',
 					),
 				}),
 
-			'larvalSurveillance.updateHabitatConfiguration': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateHabitatConfiguration': ({ payload, organization, id }) =>
 				updateHabitatConfigurationCommand({
-					...agency,
+					...organization,
 					habitatId: id,
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
-					...('habitat_type_id' in payload
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
+					...(payload.habitat_type_id !== undefined
 						? { habitatTypeId: readNullableText(payload.habitat_type_id) }
 						: {}),
 					acknowledgedHabitatConfigurationSemanticsChange: acknowledged(
-						payload.acknowledgedHabitatConfigurationSemanticsChange,
+						payload,
+						'acknowledgedHabitatConfigurationSemanticsChange',
 					),
 				}),
 
 			// `is_inaccessible` and `is_active` are columns a client can see change, but
 			// which way they moved is the command's to say, not the value's. Four names
 			// rather than two booleans read for their direction.
-			'larvalSurveillance.markHabitatInaccessible': ({ agency, id }) =>
-				markHabitatInaccessibleCommand({ ...agency, habitatId: id }),
+			'larvalSurveillance.markHabitatInaccessible': ({ organization, id }) =>
+				markHabitatInaccessibleCommand({ ...organization, habitatId: id }),
 
-			'larvalSurveillance.clearHabitatInaccessible': ({ agency, id }) =>
-				clearHabitatInaccessibleCommand({ ...agency, habitatId: id }),
+			'larvalSurveillance.clearHabitatInaccessible': ({ organization, id }) =>
+				clearHabitatInaccessibleCommand({ ...organization, habitatId: id }),
 
-			'larvalSurveillance.retireHabitat': ({ payload, agency, id }) =>
+			'larvalSurveillance.retireHabitat': ({ payload, organization, id }) =>
 				retireHabitatCommand({
-					...agency,
+					...organization,
 					habitatId: id,
-					acknowledgedRouteRemoval: acknowledged(payload.acknowledgedRouteRemoval),
+					acknowledgedRouteRemoval: acknowledged(payload, 'acknowledgedRouteRemoval'),
 				}),
 
-			'larvalSurveillance.reactivateHabitat': ({ agency, id }) =>
-				reactivateHabitatCommand({ ...agency, habitatId: id }),
+			'larvalSurveillance.reactivateHabitat': ({ organization, id }) =>
+				reactivateHabitatCommand({ ...organization, habitatId: id }),
 
 			// The row this write names is the *target*, the habitat that survives, and
 			// the sources come from the body. Same shape as `mergeAddresses` and
 			// `mergeContacts`.
-			'larvalSurveillance.mergeHabitats': ({ payload, agency, id }) =>
+			'larvalSurveillance.mergeHabitats': ({ payload, organization, id }) =>
 				mergeHabitatsCommand({
-					...agency,
+					...organization,
 					targetHabitatId: id,
 					sourceHabitatIds: readIdList(payload.sourceHabitatIds),
 					acknowledgedMergeConsolidatesHistory: acknowledged(
-						payload.acknowledgedMergeConsolidatesHistory,
+						payload,
+						'acknowledgedMergeConsolidatesHistory',
 					),
 				}),
 
-			'larvalSurveillance.deleteHabitat': ({ payload, agency, id }) =>
+			'larvalSurveillance.deleteHabitat': ({ payload, organization, id }) =>
 				deleteHabitatCommand({
-					...agency,
+					...organization,
 					habitatId: id,
-					acknowledgedHabitatDelete: acknowledged(payload.acknowledgedHabitatDelete),
-					acknowledgedInspectionDetach: acknowledged(payload.acknowledgedInspectionDetach),
-					acknowledgedCrossDomainDetach: acknowledged(payload.acknowledgedCrossDomainDetach),
+					acknowledgedHabitatDelete: acknowledged(payload, 'acknowledgedHabitatDelete'),
+					acknowledgedInspectionDetach: acknowledged(payload, 'acknowledgedInspectionDetach'),
+					acknowledgedCrossDomainDetach: acknowledged(payload, 'acknowledgedCrossDomainDetach'),
 				}),
 		},
 	};

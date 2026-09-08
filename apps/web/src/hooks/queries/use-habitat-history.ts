@@ -1,23 +1,37 @@
 /**
- * What has happened at one Habitat: its inspections, their samples, and the
- * applications made on it.
+ * What has happened at one Habitat: its inspections, their samples, the
+ * applications and source reductions carried out on it, and the control work
+ * somebody asked for there.
  *
- * Two queries rather than one, because they hang off the Habitat in different
+ * Four queries rather than one, because they hang off the Habitat in different
  * ways. Inspections nest — a sample belongs to an inspection and a species count
  * belongs to a sample — so they load as correlated includes, and the `eq()`s in
- * those subqueries are what drive Electric's on-demand subsets. Applications
- * name the Habitat directly, so a nested include would be a lie about the shape
- * of the data.
+ * those subqueries are what drive Electric's on-demand subsets. Applications,
+ * source reductions and requested control actions name the Habitat directly, so
+ * a nested include would be a lie about the shape of the data.
+ *
+ * Requests are here rather than on a card of their own because the question a
+ * crew lead asks at a site is one question: what has been done here, and what is
+ * outstanding. Both states are returned — a resolved request is the record that
+ * says the ask was dealt with, and the card is called History. The mission
+ * picker's `useOpenRequestedControlActions` filters resolved out because it is
+ * asking a different question, which work is still unplanned.
+ *
+ * Source reductions have no second state to weigh. `deleted_at` is the only
+ * lifecycle column the table carries, and the shape predicate filters those
+ * rows upstream, so a source reduction that reaches this hook is work that was
+ * done at the Habitat. Every one of them belongs on the card.
  *
  * ## Why `useLiveQuery` and not the suspense variant
  *
- * All four tables are on-demand, and the suspense hook gets permanently stuck
+ * All six tables are on-demand, and the suspense hook gets permanently stuck
  * after a navigation unmount over one: it caches `collection.preload()` in a ref
  * and clears it only on a `ready` status it observes, which the recreated
  * collection never re-resolves. The status-gated hook reads live status and
- * recovers. The two `isReady` flags are returned separately-but-combined for the
- * same reason the card wants them: an applications failure belongs in the
- * Applications tab, not across the whole card.
+ * recovers. The error flags are returned separately-but-combined for the same
+ * reason the card wants them: an applications failure belongs in the
+ * Applications tab, not across the whole card, and the same goes for the other
+ * two side subsets.
  *
  * ## The sort that has to happen twice
  *
@@ -28,13 +42,15 @@
  * shape the query language cannot return.
  */
 
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
+import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
+import { source_reductions } from '../../lib/collections/source_reductions';
 
 /** How long a habitat's history stays warm after the page leaves it. */
 const historyGcTimeMs = 30_000;
@@ -93,17 +109,61 @@ export interface HabitatHistoryApplication {
 	readonly applicationUnitId: string;
 }
 
+/**
+ * One source reduction carried out at this habitat.
+ *
+ * `sourceReductionDate` is a `date` and arrives as `YYYY-MM-DD`, the same
+ * operational date an application carries. Nothing here says open or done,
+ * because the table has no column that would: a source reduction is a record
+ * that the work happened.
+ */
+export interface HabitatHistorySourceReduction {
+	readonly id: string;
+	/** `YYYY-MM-DD` — the operational date, not a timestamp. */
+	readonly sourceReductionDate: string;
+	readonly technicianProfileId: string | null;
+	readonly sourceReductionMethodId: string;
+	readonly sourcesEliminatedAmount: number;
+	readonly sourcesEliminatedUnitId: string;
+}
+
+/**
+ * One request for control raised against this habitat.
+ *
+ * `requestedAt` is a `timestamptz` and arrives parsed as a `Date`, unlike the
+ * `YYYY-MM-DD` operational dates the performed actions carry. `resolvedAt` is
+ * the whole of the lifecycle: null is open, a stamp is resolved, and a deleted
+ * request never reaches a collection at all because the shape predicate filters
+ * it upstream.
+ */
+export interface HabitatHistoryRequest {
+	readonly id: string;
+	readonly requestedAt: Date;
+	readonly requestedByProfileId: string | null;
+	readonly controlType: ControlType;
+	readonly summary: string | null;
+	readonly resolvedAt: Date | null;
+}
+
 export interface HabitatHistory {
 	readonly inspections: readonly HabitatHistoryInspection[];
 	/** Every sample across every inspection, most recent first. */
 	readonly samples: readonly HabitatHistorySampleRow[];
 	readonly applications: readonly HabitatHistoryApplication[];
-	/** True once both subsets have settled — the tab counts are wrong before then. */
+	/** Every source reduction at this habitat, most recent first. */
+	readonly sourceReductions: readonly HabitatHistorySourceReduction[];
+	/** Open and resolved alike, most recently raised first. */
+	readonly requests: readonly HabitatHistoryRequest[];
+	/** True once every subset has settled — the tab counts are wrong before then. */
 	readonly isReady: boolean;
 	/** The inspections half failed, which is the whole card. */
 	readonly isError: boolean;
 	/** The applications half failed, which is one tab. */
 	readonly isApplicationsError: boolean;
+	/** The source reductions half failed, which is one tab. */
+	readonly isSourceReductionsError: boolean;
+	/** The requests half failed, which is one tab. */
+	readonly isRequestsError: boolean;
 }
 
 export function useHabitatHistory(habitatId: string): HabitatHistory {
@@ -112,7 +172,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			gcTime: historyGcTimeMs,
 			query: (query) =>
 				query
-					.from({ inspection: inspections })
+					.from({ inspection: inspections() })
 					.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
 					.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
 					.select(({ inspection }) => ({
@@ -131,7 +191,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 						hasPupae: inspection.has_pupae,
 						samples: toArray(
 							query
-								.from({ sample: samples })
+								.from({ sample: samples() })
 								.where(({ sample }) => eq(sample.inspection_id, inspection.id))
 								.select(({ sample }) => ({
 									id: sample.id,
@@ -142,7 +202,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 									unidentifiableReason: sample.unidentifiable_reason,
 									species: toArray(
 										query
-											.from({ species: sample_species })
+											.from({ species: sample_species() })
 											.where(({ species }) => eq(species.sample_id, sample.id))
 											.select(({ species }) => ({
 												id: species.id,
@@ -162,7 +222,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			gcTime: historyGcTimeMs,
 			query: (query) =>
 				query
-					.from({ application: applications })
+					.from({ application: applications() })
 					.where(({ application }) => eq(application.habitat_id, habitatId))
 					.orderBy(({ application }) => application.application_date, 'desc')
 					.select(({ application }) => ({
@@ -173,6 +233,46 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 						applicationMethodId: application.application_method_id,
 						amountApplied: application.amount_applied,
 						applicationUnitId: application.application_unit_id,
+					})),
+		},
+		[habitatId],
+	);
+
+	const sourceReductionResult = useLiveQuery(
+		{
+			gcTime: historyGcTimeMs,
+			query: (query) =>
+				query
+					.from({ reduction: source_reductions() })
+					.where(({ reduction }) => eq(reduction.habitat_id, habitatId))
+					.orderBy(({ reduction }) => reduction.source_reduction_date, 'desc')
+					.select(({ reduction }) => ({
+						id: reduction.id,
+						sourceReductionDate: reduction.source_reduction_date,
+						technicianProfileId: reduction.technician_profile_id,
+						sourceReductionMethodId: reduction.source_reduction_method_id,
+						sourcesEliminatedAmount: reduction.sources_eliminated_amount,
+						sourcesEliminatedUnitId: reduction.sources_eliminated_unit_id,
+					})),
+		},
+		[habitatId],
+	);
+
+	const requestResult = useLiveQuery(
+		{
+			gcTime: historyGcTimeMs,
+			query: (query) =>
+				query
+					.from({ request: requested_control_actions() })
+					.where(({ request }) => eq(request.habitat_id, habitatId))
+					.orderBy(({ request }) => request.requested_at, 'desc')
+					.select(({ request }) => ({
+						id: request.id,
+						requestedAt: request.requested_at,
+						requestedByProfileId: request.requested_by_profile_id,
+						controlType: request.control_type,
+						summary: request.summary,
+						resolvedAt: request.resolved_at,
 					})),
 		},
 		[habitatId],
@@ -199,10 +299,19 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 		inspections: historyInspections,
 		samples: historySamples,
 		applications: (applicationResult.data ?? []) as unknown as readonly HabitatHistoryApplication[],
-		// Both, so the Applications tab count is never briefly wrong. An
-		// applications-only failure counts as settled — its own tab says so.
-		isReady: inspectionResult.isReady && (applicationResult.isReady || applicationResult.isError),
+		sourceReductions: (sourceReductionResult.data ??
+			[]) as unknown as readonly HabitatHistorySourceReduction[],
+		requests: (requestResult.data ?? []) as unknown as readonly HabitatHistoryRequest[],
+		// All four, so no tab count is ever briefly wrong. A failure in any of the
+		// three side subsets counts as settled — its own tab says so.
+		isReady:
+			inspectionResult.isReady &&
+			(applicationResult.isReady || applicationResult.isError) &&
+			(sourceReductionResult.isReady || sourceReductionResult.isError) &&
+			(requestResult.isReady || requestResult.isError),
 		isError: inspectionResult.isError,
 		isApplicationsError: applicationResult.isError,
+		isSourceReductionsError: sourceReductionResult.isError,
+		isRequestsError: requestResult.isError,
 	};
 }

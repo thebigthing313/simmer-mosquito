@@ -76,10 +76,16 @@ a neutral top-level module in the same position `performed-control-actions.ts`
 already occupies, so `field-work` can validate an inspection result without
 importing `larval-surveillance`. No domain folder imports another; that holds.
 
-The commands are reached through the record's own REST endpoint by including
-`assignmentItemId` in the body. Writes in this codebase are optimistic
-collection mutations mapped to per-row endpoints; a bespoke execution endpoint
-would have been the only write path outside that transport.
+The commands are reached through the record's own endpoint rather than a bespoke
+execution one. Writes in this codebase are optimistic collection mutations mapped
+to per-row endpoints; an execution endpoint would have been the only write path
+outside that transport.
+
+That endpoint is now `/commands/{table}`, and a caller names the command in
+`intents` and sends `assignment_item_id` in the body. It was a per-domain route
+that read `assignmentItemId` off the body and inferred which command was meant
+from its presence; #634 deleted those routes. The decision above is unchanged:
+the record's own endpoint is still what carries these commands.
 
 Service request stops are **excluded**. There is no single record a service
 request visit produces; the doc only ever suggested "a service request

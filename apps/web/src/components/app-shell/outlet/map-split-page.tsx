@@ -27,7 +27,7 @@ export function MapSplitPage({
 	readonly map?: React.ReactNode;
 }) {
 	return (
-		<SplitPage aside={map ?? <MapCanvas controls={{ layers: false }} />} className={className}>
+		<SplitPage aside={map ?? <MapCanvas />} className={className}>
 			{children}
 		</SplitPage>
 	);

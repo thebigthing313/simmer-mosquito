@@ -1,7 +1,9 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -25,7 +27,6 @@ import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input'
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import {
-	ArrowLeftIcon,
 	CalendarIcon,
 	iconRegistry,
 	KeyboardIcon,
@@ -33,21 +34,23 @@ import {
 	PlusIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
 	type SampleSpeciesFields,
@@ -60,15 +63,46 @@ import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
 import { todayInTimeZone } from '../-overview-data';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
 	component: RouteComponent,
 });
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	padding: 'trailing',
+	stickyAside: true,
+	skeleton: {
+		eyebrow: 'w-28',
+		subtitle: 'w-48',
+		main: ['h-[320px]', 'h-64'],
+		aside: ['h-96'],
+	},
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <SampleDetail sampleId={id} />;
+	const query = useSampleGeoContext(id);
+
+	return (
+		<RecordDetailPage
+			actions={
+				<SampleSourceButtons
+					habitatId={query.data?.habitatId ?? null}
+					inspectionId={query.data?.inspectionId ?? null}
+				/>
+			}
+			back={{ label: 'Back to samples', to: '/larval-surveillance/samples' }}
+			deleteRefusals={SAMPLE_DELETE_REFUSALS}
+			layout={layout}
+			noun="sample"
+			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
+		>
+			{(record, askDelete) => <SampleDetailContent askDelete={askDelete} geo={record} />}
+		</RecordDetailPage>
+	);
 }
 
 const SampleIcon = iconRegistry.entities.sample.icon;
@@ -170,43 +204,8 @@ interface SampleGeoRow {
 	readonly updatedAt: string;
 }
 
-function SampleDetail({ sampleId }: { readonly sampleId: string }) {
-	const query = useSampleGeoContext(sampleId);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so everything below this line can unmount before the
-	// registry's refusal comes back, and state set there would be set on a
-	// component that is gone.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: SAMPLE_DELETE_REFUSALS,
-		ask: true,
-	});
-
-	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'trailing' })}>
-				<SampleTopBar
-					habitatId={query.data?.habitatId ?? null}
-					inspectionId={query.data?.inspectionId ?? null}
-				/>
-				{query.isPending ? (
-					<SampleDetailSkeleton />
-				) : query.isError || query.data == null ? (
-					<>
-						<RecordUnavailable noun="sample" reason="not-found" />
-						{dialog}
-					</>
-				) : (
-					<>
-						<SampleDetailContent askDelete={run} geo={query.data} />
-						{dialog}
-					</>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function SampleTopBar({
+/** The inspection this sample was taken on, and the site that inspection was at. */
+function SampleSourceButtons({
 	habitatId,
 	inspectionId,
 }: {
@@ -214,33 +213,24 @@ function SampleTopBar({
 	readonly inspectionId: string | null;
 }) {
 	return (
-		<div className="flex items-center justify-between gap-3">
-			<Link
-				className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-				to="/larval-surveillance/samples"
-			>
-				<ArrowLeftIcon aria-hidden="true" />
-				Back to samples
-			</Link>
-			<div className="flex flex-wrap items-center gap-2">
-				{inspectionId === null ? null : (
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: inspectionId }} to="/larval-surveillance/inspections/$id">
-							<InspectionIcon aria-hidden="true" />
-							View inspection
-						</Link>
-					</Button>
-				)}
-				{habitatId === null ? null : (
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-							<HabitatIcon aria-hidden="true" />
-							View habitat
-						</Link>
-					</Button>
-				)}
-			</div>
-		</div>
+		<>
+			{inspectionId === null ? null : (
+				<Button asChild size="sm" variant="outline">
+					<Link params={{ id: inspectionId }} to="/larval-surveillance/inspections/$id">
+						<InspectionIcon aria-hidden="true" />
+						View inspection
+					</Link>
+				</Button>
+			)}
+			{habitatId === null ? null : (
+				<Button asChild size="sm" variant="outline">
+					<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
+						<HabitatIcon aria-hidden="true" />
+						View habitat
+					</Link>
+				</Button>
+			)}
+		</>
 	);
 }
 
@@ -249,9 +239,7 @@ function SampleDetailContent({
 	askDelete,
 }: {
 	readonly geo: SampleGeoRow;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	useBreadcrumbLabel(geo.id, breadcrumbLabel(geo));
 
@@ -264,36 +252,31 @@ function SampleDetailContent({
 	const sampleMutations = useSampleMutations();
 
 	return (
-		<>
-			<SampleHeader canManage={canManage} geo={geo} />
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />
-					<IdentificationCard
-						canManage={canManage}
-						identity={identity}
-						sampleId={geo.id}
-						seed={geo}
-					/>
-					<DangerZoneCard
-						ask={askDelete}
-						name={breadcrumbLabel(geo)}
-						noun="sample"
-						onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
-						recordId={geo.id}
-						recordType="sample"
-						returnTo="/larval-surveillance/samples"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<ContextCard geo={geo} />
 					<CommentsSection
 						description="Lab notes, identification context, and follow-up for this sample."
 						target={{ type: 'sample', id: geo.id }}
 					/>
-				</div>
-			</div>
-		</>
+				</>
+			}
+			header={<SampleHeader canManage={canManage} geo={geo} />}
+			layout={layout}
+		>
+			<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />
+			<IdentificationCard canManage={canManage} identity={identity} sampleId={geo.id} seed={geo} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={breadcrumbLabel(geo)}
+				noun="sample"
+				onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
+				recordId={geo.id}
+				recordType="sample"
+				returnTo="/larval-surveillance/samples"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -305,16 +288,10 @@ function SampleHeader({
 	readonly canManage: boolean;
 }) {
 	return (
-		<div className="flex flex-wrap items-start justify-between gap-3">
-			<div className="grid gap-1.5">
-				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					<SampleIcon aria-hidden="true" className="size-3.5" />
-					Larval sample
-				</span>
-				<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-					{sampleName(geo)}
-				</h1>
-				<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-[0.95rem] text-muted-foreground">
+		<PageHeader
+			actions={<AccessBadge canManage={canManage} />}
+			description={
+				<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
 					<CalendarIcon aria-hidden="true" className="size-4" />
 					<span>Collected {formatFullDate(geo.inspectionDate)}</span>
 					{geo.habitatId === null ? (
@@ -327,7 +304,7 @@ function SampleHeader({
 							<span aria-hidden="true">·</span>
 							<span>at</span>
 							<Link
-								className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+								className={recordLink()}
 								params={{ id: geo.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -336,9 +313,11 @@ function SampleHeader({
 						</>
 					)}
 				</p>
-			</div>
-			<AccessBadge canManage={canManage} />
-		</div>
+			}
+			eyebrow="Larval sample"
+			icon={SampleIcon}
+			title={sampleName(geo)}
+		/>
 	);
 }
 
@@ -407,7 +386,7 @@ function IdentificationCard({
 		{
 			gcTime: sampleRecordGcTimeMs,
 			query: (query) =>
-				query.from({ sample: samples }).where(({ sample }) => eq(sample.id, sampleId)),
+				query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
 		},
 		[sampleId],
 	);
@@ -416,7 +395,7 @@ function IdentificationCard({
 			gcTime: sampleRecordGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sampleSpecies: sample_species })
+					.from({ sampleSpecies: sample_species() })
 					.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
 					.orderBy(({ sampleSpecies }) => sampleSpecies.larvae_count, 'desc')
 					.select(({ sampleSpecies }) => ({
@@ -574,7 +553,7 @@ function IdentificationCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="flex items-start justify-between gap-3">
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
@@ -691,7 +670,9 @@ function SpeciesResultList({
 		<div className="grid gap-1.5">
 			<div className="flex items-baseline justify-between gap-3">
 				<SectionLabel>Identified species</SectionLabel>
-				<span className="text-muted-foreground text-xs">{total.toLocaleString()} larvae total</span>
+				<span className="text-muted-foreground text-xs">
+					{total.toLocaleString('en-US')} larvae total
+				</span>
 			</div>
 			<ul className="grid gap-2">
 				{rows.map((row) => (
@@ -789,7 +770,7 @@ function SpeciesResultRow({
 				</>
 			) : (
 				<Badge tone="success" variant="outline">
-					<span className="tabular-nums">{row.larvaeCount.toLocaleString()}</span> larvae
+					<span className="tabular-nums">{row.larvaeCount.toLocaleString('en-US')}</span> larvae
 				</Badge>
 			)}
 		</li>
@@ -1051,14 +1032,14 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Inspection">
 						<Link
-							className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+							className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 							params={{ id: geo.inspectionId }}
 							to="/larval-surveillance/inspections/$id"
 						>
@@ -1071,7 +1052,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
 						) : (
 							<Link
-								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: geo.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -1084,18 +1065,9 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					<DetailRow label="Coordinates">{coordinateLabel(geo)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(geo.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(geo.updatedAt, timeZone)}</DetailRow>
-				</dl>
+				</DetailList>
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[100px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }
 
@@ -1146,10 +1118,7 @@ async function fetchSampleGeoContext(
 	id: string,
 	signal: AbortSignal,
 ): Promise<SampleGeoRow | null> {
-	const response = await sessionFetch(new URL(`/map/samples/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
+	const response = await sessionFetch(new URL(`/map/samples/${id}`, getServerUrl()), { signal });
 	if (response.status === 404) {
 		return null;
 	}
@@ -1175,25 +1144,6 @@ function ResultsUnavailable() {
 				</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
-	);
-}
-
-function SampleDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-28" />
-				<Skeleton className="h-8 w-64" />
-				<Skeleton className="h-4 w-48" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[320px]" />
-					<Skeleton className="h-64" />
-				</div>
-				<Skeleton className="h-96" />
-			</div>
-		</>
 	);
 }
 
@@ -1237,57 +1187,4 @@ function coordinateLabel(geo: SampleGeoRow): string {
 
 function messageOf(cause: unknown, fallback: string): string {
 	return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
-}
-
-/** Long-form date from a `YYYY-MM-DD` string (parsed as its own UTC day). */
-function formatFullDate(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function formatMonthDayYear(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function parseDateOnly(date: string): Date | null {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return null;
-	}
-	return new Date(Date.UTC(year, month - 1, day));
-}
-
-function formatDateTime(value: string, timeZone: string | undefined): string {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return 'Unknown';
-	}
-	return new Intl.DateTimeFormat(undefined, {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	}).format(date);
 }

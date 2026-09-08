@@ -13,16 +13,61 @@ import { vi } from 'vitest';
  * asserting is the same for all of them: what the style contains, and what the
  * source is holding, after an add, a restyle, and a teardown.
  */
+/** Every map DOM this module built, for the `afterEach` to take back out. */
+const mapDoms: HTMLElement[] = [];
+
+/**
+ * The map's own DOM, laid out the way mapbox's `_setupContainer` lays it out:
+ * an interactive canvas carrying `tabindex="0"`, `role="region"` and an
+ * `aria-label`, inside a canvas container, beside a control container holding
+ * mapbox's own attribution button.
+ *
+ * Real elements rather than an object with a `style`, because the draw session
+ * reads the canvas container to say whether a key was the map's, and takes the
+ * canvas's focus when a draft opens. A stub answers neither question, and the
+ * control container is what separates the map surface from a `<button>` mapbox
+ * itself put on the page.
+ */
+function createMapDom() {
+	const container = document.createElement('div');
+	container.className = 'mapboxgl-map';
+	const canvasContainer = document.createElement('div');
+	canvasContainer.className = 'mapboxgl-canvas-container mapboxgl-interactive';
+	const canvas = document.createElement('canvas');
+	canvas.className = 'mapboxgl-canvas';
+	canvas.tabIndex = 0;
+	canvas.setAttribute('role', 'region');
+	canvas.setAttribute('aria-label', 'Map');
+	// jsdom lays nothing out, so the size a viewport read wants is declared here
+	// rather than measured. A flat 1000x800, matching the unproject scale below.
+	Object.defineProperty(canvas, 'clientWidth', { value: 1000 });
+	Object.defineProperty(canvas, 'clientHeight', { value: 800 });
+	const controlContainer = document.createElement('div');
+	controlContainer.className = 'mapboxgl-control-container';
+	const attributionButton = document.createElement('button');
+	attributionButton.className = 'mapboxgl-ctrl-attrib-button';
+	controlContainer.append(attributionButton);
+	canvasContainer.append(canvas);
+	container.append(canvasContainer, controlContainer);
+	// In the document, because a key pressed in an element only bubbles out to
+	// the `window` listener from a connected node, and `focus()` on a detached
+	// one moves nothing.
+	document.body.append(container);
+	mapDoms.push(container);
+	return { container, canvasContainer, canvas, attributionButton };
+}
+
 export function createFakeMap() {
-	const sources = new Map<string, { data: GeoJSON.GeoJSON }>();
+	const sources = new Map<string, { data: GeoJSON.GeoJSON; tiles?: readonly string[] }>();
 	const sourceSpecs = new Map<string, Record<string, unknown>>();
 	const layers = new Map<string, LayerSpecification>();
 	const handlers = new Map<string, Set<(event: unknown) => void>>();
 	const cameraCalls: CameraCall[] = [];
-	const canvas = { style: { cursor: '' }, clientWidth: 1000, clientHeight: 800 };
+	const { container, canvasContainer, canvas, attributionButton } = createMapDom();
 	// A flat 0.001 degrees per pixel from the origin: enough for a test to say
 	// which pixels were unprojected, which is the whole question.
 	const DEGREES_PER_PIXEL = 0.001;
+	const filterCalls: string[] = [];
 	let removed = false;
 	let doubleClickZoomEnabled = true;
 
@@ -42,11 +87,17 @@ export function createFakeMap() {
 						setData(data: GeoJSON.GeoJSON) {
 							source.data = data;
 						},
+						setTiles(tiles: readonly string[]) {
+							source.tiles = tiles;
+						},
 					};
 		},
-		addSource(id: string, spec: { data: GeoJSON.GeoJSON }) {
+		addSource(id: string, spec: { data: GeoJSON.GeoJSON; tiles?: readonly string[] }) {
 			assertLive();
-			sources.set(id, { data: spec.data });
+			sources.set(id, {
+				data: spec.data,
+				...(spec.tiles === undefined ? {} : { tiles: spec.tiles }),
+			});
 			sourceSpecs.set(id, spec as Record<string, unknown>);
 		},
 		removeSource(id: string) {
@@ -65,7 +116,18 @@ export function createFakeMap() {
 			assertLive();
 			layers.delete(id);
 		},
+		setFilter(id: string, filter: unknown) {
+			assertLive();
+			const layer = layers.get(id);
+			if (layer === undefined) {
+				return;
+			}
+			layers.set(id, { ...layer, filter } as LayerSpecification);
+			filterCalls.push(id);
+		},
 		getCanvas: () => canvas,
+		getCanvasContainer: () => canvasContainer,
+		getContainer: () => container,
 		getZoom: () => 10,
 		unproject([x, y]: [number, number]) {
 			assertLive();
@@ -122,10 +184,22 @@ export function createFakeMap() {
 		sourceSpecs,
 		layers,
 		canvas,
+		/** The div mapbox puts the canvas in, which is the map's key surface. */
+		canvasContainer,
+		/** The whole map, canvas surface and control corner together. */
+		container,
+		/** Mapbox's own button, inside the map but outside its key surface. */
+		attributionButton,
 		/** Every camera move asked for, in order, with the padding it carried. */
 		cameraCalls: cameraCalls as readonly CameraCall[],
 		queryRenderedFeatures: map.queryRenderedFeatures,
 		isDoubleClickZoomEnabled: () => doubleClickZoomEnabled,
+		/** The layer ids added, in add order, which is the order they draw in. */
+		layerIds: () => [...layers.keys()],
+		/** The tile templates a vector source is currently pointed at. */
+		tilesOf: (sourceId: string) => sources.get(sourceId)?.tiles,
+		/** Every `setFilter` call, in order, for asserting what was re-scoped. */
+		filterCalls: filterCalls as readonly string[],
 		listenerCount: (event: string) => handlers.get(event)?.size ?? 0,
 		/** The data the source is currently holding, as a feature collection. */
 		featuresOf(sourceId: string): readonly GeoJSON.Feature[] {
@@ -143,6 +217,23 @@ export function createFakeMap() {
 		},
 		move(lng: number, lat: number) {
 			this.emit('mousemove', { lngLat: { lng, lat }, point: { x: 0, y: 0 } });
+		},
+		/**
+		 * A double-click, as the browser delivers one: both clicks land first, then
+		 * `dblclick`.
+		 *
+		 * The two clicks are the reason the draw path dedupes a repeated last
+		 * vertex, so a helper that fired `dblclick` alone would test a gesture
+		 * nobody makes.
+		 */
+		doubleClick(lng: number, lat: number) {
+			this.click(lng, lat);
+			this.click(lng, lat);
+			this.emit('dblclick', {
+				lngLat: { lng, lat },
+				point: { x: 0, y: 0 },
+				preventDefault: () => {},
+			});
 		},
 		/** What a basemap switch does before it fires `style.load`. */
 		wipeStyle() {
@@ -231,9 +322,12 @@ export function renderHook<Props, Result>(
 	};
 }
 
-/** Drop every container this module mounted. Call from an `afterEach`. */
+/**
+ * Drop every container this module mounted, the map DOMs included. Call from an
+ * `afterEach`.
+ */
 export function cleanupRenderedHooks(): void {
-	for (const container of containers.splice(0)) {
+	for (const container of [...containers.splice(0), ...mapDoms.splice(0)]) {
 		container.remove();
 	}
 }
@@ -242,5 +336,18 @@ export function cleanupRenderedHooks(): void {
 export function pressKey(key: string): void {
 	act(() => {
 		window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+	});
+}
+
+/**
+ * Press a key inside `field`, the way the panel beside the map is typed into.
+ *
+ * The event bubbles, because that is the only way one pressed in a field reaches
+ * the `window` listener at all, and it is what puts the field on `event.target`
+ * for the session to read.
+ */
+export function pressKeyIn(field: HTMLElement, key: string): void {
+	act(() => {
+		field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
 	});
 }

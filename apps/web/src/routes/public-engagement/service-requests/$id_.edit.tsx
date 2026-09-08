@@ -1,9 +1,8 @@
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import {
@@ -11,7 +10,7 @@ import {
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
 import { SERVICE_REQUEST_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { serviceRequestTitle } from '../-public-engagement-display';
 import {
 	defaultServiceRequestFormValues,
@@ -23,7 +22,7 @@ import {
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/public-engagement/service-requests/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
@@ -39,17 +38,15 @@ function EditServiceRequestRoute() {
 	const profiles = useProfileRoster();
 	const { request, isReady, isError } = useServiceRequestRecord(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="service request" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton />;
-	}
-	if (request === undefined) {
-		return <RecordUnavailable layout="centered" noun="service request" reason="not-found" />;
-	}
-
-	return <EditServiceRequestLoader profiles={profiles} request={request} />;
+	return (
+		<RecordEditFrame
+			noun="service request"
+			reading={{ isError, isReady, record: request }}
+			skeleton={<EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />}
+		>
+			{(record) => <EditServiceRequestLoader profiles={profiles} request={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditServiceRequestLoader({
@@ -134,21 +131,4 @@ function defaultsFromServiceRequest(request: ServiceRequestRecord): ServiceReque
 		contactId: request.contactId,
 		addressId: request.addressId,
 	};
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-24 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

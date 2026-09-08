@@ -1,5 +1,10 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createOrganization,
+	createProfile,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { expect, it } from 'vitest';
 import { insertLifecycleComment } from '../../lifecycle-comment.js';
 
@@ -16,8 +21,8 @@ import { insertLifecycleComment } from '../../lifecycle-comment.js';
 describeDbIntegration('lifecycle comments', () => {
 	it('writes a service request comment under the snake_case entity type', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'resolution');
-			const actor = await createProfile(db, org, 'Supervisor');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
 			const requestId = crypto.randomUUID();
 			const commentId = crypto.randomUUID();
 
@@ -54,8 +59,8 @@ describeDbIntegration('lifecycle comments', () => {
 		// that stays green when the bridge is missing. Pinned beside the service
 		// request so the pair is what proves the bridge, not either one alone.
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'cancellation');
-			const actor = await createProfile(db, org, 'Manager');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Manager' });
 			const missionId = crypto.randomUUID();
 			const commentId = crypto.randomUUID();
 
@@ -89,8 +94,8 @@ describeDbIntegration('lifecycle comments', () => {
 		// `closed_at` came from the browser: see issue #125, where telling a close
 		// from an edit needed a two-minute tolerance because two clocks were involved.
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'oneclock');
-			const actor = await createProfile(db, org, 'Supervisor');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
 			const commentId = crypto.randomUUID();
 
 			const stamped = await db.transaction().execute(async (trx) => {
@@ -121,8 +126,8 @@ describeDbIntegration('lifecycle comments', () => {
 		// queue can present the same close twice. The primary key is what makes the
 		// second one an error rather than a duplicate row on the feed.
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'replay');
-			const actor = await createProfile(db, org, 'Supervisor');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
 			const commentId = crypto.randomUUID();
 			const comment = {
 				commentId,
@@ -160,22 +165,4 @@ async function readComment(db: Db, commentId: string) {
 		])
 		.where('id', '=', commentId)
 		.executeTakeFirstOrThrow();
-}
-
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createProfile(db: Db, organizationId: string, name: string): Promise<string> {
-	const row = await db
-		.insertInto('profiles')
-		.values({ organization_id: organizationId, display_name: name })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
 }

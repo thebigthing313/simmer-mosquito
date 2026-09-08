@@ -1,6 +1,6 @@
 /**
- * Hex colour handling for the agency-defined colours that reach the UI as free
- * text — tag colours, mostly, which an admin types into a settings field.
+ * Hex colour handling for the organization-defined colours that reach the UI as
+ * free text — tag colours, mostly, which an admin types into a settings field.
  *
  * These lived in eight copies across components and route files before this
  * module existed, in three variants that disagreed about the edge cases. What

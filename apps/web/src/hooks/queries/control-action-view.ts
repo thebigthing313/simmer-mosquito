@@ -10,12 +10,13 @@
  *
  * ## The amount and its unit
  *
- * All three record a quantity against a unit the agency chose, and all three
- * carry it as a number plus the unit's abbreviation rather than a formatted
- * string. `formatAmount` in `routes/control-operations/-control-display.tsx` is
- * what turns the pair into `12 gal`, and it stays a function because the rule is
- * conditional on the value — integers keep their form, fractions take two places
- * — which a projection cannot express.
+ * All three record a quantity against a unit the organization chose, and all
+ * three carry it as a number plus the unit's abbreviation rather than a
+ * formatted string. `formatAmount` in
+ * `routes/control-operations/-control-display.tsx` is what turns the pair into
+ * `12 gal`, and it stays a function because the rule is conditional on the
+ * value — integers keep their form, fractions take two places — which a
+ * projection cannot express.
  *
  * `unitAbbreviation` is `null` only while the unit has not streamed; the column
  * behind it is not nullable on any of the three. Units are eager, so in practice

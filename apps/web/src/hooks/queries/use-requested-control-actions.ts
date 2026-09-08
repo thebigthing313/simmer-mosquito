@@ -59,7 +59,7 @@ export function useRequestedControlActions(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: requested_control_actions })
+					.from({ request: requested_control_actions() })
 					.where(({ request }) =>
 						and(gte(request.requested_at, fromBound), lte(request.requested_at, toBound)),
 					)

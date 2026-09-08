@@ -1,4 +1,4 @@
-import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { useMemo } from 'react';
 import { compareByCollectionDateDesc } from '../../hooks/queries/collection-view';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
@@ -44,8 +44,8 @@ export interface TrapDirectory {
 	readonly hasActiveTraps: boolean;
 	/**
 	 * Whether a filter is holding traps back. An empty list means two different
-	 * things — an agency with no traps deployed, and a search that matched none —
-	 * and only one of them is the reader's to fix.
+	 * things — an organization with no traps deployed, and a search that matched
+	 * none — and only one of them is the reader's to fix.
 	 */
 	readonly isNarrowed: boolean;
 }
@@ -61,9 +61,10 @@ export interface TrapDirectory {
 export function useTrapDirectory(filters: DirectoryFilters): TrapDirectory {
 	const { traps: activeTraps } = useActiveTraps();
 
-	// A method only gets a tab if an active trap actually uses it. An agency that
-	// has never run a gravid trap should not be offered an empty gravid tab — which
-	// is why the tabs are built from the traps rather than from the catalog.
+	// A method only gets a tab if an active trap actually uses it. An
+	// organization that has never run a gravid trap should not be offered an
+	// empty gravid tab — which is why the tabs are built from the traps rather
+	// than from the catalog.
 	const methodTabs = useMemo(() => {
 		const byId = new Map<string, string>();
 		for (const trap of activeTraps) {
@@ -239,5 +240,5 @@ export function summaryLabel(collection: DirectoryCollection, totals: SpecimenTo
 	if (totals.specimens === 0) {
 		return 'Not identified';
 	}
-	return `${totals.species} species · ${totals.specimens.toLocaleString()} specimens`;
+	return `${totals.species} species · ${totals.specimens.toLocaleString('en-US')} specimens`;
 }

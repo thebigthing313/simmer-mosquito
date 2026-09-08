@@ -36,12 +36,14 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeCommentCommand } from '../field-work-commands/comments.js';
-import { type CommentRow, readDate } from '../field-work-commands/shared.js';
+import { writeCommentCommand } from '../writers/field-work/comments.js';
+import { type CommentRow, readDate } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
-export function commentTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, CommentRow> {
+export function commentTableCommands(
+	db: CommandDb,
+): TableCommands<'comments', FieldWorkCommand, CommentRow> {
 	return {
 		table: 'comments',
 		run: {
@@ -51,31 +53,32 @@ export function commentTableCommands(db: CommandDb): TableCommands<FieldWorkComm
 			key: 'comment',
 		},
 		intents: {
-			'fieldWork.addComment': ({ payload, agency, id }) =>
+			'fieldWork.addComment': ({ payload, organization, id }) =>
 				addCommentCommand({
-					...agency,
+					...organization,
 					commentId: id,
-					target: readEntityTarget(payload),
+					target: readEntityTarget(payload.entity_type, payload.entity_id),
 					commentText: readText(payload.comment_text) ?? '',
 					commentedAt: readDate(payload.commented_at),
 				}),
 
-			'fieldWork.updateComment': ({ payload, agency, id }) =>
+			'fieldWork.updateComment': ({ payload, organization, id }) =>
 				updateCommentCommand({
-					...agency,
+					...organization,
 					commentId: id,
 					commentText: readText(payload.comment_text) ?? '',
 				}),
 
-			'fieldWork.pinComment': ({ agency, id }) => pinCommentCommand({ ...agency, commentId: id }),
+			'fieldWork.pinComment': ({ organization, id }) =>
+				pinCommentCommand({ ...organization, commentId: id }),
 
-			'fieldWork.unpinComment': ({ agency, id }) =>
-				unpinCommentCommand({ ...agency, commentId: id }),
+			'fieldWork.unpinComment': ({ organization, id }) =>
+				unpinCommentCommand({ ...organization, commentId: id }),
 
 			// No acknowledgement: nothing hangs off a comment, so removing one takes
 			// nothing with it.
-			'fieldWork.deleteComment': ({ agency, id }) =>
-				deleteCommentCommand({ ...agency, commentId: id }),
+			'fieldWork.deleteComment': ({ organization, id }) =>
+				deleteCommentCommand({ ...organization, commentId: id }),
 		},
 	};
 }

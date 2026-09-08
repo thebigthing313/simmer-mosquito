@@ -87,7 +87,7 @@ export function RouteMap({
 	return (
 		<>
 			<MapCanvas
-				controls={{ search: false, layers: false }}
+				controls={{ search: false }}
 				onMapReady={setMap}
 				routeLayer={{
 					stops: features,

@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
@@ -211,7 +212,9 @@ function SelectOverlay({
  *
  * Labelled, not decorative. On the surfaces that dropped their status pill the
  * dot is the only thing left saying whether a record is active or out of reach,
- * and a `title` on an aria-hidden span reaches a mouse and nothing else.
+ * so `role="img"` with `aria-label` is what names it. No `title` beside it: a
+ * tooltip is a weak source for an accessible name, and one repeating the label
+ * announces the dot twice.
  */
 function SwatchDot({
 	isStacked,
@@ -232,7 +235,6 @@ function SwatchDot({
 			)}
 			role="img"
 			style={{ backgroundColor: swatch.color }}
-			title={swatch.label}
 		/>
 	);
 }
@@ -286,7 +288,10 @@ function RowTitle({
 	return (
 		<Link
 			{...link}
-			className="pointer-events-auto relative z-10 block w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+			className={cn(
+				recordLink({ size: 'sm' }),
+				'pointer-events-auto relative z-10 block w-fit max-w-full truncate',
+			)}
 		>
 			{title}
 		</Link>

@@ -1,4 +1,4 @@
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -25,6 +25,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 	TRAP_STATUS_COLORS,
 	type TrapTileFilters,
 } from '../../../components/map';
@@ -163,8 +164,16 @@ function TrapsExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const trapLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'traps',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -184,9 +193,10 @@ function TrapsExplorerRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={
 				<>
-					<SearchField
+					<SearchInput
 						label="Search traps by name or code"
-						onChange={setSearchInput}
+						onChange={(event) => setSearchInput(event.target.value)}
+						onClear={clearSearch}
 						placeholder="Search name or code…"
 						value={searchInput}
 					/>
@@ -270,13 +280,13 @@ function TrapsExplorerRoute() {
 				<>
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						inset={panel.inset}
+						layers={layers}
 						legend={legend}
 						onMapReady={handleMapReady}
 						searchWidth={panel.width}
-						trapLayer={trapLayer}
 					/>
 					{selected === null ? null : (
 						<TrapMapCard id={selected.id} inset={panel.inset} onClose={() => setSelectedId(null)} />

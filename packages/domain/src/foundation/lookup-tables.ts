@@ -1,16 +1,25 @@
+import { nullableNonnegativeInteger } from '../command-validation.js';
 import {
 	createNamedReferenceCommand,
 	namedReferenceIdCommand,
-	updateNamedReferenceCommand,
 } from '../named-reference-commands.js';
 import type { DomainId, JsonObject } from '../shared.js';
+import {
+	jsonObjectField,
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
-	AgencyFoundationCommandInput,
-	AgencyFoundationCommandPayload,
 	FoundationDomainCommand,
+	OrganizationFoundationCommandInput,
+	OrganizationFoundationCommandPayload,
 } from './shared.js';
 
-export interface CreateCollectionMethodCommandInputBase extends AgencyFoundationCommandInput {
+export interface CreateCollectionMethodCommandInputBase extends OrganizationFoundationCommandInput {
 	readonly collectionMethodId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;
@@ -23,7 +32,7 @@ export interface CreateCollectionMethodCommandInput
 
 export type CreateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.createCollectionMethod',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionMethodId: DomainId;
 		readonly name: string;
 		readonly description: string | null;
@@ -32,49 +41,48 @@ export type CreateCollectionMethodCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateCollectionMethodCommandInput extends AgencyFoundationCommandInput {
-	readonly collectionMethodId: DomainId;
-	readonly name?: string;
-	readonly description?: string | null;
-	readonly customSchema?: unknown | null;
-	readonly actionThreshold?: number | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export const COLLECTION_METHOD_UPDATE_FIELDS = {
+	name: requiredTextField(200),
+	description: nullableTextField(2_000),
+	customSchema: jsonObjectField,
+	actionThreshold: nullableNonnegativeInteger,
+} satisfies UpdateFieldSet;
+
+export type UpdateCollectionMethodCommandInput = OrganizationFoundationCommandInput &
+	UpdateFieldsInput<typeof COLLECTION_METHOD_UPDATE_FIELDS> & {
+		readonly collectionMethodId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.updateCollectionMethod',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionMethodId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly description?: string | null;
-			readonly customSchema?: JsonObject | null;
-			readonly actionThreshold?: number | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof COLLECTION_METHOD_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
 
-export interface CollectionMethodIdCommandInput extends AgencyFoundationCommandInput {
+export interface CollectionMethodIdCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionMethodId: DomainId;
 }
 
 export type DeactivateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.deactivateCollectionMethod',
-	AgencyFoundationCommandPayload & { readonly collectionMethodId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionMethodId: DomainId }
 >;
 
 export type ReactivateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.reactivateCollectionMethod',
-	AgencyFoundationCommandPayload & { readonly collectionMethodId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionMethodId: DomainId }
 >;
 
 export type DeleteCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.deleteCollectionMethod',
-	AgencyFoundationCommandPayload & { readonly collectionMethodId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionMethodId: DomainId }
 >;
 
-export interface CreateCollectionLureCommandInput extends AgencyFoundationCommandInput {
+export interface CreateCollectionLureCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionLureId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;
@@ -82,52 +90,53 @@ export interface CreateCollectionLureCommandInput extends AgencyFoundationComman
 
 export type CreateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.createCollectionLure',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionLureId: DomainId;
 		readonly name: string;
 		readonly description: string | null;
 	}
 >;
 
-export interface UpdateCollectionLureCommandInput extends AgencyFoundationCommandInput {
-	readonly collectionLureId: DomainId;
-	readonly name?: string;
-	readonly description?: string | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export const COLLECTION_LURE_UPDATE_FIELDS = {
+	name: requiredTextField(200),
+	description: nullableTextField(2_000),
+} satisfies UpdateFieldSet;
+
+export type UpdateCollectionLureCommandInput = OrganizationFoundationCommandInput &
+	UpdateFieldsInput<typeof COLLECTION_LURE_UPDATE_FIELDS> & {
+		readonly collectionLureId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.updateCollectionLure',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionLureId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly description?: string | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof COLLECTION_LURE_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
 
-export interface CollectionLureIdCommandInput extends AgencyFoundationCommandInput {
+export interface CollectionLureIdCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionLureId: DomainId;
 }
 
 export type DeactivateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.deactivateCollectionLure',
-	AgencyFoundationCommandPayload & { readonly collectionLureId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionLureId: DomainId }
 >;
 
 export type ReactivateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.reactivateCollectionLure',
-	AgencyFoundationCommandPayload & { readonly collectionLureId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionLureId: DomainId }
 >;
 
 export type DeleteCollectionLureCommand = FoundationDomainCommand<
 	'foundation.deleteCollectionLure',
-	AgencyFoundationCommandPayload & { readonly collectionLureId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionLureId: DomainId }
 >;
 
-export interface CreateHabitatTypeCommandInput extends AgencyFoundationCommandInput {
+export interface CreateHabitatTypeCommandInput extends OrganizationFoundationCommandInput {
 	readonly habitatTypeId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;
@@ -136,7 +145,7 @@ export interface CreateHabitatTypeCommandInput extends AgencyFoundationCommandIn
 
 export type CreateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.createHabitatType',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly habitatTypeId: DomainId;
 		readonly name: string;
 		readonly description: string | null;
@@ -144,44 +153,44 @@ export type CreateHabitatTypeCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateHabitatTypeCommandInput extends AgencyFoundationCommandInput {
-	readonly habitatTypeId: DomainId;
-	readonly name?: string;
-	readonly description?: string | null;
-	readonly customSchema?: unknown | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export const HABITAT_TYPE_UPDATE_FIELDS = {
+	name: requiredTextField(200),
+	description: nullableTextField(2_000),
+	customSchema: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateHabitatTypeCommandInput = OrganizationFoundationCommandInput &
+	UpdateFieldsInput<typeof HABITAT_TYPE_UPDATE_FIELDS> & {
+		readonly habitatTypeId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.updateHabitatType',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly habitatTypeId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly description?: string | null;
-			readonly customSchema?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof HABITAT_TYPE_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
 
-export interface HabitatTypeIdCommandInput extends AgencyFoundationCommandInput {
+export interface HabitatTypeIdCommandInput extends OrganizationFoundationCommandInput {
 	readonly habitatTypeId: DomainId;
 }
 
 export type DeactivateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.deactivateHabitatType',
-	AgencyFoundationCommandPayload & { readonly habitatTypeId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly habitatTypeId: DomainId }
 >;
 
 export type ReactivateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.reactivateHabitatType',
-	AgencyFoundationCommandPayload & { readonly habitatTypeId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly habitatTypeId: DomainId }
 >;
 
 export type DeleteHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.deleteHabitatType',
-	AgencyFoundationCommandPayload & { readonly habitatTypeId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly habitatTypeId: DomainId }
 >;
 
 export function createCollectionMethodCommand(
@@ -199,14 +208,21 @@ export function createCollectionMethodCommand(
 export function updateCollectionMethodCommand(
 	input: UpdateCollectionMethodCommandInput,
 ): UpdateCollectionMethodCommand {
-	return updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'foundation.updateCollectionMethod',
 		input,
 		idKey: 'collectionMethodId',
-		fields: { description: true, customSchema: true, actionThreshold: true },
+		fields: COLLECTION_METHOD_UPDATE_FIELDS,
 		changeNoun: 'collection method',
 		message: 'Update collection method command is invalid.',
 	});
+	return {
+		type: command.type,
+		payload: {
+			...command.payload,
+			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
+		},
+	};
 }
 
 export function deactivateCollectionMethodCommand(
@@ -257,14 +273,21 @@ export function createCollectionLureCommand(
 export function updateCollectionLureCommand(
 	input: UpdateCollectionLureCommandInput,
 ): UpdateCollectionLureCommand {
-	return updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'foundation.updateCollectionLure',
 		input,
 		idKey: 'collectionLureId',
-		fields: { description: true },
+		fields: COLLECTION_LURE_UPDATE_FIELDS,
 		changeNoun: 'collection lure',
 		message: 'Update collection lure command is invalid.',
 	});
+	return {
+		type: command.type,
+		payload: {
+			...command.payload,
+			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
+		},
+	};
 }
 
 export function deactivateCollectionLureCommand(
@@ -315,14 +338,21 @@ export function createHabitatTypeCommand(
 export function updateHabitatTypeCommand(
 	input: UpdateHabitatTypeCommandInput,
 ): UpdateHabitatTypeCommand {
-	return updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'foundation.updateHabitatType',
 		input,
 		idKey: 'habitatTypeId',
-		fields: { description: true, customSchema: true },
+		fields: HABITAT_TYPE_UPDATE_FIELDS,
 		changeNoun: 'habitat type',
 		message: 'Update habitat type command is invalid.',
 	});
+	return {
+		type: command.type,
+		payload: {
+			...command.payload,
+			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
+		},
+	};
 }
 
 export function deactivateHabitatTypeCommand(

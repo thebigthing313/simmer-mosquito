@@ -13,6 +13,7 @@
 	},
 	"dependencies": {
 		"@simmer-mosquito/auth": "workspace:*",
+		"@simmer-mosquito/config": "workspace:*",
 		"@simmer-mosquito/design-tokens": "workspace:*",
 		"expo": "~57.0.12",
 		"expo-constants": "~57.0.10",
@@ -30,6 +31,10 @@
 	},
 	"devDependencies": {
 		"@react-native/metro-config": "0.86.3",
-		"@types/react": "~19.2.2"
+		"@testing-library/dom": "^10.4.1",
+		"@testing-library/react": "^16.3.2",
+		"@types/react": "~19.2.2",
+		"@types/react-dom": "~19.2.3",
+		"jsdom": "^30.0.1"
 	}
 }

@@ -332,7 +332,7 @@ export function useTrapMutations(): TrapMutations {
 			const now = optimisticStamp();
 			const trapId = newRecordId();
 			await settleWrite(
-				mutateCollection(traps, {
+				mutateCollection(traps(), {
 					operation: 'insert',
 					intent: fields.isActive
 						? 'adultSurveillance.createTrap'
@@ -382,7 +382,7 @@ export function useTrapMutations(): TrapMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(traps, {
+				mutateCollection(traps(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: trapId,
@@ -407,7 +407,7 @@ export function useTrapMutations(): TrapMutations {
 	const setActive = useCallback(
 		async (trapId: string, isActive: boolean) => {
 			await settleWrite(
-				mutateCollection(traps, {
+				mutateCollection(traps(), {
 					operation: 'update',
 					intent: isActive ? 'adultSurveillance.reactivateTrap' : 'adultSurveillance.retireTrap',
 					key: trapId,
@@ -425,7 +425,7 @@ export function useTrapMutations(): TrapMutations {
 	const remove = useCallback(
 		async (trapId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(traps, {
+				mutateCollection(traps(), {
 					operation: 'delete',
 					intent: 'adultSurveillance.deleteTrap',
 					key: trapId,

@@ -36,45 +36,53 @@ import {
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readStringArray } from '../command-write.js';
-import { writeRouteCommand } from '../field-work-commands/routes.js';
-import type { RouteRow } from '../field-work-commands/shared.js';
+import { writeRouteCommand } from '../writers/field-work/routes.js';
+import type { RouteRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
-export function routeTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, RouteRow> {
+/**
+ * The stops a move plan names, and where it puts them. The ids are
+ * `route_items.id`, so they stay `snake_case`.
+ */
+type RouteArgument = 'route_item_ids' | 'placement';
+
+export function routeTableCommands(
+	db: CommandDb,
+): TableCommands<'routes', FieldWorkCommand, RouteRow, RouteArgument> {
 	return {
 		table: 'routes',
 		run: { db, write: writeRouteCommand, notFound: 'route_not_found', key: 'route' },
 		intents: {
 			// `route_type` decides which records the route may hold and cannot be
 			// changed afterwards, which is why only the create reads it.
-			'fieldWork.createRoute': ({ payload, agency, id }) =>
+			'fieldWork.createRoute': ({ payload, organization, id }) =>
 				createRouteCommand({
-					...agency,
+					...organization,
 					routeId: id,
 					routeName: readText(payload.route_name) ?? '',
 					routeType: (readText(payload.route_type) ?? '') as never,
 				}),
 
-			'fieldWork.updateRouteDetails': ({ payload, agency, id }) =>
+			'fieldWork.updateRouteDetails': ({ payload, organization, id }) =>
 				updateRouteDetailsCommand({
-					...agency,
+					...organization,
 					routeId: id,
 					routeName: readText(payload.route_name) ?? '',
 				}),
 
 			// Deleting a route deletes its stops with it. The acknowledgement is how a
 			// client says it has told the user so.
-			'fieldWork.deleteRoute': ({ payload, agency, id }) =>
+			'fieldWork.deleteRoute': ({ payload, organization, id }) =>
 				deleteRouteCommand({
-					...agency,
+					...organization,
 					routeId: id,
-					acknowledgedRouteItemDeletion: acknowledged(payload.acknowledgedRouteItemDeletion),
+					acknowledgedRouteItemDeletion: acknowledged(payload, 'acknowledgedRouteItemDeletion'),
 				}),
 
-			'fieldWork.moveRouteItems': ({ payload, agency, id }) =>
+			'fieldWork.moveRouteItems': ({ payload, organization, id }) =>
 				moveRouteItemsCommand({
-					...agency,
+					...organization,
 					routeId: id,
 					routeItemIds: readStringArray(payload.route_item_ids),
 					// Untyped, as the location sources are: which placements are legal is

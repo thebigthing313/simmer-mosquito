@@ -22,7 +22,8 @@
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { CommandTable } from '../../../command-payload.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import { additionalPersonnelTableCommands } from '../../../table-commands/additional-personnel.js';
 import { commentTableCommands } from '../../../table-commands/comments.js';
@@ -46,10 +47,13 @@ const comments = commentTableCommands(undefined as never);
 const tagItems = tagItemTableCommands(undefined as never);
 const additionalPersonnel = additionalPersonnelTableCommands(undefined as never);
 
-function request(id: string, payload: Record<string, unknown>): IntentRequest {
+function request(
+	id: string,
+	payload: Record<string, unknown>,
+): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings: null },
 			profile: { id: ACTOR },
@@ -60,8 +64,8 @@ function request(id: string, payload: Record<string, unknown>): IntentRequest {
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
-	intent: AgencyCommandType,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
+	intent: OrganizationCommandType,
 	id: string,
 	payload: Record<string, unknown>,
 ): TCommand {

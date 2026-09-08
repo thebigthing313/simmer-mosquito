@@ -40,7 +40,7 @@ export interface ActiveLocalAuthIdentity {
 		readonly name: string;
 		readonly slug: string | null;
 		/**
-		 * The agency's raw settings blob, unresolved.
+		 * The organization's raw settings blob, unresolved.
 		 *
 		 * Carried here because the timezone inside it decides which calendar day
 		 * every timestamped record belongs to, and every authorized read needs that

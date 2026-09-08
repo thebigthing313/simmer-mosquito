@@ -1,14 +1,15 @@
 /**
  * What an invitation carries, which is two client-minted ids and an address.
  *
- * The ids are the whole of why `identity.invite` may be retried at all: a second
- * attempt collides on the primary key, and the server answers with the row it
- * already wrote instead of mailing a second link. Sending the wrong Profile id is
- * the failure that does not look like one — the invitation still works, and the
- * agency ends up with two people where it records one.
+ * The ids are the whole of why `identity.invite` may be retried at all: a
+ * second attempt collides on the primary key, and the server answers with the
+ * row it already wrote instead of mailing a second link. Sending the wrong
+ * Profile id is the failure that does not look like one — the invitation still
+ * works, and the organization ends up with two people where it records one.
  */
 
 import { describe, expect, it } from 'vitest';
+import type { MembershipCommandBody } from '../../../../hooks/mutations/use-membership-mutations';
 import { inviteCommandBody } from '../../../../hooks/mutations/use-membership-mutations';
 
 const PICKED_PROFILE = 'profile-7';
@@ -19,7 +20,7 @@ describe('an invitation body', () => {
 	it('attaches the login to the Profile the dialog picked', () => {
 		const body = inviteCommandBody(
 			{
-				email: 'crew@agency.test',
+				email: 'crew@example.test',
 				displayName: 'Sam Rivera',
 				role: 'collector',
 				profileId: PICKED_PROFILE,
@@ -31,7 +32,7 @@ describe('an invitation body', () => {
 			intents: ['identity.invite'],
 			id: 'minted-1',
 			profile_id: PICKED_PROFILE,
-			invited_email: 'crew@agency.test',
+			invited_email: 'crew@example.test',
 			display_name: 'Sam Rivera',
 			role: 'collector',
 		});
@@ -39,7 +40,7 @@ describe('an invitation body', () => {
 
 	it('mints a Profile id when the invite is for somebody new', () => {
 		const body = inviteCommandBody(
-			{ email: 'crew@agency.test', displayName: '', role: 'viewer', profileId: null },
+			{ email: 'crew@example.test', displayName: '', role: 'viewer', profileId: null },
 			minter(),
 		);
 
@@ -51,7 +52,7 @@ describe('an invitation body', () => {
 	// answers 400 for a field the dialog did supply.
 	it('names the columns rather than the dialog fields', () => {
 		const body = inviteCommandBody(
-			{ email: 'crew@agency.test', displayName: 'Sam', role: 'viewer', profileId: null },
+			{ email: 'crew@example.test', displayName: 'Sam', role: 'viewer', profileId: null },
 			minter(),
 		);
 
@@ -63,6 +64,27 @@ describe('an invitation body', () => {
 			'profile_id',
 			'role',
 		]);
+	});
+});
+
+/**
+ * The compile-time half, which no assertion can reach.
+ *
+ * These two writes take the REST path rather than a collection, so they miss
+ * `mutateCollection` and the check it applies. `MembershipCommandBody` is where
+ * they get it back: the line below each `@ts-expect-error` fails the build if the
+ * body stops naming a command the domain defines, which is what `identity.reinvit`
+ * used to be, a 400 nothing read until somebody clicked.
+ */
+describe('a command outside the identity vocabulary does not compile', () => {
+	it('refuses a misspelled name and a command from another domain', () => {
+		// @ts-expect-error a typo of `identity.reinvite`.
+		const misspelled: MembershipCommandBody = { intents: ['identity.reinvit'], role: 'viewer' };
+
+		// @ts-expect-error a real command, but not one `/commands/memberships` answers.
+		const foreign: MembershipCommandBody = { intents: ['foundation.createGenus'] };
+
+		expect([misspelled, foreign]).toHaveLength(2);
 	});
 });
 

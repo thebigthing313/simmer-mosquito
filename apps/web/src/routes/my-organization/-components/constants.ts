@@ -1,4 +1,4 @@
-import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
+import { type LarvalInspectionEntryMode, SIMMER_ROLES } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type {
 	ControlAssetCollectionKey,
@@ -9,13 +9,8 @@ import type {
 	SimmerRole,
 } from './types';
 
-export const ORG_ROLE_OPTIONS: readonly SimmerRole[] = [
-	'viewer',
-	'collector',
-	'manager',
-	'admin',
-	'owner',
-];
+/** Weakest first, so the picker reads as a ladder being climbed. */
+export const ORG_ROLE_OPTIONS: readonly SimmerRole[] = [...SIMMER_ROLES].reverse();
 export const AddIcon = iconRegistry.actions.add.icon;
 export const ArrowRightIcon = iconRegistry.arrows.arrowRight.icon;
 export const CloseIcon = iconRegistry.actions.close.icon;
@@ -96,7 +91,7 @@ export const larvalEntryModeOptions: readonly {
 	{ label: 'Count and dips required', value: 'count_and_dips_required' },
 	{ label: 'Hybrid', value: 'hybrid' },
 ];
-export const densityRangeKeys = ['light', 'medium', 'heavy', 'very_heavy'] as const;
+export { RANGE_DENSITIES as densityRangeKeys } from '@simmer-mosquito/domain';
 export const defaultDensityRangeValues: DensityRangeFormValues = {
 	light: { minInclusive: '0', maxExclusive: '1' },
 	medium: { minInclusive: '1', maxExclusive: '5' },

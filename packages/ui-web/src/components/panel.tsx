@@ -6,14 +6,15 @@ import type { ReactNode } from 'react';
 /**
  * The titled card a summary surface is built from.
  *
- * Every domain overview in the agency workspace — larval, adult, control, public
- * engagement — is a grid of these, and each page had grown its own copy. The
- * copies drifted: a header whose `leading-none` clipped the descenders on g/p/y
- * was found and fixed in one of them, and stayed broken in the rest. One
+ * Every domain overview in the organization workspace — larval, adult, control,
+ * public engagement — is a grid of these, and each page had grown its own copy.
+ * The copies drifted: a header whose `leading-none` clipped the descenders on
+ * g/p/y was found and fixed in one of them, and stayed broken in the rest. One
  * definition now, so the next fix lands everywhere.
  *
  * It sits in `ui-web` rather than in either app because the operator console's
- * agency pages are the same shape — a heading, a count, and a body of facts.
+ * organization pages are the same shape — a heading, a count, and a body of
+ * facts.
  */
 export function Panel({
 	icon,

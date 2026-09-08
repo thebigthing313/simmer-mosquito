@@ -102,7 +102,7 @@ export function useOutreachActionMutations(): OutreachActionMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(outreach_actions, {
+				mutateCollection(outreach_actions(), {
 					operation: 'insert',
 					intent:
 						missionItemId === null
@@ -168,16 +168,16 @@ export function useOutreachActionMutations(): OutreachActionMutations {
 				return;
 			}
 
-			const intent = actionEditIntents(
+			const intent = actionEditIntents({
 				fieldsMoved,
+				fieldsIntent: 'controlOperations.updateOutreachActionFieldDetails',
 				placementMoved,
-				'controlOperations.updateOutreachActionFieldDetails',
-				'controlOperations.updateOutreachActionLocationAndContext',
-			);
+				placementIntent: 'controlOperations.updateOutreachActionLocationAndContext',
+			});
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(outreach_actions, {
+				mutateCollection(outreach_actions(), {
 					operation: 'update',
 					intent,
 					key: current.id,
@@ -216,7 +216,7 @@ export function useOutreachActionMutations(): OutreachActionMutations {
 	const remove = useCallback(
 		async (outreachActionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(outreach_actions, {
+				mutateCollection(outreach_actions(), {
 					operation: 'delete',
 					intent: 'controlOperations.deleteOutreachAction',
 					key: outreachActionId,

@@ -1,8 +1,9 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -38,24 +39,25 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { ArrowLeftIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import { useCallback, useMemo, useState } from 'react';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
@@ -112,57 +114,32 @@ const collectionGcTimeMs = 30_000;
 // edits, or additions (mirrors the comments thread's read-only gate).
 const READ_ONLY_ROLES = new Set(['viewer']);
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-24', main: ['h-[360px]', 'h-64'], aside: ['h-72'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	return <CollectionDetail canEdit={canEdit} collectionId={id} />;
-}
-
-function CollectionDetail({
-	collectionId,
-	canEdit,
-}: {
-	readonly collectionId: string;
-	readonly canEdit: boolean;
-}) {
-	const { collection, isReady } = useAdultCollection(collectionId, {
-		gcTime: collectionGcTimeMs,
-	});
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the record leaves its collection the moment the button is
-	// pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: COLLECTION_DELETE_REFUSALS,
-		ask: true,
-	});
+	const { collection, isReady } = useAdultCollection(id, { gcTime: collectionGcTimeMs });
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/adult-surveillance/collections">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to collections
-				</Link>
-				{!isReady ? (
-					<CollectionDetailSkeleton />
-				) : collection === undefined ? (
-					<>
-						<RecordUnavailable noun="collection" reason="not-found" />
-						{dialog}
-					</>
-				) : (
-					<>
-						<CollectionDetailContent askDelete={run} canEdit={canEdit} collection={collection} />
-						{dialog}
-					</>
-				)}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to collections', to: '/adult-surveillance/collections' }}
+			deleteRefusals={COLLECTION_DELETE_REFUSALS}
+			layout={layout}
+			noun="collection"
+			reading={{ isReady, record: collection }}
+		>
+			{(record, askDelete) => (
+				<CollectionDetailContent askDelete={askDelete} canEdit={canEdit} collection={record} />
+			)}
+		</RecordDetailPage>
 	);
 }
 
@@ -173,9 +150,7 @@ function CollectionDetailContent({
 }: {
 	readonly collection: AdultCollection;
 	readonly canEdit: boolean;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	const titleTimeZone = useOrganizationTimeZone();
 	const title = collectionTitle(collection, titleTimeZone);
@@ -202,64 +177,9 @@ function CollectionDetailContent({
 	);
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<CollectionIcon aria-hidden="true" className="size-3.5" />
-						Collection
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">{title}</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} ·{' '}
-						{methodName}
-					</p>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<CollectionFlagBadges
-						className="flex flex-wrap items-center gap-1.5"
-						collection={collection}
-					/>
-					{canEdit && isPendingCollection(collection) ? (
-						<WriteOnly>
-							<CollectCollectionButton collection={collection} />
-						</WriteOnly>
-					) : null}
-					{canEdit ? (
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					) : null}
-				</div>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<CollectionLocationCard collection={collection} />
-						<RecordRegionsBand
-							noun="collection"
-							recordId={collection.id}
-							recordType="collections"
-						/>
-					</div>
-					<ResultsCard canEdit={canEdit} collection={collection} />
-					<DangerZoneCard
-						ask={askDelete}
-						name={title}
-						noun="collection"
-						onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
-						recordId={collection.id}
-						recordType="collection"
-						returnTo="/adult-surveillance/collections"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<DetailsCard
 						collection={collection}
 						lureName={lureName}
@@ -274,9 +194,59 @@ function CollectionDetailContent({
 						description="Field notes, identification remarks, and follow-up for this collection."
 						target={{ type: 'collection', id: collection.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<PageHeader
+					actions={
+						<>
+							<CollectionFlagBadges
+								className="flex flex-wrap items-center gap-1.5"
+								collection={collection}
+							/>
+							{canEdit && isPendingCollection(collection) ? (
+								<WriteOnly>
+									<CollectCollectionButton collection={collection} />
+								</WriteOnly>
+							) : null}
+							{canEdit ? (
+								<WriteOnly>
+									<Button asChild size="sm" variant="outline">
+										<Link
+											params={{ id: collection.id }}
+											to="/adult-surveillance/collections/$id/edit"
+										>
+											<EditIcon aria-hidden="true" />
+											Edit
+										</Link>
+									</Button>
+								</WriteOnly>
+							) : null}
+						</>
+					}
+					eyebrow="Collection"
+					icon={CollectionIcon}
+					description={`${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`}
+					title={title}
+				/>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<CollectionLocationCard collection={collection} />
+				<RecordRegionsBand noun="collection" recordId={collection.id} recordType="collections" />
 			</div>
-		</>
+			<ResultsCard canEdit={canEdit} collection={collection} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={title}
+				noun="collection"
+				onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
+				recordId={collection.id}
+				recordType="collection"
+				returnTo="/adult-surveillance/collections"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -299,9 +269,9 @@ function CollectCollectionButton({ collection }: { readonly collection: AdultCol
 					void runAcknowledged((acknowledgements) =>
 						collect({
 							acknowledgements,
-							// Midday on the agency's clock, clamped back to now on the same
-							// day — the same stamp the collection forms use, and the one every
-							// surface reads the day back with.
+							// Midday on the organization's clock, clamped back to now on the
+							// same day — the same stamp the collection forms use, and the one
+							// every surface reads the day back with.
 							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
 							collectionId: collection.id,
 						}),
@@ -323,7 +293,7 @@ function CollectionLocationCard({ collection }: { readonly collection: AdultColl
 		<RecordLocationCard
 			description={`${lat.toFixed(5)}, ${lng.toFixed(5)}`}
 			emptyDescription="This collection has no location to display."
-			geojson={{ type: 'Point', coordinates: [lng, lat] } as GeoJsonGeometry}
+			geojson={{ type: 'Point', coordinates: [lng, lat] }}
 			geomType="Point"
 			height="h-[280px]"
 		/>
@@ -397,7 +367,7 @@ function ResultsCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="flex items-start justify-between gap-3">
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
@@ -411,7 +381,7 @@ function ResultsCard({
 					<div className="flex shrink-0 items-center gap-2">
 						{entries.length > 0 ? (
 							<Badge tone="neutral" variant="outline">
-								{total.toLocaleString()} specimens
+								{total.toLocaleString('en-US')} specimens
 							</Badge>
 						) : null}
 						{canEdit && !collection.isZeroResult ? (
@@ -553,14 +523,14 @@ function ReadOnlySpeciesRow({
 				<span className="italic">{speciesName}</span>
 			</TableCell>
 			<TableCell>
-				{entry.sex === null ? <EmptyValue /> : <SpeciesSexBadge sex={entry.sex} />}
+				{entry.sex === null ? <AbsentValue /> : <SpeciesSexBadge sex={entry.sex} />}
 			</TableCell>
 			<TableCell>
-				{entry.status === null ? <EmptyValue /> : <SpeciesStatusBadge status={entry.status} />}
+				{entry.status === null ? <AbsentValue /> : <SpeciesStatusBadge status={entry.status} />}
 			</TableCell>
 			{/* The column header already says Count, so the number stands on its own. */}
 			<TableCell className="text-right font-medium tabular-nums">
-				{entry.count.toLocaleString()}
+				{entry.count.toLocaleString('en-US')}
 			</TableCell>
 		</TableRow>
 	);
@@ -719,9 +689,9 @@ function AddSpeciesForm({
 			void add({
 				collectionId,
 				collectionSpeciesId: newRecordId(),
-				// The agency's today, not the browser's: an identification keyed at
-				// 11pm on a lab machine two zones away belongs to the day the agency
-				// is having.
+				// The organization's today, not the browser's: an identification keyed
+				// at 11pm on a lab machine two zones away belongs to the day the
+				// organization is having.
 				identifiedDate: todayInTimeZone(timeZone),
 				fields: {
 					speciesId: value.speciesId,
@@ -864,24 +834,22 @@ function DetailsCard({
 	const timeZone = useOrganizationTimeZone();
 	const collectedDate = collectionEffectiveDate(collection, timeZone);
 	// The instant the trap went out, read back as the day the crew worked. The
-	// read seam hands `started_at` up as the `Date` the row schema parses, so this
-	// is where the agency's clock turns it into a calendar day — the same clock
-	// `collectionEffectiveDate` reads the collected day on.
+	// read seam hands `started_at` up as the `Date` the row schema parses, so
+	// this is where the organization's clock turns it into a calendar day — the
+	// same clock `collectionEffectiveDate` reads the collected day on.
 	const startedDay =
 		collection.startedAt === null ? null : todayInTimeZone(timeZone, collection.startedAt);
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
-					<DetailRow label="Trap">
-						{collection.trapId === null ? (
-							<span className="text-muted-foreground italic">Ad-hoc — no trap</span>
-						) : (
+				<DetailList>
+					<DetailRow empty="Ad-hoc, no trap" label="Trap">
+						{collection.trapId === null ? null : (
 							<Link
-								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: collection.trapId }}
 								to="/adult-surveillance/traps/$id"
 							>
@@ -891,68 +859,33 @@ function DetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow label="Lure">
-						{lureName ?? <span className="text-muted-foreground">None</span>}
+					<DetailRow empty="None" label="Lure">
+						{lureName}
 					</DetailRow>
-					<DetailRow label="Collected">
-						{collectedDate === null ? (
-							<span className="text-muted-foreground">Pending</span>
-						) : (
-							formatWeekdayMonthDay(collectedDate)
-						)}
+					<DetailRow empty="Pending" label="Collected">
+						{collectedDate === null ? null : formatWeekdayMonthDay(collectedDate)}
 					</DetailRow>
 					<DetailRow label="Set">
-						{startedDay === null ? <EmptyValue /> : formatWeekdayMonthDay(startedDay)}
+						{startedDay === null ? null : formatWeekdayMonthDay(startedDay)}
 					</DetailRow>
-					<DetailRow label="Collected by">
-						{collection.collectedByProfileId === null ? (
-							<span className="text-muted-foreground">Unassigned</span>
-						) : (
-							(profileNameById.get(collection.collectedByProfileId) ?? 'Unknown')
-						)}
+					<DetailRow empty="Unassigned" label="Collected by">
+						{collection.collectedByProfileId === null
+							? null
+							: (profileNameById.get(collection.collectedByProfileId) ?? 'Unknown')}
 					</DetailRow>
-					<DetailRow label="Set by">
-						{collection.setByProfileId === null ? (
-							<span className="text-muted-foreground">Unassigned</span>
-						) : (
-							(profileNameById.get(collection.setByProfileId) ?? 'Unknown')
-						)}
+					<DetailRow empty="Unassigned" label="Set by">
+						{collection.setByProfileId === null
+							? null
+							: (profileNameById.get(collection.setByProfileId) ?? 'Unknown')}
 					</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={collection.addressId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'collection', id: collection.id }} />
 			</CardContent>
 		</Card>
 	);
 }
 
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[110px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
 // --- states + helpers --------------------------------------------------------
-
-function CollectionDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-24" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-					<Skeleton className="h-64" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
-	);
-}

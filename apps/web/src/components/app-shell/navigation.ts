@@ -7,39 +7,52 @@ import type {
 } from '@simmer-mosquito/ui-web/components/app-shell';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { AuthMe } from '../../auth';
-import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
+import { hasAtLeastRole } from '../../lib/write-access';
+import { writeSurfaceFloor } from '../../lib/write-surfaces';
 import type { SeedableTable } from '../search/search-seeds';
 
 /**
- * The role floor a navigation item carries in this app.
+ * A navigation item as web declares one.
  *
  * The shared shell knows nothing about roles — it draws whatever navigation it
- * is handed. Web's navigation is role-filtered before it gets there, and this is
- * the field that filter reads, so the floor lives on web's own item type rather
- * than in the package.
+ * is handed. Web's navigation is role-filtered before it gets there, and the
+ * floor that filter reads is not a field on the item: it is looked up by `to`
+ * in `lib/write-surfaces.ts`, which is the one place a write surface's floor is
+ * written down. An item used to carry its own `write` value beside the role the
+ * route named inline, and the two agreed on every surface where both existed
+ * and said nothing at all on the three where neither did (#623).
+ *
+ * An item carries no `search` either, and that is deliberate. TanStack Router
+ * drops the search params on a navigation that names none, so a click here lands
+ * on the destination's defaults, which is what a move to a surface should mean.
+ * Two surfaces over one record set that share a filter contract keep the filters
+ * through a switch drawn on both of them instead; `components/explorer/surface-switch.tsx`
+ * carries that rule, and the Inspections Map and Table are the pair it was
+ * written for (#521).
  */
 interface WebShellNavItem extends ShellNavItem {
 	/**
-	 * The destination is a form, and this is the role it needs.
+	 * Extra words the palette matches this place by, never shown.
 	 *
-	 * Dropped from the navigation below that floor, because the route guard would
-	 * bounce the click straight back off it. It has to match the guard in the
-	 * route's own `beforeLoad` — `'collector'` for recording field work,
-	 * `'manager'` for the catalogs and planning — which in turn matches the
-	 * server's floor for the command the form sends.
+	 * The palette's haystack is the label and these, so a place whose label does
+	 * not carry its own noun is unreachable by that noun. The Weather group's
+	 * explorer is the case: its label is `Map`, like the other nine explorers,
+	 * and only the group heading beside it says weather. An `action` carries
+	 * keywords too, and putting them there instead would move this out of the
+	 * route list and offer a page as a verb.
 	 */
-	readonly write?: MinimumRole;
+	readonly keywords?: readonly string[];
 
 	/**
 	 * This destination is a verb, not a place, and its presence is the whole
 	 * declaration.
 	 *
 	 * An action is a *promotion* of a navigation item rather than a second
-	 * registry. The item already carries the label, the icon, the typed `to` and
-	 * the `write` floor, and that floor already matches the route's own
-	 * `beforeLoad` guard, which already matches the server's floor for the command
-	 * the form sends. A separate registry would be a third copy of `to` and
-	 * `write` in that chain, and the one that goes stale into a role-ladder bug.
+	 * registry. The item already carries the label, the icon and the typed `to`,
+	 * and that `to` is what the register keys its floor by, which is the floor
+	 * the route's own guard reads and the server's floor for the command the form
+	 * sends. A separate registry would be a second copy of `to` in that chain,
+	 * and the one that goes stale into a role-ladder bug.
 	 *
 	 * `keywords` are matched and never shown. They carry the verbs the label does
 	 * not — `new`, `add`, `log`, `record` — and the domain synonyms for the noun.
@@ -109,12 +122,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						stub: true,
 						icon: iconRegistry.generic.component.icon,
 					},
-					{
-						id: 'activity-monitor',
-						label: 'Activity Monitor',
-						to: '/activity-monitor',
-						icon: iconRegistry.entities.contact.icon,
-					},
 				],
 			},
 		],
@@ -151,7 +158,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Create Habitat',
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
+						// vocabulary-ignore site: a search keyword matches what a person types, not what SIMMER calls the record.
 						action: { keywords: ['new', 'add', 'site', 'breeding', 'source', 'larval'] },
 					},
 					{
@@ -186,11 +193,16 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'inspections-table',
+						label: 'Table',
+						to: '/larval-surveillance/inspections/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'inspections-create',
 						label: 'Create Inspection',
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'collector',
 						action: {
 							keywords: ['new', 'add', 'log', 'dip', 'larval', 'survey'],
 							seedFrom: 'habitats',
@@ -270,7 +282,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Add Trap',
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
 						action: { keywords: ['new', 'create', 'station', 'adult'] },
 					},
 					{
@@ -303,7 +314,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Record Collection',
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'collector',
 						action: {
 							keywords: ['new', 'add', 'log', 'catch', 'adult', 'trap'],
 							seedFrom: 'traps',
@@ -365,7 +375,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Record Application',
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'collector',
 						action: {
 							keywords: ['new', 'add', 'log', 'spray', 'treatment', 'adulticide', 'larvicide'],
 						},
@@ -412,7 +421,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Record Source Reduction',
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'collector',
 						action: { keywords: ['new', 'add', 'log', 'habitat', 'removal', 'drainage'] },
 					},
 					{
@@ -445,7 +453,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Record Release',
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'collector',
 						action: { keywords: ['new', 'add', 'log', 'fish', 'gambusia', 'stocking'] },
 					},
 					{
@@ -481,7 +488,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'public',
 		label: 'Public Engagement',
-		summary: 'Community engagement — service requests, outreach, and the contacts behind them',
+		summary: 'Service requests, outreach, and the contacts behind them',
 		icon: iconRegistry.domains.publicEngagement.icon,
 		groups: [
 			{
@@ -510,7 +517,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'New Request',
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
 						action: { keywords: ['new', 'add', 'complaint', 'call', 'resident', 'public'] },
 					},
 				],
@@ -530,7 +536,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Record Outreach',
 						to: '/public-engagement/outreach/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'collector',
 						action: { keywords: ['new', 'add', 'log', 'education', 'event', 'public'] },
 					},
 					{
@@ -563,7 +568,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'New Contact',
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
 						action: { keywords: ['new', 'add', 'person', 'resident', 'caller'] },
 					},
 					{
@@ -571,7 +575,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Cleanup Tools',
 						to: '/public-engagement/contacts/cleanup',
 						icon: iconRegistry.actions.merge.icon,
-						write: 'manager',
 						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
 					},
 				],
@@ -583,8 +586,8 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		label: 'GIS',
 		// The reference geography the rest of the product points at, not a second
 		// home for the records that carry it. Regions, addresses, and weather
-		// stations are created here and referenced everywhere; an inspection or a
-		// trap reached through the Data Map still belongs to its own domain.
+		// stations are created here and referenced everywhere; the Data Map will
+		// draw an inspection or a trap, which still belongs to its own domain.
 		summary: 'Reference geography: regions, addresses, and weather stations',
 		icon: iconRegistry.domains.gis.icon,
 		groups: [
@@ -596,6 +599,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Data Map',
 						to: '/gis/data-explorer',
 						icon: iconRegistry.generic.compass.icon,
+						stub: true,
 					},
 				],
 			},
@@ -614,7 +618,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Create Region',
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
 						action: { keywords: ['new', 'add', 'zone', 'boundary', 'district'] },
 					},
 					{
@@ -622,7 +625,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Import Regions',
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
-						write: 'manager',
 						action: { keywords: ['upload', 'load', 'shapefile', 'geojson', 'boundaries'] },
 					},
 				],
@@ -642,11 +644,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Create Address',
 						to: '/gis/addresses/create',
 						icon: iconRegistry.actions.add.icon,
-						// Collector, not manager like the rest of GIS. A collector entering a
-						// field record needs to name a location the address book does not
-						// hold yet, so creating an entry is field entry. Editing, deleting,
-						// and merging one stay at manager, and so does every other GIS form.
-						write: 'collector',
 						action: { keywords: ['new', 'add', 'street', 'parcel', 'property', 'location'] },
 					},
 					{
@@ -654,9 +651,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Cleanup Tools',
 						to: '/gis/addresses/cleanup',
 						icon: iconRegistry.actions.merge.icon,
-						// Manager, matching `foundation.mergeAddresses`. The page reads for
-						// anyone, but everything it exists to start is a merge.
-						write: 'manager',
 						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
 					},
 				],
@@ -667,16 +661,18 @@ export const webShellDomains: readonly WebShellDomain[] = [
 				items: [
 					{
 						id: 'weather',
-						label: 'Weather Stations',
+						label: 'Map',
 						to: '/gis/weather',
-						icon: iconRegistry.domains.weather.icon,
+						icon: iconRegistry.generic.map.icon,
+						// The group heading above already reads Weather, so the label no longer
+						// carries the noun and the palette's haystack lost it with the rename.
+						keywords: ['weather', 'station', 'gauge', 'sensor', 'rainfall'],
 					},
 					{
 						id: 'weather-create',
 						label: 'Add Weather Station',
 						to: '/gis/weather/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
 						action: { keywords: ['new', 'create', 'sensor', 'gauge', 'met', 'station'] },
 					},
 					{
@@ -730,7 +726,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'New Request for Control',
 						to: '/operations/requests-for-control/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'collector',
 						action: { keywords: ['new', 'add', 'treatment', 'work', 'ask'] },
 					},
 				],
@@ -750,7 +745,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'New Assignment',
 						to: '/operations/assignments/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'route', 'surveillance'] },
 					},
 				],
@@ -770,7 +764,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'New Mission',
 						to: '/operations/missions/create',
 						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'treatment', 'control'] },
 					},
 				],
@@ -780,7 +773,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'organization',
 		label: 'Organization',
-		summary: 'Agency setup, people, and the catalogs behind every record',
+		summary: 'Setup, people, and the catalogs behind every record',
 		icon: iconRegistry.generic.settings.icon,
 		groups: [
 			{
@@ -876,13 +869,89 @@ export function shellDomainsForRole(auth: AuthMe | null): readonly WebShellDomai
 			groups: domain.groups
 				.map((group) => ({
 					...group,
-					items: group.items.filter(
-						(item) => item.write === undefined || hasAtLeastRole(auth, item.write),
-					),
+					items: group.items.filter((item) => mayReach(auth, item)),
 				}))
 				.filter((group) => group.items.length > 0),
 		}))
 		.filter((domain) => domain.groups.length > 0);
+}
+
+/**
+ * Whether this role may reach where the item points.
+ *
+ * A destination with no floor in the register is not a write surface, so it is
+ * drawn for everyone.
+ */
+function mayReach(auth: AuthMe | null, item: WebShellNavItem): boolean {
+	const floor = writeSurfaceFloor(String(item.to));
+	return floor === undefined || hasAtLeastRole(auth, floor);
+}
+
+/** A Profile as the Daily Work group lists one. */
+export interface DailyWorkPerson {
+	readonly id: string;
+	readonly name: string;
+}
+
+/**
+ * The Profiles behind the Daily Work group, in the two lists the shell takes.
+ *
+ * Both are `null` until the profiles shape has synced, and that is a different
+ * fact from an empty list, which is an organization whose every Profile has been
+ * deactivated. Neither draws a heading, but only one of them is worth a second
+ * look at the People page, so the two are not collapsed into a count of zero.
+ */
+export interface DailyWorkRoster {
+	/** Active Profiles, alphabetical. What the sidebar draws. */
+	readonly listed: readonly DailyWorkPerson[] | null;
+	/** Every Profile, active or not. What "where am I" resolves against. */
+	readonly routable: readonly DailyWorkPerson[] | null;
+}
+
+const OVERVIEW_DOMAIN_ID = 'overview';
+
+/**
+ * Overview with one row per Profile appended, under a "Daily Work" heading.
+ *
+ * The first navigation this app builds at render time rather than declaring. A
+ * row's destination is still the route template `/daily-work/$profileId` with
+ * the id in `params`, so the route stays typed here and the shell does the
+ * substitution. See `ShellNavParams`.
+ *
+ * Called twice, with the two lists on {@link DailyWorkRoster}. The drawn
+ * navigation gets the active Profiles; "where am I" gets all of them, so
+ * somebody already reading a deactivated colleague's day keeps a breadcrumb that
+ * names them rather than dropping to the domain alone. That is the same split
+ * `resolutionDomains` already makes for the forms a viewer's sidebar hides.
+ *
+ * No group at all when the list is empty, rather than a heading with nothing
+ * under it.
+ */
+export function withDailyWorkGroup(
+	domains: readonly WebShellDomain[],
+	people: readonly DailyWorkPerson[] | null,
+): readonly WebShellDomain[] {
+	if (people === null || people.length === 0) {
+		return domains;
+	}
+
+	const group: WebShellNavGroup = {
+		id: 'overview-daily-work',
+		label: 'Daily Work',
+		items: people.map((person) => ({
+			// The same id in both lists, so the open page's row reads as active even
+			// though only one of the two lists is drawn.
+			id: `daily-work-${person.id}`,
+			label: person.name,
+			to: '/daily-work/$profileId',
+			params: { profileId: person.id },
+			icon: iconRegistry.entities.contact.icon,
+		})),
+	};
+
+	return domains.map((domain) =>
+		domain.id === OVERVIEW_DOMAIN_ID ? { ...domain, groups: [...domain.groups, group] } : domain,
+	);
 }
 
 /**
@@ -900,7 +969,7 @@ export const webStandalonePages: readonly ShellStandalonePage[] = [
 	{ path: '/changelog', crumbs: [{ label: "What's New" }] },
 ];
 
-/** The account-menu entries for the agency workspace. */
+/** The account-menu entries for the organization workspace. */
 export const webAccountLinks: readonly ShellAccountLink[] = [
 	{ label: 'Profile', to: '/profile', icon: iconRegistry.actions.edit.icon },
 ];
@@ -944,6 +1013,10 @@ export interface WebShellCandidate {
  *
  * Stubs are excluded from both: the fifteen `stub: true` items are unbuilt
  * destinations, and offering one is offering a door that opens onto nothing.
+ *
+ * The Daily Work rows are excluded by reading the declared navigation rather
+ * than the composed one: global search already finds people, and a route row per
+ * Profile would push every other destination off the list.
  */
 export function shellSearchCandidates(auth: AuthMe | null): {
 	readonly routes: readonly WebShellCandidate[];
@@ -966,7 +1039,7 @@ export function shellSearchCandidates(auth: AuthMe | null): {
 					id: item.id,
 					label: item.label,
 					to: item.to,
-					keywords: item.action?.keywords ?? [],
+					keywords: item.keywords ?? item.action?.keywords ?? [],
 					domainLabel: domain.label,
 					seedFrom: item.action?.seedFrom,
 				};

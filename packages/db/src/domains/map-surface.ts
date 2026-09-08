@@ -1,7 +1,8 @@
 import { type RawBuilder, sql } from 'kysely';
 
-import type { DbExecutor } from '../tables.js';
+import type { DbExecutor } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
+import type { MapTilesetLayer } from './map-layers.js';
 import { readMapTile } from './map-tile.js';
 
 // --- what a map surface is ---------------------------------------------------
@@ -13,11 +14,11 @@ import { readMapTile } from './map-tile.js';
 // predicates that narrow the set differ; everything around those was written out
 // once per surface.
 //
-// The part that matters is not the repetition but what the repetition hid. Every
-// one of those reads must be scoped to the caller's agency and must exclude
-// soft-deleted rows (ADR 0008), and the spatial ones must narrow to the tile
-// envelope with the index-friendly `&&` before the exact `st_intersects`. That
-// predicate was typed by hand eleven times, in three different orders, and
+// The part that matters is not the repetition but what the repetition hid.
+// Every one of those reads must be scoped to the caller's organization and must
+// exclude soft-deleted rows (ADR 0008), and the spatial ones must narrow to the
+// tile envelope with the index-friendly `&&` before the exact `st_intersects`.
+// That predicate was typed by hand eleven times, in three different orders, and
 // nothing checked that the twelfth would remember it.
 //
 // Here a surface declares its table, its alias, its geometry and its filters, and
@@ -31,36 +32,51 @@ export interface MapBounds {
 	readonly north: number;
 }
 
-export interface MapTileInput<TFilters> {
+/**
+ * What every map read is scoped and dated by, whatever it answers with.
+ *
+ * The zone is on all five inputs whether or not the surface reading one needs
+ * it, which is what lets one surface object serve every reader: the surfaces
+ * that need it are the ones dated by a `timestamptz`, and which those are is a
+ * fact about the schema rather than about this file. The collections surface is
+ * the one that reads it today, and it is built per zone because the zone decides
+ * both which rows fall in a window and the order the rail reads them in.
+ *
+ * A per-surface input shape was the alternative, and it cost a `Map` of surfaces
+ * keyed by zone plus a UTC default standing in for "no zone needed" on the one
+ * read that makes no zone-dependent decision.
+ */
+export interface MapReadContext {
+	readonly organizationId: string;
+	/** The organization's IANA timezone, from `AuthContext`. */
+	readonly timeZone: string;
+}
+
+export interface MapTileInput<TFilters> extends MapReadContext {
 	readonly z: number;
 	readonly x: number;
 	readonly y: number;
-	readonly organizationId: string;
 	readonly filters?: TFilters;
 }
 
-export interface MapFilterInput<TFilters> {
-	readonly organizationId: string;
+export interface MapFilterInput<TFilters> extends MapReadContext {
 	readonly filters?: TFilters;
 }
 
-export interface MapPageInput<TFilters> {
-	readonly organizationId: string;
+export interface MapPageInput<TFilters> extends MapReadContext {
 	readonly filters?: TFilters;
 	readonly limit: number;
 	readonly offset: number;
 }
 
-export interface MapBoundsPageInput<TFilters> {
-	readonly organizationId: string;
+export interface MapBoundsPageInput<TFilters> extends MapReadContext {
 	readonly bounds: MapBounds;
 	readonly filters?: TFilters;
 	readonly limit: number;
 	readonly offset: number;
 }
 
-export interface MapByIdInput {
-	readonly organizationId: string;
+export interface MapByIdInput extends MapReadContext {
 	readonly id: string;
 }
 
@@ -72,13 +88,23 @@ export interface MapPageResult<TRow> {
 
 /** The table, geometry, and filters of one map surface. */
 export interface MapSurfaceDefinition<TFilters> {
-	/** The layer name the client's map style binds to. */
-	readonly layer: string;
+	/**
+	 * The layer name the client's map style binds to, and the `:tileset` segment
+	 * the server answers it on.
+	 *
+	 * Not written beside a surface: `MAP_SURFACES` in `map-surface-register.ts`
+	 * hands each surface the key it is registered under, so the name a tile
+	 * carries and the path it is served on are one literal. Narrowed to
+	 * {@link MapTilesetLayer} on top of that, so nothing else can pass a string
+	 * the server does not register.
+	 */
+	readonly layer: MapTilesetLayer;
 	/** The from-clause: table + alias, plus any join the predicates reference. */
 	readonly from: RawBuilder<unknown>;
 	/**
-	 * The alias the tenancy and soft-delete predicates are written against — the
-	 * record's own table, which is not always the one the geometry comes from.
+	 * The alias the organization and soft-delete predicates are written against —
+	 * the record's own table, which is not always the one the geometry comes
+	 * from.
 	 */
 	readonly alias: string;
 	/**
@@ -89,23 +115,61 @@ export interface MapSurfaceDefinition<TFilters> {
 	/** What each tile feature carries besides its geometry. */
 	readonly properties: readonly RawBuilder<unknown>[];
 	/**
-	 * Always-on predicates beyond tenancy and soft delete — what a surface reading
-	 * through a join needs to say about the joined row (its own soft delete, its
-	 * geometry being present). Not a place for filters.
+	 * Always-on predicates beyond organization scope and soft delete — what a
+	 * surface reading through a join needs to say about the joined row (its own
+	 * soft delete, its geometry being present). Not a place for filters.
 	 */
 	readonly alwaysWhere?: readonly RawBuilder<boolean>[];
 	/** The predicates the surface's own filters contribute, or none. */
 	readonly filterWhere?: (filters: TFilters | undefined) => RawBuilder<boolean>[];
 }
 
+/**
+ * The select list of a display projection: one expression per field of the row,
+ * keyed by the alias it is selected under.
+ *
+ * A record rather than one opaque fragment because the alias is the only part of
+ * the projection the row type can be held to. Written as SQL text it is a string
+ * inside a template literal and the `sql<TRow>` cast is an assertion nothing
+ * checks; written as a key it is `keyof TRow`, so a mapped type over the row
+ * makes the compiler demand every field and refuse every extra. Three of the
+ * nine surfaces had drifted by the time anyone counted (#620), all of them
+ * selecting a column the row type did not declare.
+ *
+ * The expression stays an expression. A `case`, a `coalesce` roll-up and a
+ * `::text` cast are all values here; only the alias moved into the type.
+ */
+export type MapDisplayColumns<TRow> = {
+	readonly [TAlias in keyof TRow & string]: RawBuilder<unknown>;
+};
+
 /** The projection the paged-list and by-id readers share. */
-export interface MapSurfaceDisplay {
-	/** The select list, as one fragment so the two readers cannot drift. */
-	readonly columns: RawBuilder<unknown>;
+export interface MapSurfaceDisplay<TRow> {
+	/** The select list, keyed by alias, so the row type and the SQL cannot drift. */
+	readonly columns: MapDisplayColumns<TRow>;
 	/** Joins the projection needs beyond the surface's own from-clause. */
 	readonly joins?: RawBuilder<unknown>;
 	/** The order the explorer's result rail reads in. */
 	readonly orderBy: RawBuilder<unknown>;
+}
+
+/**
+ * A declared projection as a select list.
+ *
+ * Every entry is emitted as `expression as "alias"`, quoted, including the ones
+ * whose expression is already the column of that name. Uniform rather than
+ * clever: the alias in the SQL is then the same string as the key in the type,
+ * with nothing inferring one from the other.
+ *
+ * The alias is raw for the reason {@link column} is: these are literals declared
+ * in this package, never caller input.
+ */
+export function mapDisplaySelectList<TRow>(columns: MapDisplayColumns<TRow>): RawBuilder<unknown> {
+	const entries = Object.entries(columns as Record<string, RawBuilder<unknown>>);
+	return sql.join(
+		entries.map(([alias, expression]) => sql`${expression} as ${sql.raw(`"${alias}"`)}`),
+		sql`, `,
+	);
 }
 
 /** The geometry reads every map surface offers. */
@@ -125,7 +189,7 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
 	listPage(db: DbExecutor, input: MapPageInput<TFilters>): Promise<MapPageResult<TRow>>;
 	/** A filtered, offset-paged window inside an explicit bounding box. */
 	listByBounds(db: DbExecutor, input: MapBoundsPageInput<TFilters>): Promise<MapPageResult<TRow>>;
-	/** One row, or nothing when it is another agency's, deleted, or absent. */
+	/** One row, or nothing when it is another organization's, deleted, or absent. */
 	getById(db: DbExecutor, input: MapByIdInput): Promise<TRow | undefined>;
 }
 
@@ -173,18 +237,24 @@ export function mapSurface<TFilters>(
  * and a record the list shows are the same set by construction.
  */
 export function mapRecordSurface<TFilters, TRow>(
-	definition: MapSurfaceDefinition<TFilters> & { readonly display: MapSurfaceDisplay },
+	definition: MapSurfaceDefinition<TFilters> & { readonly display: MapSurfaceDisplay<TRow> },
 ): MapRecordSurfaceReaders<TFilters, TRow> {
 	const { display } = definition;
 	const joins = display.joins ?? sql``;
+	const columns = mapDisplaySelectList(display.columns);
 
 	return {
 		...mapSurface(definition),
 
+		// `total` is the page's, not the row's, so it is not a display column: it
+		// is declared here, on the cast of the read that appends it, and the two
+		// paged readers are the only place it exists. Putting it in the
+		// projection would put it in `TRow`, where the by-id read that never
+		// selects it would then claim it.
 		async listPage(db, input) {
 			const result = await sql<TRow & { readonly total: number }>`
 				select
-					${display.columns},
+					${columns},
 					count(*) over()::int as "total"
 				from ${definition.from}
 				${joins}
@@ -209,7 +279,7 @@ export function mapRecordSurface<TFilters, TRow>(
 					) as geom_4326
 				)
 				select
-					${display.columns},
+					${columns},
 					count(*) over()::int as "total"
 				from ${definition.from}
 				${joins}
@@ -231,7 +301,7 @@ export function mapRecordSurface<TFilters, TRow>(
 
 		async getById(db, input) {
 			const result = await sql<TRow>`
-				select ${display.columns}
+				select ${columns}
 				from ${definition.from}
 				${joins}
 				where ${sql.join(
@@ -250,11 +320,12 @@ export function mapRecordSurface<TFilters, TRow>(
 }
 
 /**
- * Tenancy, soft delete, and whatever else the surface is always narrowed by.
+ * Organization scope, soft delete, and whatever else the surface is always
+ * narrowed by.
  *
  * Every reader on every surface starts here — that is the whole point of the
- * factory. A read that answered without these would hand one agency another's
- * records, or resurrect rows the agency deleted.
+ * factory. A read that answered without these would hand one organization
+ * another's records, or resurrect rows the organization deleted.
  */
 function scopeWhere<TFilters>(
 	definition: MapSurfaceDefinition<TFilters>,

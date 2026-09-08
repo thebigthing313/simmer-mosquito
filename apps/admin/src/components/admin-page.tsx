@@ -19,9 +19,9 @@ import { adminLogoutUrl, isOperatorNotConfiguredError, isOperatorRequiredError }
  *
  * The frame is a mount point: the shared {@link PageHeader} inside the outlet
  * this app renders into. The heading itself, and the waiting/empty/no-matches
- * states pages compose under it, live in `@simmer-mosquito/ui-web` — the agency
- * workspace wears the same ones, which is what keeps two consoles from one
- * product from disagreeing about what a page looks like.
+ * states pages compose under it, live in `@simmer-mosquito/ui-web` — the
+ * organization workspace wears the same ones, which is what keeps two consoles
+ * from one product from disagreeing about what a page looks like.
  */
 
 const WarningIcon = iconRegistry.actions.warning.icon;
@@ -84,8 +84,8 @@ export function AdminError({ error }: { readonly error: unknown }) {
 
 /**
  * Signed in, but not as SIMMER. The fix is to sign in as SIMMER rather than as
- * an agency, or to be added to the SIMMER organization, so the screen says that
- * and offers the only action that helps.
+ * an organization, or to be added to the SIMMER organization, so the screen
+ * says that and offers the only action that helps.
  */
 function OperatorRequired() {
 	return (
@@ -96,8 +96,8 @@ function OperatorRequired() {
 				</EmptyMedia>
 				<EmptyTitle>Not Signed In as SIMMER</EmptyTitle>
 				<EmptyDescription>
-					This console is for platform operators. If you also work in an agency, sign out and sign
-					back in as SIMMER. Agency work happens in the SIMMER web app.
+					This console is for platform operators. If you also work in an organization, sign out and
+					sign back in as SIMMER. Your own work happens in the SIMMER web app.
 				</EmptyDescription>
 			</EmptyHeader>
 			<EmptyContent>

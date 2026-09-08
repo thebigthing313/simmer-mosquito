@@ -2,10 +2,10 @@
  * The `genera` and `species` tables, as commands — the first operator tables.
  *
  * These are the global mosquito taxonomy. No `organization_id`, and every
- * agency reads them, so an edit here is SIMMER's to make and nobody else's.
- * They reach `/commands/{table}` through the operator door rather than the
- * agency one, because the commands they carry are not agency commands: the
- * domain types them on `OperatorFoundationCommandInput`, which is
+ * organization reads them, so an edit here is SIMMER's to make and nobody
+ * else's. They reach `/commands/{table}` through the operator door rather than
+ * the organization one, because the commands they carry are not organization
+ * commands: the domain types them on `OperatorFoundationCommandInput`, which is
  * `{ operatorUserId }` and nothing else. See `OperatorTableCommands` in
  * `dispatch.ts`, and the `operator` arm of `CommandPermission`.
  *
@@ -29,7 +29,7 @@
  * `common_name`, `display_name`.
  */
 
-import { assertHistoryAcknowledged, type SelectedRow, sql } from '@simmer-mosquito/db';
+import { assertHistoryAcknowledged, sql } from '@simmer-mosquito/db';
 import {
 	createGenusCommand,
 	createSpeciesCommand,
@@ -42,23 +42,13 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
 import { genusSpeciesRule, speciesRecordRules } from '../record-history.js';
+import { type CommandRow, returnColumns } from '../return-columns.js';
 import type { OperatorTableCommands } from './dispatch.js';
 import { acknowledged, refusableWrite } from './shared.js';
 
-const GENUS_COLUMNS = ['id', 'abbreviation', 'name', 'created_at', 'updated_at'] as const;
-const SPECIES_COLUMNS = [
-	'id',
-	'genus_id',
-	'epithet',
-	'common_name',
-	'display_name',
-	'created_at',
-	'updated_at',
-] as const;
+type GenusRow = CommandRow<'genera'>;
 
-type GenusRow = SelectedRow<'genera', typeof GENUS_COLUMNS>;
-
-type SpeciesRow = SelectedRow<'species', typeof SPECIES_COLUMNS>;
+type SpeciesRow = CommandRow<'species'>;
 
 async function writeGenusCommand(
 	trx: CommandTransaction,
@@ -73,23 +63,24 @@ async function writeGenusCommand(
 					abbreviation: command.payload.abbreviation,
 					name: command.payload.name,
 				})
-				.returning(GENUS_COLUMNS)
+				.returning(returnColumns.genera)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
 		case 'foundation.updateGenus': {
 			const changes = command.payload.changes;
-			// Every agency's species sit under this genus, and each of them is read
-			// back as "<genus> <epithet>", so the abbreviation and the name are both
-			// what a renamed genus rewrites. The count is global and says so: the
-			// caller is an operator, who already reads every agency, and a
-			// per-agency breakdown would be a report somebody would then want sorted.
+			// Every organization's species sit under this genus, and each of them is
+			// read back as "<genus> <epithet>", so the abbreviation and the name are
+			// both what a renamed genus rewrites. The count is global and says so:
+			// the caller is an operator, who already reads every organization, and a
+			// per-organization breakdown would be a report somebody would then want
+			// sorted.
 			await assertHistoryAcknowledged(trx, {
 				acknowledgement: 'acknowledgedTaxonomyLabelChange',
 				acknowledged: command.payload.acknowledgedTaxonomyLabelChange,
 				subject: 'genus',
 				rules: [genusSpeciesRule(command.payload.genusId)],
-				message: 'Renaming this genus renames it for every agency that reads the taxonomy.',
+				message: 'Renaming this genus renames it for every organization that reads the taxonomy.',
 			});
 			const row = await trx
 				.updateTable('genera')
@@ -99,11 +90,11 @@ async function writeGenusCommand(
 					updated_at: sql`now()`,
 				})
 				.where('id', '=', command.payload.genusId)
-				.returning(GENUS_COLUMNS)
+				.returning(returnColumns.genera)
 				.executeTakeFirst();
 			return row ?? null;
 		}
-		// A hard delete, unlike every agency table: the taxonomy has no
+		// A hard delete, unlike every organization table: the taxonomy has no
 		// `deleted_at`, and the foreign keys refuse a genus that still has species.
 		case 'foundation.deleteGenus': {
 			const row = await refusableWrite(
@@ -111,7 +102,7 @@ async function writeGenusCommand(
 					trx
 						.deleteFrom('genera')
 						.where('id', '=', command.payload.genusId)
-						.returning(GENUS_COLUMNS)
+						.returning(returnColumns.genera)
 						.executeTakeFirst(),
 				{
 					inUse: {
@@ -142,7 +133,7 @@ async function writeSpeciesCommand(
 					common_name: command.payload.commonName,
 					display_name: command.payload.displayName,
 				})
-				.returning(SPECIES_COLUMNS)
+				.returning(returnColumns.species)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -151,14 +142,14 @@ async function writeSpeciesCommand(
 			// Every field this command changes is part of what an identification
 			// claims: the genus it sits under, the epithet, the common name and the
 			// display name. So the whole change set opens the question, and the
-			// count is every agency's counts and species lists at once.
+			// count is every organization's counts and species lists at once.
 			await assertHistoryAcknowledged(trx, {
 				acknowledgement: 'acknowledgedTaxonomyMeaningChange',
 				acknowledged: command.payload.acknowledgedTaxonomyMeaningChange,
 				subject: 'species',
 				rules: speciesRecordRules(command.payload.speciesId),
 				message:
-					'Renaming this species rewrites what every identification recorded under it claims, for every agency.',
+					'Renaming this species rewrites what every identification recorded under it claims, for every organization.',
 			});
 			const row = await trx
 				.updateTable('species')
@@ -173,7 +164,7 @@ async function writeSpeciesCommand(
 					updated_at: sql`now()`,
 				})
 				.where('id', '=', command.payload.speciesId)
-				.returning(SPECIES_COLUMNS)
+				.returning(returnColumns.species)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -183,13 +174,13 @@ async function writeSpeciesCommand(
 					trx
 						.deleteFrom('species')
 						.where('id', '=', command.payload.speciesId)
-						.returning(SPECIES_COLUMNS)
+						.returning(returnColumns.species)
 						.executeTakeFirst(),
 				{
 					inUse: {
 						error: 'species_in_use',
 						reason:
-							'This species is still enabled for an agency, or recorded in a count. Remove those first.',
+							'This species is still enabled for an organization, or recorded in a count. Remove those first.',
 					},
 				},
 			);
@@ -202,7 +193,7 @@ async function writeSpeciesCommand(
 
 export function genusTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, GenusRow> {
+): OperatorTableCommands<'genera', FoundationCommand, GenusRow> {
 	return {
 		table: 'genera',
 		actor: 'operator',
@@ -220,11 +211,11 @@ export function genusTableCommands(
 				updateGenusCommand({
 					operatorUserId,
 					genusId: id,
-					acknowledgedTaxonomyLabelChange: acknowledged(payload.acknowledgedTaxonomyLabelChange),
-					...('abbreviation' in payload
+					acknowledgedTaxonomyLabelChange: acknowledged(payload, 'acknowledgedTaxonomyLabelChange'),
+					...(payload.abbreviation !== undefined
 						? { abbreviation: readText(payload.abbreviation) ?? '' }
 						: {}),
-					...('name' in payload ? { name: readText(payload.name) ?? '' } : {}),
+					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
 				}),
 
 			'foundation.deleteGenus': ({ operatorUserId, id }) =>
@@ -235,7 +226,7 @@ export function genusTableCommands(
 
 export function speciesTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, SpeciesRow> {
+): OperatorTableCommands<'species', FoundationCommand, SpeciesRow> {
 	return {
 		table: 'species',
 		actor: 'operator',
@@ -255,19 +246,22 @@ export function speciesTableCommands(
 				updateSpeciesCommand({
 					operatorUserId,
 					speciesId: id,
-					...('genus_id' in payload ? { genusId: readNullableText(payload.genus_id) } : {}),
-					...('epithet' in payload ? { epithet: readText(payload.epithet) ?? '' } : {}),
-					...('common_name' in payload
+					...(payload.genus_id !== undefined
+						? { genusId: readNullableText(payload.genus_id) }
+						: {}),
+					...(payload.epithet !== undefined ? { epithet: readText(payload.epithet) ?? '' } : {}),
+					...(payload.common_name !== undefined
 						? { commonName: readNullableText(payload.common_name) }
 						: {}),
-					...('display_name' in payload
+					...(payload.display_name !== undefined
 						? { displayName: readText(payload.display_name) ?? '' }
 						: {}),
 					// Nothing guards on this yet, but it is recorded on the command, and
 					// recording `false` on every edit an operator did confirm would make
 					// the audit trail say the opposite of what happened.
 					acknowledgedTaxonomyMeaningChange: acknowledged(
-						payload.acknowledgedTaxonomyMeaningChange,
+						payload,
+						'acknowledgedTaxonomyMeaningChange',
 					),
 				}),
 
