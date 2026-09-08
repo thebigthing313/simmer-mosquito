@@ -11,7 +11,7 @@ import { expect, it } from 'vitest';
 import {
 	createAddress,
 	geojsonToGeom,
-	listHabitatDisplayRowsByBounds,
+	MAP_SURFACES,
 	type SimmerDatabase,
 	sql,
 } from '../../index.js';
@@ -215,8 +215,9 @@ describeDbIntegration('owned geometry columns', () => {
 				})
 				.execute();
 
-			const { rows } = await listHabitatDisplayRowsByBounds(db, {
+			const { rows } = await MAP_SURFACES.habitats.listByBounds(db, {
 				organizationId,
+				timeZone: 'UTC',
 				bounds: {
 					west: -91,
 					south: 35,

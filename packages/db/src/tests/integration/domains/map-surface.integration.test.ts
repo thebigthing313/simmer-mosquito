@@ -2,58 +2,9 @@ import { VectorTile, type VectorTileFeature } from '@mapbox/vector-tile';
 import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
-import {
-	getCollectionDisplayRowById,
-	getCollectionMapExtent,
-	getCollectionMvtTile,
-	getTrapDisplayRowById,
-	getTrapMapExtent,
-	getTrapMvtTile,
-	listCollectionDisplayRowsPage,
-	listTrapDisplayRowsPage,
-} from '../../../domains/adult-surveillance.js';
-import {
-	getApplicationDisplayRowById,
-	getApplicationMapExtent,
-	getApplicationMvtTile,
-	getBiocontrolDisplayRowById,
-	getBiocontrolMapExtent,
-	getBiocontrolMvtTile,
-	getOutreachDisplayRowById,
-	getOutreachMapExtent,
-	getOutreachMvtTile,
-	getRequestedControlActionDisplayRowById,
-	getSourceReductionDisplayRowById,
-	getSourceReductionMapExtent,
-	getSourceReductionMvtTile,
-	listApplicationDisplayRowsPage,
-	listBiocontrolDisplayRowsPage,
-	listOutreachDisplayRowsPage,
-	listSourceReductionDisplayRowsPage,
-} from '../../../domains/control-operations-map.js';
-import {
-	getAddressMapExtent,
-	getAddressMvtTile,
-	getRegionMapExtent,
-	getRegionMvtTile,
-} from '../../../domains/foundation-geography.js';
-import {
-	getHabitatDisplayRowById,
-	getHabitatMapExtent,
-	getHabitatMvtTile,
-	listHabitatDisplayRowsByBounds,
-} from '../../../domains/habitats.js';
-import {
-	getInspectionDisplayRowById,
-	getInspectionMapExtent,
-	getInspectionMvtTile,
-	getSampleDisplayRowById,
-	getSampleMapExtent,
-	getSampleMvtTile,
-	listInspectionDisplayRowsByBounds,
-	listSampleDisplayRowsByBounds,
-} from '../../../domains/larval-surveillance.js';
+import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
+import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
 import { getNotificationRegistrationGeometryById } from '../../../domains/public-engagement-map.js';
 import type { SimmerDatabase } from '../../../index.js';
@@ -132,7 +83,7 @@ interface SurfaceUnderTest {
 	) => Promise<{ total: number; rows: ReadonlyArray<{ id: string }> }>;
 	readonly byId?: (
 		db: Kysely<SimmerDatabase>,
-		input: { organizationId: string; id: string },
+		input: { organizationId: string; timeZone: string; id: string },
 	) => Promise<{ id: string } | undefined>;
 	/** How far the surface's geometry reaches beyond its seeded point, in degrees. */
 	readonly padding?: number;
@@ -152,74 +103,74 @@ const surfaces: readonly SurfaceUnderTest[] = [
 	{
 		name: 'habitat',
 		layer: 'habitats',
-		tile: getHabitatMvtTile,
-		extent: getHabitatMapExtent,
-		boundsPage: listHabitatDisplayRowsByBounds,
-		byId: getHabitatDisplayRowById,
+		tile: MAP_SURFACES.habitats.getTile,
+		extent: MAP_SURFACES.habitats.getExtent,
+		boundsPage: MAP_SURFACES.habitats.listByBounds,
+		byId: MAP_SURFACES.habitats.getById,
 	},
 	{
 		name: 'inspection',
 		layer: 'inspections',
-		tile: getInspectionMvtTile,
-		extent: getInspectionMapExtent,
-		boundsPage: listInspectionDisplayRowsByBounds,
-		byId: getInspectionDisplayRowById,
+		tile: MAP_SURFACES.inspections.getTile,
+		extent: MAP_SURFACES.inspections.getExtent,
+		boundsPage: MAP_SURFACES.inspections.listByBounds,
+		byId: MAP_SURFACES.inspections.getById,
 	},
 	{
 		name: 'sample',
 		layer: 'samples',
-		tile: getSampleMvtTile,
-		extent: getSampleMapExtent,
-		boundsPage: listSampleDisplayRowsByBounds,
-		byId: getSampleDisplayRowById,
+		tile: MAP_SURFACES.samples.getTile,
+		extent: MAP_SURFACES.samples.getExtent,
+		boundsPage: MAP_SURFACES.samples.listByBounds,
+		byId: MAP_SURFACES.samples.getById,
 	},
 	{
 		name: 'trap',
 		layer: 'traps',
-		tile: getTrapMvtTile,
-		extent: getTrapMapExtent,
-		page: listTrapDisplayRowsPage,
-		byId: getTrapDisplayRowById,
+		tile: MAP_SURFACES.traps.getTile,
+		extent: MAP_SURFACES.traps.getExtent,
+		page: MAP_SURFACES.traps.listPage,
+		byId: MAP_SURFACES.traps.getById,
 	},
 	{
 		name: 'collection',
 		layer: 'collections',
-		tile: getCollectionMvtTile,
-		extent: getCollectionMapExtent,
-		page: listCollectionDisplayRowsPage,
-		byId: getCollectionDisplayRowById,
+		tile: MAP_SURFACES.collections.getTile,
+		extent: MAP_SURFACES.collections.getExtent,
+		page: MAP_SURFACES.collections.listPage,
+		byId: MAP_SURFACES.collections.getById,
 	},
 	{
 		name: 'application',
 		layer: 'chemical',
-		tile: getApplicationMvtTile,
-		extent: getApplicationMapExtent,
-		page: listApplicationDisplayRowsPage,
-		byId: getApplicationDisplayRowById,
+		tile: MAP_SURFACES.chemical.getTile,
+		extent: MAP_SURFACES.chemical.getExtent,
+		page: MAP_SURFACES.chemical.listPage,
+		byId: MAP_SURFACES.chemical.getById,
 	},
 	{
 		name: 'sourceReduction',
 		layer: 'source-reduction',
-		tile: getSourceReductionMvtTile,
-		extent: getSourceReductionMapExtent,
-		page: listSourceReductionDisplayRowsPage,
-		byId: getSourceReductionDisplayRowById,
+		tile: MAP_SURFACES['source-reduction'].getTile,
+		extent: MAP_SURFACES['source-reduction'].getExtent,
+		page: MAP_SURFACES['source-reduction'].listPage,
+		byId: MAP_SURFACES['source-reduction'].getById,
 	},
 	{
 		name: 'biocontrol',
 		layer: 'biocontrol',
-		tile: getBiocontrolMvtTile,
-		extent: getBiocontrolMapExtent,
-		page: listBiocontrolDisplayRowsPage,
-		byId: getBiocontrolDisplayRowById,
+		tile: MAP_SURFACES.biocontrol.getTile,
+		extent: MAP_SURFACES.biocontrol.getExtent,
+		page: MAP_SURFACES.biocontrol.listPage,
+		byId: MAP_SURFACES.biocontrol.getById,
 	},
 	{
 		name: 'outreach',
 		layer: 'outreach',
-		tile: getOutreachMvtTile,
-		extent: getOutreachMapExtent,
-		page: listOutreachDisplayRowsPage,
-		byId: getOutreachDisplayRowById,
+		tile: MAP_SURFACES.outreach.getTile,
+		extent: MAP_SURFACES.outreach.getExtent,
+		page: MAP_SURFACES.outreach.listPage,
+		byId: MAP_SURFACES.outreach.getById,
 	},
 	// No explorer, no tile, no list — the queue is read from the Electric shape
 	// and this exists only to hand the detail card the geometry that shape omits.
@@ -228,12 +179,17 @@ const surfaces: readonly SurfaceUnderTest[] = [
 	// buffer from the centroid the Electric shape carries, and only the edit form
 	// needs the shape itself back.
 	{ name: 'notificationRegistration', byId: getNotificationRegistrationGeometryById },
-	{ name: 'address', layer: 'addresses', tile: getAddressMvtTile, extent: getAddressMapExtent },
+	{
+		name: 'address',
+		layer: 'addresses',
+		tile: MAP_SURFACES.addresses.getTile,
+		extent: MAP_SURFACES.addresses.getExtent,
+	},
 	{
 		name: 'region',
 		layer: 'regions',
-		tile: getRegionMvtTile,
-		extent: getRegionMapExtent,
+		tile: MAP_SURFACES.regions.getTile,
+		extent: MAP_SURFACES.regions.getExtent,
 		padding: boxPadding,
 	},
 ];
@@ -257,7 +213,7 @@ const page = { limit: 50, offset: 0 };
 // rather than at a copy of them. All three sit well inside the tile, so nothing
 // is clipped and the two areas are comparable.
 //
-// The call is written out here rather than reached through `getHabitatMvtTile`
+// The call is written out here rather than reached through `MAP_SURFACES.habitats.getTile`
 // because the questions are about the geometry `ST_AsMVTGeom` returns, and by
 // the time a tile comes back that geometry has been through `ST_AsMVT` and no
 // `st_isvalid` or `st_area` can be asked of it. The cost is that the transform
@@ -267,7 +223,7 @@ const page = { limit: 50, offset: 0 };
 // snapshot diff rather than a case that stays green while the map breaks.
 //
 // The case below it seeds the same two shapes as habitats and reads them back
-// through `getHabitatMvtTile`, decoding the tile rather than the geometry. That
+// through `MAP_SURFACES.habitats.getTile`, decoding the tile rather than the geometry. That
 // one builds no envelope of its own, so between them the shapes are asked both
 // what the encoder does to them and what the shipped reader returns (#659).
 
@@ -460,7 +416,13 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				async (surface) => {
 					const ids = mapSurfaceRowIds[surface.name];
 					const read = async (id: string): Promise<string | undefined> =>
-						(await surface.byId?.(db, { organizationId: mapSurfaceOrganizationIds.own, id }))?.id;
+						(
+							await surface.byId?.(db, {
+								organizationId: mapSurfaceOrganizationIds.own,
+								timeZone: mapSurfaceTimeZone,
+								id,
+							})
+						)?.id;
 
 					return {
 						live: await read(ids.inside),
@@ -498,7 +460,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// A one-day window on the day New York says the collection happened.
 			const onTheOrganizationsDay = async (timeZone: string): Promise<readonly string[]> => {
 				const day = mapSurfaceLateCollectionDates['America/New_York'];
-				const result = await listCollectionDisplayRowsPage(db, {
+				const result = await MAP_SURFACES.collections.listPage(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
 					timeZone,
 					limit: 50,
@@ -524,7 +486,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			await seedMapSurfaces(db);
 			await seedStampedCollections(db);
 
-			const onTheTypedDay = await listCollectionDisplayRowsPage(db, {
+			const onTheTypedDay = await MAP_SURFACES.collections.listPage(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceStampedTimeZone,
 				limit: 50,
@@ -546,7 +508,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// The zone is spliced into the SQL rather than bound, so the only thing
 			// standing between a bad value and the query is this check.
 			await expect(
-				listCollectionDisplayRowsPage(db, {
+				MAP_SURFACES.collections.listPage(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
 					timeZone: "UTC'; drop table collections --",
 					limit: 1,
@@ -567,12 +529,12 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			await seedMapSurfaces(db);
 			await seedStatusCollections(db);
 
-			const drawn = await getCollectionMvtTile(db, {
+			const drawn = await MAP_SURFACES.collections.getTile(db, {
 				...mapSurfacePlace.tile,
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceTimeZone,
 			});
-			const listed = await listCollectionDisplayRowsPage(db, {
+			const listed = await MAP_SURFACES.collections.listPage(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceTimeZone,
 				...page,
@@ -601,8 +563,9 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// gone. Samples read their geometry through that join, so without the
 			// join's own soft-delete predicate this row would draw at a place its
 			// organization no longer has a record for.
-			const opened = await getSampleDisplayRowById(db, {
+			const opened = await MAP_SURFACES.samples.getById(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
 				id: mapSurfaceSampleOnDeletedInspectionId,
 			});
 
@@ -689,9 +652,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// which is the whole of this case: the one above asks `ST_AsMVTGeom` a
 			// question through an encoder call it writes itself, and what that call
 			// agrees with is a copy rather than the shipped read.
-			const tile = await getHabitatMvtTile(db, {
+			const tile = await MAP_SURFACES.habitats.getTile(db, {
 				...mapSurfacePlace.tile,
 				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
 			});
 
 			const drawn = featureGeometries(tile, 'habitats', mapSurfacePlace.tile);

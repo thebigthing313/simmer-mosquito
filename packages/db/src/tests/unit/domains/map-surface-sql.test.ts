@@ -6,68 +6,20 @@ import {
 	PostgresQueryCompiler,
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
-import {
-	getCollectionDisplayRowById,
-	getCollectionMapExtent,
-	getCollectionMvtTile,
-	getTrapDisplayRowById,
-	getTrapMapExtent,
-	getTrapMvtTile,
-	listCollectionDisplayRowsPage,
-	listTrapDisplayRowsPage,
-} from '../../../domains/adult-surveillance.js';
-import {
-	getApplicationDisplayRowById,
-	getApplicationMapExtent,
-	getApplicationMvtTile,
-	getBiocontrolDisplayRowById,
-	getBiocontrolMapExtent,
-	getBiocontrolMvtTile,
-	getOutreachDisplayRowById,
-	getOutreachMapExtent,
-	getOutreachMvtTile,
-	getRequestedControlActionDisplayRowById,
-	getSourceReductionDisplayRowById,
-	getSourceReductionMapExtent,
-	getSourceReductionMvtTile,
-	listApplicationDisplayRowsPage,
-	listBiocontrolDisplayRowsPage,
-	listOutreachDisplayRowsPage,
-	listSourceReductionDisplayRowsPage,
-} from '../../../domains/control-operations-map.js';
-import {
-	getAddressMapExtent,
-	getAddressMvtTile,
-	getRegionMapExtent,
-	getRegionMvtTile,
-} from '../../../domains/foundation-geography.js';
-import {
-	getHabitatDisplayRowById,
-	getHabitatMapExtent,
-	getHabitatMvtTile,
-	listHabitatDisplayRowsByBounds,
-} from '../../../domains/habitats.js';
-import {
-	getInspectionDisplayRowById,
-	getInspectionMapExtent,
-	getInspectionMvtTile,
-	getSampleDisplayRowById,
-	getSampleMapExtent,
-	getSampleMvtTile,
-	listInspectionDisplayRowsByBounds,
-	listSampleDisplayRowsByBounds,
-} from '../../../domains/larval-surveillance.js';
+import { getRequestedControlActionDisplayRowById } from '../../../domains/control-operations-map.js';
+import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import type { SimmerDatabase } from '../../../index.js';
 
 // --- the SQL every map surface emits ----------------------------------------
 //
 // Eleven explorer surfaces each answer the same four questions — the tile, the
-// framed extent, the paged list, the single row — and each answers them with
-// hand-written SQL. What has to hold across all of them is invisible in any one
-// reader: the organization predicate, the soft-delete predicate, and (for the
-// spatial reads) the envelope pair. ADR 0008 says a read that drops one of
-// those leaks another organization's records or resurrects deleted ones, and
-// nothing but the eye currently enforces it.
+// framed extent, the paged list, the single row — and all forty-one answers come
+// out of one factory, reached through the register the surfaces are keyed in.
+// What has to hold across all of them is invisible in any one reader: the
+// organization predicate, the soft-delete predicate, and (for the spatial reads)
+// the envelope pair. ADR 0008 says a read that drops one of those leaks another
+// organization's records or resurrects deleted ones, and nothing but the eye
+// enforces it.
 //
 // So this compiles every reader against a driver that never connects, and pins
 // the result. The per-clause assertions below say what must be true; the file
@@ -75,8 +27,9 @@ import type { SimmerDatabase } from '../../../index.js';
 // a refactor that changes one character of emitted SQL fails here first.
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
-// The organization's zone. Named rather than defaulted so a collection read
-// that stopped converting `collected_at` would change the SQL these assert on.
+// The organization's zone, which every read carries now that the surfaces share
+// one input shape. Deliberately not UTC: a collection read that stopped
+// converting `collected_at` would change the SQL these assert on.
 const timeZone = 'America/New_York';
 const id = 'd4e5f6a7-b8c9-4d0e-8f1a-2b3c4d5e6f70';
 const regionIds = ['b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa'];
@@ -108,9 +61,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'h',
 		spatial: true,
 		read: (db) =>
-			getHabitatMvtTile(db, {
+			MAP_SURFACES.habitats.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: {
 					isActive: true,
 					isInaccessible: false,
@@ -127,8 +81,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'h',
 		spatial: true,
 		read: (db) =>
-			listHabitatDisplayRowsByBounds(db, {
+			MAP_SURFACES.habitats.listByBounds(db, {
 				organizationId,
+				timeZone,
 				bounds,
 				...page,
 				filters: { isActive: true, habitatTypeIds: ids, tagIds: ids, regionIds, search: 'ditch' },
@@ -140,8 +95,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'h',
 		spatial: false,
 		read: (db) =>
-			getHabitatMapExtent(db, {
+			MAP_SURFACES.habitats.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: { isActive: true, habitatTypeIds: ids, tagIds: ids, regionIds, search: 'ditch' },
 			}),
 	},
@@ -150,7 +106,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'h',
 		geomAlias: 'h',
 		spatial: false,
-		read: (db) => getHabitatDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.habitats.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- inspections ---
@@ -160,9 +116,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
-			getInspectionMvtTile(db, {
+			MAP_SURFACES.inspections.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: {
 					isWet: true,
 					densities: ['light', 'heavy'],
@@ -180,8 +137,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
-			listInspectionDisplayRowsByBounds(db, {
+			MAP_SURFACES.inspections.listByBounds(db, {
 				organizationId,
+				timeZone,
 				bounds,
 				...page,
 				filters: {
@@ -201,8 +159,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'i',
 		spatial: false,
 		read: (db) =>
-			getInspectionMapExtent(db, {
+			MAP_SURFACES.inspections.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: {
 					isWet: true,
 					densities: ['light'],
@@ -219,7 +178,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'i',
 		geomAlias: 'i',
 		spatial: false,
-		read: (db) => getInspectionDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.inspections.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- samples (organization on the sample, geometry on its parent inspection) ---
@@ -229,9 +188,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
-			getSampleMvtTile(db, {
+			MAP_SURFACES.samples.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: {
 					speciesIds: ids,
 					status: 'identified',
@@ -247,8 +207,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
-			listSampleDisplayRowsByBounds(db, {
+			MAP_SURFACES.samples.listByBounds(db, {
 				organizationId,
+				timeZone,
 				bounds,
 				...page,
 				filters: {
@@ -266,8 +227,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'i',
 		spatial: false,
 		read: (db) =>
-			getSampleMapExtent(db, {
+			MAP_SURFACES.samples.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: {
 					speciesIds: ids,
 					status: 'zero_larvae',
@@ -282,7 +244,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 's',
 		geomAlias: 'i',
 		spatial: false,
-		read: (db) => getSampleDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.samples.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- traps ---
@@ -292,9 +254,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 't',
 		spatial: true,
 		read: (db) =>
-			getTrapMvtTile(db, {
+			MAP_SURFACES.traps.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
 			}),
 	},
@@ -304,8 +267,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 't',
 		spatial: false,
 		read: (db) =>
-			listTrapDisplayRowsPage(db, {
+			MAP_SURFACES.traps.listPage(db, {
 				organizationId,
+				timeZone,
 				...page,
 				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
 			}),
@@ -316,8 +280,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 't',
 		spatial: false,
 		read: (db) =>
-			getTrapMapExtent(db, {
+			MAP_SURFACES.traps.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
 			}),
 	},
@@ -326,7 +291,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 't',
 		geomAlias: 't',
 		spatial: false,
-		read: (db) => getTrapDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.traps.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- collections ---
@@ -336,7 +301,7 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'c',
 		spatial: true,
 		read: (db) =>
-			getCollectionMvtTile(db, {
+			MAP_SURFACES.collections.getTile(db, {
 				...tile,
 				organizationId,
 				timeZone,
@@ -349,7 +314,7 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'c',
 		spatial: false,
 		read: (db) =>
-			listCollectionDisplayRowsPage(db, {
+			MAP_SURFACES.collections.listPage(db, {
 				organizationId,
 				timeZone,
 				...page,
@@ -362,7 +327,7 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'c',
 		spatial: false,
 		read: (db) =>
-			getCollectionMapExtent(db, {
+			MAP_SURFACES.collections.getExtent(db, {
 				organizationId,
 				timeZone,
 				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
@@ -373,7 +338,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'c',
 		geomAlias: 'c',
 		spatial: false,
-		read: (db) => getCollectionDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.collections.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- chemical applications ---
@@ -383,9 +348,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'a',
 		spatial: true,
 		read: (db) =>
-			getApplicationMvtTile(db, {
+			MAP_SURFACES.chemical.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: {
 					insecticideIds: ids,
 					applicationMethodIds: ids,
@@ -401,8 +367,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) =>
-			listApplicationDisplayRowsPage(db, {
+			MAP_SURFACES.chemical.listPage(db, {
 				organizationId,
+				timeZone,
 				...page,
 				filters: {
 					insecticideIds: ids,
@@ -419,8 +386,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) =>
-			getApplicationMapExtent(db, {
+			MAP_SURFACES.chemical.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: {
 					insecticideIds: ids,
 					applicationMethodIds: ids,
@@ -435,7 +403,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'a',
 		geomAlias: 'a',
 		spatial: false,
-		read: (db) => getApplicationDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.chemical.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- source reduction ---
@@ -445,9 +413,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'sr',
 		spatial: true,
 		read: (db) =>
-			getSourceReductionMvtTile(db, {
+			MAP_SURFACES['source-reduction'].getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: {
 					sourceReductionMethodIds: ids,
 					technicianProfileIds: ids,
@@ -462,8 +431,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'sr',
 		spatial: false,
 		read: (db) =>
-			listSourceReductionDisplayRowsPage(db, {
+			MAP_SURFACES['source-reduction'].listPage(db, {
 				organizationId,
+				timeZone,
 				...page,
 				filters: {
 					sourceReductionMethodIds: ids,
@@ -479,8 +449,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'sr',
 		spatial: false,
 		read: (db) =>
-			getSourceReductionMapExtent(db, {
+			MAP_SURFACES['source-reduction'].getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: {
 					sourceReductionMethodIds: ids,
 					technicianProfileIds: ids,
@@ -494,7 +465,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'sr',
 		geomAlias: 'sr',
 		spatial: false,
-		read: (db) => getSourceReductionDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES['source-reduction'].getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- biocontrol ---
@@ -504,9 +475,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'ba',
 		spatial: true,
 		read: (db) =>
-			getBiocontrolMvtTile(db, {
+			MAP_SURFACES.biocontrol.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: {
 					biocontrolMethodIds: ids,
 					technicianProfileIds: ids,
@@ -522,8 +494,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'ba',
 		spatial: false,
 		read: (db) =>
-			listBiocontrolDisplayRowsPage(db, {
+			MAP_SURFACES.biocontrol.listPage(db, {
 				organizationId,
+				timeZone,
 				...page,
 				filters: {
 					biocontrolMethodIds: ids,
@@ -540,8 +513,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'ba',
 		spatial: false,
 		read: (db) =>
-			getBiocontrolMapExtent(db, {
+			MAP_SURFACES.biocontrol.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: {
 					biocontrolMethodIds: ids,
 					technicianProfileIds: ids,
@@ -556,7 +530,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'ba',
 		geomAlias: 'ba',
 		spatial: false,
-		read: (db) => getBiocontrolDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.biocontrol.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- outreach ---
@@ -566,9 +540,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'oa',
 		spatial: true,
 		read: (db) =>
-			getOutreachMvtTile(db, {
+			MAP_SURFACES.outreach.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: { outreachMethodIds: ids, technicianProfileIds: ids, regionIds, ...dates },
 			}),
 	},
@@ -578,8 +553,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'oa',
 		spatial: false,
 		read: (db) =>
-			listOutreachDisplayRowsPage(db, {
+			MAP_SURFACES.outreach.listPage(db, {
 				organizationId,
+				timeZone,
 				...page,
 				filters: { outreachMethodIds: ids, technicianProfileIds: ids, regionIds, ...dates },
 			}),
@@ -590,8 +566,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'oa',
 		spatial: false,
 		read: (db) =>
-			getOutreachMapExtent(db, {
+			MAP_SURFACES.outreach.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: { outreachMethodIds: ids, technicianProfileIds: ids, regionIds, ...dates },
 			}),
 	},
@@ -600,7 +577,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'oa',
 		geomAlias: 'oa',
 		spatial: false,
-		read: (db) => getOutreachDisplayRowById(db, { organizationId, id }),
+		read: (db) => MAP_SURFACES.outreach.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- requested control actions (by-id geometry only; no explorer of its own) ---
@@ -609,7 +586,7 @@ const mapReads: ReadonlyArray<{
 		organizationAlias: 'rca',
 		geomAlias: 'rca',
 		spatial: false,
-		read: (db) => getRequestedControlActionDisplayRowById(db, { organizationId, id }),
+		read: (db) => getRequestedControlActionDisplayRowById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- addresses ---
@@ -619,9 +596,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'a',
 		spatial: true,
 		read: (db) =>
-			getAddressMvtTile(db, {
+			MAP_SURFACES.addresses.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: { search: 'main st', regionIds },
 			}),
 	},
@@ -631,7 +609,11 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) =>
-			getAddressMapExtent(db, { organizationId, filters: { search: 'main st', regionIds } }),
+			MAP_SURFACES.addresses.getExtent(db, {
+				organizationId,
+				timeZone,
+				filters: { search: 'main st', regionIds },
+			}),
 	},
 
 	// --- regions ---
@@ -641,9 +623,10 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'r',
 		spatial: true,
 		read: (db) =>
-			getRegionMvtTile(db, {
+			MAP_SURFACES.regions.getTile(db, {
 				...tile,
 				organizationId,
+				timeZone,
 				filters: { regionFolderId: 'unfiled', search: 'north', ids },
 			}),
 	},
@@ -653,8 +636,9 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'r',
 		spatial: false,
 		read: (db) =>
-			getRegionMapExtent(db, {
+			MAP_SURFACES.regions.getExtent(db, {
 				organizationId,
+				timeZone,
 				filters: { regionFolderId: 'unfiled', search: 'north', ids },
 			}),
 	},

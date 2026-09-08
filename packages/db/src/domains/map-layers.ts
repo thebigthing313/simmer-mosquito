@@ -2,23 +2,25 @@
 //
 // `/map/tiles/:tileset/{z}/{x}/{y}.mvt` carries a tileset name in the path, and
 // that name is also the layer inside the vector tile the client's style draws.
-// Three lists spell those eleven strings: the `layer` each surface here
-// declares, the keys `apps/server` registers tilesets under, and
+// Three lists spell those eleven strings: the keys of `MAP_SURFACES` in
+// `map-surface-register.ts`, the keys `apps/server` registers tilesets under, and
 // `TILE_LAYER_BINDINGS` in `apps/web`. A name that disagrees answers 200 with a
 // layer the style does not draw, so the map is an empty basemap with nothing on
 // screen or in the console to say why.
 //
-// This union closes the db-to-server half at compile time, as membership. A
-// surface cannot declare a layer that is not here, and the server's registry is
-// a `Record<MapTilesetLayer, ...>`, so a tileset cannot be missing, doubled or
-// misspelled either. `pnpm check:tileset-keys` reads all three lists as text,
-// which is what reaches `apps/web`: it has no dependency on this package, and
-// giving the browser app an edge to the Kysely package to type eleven strings is
-// a worse trade than a regex. Neither catches two surfaces trading layers, since
-// both names stay spelled everywhere; the gate's header says so.
+// This union closes the db-to-server half at compile time, as membership. Both
+// registers are keyed by it, so a tileset cannot be missing, doubled or
+// misspelled on either side, and a surface writes no layer of its own: it is
+// handed the key it is registered under, so the name inside the tile and the path
+// it is served on are one literal. `pnpm check:tileset-keys` reads all three
+// lists as text, which is what reaches `apps/web`: it has no dependency on this
+// package, and giving the browser app an edge to the Kysely package to type
+// eleven strings is a worse trade than a regex. Neither catches two surfaces
+// trading entries in the register, since both names stay spelled everywhere; the
+// gate's header says so.
 //
 // A type rather than an `as const` array because nothing reads these at
-// runtime. The two files that spell one write a literal the compiler narrows
+// runtime. The two registers that spell one write a literal the compiler narrows
 // against, which is the check; a value would add an import to every one of them
 // and check no more.
 

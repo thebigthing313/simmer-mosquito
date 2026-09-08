@@ -6,10 +6,7 @@ import {
 	PostgresQueryCompiler,
 } from 'kysely';
 import { describe, expect, it } from 'vitest';
-import { getCollectionMapExtent } from '../../../domains/adult-surveillance.js';
-import { getApplicationMvtTile } from '../../../domains/control-operations-map.js';
-import { getHabitatMapExtent } from '../../../domains/habitats.js';
-import { getSampleMapExtent } from '../../../domains/larval-surveillance.js';
+import { MAP_SURFACES } from '../../../domains/map-surface-register.js';
 import type { SimmerDatabase } from '../../../index.js';
 
 // The region filter is a spatial predicate spread across nine map readers, each
@@ -20,8 +17,9 @@ import type { SimmerDatabase } from '../../../index.js';
 // read.
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
-// The organization's zone. Named rather than defaulted so a collection read
-// that stopped converting `collected_at` would change the SQL these assert on.
+// The organization's zone, which every map read carries. Deliberately not UTC,
+// so a collection read that stopped converting `collected_at` would change the
+// SQL these assert on.
 const timeZone = 'America/New_York';
 const regionIds = ['b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa', 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f'];
 
@@ -30,7 +28,7 @@ describe('region membership filter', () => {
 		[
 			'habitats',
 			async (db: Kysely<SimmerDatabase>) =>
-				getHabitatMapExtent(db, { organizationId, filters: { regionIds } }),
+				MAP_SURFACES.habitats.getExtent(db, { organizationId, timeZone, filters: { regionIds } }),
 			'h',
 			'h',
 		],
@@ -40,21 +38,32 @@ describe('region membership filter', () => {
 			// sample.
 			'samples',
 			async (db: Kysely<SimmerDatabase>) =>
-				getSampleMapExtent(db, { organizationId, filters: { regionIds } }),
+				MAP_SURFACES.samples.getExtent(db, { organizationId, timeZone, filters: { regionIds } }),
 			'i',
 			's',
 		],
 		[
 			'collections',
 			async (db: Kysely<SimmerDatabase>) =>
-				getCollectionMapExtent(db, { organizationId, timeZone, filters: { regionIds } }),
+				MAP_SURFACES.collections.getExtent(db, {
+					organizationId,
+					timeZone,
+					filters: { regionIds },
+				}),
 			'c',
 			'c',
 		],
 		[
 			'chemical applications',
 			async (db: Kysely<SimmerDatabase>) =>
-				getApplicationMvtTile(db, { z: 12, x: 1, y: 2, organizationId, filters: { regionIds } }),
+				MAP_SURFACES.chemical.getTile(db, {
+					z: 12,
+					x: 1,
+					y: 2,
+					organizationId,
+					timeZone,
+					filters: { regionIds },
+				}),
 			'a',
 			'a',
 		],
@@ -78,8 +87,16 @@ describe('region membership filter', () => {
 	it('leaves the read untouched when no region is selected', async () => {
 		const { db, queries } = compilingDatabase();
 
-		await getHabitatMapExtent(db, { organizationId, filters: { isActive: true } });
-		await getHabitatMapExtent(db, { organizationId, filters: { regionIds: [] } });
+		await MAP_SURFACES.habitats.getExtent(db, {
+			organizationId,
+			timeZone,
+			filters: { isActive: true },
+		});
+		await MAP_SURFACES.habitats.getExtent(db, {
+			organizationId,
+			timeZone,
+			filters: { regionIds: [] },
+		});
 
 		expect(normalize(queries[0]?.sql ?? '')).not.toContain('regions rf');
 		expect(normalize(queries[1]?.sql ?? '')).not.toContain('regions rf');

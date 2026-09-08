@@ -6,55 +6,16 @@ import {
 	countActiveHabitatsByType,
 	countProfileActivity,
 	getAddressById,
-	getAddressMapExtent,
-	getAddressMvtTile,
-	getApplicationDisplayRowById,
-	getApplicationMapExtent,
-	getApplicationMvtTile,
-	getBiocontrolDisplayRowById,
-	getBiocontrolMapExtent,
-	getBiocontrolMvtTile,
-	getCollectionDisplayRowById,
-	getCollectionMapExtent,
-	getCollectionMvtTile,
-	getHabitatDisplayRowById,
-	getHabitatMapExtent,
-	getHabitatMvtTile,
-	getInspectionDisplayRowById,
-	getInspectionMapExtent,
-	getInspectionMvtTile,
 	getNotificationRegistrationGeometryById,
 	getOrganizationSettingsRaw,
-	getOutreachDisplayRowById,
-	getOutreachMapExtent,
-	getOutreachMvtTile,
 	getRegionById,
-	getRegionMapExtent,
-	getRegionMvtTile,
 	getRequestedControlActionDisplayRowById,
-	getSampleDisplayRowById,
-	getSampleMapExtent,
-	getSampleMvtTile,
-	getSourceReductionDisplayRowById,
-	getSourceReductionMapExtent,
-	getSourceReductionMvtTile,
-	getTrapDisplayRowById,
-	getTrapMapExtent,
-	getTrapMvtTile,
 	type HabitatMvtTileFilters,
 	type InspectionMvtTileFilters,
 	type Kysely,
-	listApplicationDisplayRowsPage,
-	listBiocontrolDisplayRowsPage,
-	listCollectionDisplayRowsPage,
-	listHabitatDisplayRowsByBounds,
-	listInspectionDisplayRowsByBounds,
 	listMissionItemGeometry,
-	listOutreachDisplayRowsPage,
 	listProfileActivity,
-	listSampleDisplayRowsByBounds,
-	listSourceReductionDisplayRowsPage,
-	listTrapDisplayRowsPage,
+	MAP_SURFACES,
 	type MapExtent,
 	type MapTilesetLayer,
 	type OutreachMapFilters,
@@ -108,54 +69,68 @@ type TileDb = Kysely<SimmerDatabase>;
  * routes could not be driven without a database at all.
  */
 const defaultMapReaders = {
-	getHabitatTile: getHabitatMvtTile,
-	getRegionTile: getRegionMvtTile,
-	getAddressTile: getAddressMvtTile,
-	getInspectionTile: getInspectionMvtTile,
-	getSampleTile: getSampleMvtTile,
-	getApplicationTile: getApplicationMvtTile,
-	getSourceReductionTile: getSourceReductionMvtTile,
-	getBiocontrolTile: getBiocontrolMvtTile,
-	getOutreachTile: getOutreachMvtTile,
-	getTrapTile: getTrapMvtTile,
-	getCollectionTile: getCollectionMvtTile,
+	// The eleven map surfaces, read off `MAP_SURFACES` in `packages/db`: one entry
+	// per tileset name, and the four readers of one entry are one surface object,
+	// so the tile a route draws and the rows its rail lists are the same set by
+	// construction. The reader names are this file's, because they are the seam a
+	// test substitutes at; what they resolve to is the register's.
+	getHabitatTile: MAP_SURFACES.habitats.getTile,
+	getHabitatExtent: MAP_SURFACES.habitats.getExtent,
+	listHabitatDisplayRows: MAP_SURFACES.habitats.listByBounds,
+	getHabitatDisplayRow: MAP_SURFACES.habitats.getById,
 
-	getHabitatExtent: getHabitatMapExtent,
-	getRegionExtent: getRegionMapExtent,
-	getAddressExtent: getAddressMapExtent,
-	getInspectionExtent: getInspectionMapExtent,
-	getSampleExtent: getSampleMapExtent,
-	getApplicationExtent: getApplicationMapExtent,
-	getSourceReductionExtent: getSourceReductionMapExtent,
-	getBiocontrolExtent: getBiocontrolMapExtent,
-	getOutreachExtent: getOutreachMapExtent,
-	getTrapExtent: getTrapMapExtent,
-	getCollectionExtent: getCollectionMapExtent,
+	getInspectionTile: MAP_SURFACES.inspections.getTile,
+	getInspectionExtent: MAP_SURFACES.inspections.getExtent,
+	listInspectionDisplayRows: MAP_SURFACES.inspections.listByBounds,
+	getInspectionDisplayRow: MAP_SURFACES.inspections.getById,
 
-	listHabitatDisplayRows: listHabitatDisplayRowsByBounds,
-	listInspectionDisplayRows: listInspectionDisplayRowsByBounds,
-	listSampleDisplayRows: listSampleDisplayRowsByBounds,
-	listApplicationDisplayRows: listApplicationDisplayRowsPage,
-	listSourceReductionDisplayRows: listSourceReductionDisplayRowsPage,
-	listBiocontrolDisplayRows: listBiocontrolDisplayRowsPage,
-	listOutreachDisplayRows: listOutreachDisplayRowsPage,
-	listTrapDisplayRows: listTrapDisplayRowsPage,
-	listCollectionDisplayRows: listCollectionDisplayRowsPage,
+	getSampleTile: MAP_SURFACES.samples.getTile,
+	getSampleExtent: MAP_SURFACES.samples.getExtent,
+	listSampleDisplayRows: MAP_SURFACES.samples.listByBounds,
+	getSampleDisplayRow: MAP_SURFACES.samples.getById,
 
-	getHabitatDisplayRow: getHabitatDisplayRowById,
+	getTrapTile: MAP_SURFACES.traps.getTile,
+	getTrapExtent: MAP_SURFACES.traps.getExtent,
+	listTrapDisplayRows: MAP_SURFACES.traps.listPage,
+	getTrapDisplayRow: MAP_SURFACES.traps.getById,
+
+	getCollectionTile: MAP_SURFACES.collections.getTile,
+	getCollectionExtent: MAP_SURFACES.collections.getExtent,
+	listCollectionDisplayRows: MAP_SURFACES.collections.listPage,
+	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
+
+	getApplicationTile: MAP_SURFACES.chemical.getTile,
+	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
+	listApplicationDisplayRows: MAP_SURFACES.chemical.listPage,
+	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
+
+	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
+	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
+	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listPage,
+	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
+
+	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
+	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
+	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listPage,
+	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
+
+	getOutreachTile: MAP_SURFACES.outreach.getTile,
+	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
+	listOutreachDisplayRows: MAP_SURFACES.outreach.listPage,
+	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
+
+	// Addresses and regions are drawn from their surface and read as rows through
+	// their own catalog, so their by-id readers are not surface methods.
+	getRegionTile: MAP_SURFACES.regions.getTile,
+	getRegionExtent: MAP_SURFACES.regions.getExtent,
+	getAddressTile: MAP_SURFACES.addresses.getTile,
+	getAddressExtent: MAP_SURFACES.addresses.getExtent,
+
+	// The ten readers that are nobody's surface method.
 	getRegionRow: getRegionById,
 	getAddressRow: getAddressById,
-	getInspectionDisplayRow: getInspectionDisplayRowById,
-	getSampleDisplayRow: getSampleDisplayRowById,
-	getApplicationDisplayRow: getApplicationDisplayRowById,
-	getSourceReductionDisplayRow: getSourceReductionDisplayRowById,
-	getBiocontrolDisplayRow: getBiocontrolDisplayRowById,
-	getOutreachDisplayRow: getOutreachDisplayRowById,
 	getRequestedControlActionRow: getRequestedControlActionDisplayRowById,
 	getNotificationRegistrationGeometry: getNotificationRegistrationGeometryById,
-	getTrapDisplayRow: getTrapDisplayRowById,
-	getCollectionDisplayRow: getCollectionDisplayRowById,
-
 	searchHabitatDisplayRows: searchHabitatSites,
 	countHabitatTypeUsage: countActiveHabitatsByType,
 	listMissionItems: listMissionItemGeometry,
@@ -665,7 +640,18 @@ function registerByIdRoute<TRow>(
 		readonly foundNoun?: string;
 		readonly get: (
 			db: TileDb,
-			input: { readonly id: string; readonly organizationId: string },
+			input: {
+				readonly id: string;
+				readonly organizationId: string;
+				/**
+				 * The organization's zone, on every by-id read for the reason
+				 * `PageInput` carries one: the map surfaces share an input shape, and
+				 * which of them reads a zone is a fact about the schema rather than
+				 * about this file. The four readers here that are not surface methods
+				 * ignore it.
+				 */
+				readonly timeZone: string;
+			},
 		) => Promise<TRow | undefined>;
 		/** For the two routes that answer geometry rather than the row. */
 		readonly toResponse?: (row: TRow) => unknown;
@@ -680,7 +666,11 @@ function registerByIdRoute<TRow>(
 		}
 
 		const authContext = context.get('authContext');
-		const row = await route.get(options.db, { id, organizationId: authContext.organization.id });
+		const row = await route.get(options.db, {
+			id,
+			organizationId: authContext.organization.id,
+			timeZone: authContext.timeZone,
+		});
 
 		if (row === undefined) {
 			return context.json(

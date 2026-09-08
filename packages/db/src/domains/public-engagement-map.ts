@@ -18,8 +18,6 @@ import type { MapByIdInput } from './map-surface.js';
  * holding the centroid of a no-spray field and saved it back would silently turn
  * that field into a point.
  */
-export type NotificationRegistrationByIdInput = MapByIdInput;
-
 export interface SafeNotificationRegistrationGeometryRow {
 	readonly id: string;
 	readonly organizationId: string;
@@ -32,7 +30,7 @@ export interface SafeNotificationRegistrationGeometryRow {
 
 export async function getNotificationRegistrationGeometryById(
 	db: DbExecutor,
-	input: NotificationRegistrationByIdInput,
+	input: MapByIdInput,
 ): Promise<SafeNotificationRegistrationGeometryRow | undefined> {
 	const result = await sql<SafeNotificationRegistrationGeometryRow>`
 		select

@@ -1,16 +1,11 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
-import type { MapExtent } from './map-extent.js';
+import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
-	type MapBounds,
-	type MapBoundsPageInput,
-	type MapByIdInput,
 	type MapDisplayColumns,
-	type MapFilterInput,
-	type MapPageResult,
-	type MapTileInput,
+	type MapRecordSurfaceReaders,
 	mapRecordSurface,
 } from './map-surface.js';
 
@@ -25,13 +20,6 @@ export interface HabitatMvtTileFilters {
 	/** Case-insensitive substring match across habitat name + description. */
 	readonly search?: string;
 }
-
-export type HabitatMvtTileInput = MapTileInput<HabitatMvtTileFilters>;
-export type HabitatBounds = MapBounds;
-export type HabitatBoundingBoxInput = MapBoundsPageInput<HabitatMvtTileFilters>;
-
-/** A page of habitat display rows plus the full count for the viewport + filters. */
-export type HabitatDisplayPageResult = MapPageResult<SafeHabitatDisplayRow>;
 
 export interface SafeHabitatDisplayRow {
 	readonly id: string;
@@ -73,38 +61,35 @@ const habitatDisplayColumns: MapDisplayColumns<SafeHabitatDisplayRow> = {
 	updatedAt: sql`h.updated_at`,
 };
 
-const habitatSurface = mapRecordSurface<HabitatMvtTileFilters, SafeHabitatDisplayRow>({
-	layer: 'habitats',
-	from: sql`habitats h`,
-	alias: 'h',
-	geom: sql`h.geom`,
-	properties: [
-		sql`h.id`,
-		sql`h.habitat_name as "habitatName"`,
-		sql`h.habitat_type_id as "habitatTypeId"`,
-		sql`h.is_active as "isActive"`,
-		sql`h.is_inaccessible as "isInaccessible"`,
-		sql`h.geom_type as "geomType"`,
-	],
-	filterWhere: habitatFilterWhere,
-	display: {
-		columns: habitatDisplayColumns,
-		orderBy: sql`coalesce(h.habitat_name, h.id::text), h.id`,
-	},
-});
-
-export async function getHabitatMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: HabitatMvtTileInput,
-): Promise<Uint8Array> {
-	return habitatSurface.getTile(db, input);
-}
-
-export async function listHabitatDisplayRowsByBounds(
-	db: Kysely<SimmerDatabase>,
-	input: HabitatBoundingBoxInput,
-): Promise<HabitatDisplayPageResult> {
-	return habitatSurface.listByBounds(db, input);
+/**
+ * The habitats map surface: the tile the explorer draws, the extent it frames,
+ * the viewport-bounded page its rail reads, and the row its detail card opens.
+ *
+ * The layer is the argument rather than a literal here, because it is the key
+ * this surface is registered under in `map-surface-register.ts`.
+ */
+export function habitatSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<HabitatMvtTileFilters, SafeHabitatDisplayRow> {
+	return mapRecordSurface<HabitatMvtTileFilters, SafeHabitatDisplayRow>({
+		layer,
+		from: sql`habitats h`,
+		alias: 'h',
+		geom: sql`h.geom`,
+		properties: [
+			sql`h.id`,
+			sql`h.habitat_name as "habitatName"`,
+			sql`h.habitat_type_id as "habitatTypeId"`,
+			sql`h.is_active as "isActive"`,
+			sql`h.is_inaccessible as "isInaccessible"`,
+			sql`h.geom_type as "geomType"`,
+		],
+		filterWhere: habitatFilterWhere,
+		display: {
+			columns: habitatDisplayColumns,
+			orderBy: sql`coalesce(h.habitat_name, h.id::text), h.id`,
+		},
+	});
 }
 
 export interface HabitatTypeUsageRow {
@@ -143,8 +128,6 @@ export async function countActiveHabitatsByType(
 		activeCount: Number(row.activeCount),
 	}));
 }
-
-export type HabitatByIdInput = MapByIdInput;
 
 export interface HabitatsByIdsInput {
 	readonly organizationId: string;
@@ -205,13 +188,6 @@ export async function listHabitatDisplayRowsByIds(
 	return result.rows;
 }
 
-export async function getHabitatDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: HabitatByIdInput,
-): Promise<SafeHabitatDisplayRow | undefined> {
-	return habitatSurface.getById(db, input);
-}
-
 export interface HabitatSearchInput {
 	readonly organizationId: string;
 	readonly search: string;
@@ -267,17 +243,6 @@ export async function searchHabitatSites(
 	`.execute(db);
 
 	return result.rows;
-}
-
-/**
- * Extent of every habitat matching the tile filters, ignoring the viewport —
- * what the explorer map frames on load and after a filter change.
- */
-export async function getHabitatMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<HabitatMvtTileFilters>,
-): Promise<MapExtent | null> {
-	return habitatSurface.getExtent(db, input);
 }
 
 function habitatFilterWhere(filters: HabitatMvtTileFilters | undefined): RawBuilder<boolean>[] {
