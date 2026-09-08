@@ -193,6 +193,7 @@ function ReleaseLocationCard({
 			geomType={geometry.geomType ?? action.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
+			unsupportedShape={geometry.unsupportedShape}
 		/>
 	);
 }

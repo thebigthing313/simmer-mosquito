@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
+import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
@@ -331,5 +332,5 @@ async function fetchInspectionGeometry(
 	const body = (await response.json()) as {
 		readonly inspection?: { readonly geojson?: unknown };
 	};
-	return (body.inspection?.geojson ?? null) as GeoJsonGeometry | null;
+	return checkOwnedGeometry('inspection', body.inspection?.geojson).geometry;
 }

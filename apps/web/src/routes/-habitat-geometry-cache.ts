@@ -2,6 +2,7 @@ import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapp
 import { sessionFetch } from '@simmer-mosquito/sync';
 import type { QueryClient } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
+import { checkOwnedGeometry } from '../components/map/geojson-adapter';
 
 /**
  * The habitat geometry query: its key, its fetcher, and the cache seed the
@@ -24,6 +25,12 @@ export interface HabitatGeometry {
 	readonly lat: number | null;
 	readonly lng: number | null;
 	readonly geomType: string | null;
+	/**
+	 * Set when the column held a shape a Habitat may not store, for the detail's
+	 * Location card to print. Resolved here rather than at render, so it is
+	 * decided once per fetch of this record (#761).
+	 */
+	readonly unsupportedShape: string | null;
 }
 
 /**
@@ -54,6 +61,7 @@ export function seedHabitatGeometryCache(
 		lat: centroid?.lat ?? null,
 		lng: centroid?.lng ?? null,
 		geomType: geojson.type,
+		unsupportedShape: null,
 	};
 	queryClient.setQueryData(habitatGeometryQueryKey(habitatId), value);
 	void queryClient.invalidateQueries({ queryKey: habitatGeometryQueryKey(habitatId) });
@@ -85,10 +93,12 @@ export async function fetchHabitatGeometry(
 		return null;
 	}
 
+	const checked = checkOwnedGeometry('habitat', habitat.geojson);
 	return {
-		geojson: (habitat.geojson ?? null) as GeoJsonGeometry | null,
+		geojson: checked.geometry,
 		lat: habitat.lat ?? null,
 		lng: habitat.lng ?? null,
 		geomType: habitat.geomType ?? null,
+		unsupportedShape: checked.unsupportedShape,
 	};
 }

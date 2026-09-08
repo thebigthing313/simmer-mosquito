@@ -2,12 +2,15 @@ import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapp
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
+import { checkOwnedGeometry } from '../components/map/geojson-adapter';
 
 export interface RegionGeometry {
 	readonly geojson: GeoJsonGeometry | null;
 	readonly lat: number | null;
 	readonly lng: number | null;
 	readonly geomType: string | null;
+	/** Set when the column held a shape a Region may not store (#761). */
+	readonly unsupportedShape: string | null;
 }
 
 // Region polygons are deliberately excluded from the Electric sync shape (the
@@ -59,6 +62,7 @@ export function seedRegionGeometryCache(
 		lat: centroid?.lat ?? null,
 		lng: centroid?.lng ?? null,
 		geomType: geojson.type,
+		unsupportedShape: null,
 	};
 	queryClient.setQueryData(regionGeometryQueryKey(regionId), value);
 	void queryClient.invalidateQueries({ queryKey: regionGeometryQueryKey(regionId) });
@@ -95,10 +99,12 @@ export async function fetchRegionGeometry(
 		return null;
 	}
 
+	const checked = checkOwnedGeometry('region', region.geojson);
 	return {
-		geojson: (region.geojson ?? null) as GeoJsonGeometry | null,
+		geojson: checked.geometry,
 		lat: region.lat ?? null,
 		lng: region.lng ?? null,
 		geomType: region.geomType ?? null,
+		unsupportedShape: checked.unsupportedShape,
 	};
 }

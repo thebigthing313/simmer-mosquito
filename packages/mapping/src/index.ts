@@ -44,6 +44,7 @@ export {
 	parseBoundingBox,
 	toLngLat,
 } from './geometry.js';
+export { isGeoJsonGeometryOfTypes } from './geometry-check.js';
 export type {
 	ImportBaseGeometry,
 	ImportBaseGeometryKind,

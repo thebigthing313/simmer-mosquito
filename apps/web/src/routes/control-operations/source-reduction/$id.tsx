@@ -209,6 +209,7 @@ function SourceReductionLocationCard({
 			geomType={geometry.geomType ?? sourceReduction.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
+			unsupportedShape={geometry.unsupportedShape}
 		/>
 	);
 }

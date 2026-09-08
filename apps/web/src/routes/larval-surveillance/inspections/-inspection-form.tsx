@@ -42,6 +42,7 @@ import { getServerUrl } from '../../../auth';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { densityLabel, type LifeStageFlags } from '../../../components/larval-display';
 import { MapCanvas } from '../../../components/map';
+import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
@@ -1112,7 +1113,7 @@ async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry 
 		const body = (await response.json()) as {
 			readonly habitat?: { readonly geojson?: unknown };
 		};
-		return (body.habitat?.geojson ?? null) as GeoJsonGeometry | null;
+		return checkOwnedGeometry('habitat', body.habitat?.geojson).geometry;
 	} catch {
 		return null;
 	}

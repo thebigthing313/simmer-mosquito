@@ -250,6 +250,7 @@ function ApplicationLocationCard({
 			geomType={geometry.geomType ?? application.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
+			unsupportedShape={geometry.unsupportedShape}
 		/>
 	);
 }
