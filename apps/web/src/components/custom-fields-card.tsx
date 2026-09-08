@@ -30,11 +30,23 @@ import {
  * Rendered as a bare `<dl>` so callers choose the frame: {@link CustomFieldsCard}
  * gives it a card of its own, while the habitat page folds it into the details
  * card under its own heading.
+ *
+ * `allowsExtraKeys` is the caller's answer to what an undeclared key means here,
+ * because the entry cannot say: a surface that accepts extra keys has no retired
+ * fields to mark. The habitat form is the one that sets `allowExtra` on its
+ * `MetadataField`, so a habitat may carry keys its type never declared and those
+ * are notes somebody typed, not fields that went away. Every other surface
+ * writes only what its schema declares, so an undeclared key there is a dropped
+ * field and keeps the badge. The default is the badge, so a caller that says
+ * nothing is unchanged.
  */
 export function CustomFieldsList({
 	entries,
+	allowsExtraKeys = false,
 }: {
 	readonly entries: ReturnType<typeof customFieldEntries>;
+	/** Whether the surface writing this record accepts keys its schema does not declare. */
+	readonly allowsExtraKeys?: boolean;
 }) {
 	return (
 		<DetailList>
@@ -47,7 +59,7 @@ export function CustomFieldsList({
 					>
 						<dt className="m-0 min-w-0 wrap-anywhere text-pretty text-muted-foreground leading-snug">
 							{entry.label}
-							{entry.declared ? null : (
+							{entry.declared || allowsExtraKeys ? null : (
 								<>
 									{' '}
 									<Badge tone="neutral" variant="outline">
