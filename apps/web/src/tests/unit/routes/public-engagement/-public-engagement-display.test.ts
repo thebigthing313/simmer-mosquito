@@ -21,13 +21,9 @@ afterEach(() => {
 });
 
 describe('formatRequestDate', () => {
-	// The label is the reader's locale, so the day is what is asserted rather
-	// than the wording.
+	// The wording as well as the day: the formatter pins `en-US` since #683.
 	it('renders the day the request was raised, whatever zone the reader is in', () => {
-		const label = formatRequestDate('2026-08-04');
-		expect(label).toContain('4');
-		expect(label).toContain('2026');
-		expect(label).not.toContain('3');
+		expect(formatRequestDate('2026-08-04')).toBe('Aug 4, 2026');
 	});
 
 	it('reads the day a timestamp begins on', () => {

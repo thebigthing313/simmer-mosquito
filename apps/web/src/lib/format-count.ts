@@ -22,16 +22,17 @@ export function formatCount(value: number, maximumFractionDigits = 0): string {
  * here in #609, and the dash is gone: a number that will not render is a failure
  * rather than an absence, so it goes back out as it arrived and warns.
  *
- * The locale stays the reader's rather than this file's `en-US`, which is what
- * both copies did and what keeps every former call site rendering as it did.
- * {@link formatCount} pins `en-US` because it counts rows, which is a fact about
- * the data rather than a quantity somebody recorded.
+ * The locale was the reader's until #683 and is now `en-US`, the same pin
+ * {@link formatCount} has always carried. Nothing in the product offers a locale
+ * switch, so following the runtime was inheriting whatever the host happened to
+ * be rather than serving a preference, and it left a separator that a suite
+ * could not assert.
  */
 export function formatAmount(value: number): string {
 	if (!Number.isFinite(value)) {
 		return unreadable('formatAmount', value);
 	}
-	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value);
+	return new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 }).format(value);
 }
 
 /** Singular and plural forms of whatever a surface is counting. */

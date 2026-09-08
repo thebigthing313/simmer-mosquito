@@ -35,8 +35,8 @@ describe('mission stop gates', () => {
 
 /**
  * A mission's rain date is a day, not an instant, so it is built in UTC and
- * rendered in UTC. The label is the reader's locale, so what is asserted here is
- * the day rather than the wording.
+ * rendered in UTC. The wording is asserted as well as the day, because the
+ * formatter pins `en-US` since #683.
  */
 describe('formatOperationalDate', () => {
 	let warn: ReturnType<typeof vi.spyOn>;
@@ -50,10 +50,7 @@ describe('formatOperationalDate', () => {
 	});
 
 	it('renders the day that was planned, whatever zone the reader is in', () => {
-		const label = formatOperationalDate('2026-08-04');
-		expect(label).toContain('4');
-		expect(label).toContain('2026');
-		expect(label).not.toContain('3');
+		expect(formatOperationalDate('2026-08-04')).toBe('Aug 4, 2026');
 	});
 
 	it('hands back a date it cannot read, and says so', () => {

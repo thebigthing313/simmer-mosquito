@@ -154,7 +154,8 @@ function TruncationNotice({
 		<Alert className="m-3" variant="destructive">
 			<AlertTitle>This log is incomplete</AlertTitle>
 			<AlertDescription>
-				Showing the first {shown.toLocaleString()} of {total.toLocaleString()} entries.
+				Showing the first {shown.toLocaleString('en-US')} of {total.toLocaleString('en-US')}{' '}
+				entries.
 				{advice === null ? null : ` ${advice}`}
 			</AlertDescription>
 		</Alert>

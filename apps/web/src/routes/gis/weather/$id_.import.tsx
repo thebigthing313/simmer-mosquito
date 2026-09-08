@@ -257,8 +257,8 @@ function FilePickerCard({
 					type="file"
 				/>
 				<p className="m-0 text-muted-foreground text-xs">
-					Readings are read in °F, inches, percent and mph. Up to {MAX_IMPORT_ROWS.toLocaleString()}{' '}
-					rows.
+					Readings are read in °F, inches, percent and mph. Up to{' '}
+					{MAX_IMPORT_ROWS.toLocaleString('en-US')} rows.
 				</p>
 				<ColumnGuide />
 			</CardContent>
@@ -353,7 +353,7 @@ function ParsedFileCard({
 			<CardHeader padding="compact" className="flex flex-wrap items-center justify-between gap-2">
 				<CardTitle>{fileName}</CardTitle>
 				<Button disabled={!canCommit} onClick={onCommit} type="button">
-					Import {assessment.attemptable.length.toLocaleString()} Rows
+					Import {assessment.attemptable.length.toLocaleString('en-US')} Rows
 				</Button>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
@@ -389,31 +389,31 @@ function AssessmentCounts({
 	return (
 		<div className="flex flex-wrap gap-2">
 			<Badge tone="success" variant="outline">
-				{assessment.counts.insert.toLocaleString()} to add
+				{assessment.counts.insert.toLocaleString('en-US')} to add
 			</Badge>
 			{assessment.counts.update === 0 ? null : (
 				<Badge tone="info" variant="outline">
-					{assessment.counts.update.toLocaleString()} would overwrite
+					{assessment.counts.update.toLocaleString('en-US')} would overwrite
 				</Badge>
 			)}
 			{assessment.counts.noChange === 0 ? null : (
 				<Badge tone="neutral" variant="outline">
-					{assessment.counts.noChange.toLocaleString()} already recorded
+					{assessment.counts.noChange.toLocaleString('en-US')} already recorded
 				</Badge>
 			)}
 			{assessment.counts.fail === 0 ? null : (
 				<Badge tone="danger" variant="outline">
-					{assessment.counts.fail.toLocaleString()} cannot be written
+					{assessment.counts.fail.toLocaleString('en-US')} cannot be written
 				</Badge>
 			)}
 			{parsed.rejected.length === 0 ? null : (
 				<Badge tone="warning" variant="outline">
-					{parsed.rejected.length.toLocaleString()} unreadable
+					{parsed.rejected.length.toLocaleString('en-US')} unreadable
 				</Badge>
 			)}
 			{parsed.truncated ? (
 				<Badge tone="warning" variant="outline">
-					Only the first {MAX_IMPORT_ROWS.toLocaleString()} kept
+					Only the first {MAX_IMPORT_ROWS.toLocaleString('en-US')} kept
 				</Badge>
 			) : null}
 		</div>
@@ -444,7 +444,7 @@ function SkippedLines({
 			))}
 			{rejected.length > 10 ? (
 				<p className="m-0 text-muted-foreground text-xs">
-					…and {(rejected.length - 10).toLocaleString()} more.
+					…and {(rejected.length - 10).toLocaleString('en-US')} more.
 				</p>
 			) : null}
 		</div>
@@ -471,17 +471,17 @@ function ImportResultCard({
 			<CardContent className="grid gap-3" padding="compact">
 				<div className="flex flex-wrap gap-2">
 					<Badge tone="success" variant="outline">
-						{result.counts.inserted.toLocaleString()} added
+						{result.counts.inserted.toLocaleString('en-US')} added
 					</Badge>
 					<Badge tone="info" variant="outline">
-						{result.counts.updated.toLocaleString()} updated
+						{result.counts.updated.toLocaleString('en-US')} updated
 					</Badge>
 					<Badge tone="neutral" variant="outline">
-						{result.counts.noChange.toLocaleString()} unchanged
+						{result.counts.noChange.toLocaleString('en-US')} unchanged
 					</Badge>
 					{result.counts.failed === 0 ? null : (
 						<Badge tone="danger" variant="outline">
-							{result.counts.failed.toLocaleString()} failed
+							{result.counts.failed.toLocaleString('en-US')} failed
 						</Badge>
 					)}
 				</div>
@@ -497,7 +497,7 @@ function ImportResultCard({
 					<p className="m-0 text-muted-foreground text-sm">
 						{written === 0
 							? `Nothing changed on ${stationName}.`
-							: `${written.toLocaleString()} ${written === 1 ? 'reading is' : 'readings are'} now on ${stationName}.`}
+							: `${written.toLocaleString('en-US')} ${written === 1 ? 'reading is' : 'readings are'} now on ${stationName}.`}
 					</p>
 					<Button onClick={onDone} type="button">
 						View Readings

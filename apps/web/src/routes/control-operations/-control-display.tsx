@@ -78,7 +78,7 @@ export function formatActionDate(value: string): string {
 	if (parts === undefined) {
 		return unreadable('formatActionDate', value);
 	}
-	return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString(undefined, {
+	return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

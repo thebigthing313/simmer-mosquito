@@ -21,13 +21,11 @@ afterEach(() => {
 });
 
 describe('formatDate', () => {
-	// The label is the reader's locale, so the day is what is asserted rather
-	// than the wording. Reading the string as an instant is what would move it.
+	// The wording, not just the day: the formatter pins `en-US` since #683, so
+	// the string is the same on every machine. `Aug 3` rather than `Aug 4` is the
+	// failure this case is for, and it comes from reading the date as an instant.
 	it('renders the day that was recorded, whatever zone the reader is in', () => {
-		const label = formatDate('2026-08-04');
-		expect(label).toContain('4');
-		expect(label).toContain('2026');
-		expect(label).not.toContain('3');
+		expect(formatDate('2026-08-04')).toBe('Aug 4, 2026');
 	});
 
 	it('writes an unreadable date back rather than answering Unknown', () => {

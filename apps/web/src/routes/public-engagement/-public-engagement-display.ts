@@ -66,7 +66,7 @@ export function intakeTypeLabel(intakeType: string): string {
 
 /** `24 people` — outreach is counted in people reached, never a volume. */
 export function formatReach(reach: number): string {
-	return reach === 1 ? '1 person' : `${reach.toLocaleString()} people`;
+	return reach === 1 ? '1 person' : `${reach.toLocaleString('en-US')} people`;
 }
 
 /**
@@ -96,7 +96,7 @@ export function formatRequestDate(value: string): string {
 		return unreadable('formatRequestDate', value);
 	}
 	const date = new Date(parts.year, parts.month - 1, parts.day);
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

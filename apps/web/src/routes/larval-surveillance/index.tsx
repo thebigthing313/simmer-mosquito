@@ -459,7 +459,7 @@ function SpeciesBar({
 					{entry.name}
 				</span>
 				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString()} · {percent.toFixed(0)}%
+					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
 				</span>
 			</div>
 			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

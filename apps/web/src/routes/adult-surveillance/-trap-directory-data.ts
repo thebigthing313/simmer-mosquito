@@ -240,5 +240,5 @@ export function summaryLabel(collection: DirectoryCollection, totals: SpecimenTo
 	if (totals.specimens === 0) {
 		return 'Not identified';
 	}
-	return `${totals.species} species · ${totals.specimens.toLocaleString()} specimens`;
+	return `${totals.species} species · ${totals.specimens.toLocaleString('en-US')} specimens`;
 }

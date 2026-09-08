@@ -514,7 +514,7 @@ function text(value: string | null): string | null {
 
 /** How many people an outreach action reached. */
 function formatReach(reach: number): string {
-	return reach === 1 ? '1 person' : `${reach.toLocaleString()} people`;
+	return reach === 1 ? '1 person' : `${reach.toLocaleString('en-US')} people`;
 }
 
 function joinParts(parts: readonly (string | null | undefined)[]): string | null {
@@ -544,7 +544,7 @@ export function formatActivityTime(
 	const parsed = new Date(occurredAt);
 	return Number.isNaN(parsed.getTime())
 		? null
-		: parsed.toLocaleTimeString(undefined, {
+		: parsed.toLocaleTimeString('en-US', {
 				hour: 'numeric',
 				minute: '2-digit',
 				...(timeZone === undefined ? {} : { timeZone }),

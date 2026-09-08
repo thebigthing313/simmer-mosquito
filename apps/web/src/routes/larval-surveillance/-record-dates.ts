@@ -71,7 +71,7 @@ export function formatDateTime(value: string, timeZone: string | undefined): str
 	if (Number.isNaN(date.getTime())) {
 		return unreadable('formatDateTime', value);
 	}
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric',
