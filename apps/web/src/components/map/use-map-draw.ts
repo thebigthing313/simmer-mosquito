@@ -31,6 +31,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import { drawFeatureFlag, drawFeatureIs, readDrawFeatureProperty } from './draw-feature-properties';
 import { buildFeatures } from './draw-features';
 import {
 	continuedPartOf,
@@ -231,8 +232,8 @@ const draft = {
 
 const isPolygon: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
 const isLine: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
-const isVertex: ExpressionSpecification = ['==', ['get', 'role'], 'vertex'];
-const isPoint: ExpressionSpecification = ['==', ['get', 'role'], 'point'];
+const isVertex: ExpressionSpecification = drawFeatureIs('role', 'vertex');
+const isPoint: ExpressionSpecification = drawFeatureIs('role', 'point');
 
 /**
  * Which part the pointer is over, picked out by weight rather than by a second
@@ -240,7 +241,7 @@ const isPoint: ExpressionSpecification = ['==', ['get', 'role'], 'point'];
  * so hovering a row thickens and fills it instead of recolouring it.
  */
 function whenHighlighted(highlighted: number, rest: number): ExpressionSpecification {
-	return ['case', ['boolean', ['get', 'highlighted'], false], highlighted, rest];
+	return ['case', drawFeatureFlag('highlighted'), highlighted, rest];
 }
 
 /**
@@ -251,7 +252,7 @@ function whenHighlighted(highlighted: number, rest: number): ExpressionSpecifica
  * picked out, it is a shape that cannot be saved.
  */
 function whenRefused(refused: string, rest: string): ExpressionSpecification {
-	return ['case', ['boolean', ['get', 'refused'], false], refused, rest];
+	return ['case', drawFeatureFlag('refused'), refused, rest];
 }
 
 function drawLayers(): (
@@ -1390,8 +1391,8 @@ function useDrawEditEvents({
 /** The vertex under the pointer, read off the feature the map answers with. */
 function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef | null {
 	const [feature] = map.queryRenderedFeatures(hitBox(event), { layers: [VERTEX_LAYER] });
-	const ring = feature?.properties?.ring;
-	const vertex = feature?.properties?.vertex;
+	const ring = readDrawFeatureProperty(feature, 'ring');
+	const vertex = readDrawFeatureProperty(feature, 'vertex');
 	return typeof ring === 'number' && typeof vertex === 'number' ? { ring, vertex } : null;
 }
 
