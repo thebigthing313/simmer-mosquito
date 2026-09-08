@@ -1,5 +1,11 @@
 import { fileURLToPath } from 'node:url';
-import { contrastRatio, parseCssColor, type RgbColor } from '@simmer-mosquito/design-tokens/color';
+import {
+	contrastRatio,
+	NON_TEXT_AA,
+	parseCssColor,
+	type RgbColor,
+	TEXT_AA,
+} from '@simmer-mosquito/design-tokens/color';
 import { describe, expect, it } from 'vitest';
 import { readDeclarations } from '../../../../../scripts/lib/stylesheet-tokens.mjs';
 
@@ -111,9 +117,13 @@ const ratio = (fg: string, bg: string): number => contrastRatio(token(fg), token
 
 // --- the guard --------------------------------------------------------------
 
-/** WCAG 2.2 AA. Normal text 4.5:1; UI components and focus indicators 3:1. */
-const TEXT_AA = 4.5;
-const NON_TEXT_AA = 3;
+/**
+ * The two floors this file asserts against come from the colour register rather
+ * than being restated here. `TEXT_AA` is WCAG 1.4.3 for normal text and
+ * `NON_TEXT_AA` is 1.4.11 for user-interface components and focus indicators.
+ * The register says why the second one is not the large-text allowance, which
+ * carries the same number.
+ */
 
 /** Every surface a control can sit on, and therefore that a ring must clear. */
 const LIGHT_SURFACES = ['--background', '--card', '--muted', '--surface-strong', '--accent'];

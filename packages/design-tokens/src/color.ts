@@ -308,9 +308,29 @@ export function contrastRatio(a: RgbColor, b: RgbColor): number {
 /** What a ratio buys you, in the words the design-token screen prints. */
 export type WcagLevel = 'AA' | 'Large text' | 'Low';
 
-/** WCAG 2.2 AA: 4.5:1 for normal text, 3:1 for large text and UI components. */
-const TEXT_AA = 4.5;
+/**
+ * The WCAG 2.2 AA contrast floors, written here because they were written
+ * three times and two of them are not the same rule.
+ *
+ * `TEXT_AA` and `LARGE_TEXT_AA` are both success criterion 1.4.3, which asks
+ * 4.5:1 of normal text and lets large text down to 3:1. `NON_TEXT_AA` is 1.4.11,
+ * a different criterion, which asks 3:1 of user-interface components and
+ * graphical objects: a focus ring, a control border, a map mark.
+ *
+ * **`LARGE_TEXT_AA` and `NON_TEXT_AA` hold the same number and are not the same
+ * rule.** Do not collapse them on the grounds that they are equal. A change to
+ * one is not a change to the other, and one constant standing for both would
+ * assert an equality WCAG does not.
+ *
+ * The two that are exported are the two something outside this module reads:
+ * `packages/ui-web/src/tests/unit/styles.contrast.test.ts` asserts on both and
+ * `scripts/map-style/contrast.mjs` measures every map mark against `NON_TEXT_AA`.
+ * `LARGE_TEXT_AA` stays private because `wcagLevel` below is its only reader and
+ * `fallow dead-code` gates an unused export at zero.
+ */
+export const TEXT_AA = 4.5;
 const LARGE_TEXT_AA = 3;
+export const NON_TEXT_AA = 3;
 
 export function wcagLevel(ratio: number): WcagLevel {
 	if (ratio >= TEXT_AA) return 'AA';
