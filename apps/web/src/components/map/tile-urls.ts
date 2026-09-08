@@ -4,6 +4,8 @@
  * the tiles a map draws and the extent it frames can never fall out of step.
  */
 
+import { trimTrailingSlash } from '@simmer-mosquito/config';
+
 /**
  * The region narrowing every record tileset accepts.
  *
@@ -50,8 +52,4 @@ export function tileExtentUrl(serverUrl: string, tileset: string, params: URLSea
 function withQuery(base: string, params: URLSearchParams): string {
 	const query = params.toString();
 	return query.length === 0 ? base : `${base}?${query}`;
-}
-
-function trimTrailingSlash(serverUrl: string): string {
-	return serverUrl.replace(/\/+$/, '');
 }

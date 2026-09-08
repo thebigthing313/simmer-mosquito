@@ -62,6 +62,9 @@ importers:
       '@simmer-mosquito/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@simmer-mosquito/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@simmer-mosquito/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -129,6 +132,9 @@ importers:
       '@simmer-mosquito/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@simmer-mosquito/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@simmer-mosquito/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
@@ -260,6 +266,9 @@ importers:
       '@simmer-mosquito/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@simmer-mosquito/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@simmer-mosquito/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens

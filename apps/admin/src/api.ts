@@ -1,4 +1,5 @@
 import { createAuthClient } from '@simmer-mosquito/auth/browser';
+import { configured, trimTrailingSlash } from '@simmer-mosquito/config';
 import type {
 	MembershipStatus,
 	OrganizationBillingMode,
@@ -229,13 +230,7 @@ export interface InviteAdminUserInput {
 }
 
 export function getServerUrl(): string {
-	// Empty read as absent, not as a URL — `??` does not fall back on `''`, and
-	// a build variable arrives empty rather than missing whenever a field is
-	// left blank or a Docker `ARG` is declared without being passed.
-	const configured = import.meta.env.VITE_SERVER_URL?.trim();
-	return trimTrailingSlash(
-		configured === undefined || configured === '' ? DEFAULT_SERVER_URL : configured,
-	);
+	return trimTrailingSlash(configured(import.meta.env.VITE_SERVER_URL) ?? DEFAULT_SERVER_URL);
 }
 
 /**
@@ -263,8 +258,8 @@ export function getServerUrl(): string {
  * picker rather than failing.
  */
 export function getOperatorOrganizationId(): string | null {
-	const value = import.meta.env.VITE_SIMMER_OPERATOR_ORG_ID;
-	return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+	const value: string | undefined = import.meta.env.VITE_SIMMER_OPERATOR_ORG_ID;
+	return configured(value) ?? null;
 }
 
 const authClient = createAuthClient({ serverUrl: getServerUrl() });
@@ -489,8 +484,4 @@ function responseErrorMessage(body: unknown, fallback: string): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function trimTrailingSlash(value: string): string {
-	return value.replace(/\/+$/, '');
 }
