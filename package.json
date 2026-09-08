@@ -13,6 +13,7 @@
 		"check:all": "node scripts/check-all.mjs",
 		"check:build-graph": "node scripts/check-build-graph.mjs",
 		"check:color-maths": "node scripts/check-color-maths.mjs",
+		"check:compiler-bailouts": "node scripts/check-compiler-bailouts.mjs",
 		"check:column-vocabularies": "node scripts/check-column-vocabularies.mjs",
 		"check:copy-dashes": "node scripts/check-copy-dashes.mjs",
 		"check:geometry-policies": "node scripts/check-geometry-policies.mjs",

@@ -9,6 +9,8 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
+		"@babel/core": "7.29.0",
+		"babel-plugin-react-compiler": "1.0.0",
 		"pg": "^8.16.0"
 	}
 }
