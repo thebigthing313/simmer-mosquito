@@ -101,15 +101,39 @@ export function scan(source) {
 /** Just the masked copy, for a caller with no use for the literals. */
 export const maskedSource = (source) => scan(source).masked;
 
-/** How far one character of the walk carries us. */
+/**
+ * How far one character of the walk carries us.
+ *
+ * Every result a reader gives back passes through here, which is why the
+ * advance is checked here and not in the two loops that drive it. `scan` and
+ * `readExpression` both assign what this returns back to their cursor and
+ * neither has another exit, so a reader that hands back the index it was given
+ * spins one of them forever over one file, printing nothing (#666). This is the
+ * shared scanner behind the vocabulary, prose and copy-dash gates, so that
+ * arrives as CI hanging on a check with no output rather than as a stack trace.
+ * One comparison per character turns it into a throw that names the reader.
+ */
 function step(state, at) {
 	const read = READERS[state.source[at]];
 	const end = read?.(state, at) ?? null;
 	if (end !== null) {
-		return end;
+		return advanced(state, at, end, read);
 	}
 	state.lastCode = significant(state.source[at], state.lastCode);
 	return at + 1;
+}
+
+/** A reader's result, or a throw naming the reader that did not move. */
+function advanced(state, at, end, read) {
+	if (end > at) {
+		return end;
+	}
+	const name = read.name || '(anonymous)';
+	throw new Error(
+		`masked-source: reader ${name} for ${JSON.stringify(state.source[at])} at index ${at} ` +
+			`returned ${end}, which is not past ${at}. A reader returns the index past what it ` +
+			'consumed, and never its own start.',
+	);
 }
 
 /** The last character that was code, for the regex-or-division question. */
@@ -222,7 +246,19 @@ function readExpression(state, from) {
 	return state.source.length;
 }
 
-const READERS = {
+/**
+ * Which character opens which read.
+ *
+ * **A reader returns the index past what it consumed, and never its own start.**
+ * Both walking loops advance by whatever the reader gave back, so a result that
+ * is not greater than the index the reader was handed is an infinite loop rather
+ * than a wrong answer. `step` refuses one.
+ *
+ * Exported so a suite can install a throwaway reader and watch that refusal
+ * fire. Nothing else reads it, and nothing else should: a caller wanting a
+ * different table wants a different scanner.
+ */
+export const READERS = {
 	'/': readSlash,
 	"'": readQuoted,
 	'"': readQuoted,

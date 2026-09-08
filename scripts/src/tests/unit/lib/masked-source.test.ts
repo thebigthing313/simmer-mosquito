@@ -17,7 +17,7 @@
 // biome-ignore-all lint/suspicious/noTemplateCurlyInString: every fixture here is source text, so a `${` in a quoted string is the thing under test rather than a template somebody forgot to open.
 
 import { describe, expect, it } from 'vitest';
-import { maskedSource, scan } from '../../../../lib/masked-source.mjs';
+import { maskedSource, READERS, type SourceReader, scan } from '../../../../lib/masked-source.mjs';
 
 /** The literal bodies the scan collected, in the order it collected them. */
 const texts = (source: string) => scan(source).literals.map((literal) => literal.text);
@@ -216,5 +216,93 @@ describe('what a caller reads back off a literal', () => {
 	it('reports a comment span between two tags rather than swallowing it', () => {
 		const source = '<p>\n\t// this renders in the browser\n</p>\n';
 		expect(commentTexts(source)).toEqual(['// this renders in the browser']);
+	});
+});
+
+/** Install a reader for one character, run something, and take it back out. */
+const withReader = <T>(character: string, reader: SourceReader, run: () => T): T => {
+	READERS[character] = reader;
+	try {
+		return run();
+	} finally {
+		delete READERS[character];
+	}
+};
+
+/** A reader that consumes nothing, which is the shape that hangs the walk. */
+function stall(_state: unknown, at: number): number {
+	return at;
+}
+
+/**
+ * The advance every reader owes the walk (#666).
+ *
+ * Both loops assign what `step` returns back to their cursor and neither has
+ * another exit, so a reader handing back the index it was given spins over one
+ * file forever with nothing on screen. The gates that read this scanner run in
+ * CI, so that arrived as a check hanging rather than as a stack trace. A
+ * throwaway reader is the only way to violate the contract, because every
+ * reader in the shipped table keeps it.
+ */
+describe('every reader has to advance', () => {
+	it.each(fixtureCases)('%s is scanned by readers that all advance', (_name, source) => {
+		expect(() => scan(source)).not.toThrow();
+	});
+
+	it('throws instead of looping when a reader returns its start index', () => {
+		withReader('@', stall, () => {
+			expect(() => scan('const a = @;')).toThrow(/not past 10/);
+		});
+	});
+
+	it('throws when a reader returns an index behind its start', () => {
+		withReader(
+			'@',
+			(_state, at) => at - 1,
+			() => {
+				expect(() => scan('a @ b')).toThrow(/returned 1, which is not past 2/);
+			},
+		);
+	});
+
+	it('names the character the read opened on and the index it sat at', () => {
+		withReader('@', stall, () => {
+			expect(() => scan('a @ b')).toThrow('for "@" at index 2');
+		});
+	});
+
+	it('names the reader, which is what a hang could never say', () => {
+		withReader('@', stall, () => {
+			expect(() => scan('@')).toThrow('reader stall');
+		});
+		withReader(
+			'@',
+			(_state, at) => at,
+			() => {
+				expect(() => scan('@')).toThrow('reader (anonymous)');
+			},
+		);
+	});
+
+	/**
+	 * The second loop. `readExpression` walks a `${...}` through the same step
+	 * function, so guarding `step` once covers both and a third loop added later
+	 * is covered on the day it is written.
+	 */
+	it('refuses a reader that stalls inside a template interpolation', () => {
+		withReader('@', stall, () => {
+			expect(() => scan('const line = `x ${@}`;')).toThrow(/reader stall for "@" at index 18/);
+		});
+	});
+
+	/** One comparison, and it is `>`: a reader that consumes one character passes. */
+	it('accepts a reader that advances by a single character', () => {
+		withReader(
+			'@',
+			(_state, at) => at + 1,
+			() => {
+				expect(texts('@ "Trap"')).toEqual(['Trap']);
+			},
+		);
 	});
 });
