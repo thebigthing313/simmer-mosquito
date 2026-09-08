@@ -810,11 +810,6 @@
         "count": 1
       }
     },
-    "packages/ui-web/src/components/ui/form.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "packages/ui-web/src/components/ui/number-input.tsx": {
       "complexity_moderate": {
         "count": 1

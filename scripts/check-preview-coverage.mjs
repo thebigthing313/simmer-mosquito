@@ -24,8 +24,8 @@
  * renders. Four `.ts` files sit under those roots and none of them is a
  * component: the three `index.ts` barrels, which re-export and draw nothing,
  * and `form/field-components/custom-schema.ts`, which exports helper functions
- * and types. The rule is worth those four: with the `.ts` files counted, 68
- * modules would have no preview section rather than 64 and `UNCOVERED_MODULES`
+ * and types. The rule is worth those four: with the `.ts` files counted, 67
+ * modules would have no preview section rather than 63 and `UNCOVERED_MODULES`
  * would read 66 rather than 62. So it is written here rather than left to a
  * reader to work out.
  *
@@ -48,8 +48,8 @@
  * anywhere in the suites, and it can, because `useCollectionMutations` is a
  * name nothing else spells. Half of these module names are ordinary English:
  * `table`, `card`, `field`, `input`, `label`, `item`, `empty`, `progress`,
- * `switch`, `chart`, `command`, `form`. A heading reading "Table" would cover
- * `ui/table.tsx` by accident, and a gate that goes green over a word is worse
+ * `switch`, `chart`, `command`, `combobox`. A heading reading "Table" would
+ * cover `ui/table.tsx` by accident, and a gate that goes green over a word is worse
  * than no gate. So the match is on the import rather than on the text.
  *
  * A barrel import covers nothing, and that falls out of the same rule rather
@@ -73,8 +73,8 @@
  * shape as `UNCHECKED_ACKNOWLEDGEMENTS`, and the same caution. Lowering it is
  * normal. Raising it needs a reason in the commit message.
  *
- * It ships at 62 rather than at zero because that is the backlog: 64 modules
- * have no preview section and two of them can have none. A gate at zero would
+ * It ships at 62 rather than at zero because that is the backlog: 63 modules
+ * have no preview section and one of them can have none. A gate at zero would
  * fail every branch on history and be switched off within a day, which is the
  * same line the duplication threshold and the complexity baseline draw.
  *
@@ -99,9 +99,10 @@
  *
  * `MINIMUM_MODULES` fails when the walk stops finding the component roots. A
  * moved directory or a wrong skip would otherwise leave this counting nothing
- * under a summary line that reads like a pass. 60, against the 81 modules there
- * on 2026-09-07, so the 22 composites can be moved out of `components/form` and
- * `components/page` in one branch without the floor needing an edit first.
+ * under a summary line that reads like a pass. 60, against the 80 modules there
+ * on 2026-09-08, once #685 deleted `ui/form.tsx`, so the 22 composites can be
+ * moved out of `components/form` and `components/page` in one branch without
+ * the floor needing an edit first.
  *
  * `MINIMUM_COVERED` fails when the roots are still found and the preview scan
  * stops resolving imports, which is what a change to the `exports` map in
@@ -163,11 +164,6 @@ const NO_PREVIEW = [
 		module: 'ui/direction.tsx',
 		reason:
 			'DirectionProvider passes a `dir` down through context and renders its children, and useDirection is a hook. There is no visual to put on a page.',
-	},
-	{
-		module: 'ui/form.tsx',
-		reason:
-			'The react-hook-form binding. Every part reads useFormField(), which throws outside a FormField inside a FormProvider, so a section would be a whole react-hook-form form built to draw a label and a paragraph. Nothing in the workspace imports it; the apps are on TanStack Form through components/form.',
 	},
 ];
 
