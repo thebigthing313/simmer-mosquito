@@ -15,6 +15,7 @@
 		"check:column-vocabularies": "node scripts/check-column-vocabularies.mjs",
 		"check:copy-dashes": "node scripts/check-copy-dashes.mjs",
 		"check:geometry-policies": "node scripts/check-geometry-policies.mjs",
+		"check:image-names": "node scripts/check-image-names.mjs",
 		"check:join-types": "node scripts/check-join-types.mjs",
 		"check:map-palette": "node scripts/check-map-palette.mjs",
 		"check:mapping-callers": "node scripts/check-mapping-callers.mjs",
