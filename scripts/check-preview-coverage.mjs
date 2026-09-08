@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Asserts that every component module `packages/ui-web` ships from its four
- * gallery roots is imported by `apps/preview`.
+ * Asserts that every component module `packages/ui-web` ships from `components/`
+ * and its four gallery roots is imported by `apps/preview`.
  *
  * Two documents say `apps/preview` is a contract. `docs/architecture.md` says
  * SIMMER does not use Storybook as a design-system contract and that this app
@@ -19,20 +19,36 @@
  *
  * ## What a component module is
  *
- * A `.tsx` file under one of the four roots in `MODULE_ROOTS`. The rule is the
+ * A `.tsx` file under one of the roots in `MODULE_ROOTS`. The rule is the
  * file extension and nothing else, because JSX is what a preview section
  * renders. Four `.ts` files sit under those roots and none of them is a
  * component: the three `index.ts` barrels, which re-export and draw nothing,
  * and `form/field-components/custom-schema.ts`, which exports helper functions
- * and types. The rule is worth those four: with the `.ts` files counted, 67
- * modules would have no preview section rather than 63 and `UNCOVERED_MODULES`
- * would read 66 rather than 62. So it is written here rather than left to a
- * reader to work out.
+ * and types. Still four after `components/` joined, because every file directly
+ * under `components/` is a `.tsx`. The rule is worth those four: with the `.ts`
+ * files counted, 81 modules would have no preview section rather than 77 and
+ * `UNCOVERED_MODULES` would read 80 rather than 76. So it is written here
+ * rather than left to a reader to work out.
  *
- * The roots are the four the gallery is for. `components/` itself and the
- * `app-shell/`, `auth/`, `changelog/` and `error-report/` folders are out: a
- * shell, a sign-in form and an error page are screens rather than components,
- * and pulling them in is a wider job than #611 asked for.
+ * ## Which roots, and why those
+ *
+ * `components/` itself and the four gallery folders below it. The files
+ * directly under `components/` are components by the same test the gallery
+ * folders pass: `absent-value`, `record-link`, `detail-row`, `panel` and
+ * `color-picker` draw, they take props, and a preview section is worth having
+ * for each (#686).
+ *
+ * The `app-shell/`, `auth/`, `changelog/` and `error-report/` folders stay out,
+ * and that is the decision rather than an omission. A shell, a sign-in form, a
+ * changelog page and an error page are screens rather than components. Nobody
+ * looks a shell up, and a preview of one is a screenshot of the app.
+ *
+ * `components/` is read as its own files and no subdirectory, because every
+ * subdirectory of it is either a gallery root or one of those four screen
+ * folders. `assertEveryFolderIsClassified` is what holds that: a fifth folder
+ * fails the gate until somebody says which of the two it is. Without it a new
+ * folder of components would be invisible here, under a summary line that reads
+ * like a pass.
  *
  * ## What counts as previewed
  *
@@ -73,7 +89,7 @@
  * shape as `UNCHECKED_ACKNOWLEDGEMENTS`, and the same caution. Lowering it is
  * normal. Raising it needs a reason in the commit message.
  *
- * It ships at 62 rather than at zero because that is the backlog: 63 modules
+ * It ships at 76 rather than at zero because that is the backlog: 77 modules
  * have no preview section and one of them can have none. A gate at zero would
  * fail every branch on history and be switched off within a day, which is the
  * same line the duplication threshold and the complexity baseline draw.
@@ -99,9 +115,9 @@
  *
  * `MINIMUM_MODULES` fails when the walk stops finding the component roots. A
  * moved directory or a wrong skip would otherwise leave this counting nothing
- * under a summary line that reads like a pass. 60, against the 80 modules there
- * on 2026-09-08, once #685 deleted `ui/form.tsx`, so the 22 composites can be
- * moved out of `components/form` and `components/page` in one branch without
+ * under a summary line that reads like a pass. 70, against the 94 modules there
+ * on 2026-09-08, once #686 added `components/` itself, so the 22 composites can
+ * be moved out of `components/form` and `components/page` in one branch without
  * the floor needing an edit first.
  *
  * `MINIMUM_COVERED` fails when the roots are still found and the preview scan
@@ -110,10 +126,11 @@
  * arrives as the count having risen by seventeen, and the message would send a
  * reader looking for a component nobody added. 12, against the 17 previewed on
  * 2026-09-07: five sections can be rewritten or dropped before the floor is the
- * thing in the way.
+ * thing in the way. It did not move when `components/` joined the roots,
+ * because `apps/preview` imports none of the fourteen modules that root adds.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathFrom } from './lib/relative-path.mjs';
@@ -128,7 +145,22 @@ const fail = failure(GATE);
 const COMPONENTS_ROOT = join(workspaceRoot, 'packages/ui-web/src/components');
 
 /** The four roots the gallery is for, as paths under `COMPONENTS_ROOT`. */
-const MODULE_ROOTS = ['ui', 'form/field-components', 'form/form-components', 'page'];
+const GALLERY_ROOTS = ['ui', 'form/field-components', 'form/form-components', 'page'];
+
+/**
+ * Every root, `components/` itself first. It is read as its own files and no
+ * subdirectory, which is what `assertEveryFolderIsClassified` earns.
+ */
+const MODULE_ROOTS = ['components/', ...GALLERY_ROOTS];
+
+/**
+ * The folders under `components/` that hold screens rather than components.
+ *
+ * A shell, a sign-in form, a changelog page and an error page are screens, and
+ * a preview of one is a screenshot of the app. Nothing else may sit beside
+ * them: a folder that is on neither this list nor `GALLERY_ROOTS` fails.
+ */
+const SCREEN_FOLDERS = ['app-shell', 'auth', 'changelog', 'error-report'];
 
 /** The coverage root. A new preview section lands in `apps/preview/src/routes`. */
 const PREVIEW_ROOT = join(workspaceRoot, 'apps/preview/src');
@@ -151,7 +183,7 @@ const IMPORT = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g;
  * How many modules have no preview section. Read the docblock before changing
  * it: down is the normal direction and up needs a reason in the commit message.
  */
-const UNCOVERED_MODULES = 62;
+const UNCOVERED_MODULES = 76;
 
 /**
  * The modules with no preview section anybody could write.
@@ -168,7 +200,7 @@ const NO_PREVIEW = [
 ];
 
 /** Below this the walk has stopped finding the component roots. */
-const MINIMUM_MODULES = 60;
+const MINIMUM_MODULES = 70;
 
 /** Below this the roots are found and the preview scan has stopped resolving imports. */
 const MINIMUM_COVERED = 12;
@@ -201,20 +233,66 @@ function main() {
 // ---------------------------------------------------------------------------
 
 /**
- * Every component module under the four roots, as a path under
- * `COMPONENTS_ROOT` with forward slashes, which is the shape a specifier
- * resolves to.
+ * Every component module under the roots, as a path under `COMPONENTS_ROOT`
+ * with forward slashes, which is the shape a specifier resolves to.
+ *
+ * `components/` contributes its own files and nothing below them, and the
+ * gallery roots are walked. The classification check runs first, because the
+ * count it guards is the thing a reader would otherwise trust.
  */
 function readModules() {
-	return MODULE_ROOTS.flatMap((root) => {
+	assertEveryFolderIsClassified();
+
+	const gallery = GALLERY_ROOTS.flatMap((root) => {
 		const directory = join(COMPONENTS_ROOT, root);
 		if (!existsSync(directory)) {
 			fail(
-				`packages/ui-web/src/components/${root} is not there. Fix MODULE_ROOTS in scripts/check-preview-coverage.mjs to name where the components moved to.`,
+				`packages/ui-web/src/components/${root} is not there. Fix GALLERY_ROOTS in scripts/check-preview-coverage.mjs to name where the components moved to.`,
 			);
 		}
-		return [...typeScriptFilesUnder(directory)].filter(isComponent).map(asModuleId);
+		return [...typeScriptFilesUnder(directory)];
 	});
+
+	return [...ownFilesOf(COMPONENTS_ROOT), ...gallery].filter(isComponent).map(asModuleId);
+}
+
+/** The files directly inside a directory, with its subdirectories left alone. */
+const ownFilesOf = (directory) =>
+	readdirSync(directory, { withFileTypes: true })
+		.filter((entry) => entry.isFile())
+		.map((entry) => join(directory, entry.name));
+
+/**
+ * That every folder under `components/` is either a gallery root or a screen.
+ *
+ * `components/` is read one level deep, so a folder nobody classified would
+ * hold components this gate never sees, and the summary line would read like a
+ * pass. A fifth folder fails here until somebody adds it to `GALLERY_ROOTS` or
+ * to `SCREEN_FOLDERS`, which is the decision #686 made for the four that exist.
+ */
+function assertEveryFolderIsClassified() {
+	const classified = new Set([
+		...GALLERY_ROOTS.map((root) => root.split('/')[0]),
+		...SCREEN_FOLDERS,
+	]);
+
+	const folders = readdirSync(COMPONENTS_ROOT, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => entry.name);
+
+	const gone = SCREEN_FOLDERS.filter((folder) => !folders.includes(folder));
+	if (gone.length > 0) {
+		fail(
+			`${gone.map((folder) => `${folder}/`).join(', ')} is on SCREEN_FOLDERS in scripts/check-preview-coverage.mjs and is not under packages/ui-web/src/components any more. An entry that excuses nothing is headroom the next folder lands inside, so take it out or name where the screens moved to.`,
+		);
+	}
+
+	const unclassified = folders.filter((folder) => !classified.has(folder));
+	if (unclassified.length > 0) {
+		fail(
+			`packages/ui-web/src/components holds ${unclassified.map((name) => `${name}/`).join(', ')}, which is on neither GALLERY_ROOTS nor SCREEN_FOLDERS in scripts/check-preview-coverage.mjs. A folder of components goes on the first and this gate then reads it; a folder of screens goes on the second with the reason. Leaving it off makes the components in it invisible here.`,
+		);
+	}
 }
 
 /**
@@ -233,7 +311,7 @@ const asModuleId = (file) => pathFrom(COMPONENTS_ROOT, file);
  *
  * A specifier that resolves to no module is dropped rather than reported. A
  * barrel import is one of those, and so is a preview section drawing something
- * from outside the four roots, which is allowed and says nothing about
+ * from outside the module roots, which is allowed and says nothing about
  * coverage.
  *
  * The walk takes `{ tests: true }`, which is not about tests. `apps/preview`
@@ -283,7 +361,7 @@ function assertAllowanceEarnsItsPlace(modules, previewed) {
 
 	const problems = NO_PREVIEW.flatMap((entry) => {
 		if (!present.has(entry.module)) {
-			return `${entry.module} is on NO_PREVIEW and is not one of the ${modules.length} component modules under the four roots. It was deleted, renamed or moved, so take the entry out.`;
+			return `${entry.module} is on NO_PREVIEW and is not one of the ${modules.length} component modules under the module roots. It was deleted, renamed or moved, so take the entry out.`;
 		}
 		if (previewed.has(entry.module)) {
 			return `${entry.module} is on NO_PREVIEW and apps/preview imports it. The reason on the entry says a preview section cannot exist and one does, so take the entry out and lower UNCOVERED_MODULES by nothing, because an allowed module was never in the count.`;
