@@ -222,12 +222,7 @@ export function updateRequestedControlActionLocationAndContextCommand(
 		payload: {
 			...basePayload(input),
 			requestedControlActionId: normalizeRequiredId(input.requestedControlActionId),
-			changes: locationContextChanges(
-				input,
-				context,
-				issues,
-				'requestedControlAction',
-			) as UpdateRequestedControlActionLocationAndContextCommand['payload']['changes'],
+			changes: locationContextChanges(input, context, issues, 'requestedControlAction'),
 		},
 	};
 }
