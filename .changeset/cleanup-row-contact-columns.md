@@ -2,7 +2,7 @@
 '@simmer-mosquito/web': minor
 ---
 
-Changed: A suggestion row on the contact and address cleanup pages now shows
+Changed: a suggestion row on the contact and address cleanup pages now shows
 every column the merge can carry, each under its own label: company, department,
 title, email, preferred phone and alternate phone for a contact; the street
 lines, locality, region, postal code and coordinates for an address. The value

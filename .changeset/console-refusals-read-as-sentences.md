@@ -2,7 +2,7 @@
 '@simmer-mosquito/admin': patch
 ---
 
-Fixed: A refusal from the server now reads as a sentence rather than as a code.
+Fixed: a refusal from the server now reads as a sentence rather than as a code.
 A Foundations write that was refused used to put `operator_required` in the form
 alert; it now says the account is not a SIMMER operator and to sign back in as
 one. Sessions that have ended, organizations and profiles that cannot be found,

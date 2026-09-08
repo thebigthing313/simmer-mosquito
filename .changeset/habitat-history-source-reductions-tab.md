@@ -2,7 +2,7 @@
 '@simmer-mosquito/web': minor
 ---
 
-Added: A habitat's History card has a fifth tab, Source Reductions, listing the
+Added: a habitat's History card has a fifth tab, Source Reductions, listing the
 source reductions carried out at that habitat. Rows show the date, the
 technician, the method and how much was eliminated. Every one of them is listed:
 a source reduction is a record that the work happened, so there is no open or

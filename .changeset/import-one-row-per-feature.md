@@ -25,6 +25,6 @@ Fixed: filling a record's area from a Region boundary no longer refuses a Region
 drawn in separate pieces. It comes across whole wherever the record can store
 it, and is refused by name on a Notification Registration, which holds one area.
 
-Nothing is backfilled. An agency that already imported a multi-lot file holds
+Nothing is backfilled. An Organization that already imported a multi-lot file holds
 one Region per lot, and re-importing that file now produces one Region per
 feature beside them.

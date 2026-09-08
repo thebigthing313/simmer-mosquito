@@ -2,7 +2,7 @@
 '@simmer-mosquito/web': minor
 ---
 
-Added: The Inspections table filters on date range, water, density, larvae
+Added: the Inspections table filters on date range, water, density, larvae
 found, habitat type and inspector. Each one narrows the query the server
 answers rather than hiding rows already loaded, and setting one takes the window
 back to its first page. The filters are the map explorer's, held in the same
