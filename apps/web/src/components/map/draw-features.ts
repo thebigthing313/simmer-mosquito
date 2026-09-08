@@ -5,7 +5,9 @@
  * Its own module beside `./draw-parts` because building features is a second
  * question from deciding what the shape is, and it has its own vocabulary: a
  * feature carries `role`, `refused`, `highlighted`, `ring` and `vertex`, which
- * `drawLayers` paints by and the pointer hit-test reads off. Nothing here
+ * `drawLayers` paints by and the pointer hit-test reads off. Those five keys
+ * are declared in `./draw-feature-properties`, which both sides name, so a
+ * renamed key or a `role` outside its union fails `tsc` (#769). Nothing here
  * decides whether a gesture may land; it asks {@link editProblem} and the two
  * draft readers and paints the answer.
  *
@@ -15,6 +17,7 @@
  */
 
 import { closeRing, moveRingVertex, type PlanarPosition } from '@simmer-mosquito/mapping';
+import type { DrawFeatureProperties } from './draw-feature-properties';
 import {
 	continuedHoles,
 	continuedPartOf,
@@ -32,6 +35,9 @@ import {
 	withHoles,
 } from './draw-parts';
 import { toMapboxGeometry } from './geojson-adapter';
+
+/** A feature the draw control puts in its source, carrying the declared keys. */
+type DrawFeature = GeoJSON.Feature<GeoJSON.Geometry, DrawFeatureProperties>;
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
@@ -59,7 +65,7 @@ export function buildFeatures({
 	readonly drag: DrawDrag | null;
 	readonly highlighted: number | null;
 }): GeoJSON.FeatureCollection {
-	const features: GeoJSON.Feature[] = [];
+	const features: DrawFeature[] = [];
 	const drafted = draftedPartIndex(mode);
 	drawParts(committed).forEach((part, index) => {
 		if (index !== drafted) {
@@ -103,7 +109,7 @@ function editFeatures(
 	mode: EditMode,
 	drag: DrawDrag | null,
 	cursor: PlanarPosition | null,
-): GeoJSON.Feature[] {
+): DrawFeature[] {
 	const dragged =
 		drag === null
 			? mode.rings
@@ -145,7 +151,7 @@ function sketchFeatures(
 	mode: EditMode,
 	cursor: PlanarPosition | null,
 	refused: boolean,
-): GeoJSON.Feature[] {
+): DrawFeature[] {
 	if (mode.sketch === null) {
 		return [];
 	}
@@ -172,7 +178,7 @@ function draftFeatures(
 	committed: DrawGeometry | null,
 	vertices: readonly PlanarPosition[],
 	cursor: PlanarPosition | null,
-): GeoJSON.Feature[] {
+): DrawFeature[] {
 	if (mode.type === 'Point') {
 		return [];
 	}
@@ -212,7 +218,7 @@ function previewShape(
 	return preview.length < 2 ? null : { type: 'LineString', coordinates: preview };
 }
 
-function partFeatures(part: DrawPartGeometry, highlighted: boolean): GeoJSON.Feature[] {
+function partFeatures(part: DrawPartGeometry, highlighted: boolean): DrawFeature[] {
 	if (part.type === 'Point') {
 		return [pointFeature(part.coordinates, { role: 'point', highlighted })];
 	}
@@ -238,7 +244,7 @@ function geometryFeature(
 	geometry: DrawGeometry,
 	highlighted = false,
 	refused = false,
-): GeoJSON.Feature {
+): DrawFeature {
 	return {
 		type: 'Feature',
 		properties: { highlighted, refused },
@@ -255,10 +261,7 @@ function geometryFeature(
  * {@link drawLayers} already falls back to false for a property a feature does
  * not have.
  */
-function pointFeature(
-	position: PlanarPosition,
-	properties: GeoJSON.GeoJsonProperties,
-): GeoJSON.Feature {
+function pointFeature(position: PlanarPosition, properties: DrawFeatureProperties): DrawFeature {
 	return {
 		type: 'Feature',
 		properties,
