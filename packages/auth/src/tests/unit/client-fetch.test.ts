@@ -153,6 +153,40 @@ describe('AuthClient.fetch', () => {
 			authorization: 'Bearer sealed.session.value',
 		});
 	});
+
+	it('lets the caller override what the request carried, and that override the default', async () => {
+		// The spread order is the override rule, and nothing else states it. If the
+		// merge ever combined values instead of overwriting, an explicit header
+		// would arrive doubled beside the default it meant to replace.
+		const fetchMock = stubFetch();
+
+		const client = createAuthClient({ serverUrl: 'https://api.example.test' });
+		await client.fetch(
+			new Request('https://api.example.test/sync/shapes/habitats', {
+				headers: { accept: 'text/csv' },
+			}),
+			{ headers: { Accept: 'application/geo+json' } },
+		);
+
+		expect(sentRequest(fetchMock).headers.get('accept')).toBe('application/geo+json');
+	});
+
+	it('keeps the last value when one array of pairs names a header twice', async () => {
+		// The known loss, pinned so it stays a decision. A `Headers` instance joins
+		// its own duplicates before this code sees them; an array of pairs does not,
+		// and last-wins is what the three-source merge above needs.
+		const fetchMock = stubFetch();
+
+		const client = createAuthClient({ serverUrl: 'https://api.example.test' });
+		await client.fetch('/sync/shapes/habitats', {
+			headers: [
+				['accept', 'text/csv'],
+				['accept', 'application/geo+json'],
+			],
+		});
+
+		expect(sentRequest(fetchMock).headers.get('accept')).toBe('application/geo+json');
+	});
 });
 
 describe('cookieFetch', () => {
