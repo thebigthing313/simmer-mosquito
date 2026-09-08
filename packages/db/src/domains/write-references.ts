@@ -369,6 +369,16 @@ function referenceKey(reference: WriteReference): string {
  * One read by primary key. A record that is missing or another organization's
  * returns nothing, so every reference counts as changed and the check runs; the
  * write itself is scoped by `organization_id` and will find no row to update.
+ *
+ * The `organization_id` predicate here is deliberately uncovered, and this
+ * paragraph is what says so, because the last two mutation runs both stopped to
+ * ask. #616 changed it and `write-references.integration.test.ts` stayed at 11
+ * passed; #701 confirmed the same number and decided against a case. The
+ * paragraph above is the reason: the write this read serves is already scoped by
+ * organization, so the predicate is a second lock on a door that is shut, and a
+ * case pinning it would pin the lock rather than the door. The scope that does
+ * decide an outcome is `readReferencedRows` below, whose own predicate fails
+ * three cases when it is dropped.
  */
 async function readStoredReferences(
 	db: DbExecutor,

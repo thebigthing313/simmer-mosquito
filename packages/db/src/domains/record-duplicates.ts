@@ -447,6 +447,27 @@ export interface NearbyHabitatsResult {
  * merge form fills every field of the surviving record from these values, and a
  * page that built the target's half from a synced row instead would be a second
  * spelling of the same thing, free to drift.
+ *
+ * The organization scope here is written twice, and neither copy is covered on
+ * its own, because each is sufficient without the other. `readHabitatCandidate`
+ * runs first and answers undefined for a target this Organization does not own,
+ * and `id` is the habitats primary key, so `home` is that same row and carries
+ * the caller's organization. From there the join's
+ * `home.organization_id = near.organization_id` pins `near` to the caller, and
+ * so does the `where` clause, separately. Change either one to `true` and the
+ * other still answers correctly.
+ *
+ * #616 found the join predicate survives being changed to `and true`. #701
+ * measured all three mutations against the suite: the join predicate alone, 16
+ * passed with the case that issue proposed and 16 without it; the `where`
+ * clause's copy alone, 15 passed; both together, `never answers with another
+ * organization habitat or one already deleted` fails. So the scope is covered
+ * and no single-copy mutation can be, which is what redundancy means rather
+ * than a hole in the suite. A case pinning one copy would have to reach a row
+ * the other copy has already excluded, and there is no such row.
+ *
+ * Both copies stay. The join reads as scoped where it is written, and the
+ * `where` clause is what an index uses.
  */
 export async function readNearbyHabitats(
 	db: DbExecutor,
