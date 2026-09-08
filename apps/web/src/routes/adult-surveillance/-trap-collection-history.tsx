@@ -431,7 +431,7 @@ function CollectionSpecies({
 								)}
 							</TableCell>
 							<TableCell className="text-right font-medium tabular-nums">
-								{entry.count.toLocaleString()}
+								{entry.count.toLocaleString('en-US')}
 							</TableCell>
 						</TableRow>
 					))}

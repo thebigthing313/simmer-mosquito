@@ -102,7 +102,7 @@ export function InspectionMapCard({
 							{densityLabel(inspection.density)}
 							{inspection.larvaeCount == null
 								? ''
-								: ` · ${inspection.larvaeCount.toLocaleString()} larvae`}
+								: ` · ${inspection.larvaeCount.toLocaleString('en-US')} larvae`}
 						</MapCardDetail>
 						<MapCardDetail icon={StagesIcon}>
 							{hasAnyLifeStage(inspection) ? (

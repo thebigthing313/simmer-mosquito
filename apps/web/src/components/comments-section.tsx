@@ -590,7 +590,7 @@ function relativeTime(value: Date, timeZone: string | undefined): string {
 	const zone = timeZone === undefined ? {} : { timeZone };
 	const yearOf = (at: number): string =>
 		new Intl.DateTimeFormat('en-US', { ...zone, year: 'numeric' }).format(at);
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		...zone,
 		day: 'numeric',
 		month: 'short',
@@ -604,7 +604,7 @@ function absoluteTime(value: Date, timeZone: string | undefined): string {
 	if (Number.isNaN(date.getTime())) {
 		return '';
 	}
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric',

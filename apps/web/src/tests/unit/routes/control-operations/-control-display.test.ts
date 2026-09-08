@@ -149,9 +149,9 @@ describe('formatMeasure', () => {
  * builds a local `Date` on purpose: `toLocaleDateString` with no zone reads the
  * local parts back, so the two cancel.
  *
- * The rendered label is the reader's locale, so what is asserted here is the day
- * rather than the wording. Reading the string as an instant is what would move
- * it, and that is the failure these cases are for.
+ * The wording is asserted as well as the day, because the formatter pins `en-US`
+ * since #683. Reading the string as an instant is what would move the day, and
+ * that is the failure these cases are for.
  */
 describe('formatActionDate', () => {
 	let warn: ReturnType<typeof vi.spyOn>;
@@ -165,10 +165,7 @@ describe('formatActionDate', () => {
 	});
 
 	it('renders the day that was recorded, whatever zone the reader is in', () => {
-		const label = formatActionDate('2026-08-12');
-		expect(label).toContain('12');
-		expect(label).toContain('2026');
-		expect(label).not.toContain('11');
+		expect(formatActionDate('2026-08-12')).toBe('Aug 12, 2026');
 	});
 
 	it('reads the day a timestamp begins on', () => {

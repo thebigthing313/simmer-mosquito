@@ -320,7 +320,7 @@ function SpeciesBar({
 					{entry.name}
 				</span>
 				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString()} · {percent.toFixed(0)}%
+					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
 				</span>
 			</div>
 			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -448,15 +448,15 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 							<span className="shrink-0 text-sm tabular-nums">
 								{/* A slash reads as nothing aloud, so the pair is spelled out. */}
 								<span className="sr-only">
-									{collection.total.toLocaleString()} of a threshold of{' '}
-									{collection.actionThreshold.toLocaleString()}
+									{collection.total.toLocaleString('en-US')} of a threshold of{' '}
+									{collection.actionThreshold.toLocaleString('en-US')}
 								</span>
 								<span aria-hidden="true" className="font-medium text-foreground">
-									{collection.total.toLocaleString()}
+									{collection.total.toLocaleString('en-US')}
 								</span>
 								<span aria-hidden="true" className="text-muted-foreground">
 									{' / '}
-									{collection.actionThreshold.toLocaleString()}
+									{collection.actionThreshold.toLocaleString('en-US')}
 								</span>
 							</span>
 						</li>

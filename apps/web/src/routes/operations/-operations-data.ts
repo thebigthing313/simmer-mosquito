@@ -210,7 +210,7 @@ export function formatOperationalDate(value: string): string {
 	if (parts === undefined) {
 		return unreadable('formatOperationalDate', value);
 	}
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

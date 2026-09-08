@@ -1293,7 +1293,7 @@ export function formatDate(value: string): string {
 		return unreadable('formatDate (habitat detail)', value);
 	}
 
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric',
@@ -1316,7 +1316,7 @@ function formatDateTime(value: string | Date, timeZone: string | undefined): str
 		return 'Unknown';
 	}
 
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric',

@@ -23,6 +23,10 @@ import { getToday } from './get-today';
  * instant falls on in the zone, the same question with a different subject.
  */
 export function todayInTimeZone(timeZone: string | undefined, instant?: Date): string {
+	// `en-CA` is a format shape rather than a display locale: it is the tag that
+	// orders the parts year-month-day, which is the `YYYY-MM-DD` this returns and
+	// what every date column holds. It is not the `en-US` display pin, and
+	// swapping it to one would return `08/04/2026` and break every caller.
 	return new Intl.DateTimeFormat('en-CA', {
 		timeZone: timeZone || undefined,
 		year: 'numeric',
@@ -316,6 +320,12 @@ export function localTimeOfDay(
 	if (Number.isNaN(parsed.getTime())) {
 		return '';
 	}
+	// `en-GB` is a format shape rather than a display locale, the way `en-CA` is
+	// in {@link todayInTimeZone}: this returns the bare `HH:MM` a time field
+	// holds, not a label anybody reads, so it is outside the `en-US` display pin.
+	// `hourCycle` is what forces the 24-hour clock and the tag is the belt to
+	// that brace, since a tag whose own default is 12-hour would put the shape
+	// one dropped option away from an AM marker no time field can parse.
 	return new Intl.DateTimeFormat('en-GB', {
 		timeZone: timeZone || undefined,
 		hourCycle: 'h23',

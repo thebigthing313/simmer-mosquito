@@ -381,7 +381,7 @@ function ResultsCard({
 					<div className="flex shrink-0 items-center gap-2">
 						{entries.length > 0 ? (
 							<Badge tone="neutral" variant="outline">
-								{total.toLocaleString()} specimens
+								{total.toLocaleString('en-US')} specimens
 							</Badge>
 						) : null}
 						{canEdit && !collection.isZeroResult ? (
@@ -530,7 +530,7 @@ function ReadOnlySpeciesRow({
 			</TableCell>
 			{/* The column header already says Count, so the number stands on its own. */}
 			<TableCell className="text-right font-medium tabular-nums">
-				{entry.count.toLocaleString()}
+				{entry.count.toLocaleString('en-US')}
 			</TableCell>
 		</TableRow>
 	);

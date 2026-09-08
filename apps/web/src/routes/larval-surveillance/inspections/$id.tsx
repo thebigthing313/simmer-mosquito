@@ -383,9 +383,11 @@ function effortLabel(larvaeCount: number | null, dipCount: number | null): strin
 	const larvae =
 		larvaeCount === null
 			? null
-			: `${larvaeCount.toLocaleString()} ${plural(larvaeCount, 'larva', 'larvae')}`;
+			: `${larvaeCount.toLocaleString('en-US')} ${plural(larvaeCount, 'larva', 'larvae')}`;
 	const dips =
-		dipCount === null ? null : `${dipCount.toLocaleString()} ${plural(dipCount, 'dip', 'dips')}`;
+		dipCount === null
+			? null
+			: `${dipCount.toLocaleString('en-US')} ${plural(dipCount, 'dip', 'dips')}`;
 
 	if (larvae !== null && dips !== null) {
 		return `${larvae} in ${dips}`;
@@ -399,7 +401,7 @@ function plural(count: number, one: string, many: string): string {
 
 /** One decimal at most: `2.8`, `3`, `0.5`. */
 function formatRate(rate: number): string {
-	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(rate);
+	return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(rate);
 }
 
 function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
@@ -666,7 +668,8 @@ function LinkedActionSummary({ action }: { readonly action: LinkedControlAction 
 		case 'outreachAction':
 			return (
 				<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
-					<OutreachMethodName id={action.methodId} /> · {action.reach.toLocaleString()} reached
+					<OutreachMethodName id={action.methodId} /> · {action.reach.toLocaleString('en-US')}{' '}
+					reached
 				</Suspense>
 			);
 		case 'biocontrolAction':

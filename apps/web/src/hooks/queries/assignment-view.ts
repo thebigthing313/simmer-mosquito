@@ -99,7 +99,7 @@ export function formatAssignmentDate(date: string): string {
 	if (parts === undefined) {
 		return unreadable('formatAssignmentDate', date);
 	}
-	return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString(undefined, {
+	return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString('en-US', {
 		weekday: 'short',
 		month: 'short',
 		day: 'numeric',
@@ -130,7 +130,7 @@ export function formatDueAt(
 	if (Number.isNaN(parsed.getTime())) {
 		return null;
 	}
-	return parsed.toLocaleString(undefined, {
+	return parsed.toLocaleString('en-US', {
 		month: 'short',
 		day: 'numeric',
 		hour: 'numeric',

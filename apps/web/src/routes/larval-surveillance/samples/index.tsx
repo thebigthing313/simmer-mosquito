@@ -651,7 +651,7 @@ function SpeciesResults({
 				<span
 					className="inline-flex items-center gap-1 rounded-full border border-[var(--success)]/25 bg-[var(--success-bg)] px-2 py-0.5 text-[var(--success)] text-xs"
 					key={result.speciesId}
-					title={`${nameById.get(result.speciesId) ?? 'Unknown species'}: ${result.larvaeCount.toLocaleString()} larvae`}
+					title={`${nameById.get(result.speciesId) ?? 'Unknown species'}: ${result.larvaeCount.toLocaleString('en-US')} larvae`}
 				>
 					<span className="max-w-[8rem] truncate italic">
 						{nameById.get(result.speciesId) ?? 'Unknown species'}

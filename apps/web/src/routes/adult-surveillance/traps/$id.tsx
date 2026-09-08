@@ -354,7 +354,7 @@ function TrapCollectionsList({
 									{speciesCount(collection)}
 								</TableCell>
 								<TableCell className="text-right tabular-nums">
-									{femaleCount(collection).toLocaleString()}
+									{femaleCount(collection).toLocaleString('en-US')}
 								</TableCell>
 							</TableRow>
 						))}
@@ -474,7 +474,7 @@ function TrapSpeciesDistribution({
 				<>
 					<p className="text-muted-foreground text-xs">
 						<span className="font-medium text-foreground tabular-nums">
-							{distribution.grandTotal.toLocaleString()}
+							{distribution.grandTotal.toLocaleString('en-US')}
 						</span>{' '}
 						female specimens across{' '}
 						<span className="font-medium text-foreground tabular-nums">

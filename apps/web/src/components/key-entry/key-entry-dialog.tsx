@@ -627,7 +627,7 @@ function TallyList({
 				</span>
 				{total > 0 ? (
 					<span className="text-muted-foreground text-xs">
-						{total.toLocaleString()} {countLabel}
+						{total.toLocaleString('en-US')} {countLabel}
 					</span>
 				) : null}
 			</div>

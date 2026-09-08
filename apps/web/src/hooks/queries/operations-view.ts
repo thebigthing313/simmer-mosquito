@@ -307,7 +307,7 @@ export function formatScheduledStart(value: Date | string, timeZone: string | un
 	if (parsed === null) {
 		return typeof value === 'string' ? value : '';
 	}
-	return parsed.toLocaleString(undefined, {
+	return parsed.toLocaleString('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',
@@ -323,7 +323,7 @@ export function formatRequestedAt(value: Date | string, timeZone: string | undef
 	if (parsed === null) {
 		return typeof value === 'string' ? value : '';
 	}
-	return parsed.toLocaleDateString(undefined, {
+	return parsed.toLocaleDateString('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

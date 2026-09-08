@@ -670,7 +670,9 @@ function SpeciesResultList({
 		<div className="grid gap-1.5">
 			<div className="flex items-baseline justify-between gap-3">
 				<SectionLabel>Identified species</SectionLabel>
-				<span className="text-muted-foreground text-xs">{total.toLocaleString()} larvae total</span>
+				<span className="text-muted-foreground text-xs">
+					{total.toLocaleString('en-US')} larvae total
+				</span>
 			</div>
 			<ul className="grid gap-2">
 				{rows.map((row) => (
@@ -768,7 +770,7 @@ function SpeciesResultRow({
 				</>
 			) : (
 				<Badge tone="success" variant="outline">
-					<span className="tabular-nums">{row.larvaeCount.toLocaleString()}</span> larvae
+					<span className="tabular-nums">{row.larvaeCount.toLocaleString('en-US')}</span> larvae
 				</Badge>
 			)}
 		</li>
