@@ -33,11 +33,63 @@
 // upgraded: reworded, the match stops firing and the gate is off with nothing
 // to show for it. Only a run that reads a baseline is watched, so the fix,
 // `pnpm fallow:baseline`, cannot fail on the condition it removes.
+//
+// The save half is #668. `fallow health --save-baseline` writes the file and
+// then still exits non-zero over findings above its threshold, because saving
+// does not change what `health` gates on. A person reads past that. A script
+// does not, and `CLAUDE.md` names `pnpm fallow:baseline` as the thing to run
+// after real complexity comes out, so anything chaining off it stops on a
+// successful save. A save run's exit code is decided below instead.
 import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
 
 const args = process.argv.slice(2);
 const readsBaseline = args.includes('--baseline');
 const STALENESS_PATTERN = /health baseline is partially stale: \d+ of \d+ entries/;
+
+// The path `--save-baseline` was given, in either spelling fallow accepts, or
+// null when this run saves nothing.
+const savesBaseline = (() => {
+	const flag = args.indexOf('--save-baseline');
+	if (flag >= 0) return args[flag + 1] ?? null;
+	const inline = args.find((arg) => arg.startsWith('--save-baseline='));
+	return inline ? inline.slice('--save-baseline='.length) : null;
+})();
+
+/** Modification time of `path` in milliseconds, or null when there is no file. */
+const modifiedAt = (path) => {
+	try {
+		return statSync(path).mtimeMs;
+	} catch {
+		return null;
+	}
+};
+
+// Read before the child runs, so "did it write the file" is answered by the
+// timestamp moving rather than by the file being there: the baseline is checked
+// in, so an existence check would read every failed save as a successful one.
+const savedBefore = savesBaseline === null ? null : modifiedAt(savesBaseline);
+
+/** Whether this run asked for a baseline and the file's timestamp has moved. */
+const savedTheBaseline = () => {
+	if (savesBaseline === null) return false;
+	const savedAfter = modifiedAt(savesBaseline);
+	return savedAfter !== null && savedAfter !== savedBefore;
+};
+
+/** The code the run earns from the child's close code, before the staleness override. */
+const exitCodeFor = (code) => {
+	// A save run records findings rather than judging them, so findings above
+	// the threshold are what it is writing down and not a verdict on the tree:
+	// it exits 0 once the baseline is on disk. This is not a swallowed error.
+	// A child killed by a signal reports a null code and is a failure like any
+	// other, and a child that exited without moving the file's timestamp keeps
+	// its code, so a crash, a rejected argument and an unwritable path all
+	// still fail.
+	if (code !== null && savedTheBaseline()) return 0;
+
+	return code ?? 1;
+};
 
 const env = { ...process.env };
 
@@ -83,10 +135,9 @@ scan(child.stdout, process.stdout);
 scan(child.stderr, process.stderr);
 
 // Setting `exitCode` rather than calling `process.exit` lets the writes above
-// drain; nothing holds the loop open once the child has closed. A child killed
-// by a signal reports a null code, which is a failure like any other.
+// drain; nothing holds the loop open once the child has closed.
 child.on('close', (code) => {
-	process.exitCode = code ?? 1;
+	process.exitCode = exitCodeFor(code);
 	if (!warning) return;
 
 	console.error(`\n${warning}`);
