@@ -8,6 +8,7 @@ import {
 	setTrapCollectionCommand,
 	updateCollectionFieldDetailsCommand,
 	updateTrapConfigurationCommand,
+	updateTrapDetailsCommand,
 } from '../../adult-surveillance/index.js';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
@@ -52,16 +53,52 @@ describe('adult surveillance commands', () => {
 		});
 	});
 
-	it('requires a trap name or code', () => {
-		expect(() =>
+	// A create carries both fields whatever their values, so this is the one
+	// command that can read the rule off its own payload. The update path cannot,
+	// and states it on the server instead (#752).
+	it('requires a trap name or code on create, and says both field names', () => {
+		let raised: DomainValidationError | null = null;
+		try {
 			createTrapCommand({
 				organizationId,
 				actorProfileId,
 				trapId,
 				locationSource: { kind: 'geometry', geometry: pointGeometry },
 				collectionMethodId,
-			}),
-		).toThrow(DomainValidationError);
+			});
+		} catch (error) {
+			raised = error as DomainValidationError;
+		}
+
+		expect(raised).toBeInstanceOf(DomainValidationError);
+		expect(raised?.issues).toContainEqual({
+			path: 'trapDisplay',
+			message: 'At least one of trapName or trapCode is required.',
+		});
+	});
+
+	// The builder used to half-state the rule, refusing only the edit that moved
+	// both fields, which is the branch a clearing edit never takes. It states
+	// nothing now, so both of these build and the server decides.
+	it('builds a details update that clears a label, leaving the rule to the server', () => {
+		expect(
+			updateTrapDetailsCommand({
+				organizationId,
+				actorProfileId,
+				trapId,
+				trapName: null,
+			}).payload.changes,
+		).toEqual({ trapName: null });
+
+		expect(
+			updateTrapDetailsCommand({
+				organizationId,
+				actorProfileId,
+				trapId,
+				trapName: null,
+				trapCode: null,
+			}).payload.changes,
+		).toEqual({ trapName: null, trapCode: null });
 	});
 
 	it('rejects invalid optional ids while creating traps', () => {

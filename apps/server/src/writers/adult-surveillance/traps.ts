@@ -5,6 +5,7 @@ import {
 	sql,
 } from '@simmer-mosquito/db';
 import type { AdultSurveillanceCommand } from '@simmer-mosquito/domain';
+import { CommandError } from '../../command-endpoint.js';
 import {
 	assertCitedHistoryAcknowledged,
 	assertTrapCodeAcknowledged,
@@ -68,6 +69,11 @@ export async function writeTrapCommand(
 			return row;
 		}
 		case 'adultSurveillance.updateTrapDetails':
+			await assertTrapDisplayRemains(trx, {
+				trapId: command.payload.trapId,
+				organizationId: command.payload.organizationId,
+				changes: command.payload.changes,
+			});
 			// A collection stores `trap_id` and nothing about what the trap was
 			// called, so renaming or recoding one relabels every collection ever
 			// taken from it. The description is not what a collection is read back
@@ -174,6 +180,89 @@ export async function writeTrapCommand(
 		default:
 			throw new Error(`Unsupported trap command: ${command.type}`);
 	}
+}
+
+/**
+ * Refuse an edit that would leave a Trap carrying neither a name nor a code.
+ *
+ * The one home for the rule on the update path. The domain builder states it
+ * for a create, where both values are genuinely in the payload, and cannot
+ * state it here: a mutation body is a diff, so clearing the name sends that
+ * column alone and the stored code never reaches the builder. Reading the rule
+ * against the fields the edit named let a Trap end up with neither (#752), so
+ * it is read against the row as it will stand instead.
+ *
+ * An edit naming only the description asks nothing and reads nothing, which is
+ * the check the `relabels` line below states for the acknowledgement.
+ */
+async function assertTrapDisplayRemains(
+	trx: AdultSurveillanceTransaction,
+	input: TrapDisplayInput,
+): Promise<void> {
+	if (!('trapName' in input.changes || 'trapCode' in input.changes)) {
+		return;
+	}
+	const after = await trapLabelsAfter(trx, input);
+	// No such trap. The update below finds the same nothing and answers 404,
+	// which is the more useful of the two refusals.
+	if (after === null) {
+		return;
+	}
+	if (carriesText(after.trapName) || carriesText(after.trapCode)) {
+		return;
+	}
+	throw new CommandError(400, {
+		error: 'trap_display_required',
+		reason: 'A trap needs a name or a code. Keep one of the two.',
+	});
+}
+
+interface TrapDisplayInput {
+	readonly trapId: string;
+	readonly organizationId: string;
+	readonly changes: {
+		readonly trapName?: string | null;
+		readonly trapCode?: string | null;
+	};
+}
+
+/**
+ * The Trap's two labels as this edit will leave them, or null when there is no
+ * such Trap to read.
+ *
+ * The incoming value for a field the edit names, the stored value for one it
+ * does not. Which is the whole of why the rule cannot be a domain rule: only
+ * this side has the second half.
+ */
+async function trapLabelsAfter(
+	trx: AdultSurveillanceTransaction,
+	input: TrapDisplayInput,
+): Promise<{ readonly trapName: string | null; readonly trapCode: string | null } | null> {
+	const stored = await trx
+		.selectFrom('traps')
+		.select(['trap_name', 'trap_code'])
+		.where('id', '=', input.trapId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	if (stored === undefined) {
+		return null;
+	}
+	return {
+		trapName: 'trapName' in input.changes ? (input.changes.trapName ?? null) : stored.trap_name,
+		trapCode: 'trapCode' in input.changes ? (input.changes.trapCode ?? null) : stored.trap_code,
+	};
+}
+
+/**
+ * Whether a label is something an operator could read a Trap back under.
+ *
+ * `traps.trap_name` and `traps.trap_code` are plain text with no CHECK, so a
+ * row written before this rule existed can hold an empty string, which is as
+ * good as absent on screen.
+ */
+function carriesText(value: string | null | undefined): boolean {
+	return typeof value === 'string' && value.trim().length > 0;
 }
 
 async function updateTrap(

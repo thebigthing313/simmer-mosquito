@@ -161,7 +161,10 @@ source record's owned geometry onto the target row.
 
 Trap create/reactivate/update must preserve:
 
-- At least one of `trap_name` or `trap_code`.
+- At least one of `trap_name` or `trap_code`. A create carries both fields, so
+  the domain builder states it. An update carries only the fields the edit
+  named, so the server reads the rule against the row as the edit will leave it,
+  and that is the only place the update path states it.
 - Duplicate active `trap_code` values are allowed only with acknowledgement.
 - Duplicate code checks are scoped to active, non-deleted traps in the same org,
   trim whitespace, and compare case-insensitively.

@@ -1,22 +1,27 @@
 /**
  * The history check and the collision check, refusing over real HTTP.
  *
- * Every case sends its flag as `false`, which is the only way to withhold one:
- * `acknowledged()` reads an absent flag as confirmed, deliberately, so that no
- * write a client makes today starts failing. Nothing in `apps/web` sends
- * `false` for any of these yet, and #319 is that half. Without these cases the
- * guards would be correct and unexercised, and would stay that way until a form
- * asked, by which point nobody would remember what the answer was supposed to
- * be.
+ * Every acknowledgement case sends its flag as `false`, which is the only way
+ * to withhold one: `acknowledged()` reads an absent flag as confirmed,
+ * deliberately, so that no write a client makes today starts failing. Nothing
+ * in `apps/web` sends `false` for any of these yet, and #319 is that half.
+ * Without these cases the guards would be correct and unexercised, and would
+ * stay that way until a form asked, by which point nobody would remember what
+ * the answer was supposed to be.
  *
- * Every case also asserts the row is untouched. Both checks run before the
- * first write, and a refusal that has already written half of what it was going
- * to is worse than no refusal.
+ * Every acknowledgement case also asserts the row is untouched. Both checks run
+ * before the first write, and a refusal that has already written half of what
+ * it was going to is worse than no refusal.
  *
  * The pair to read together is the rename with citing rows and the rename
  * without them. The second is the whole of the "what counts as history"
  * decision: any citing row asks, none asks nothing, and there is no interval
  * anywhere.
+ *
+ * The trap section holds one refusal that is neither a history question nor a
+ * collision: a Trap has to keep a name or a code, and the rule is here because
+ * this is where the trap write surface is driven over real HTTP. It is a
+ * refusal rather than a question, so it takes no flag and nothing gets past it.
  */
 
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
@@ -186,6 +191,136 @@ describeDbIntegration('history and collision refusals', () => {
 				.where('id', '=', trapId)
 				.executeTakeFirstOrThrow();
 			expect(trap.trap_code).toBeNull();
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// A trap edit that would leave the trap with no label at all
+	// -----------------------------------------------------------------------
+
+	it('refuses clearing a trap name when the trap carries no code, and writes nothing', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, { trap_name: 'North gate' });
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], { trap_name: null }),
+			);
+
+			expect(response.status).toBe(400);
+			await expect(response.json()).resolves.toMatchObject({
+				error: 'trap_display_required',
+				reason: 'A trap needs a name or a code. Keep one of the two.',
+			});
+
+			const trap = await db
+				.selectFrom('traps')
+				.select(['trap_name'])
+				.where('id', '=', trapId)
+				.executeTakeFirstOrThrow();
+			expect(trap.trap_name).toBe('North gate');
+		});
+	});
+
+	// The other direction of the same rule. Neither field is the one that has to
+	// survive, so a suite covering only the name would leave half of it untested.
+	it('refuses clearing a trap code when the trap carries no name', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, {
+				trap_name: null,
+				trap_code: 'NG-1',
+			});
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], { trap_code: null }),
+			);
+
+			expect(response.status).toBe(400);
+			await expect(response.json()).resolves.toMatchObject({ error: 'trap_display_required' });
+		});
+	});
+
+	it('refuses clearing both labels in one edit', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, {
+				trap_name: 'North gate',
+				trap_code: 'NG-1',
+			});
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], {
+					trap_name: null,
+					trap_code: null,
+				}),
+			);
+
+			expect(response.status).toBe(400);
+			await expect(response.json()).resolves.toMatchObject({ error: 'trap_display_required' });
+		});
+	});
+
+	it('takes a cleared trap name when a code is left behind', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, {
+				trap_name: 'North gate',
+				trap_code: 'NG-1',
+			});
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], { trap_name: null }),
+			);
+
+			expect(response.status).toBe(200);
+
+			const trap = await db
+				.selectFrom('traps')
+				.select(['trap_name', 'trap_code'])
+				.where('id', '=', trapId)
+				.executeTakeFirstOrThrow();
+			expect(trap.trap_name).toBeNull();
+			expect(trap.trap_code).toBe('NG-1');
+		});
+	});
+
+	// The description is not a label, so an edit naming it alone is not made to
+	// answer this rule even on a trap that would fail it.
+	it('takes a description edit on a trap carrying only a name', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, { trap_name: 'North gate' });
+
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], {
+					description: 'Beside the gate',
+				}),
+			);
+
+			expect(response.status).toBe(200);
+
+			const trap = await db
+				.selectFrom('traps')
+				.select(['description'])
+				.where('id', '=', trapId)
+				.executeTakeFirstOrThrow();
+			expect(trap.description).toBe('Beside the gate');
 		});
 	});
 

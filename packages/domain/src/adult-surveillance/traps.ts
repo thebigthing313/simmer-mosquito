@@ -188,9 +188,11 @@ export function updateTrapDetailsCommand(
 		'At least one trap detail must change.',
 		issues,
 	);
-	if (changes.trapName !== undefined && changes.trapCode !== undefined) {
-		validateTrapDisplay(changes.trapName, changes.trapCode, issues);
-	}
+	// The name-or-code rule is not stated here. A mutation body is a diff, so an
+	// edit that clears the name sends that column alone and the code never
+	// reaches this builder. Reading the rule against the fields the edit happens
+	// to name let a Trap end up carrying neither (#752), so it is asserted once,
+	// in the server's writer, against the row as it will stand.
 	throwIfIssues('Update trap details command is invalid.', issues);
 
 	return {
