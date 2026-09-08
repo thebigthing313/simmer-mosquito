@@ -2,6 +2,7 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -287,16 +288,10 @@ function SampleHeader({
 	readonly canManage: boolean;
 }) {
 	return (
-		<div className="flex flex-wrap items-start justify-between gap-3">
-			<div className="grid gap-1.5">
-				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					<SampleIcon aria-hidden="true" className="size-3.5" />
-					Larval sample
-				</span>
-				<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-					{sampleName(geo)}
-				</h1>
-				<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-[0.95rem] text-muted-foreground">
+		<PageHeader
+			actions={<AccessBadge canManage={canManage} />}
+			description={
+				<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
 					<CalendarIcon aria-hidden="true" className="size-4" />
 					<span>Collected {formatFullDate(geo.inspectionDate)}</span>
 					{geo.habitatId === null ? (
@@ -318,9 +313,11 @@ function SampleHeader({
 						</>
 					)}
 				</p>
-			</div>
-			<AccessBadge canManage={canManage} />
-		</div>
+			}
+			eyebrow="Larval sample"
+			icon={SampleIcon}
+			title={sampleName(geo)}
+		/>
 	);
 }
 

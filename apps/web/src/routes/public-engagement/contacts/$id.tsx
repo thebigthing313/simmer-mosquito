@@ -1,4 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -17,7 +18,6 @@ import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -78,7 +78,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 				/>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<>
 							{/*
@@ -111,7 +111,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					title={name}
 					{...(contact.title === null && contact.company === null
 						? {}
-						: { subtitle: [contact.title, contact.company].filter(Boolean).join(' · ') })}
+						: { description: [contact.title, contact.company].filter(Boolean).join(' · ') })}
 				/>
 			}
 			layout={layout}

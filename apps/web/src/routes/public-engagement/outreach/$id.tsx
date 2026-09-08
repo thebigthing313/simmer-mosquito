@@ -1,5 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -20,7 +21,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -106,7 +106,7 @@ function OutreachDetailContent({
 				</>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<WriteOnly>
 							<Button asChild size="sm" variant="outline">
@@ -119,7 +119,7 @@ function OutreachDetailContent({
 					}
 					eyebrow="Outreach"
 					icon={OutreachIcon}
-					subtitle={`${formatReach(action.reach)} reached on ${formatActionDate(action.outreachDate)}`}
+					description={`${formatReach(action.reach)} reached on ${formatActionDate(action.outreachDate)}`}
 					title={methodName}
 				/>
 			}

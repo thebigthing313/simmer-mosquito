@@ -7,6 +7,7 @@ import {
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -271,23 +272,21 @@ function HabitatDetailContent({
 
 function HabitatDetailHeader({ habitat }: { readonly habitat: Habitat }) {
 	return (
-		<div className="flex flex-wrap items-start justify-between gap-3">
-			<div className="grid gap-1">
-				<h1 className="m-0 text-[1.5rem] leading-tight font-semibold text-foreground">
-					{habitat.name}
-				</h1>
-				<Suspense fallback={<span className="text-sm text-muted-foreground">Loading type…</span>}>
+		<PageHeader
+			actions={<HabitatStateBadges habitat={habitat} />}
+			description={
+				<Suspense fallback={<span>Loading type…</span>}>
 					<HabitatTypeLabel habitatTypeId={habitat.typeId} />
 				</Suspense>
-			</div>
-			<HabitatStateBadges habitat={habitat} />
-		</div>
+			}
+			title={habitat.name}
+		/>
 	);
 }
 
 function HabitatTypeLabel({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
 	const typeName = useHabitatTypeName(habitatTypeId);
-	return <span className="text-[0.95rem] text-muted-foreground">{typeName}</span>;
+	return <span>{typeName}</span>;
 }
 
 function HabitatStateBadges({ habitat }: { readonly habitat: Habitat }) {

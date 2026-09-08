@@ -1,4 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -55,7 +56,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -143,7 +143,7 @@ function TrapDetailContent({
 				</>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<>
 							<StatusBadge isActive={trap.isActive} />
@@ -159,7 +159,7 @@ function TrapDetailContent({
 					}
 					eyebrow="Trap"
 					icon={TrapIcon}
-					subtitle={methodName}
+					description={methodName}
 					title={trapDisplayName(trap)}
 				/>
 			}

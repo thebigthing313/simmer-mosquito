@@ -1,3 +1,4 @@
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -73,21 +74,12 @@ function PublicEngagementOverviewRoute() {
 	return (
 		<OutletSimpleLayout>
 			<div className="grid gap-6">
-				<header className="grid gap-1.5">
-					<div className="flex items-center gap-2 text-muted-foreground">
-						<PublicIcon aria-hidden="true" className="size-4" />
-						<span className="font-medium text-xs uppercase tracking-wide">
-							Community engagement
-						</span>
-					</div>
-					<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-						Public Engagement
-					</h1>
-					<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-						Service requests reported by the public, the outreach your crews do, and the contacts
-						behind both.
-					</p>
-				</header>
+				<PageHeader
+					description="Service requests reported by the public, the outreach your crews do, and the contacts behind both."
+					eyebrow="Community engagement"
+					icon={PublicIcon}
+					title="Public Engagement"
+				/>
 
 				{/*
 				 * `items-start` so a short panel keeps its own height rather than

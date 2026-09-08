@@ -1,3 +1,4 @@
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -66,22 +67,20 @@ function ContactsExplorerRoute() {
 	return (
 		<OutletSimpleLayout>
 			<div className="grid gap-4">
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">Contacts</h1>
-						<p className="m-0 text-muted-foreground text-sm">
-							The people you engage with on service requests and notifications.
-						</p>
-					</div>
-					<WriteOnly minimum="manager">
-						<Button asChild size="sm">
-							<Link to="/public-engagement/contacts/create">
-								<PlusIcon aria-hidden="true" data-icon="inline-start" />
-								Create
-							</Link>
-						</Button>
-					</WriteOnly>
-				</div>
+				<PageHeader
+					actions={
+						<WriteOnly minimum="manager">
+							<Button asChild size="sm">
+								<Link to="/public-engagement/contacts/create">
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									Create
+								</Link>
+							</Button>
+						</WriteOnly>
+					}
+					description="The people you engage with on service requests and notifications."
+					title="Contacts"
+				/>
 
 				<SearchInput
 					className="max-w-md"

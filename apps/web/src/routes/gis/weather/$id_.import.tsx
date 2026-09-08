@@ -1,4 +1,5 @@
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -197,14 +198,10 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 					Back to {station.name}
 				</Link>
 
-				<div className="grid gap-1.5">
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						Import Readings
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						Load a CSV or Excel file of readings for {station.name}.
-					</p>
-				</div>
+				<PageHeader
+					description={`Load a CSV or Excel file of readings for ${station.name}.`}
+					title="Import Readings"
+				/>
 
 				<FilePickerCard isBusy={upload.isBusy} onFile={upload.chooseFile} />
 

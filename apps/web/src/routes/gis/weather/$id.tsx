@@ -1,4 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -25,7 +26,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -145,7 +145,7 @@ function StationHeader({
 	readonly isOwned: boolean;
 }) {
 	return (
-		<RecordDetailHeader
+		<PageHeader
 			actions={
 				<>
 					<StationStatusBadge isActive={station.isActive} />
@@ -163,7 +163,7 @@ function StationHeader({
 			}
 			eyebrow="Weather station"
 			icon={WeatherIcon}
-			subtitle={weatherSourceTypeLabel(station.sourceType)}
+			description={weatherSourceTypeLabel(station.sourceType)}
 			title={station.name}
 		/>
 	);

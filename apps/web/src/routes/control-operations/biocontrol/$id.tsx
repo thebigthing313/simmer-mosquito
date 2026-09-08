@@ -1,5 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -22,7 +23,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -120,7 +120,7 @@ function BiocontrolDetailContent({
 				</>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<>
 							<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />
@@ -136,7 +136,7 @@ function BiocontrolDetailContent({
 					}
 					eyebrow="Biocontrol"
 					icon={BiocontrolIcon}
-					subtitle={`${amountLabel} released on ${formatActionDate(action.actionDate)}`}
+					description={`${amountLabel} released on ${formatActionDate(action.actionDate)}`}
 					title={methodName}
 				/>
 			}
