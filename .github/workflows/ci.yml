@@ -307,6 +307,17 @@ jobs:
       - name: Session credentials
         run: pnpm check:session-credentials
 
+      # The React Compiler reports through a `logger` and nowhere else, and the
+      # rollout in #649 accepts on "every component compiles or carries a
+      # deliberate opt-out with a reason", which nothing could check. This runs
+      # `babel-plugin-react-compiler` over the four React source trees at
+      # `compilationMode: 'infer'` and asks two questions: zero unexcused
+      # bail-outs inside the phase allowlist, and the ratcheted file register
+      # outside it, unmoved in either direction. Last of the gates because it is
+      # the slowest, at about 25 seconds.
+      - name: Compiler bail-outs
+        run: pnpm check:compiler-bailouts
+
       - name: Typecheck
         run: pnpm typecheck
 
