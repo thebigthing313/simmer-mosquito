@@ -182,13 +182,29 @@ seconds, and vitest isolates modules per file, so **a new link case goes in the
 existing file** rather than opening a second suite that pays it again. A case
 asserting only the `to` prop is not worth writing; assert the href.
 
+**`scripts/` is a project too, and it has no `src` tree to mirror.** The static
+gates and the modules they share are `.mjs` at `scripts/` and `scripts/lib/`,
+and converting them to TypeScript is not on the table, so the vitest project
+there keeps its suites at `scripts/src/tests/unit/` mirroring the directory the
+module sits in: `scripts/lib/masked-source.mjs` is covered by
+`scripts/src/tests/unit/lib/masked-source.test.ts`, and a second suite over
+another module in `lib/` is a second file beside it. The project compiles
+`src/**/*.ts` the way every other one does, so the suite is typechecked, and it
+reaches the module it covers through a hand-written `.d.mts` next to that
+module, which is how `packages/ui-web`'s contrast guard has read
+`stylesheet-tokens.mjs` since it shipped. A declaration file emits nothing and
+sits outside `rootDir` without complaint, which is the whole reason that shape
+works. The `test` script is `vitest run src` with no `--passWithNoTests`, unlike
+every other project: this one exists for its suites, so a run that collects
+nothing is a failure rather than a pass (#665).
+
 ### Build toolchain
 
 The workspace is on **TypeScript 7** (`typescript@7.0.2`, the native compiler), and `tsc` is the only compiler: every project's `build` is `tsc -b` and every `typecheck` is `tsc -p tsconfig.json --noEmit --pretty false`. There are no per-compiler fallback targets. The old `:ts6` (TypeScript 6 `tsc`) and `:ts7` (`tsgo` from `@typescript/native-preview`) variants, and the `typcheck:ts6` typo alias, are gone. Don't reintroduce a second compiler path; if `tsc` misbehaves, fix it or pin the version at the root.
 
 **A cross-package import needs a tsconfig `references` entry, not only a dependency.** Which project depends on which is declared twice. Nx orders `pnpm build` and `pnpm typecheck` from package.json dependencies; `tsc -b` orders from tsconfig `references`. Every deploy runs `pnpm --filter <app> build`, which is `tsc -b` alone, so a missing reference is green in CI and red on the deploy. That is #175. It hides locally too, because a `dist` left by any earlier full build satisfies the import. `pnpm check:build-graph` asserts the two graphs name the same edges; CI's `Shipped build` job builds each app the way its Dockerfile does, on a clean tree.
 
-The root `tsconfig.json` is a third declaration: a solution file whose `references` are the whole of what `tsc -b` at the root builds. No script runs it, so an incomplete one used to be invisible, and it named 8 of 12 projects while a root build still exited 0 (#178). `check:build-graph` now also asserts the solution names every workspace project, so **a new project needs an entry there too**. It asserts one more thing that is not a build order at all: that every export subpath resolving to `dist/` names the source behind it in a `fallow` condition, which is what keeps the dead-code gate independent of build state (#334, and the rot gates section above).
+The root `tsconfig.json` is a third declaration: a solution file whose `references` are the whole of what `tsc -b` at the root builds. No script runs it, so an incomplete one used to be invisible, and it named 8 of 12 projects while a root build still exited 0 (#178). `check:build-graph` now also asserts the solution names every workspace project, so **a new project needs an entry there too**. Which projects those are comes from `pnpm-workspace.yaml`, and that file now writes two shapes: `apps/*` and `packages/*` name a parent whose subdirectories are projects, and a plain `scripts` names one project directly (#665). The gate reads both and still refuses anything else, because a pattern it cannot read is a slice of the workspace going unchecked with nothing saying so. It asserts one more thing that is not a build order at all: that every export subpath resolving to `dist/` names the source behind it in a `fallow` condition, which is what keeps the dead-code gate independent of build state (#334, and the rot gates section above).
 
 One deliberate exception, in `pnpm.packageExtensions` at the root: **Nx gets its own private `typescript@6.0.3`**. Nx's project-graph plugins (`@nx/js/typescript` and the built-in `nx/js/dependencies-and-lockfile`) `require('typescript')` and call the classic JS compiler API (`ts.readConfigFile`, `ts.Extension`), which TypeScript 7's package no longer exposes. Handed TS 7 they die with `tsModule.readConfigFile is not a function` and the whole graph fails to build, so nothing runs. This is still true on the latest Nx (23.x), so it is not fixed by upgrading. The extension pins TS 6 *inside* Nx's own `node_modules`, where Node's resolution finds it before walking up to the root, so nothing the workspace compiles ever sees it. Drop the extension only once Nx stops needing the legacy API.
 

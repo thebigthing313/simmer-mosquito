@@ -3,6 +3,13 @@
 
 	// Nx/pnpm monorepo. Both globs are already in pnpm-workspace.yaml; fallow
 	// discovers them on its own, but stating them keeps the scope explicit.
+	//
+	// `scripts` is a third pnpm workspace package since #665 and is deliberately
+	// not listed. fallow already reads it: the entry points below name two
+	// modules under it, and the dependency check answers against the package.json
+	// beside them. Adding the pattern would move the gate scripts into the
+	// duplication corpus, which is a measurement of its own rather than a
+	// bookkeeping edit.
 	"workspaces": {
 		"patterns": ["apps/*", "packages/*"]
 	},
