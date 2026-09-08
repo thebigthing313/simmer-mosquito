@@ -10,6 +10,7 @@
 		"changeset:status": "changeset status --since=origin/staging",
 		"check": "biome check --error-on-warnings .",
 		"check:acknowledgements": "node scripts/check-acknowledgements.mjs",
+		"check:all": "node scripts/check-all.mjs",
 		"check:build-graph": "node scripts/check-build-graph.mjs",
 		"check:color-maths": "node scripts/check-color-maths.mjs",
 		"check:column-vocabularies": "node scripts/check-column-vocabularies.mjs",

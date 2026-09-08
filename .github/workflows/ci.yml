@@ -48,6 +48,20 @@ jobs:
       - name: Lint and format
         run: pnpm check
 
+      # The gate steps below are what `pnpm check:all` runs locally, and this is
+      # the one step that holds the two to each other. It parses the `check:*`
+      # scripts out of the root package.json and the `pnpm check:*` steps out of
+      # this job, and fails when either names something the other does not. So a
+      # new gate that is added to package.json and not to this job fails here,
+      # rather than passing CI while a contributor's `pnpm check:all` runs it.
+      #
+      # This job keeps a step per gate rather than calling `pnpm check:all`,
+      # because a failed step is a named line in the GitHub UI and one aggregate
+      # step would be a log a reader scrolls. It runs no gate, so it costs a
+      # parse.
+      - name: Static gate list
+        run: pnpm check:all --list
+
       # The cheapest of the structural gates, and the only one that can see a
       # build-order drift. `typecheck` and `build` both go through Nx, so they
       # order from the package.json dependency graph and can never disagree with
