@@ -1,4 +1,4 @@
-import { VectorTile } from '@mapbox/vector-tile';
+import { VectorTile, type VectorTileFeature } from '@mapbox/vector-tile';
 import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
@@ -66,6 +66,7 @@ import {
 	mapSurfacePlace,
 	mapSurfaceRowIds,
 	mapSurfaceSampleOnDeletedInspectionId,
+	mapSurfaceSplitHabitatIds,
 	mapSurfaceStampedCollectionIds,
 	mapSurfaceStampedTimeZone,
 	mapSurfaceStampedTypedDay,
@@ -73,6 +74,7 @@ import {
 	mapSurfaceStatusCollections,
 	seedLateCollection,
 	seedMapSurfaces,
+	seedSplitHabitats,
 	seedStampedCollections,
 	seedStatusCollections,
 } from '../../../seeds/map-surfaces.js';
@@ -263,6 +265,11 @@ const page = { limit: 50, offset: 0 };
 // holds those to each other is `map-surface-sql.test.ts`, which pins the shipped
 // query text for all forty-one reads, so a changed SRID or envelope there is a
 // snapshot diff rather than a case that stays green while the map breaks.
+//
+// The case below it seeds the same two shapes as habitats and reads them back
+// through `getHabitatMvtTile`, decoding the tile rather than the geometry. That
+// one builds no envelope of its own, so between them the shapes are asked both
+// what the encoder does to them and what the shipped reader returns (#659).
 
 /** A lot inside `mapSurfacePlace.tile`, drawn in one piece. */
 const UNCUT_LOT = 'POLYGON((-90.51 35.49, -90.49 35.49, -90.49 35.51, -90.51 35.51, -90.51 35.49))';
@@ -669,7 +676,127 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			expect(splitAndDisjoint.encoded_parts).toBe(2);
 		});
 	});
+
+	it('hands a split record back through the tile reader with its parts intact', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedSplitHabitats(db, {
+				split: SPLIT_LOT,
+				splitAndDisjoint: SPLIT_LOT_AND_ONE_MORE,
+			});
+
+			// The reader builds the transform and the envelope. Nothing here does,
+			// which is the whole of this case: the one above asks `ST_AsMVTGeom` a
+			// question through an encoder call it writes itself, and what that call
+			// agrees with is a copy rather than the shipped read.
+			const tile = await getHabitatMvtTile(db, {
+				...mapSurfacePlace.tile,
+				organizationId: mapSurfaceOrganizationIds.own,
+			});
+
+			const drawn = featureGeometries(tile, 'habitats', mapSurfacePlace.tile);
+
+			// Both cut habitats are in the layer, beside the shared seed's uncut one.
+			// A record dropped on the way through the encoder would leave the other
+			// assertions with nothing to read.
+			expect([...drawn.keys()].sort()).toEqual(
+				[
+					mapSurfaceRowIds.habitat.inside,
+					mapSurfaceSplitHabitatIds.split,
+					mapSurfaceSplitHabitatIds.splitAndDisjoint,
+				].sort(),
+			);
+
+			// The cut halves come back dissolved into one drawable part, and the
+			// piece that sits apart comes back as its own. This is what the inline
+			// case cannot ask: it holds the geometry before `ST_AsMVT` and this
+			// holds the tile after it.
+			expect(decodedShape(drawn, mapSurfaceSplitHabitatIds.split)).toEqual({
+				type: 'Polygon',
+				parts: 1,
+			});
+			expect(decodedShape(drawn, mapSurfaceSplitHabitatIds.splitAndDisjoint)).toEqual({
+				type: 'MultiPolygon',
+				parts: 2,
+			});
+
+			// Every ring closes over ground. A part collapsed to a line still
+			// encodes to bytes and still counts as a part, so the count above is
+			// only worth reading with this beside it.
+			for (const id of Object.values(mapSurfaceSplitHabitatIds)) {
+				expect(Math.min(...ringLengths(drawn, id))).toBeGreaterThanOrEqual(4);
+			}
+		});
+	});
 });
+
+/** The geometry a decoded feature carries, whatever GeoJSON shape it turns out to be. */
+type DecodedGeometry = ReturnType<VectorTileFeature['toGeoJSON']>['geometry'];
+
+/** What a decoded record draws as: its GeoJSON type, and how many parts it has. */
+interface DecodedShape {
+	readonly type: string;
+	readonly parts: number;
+}
+
+/**
+ * The geometry each of a tile's features decodes to, keyed by its id property.
+ *
+ * `featureIds` next door reads properties, which is all the scope questions
+ * need. A record with more than one part can only be asked about through its
+ * geometry, and `toGeoJSON` is what turns the tile's encoded rings back into
+ * parts that can be counted.
+ */
+function featureGeometries(
+	tile: Uint8Array,
+	layerName: string,
+	place: { readonly z: number; readonly x: number; readonly y: number },
+): ReadonlyMap<string, DecodedGeometry> {
+	const layer = new VectorTile(new PbfReader(tile)).layers[layerName];
+	if (layer === undefined) {
+		throw new Error(`Tile carries no ${layerName} layer.`);
+	}
+
+	return new Map(
+		Array.from({ length: layer.length }, (_unused, index) => {
+			const feature = layer.feature(index);
+			const { geometry } = feature.toGeoJSON(place.x, place.y, place.z);
+			return [String(feature.properties.id), geometry] as const;
+		}),
+	);
+}
+
+/** One decoded record's shape, throwing rather than letting a missing feature read as null. */
+function decodedShape(geometries: ReadonlyMap<string, DecodedGeometry>, id: string): DecodedShape {
+	const geometry = polygonal(geometries, id);
+	return {
+		type: geometry.type,
+		parts: geometry.type === 'Polygon' ? 1 : geometry.coordinates.length,
+	};
+}
+
+/** How many positions each of a decoded record's rings holds. */
+function ringLengths(geometries: ReadonlyMap<string, DecodedGeometry>, id: string): number[] {
+	const geometry = polygonal(geometries, id);
+	const parts = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+
+	return parts.flatMap((rings) => rings.map((ring) => ring.length));
+}
+
+function polygonal(
+	geometries: ReadonlyMap<string, DecodedGeometry>,
+	id: string,
+): Extract<DecodedGeometry, { type: 'Polygon' | 'MultiPolygon' }> {
+	const geometry = geometries.get(id);
+	if (geometry === undefined) {
+		throw new Error(`The tile drew nothing for ${id}.`);
+	}
+	if (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon') {
+		throw new Error(`${id} drew as ${geometry.type} rather than as an area.`);
+	}
+
+	return geometry;
+}
 
 /** One encoded shape by name, throwing rather than letting a lost row read as null. */
 function encodedShape(rows: readonly EncodedShapeRow[], id: EncodedShapeName): EncodedShapeRow {
