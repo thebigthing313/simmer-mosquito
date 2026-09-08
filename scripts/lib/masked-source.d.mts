@@ -28,6 +28,18 @@ export interface SourceScan {
 	readonly masked: string;
 }
 
+/**
+ * A reader: the index past what it consumed, or null when it read nothing.
+ *
+ * The state it is handed is the walk's own and is opaque here, because a reader
+ * written outside the module has no business reading it. The contract is the
+ * return: greater than `at`, always, or `step` throws (#666).
+ */
+export type SourceReader = (state: unknown, at: number) => number | null;
+
+/** Which character opens which read. `READERS` in the module has the contract. */
+export const READERS: Record<string, SourceReader>;
+
 export function scan(source: string): SourceScan;
 
 export function maskedSource(source: string): string;
