@@ -27,7 +27,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -123,7 +123,7 @@ function ServiceRequestsExplorerRoute() {
 
 	// The catalog drives both the filter options and the per-card chip labels.
 	const { byId: tagById } = useTagOptions();
-	const availableTags = useMemo(() => [...tagById.values()], [tagById]);
+	const availableTags = [...tagById.values()];
 
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to.
@@ -135,16 +135,10 @@ function ServiceRequestsExplorerRoute() {
 	const status = query.status;
 	const selectedTagIds = query.tags;
 	const selectedRegionIds = query.regions;
-	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
-	const setSelectedTagIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ tags: next }),
-		[setFilters],
-	);
-	const setSelectedRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setSelectedTagIds = (next: ReadonlySet<string>) => setFilters({ tags: next });
+	const setSelectedRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: search,
 		setInput: setSearch,
@@ -152,18 +146,18 @@ function ServiceRequestsExplorerRoute() {
 	} = useDebouncedTextFilter(query.search, commitSearch);
 	// Both halves: the field the operator is looking at, and the committed term on
 	// the URL that is actually cutting the list.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 	// Both halves: the field the operator is looking at, and the committed set on
 	// the URL that is actually cutting the list. One patch, one navigation, since
 	// two calls would each read the same prior search and the second would undo
 	// the first.
-	const clearAll = useCallback(() => {
+	const clearAll = () => {
 		setSearch('');
 		setFilters({ search: '', tags: new Set(), regions: new Set(), status: 'open' });
-	}, [setSearch, setFilters]);
+	};
 	const regions = useRegionOptions();
 	// Requests are filtered from rows already synced here, so region membership is
 	// answered against the boundaries directly rather than by the server.
@@ -180,20 +174,16 @@ function ServiceRequestsExplorerRoute() {
 	const selectedRegionKey = [...selectedRegionIds].sort().join(',');
 	const taggedRequestIds = useRequestIdsForTags(selectedTagIds);
 
-	const filtered = useMemo(
-		() =>
-			requests.filter((request) =>
-				matchesRequest(request, {
-					containsPoint: regionMembership.contains,
-					search: search.trim().toLowerCase(),
-					status,
-					taggedRequestIds: selectedTagIds.size === 0 ? null : taggedRequestIds,
-				}),
-			),
-		[requests, status, search, selectedTagIds, taggedRequestIds, regionMembership],
+	const filtered = requests.filter((request) =>
+		matchesRequest(request, {
+			containsPoint: regionMembership.contains,
+			search: search.trim().toLowerCase(),
+			status,
+			taggedRequestIds: selectedTagIds.size === 0 ? null : taggedRequestIds,
+		}),
 	);
 
-	const legend = useMemo(() => serviceRequestLegend(status), [status]);
+	const legend = serviceRequestLegend(status);
 
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset paging when the filter set changes.
@@ -214,13 +204,11 @@ function ServiceRequestsExplorerRoute() {
 	const tagsByRequestId = useEntityTags(toDbEntityType('serviceRequest'), visibleRequestIds);
 	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
 
-	const geoJson = useMemo(() => requestFeatures(filtered), [filtered]);
+	const geoJson = requestFeatures(filtered);
 	// These points come from local rows, so the camera frames the filtered set
 	// straight from the list rather than asking the server for an extent.
-	const mappedBounds = useMemo(
-		() =>
-			boundsFromCoordinates(mappable(filtered).map((r) => ({ lng: r.longitude, lat: r.latitude }))),
-		[filtered],
+	const mappedBounds = boundsFromCoordinates(
+		mappable(filtered).map((r) => ({ lng: r.longitude, lat: r.latitude })),
 	);
 
 	// Fly to a request when it becomes focused (list click or map click).
@@ -566,7 +554,7 @@ function useStableIds(ids: readonly string[]): readonly string[] {
 	// `biome-ignore`, and that is a memo the React Compiler cannot reproduce
 	// (`PreserveManualMemo`, #823). Ids are UUIDs and carry no comma, so splitting
 	// the key back is lossless.
-	return useMemo(() => (key === '' ? [] : [...new Set(key.split(','))].sort()), [key]);
+	return key === '' ? [] : [...new Set(key.split(','))].sort();
 }
 
 /**
@@ -593,7 +581,7 @@ function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<
 
 	const assignments = result.data;
 
-	return useMemo(() => new Set(assignments.map((item) => item.entityId)), [assignments]);
+	return new Set(assignments.map((item) => item.entityId));
 }
 
 function TagFilter({

@@ -3,7 +3,6 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
@@ -91,63 +90,60 @@ function EditHabitatLoader({
 
 	const initialGeometry = geometryQuery.data ?? null;
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-		}: {
-			readonly values: HabitatFormValues;
-			readonly geometry: DrawGeometry;
-			readonly geometryChanged: boolean;
-		}) => {
-			const drawn = geometry;
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+	}: {
+		readonly values: HabitatFormValues;
+		readonly geometry: DrawGeometry;
+		readonly geometryChanged: boolean;
+	}) => {
+		const drawn = geometry;
 
-			// Prime the detail's geometry cache so it shows this geometry the moment
-			// we navigate, rather than refetching and flashing an empty state.
-			const seedGeometry = () => seedHabitatGeometryCache(queryClient, habitat.id, drawn);
-			const done = async () => {
-				seedGeometry();
-				await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } });
-			};
+		// Prime the detail's geometry cache so it shows this geometry the moment
+		// we navigate, rather than refetching and flashing an empty state.
+		const seedGeometry = () => seedHabitatGeometryCache(queryClient, habitat.id, drawn);
+		const done = async () => {
+			seedGeometry();
+			await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } });
+		};
 
-			// The flag comes from the draw state, which is the only thing that knows.
-			// Deriving it here by serialising both shapes made an untouched save name
-			// `updateHabitatLocation`, which is manager-and-above, and a collector
-			// fixing a description was refused (#427).
-			let redraw: HabitatRedraw | null = null;
-			if (geometryChanged) {
-				const centroid = ownedCentroidFromGeoJson(drawn);
-				if (centroid === null) {
-					throw new Error('Unable to determine the habitat location from the drawn geometry.');
-				}
-				redraw = { geometry: drawn, centroid };
+		// The flag comes from the draw state, which is the only thing that knows.
+		// Deriving it here by serialising both shapes made an untouched save name
+		// `updateHabitatLocation`, which is manager-and-above, and a collector
+		// fixing a description was refused (#427).
+		let redraw: HabitatRedraw | null = null;
+		if (geometryChanged) {
+			const centroid = ownedCentroidFromGeoJson(drawn);
+			if (centroid === null) {
+				throw new Error('Unable to determine the habitat location from the drawn geometry.');
 			}
+			redraw = { geometry: drawn, centroid };
+		}
 
-			// `save` sends nothing when nothing moved, so the no-op case needs no test
-			// of its own here — but the navigation still has to happen either way.
-			await mutations.save(
-				habitat.id,
-				{
-					habitatName: nullableText(values.habitatName),
-					description: values.description.trim(),
-					addressId: values.addressId,
-					habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
-					metadata: values.metadata,
-				},
-				{
-					habitatName: habitat.habitatName,
-					description: habitat.description,
-					addressId: habitat.addressId,
-					habitatTypeId: habitat.habitatTypeId,
-					metadata: habitat.metadata,
-				},
-				redraw,
-			);
-			await done();
-		},
-		[habitat, mutations, navigate, queryClient],
-	);
+		// `save` sends nothing when nothing moved, so the no-op case needs no test
+		// of its own here — but the navigation still has to happen either way.
+		await mutations.save(
+			habitat.id,
+			{
+				habitatName: nullableText(values.habitatName),
+				description: values.description.trim(),
+				addressId: values.addressId,
+				habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+				metadata: values.metadata,
+			},
+			{
+				habitatName: habitat.habitatName,
+				description: habitat.description,
+				addressId: habitat.addressId,
+				habitatTypeId: habitat.habitatTypeId,
+				metadata: habitat.metadata,
+			},
+			redraw,
+		);
+		await done();
+	};
 
 	if (geometryQuery.isError) {
 		return (

@@ -19,7 +19,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -210,7 +210,7 @@ function StationLifecycleCard({
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);
 
-	const toggleActive = useCallback(async () => {
+	const toggleActive = async () => {
 		setError(null);
 		setIsBusy(true);
 		try {
@@ -220,9 +220,9 @@ function StationLifecycleCard({
 		} finally {
 			setIsBusy(false);
 		}
-	}, [mutations, station.id, station.isActive]);
+	};
 
-	const remove = useCallback(async () => {
+	const remove = async () => {
 		setError(null);
 		setIsBusy(true);
 		try {
@@ -242,7 +242,7 @@ function StationLifecycleCard({
 			setIsBusy(false);
 			setConfirmingDelete(false);
 		}
-	}, [askDelete, mutations, navigate, station.id]);
+	};
 
 	return (
 		<Card variant="surface">

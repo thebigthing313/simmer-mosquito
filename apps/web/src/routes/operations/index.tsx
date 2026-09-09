@@ -4,7 +4,7 @@ import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/compon
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
-import { type ReactNode, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { useControlMethodNames } from '../../components/explorer';
 import { assignmentStatus } from '../../hooks/queries/assignment-view';
 import {
@@ -48,15 +48,14 @@ const PANEL_ROW_LIMIT = 8;
 
 function OperationsOverviewRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const scheduleFrom = useMemo(() => addCalendarDays(today, -SCHEDULE_DAYS_BACK), [today]);
-	const scheduleTo = useMemo(() => addCalendarDays(today, SCHEDULE_DAYS_AHEAD), [today]);
-	const requestFrom = useMemo(() => addCalendarDays(today, -(REQUEST_WINDOW_DAYS - 1)), [today]);
+	const today = todayInTimeZone(timeZone);
+	const scheduleFrom = addCalendarDays(today, -SCHEDULE_DAYS_BACK);
+	const scheduleTo = addCalendarDays(today, SCHEDULE_DAYS_AHEAD);
+	const requestFrom = addCalendarDays(today, -(REQUEST_WINDOW_DAYS - 1));
 
 	const profiles = useProfileRoster();
-	const profileNameById = useMemo(
-		() => new Map(profiles.map((profile) => [profile.id, profile.displayName] as const)),
-		[profiles],
+	const profileNameById = new Map(
+		profiles.map((profile) => [profile.id, profile.displayName] as const),
 	);
 
 	return (
@@ -143,10 +142,7 @@ function OpenRequestsPanel({
 	const { requests, isReady } = useRequestedControlActions(from, to);
 	const methodNameById = useControlMethodNames();
 	const timeZone = useOrganizationTimeZone();
-	const open = useMemo(
-		() => requests.filter((request) => requestStatus(request) === 'open'),
-		[requests],
-	);
+	const open = requests.filter((request) => requestStatus(request) === 'open');
 
 	return (
 		<Panel
@@ -198,19 +194,15 @@ function AssignmentsPanel({
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
 	const { assignments, isReady } = useAssignments(from, to);
-	const ids = useMemo(() => assignments.map((assignment) => assignment.id), [assignments]);
+	const ids = assignments.map((assignment) => assignment.id);
 	const { countsById } = useAssignmentItemCounts(ids);
 
 	// Closed worklists drop out: this panel answers "what is out there now", and a
 	// completed assignment from last week is not.
-	const active = useMemo(
-		() =>
-			assignments.filter((assignment) => {
-				const status = assignmentStatus(assignment);
-				return status === 'notStarted' || status === 'inProgress';
-			}),
-		[assignments],
-	);
+	const active = assignments.filter((assignment) => {
+		const status = assignmentStatus(assignment);
+		return status === 'notStarted' || status === 'inProgress';
+	});
 
 	return (
 		<Panel
@@ -265,18 +257,14 @@ function MissionsPanel({
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
 	const { missions, isReady } = useMissions(from, to);
-	const ids = useMemo(() => missions.map((mission) => mission.id), [missions]);
+	const ids = missions.map((mission) => mission.id);
 	const { countsById } = useMissionItemCounts(ids);
 	const timeZone = useOrganizationTimeZone();
 
-	const active = useMemo(
-		() =>
-			missions.filter((mission) => {
-				const status = missionStatus(mission);
-				return status === 'scheduled' || status === 'inProgress';
-			}),
-		[missions],
-	);
+	const active = missions.filter((mission) => {
+		const status = missionStatus(mission);
+		return status === 'scheduled' || status === 'inProgress';
+	});
 
 	return (
 		<Panel

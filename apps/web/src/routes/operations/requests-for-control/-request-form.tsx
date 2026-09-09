@@ -6,7 +6,7 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
@@ -107,17 +107,14 @@ export function RequestFormPage({
 
 	const [controlType, setControlType] = useState<ControlType>(defaultValues.controlType);
 	const { methods } = useMethodsForControlType(controlType);
-	const methodOptions = useMemo(
-		() => [
-			{ label: 'No specific method', value: NO_METHOD },
-			...lifecycleOptions(
-				methods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		],
-		[methods],
-	);
+	const methodOptions = [
+		{ label: 'No specific method', value: NO_METHOD },
+		...lifecycleOptions(
+			methods,
+			(method) => method.isActive,
+			(method) => method.name,
+		),
+	];
 
 	const form = useAppForm({
 		defaultValues,

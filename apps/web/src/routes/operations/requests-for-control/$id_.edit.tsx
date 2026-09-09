@@ -1,5 +1,4 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
@@ -71,35 +70,32 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 		request.updatedAt.toISOString(),
 	);
 
-	const onSave = useCallback(
-		async ({ values, geometry, geometryChanged }: RequestSaveInput) => {
-			// The request as it stands goes with the edit: the details and the
-			// location-and-context are separate commands with separate guards, and
-			// which of them this save means is decided by what actually moved.
-			await requestWrites.update(
-				request.id,
-				{
-					controlType: values.controlType,
-					...readRequestFields(values),
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-				},
-				{
-					controlType: request.controlType,
-					summary: request.summary,
-					recommendedMethodId: request.recommendedMethodId,
-					addressId: request.addressId,
-					habitatId: request.habitatId,
-				},
-				// Only a redrawn shape travels: the server re-resolves `geom` from
-				// whatever source it is handed, so re-sending the stored one would be a
-				// write with no edit behind it.
-				geometryChanged && geometry !== null ? geometry : null,
-			);
-			await navigate({ to: '/operations/requests-for-control/$id', params: { id: request.id } });
-		},
-		[request, requestWrites, navigate],
-	);
+	const onSave = async ({ values, geometry, geometryChanged }: RequestSaveInput) => {
+		// The request as it stands goes with the edit: the details and the
+		// location-and-context are separate commands with separate guards, and
+		// which of them this save means is decided by what actually moved.
+		await requestWrites.update(
+			request.id,
+			{
+				controlType: values.controlType,
+				...readRequestFields(values),
+				addressId: values.addressId,
+				habitatId: values.habitatId,
+			},
+			{
+				controlType: request.controlType,
+				summary: request.summary,
+				recommendedMethodId: request.recommendedMethodId,
+				addressId: request.addressId,
+				habitatId: request.habitatId,
+			},
+			// Only a redrawn shape travels: the server re-resolves `geom` from
+			// whatever source it is handed, so re-sending the stored one would be a
+			// write with no edit behind it.
+			geometryChanged && geometry !== null ? geometry : null,
+		);
+		await navigate({ to: '/operations/requests-for-control/$id', params: { id: request.id } });
+	};
 
 	if (geometryQuery.isError) {
 		return (

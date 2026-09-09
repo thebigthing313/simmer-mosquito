@@ -33,7 +33,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
@@ -87,10 +87,7 @@ export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) 
 		timeZone,
 	});
 
-	const years = useMemo(
-		() => groupByYear(collections as readonly DirectoryCollection[], timeZone),
-		[collections, timeZone],
-	);
+	const years = groupByYear(collections as readonly DirectoryCollection[], timeZone);
 
 	// Resolved once for the pane rather than inside each row: reading the catalog
 	// per expanded collection would put a query behind every disclosure on the page.
@@ -311,7 +308,7 @@ export function CollectionRow({
 }) {
 	const date = collectionEffectiveDate(collection, timeZone);
 	const isPending = isPendingCollection(collection);
-	const totals = useMemo(() => specimenTotals(collection.species), [collection.species]);
+	const totals = specimenTotals(collection.species);
 
 	return (
 		<li>
@@ -371,18 +368,14 @@ function CollectionSpecies({
 }) {
 	// Most numerous first: what the trap caught most of is the finding, and a
 	// catalog-alphabetical list buries it behind whatever starts with an A.
-	const entries = useMemo(
-		() =>
-			[...species].sort((first, second) => {
-				if (second.count !== first.count) {
-					return second.count - first.count;
-				}
-				return (nameById.get(first.speciesId) ?? '').localeCompare(
-					nameById.get(second.speciesId) ?? '',
-				);
-			}),
-		[species, nameById],
-	);
+	const entries = [...species].sort((first, second) => {
+		if (second.count !== first.count) {
+			return second.count - first.count;
+		}
+		return (nameById.get(first.speciesId) ?? '').localeCompare(
+			nameById.get(second.speciesId) ?? '',
+		);
+	});
 
 	if (isPending) {
 		return (

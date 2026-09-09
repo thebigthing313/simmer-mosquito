@@ -1,6 +1,6 @@
 import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
@@ -89,135 +89,122 @@ function CreateApplicationRoute() {
 	// A confirmed acknowledgement re-runs the whole save. Safe because the loop
 	// below only lets a refusal escape while nothing has been written yet: once a
 	// mix has landed part way, the failure is reported as a count instead.
-	const onSave = useCallback(
-		async (input: {
-			readonly values: ApplicationFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) =>
-			mission.run(async (acknowledgements) => {
-				const { values, geometry } = input;
-				if (organization === null) {
-					throw new Error('Organization details are still loading.');
-				}
-				if (actorProfileId === null) {
-					throw new Error('Your profile is still loading.');
-				}
-				if (values.amountApplied === null) {
-					throw new Error('Enter the amount applied.');
-				}
+	const onSave = async (input: {
+		readonly values: ApplicationFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) =>
+		mission.run(async (acknowledgements) => {
+			const { values, geometry } = input;
+			if (organization === null) {
+				throw new Error('Organization details are still loading.');
+			}
+			if (actorProfileId === null) {
+				throw new Error('Your profile is still loading.');
+			}
+			if (values.amountApplied === null) {
+				throw new Error('Enter the amount applied.');
+			}
 
-				// The point is the application's authoritative geometry; the address (if
-				// any) is reference only. Off a mission stop it is required; on one it is
-				// an override the crew may not have drawn, and the server falls back to
-				// the stop's own ground.
-				const location = mission.resolveLocation(geometry, {
-					missing: 'Place the application point on the map.',
-					unresolvable: 'Unable to determine the application location.',
-				});
+			// The point is the application's authoritative geometry; the address (if
+			// any) is reference only. Off a mission stop it is required; on one it is
+			// an override the crew may not have drawn, and the server falls back to
+			// the stop's own ground.
+			const location = mission.resolveLocation(geometry, {
+				missing: 'Place the application point on the map.',
+				unresolvable: 'Unable to determine the application location.',
+			});
 
-				// A formulation is a calculator: it becomes one ordinary application per
-				// component product, each holding its own share of the total. Nothing
-				// records that they came from a mix.
-				const products =
-					values.productMode === 'formulation'
-						? formulationProducts(values, formulations, formulationComponents, applicationId)
-						: [
-								{
-									id: applicationId,
-									insecticideId: values.insecticideId,
-									amountApplied: values.amountApplied,
-									applicationUnitId: values.applicationUnitId,
-									insecticideBatchIds: values.insecticideBatchIds,
-								},
-							];
-
-				// Written one at a time so a failure part way through a mix can say how
-				// much of it landed — those rows are real applications the user now owns.
-				// Each product is its own command, so they cannot share one transaction:
-				// a single rollback would take back rows the server had already committed.
-				const saved: ApplicationProduct[] = [];
-				for (const product of products) {
-					try {
-						// The batches go with it, in the same command and the same Postgres
-						// transaction — an application and the lots it drew from either both
-						// land or neither does. Off a stop this is
-						// `missionDispatch.recordChemicalApplicationForMissionItem`; the hook
-						// reads the stop id rather than making this form say so.
-						await record({
-							applicationId: product.id,
-							values: {
-								insecticideId: product.insecticideId,
-								amountApplied: product.amountApplied,
-								unitId: product.applicationUnitId,
-								actionDate: values.applicationDate,
-								methodId: nullableSelection(values.applicationMethodId),
-								applicatorProfileId: nullableSelection(values.applicatorProfileId),
-								vehicleId: nullableSelection(values.vehicleId),
-								equipmentId: nullableSelection(values.equipmentId),
-								addressId: values.addressId,
-								habitatId: values.habitatId,
-								metadata: values.metadata,
+			// A formulation is a calculator: it becomes one ordinary application per
+			// component product, each holding its own share of the total. Nothing
+			// records that they came from a mix.
+			const products =
+				values.productMode === 'formulation'
+					? formulationProducts(values, formulations, formulationComponents, applicationId)
+					: [
+							{
+								id: applicationId,
+								insecticideId: values.insecticideId,
+								amountApplied: values.amountApplied,
+								applicationUnitId: values.applicationUnitId,
+								insecticideBatchIds: values.insecticideBatchIds,
 							},
-							location: {
-								lat: location.lat,
-								lng: location.lng,
-								geomType: location.geomType,
-								locationSource: location.locationSource,
-							},
-							insecticideBatchIds: product.insecticideBatchIds,
-							missionItemId: mission.missionItemId,
-							acknowledgements,
-						});
-					} catch (error) {
-						if (saved.length === 0) {
-							throw error;
-						}
-						throw new Error(
-							`Recorded ${saved.length} of ${products.length} applications before failing: ${
-								error instanceof Error ? error.message : 'Unknown error.'
-							}`,
-						);
+						];
+
+			// Written one at a time so a failure part way through a mix can say how
+			// much of it landed — those rows are real applications the user now owns.
+			// Each product is its own command, so they cannot share one transaction:
+			// a single rollback would take back rows the server had already committed.
+			const saved: ApplicationProduct[] = [];
+			for (const product of products) {
+				try {
+					// The batches go with it, in the same command and the same Postgres
+					// transaction — an application and the lots it drew from either both
+					// land or neither does. Off a stop this is
+					// `missionDispatch.recordChemicalApplicationForMissionItem`; the hook
+					// reads the stop id rather than making this form say so.
+					await record({
+						applicationId: product.id,
+						values: {
+							insecticideId: product.insecticideId,
+							amountApplied: product.amountApplied,
+							unitId: product.applicationUnitId,
+							actionDate: values.applicationDate,
+							methodId: nullableSelection(values.applicationMethodId),
+							applicatorProfileId: nullableSelection(values.applicatorProfileId),
+							vehicleId: nullableSelection(values.vehicleId),
+							equipmentId: nullableSelection(values.equipmentId),
+							addressId: values.addressId,
+							habitatId: values.habitatId,
+							metadata: values.metadata,
+						},
+						location: {
+							lat: location.lat,
+							lng: location.lng,
+							geomType: location.geomType,
+							locationSource: location.locationSource,
+						},
+						insecticideBatchIds: product.insecticideBatchIds,
+						missionItemId: mission.missionItemId,
+						acknowledgements,
+					});
+				} catch (error) {
+					if (saved.length === 0) {
+						throw error;
 					}
-					saved.push(product);
+					throw new Error(
+						`Recorded ${saved.length} of ${products.length} applications before failing: ${
+							error instanceof Error ? error.message : 'Unknown error.'
+						}`,
+					);
 				}
+				saved.push(product);
+			}
 
-				// Crew rows and the note reference the application, so they can only be
-				// written once it exists. The batches used to be here too, and are not any
-				// more. A formulation splits into one application per component, so both
-				// go on each of them rather than on whichever one happens to be first.
-				await Promise.all(
-					saved.map((product) =>
-						recordExtras.attach({
-							target: { type: 'application', id: product.id },
-							profileIds: values.additionalPersonnelIds,
-							commentText: values.comment,
-						}),
-					),
-				);
+			// Crew rows and the note reference the application, so they can only be
+			// written once it exists. The batches used to be here too, and are not any
+			// more. A formulation splits into one application per component, so both
+			// go on each of them rather than on whichever one happens to be first.
+			await Promise.all(
+				saved.map((product) =>
+					recordExtras.attach({
+						target: { type: 'application', id: product.id },
+						profileIds: values.additionalPersonnelIds,
+						commentText: values.comment,
+					}),
+				),
+			);
 
-				const first = saved[0];
-				if (saved.length > 1 || first === undefined) {
-					toast.success(`Recorded ${saved.length} applications.`);
-					await navigate({ to: '/control-operations/chemical' });
-					return;
-				}
-				await mission.navigateAfterSave(async () => {
-					await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
-				});
-			}),
-		[
-			mission,
-			organization,
-			actorProfileId,
-			applicationId,
-			formulations,
-			formulationComponents,
-			navigate,
-			record,
-			recordExtras,
-		],
-	);
+			const first = saved[0];
+			if (saved.length > 1 || first === undefined) {
+				toast.success(`Recorded ${saved.length} applications.`);
+				await navigate({ to: '/control-operations/chemical' });
+				return;
+			}
+			await mission.navigateAfterSave(async () => {
+				await navigate({ to: '/control-operations/chemical/$id', params: { id: first.id } });
+			});
+		});
 
 	return (
 		<>

@@ -11,7 +11,6 @@ import {
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useCallback, useMemo } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
@@ -216,24 +215,17 @@ export function ServiceRequestFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType } = location;
 
-	const profileOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				profiles,
-				(profile) => profile.isActive,
-				(profile) => profile.displayName,
-			),
-		[profiles],
+	const profileOptions = lifecycleOptions(
+		profiles,
+		(profile) => profile.isActive,
+		(profile) => profile.displayName,
 	);
 
 	const { clearError, selectAddress } = location;
-	const handleAddressSelected = useCallback(
-		(address: AddressOption | null) => {
-			clearError();
-			selectAddress(address);
-		},
-		[clearError, selectAddress],
-	);
+	const handleAddressSelected = (address: AddressOption | null) => {
+		clearError();
+		selectAddress(address);
+	};
 
 	const form = useAppForm({
 		defaultValues,

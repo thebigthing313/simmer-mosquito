@@ -4,7 +4,6 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
@@ -147,105 +146,92 @@ function EditInspectionLoader({
 	const geojson = geometryQuery.data ?? null;
 	const initialAdhocGeometry = isAdhoc ? toDrawGeometry(geojson) : null;
 
-	const onSave = useCallback(
-		async ({
-			values,
-			adhocGeometry,
-		}: {
-			readonly values: InspectionFormValues;
-			readonly adhocGeometry: DrawGeometry | null;
-			readonly habitatGeometry: GeoJsonGeometry | null;
-		}) => {
-			// Only an ad-hoc inspection owns its geometry; a habitat one inherits the
-			// habitat's, which this form cannot move it off.
-			const redrawn =
-				isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry)
-					? adhocGeometry
-					: null;
-			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
-			if (redrawn !== null && centroid === null) {
-				throw new Error('Unable to determine the inspection location from the drawn geometry.');
-			}
+	const onSave = async ({
+		values,
+		adhocGeometry,
+	}: {
+		readonly values: InspectionFormValues;
+		readonly adhocGeometry: DrawGeometry | null;
+		readonly habitatGeometry: GeoJsonGeometry | null;
+	}) => {
+		// Only an ad-hoc inspection owns its geometry; a habitat one inherits the
+		// habitat's, which this form cannot move it off.
+		const redrawn =
+			isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry)
+				? adhocGeometry
+				: null;
+		const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
+		if (redrawn !== null && centroid === null) {
+			throw new Error('Unable to determine the inspection location from the drawn geometry.');
+		}
 
-			// The habitat type and the address belong to the location command rather
-			// than to the field details, so they are compared as part of the placement
-			// — naming `updateInspectionFieldDetails` for them would send a command
-			// with no reader for either.
-			await inspectionMutations.save({
-				inspectionId: inspection.id,
-				result: inspectionResultOf(values),
-				current: {
-					inspectionDate: inspection.inspectionDate,
-					inspectedByProfileId: inspection.inspectedByProfileId,
-					isWet: inspection.isWet,
-					dipCount: inspection.dipCount,
-					density: inspection.density,
-					larvaeCount: inspection.larvaeCount,
-					hasEggs: inspection.hasEggs,
-					hasFirstInstar: inspection.hasFirstInstar,
-					hasSecondInstar: inspection.hasSecondInstar,
-					hasThirdInstar: inspection.hasThirdInstar,
-					hasFourthInstar: inspection.hasFourthInstar,
-					hasPupae: inspection.hasPupae,
-				},
-				adhoc: isAdhoc
-					? {
-							next: {
-								geometry: redrawn,
-								addressId: values.addressId,
-								habitatTypeId:
-									values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
-							},
-							current: {
-								geometry: null,
-								addressId: inspection.addressId,
-								habitatTypeId: inspection.habitatTypeId,
-							},
-						}
-					: null,
-				centroid,
-			});
-
-			// The rest reference the inspection and cannot fail a save that already
-			// landed, so each is reported rather than thrown (see attachLinksBestEffort).
-			await attachLinksBestEffort('the additional personnel', () =>
-				setPersonnel({
-					target: { type: 'inspection', id: inspection.id },
-					existing: existingPersonnel,
-					profileIds: values.additionalPersonnelIds,
-				}),
-			);
-
-			if (values.samples.length > 0) {
-				await attachLinksBestEffort('the samples', async () => {
-					for (const sample of values.samples) {
-						const label = sample.label.trim();
-						await sampleMutations.add({
-							sampleId: sample.id,
-							inspectionId: inspection.id,
-							displayName: label === '' ? null : label,
-						});
+		// The habitat type and the address belong to the location command rather
+		// than to the field details, so they are compared as part of the placement
+		// — naming `updateInspectionFieldDetails` for them would send a command
+		// with no reader for either.
+		await inspectionMutations.save({
+			inspectionId: inspection.id,
+			result: inspectionResultOf(values),
+			current: {
+				inspectionDate: inspection.inspectionDate,
+				inspectedByProfileId: inspection.inspectedByProfileId,
+				isWet: inspection.isWet,
+				dipCount: inspection.dipCount,
+				density: inspection.density,
+				larvaeCount: inspection.larvaeCount,
+				hasEggs: inspection.hasEggs,
+				hasFirstInstar: inspection.hasFirstInstar,
+				hasSecondInstar: inspection.hasSecondInstar,
+				hasThirdInstar: inspection.hasThirdInstar,
+				hasFourthInstar: inspection.hasFourthInstar,
+				hasPupae: inspection.hasPupae,
+			},
+			adhoc: isAdhoc
+				? {
+						next: {
+							geometry: redrawn,
+							addressId: values.addressId,
+							habitatTypeId:
+								values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+						},
+						current: {
+							geometry: null,
+							addressId: inspection.addressId,
+							habitatTypeId: inspection.habitatTypeId,
+						},
 					}
-				});
-			}
+				: null,
+			centroid,
+		});
 
-			// The detail page reads the inspection over HTTP, so its cached copy would
-			// still hold the pre-edit values on arrival.
-			await queryClient.invalidateQueries({ queryKey: ['inspection-detail', inspection.id] });
-			await navigate({ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } });
-		},
-		[
-			inspection,
-			isAdhoc,
-			initialAdhocGeometry,
-			existingPersonnel,
-			navigate,
-			queryClient,
-			setPersonnel,
-			inspectionMutations,
-			sampleMutations,
-		],
-	);
+		// The rest reference the inspection and cannot fail a save that already
+		// landed, so each is reported rather than thrown (see attachLinksBestEffort).
+		await attachLinksBestEffort('the additional personnel', () =>
+			setPersonnel({
+				target: { type: 'inspection', id: inspection.id },
+				existing: existingPersonnel,
+				profileIds: values.additionalPersonnelIds,
+			}),
+		);
+
+		if (values.samples.length > 0) {
+			await attachLinksBestEffort('the samples', async () => {
+				for (const sample of values.samples) {
+					const label = sample.label.trim();
+					await sampleMutations.add({
+						sampleId: sample.id,
+						inspectionId: inspection.id,
+						displayName: label === '' ? null : label,
+					});
+				}
+			});
+		}
+
+		// The detail page reads the inspection over HTTP, so its cached copy would
+		// still hold the pre-edit values on arrival.
+		await queryClient.invalidateQueries({ queryKey: ['inspection-detail', inspection.id] });
+		await navigate({ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } });
+	};
 
 	if (geometryQuery.isError) {
 		return (

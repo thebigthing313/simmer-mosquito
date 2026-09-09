@@ -12,7 +12,7 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
 	CatalogDeleteDialog,
 	CatalogDetailPanel,
@@ -94,14 +94,8 @@ function FormulationsRoute() {
 	const mutations = useFormulationMutations();
 	const { all: unitRows } = useUnitLabels();
 
-	const insecticideById = useMemo(
-		() => new Map(insecticideRows.map((row) => [row.id, row] as const)),
-		[insecticideRows],
-	);
-	const unitById = useMemo(
-		() => new Map(unitRows.map((row) => [row.id, row] as const)),
-		[unitRows],
-	);
+	const insecticideById = new Map(insecticideRows.map((row) => [row.id, row] as const));
+	const unitById = new Map(unitRows.map((row) => [row.id, row] as const));
 
 	const activeFormulations = formulations.filter((row) => row.isActive);
 	const inactiveFormulations = formulations.filter((row) => !row.isActive);
@@ -349,7 +343,7 @@ function FormulationDrawer({
 	readonly units: readonly UnitLabel[];
 }) {
 	const [open, setOpen] = useState(false);
-	const unitChoices = useMemo(() => unitOptions(units, isRecipeUnitType), [units]);
+	const unitChoices = unitOptions(units, isRecipeUnitType);
 	const defaultValues = formulationFormValues(formulation, defaultBatchUnitId(units));
 	const form = useAppForm({
 		defaultValues,
@@ -650,22 +644,17 @@ function FormulationComponentDrawer({
 }) {
 	const [open, setOpen] = useState(false);
 	// A mix may only carry active products, and only one row per product.
-	const choices = useMemo(() => {
-		const taken = new Set(usedInsecticideIds.filter((id) => id !== component?.insecticideId));
-		return lifecycleOptions(
-			insecticides.filter(
-				(insecticide) =>
-					!taken.has(insecticide.id) &&
-					(insecticide.isActive || insecticide.id === component?.insecticideId),
-			),
-			(insecticide) => insecticide.isActive,
-			insecticideDisplayName,
-		);
-	}, [component?.insecticideId, insecticides, usedInsecticideIds]);
-	const insecticideById = useMemo(
-		() => new Map(insecticides.map((row) => [row.id, row] as const)),
-		[insecticides],
+	const taken = new Set(usedInsecticideIds.filter((id) => id !== component?.insecticideId));
+	const choices = lifecycleOptions(
+		insecticides.filter(
+			(insecticide) =>
+				!taken.has(insecticide.id) &&
+				(insecticide.isActive || insecticide.id === component?.insecticideId),
+		),
+		(insecticide) => insecticide.isActive,
+		insecticideDisplayName,
 	);
+	const insecticideById = new Map(insecticides.map((row) => [row.id, row] as const));
 	// A product is measured one way — a pound of granules is never four fluid
 	// ounces — so the unit list narrows to the kind its own default unit is in.
 	const unitChoicesFor = (insecticideId: string) => {

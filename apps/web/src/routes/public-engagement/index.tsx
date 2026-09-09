@@ -6,7 +6,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
 import {
 	type RequestListing,
@@ -59,15 +59,9 @@ const FEED_PREVIEW_COUNT = 20;
 
 function PublicEngagementOverviewRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const since = useMemo(
-		() => addDaysToDateString(today, -(OUTREACH_ACTIVITY_WINDOW_DAYS - 1)),
-		[today],
-	);
-	const feedSince = useMemo(
-		() => addDaysToDateString(today, -(SERVICE_REQUEST_FEED_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const since = addDaysToDateString(today, -(OUTREACH_ACTIVITY_WINDOW_DAYS - 1));
+	const feedSince = addDaysToDateString(today, -(SERVICE_REQUEST_FEED_WINDOW_DAYS - 1));
 
 	const requests = useOrganizationServiceRequests();
 
@@ -175,10 +169,7 @@ function OpenServiceRequestsPanel({
 }: {
 	readonly requests: ReturnType<typeof useOrganizationServiceRequests>;
 }) {
-	const preview = useMemo(
-		() => requests.openRequests.slice(0, PREVIEW_COUNT),
-		[requests.openRequests],
-	);
+	const preview = requests.openRequests.slice(0, PREVIEW_COUNT);
 	// Only the previewed rows, so the two subsets stay the size of what is drawn.
 	const parties = useRequestParties(preview);
 
@@ -294,12 +285,8 @@ function ServiceRequestActivityPanel({
 	const timeZone = useOrganizationTimeZone();
 	const feed = useServiceRequestFeed(requests.requests, since, timeZone);
 	const profileNameById = useProfileNames();
-	const titleById = useMemo(
-		() =>
-			new Map(
-				requests.requests.map((request) => [request.id, serviceRequestTitle(request)] as const),
-			),
-		[requests.requests],
+	const titleById = new Map(
+		requests.requests.map((request) => [request.id, serviceRequestTitle(request)] as const),
 	);
 	const preview = feed.events.slice(0, FEED_PREVIEW_COUNT);
 	const isError = requests.isError || feed.isError;

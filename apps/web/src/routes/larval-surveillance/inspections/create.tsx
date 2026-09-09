@@ -1,7 +1,7 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
@@ -121,7 +121,7 @@ function CreateInspectionRoute() {
 	const profiles = useProfileRoster();
 
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const canSubmit = organization !== null && actorProfileId !== null;
@@ -138,94 +138,82 @@ function CreateInspectionRoute() {
 		ask: true,
 	});
 
-	const onSave = useCallback(
-		async (input: {
-			readonly values: InspectionFormValues;
-			readonly adhocGeometry: DrawGeometry | null;
-			readonly habitatGeometry: GeoJsonGeometry | null;
-		}) =>
-			runAcknowledged(async (acknowledgements) => {
-				const { values, adhocGeometry, habitatGeometry } = input;
-				const isAdhoc = values.locationMode === 'adhoc';
+	const onSave = async (input: {
+		readonly values: InspectionFormValues;
+		readonly adhocGeometry: DrawGeometry | null;
+		readonly habitatGeometry: GeoJsonGeometry | null;
+	}) =>
+		runAcknowledged(async (acknowledgements) => {
+			const { values, adhocGeometry, habitatGeometry } = input;
+			const isAdhoc = values.locationMode === 'adhoc';
 
-				// The shape the server will snapshot: the drawn one for an ad hoc
-				// inspection, the habitat's own for the other two. Reduced here so the
-				// optimistic row carries the centroid the map card will read.
-				const shape = isAdhoc ? adhocGeometry : habitatGeometry;
-				const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
-				if (shape === null || centroid === null) {
-					throw new Error('Unable to determine the inspection location.');
-				}
+			// The shape the server will snapshot: the drawn one for an ad hoc
+			// inspection, the habitat's own for the other two. Reduced here so the
+			// optimistic row carries the centroid the map card will read.
+			const shape = isAdhoc ? adhocGeometry : habitatGeometry;
+			const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
+			if (shape === null || centroid === null) {
+				throw new Error('Unable to determine the inspection location.');
+			}
 
-				await inspectionMutations.record({
-					inspectionId,
-					result: inspectionResultOf(values),
-					placement: isAdhoc
-						? {
-								kind: 'adhoc',
-								geometry: shape,
-								addressId: values.addressId,
-								habitatTypeId:
-									values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
-							}
-						: assignmentItemId !== null
-							? { kind: 'stop', assignmentItemId, habitatId: null }
-							: { kind: 'habitat', habitatId: values.habitatId ?? '' },
-					centroid,
-					acknowledgements,
-				});
+			await inspectionMutations.record({
+				inspectionId,
+				result: inspectionResultOf(values),
+				placement: isAdhoc
+					? {
+							kind: 'adhoc',
+							geometry: shape,
+							addressId: values.addressId,
+							habitatTypeId:
+								values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+						}
+					: assignmentItemId !== null
+						? { kind: 'stop', assignmentItemId, habitatId: null }
+						: { kind: 'habitat', habitatId: values.habitatId ?? '' },
+				centroid,
+				acknowledgements,
+			});
 
-				// Samples reference the inspection, so they follow it. Best-effort like
-				// the crew rows: a sample that fails to land is reported rather than
-				// failing a save that already succeeded.
-				await attachLinksBestEffort('the samples', async () => {
-					for (const sample of values.samples) {
-						const label = sample.label.trim();
-						// Sequential: the samples stream is on-demand, so the first insert
-						// warms it and the rest confirm against a live shape instead of
-						// racing a cold one.
-						await sampleMutations.add({
-							sampleId: sample.id,
-							inspectionId,
-							displayName: label === '' ? null : label,
-						});
-					}
-				});
-
-				// Crew rows reference the inspection, so they can only be written once it
-				// exists.
-				await recordExtras.attach({
-					target: { type: 'inspection', id: inspectionId },
-					profileIds: values.additionalPersonnelIds,
-					commentText: values.comment,
-				});
-
-				// Back to the worklist the stop came from, not to the inspection: the
-				// crew's next move is the next stop.
-				if (assignmentId !== null) {
-					await navigate({
-						to: '/operations/assignments/$id',
-						params: { id: assignmentId },
+			// Samples reference the inspection, so they follow it. Best-effort like
+			// the crew rows: a sample that fails to land is reported rather than
+			// failing a save that already succeeded.
+			await attachLinksBestEffort('the samples', async () => {
+				for (const sample of values.samples) {
+					const label = sample.label.trim();
+					// Sequential: the samples stream is on-demand, so the first insert
+					// warms it and the rest confirm against a live shape instead of
+					// racing a cold one.
+					await sampleMutations.add({
+						sampleId: sample.id,
+						inspectionId,
+						displayName: label === '' ? null : label,
 					});
-					return;
 				}
+			});
 
+			// Crew rows reference the inspection, so they can only be written once it
+			// exists.
+			await recordExtras.attach({
+				target: { type: 'inspection', id: inspectionId },
+				profileIds: values.additionalPersonnelIds,
+				commentText: values.comment,
+			});
+
+			// Back to the worklist the stop came from, not to the inspection: the
+			// crew's next move is the next stop.
+			if (assignmentId !== null) {
 				await navigate({
-					to: '/larval-surveillance/inspections/$id',
-					params: { id: inspectionId },
+					to: '/operations/assignments/$id',
+					params: { id: assignmentId },
 				});
-			}),
-		[
-			inspectionId,
-			navigate,
-			assignmentItemId,
-			assignmentId,
-			runAcknowledged,
-			recordExtras,
-			inspectionMutations,
-			sampleMutations,
-		],
-	);
+				return;
+			}
+
+			await navigate({
+				to: '/larval-surveillance/inspections/$id',
+				params: { id: inspectionId },
+			});
+		});
 
 	return (
 		<>

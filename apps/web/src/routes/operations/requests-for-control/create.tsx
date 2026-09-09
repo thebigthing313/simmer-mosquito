@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -36,33 +36,30 @@ function CreateRequestForControlRoute() {
 	const organizationId = organization?.id ?? null;
 	const requestWrites = useRequestedControlActionMutations();
 
-	const onSave = useCallback(
-		async ({ values, geometry }: RequestSaveInput) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your organization and profile are still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Map where the control work is needed.');
-			}
-			await requestWrites.create(
-				requestId,
-				{
-					controlType: values.controlType,
-					...readRequestFields(values),
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-				},
-				geometry,
-			);
-			await navigate({ to: '/operations/requests-for-control' });
-		},
-		[organizationId, actorProfileId, requestId, requestWrites, navigate],
-	);
+	const onSave = async ({ values, geometry }: RequestSaveInput) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your organization and profile are still loading.');
+		}
+		if (geometry === null) {
+			throw new Error('Map where the control work is needed.');
+		}
+		await requestWrites.create(
+			requestId,
+			{
+				controlType: values.controlType,
+				...readRequestFields(values),
+				addressId: values.addressId,
+				habitatId: values.habitatId,
+			},
+			geometry,
+		);
+		await navigate({ to: '/operations/requests-for-control' });
+	};
 
 	return (
 		<RequestFormPage
 			canSubmit={organizationId !== null && actorProfileId !== null}
-			defaultValues={useMemo(() => defaultRequestFormValues(), [])}
+			defaultValues={defaultRequestFormValues()}
 			errorTitle="Unable to Raise Request"
 			header={{
 				title: 'New Request for Control',

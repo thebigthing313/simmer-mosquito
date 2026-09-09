@@ -1,7 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -88,23 +88,17 @@ const PATH = '/map/source-reduction';
 
 function SourceReductionExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults = useMemo<SourceReductionFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			people: new Set(),
-			methods: new Set(),
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: SourceReductionFilters = {
+		from: defaultFrom,
+		to: today,
+		people: new Set(),
+		methods: new Set(),
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -116,18 +110,9 @@ function SourceReductionExplorerRoute() {
 	const personIds = query.people;
 	const methodIds = query.methods;
 	const regionIds = query.regions;
-	const setPersonIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ people: next }),
-		[setFilters],
-	);
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -140,27 +125,20 @@ function SourceReductionExplorerRoute() {
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
-	const filters = useMemo<SourceReductionTileFilters>(
-		() => ({
-			...(methodIds.size > 0 ? { sourceReductionMethodIds: [...methodIds] } : {}),
-			...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[methodIds, personIds, regionIds, dateFrom, dateTo],
-	);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				sourceReductionMethodId: filters.sourceReductionMethodIds,
-				technician: filters.technicianProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			}),
-		[filters],
-	);
+	const filters: SourceReductionTileFilters = {
+		...(methodIds.size > 0 ? { sourceReductionMethodIds: [...methodIds] } : {}),
+		...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
+		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
+		...(dateFrom === '' ? {} : { dateFrom }),
+		...(dateTo === '' ? {} : { dateTo }),
+	};
+	const params = mapQueryParams({
+		sourceReductionMethodId: filters.sourceReductionMethodIds,
+		technician: filters.technicianProfileIds,
+		regionId: filters.regionIds,
+		dateFrom: filters.dateFrom,
+		dateTo: filters.dateTo,
+	});
 
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<SourceReductionSite>({
@@ -172,10 +150,7 @@ function SourceReductionExplorerRoute() {
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
-	const habitatIds = useMemo(
-		() => rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId])),
-		[rows],
-	);
+	const habitatIds = rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId]));
 	const habitatNameById = useHabitatNames(habitatIds);
 
 	const selected = useSelectedMapRecord<SourceReductionSite>({
@@ -186,19 +161,16 @@ function SourceReductionExplorerRoute() {
 	});
 	useFlyToSelection(map, selected);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'source-reduction',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'source-reduction',
+			serverUrl: getServerUrl(),
+			filters,
+			selectedId,
+			onSelectFeature: setSelectedId,
+		},
+	];
 
 	const clearAll = reset;
 

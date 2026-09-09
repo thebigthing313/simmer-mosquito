@@ -1,5 +1,4 @@
 import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../../components/map';
 import type { RouteSummary } from '../../../../components/route-planning/route-summary';
 import { trapDisplayName } from '../../../../hooks/queries/trap-view';
@@ -68,6 +67,17 @@ export function useTrapRoutes(): {
 	};
 }
 
+/** How many stops each route id holds, over the rows the subset returned. */
+function countStopsByRouteId(
+	rows: readonly { readonly routeId: string }[],
+): ReadonlyMap<string, number> {
+	const map = new Map<string, number>();
+	for (const row of rows) {
+		map.set(row.routeId, (map.get(row.routeId) ?? 0) + 1);
+	}
+	return map;
+}
+
 /** Stop counts per trap route, from the on-demand `route_items` subset. */
 export function useRouteStopCounts(): {
 	readonly countByRouteId: ReadonlyMap<string, number>;
@@ -87,13 +97,7 @@ export function useRouteStopCounts(): {
 
 	const rows = result.data;
 
-	const countByRouteId = useMemo(() => {
-		const map = new Map<string, number>();
-		for (const row of rows) {
-			map.set(row.routeId, (map.get(row.routeId) ?? 0) + 1);
-		}
-		return map;
-	}, [rows]);
+	const countByRouteId = countStopsByRouteId(rows);
 
 	return { countByRouteId, isLoading: !result.isReady };
 }
@@ -154,45 +158,37 @@ export function useRouteStops(routeId: string | null): {
 
 	const rows = result.data;
 
-	const stops = useMemo<readonly RouteStopView[]>(
-		() =>
-			// The `ordinal` is the one thing the query cannot produce: it is the stop's
-			// place in the ordered result, and a projection sees a row rather than the
-			// sequence. `position` is the stored sort key and can have gaps, so it is
-			// not the number a crew reads off the list.
-			rows.map((row, index) => ({
-				routeItemId: row.routeItemId,
-				trapId: row.trapId,
-				ordinal: index + 1,
-				position: row.position,
-				name: trapDisplayName({
-					id: row.trapId,
-					trapName: row.trapName,
-					trapCode: row.trapCode,
-				}),
-				isActive: row.isActive,
-				lat: row.lat,
-				lng: row.lng,
-				hasLocation: row.lat !== null && row.lng !== null,
-				directionsToNextItem: row.directionsToNextItem,
-				isResolving: row.resolvedTrapId === undefined,
-			})),
-		[rows],
-	);
+	// The `ordinal` is the one thing the query cannot produce: it is the stop's
+	// place in the ordered result, and a projection sees a row rather than the
+	// sequence. `position` is the stored sort key and can have gaps, so it is
+	// not the number a crew reads off the list.
+	const stops: readonly RouteStopView[] = rows.map((row, index) => ({
+		routeItemId: row.routeItemId,
+		trapId: row.trapId,
+		ordinal: index + 1,
+		position: row.position,
+		name: trapDisplayName({
+			id: row.trapId,
+			trapName: row.trapName,
+			trapCode: row.trapCode,
+		}),
+		isActive: row.isActive,
+		lat: row.lat,
+		lng: row.lng,
+		hasLocation: row.lat !== null && row.lng !== null,
+		directionsToNextItem: row.directionsToNextItem,
+		isResolving: row.resolvedTrapId === undefined,
+	}));
 
-	const features = useMemo<readonly RouteStopFeature[]>(
-		() =>
-			stops
-				.filter((stop) => stop.hasLocation)
-				.map((stop) => ({
-					id: stop.routeItemId,
-					lat: stop.lat as number,
-					lng: stop.lng as number,
-					ordinal: stop.ordinal,
-					tone: stop.isActive ? ('default' as const) : ('inactive' as const),
-				})),
-		[stops],
-	);
+	const features: readonly RouteStopFeature[] = stops
+		.filter((stop) => stop.hasLocation)
+		.map((stop) => ({
+			id: stop.routeItemId,
+			lat: stop.lat as number,
+			lng: stop.lng as number,
+			ordinal: stop.ordinal,
+			tone: stop.isActive ? ('default' as const) : ('inactive' as const),
+		}));
 
 	return { stops, features, itemCount: rows.length, isLoading: !result.isReady };
 }

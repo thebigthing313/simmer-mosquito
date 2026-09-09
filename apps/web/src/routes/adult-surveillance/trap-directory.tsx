@@ -10,7 +10,6 @@ import {
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { ExplorerHeader, ExplorerRow } from '../../components/explorer';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
@@ -64,7 +63,7 @@ const RESULT_NOUN = { one: 'trap', many: 'traps' };
 function TrapDirectoryRoute() {
 	const { filters, setFilters } = useSearchFilters(DIRECTORY_DEFAULTS, DIRECTORY_CODECS);
 
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: searchInput,
 		setInput: setSearchInput,
@@ -74,11 +73,8 @@ function TrapDirectoryRoute() {
 	const { methodTabs, method, visibleTraps, selectedTrap, hasActiveTraps, isNarrowed } =
 		useTrapDirectory(filters);
 
-	const selectMethod = useCallback(
-		(next: string) => setFilters({ method: next === ALL_METHODS ? '' : next }),
-		[setFilters],
-	);
-	const selectTrap = useCallback((next: string) => setFilters({ trap: next }), [setFilters]);
+	const selectMethod = (next: string) => setFilters({ method: next === ALL_METHODS ? '' : next });
+	const selectTrap = (next: string) => setFilters({ trap: next });
 
 	return (
 		<SplitPage aside={<SelectedTrap hasActiveTraps={hasActiveTraps} trap={selectedTrap} />}>

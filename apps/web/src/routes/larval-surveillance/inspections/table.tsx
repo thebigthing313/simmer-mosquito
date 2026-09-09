@@ -19,7 +19,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -140,10 +140,7 @@ const WINDOW_STEP = 50;
  */
 function InspectionsTableRoute() {
 	const { filters: sortSearch, setFilters: setSort } = useSearchFilters(SORT_DEFAULTS, SORT_CODECS);
-	const sort: InspectionSort = useMemo(
-		() => ({ key: sortSearch.sort, direction: sortSearch.direction }),
-		[sortSearch.direction, sortSearch.sort],
-	);
+	const sort: InspectionSort = { key: sortSearch.sort, direction: sortSearch.direction };
 
 	// The filter set is the explorer's, read through the explorer's codecs, so
 	// the two surfaces answer the same address. Both hooks patch the same search
@@ -152,7 +149,7 @@ function InspectionsTableRoute() {
 	// on it opens on every inspection.
 	const binding = useInspectionFilterState(INSPECTION_TABLE_COUNTING, 'all-time');
 	const catalogs = useInspectionCatalogs();
-	const filters = useMemo(() => inspectionTableFilters(binding.state), [binding.state]);
+	const filters = inspectionTableFilters(binding.state);
 
 	// A window belongs to the query that loaded it. A new sort reorders the whole
 	// set and a new filter changes which rows are in it, so either one starts at
@@ -177,17 +174,14 @@ function InspectionsTableRoute() {
 	const { rows, isReady, isError } = useInspectionTable(sort, limit, filters);
 	const shown = useHeldRows(rows, isReady, windowKey);
 
-	const sortBy = useCallback(
-		(key: InspectionSortKey) => {
-			const next = nextSort(sort, key);
-			setSort({ direction: next.direction, sort: next.key });
-		},
-		[setSort, sort],
-	);
+	const sortBy = (key: InspectionSortKey) => {
+		const next = nextSort(sort, key);
+		setSort({ direction: next.direction, sort: next.key });
+	};
 
-	const loadMore = useCallback(() => {
+	const loadMore = () => {
 		setLoaded((current) => ({ ...current, limit: current.limit + WINDOW_STEP }));
-	}, []);
+	};
 
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5">
@@ -245,10 +239,7 @@ function InspectionsFilterBar({
 		today,
 		setFilters,
 	});
-	const resetDates = useCallback(
-		() => setFilters({ from: defaults.from, to: defaults.to }),
-		[setFilters, defaults.from, defaults.to],
-	);
+	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
 
 	return (
 		<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">

@@ -2,7 +2,7 @@ import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import {
 	ActiveFilterBar,
@@ -101,21 +101,15 @@ function TrapsExplorerRoute() {
 	const status = query.status;
 	const methodIds = query.methods;
 	const regionIds = query.regions;
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: searchInput,
 		setInput: setSearchInput,
 		clear: clearSearchInput,
 	} = useDebouncedTextFilter(query.search, commitSearch, 200);
-	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -125,27 +119,19 @@ function TrapsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
-	const filters = useMemo<TrapTileFilters>(
-		() => ({
-			...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
-			...(status === 'all' ? {} : { isActive: status === 'active' }),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(search.length > 0 ? { search } : {}),
-		}),
-		[methodIds, status, regionIds, search],
-	);
-	const legend = useMemo(() => trapLegend(status), [status]);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				collectionMethodId: filters.collectionMethodIds,
-				status:
-					filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
-				search: filters.search,
-				regionId: filters.regionIds,
-			}),
-		[filters],
-	);
+	const filters: TrapTileFilters = {
+		...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
+		...(status === 'all' ? {} : { isActive: status === 'active' }),
+		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
+		...(search.length > 0 ? { search } : {}),
+	};
+	const legend = trapLegend(status);
+	const params = mapQueryParams({
+		collectionMethodId: filters.collectionMethodIds,
+		status: filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
+		search: filters.search,
+		regionId: filters.regionIds,
+	});
 
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<TrapSite>({
@@ -163,30 +149,27 @@ function TrapsExplorerRoute() {
 	});
 	useFlyToSelection(map, selected);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'traps',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'traps',
+			serverUrl: getServerUrl(),
+			filters,
+			selectedId,
+			onSelectFeature: setSelectedId,
+		},
+	];
 
-	const clearAll = useCallback(() => {
+	const clearAll = () => {
 		clearSearchInput();
 		reset();
-	}, [clearSearchInput, reset]);
+	};
 	// Both halves: the field the operator is looking at, and the committed term on
 	// the URL that is actually cutting the list.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 
 	return (
 		<ExplorerMapPage

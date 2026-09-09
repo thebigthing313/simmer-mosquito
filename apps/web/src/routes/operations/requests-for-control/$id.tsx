@@ -15,7 +15,6 @@ import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -114,7 +113,7 @@ function RequestDetailContent({
 	const requestWrites = useRequestedControlActionMutations();
 	const { busy, error, run } = useCommandRunner();
 
-	const toggleResolved = useCallback(() => {
+	const toggleResolved = () => {
 		void run(
 			() =>
 				request.status === 'open'
@@ -122,7 +121,7 @@ function RequestDetailContent({
 					: requestWrites.reopen(request.id),
 			'Unable to update this request.',
 		);
-	}, [request.status, request.id, requestWrites, run]);
+	};
 
 	return (
 		<RecordDetailColumns
@@ -176,7 +175,7 @@ function RequestDetailContent({
 
 /** Habitats are an on-demand collection, so the linked one resolves as a subset. */
 function useLinkedHabitatName(habitatId: string | null): string | null {
-	const habitatIds = useMemo(() => (habitatId === null ? [] : [habitatId]), [habitatId]);
+	const habitatIds = habitatId === null ? [] : [habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 	return habitatId === null ? null : (habitatNameById.get(habitatId) ?? null);
 }

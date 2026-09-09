@@ -1,5 +1,4 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
@@ -56,45 +55,41 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 	const mutations = useWeatherStationMutations();
 	const { run, dialog } = useAcknowledgedWrite({ askable: STATION_REFUSALS, ask: true });
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-		}: {
-			readonly values: WeatherStationFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) => {
-			// `null` unless the user actually moved the pin: the form holds the point
-			// it loaded, and sending that back names a command with nothing to change.
-			const point =
-				geometryChanged && geometry !== null && isStationLocation(geometry) ? geometry : null;
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+	}: {
+		readonly values: WeatherStationFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) => {
+		// `null` unless the user actually moved the pin: the form holds the point
+		// it loaded, and sending that back names a command with nothing to change.
+		const point =
+			geometryChanged && geometry !== null && isStationLocation(geometry) ? geometry : null;
 
-			// The two questions go out unanswered and come back as refusals if the
-			// station has readings, which is the only time either matters. See
-			// `useAcknowledgedWrite`.
-			//
-			// The navigation is *inside* the callback on purpose: `run` resolves on a
-			// refusal as well as on a success, because a refusal is a question rather
-			// than a failure. Leaving here on the way past would abandon the page
-			// before the question could be asked, and read as a save that worked.
-			await run(async (acknowledgements) => {
-				await mutations.save({
-					weatherStationId: station.id,
-					fields: weatherStationFieldsFrom(values),
-					current: weatherStationFieldsFrom(formValuesFrom(station)),
-					geometry: point,
-					acknowledgedIdentityChange:
-						acknowledgements.acknowledgedHistoricalStationIdentityChange === true,
-					acknowledgedLocationChange:
-						acknowledgements.acknowledgedHistoricalLocationChange === true,
-				});
-				await navigate({ to: '/gis/weather/$id', params: { id: station.id } });
+		// The two questions go out unanswered and come back as refusals if the
+		// station has readings, which is the only time either matters. See
+		// `useAcknowledgedWrite`.
+		//
+		// The navigation is *inside* the callback on purpose: `run` resolves on a
+		// refusal as well as on a success, because a refusal is a question rather
+		// than a failure. Leaving here on the way past would abandon the page
+		// before the question could be asked, and read as a save that worked.
+		await run(async (acknowledgements) => {
+			await mutations.save({
+				weatherStationId: station.id,
+				fields: weatherStationFieldsFrom(values),
+				current: weatherStationFieldsFrom(formValuesFrom(station)),
+				geometry: point,
+				acknowledgedIdentityChange:
+					acknowledgements.acknowledgedHistoricalStationIdentityChange === true,
+				acknowledgedLocationChange: acknowledgements.acknowledgedHistoricalLocationChange === true,
 			});
-		},
-		[mutations, navigate, run, station],
-	);
+			await navigate({ to: '/gis/weather/$id', params: { id: station.id } });
+		});
+	};
 
 	return (
 		<>

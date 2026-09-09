@@ -38,7 +38,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useId, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -430,80 +430,68 @@ function IdentificationCard({
 	const larvaeTotal = speciesRows.reduce((sum, row) => sum + row.larvaeCount, 0);
 	const meta = STATUS_META[status];
 
-	const takenSpeciesIds = useMemo(
-		() => new Set(speciesRows.map((row) => row.speciesId)),
-		[speciesRows],
-	);
+	const takenSpeciesIds = new Set(speciesRows.map((row) => row.speciesId));
 
 	const timeZone = useOrganizationTimeZone();
 
-	const guard = useCallback((): boolean => {
+	const guard = (): boolean => {
 		if (!canManage || identity?.organizationId == null) {
 			setError('You do not have permission to manage this sample.');
 			return false;
 		}
 		return true;
-	}, [canManage, identity]);
+	};
 
-	const handleAddSpecies = useCallback(
-		async (speciesId: string, larvaeCount: number) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			try {
-				await speciesMutations.add({
-					sampleSpeciesId: crypto.randomUUID(),
-					sampleId,
-					fields: {
-						speciesId,
-						larvaeCount,
-						identifiedByProfileId: identity?.profileId ?? null,
-						// A calendar date, not a timestamp — the domain builder validates
-						// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-						identifiedAt: todayInTimeZone(timeZone),
-					},
-				});
-			} catch (cause) {
-				setError(messageOf(cause, 'Unable to add species.'));
-			}
-		},
-		[guard, identity, sampleId, timeZone, speciesMutations],
-	);
+	const handleAddSpecies = async (speciesId: string, larvaeCount: number) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		try {
+			await speciesMutations.add({
+				sampleSpeciesId: crypto.randomUUID(),
+				sampleId,
+				fields: {
+					speciesId,
+					larvaeCount,
+					identifiedByProfileId: identity?.profileId ?? null,
+					// A calendar date, not a timestamp — the domain builder validates
+					// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
+					identifiedAt: todayInTimeZone(timeZone),
+				},
+			});
+		} catch (cause) {
+			setError(messageOf(cause, 'Unable to add species.'));
+		}
+	};
 
-	const handleUpdateCount = useCallback(
-		async (rowId: string, larvaeCount: number) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			const current = speciesRows.find((row) => row.id === rowId);
-			if (current === undefined) {
-				return;
-			}
-			try {
-				await speciesMutations.save(rowId, { ...current, larvaeCount }, current);
-			} catch (cause) {
-				setError(messageOf(cause, 'Unable to update count.'));
-			}
-		},
-		[guard, speciesRows, speciesMutations],
-	);
+	const handleUpdateCount = async (rowId: string, larvaeCount: number) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		const current = speciesRows.find((row) => row.id === rowId);
+		if (current === undefined) {
+			return;
+		}
+		try {
+			await speciesMutations.save(rowId, { ...current, larvaeCount }, current);
+		} catch (cause) {
+			setError(messageOf(cause, 'Unable to update count.'));
+		}
+	};
 
-	const handleRemoveSpecies = useCallback(
-		async (rowId: string) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			try {
-				await speciesMutations.remove(rowId);
-			} catch (cause) {
-				setError(messageOf(cause, 'Unable to remove species.'));
-			}
-		},
-		[guard, speciesMutations],
-	);
+	const handleRemoveSpecies = async (rowId: string) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		try {
+			await speciesMutations.remove(rowId);
+		} catch (cause) {
+			setError(messageOf(cause, 'Unable to remove species.'));
+		}
+	};
 
 	/**
 	 * The four disposition writes, each naming its own command.
@@ -513,43 +501,34 @@ function IdentificationCard({
 	 * this migration removes. Zero-larvae is two commands because which way it
 	 * moved is the point; the other three are one each.
 	 */
-	const runPatch = useCallback(
-		async (write: () => Promise<void>, fallback: string) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			try {
-				await write();
-			} catch (cause) {
-				setError(messageOf(cause, fallback));
-			}
-		},
-		[guard],
-	);
+	const runPatch = async (write: () => Promise<void>, fallback: string) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		try {
+			await write();
+		} catch (cause) {
+			setError(messageOf(cause, fallback));
+		}
+	};
 
-	const disposition = useMemo(
-		() => ({
-			setZeroLarvae: (next: boolean) =>
-				runPatch(
-					() => sampleMutations.setZeroLarvae(sampleId, next),
-					'Unable to update the sample.',
-				),
-			setNonMosquito: (next: boolean) =>
-				runPatch(
-					() => sampleMutations.setNonMosquito(sampleId, next),
-					'Unable to update the sample.',
-				),
-			setUnidentifiableReason: (next: string) =>
-				runPatch(
-					() => sampleMutations.setUnidentifiableReason(sampleId, next === '' ? null : next),
-					'Unable to update the sample.',
-				),
-			rename: (next: string) =>
-				runPatch(() => sampleMutations.rename(sampleId, next), 'Unable to update the sample.'),
-		}),
-		[runPatch, sampleMutations, sampleId],
-	);
+	const disposition = {
+		setZeroLarvae: (next: boolean) =>
+			runPatch(() => sampleMutations.setZeroLarvae(sampleId, next), 'Unable to update the sample.'),
+		setNonMosquito: (next: boolean) =>
+			runPatch(
+				() => sampleMutations.setNonMosquito(sampleId, next),
+				'Unable to update the sample.',
+			),
+		setUnidentifiableReason: (next: string) =>
+			runPatch(
+				() => sampleMutations.setUnidentifiableReason(sampleId, next === '' ? null : next),
+				'Unable to update the sample.',
+			),
+		rename: (next: string) =>
+			runPatch(() => sampleMutations.rename(sampleId, next), 'Unable to update the sample.'),
+	};
 
 	return (
 		<Card variant="surface">
@@ -792,13 +771,9 @@ function AddSpeciesRow({
 
 	// `sample_species` holds one row per species, so anything already identified is
 	// edited in the list above rather than offered again here.
-	const available = useMemo(
-		() =>
-			options
-				.filter((option) => !takenSpeciesIds.has(option.id))
-				.map((option) => ({ value: option.id, label: option.label })),
-		[options, takenSpeciesIds],
-	);
+	const available = options
+		.filter((option) => !takenSpeciesIds.has(option.id))
+		.map((option) => ({ value: option.id, label: option.label }));
 
 	const canAdd =
 		speciesId !== null && count !== null && Number.isFinite(count) && count >= 0 && !busy;

@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { WriteOnly } from '../../../components/write-only';
 import {
@@ -48,7 +48,7 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 		contacts.map((contact) => [contact.id, contact.contactName ?? 'Unnamed contact']),
 	);
 
-	const run = useCallback(async () => {
+	const run = async () => {
 		setIsGenerating(true);
 		setStanding(null);
 		try {
@@ -74,7 +74,7 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 		} finally {
 			setIsGenerating(false);
 		}
-	}, [generate, missionId]);
+	};
 
 	return (
 		<Card variant="surface">

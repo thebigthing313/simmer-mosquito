@@ -18,7 +18,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import {
 	type ControlActionKind,
 	type DailyControlAction,
@@ -61,11 +61,8 @@ export const Route = createFileRoute('/control-operations/')({
 
 function ControlOperationsOverviewRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const since = useMemo(
-		() => addDaysToDateString(today, -(CONTROL_ACTIVITY_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const since = addDaysToDateString(today, -(CONTROL_ACTIVITY_WINDOW_DAYS - 1));
 
 	// Which unit the organization wants each kind of quantity reported in. Falls
 	// back to the domain defaults while the organization row is still syncing, so
@@ -210,10 +207,10 @@ function groupByCrewMember(actions: readonly DailyControlAction[]): readonly Cre
 function DailyControlActionsPanel({ today }: { readonly today: string }) {
 	const [selectedDate, setSelectedDate] = useState(today);
 	const { actions, isReady, isError } = useControlActionsForDay(selectedDate);
-	const groups = useMemo(() => groupByCrewMember(actions), [actions]);
+	const groups = groupByCrewMember(actions);
 
-	const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
-	const days = useMemo(() => buildWeek(weekStart), [weekStart]);
+	const weekStart = startOfWeek(selectedDate);
+	const days = buildWeek(weekStart);
 	// The current week is the latest browsable one; there is no future data.
 	const canGoNextWeek = weekStart < startOfWeek(today);
 
@@ -440,27 +437,23 @@ function InsecticideUsagePanel({
 	readonly unitDefaults: UnitDefaults;
 }) {
 	const [windowDays, setWindowDays] = useState<UsageWindowDays>(USAGE_WINDOW_DAYS[0]);
-	const since = useMemo(() => addDaysToDateString(today, -(windowDays - 1)), [today, windowDays]);
+	const since = addDaysToDateString(today, -(windowDays - 1));
 	const { usage, isReady, isError } = useInsecticideUsage(since);
 	// The one place a unit lookup is still right: a product's total spans every
 	// unit its applications were recorded in, which is not a fact one row carries.
 	const units = useUnitLabels();
 
-	const rows = useMemo(
-		() =>
-			usage
-				.map((entry) => ({
-					...entry,
-					total: usageTotal({
-						totalsByUnitId: entry.totalsByUnitId,
-						unitById: units.byId,
-						unitByCode: units.byCode,
-						unitDefaults,
-					}),
-				}))
-				.sort((first, second) => first.name.localeCompare(second.name)),
-		[usage, units, unitDefaults],
-	);
+	const rows = usage
+		.map((entry) => ({
+			...entry,
+			total: usageTotal({
+				totalsByUnitId: entry.totalsByUnitId,
+				unitById: units.byId,
+				unitByCode: units.byCode,
+				unitDefaults,
+			}),
+		}))
+		.sort((first, second) => first.name.localeCompare(second.name));
 
 	return (
 		<Panel

@@ -2,7 +2,7 @@ import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -92,17 +92,14 @@ const DEFAULT_WINDOW_DAYS = 90;
 
 function RequestsForControlRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const filterDefaults = useMemo<RequestFilters>(
-		() => ({
-			from: addCalendarDays(today, -(DEFAULT_WINDOW_DAYS - 1)),
-			to: today,
-			status: 'open',
-			types: new Set(),
-			people: new Set(),
-		}),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const filterDefaults: RequestFilters = {
+		from: addCalendarDays(today, -(DEFAULT_WINDOW_DAYS - 1)),
+		to: today,
+		status: 'open',
+		types: new Set(),
+		people: new Set(),
+	};
 	const {
 		filters,
 		setFilters,
@@ -118,18 +115,14 @@ function RequestsForControlRoute() {
 	const { options: personnelOptions, nameById } = usePersonnelOptions();
 	const methodNameById = useControlMethodNames();
 
-	const visible = useMemo(
-		() => requests.filter((request) => matchesFilters(request, filters)),
-		[requests, filters],
-	);
+	const visible = requests.filter((request) => matchesFilters(request, filters));
 
-	const mapped = useMemo(() => mappable(visible), [visible]);
-	const geoJson = useMemo(() => requestFeatures(mapped), [mapped]);
+	const mapped = mappable(visible);
+	const geoJson = requestFeatures(mapped);
 	// The points come from local rows, so the camera frames the filtered set from
 	// the list rather than asking the server for an extent.
-	const bounds = useMemo(
-		() => boundsFromCoordinates(mapped.map((request) => ({ lng: request.lng, lat: request.lat }))),
-		[mapped],
+	const bounds = boundsFromCoordinates(
+		mapped.map((request) => ({ lng: request.lng, lat: request.lat })),
 	);
 	useFlyToRequest(
 		map,
@@ -242,35 +235,23 @@ function useRequestDateRange(
 	setFilters: (patch: Partial<RequestFilters>) => void,
 	today: string,
 ) {
-	const onFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
-			});
-		},
-		[setFilters, filters.to],
-	);
-	const onToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
-			});
-		},
-		[setFilters, filters.from],
-	);
-	const onApplyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-	const activePresetId = useMemo(
-		() => activeDatePresetId(filters.from, filters.to, today),
-		[filters.from, filters.to, today],
-	);
+	const onFromChange = (next: string) => {
+		setFilters({
+			from: next,
+			...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
+		});
+	};
+	const onToChange = (next: string) => {
+		setFilters({
+			to: next,
+			...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
+		});
+	};
+	const onApplyPreset = (preset: DatePreset) => {
+		const range = datePresetRange(preset, today);
+		setFilters({ from: range.from, to: range.to });
+	};
+	const activePresetId = activeDatePresetId(filters.from, filters.to, today);
 	return {
 		activePresetId,
 		from: filters.from,

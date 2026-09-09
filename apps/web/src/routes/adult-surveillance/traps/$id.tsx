@@ -40,7 +40,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -219,7 +219,7 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 	// Re-sorted here rather than in the query: the two timing modes date a
 	// collection from different columns, one a `timestamptz` and the other a
 	// `date`, and no single `orderBy` ranks across those types.
-	const collections = useMemo(() => [...rows].sort(compareByCollectionDateDesc), [rows]);
+	const collections = [...rows].sort(compareByCollectionDateDesc);
 
 	return (
 		<Card variant="surface">
@@ -373,6 +373,34 @@ function TrapCollectionsList({
 	);
 }
 
+/**
+ * The breakdown over one date window, and how many collections fell in it.
+ *
+ * Statistics count female mosquitoes only, matching the collections table, and
+ * exclude the unidentified placeholder taxon.
+ */
+function speciesInWindow(input: {
+	readonly collections: readonly TrapCollection[];
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly unidentifiedSpeciesIds: ReadonlySet<string>;
+	readonly timeZone: string;
+	readonly from: string;
+	readonly to: string;
+}) {
+	const inRange = input.collections.filter((collection) =>
+		withinDateRange(collectionEffectiveDate(collection, input.timeZone), input.from, input.to),
+	);
+	const specimens = inRange.flatMap((collection) =>
+		collection.species.filter(
+			(entry) => entry.sex === 'female' && !input.unidentifiedSpeciesIds.has(entry.speciesId),
+		),
+	);
+	return {
+		distribution: aggregateSpeciesDistribution(specimens, input.nameById),
+		matchedCollections: inRange.length,
+	};
+}
+
 function TrapSpeciesDistribution({
 	collections,
 	isReady,
@@ -383,60 +411,45 @@ function TrapSpeciesDistribution({
 	readonly isError: boolean;
 }) {
 	const species = useSpeciesCatalog();
-	const nameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
-		[species],
-	);
+	const nameById = new Map(species.map((row) => [row.id, row.displayName] as const));
 	// The catalog carries a placeholder "Unidentified mosquito" species for specimens
 	// that were never keyed out; it isn't a real taxon, so keep it out of the
 	// species breakdown.
-	const unidentifiedSpeciesIds = useMemo(
-		() => new Set(species.filter((row) => row.epithet === 'unidentified').map((row) => row.id)),
-		[species],
+	const unidentifiedSpeciesIds = new Set(
+		species.filter((row) => row.epithet === 'unidentified').map((row) => row.id),
 	);
 
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 	const [from, setFrom] = useState('');
 	const [to, setTo] = useState('');
 	const hasRange = from !== '' || to !== '';
 
 	// Editing one bound past the other drags the other along, so the range never
 	// inverts into an empty window.
-	const handleFromChange = useCallback((next: string) => {
+	const handleFromChange = (next: string) => {
 		setFrom(next);
 		setTo((prev) => (next !== '' && prev !== '' && next > prev ? next : prev));
-	}, []);
-	const handleToChange = useCallback((next: string) => {
+	};
+	const handleToChange = (next: string) => {
 		setTo(next);
 		setFrom((prev) => (next !== '' && prev !== '' && next < prev ? next : prev));
-	}, []);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFrom(range.from);
-			setTo(range.to);
-		},
-		[today],
-	);
-	const activePresetId = useMemo(() => activeDatePresetId(from, to, today), [from, to, today]);
+	};
+	const applyPreset = (preset: DatePreset) => {
+		const range = datePresetRange(preset, today);
+		setFrom(range.from);
+		setTo(range.to);
+	};
+	const activePresetId = activeDatePresetId(from, to, today);
 
-	const { distribution, matchedCollections } = useMemo(() => {
-		const inRange = collections.filter((collection) =>
-			withinDateRange(collectionEffectiveDate(collection, timeZone), from, to),
-		);
-		// Statistics count female mosquitoes only (matching the collections table),
-		// and exclude the unidentified placeholder taxon.
-		const specimens = inRange.flatMap((collection) =>
-			collection.species.filter(
-				(entry) => entry.sex === 'female' && !unidentifiedSpeciesIds.has(entry.speciesId),
-			),
-		);
-		return {
-			distribution: aggregateSpeciesDistribution(specimens, nameById),
-			matchedCollections: inRange.length,
-		};
-	}, [collections, nameById, from, to, timeZone, unidentifiedSpeciesIds]);
+	const { distribution, matchedCollections } = speciesInWindow({
+		collections,
+		nameById,
+		unidentifiedSpeciesIds,
+		timeZone,
+		from,
+		to,
+	});
 
 	return (
 		<div className="grid gap-4">

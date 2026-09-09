@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -38,41 +37,38 @@ function CreateAddressRoute() {
 	const canSubmit = organization !== null && actorProfileId !== null;
 	const mutations = useAddressMutations();
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geocoderResponse,
-		}: {
-			readonly values: AddressFormValues;
-			readonly geometry: AddressPointGeometry | null;
-			readonly geocoderResponse: unknown | null;
-		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Place the address point before saving.');
-			}
+	const onSave = async ({
+		values,
+		geometry,
+		geocoderResponse,
+	}: {
+		readonly values: AddressFormValues;
+		readonly geometry: AddressPointGeometry | null;
+		readonly geocoderResponse: unknown | null;
+	}) => {
+		if (organization === null) {
+			throw new Error('Organization details are still loading.');
+		}
+		if (geometry === null) {
+			throw new Error('Place the address point before saving.');
+		}
 
-			const addressId = await mutations.create(
-				{
-					displayName: values.displayName.trim(),
-					addressLine1: nullableText(values.addressLine1),
-					addressLine2: nullableText(values.addressLine2),
-					locality: nullableText(values.locality),
-					region: nullableText(values.region),
-					postalCode: nullableText(values.postalCode),
-					geocoderResponse,
-				},
-				values.country.trim().toUpperCase(),
-				geometry,
-			);
-			seedAddressGeometryCache(queryClient, addressId, geometry);
-			await navigate({ to: '/gis/addresses/$id', params: { id: addressId } });
-		},
-		[mutations, navigate, queryClient, organization],
-	);
+		const addressId = await mutations.create(
+			{
+				displayName: values.displayName.trim(),
+				addressLine1: nullableText(values.addressLine1),
+				addressLine2: nullableText(values.addressLine2),
+				locality: nullableText(values.locality),
+				region: nullableText(values.region),
+				postalCode: nullableText(values.postalCode),
+				geocoderResponse,
+			},
+			values.country.trim().toUpperCase(),
+			geometry,
+		);
+		seedAddressGeometryCache(queryClient, addressId, geometry);
+		await navigate({ to: '/gis/addresses/$id', params: { id: addressId } });
+	};
 
 	return (
 		<AddressFormPage

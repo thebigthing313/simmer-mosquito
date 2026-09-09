@@ -1,6 +1,6 @@
 import { createMissionCommand } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
@@ -40,30 +40,27 @@ function CreateMissionRoute() {
 	const organizationId = organization?.id ?? null;
 	const missionWrites = useMissionMutations();
 
-	const onSave = useCallback(
-		async (plan: MissionPlan) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your organization and profile are still loading.');
-			}
-			await missionWrites.create(missionId, {
-				controlType: plan.controlType,
-				scheduledStartAt: plan.startAt as Date,
-				scheduledEndAt: plan.endAt,
-				missionName: plan.missionName,
-				plannedMethodId: plan.plannedMethodId,
-				assignedToProfileId: plan.assignedToProfileId,
-				rainDate: plan.rainDate,
-				notificationTypeId: plan.notificationTypeId,
-			});
-			await navigate({ to: '/operations/missions' });
-		},
-		[organizationId, actorProfileId, missionId, missionWrites, navigate],
-	);
+	const onSave = async (plan: MissionPlan) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your organization and profile are still loading.');
+		}
+		await missionWrites.create(missionId, {
+			controlType: plan.controlType,
+			scheduledStartAt: plan.startAt as Date,
+			scheduledEndAt: plan.endAt,
+			missionName: plan.missionName,
+			plannedMethodId: plan.plannedMethodId,
+			assignedToProfileId: plan.assignedToProfileId,
+			rainDate: plan.rainDate,
+			notificationTypeId: plan.notificationTypeId,
+		});
+		await navigate({ to: '/operations/missions' });
+	};
 
 	return (
 		<MissionFormPage
 			canSubmit={organizationId !== null && actorProfileId !== null}
-			defaultValues={useMemo(() => defaultMissionFormValues(timeZone), [timeZone])}
+			defaultValues={defaultMissionFormValues(timeZone)}
 			errorTitle="Unable to Create Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{

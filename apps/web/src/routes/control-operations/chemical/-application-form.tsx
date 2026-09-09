@@ -15,7 +15,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -56,6 +56,22 @@ export const noSelectionValue = 'none';
 
 /** Shared empty list, so an unselected formulation keeps a stable identity. */
 const NO_COMPONENTS: readonly FormulationComponentListing[] = [];
+
+/** The components of every formulation the caller supplied, keyed by formulation. */
+function groupComponentsByFormulation(
+	components: readonly FormulationComponentListing[] | undefined,
+): ReadonlyMap<string, readonly FormulationComponentListing[]> {
+	const grouped = new Map<string, FormulationComponentListing[]>();
+	for (const component of components ?? []) {
+		const bucket = grouped.get(component.formulationId);
+		if (bucket === undefined) {
+			grouped.set(component.formulationId, [component]);
+		} else {
+			bucket.push(component);
+		}
+	}
+	return grouped;
+}
 
 /** Domain issue path → the form field holding it. */
 const APPLICATION_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -236,110 +252,64 @@ export function ApplicationFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType } = location;
 
-	const insecticideOptions = useMemo(
-		() => lifecycleOptions(insecticides, (row) => row.isActive, insecticideDisplayName),
-		[insecticides],
+	const insecticideOptions = lifecycleOptions(
+		insecticides,
+		(row) => row.isActive,
+		insecticideDisplayName,
 	);
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				applicationMethods,
-				(row) => row.isActive,
-				(row) => row.name,
-			),
-		[applicationMethods],
+	const methodOptions = lifecycleOptions(
+		applicationMethods,
+		(row) => row.isActive,
+		(row) => row.name,
 	);
-	const profileOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				profiles,
-				(row) => row.isActive,
-				(row) => row.displayName,
-			),
-		[profiles],
+	const profileOptions = lifecycleOptions(
+		profiles,
+		(row) => row.isActive,
+		(row) => row.displayName,
 	);
-	const vehicleOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				vehicles,
-				(row) => row.isActive,
-				(row) => row.name,
-			),
-		[vehicles],
+	const vehicleOptions = lifecycleOptions(
+		vehicles,
+		(row) => row.isActive,
+		(row) => row.name,
 	);
-	const equipmentOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				equipment,
-				(row) => row.isActive,
-				(row) => row.name,
-			),
-		[equipment],
+	const equipmentOptions = lifecycleOptions(
+		equipment,
+		(row) => row.isActive,
+		(row) => row.name,
 	);
-	const unitTypeById = useMemo(
-		() => new Map(units.map((unit) => [unit.id, unit.unitType])),
-		[units],
-	);
+	const unitTypeById = new Map(units.map((unit) => [unit.id, unit.unitType]));
 	// A product is measured one way — a pound of granules is never four fluid
 	// ounces — so the unit list narrows to the kind its default unit is in. Until
 	// a product is chosen (or if its default unit is missing) every unit a
 	// treatment can be measured in stays on offer.
-	const unitTypeFor = useCallback(
-		(insecticideId: string): UnitType | null => {
-			const product = insecticides.find((row) => row.id === insecticideId);
-			return product === undefined ? null : (unitTypeById.get(product.defaultUnitId) ?? null);
-		},
-		[insecticides, unitTypeById],
-	);
-	const applicationUnitOptionsFor = useCallback(
-		(insecticideId: string) => {
-			const unitType = unitTypeFor(insecticideId);
-			return unitType === null
-				? unitOptions(units, isApplicationUnitType)
-				: unitOptions(units, (candidate) => candidate === unitType);
-		},
-		[units, unitTypeFor],
-	);
+	const unitTypeFor = (insecticideId: string): UnitType | null => {
+		const product = insecticides.find((row) => row.id === insecticideId);
+		return product === undefined ? null : (unitTypeById.get(product.defaultUnitId) ?? null);
+	};
+	const applicationUnitOptionsFor = (insecticideId: string) => {
+		const unitType = unitTypeFor(insecticideId);
+		return unitType === null
+			? unitOptions(units, isApplicationUnitType)
+			: unitOptions(units, (candidate) => candidate === unitType);
+	};
 
 	// Formulation entry is offered only where the caller supplied the catalog —
 	// recording new work. Editing a saved application edits its one product.
 	const formulationEntry = formulations !== undefined;
-	const formulationOptions = useMemo(
-		() =>
-			formulations === undefined
-				? []
-				: lifecycleOptions(
-						formulations,
-						(row) => row.isActive,
-						(row) => row.formulationName,
-					),
-		[formulations],
-	);
-	const formulationById = useMemo(
-		() => new Map((formulations ?? []).map((row) => [row.id, row] as const)),
-		[formulations],
-	);
-	const componentsByFormulation = useMemo(() => {
-		const grouped = new Map<string, FormulationComponentListing[]>();
-		for (const component of formulationComponents ?? []) {
-			const bucket = grouped.get(component.formulationId);
-			if (bucket === undefined) {
-				grouped.set(component.formulationId, [component]);
-			} else {
-				bucket.push(component);
-			}
-		}
-		return grouped;
-	}, [formulationComponents]);
-	const componentsFor = useCallback(
-		(formulationId: string): readonly FormulationComponentListing[] =>
-			componentsByFormulation.get(formulationId) ?? NO_COMPONENTS,
-		[componentsByFormulation],
-	);
-	const formulationFor = useCallback(
-		(formulationId: string): FormulationListing | undefined => formulationById.get(formulationId),
-		[formulationById],
-	);
+	const formulationOptions =
+		formulations === undefined
+			? []
+			: lifecycleOptions(
+					formulations,
+					(row) => row.isActive,
+					(row) => row.formulationName,
+				);
+	const formulationById = new Map((formulations ?? []).map((row) => [row.id, row] as const));
+	const componentsByFormulation = groupComponentsByFormulation(formulationComponents);
+	const componentsFor = (formulationId: string): readonly FormulationComponentListing[] =>
+		componentsByFormulation.get(formulationId) ?? NO_COMPONENTS;
+	const formulationFor = (formulationId: string): FormulationListing | undefined =>
+		formulationById.get(formulationId);
 
 	const form = useAppForm({
 		defaultValues,
@@ -932,14 +902,10 @@ function InsecticideBatchOptions({
 	const batches = result.data;
 	// Spent and retired lots stay on offer, behind the ones still on the shelf —
 	// an application being keyed in after the fact used whatever it used.
-	const options = useMemo(
-		() =>
-			lifecycleOptions(
-				batches,
-				(batch) => batch.is_active,
-				(batch) => batch.batch_name,
-			),
-		[batches],
+	const options = lifecycleOptions(
+		batches,
+		(batch) => batch.is_active,
+		(batch) => batch.batch_name,
 	);
 
 	return <>{children(options)}</>;

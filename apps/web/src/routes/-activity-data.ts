@@ -7,7 +7,6 @@ import {
 } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { getServerUrl } from '../auth';
 import {
 	useApplicationMethodRoster,
@@ -214,10 +213,42 @@ export function buildActivityMapData(
  * `methodRefId` alike — the same trick the nearby context view takes. All of
  * these stream eagerly, so this needs no fetch.
  */
-export function useActivityLookups(): {
+export interface ActivityLookups {
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly formatQuantity: (amount: number, unitId: string | null) => string;
-} {
+}
+
+/**
+ * The maps themselves, beside the hook rather than inside it.
+ *
+ * The rosters are structural rather than the catalog row types, because the six
+ * that contribute a name are three different shapes and only `id` and `name` are
+ * read off any of them.
+ */
+function activityLookups(
+	rosters: readonly (readonly { readonly id: string; readonly name: string }[])[],
+	insecticides: readonly { readonly id: string; readonly tradeName: string }[],
+	units: readonly { readonly id: string; readonly abbreviation: string }[],
+): ActivityLookups {
+	const nameById = new Map<string, string>();
+	for (const rows of rosters) {
+		for (const row of rows) {
+			nameById.set(row.id, row.name);
+		}
+	}
+	for (const row of insecticides) {
+		nameById.set(row.id, insecticideDisplayName(row));
+	}
+
+	const unitById = new Map(units.map((unit) => [unit.id, unit] as const));
+	return {
+		nameById,
+		formatQuantity: (amount: number, unitId: string | null) =>
+			formatAmount(amount, unitId === null ? undefined : unitById.get(unitId)),
+	};
+}
+
+export function useActivityLookups(): ActivityLookups {
 	const habitatTypes = useHabitatTypeRoster();
 	const collectionMethods = useCollectionMethodRoster();
 	const applicationMethods = useApplicationMethodRoster();
@@ -227,42 +258,18 @@ export function useActivityLookups(): {
 	const insecticides = useInsecticideRecords();
 	const { all: units } = useUnitLabels();
 
-	return useMemo(() => {
-		const nameById = new Map<string, string>();
-		for (const row of habitatTypes) {
-			nameById.set(row.id, row.name);
-		}
-		for (const rows of [
-			collectionMethods as readonly { readonly id: string; readonly name: string }[],
+	return activityLookups(
+		[
+			habitatTypes,
+			collectionMethods,
 			applicationMethods,
 			sourceReductionMethods,
 			biocontrolMethods,
 			outreachMethods,
-		]) {
-			for (const row of rows) {
-				nameById.set(row.id, row.name);
-			}
-		}
-		for (const row of insecticides) {
-			nameById.set(row.id, insecticideDisplayName(row));
-		}
-
-		const unitById = new Map(units.map((unit) => [unit.id, unit] as const));
-		return {
-			nameById,
-			formatQuantity: (amount: number, unitId: string | null) =>
-				formatAmount(amount, unitId === null ? undefined : unitById.get(unitId)),
-		};
-	}, [
-		habitatTypes,
-		collectionMethods,
-		applicationMethods,
-		sourceReductionMethods,
-		biocontrolMethods,
-		outreachMethods,
+		],
 		insecticides,
 		units,
-	]);
+	);
 }
 
 /**

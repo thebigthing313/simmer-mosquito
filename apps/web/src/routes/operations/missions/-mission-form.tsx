@@ -5,7 +5,7 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
 import { useNotificationTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -362,39 +362,30 @@ function useMissionFormOptions(controlType: ControlType) {
 	const notificationTypes = useNotificationTypeRoster();
 
 	return {
-		methods: useMemo(
-			() => [
-				{ label: 'No planned method', value: NO_METHOD },
-				...lifecycleOptions(
-					methods,
-					(method) => method.isActive,
-					(method) => method.name,
-				),
-			],
-			[methods],
-		),
-		assignees: useMemo(
-			() => [
-				{ label: 'Unassigned', value: NO_ASSIGNEE },
-				...lifecycleOptions(
-					profiles,
-					(profile) => profile.isActive,
-					(profile) => profile.displayName,
-				),
-			],
-			[profiles],
-		),
-		notificationTypes: useMemo(
-			() => [
-				{ label: 'No notifications', value: NO_NOTIFICATION_TYPE },
-				...lifecycleOptions(
-					notificationTypes,
-					(type) => type.isActive,
-					(type) => type.name,
-				),
-			],
-			[notificationTypes],
-		),
+		methods: [
+			{ label: 'No planned method', value: NO_METHOD },
+			...lifecycleOptions(
+				methods,
+				(method) => method.isActive,
+				(method) => method.name,
+			),
+		],
+		assignees: [
+			{ label: 'Unassigned', value: NO_ASSIGNEE },
+			...lifecycleOptions(
+				profiles,
+				(profile) => profile.isActive,
+				(profile) => profile.displayName,
+			),
+		],
+		notificationTypes: [
+			{ label: 'No notifications', value: NO_NOTIFICATION_TYPE },
+			...lifecycleOptions(
+				notificationTypes,
+				(type) => type.isActive,
+				(type) => type.name,
+			),
+		],
 	};
 }
 

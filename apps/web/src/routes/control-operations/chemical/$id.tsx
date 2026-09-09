@@ -38,7 +38,7 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -128,10 +128,7 @@ function ApplicationDetailContent({
 	const { remove } = useApplicationMutations();
 	// habitats is on-demand and has no join here; resolve just the linked habitat's
 	// name as a subset.
-	const habitatIds = useMemo(
-		() => (application.habitatId === null ? [] : [application.habitatId]),
-		[application.habitatId],
-	);
+	const habitatIds = application.habitatId === null ? [] : [application.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
 	const productName = application.productName;
@@ -289,37 +286,24 @@ function ApplicationBatchesCard({
 		[application.insecticideId],
 	);
 	const productBatches = batchResult.data;
-	const batchNameById = useMemo(
-		() => nameById(productBatches, (batch) => batch.batch_name),
-		[productBatches],
-	);
+	const batchNameById = nameById(productBatches, (batch) => batch.batch_name);
 
-	const linkedIds = useMemo(
-		() => new Set(entries.map((entry) => entry.insecticideBatchId)),
-		[entries],
-	);
+	const linkedIds = new Set(entries.map((entry) => entry.insecticideBatchId));
 	// Already-linked batches drop out of the picker; inactive ones stay out unless
 	// they are already on the record.
-	const selectableBatches = useMemo(
-		() => productBatches.filter((batch) => batch.is_active && !linkedIds.has(batch.id)),
-		[productBatches, linkedIds],
+	const selectableBatches = productBatches.filter(
+		(batch) => batch.is_active && !linkedIds.has(batch.id),
 	);
 
 	// Add and remove are their own commands, so each is one write — unlike a create,
 	// where the batches ride in the application's own payload.
-	const onRemoveBatch = useCallback(
-		(applicationBatchId: string) => {
-			void removeBatch(applicationBatchId);
-		},
-		[removeBatch],
-	);
+	const onRemoveBatch = (applicationBatchId: string) => {
+		void removeBatch(applicationBatchId);
+	};
 
-	const onAddBatch = useCallback(
-		(insecticideBatchId: string) => {
-			void addBatch(application.id, insecticideBatchId);
-		},
-		[addBatch, application.id],
-	);
+	const onAddBatch = (insecticideBatchId: string) => {
+		void addBatch(application.id, insecticideBatchId);
+	};
 
 	const isReady = linkedResult.isReady && batchResult.isReady;
 	const isError = linkedResult.isError || batchResult.isError;

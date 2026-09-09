@@ -9,7 +9,6 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -150,17 +149,13 @@ export function SourceReductionFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				methods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[methods],
+	const methodOptions = lifecycleOptions(
+		methods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 	// The domain restricts source-reduction amounts to count/distance/area/volume.
-	const amountUnitOptions = useMemo(() => unitOptions(units, isSourceReductionUnitType), [units]);
+	const amountUnitOptions = unitOptions(units, isSourceReductionUnitType);
 
 	const form = useAppForm({
 		defaultValues,

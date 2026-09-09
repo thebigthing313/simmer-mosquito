@@ -8,7 +8,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@simmer-mosquito/ui-web/components/ui/select';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
 import type { RouteSummary } from '../../../components/route-planning/route-summary';
 import {
@@ -185,6 +185,20 @@ export function AssignmentDetailFields({
 	);
 }
 
+/** The first eight routes whose name holds the search, in name order. */
+function routeMatches(
+	routes: readonly RouteSummary[],
+	normalized: string,
+): readonly RouteSummary[] {
+	const filtered =
+		normalized.length === 0
+			? routes
+			: routes.filter((route) => route.routeName.toLowerCase().includes(normalized));
+	return [...filtered]
+		.sort((first, second) => first.routeName.localeCompare(second.routeName))
+		.slice(0, 8);
+}
+
 /**
  * Route picker for the from-route snapshot. Filters the eagerly synced route
  * catalog in memory — the same approach as the trap picker, and the catalog runs
@@ -209,15 +223,7 @@ export function RoutePicker({
 	const anchorRef = useRef<HTMLDivElement>(null);
 
 	const normalized = search.trim().toLowerCase();
-	const matches = useMemo(() => {
-		const filtered =
-			normalized.length === 0
-				? routes
-				: routes.filter((route) => route.routeName.toLowerCase().includes(normalized));
-		return [...filtered]
-			.sort((first, second) => first.routeName.localeCompare(second.routeName))
-			.slice(0, 8);
-	}, [routes, normalized]);
+	const matches = routeMatches(routes, normalized);
 
 	return (
 		<PickerFrame

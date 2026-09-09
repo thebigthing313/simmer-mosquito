@@ -20,14 +20,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import {
-	type ComponentType,
-	type ReactNode,
-	useCallback,
-	useEffect,
-	useMemo,
-	useState,
-} from 'react';
+import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
 import {
 	type Acknowledgements,
 	useAcknowledgedWrite,
@@ -211,7 +204,7 @@ function ServiceRequestDetailContent({
 	const receivedByName =
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
 
-	const toggleFamily = useCallback((family: NearbyFamily) => {
+	const toggleFamily = (family: NearbyFamily) => {
 		setVisibleFamilies((prev) => {
 			const next = new Set(prev);
 			if (next.has(family)) {
@@ -221,7 +214,7 @@ function ServiceRequestDetailContent({
 			}
 			return next;
 		});
-	}, []);
+	};
 
 	return (
 		<MapSplitPage
@@ -353,24 +346,17 @@ function ContextMap({
 }) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
-	const mapData = useMemo(
-		() =>
-			buildNearbyMapData(
-				{ lat: request.latitude, lng: request.longitude },
-				response,
-				visibleFamilies,
-			),
-		[request.latitude, request.longitude, response, visibleFamilies],
+	const mapData = buildNearbyMapData(
+		{ lat: request.latitude, lng: request.longitude },
+		response,
+		visibleFamilies,
 	);
 
-	const handleReady = useCallback(
-		(instance: MapboxMap) => {
-			setMap(instance);
-			instance.setCenter([request.longitude, request.latitude]);
-			instance.setZoom(15);
-		},
-		[request.longitude, request.latitude],
-	);
+	const handleReady = (instance: MapboxMap) => {
+		setMap(instance);
+		instance.setCenter([request.longitude, request.latitude]);
+		instance.setZoom(15);
+	};
 
 	// Frame the whole proximity ring once the radius is known (and if it changes).
 	const radiusMeters = response?.radius.meters ?? null;
@@ -493,11 +479,8 @@ function NearbyPanel({
 	readonly onSelect: (id: string | null) => void;
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
-	const countsByFamily = useMemo(() => countNearbyByFamily(response?.items ?? []), [response]);
-	const visibleItems = useMemo(
-		() => visibleNearbyItems(response?.items ?? [], visibleFamilies),
-		[response, visibleFamilies],
-	);
+	const countsByFamily = countNearbyByFamily(response?.items ?? []);
+	const visibleItems = visibleNearbyItems(response?.items ?? [], visibleFamilies);
 
 	return (
 		<Card variant="surface">
@@ -968,23 +951,20 @@ function CloseReopenButton({
 	const mutations = useServiceRequestMutations();
 	const copy = open ? CLOSE_COPY : REOPEN_COPY;
 
-	const confirm = useCallback(
-		async (reason: string) => {
-			setDialogOpen(false);
-			setBusy(true);
-			setError(null);
-			const trimmed = reason.trim();
-			const text = trimmed.length === 0 ? copy.unexplained : trimmed;
-			try {
-				await (open ? mutations.close(requestId, text) : mutations.reopen(requestId, text));
-			} catch (thrown) {
-				setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
-			} finally {
-				setBusy(false);
-			}
-		},
-		[copy, mutations, open, requestId],
-	);
+	const confirm = async (reason: string) => {
+		setDialogOpen(false);
+		setBusy(true);
+		setError(null);
+		const trimmed = reason.trim();
+		const text = trimmed.length === 0 ? copy.unexplained : trimmed;
+		try {
+			await (open ? mutations.close(requestId, text) : mutations.reopen(requestId, text));
+		} catch (thrown) {
+			setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
+		} finally {
+			setBusy(false);
+		}
+	};
 
 	return (
 		<div className="grid justify-items-end gap-1">

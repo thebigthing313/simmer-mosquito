@@ -14,7 +14,6 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
 import { inspections } from '../lib/collections/inspections';
 
@@ -151,7 +150,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 	);
 
 	const rows: readonly InspectionStatsRow[] = result.data;
-	const { total, segments } = useMemo(() => computeSegments(rows), [rows]);
+	const { total, segments } = computeSegments(rows);
 
 	return (
 		<Card variant="surface">

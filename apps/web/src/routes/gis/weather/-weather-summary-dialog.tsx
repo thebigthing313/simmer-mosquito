@@ -10,7 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import {
@@ -79,26 +79,23 @@ function useSummaryForm(input: {
 	const issue = summaryIssue({ parsed, startDate, endDate, today });
 	const canSave = mutations.canWrite && parsed !== null && issue === null;
 
-	const moveStart = useCallback(
-		(next: string) => {
-			setStartDate(next);
-			if (!endTouched) {
-				setEndDate(next);
-			}
-		},
-		[endTouched],
-	);
+	const moveStart = (next: string) => {
+		setStartDate(next);
+		if (!endTouched) {
+			setEndDate(next);
+		}
+	};
 
-	const moveEnd = useCallback((next: string) => {
+	const moveEnd = (next: string) => {
 		setEndTouched(true);
 		setEndDate(next);
-	}, []);
+	};
 
-	const setMetric = useCallback((key: keyof MetricInputs, value: string) => {
+	const setMetric = (key: keyof MetricInputs, value: string) => {
 		setMetricInputs((current) => ({ ...current, [key]: value }));
-	}, []);
+	};
 
-	const save = useCallback(async () => {
+	const save = async () => {
 		if (!canSave || parsed === null) {
 			return;
 		}
@@ -126,7 +123,7 @@ function useSummaryForm(input: {
 		} finally {
 			setIsSaving(false);
 		}
-	}, [canSave, parsed, startDate, endDate, summary, mutations, stationId, onClose, onWriteYear]);
+	};
 
 	return {
 		dates: { startDate, endDate, today, setStartDate: moveStart, setEndDate: moveEnd },

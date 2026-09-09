@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers/entity-picker';
 import { type TrapName, trapDisplayName } from '../../hooks/queries/trap-view';
 
@@ -21,6 +21,18 @@ export { AddressPicker } from '../../components/pickers/address-picker';
  */
 export interface PickableTrap extends TrapName {
 	readonly description: string | null;
+}
+
+/** The first eight traps whose display name holds the search, or the first eight. */
+function trapMatches<TTrap extends PickableTrap>(
+	traps: readonly TTrap[],
+	normalized: string,
+): readonly TTrap[] {
+	const filtered =
+		normalized.length === 0
+			? traps
+			: traps.filter((trap) => trapDisplayName(trap).toLowerCase().includes(normalized));
+	return filtered.slice(0, 8);
 }
 
 export function TrapPicker<TTrap extends PickableTrap>({
@@ -54,13 +66,7 @@ export function TrapPicker<TTrap extends PickableTrap>({
 	// collection form passes `useTrapOptions`, which carries them. The habitat
 	// picker on the inspection form settles the same question the same way, and
 	// marks nothing in the list, so neither does this.
-	const matches = useMemo(() => {
-		const filtered =
-			normalized.length === 0
-				? traps
-				: traps.filter((trap) => trapDisplayName(trap).toLowerCase().includes(normalized));
-		return filtered.slice(0, 8);
-	}, [traps, normalized]);
+	const matches = trapMatches(traps, normalized);
 
 	return (
 		<PickerFrame

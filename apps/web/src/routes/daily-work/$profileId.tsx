@@ -10,7 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { ArrowLeftIcon, ContactIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { ExplorerMapPage, useExplorerPanel, usePersonnelOptions } from '../../components/explorer';
 import { MapCanvas } from '../../components/map';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
@@ -79,7 +79,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 	const timeZone = useOrganizationTimeZone();
 	// The organization's today, not the browser's. A supervisor two zones away
 	// opens the same day the collector on the road is filling in.
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 	const { day, setDay, activeCount } = useDailyWorkDay(today);
 	const lookups = useActivityLookups();
 
@@ -98,7 +98,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 		},
 		DAILY_WORK_COPY,
 	);
-	const legend = useMemo(() => dailyWorkLegend(view.items), [view.items]);
+	const legend = dailyWorkLegend(view.items);
 
 	// The day is this page, not a way of narrowing it, so the card it lives in
 	// opens with the page.
@@ -169,7 +169,7 @@ function useDailyWorkDay(today: string): {
 	/** Always zero here: see `DAILY_WORK_FILTER_COUNTING`. */
 	readonly activeCount: number;
 } {
-	const defaults = useMemo<DailyWorkFilters>(() => ({ date: today }), [today]);
+	const defaults: DailyWorkFilters = { date: today };
 	const { filters, setFilters, activeCount } = useSearchFilters(
 		defaults,
 		DAILY_WORK_FILTER_CODECS,
@@ -189,10 +189,7 @@ function useDailyWorkDay(today: string): {
 	return {
 		activeCount,
 		day,
-		setDay: useCallback(
-			(next: string) => setFilters({ date: next === '' ? today : next }),
-			[setFilters, today],
-		),
+		setDay: (next: string) => setFilters({ date: next === '' ? today : next }),
 	};
 }
 

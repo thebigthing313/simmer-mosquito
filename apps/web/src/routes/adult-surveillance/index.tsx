@@ -7,7 +7,7 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import {
 	type SpeciesTotal,
@@ -40,11 +40,8 @@ export const Route = createFileRoute('/adult-surveillance/')({
 
 function AdultSurveillanceOverviewRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const since = useMemo(
-		() => addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const since = addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1));
 
 	return (
 		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
@@ -152,7 +149,7 @@ function groupByDay(
 function RecentCollectionsPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
 	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
-	const groups = useMemo(() => groupByDay(collections, timeZone), [collections, timeZone]);
+	const groups = groupByDay(collections, timeZone);
 
 	return (
 		<Panel
@@ -226,24 +223,24 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 const SPECIES_PREVIEW_COUNT = 6;
 type SpeciesWindow = '7d' | '30d';
 
+/** The six species the panel draws, and the tail it sums into one "other" row. */
+function speciesPreview<TRow extends { readonly total: number }>(totals: readonly TRow[]) {
+	const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
+	const rest = totals.slice(SPECIES_PREVIEW_COUNT);
+	return {
+		top: previewed,
+		otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
+		otherCount: rest.length,
+		maxBar: previewed[0]?.total ?? 1,
+	};
+}
+
 function SpeciesCompositionPanel({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
-	const since = useMemo(
-		() => addDaysToDateString(today, window === '7d' ? -6 : -29),
-		[today, window],
-	);
+	const since = addDaysToDateString(today, window === '7d' ? -6 : -29);
 	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(since);
 
-	const { top, otherTotal, otherCount, maxBar } = useMemo(() => {
-		const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
-		const rest = totals.slice(SPECIES_PREVIEW_COUNT);
-		return {
-			top: previewed,
-			otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
-			otherCount: rest.length,
-			maxBar: previewed[0]?.total ?? 1,
-		};
-	}, [totals]);
+	const { top, otherTotal, otherCount, maxBar } = speciesPreview(totals);
 
 	return (
 		<Panel
@@ -472,10 +469,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 function AttentionPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
 	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
-	const flagged = useMemo(
-		() => collections.filter((collection) => collection.hasProblem),
-		[collections],
-	);
+	const flagged = collections.filter((collection) => collection.hasProblem);
 
 	return (
 		<Panel

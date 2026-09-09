@@ -22,7 +22,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import { errorMessageForSave } from '../../../lib/save-error';
@@ -32,6 +32,24 @@ const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 interface SpeciesOption {
 	readonly id: string;
 	readonly label: string;
+}
+
+/**
+ * The species with no key yet, narrowed by the search box.
+ *
+ * The filter narrows the unassigned list only. Bound keys stay visible, so an
+ * admin can always see what a key is already taken by while searching.
+ */
+function unboundOptions(
+	options: readonly SpeciesOption[],
+	keyBySpeciesId: ReadonlyMap<string, string>,
+	filter: string,
+): readonly SpeciesOption[] {
+	const needle = filter.trim().toLowerCase();
+	const available = options.filter((option) => !keyBySpeciesId.has(option.id));
+	return needle.length === 0
+		? available
+		: available.filter((option) => option.label.toLowerCase().includes(needle));
 }
 
 /**
@@ -54,29 +72,16 @@ export function KeyBindingsSettings({
 	const [busyKey, setBusyKey] = useState<string | null>(null);
 	const [filter, setFilter] = useState('');
 
-	const keyBySpeciesId = useMemo(
-		() => new Map(stored.map((binding) => [binding.speciesId, binding.key] as const)),
-		[stored],
+	const keyBySpeciesId = new Map(
+		stored.map((binding) => [binding.speciesId, binding.key] as const),
 	);
-	const takenKeys = useMemo(() => new Set(stored.map((binding) => binding.key)), [stored]);
+	const takenKeys = new Set(stored.map((binding) => binding.key));
 
-	const bound = useMemo(
-		() =>
-			stored.map((binding) => ({
-				binding,
-				label: options.find((option) => option.id === binding.speciesId)?.label ?? null,
-			})),
-		[stored, options],
-	);
-	// The filter narrows the unassigned list only — bound keys stay visible so an
-	// admin can always see what a key is already taken by while searching.
-	const unbound = useMemo(() => {
-		const needle = filter.trim().toLowerCase();
-		const available = options.filter((option) => !keyBySpeciesId.has(option.id));
-		return needle.length === 0
-			? available
-			: available.filter((option) => option.label.toLowerCase().includes(needle));
-	}, [options, keyBySpeciesId, filter]);
+	const bound = stored.map((binding) => ({
+		binding,
+		label: options.find((option) => option.id === binding.speciesId)?.label ?? null,
+	}));
+	const unbound = unboundOptions(options, keyBySpeciesId, filter);
 
 	async function save(next: readonly SpeciesKeyBinding[], busy: string): Promise<void> {
 		setBusyKey(busy);

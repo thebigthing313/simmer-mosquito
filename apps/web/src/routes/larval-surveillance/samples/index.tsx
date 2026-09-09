@@ -16,7 +16,7 @@ import { CheckIcon, ChevronDownIcon, iconRegistry } from '@simmer-mosquito/ui-we
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -118,25 +118,19 @@ const PATH = '/map/samples';
 
 function SamplesExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 
 	// The filter state lives in the URL, so a deep link, a shared link, and Back
 	// out of a record all land on the same view.
-	const filterDefaults = useMemo<SampleFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			status: 'all',
-			species: new Set(),
-			nonMosquito: false,
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: SampleFilters = {
+		from: defaultFrom,
+		to: today,
+		status: 'all',
+		species: new Set(),
+		nonMosquito: false,
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -149,22 +143,10 @@ function SamplesExplorerRoute() {
 	const speciesIds = query.species;
 	const nonMosquito = query.nonMosquito;
 	const regionIds = query.regions;
-	const setStatus = useCallback(
-		(next: StatusFilterValue) => setFilters({ status: next }),
-		[setFilters],
-	);
-	const setSpeciesIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ species: next }),
-		[setFilters],
-	);
-	const setNonMosquito = useCallback(
-		(next: boolean) => setFilters({ nonMosquito: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setStatus = (next: StatusFilterValue) => setFilters({ status: next });
+	const setSpeciesIds = (next: ReadonlySet<string>) => setFilters({ species: next });
+	const setNonMosquito = (next: boolean) => setFilters({ nonMosquito: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -173,32 +155,25 @@ function SamplesExplorerRoute() {
 	const { nameById, options } = useSpeciesOptions();
 	const regions = useRegionOptions();
 
-	const filters = useMemo<SampleTileFilters>(
-		() => ({
-			...(speciesIds.size > 0 ? { speciesIds: [...speciesIds] } : {}),
-			...(status === 'all' ? {} : { status }),
-			...(nonMosquito ? { nonMosquitoOnly: true } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[speciesIds, status, nonMosquito, regionIds, dateFrom, dateTo],
-	);
+	const filters: SampleTileFilters = {
+		...(speciesIds.size > 0 ? { speciesIds: [...speciesIds] } : {}),
+		...(status === 'all' ? {} : { status }),
+		...(nonMosquito ? { nonMosquitoOnly: true } : {}),
+		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
+		...(dateFrom === '' ? {} : { dateFrom }),
+		...(dateTo === '' ? {} : { dateTo }),
+	};
 
 	const bbox = useMapBoundsParam(map);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				bbox,
-				species: filters.speciesIds,
-				status: filters.status,
-				nonMosquito: filters.nonMosquitoOnly,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			}),
-		[bbox, filters],
-	);
+	const params = mapQueryParams({
+		bbox,
+		species: filters.speciesIds,
+		status: filters.status,
+		nonMosquito: filters.nonMosquitoOnly,
+		regionId: filters.regionIds,
+		dateFrom: filters.dateFrom,
+		dateTo: filters.dateTo,
+	});
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<SampleFeature>({
 			path: PATH,
@@ -217,27 +192,21 @@ function SamplesExplorerRoute() {
 
 	useFlyToSelection(map, selected);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'samples',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'samples',
+			serverUrl: getServerUrl(),
+			filters,
+			selectedId,
+			onSelectFeature: setSelectedId,
+		},
+	];
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
-	const legend = useMemo(() => sampleLegend(status), [status]);
+	const legend = sampleLegend(status);
 
-	const resetDates = useCallback(
-		() => setFilters({ from: defaultFrom, to: today }),
-		[setFilters, defaultFrom, today],
-	);
+	const resetDates = () => setFilters({ from: defaultFrom, to: today });
 	const clearAll = reset;
 
 	return (

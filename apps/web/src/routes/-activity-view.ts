@@ -1,6 +1,6 @@
 import { type BoundingBox, boundsFromGeoJson } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useFlyToSelection } from '../components/explorer';
 import type { ActivityLayerConfig } from '../components/map/use-activity-layer';
 import {
@@ -58,12 +58,9 @@ export function useActivitySelection(
 		view,
 		selectedKey,
 		select: setSelectedKey,
-		clear: useCallback(() => setSelectedKey(null), []),
-		onMapReady: useCallback((instance: MapboxMap) => setMap(instance), []),
-		activityLayer: useMemo(
-			() => ({ data: view.mapData, selectedKey, onSelectFeature: setSelectedKey }),
-			[view.mapData, selectedKey],
-		),
+		clear: () => setSelectedKey(null),
+		onMapReady: (instance: MapboxMap) => setMap(instance),
+		activityLayer: { data: view.mapData, selectedKey, onSelectFeature: setSelectedKey },
 	};
 }
 
@@ -80,24 +77,18 @@ function useActivityView(
 	const entries = items ?? NO_ENTRIES;
 	return {
 		items: entries,
-		days: useMemo(() => groupActivityByDay(entries), [entries]),
-		mapData: useMemo(() => buildActivityMapData(entries), [entries]),
+		days: groupActivityByDay(entries),
+		mapData: buildActivityMapData(entries),
 		// The camera frames the whole day's work as one MultiPoint, so a person who
 		// covered two townships is not left half off the edge of the map.
-		bounds: useMemo(
-			() =>
-				entries.length === 0
-					? null
-					: boundsFromGeoJson({
-							type: 'MultiPoint',
-							coordinates: entries.map((item) => [item.lng, item.lat]),
-						}),
-			[entries],
-		),
-		selected: useMemo(
-			() => entries.find((item) => activityEntryKey(item) === selectedKey) ?? null,
-			[entries, selectedKey],
-		),
+		bounds:
+			entries.length === 0
+				? null
+				: boundsFromGeoJson({
+						type: 'MultiPoint',
+						coordinates: entries.map((item) => [item.lng, item.lat]),
+					}),
+		selected: entries.find((item) => activityEntryKey(item) === selectedKey) ?? null,
 	};
 }
 

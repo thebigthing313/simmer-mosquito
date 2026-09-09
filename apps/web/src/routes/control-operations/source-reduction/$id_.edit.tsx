@@ -1,7 +1,6 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
@@ -114,45 +113,42 @@ function EditSourceReductionLoader({
 	const personnel = useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReduction.id });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 
-	const onSave = useCallback(
-		async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
-			if (values.sourcesEliminatedAmount === null) {
-				throw new Error('Enter how many sources were eliminated.');
-			}
-			// The point and the address/habitat are independent: only state a location
-			// when the user actually refined the point. Absent means "leave it", which
-			// is not the same request as re-sending the shape it already has.
-			const refinedShape = geometryChanged && geometry !== null ? geometry : null;
-			const centroid = refinedShape === null ? null : ownedCentroidFromGeoJson(refinedShape);
+	const onSave = async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
+		if (values.sourcesEliminatedAmount === null) {
+			throw new Error('Enter how many sources were eliminated.');
+		}
+		// The point and the address/habitat are independent: only state a location
+		// when the user actually refined the point. Absent means "leave it", which
+		// is not the same request as re-sending the shape it already has.
+		const refinedShape = geometryChanged && geometry !== null ? geometry : null;
+		const centroid = refinedShape === null ? null : ownedCentroidFromGeoJson(refinedShape);
 
-			// Which commands this save means is worked out by the hook, from what
-			// actually moved — the field details and the placement are different
-			// builders, and naming one with nothing to read is refused.
-			await update(sourceReduction, {
-				values: sourceReductionFieldsFrom(values),
-				...(centroid === null || refinedShape === null
-					? {}
-					: {
-							location: {
-								lat: centroid.lat,
-								lng: centroid.lng,
-								geomType: centroid.geomType,
-								locationSource: { kind: 'geometry', geometry: refinedShape },
-							},
-						}),
-			});
-			await setPersonnel({
-				target: { type: 'sourceReduction', id: sourceReduction.id },
-				existing: personnel.rows,
-				profileIds: values.additionalPersonnelIds,
-			});
-			await navigate({
-				to: '/control-operations/source-reduction/$id',
-				params: { id: sourceReduction.id },
-			});
-		},
-		[sourceReduction, personnel.rows, navigate, update, setPersonnel],
-	);
+		// Which commands this save means is worked out by the hook, from what
+		// actually moved — the field details and the placement are different
+		// builders, and naming one with nothing to read is refused.
+		await update(sourceReduction, {
+			values: sourceReductionFieldsFrom(values),
+			...(centroid === null || refinedShape === null
+				? {}
+				: {
+						location: {
+							lat: centroid.lat,
+							lng: centroid.lng,
+							geomType: centroid.geomType,
+							locationSource: { kind: 'geometry', geometry: refinedShape },
+						},
+					}),
+		});
+		await setPersonnel({
+			target: { type: 'sourceReduction', id: sourceReduction.id },
+			existing: personnel.rows,
+			profileIds: values.additionalPersonnelIds,
+		});
+		await navigate({
+			to: '/control-operations/source-reduction/$id',
+			params: { id: sourceReduction.id },
+		});
+	};
 
 	if (geometryQuery.isError) {
 		return (

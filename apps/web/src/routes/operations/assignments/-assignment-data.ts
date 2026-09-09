@@ -1,5 +1,4 @@
 import { and, eq, inArray, isNull, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../components/map';
 import type { StopTone } from '../../../components/stop-order';
 import type { AssignmentStatus, ProgressCounts } from '../../../hooks/queries/assignment-view';
@@ -330,26 +329,11 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	readonly byKey: ReadonlyMap<string, AssignmentTarget>;
 	readonly isReady: boolean;
 } {
-	const { trapIds, habitatIds, requestIds } = useMemo(() => {
-		const traps: string[] = [];
-		const habitats: string[] = [];
-		const requests: string[] = [];
-		for (const item of items) {
-			const type = targetTypeOf(item.entityType);
-			if (type === 'trap') {
-				traps.push(item.entityId);
-			} else if (type === 'habitat') {
-				habitats.push(item.entityId);
-			} else if (type === 'serviceRequest') {
-				requests.push(item.entityId);
-			}
-		}
-		return { trapIds: traps, habitatIds: habitats, requestIds: requests };
-	}, [items]);
+	const { trapIds, habitatIds, requestIds } = targetIdsByType(items);
 
-	const trapKey = useMemo(() => [...trapIds].sort().join(','), [trapIds]);
-	const habitatKey = useMemo(() => [...habitatIds].sort().join(','), [habitatIds]);
-	const requestKey = useMemo(() => [...requestIds].sort().join(','), [requestIds]);
+	const trapKey = [...trapIds].sort().join(',');
+	const habitatKey = [...habitatIds].sort().join(',');
+	const requestKey = [...requestIds].sort().join(',');
 
 	// `traps` is eager, so this is a filter over rows already local rather than a
 	// subset request — but asking for the stops' traps by id keeps the three
@@ -424,23 +408,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	const requestRows = requestResult.data;
 
 	// Second-level subset: all three label themselves by address.
-	const addressIds = useMemo(() => {
-		const ids = new Set<string>();
-		for (const habitat of habitatRows) {
-			if (habitat.addressId !== null) {
-				ids.add(habitat.addressId);
-			}
-		}
-		for (const request of requestRows) {
-			ids.add(request.addressId);
-		}
-		for (const trap of trapRows) {
-			if (trap.addressId !== null) {
-				ids.add(trap.addressId);
-			}
-		}
-		return [...ids].sort();
-	}, [habitatRows, requestRows, trapRows]);
+	const addressIds = addressIdsOf({ trapRows, habitatRows, requestRows });
 	const addressKey = addressIds.join(',');
 
 	const addressResult = useLiveQuery(
@@ -457,68 +425,161 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 		[addressKey],
 	);
 
-	const addressById = useMemo(() => {
-		const map = new Map<string, string>();
-		for (const address of addressResult.data) {
-			map.set(address.id, address.displayName);
-		}
-		return map;
-	}, [addressResult.data]);
+	const addressById = addressNamesById(addressResult.data);
 
-	const byKey = useMemo(() => {
-		const map = new Map<string, AssignmentTarget>();
-
-		for (const trap of trapRows) {
-			map.set(targetKey('trap', trap.id), {
-				type: 'trap',
-				id: trap.id,
-				name: trapDisplayName(trap),
-				secondary:
-					trap.addressId === null ? trap.description : (addressById.get(trap.addressId) ?? null),
-				lat: trap.lat,
-				lng: trap.lng,
-				isActive: trap.isActive,
-				isInaccessible: false,
-			});
-		}
-
-		for (const habitat of habitatRows) {
-			map.set(targetKey('habitat', habitat.id), {
-				type: 'habitat',
-				id: habitat.id,
-				name: habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`,
-				secondary:
-					habitat.addressId === null
-						? habitat.description
-						: (addressById.get(habitat.addressId) ?? null),
-				lat: habitat.lat,
-				lng: habitat.lng,
-				isActive: habitat.isActive,
-				isInaccessible: habitat.isInaccessible,
-			});
-		}
-
-		for (const request of requestRows) {
-			map.set(targetKey('serviceRequest', request.id), {
-				type: 'serviceRequest',
-				id: request.id,
-				name: addressById.get(request.addressId) ?? `Request ${request.id.slice(0, 8)}`,
-				secondary: request.details,
-				lat: request.lat,
-				lng: request.lng,
-				isActive: request.closedAt === null,
-				isInaccessible: false,
-			});
-		}
-
-		return map;
-	}, [trapRows, habitatRows, requestRows, addressById]);
+	const byKey = targetsByKey({ trapRows, habitatRows, requestRows, addressById });
 
 	return {
 		byKey,
 		isReady:
 			trapResult.isReady && habitatResult.isReady && requestResult.isReady && addressResult.isReady,
 	};
+}
+
+/** One trap row as the three subsets project it. */
+interface TargetTrapRow {
+	readonly id: string;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly description: string | null;
+	readonly addressId: string | null;
+	readonly lat: number | null;
+	readonly lng: number | null;
+	readonly isActive: boolean;
+}
+
+/** One habitat row as the three subsets project it. */
+interface TargetHabitatRow {
+	readonly id: string;
+	readonly habitatName: string | null;
+	readonly description: string | null;
+	readonly addressId: string | null;
+	readonly lat: number | null;
+	readonly lng: number | null;
+	readonly isActive: boolean;
+	readonly isInaccessible: boolean;
+}
+
+/** One service request row as the three subsets project it. */
+interface TargetRequestRow {
+	readonly id: string;
+	readonly addressId: string;
+	readonly details: string | null;
+	readonly lat: number | null;
+	readonly lng: number | null;
+	readonly closedAt: Date | null;
+}
+
+/** The stops' entity ids, split by the table each type points at. */
+function targetIdsByType(items: readonly AssignmentItemView[]): {
+	readonly trapIds: string[];
+	readonly habitatIds: string[];
+	readonly requestIds: string[];
+} {
+	const traps: string[] = [];
+	const habitats: string[] = [];
+	const requests: string[] = [];
+	for (const item of items) {
+		const type = targetTypeOf(item.entityType);
+		if (type === 'trap') {
+			traps.push(item.entityId);
+		} else if (type === 'habitat') {
+			habitats.push(item.entityId);
+		} else if (type === 'serviceRequest') {
+			requests.push(item.entityId);
+		}
+	}
+	return { trapIds: traps, habitatIds: habitats, requestIds: requests };
+}
+
+/** Every address the three row sets name, sorted so the subset key is stable. */
+function addressIdsOf(rows: {
+	readonly trapRows: readonly TargetTrapRow[];
+	readonly habitatRows: readonly TargetHabitatRow[];
+	readonly requestRows: readonly TargetRequestRow[];
+}): string[] {
+	const ids = new Set<string>();
+	for (const habitat of rows.habitatRows) {
+		if (habitat.addressId !== null) {
+			ids.add(habitat.addressId);
+		}
+	}
+	for (const request of rows.requestRows) {
+		ids.add(request.addressId);
+	}
+	for (const trap of rows.trapRows) {
+		if (trap.addressId !== null) {
+			ids.add(trap.addressId);
+		}
+	}
+	return [...ids].sort();
+}
+
+/** Address id → display name, over the rows the address subset returned. */
+function addressNamesById(
+	rows: readonly { readonly id: string; readonly displayName: string }[],
+): ReadonlyMap<string, string> {
+	const map = new Map<string, string>();
+	for (const address of rows) {
+		map.set(address.id, address.displayName);
+	}
+	return map;
+}
+
+/** The three row sets merged into the one map a stop looks its target up in. */
+function targetsByKey(rows: {
+	readonly trapRows: readonly TargetTrapRow[];
+	readonly habitatRows: readonly TargetHabitatRow[];
+	readonly requestRows: readonly TargetRequestRow[];
+	readonly addressById: ReadonlyMap<string, string>;
+}): ReadonlyMap<string, AssignmentTarget> {
+	const { trapRows, habitatRows, requestRows, addressById } = rows;
+	const map = new Map<string, AssignmentTarget>();
+
+	for (const trap of trapRows) {
+		map.set(targetKey('trap', trap.id), {
+			type: 'trap',
+			id: trap.id,
+			name: trapDisplayName(trap),
+			secondary:
+				trap.addressId === null ? trap.description : (addressById.get(trap.addressId) ?? null),
+			lat: trap.lat,
+			lng: trap.lng,
+			isActive: trap.isActive,
+			isInaccessible: false,
+		});
+	}
+
+	for (const habitat of habitatRows) {
+		map.set(targetKey('habitat', habitat.id), {
+			type: 'habitat',
+			id: habitat.id,
+			name: habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`,
+			secondary:
+				habitat.addressId === null
+					? habitat.description
+					: (addressById.get(habitat.addressId) ?? null),
+			lat: habitat.lat,
+			lng: habitat.lng,
+			isActive: habitat.isActive,
+			isInaccessible: habitat.isInaccessible,
+		});
+	}
+
+	for (const request of requestRows) {
+		map.set(targetKey('serviceRequest', request.id), {
+			type: 'serviceRequest',
+			id: request.id,
+			name: addressById.get(request.addressId) ?? `Request ${request.id.slice(0, 8)}`,
+			secondary: request.details,
+			lat: request.lat,
+			lng: request.lng,
+			isActive: request.closedAt === null,
+			isInaccessible: false,
+		});
+	}
+
+	return map;
 }
 
 function targetKey(type: TargetType, id: string): string {
@@ -535,18 +596,34 @@ function targetKey(type: TargetType, id: string): string {
  * lands on this page, and a write to a cold stream times out waiting for its
  * txid.
  */
+/** The stops' trap ids, deduped and sorted so the subset key is stable. */
+function trapIdsOf(items: readonly AssignmentItemView[]): string[] {
+	const ids = new Set<string>();
+	for (const item of items) {
+		if (targetTypeOf(item.entityType) === 'trap') {
+			ids.add(item.entityId);
+		}
+	}
+	return [...ids].sort();
+}
+
+/** Trap id → the first open collection on it, over the rows the subset returned. */
+function firstCollectionByTrapId(
+	rows: readonly { readonly id: string; readonly trapId: string | null }[],
+): ReadonlyMap<string, string> {
+	const map = new Map<string, string>();
+	for (const collection of rows) {
+		if (collection.trapId !== null && !map.has(collection.trapId)) {
+			map.set(collection.trapId, collection.id);
+		}
+	}
+	return map;
+}
+
 function usePendingTrapCollections(
 	items: readonly AssignmentItemView[],
 ): ReadonlyMap<string, string> {
-	const trapIds = useMemo(() => {
-		const ids = new Set<string>();
-		for (const item of items) {
-			if (targetTypeOf(item.entityType) === 'trap') {
-				ids.add(item.entityId);
-			}
-		}
-		return [...ids].sort();
-	}, [items]);
+	const trapIds = trapIdsOf(items);
 	const trapKey = trapIds.join(',');
 
 	const result = useLiveQuery(
@@ -572,15 +649,7 @@ function usePendingTrapCollections(
 		[trapKey],
 	);
 
-	return useMemo(() => {
-		const map = new Map<string, string>();
-		for (const collection of result.data) {
-			if (collection.trapId !== null && !map.has(collection.trapId)) {
-				map.set(collection.trapId, collection.id);
-			}
-		}
-		return map;
-	}, [result.data]);
+	return firstCollectionByTrapId(result.data);
 }
 
 /** An assignment's stops, joined to their targets and ready to render or map. */
@@ -594,48 +663,39 @@ export function useAssignmentStops(assignmentId: string | null): {
 	const { byKey, isReady: targetsReady } = useAssignmentTargets(items);
 	const pendingByTrapId = usePendingTrapCollections(items);
 
-	const stops = useMemo<readonly AssignmentStopView[]>(
-		() =>
-			items.map((item, index) => {
-				const type = targetTypeOf(item.entityType);
-				const target = type === null ? undefined : byKey.get(targetKey(type, item.entityId));
-				const progress = itemProgress(item);
-				return {
-					pendingCollectionId:
-						type === 'trap' ? (pendingByTrapId.get(item.entityId) ?? null) : null,
-					assignmentItemId: item.id,
-					ordinal: index + 1,
-					position: item.position,
-					entityType: type,
-					entityId: item.entityId,
-					directionsToNextItem: item.directionsToNextItem,
-					completedAt: item.completedAt,
-					completedByProfileId: item.completedByProfileId,
-					skippedAt: item.skippedAt,
-					skippedByProfileId: item.skippedByProfileId,
-					skipReason: item.skipReason,
-					progress,
-					target: target ?? null,
-					hasLocation: target?.lat != null && target?.lng != null,
-					isResolving: target === undefined && !targetsReady,
-				};
-			}),
-		[items, byKey, targetsReady, pendingByTrapId],
-	);
+	const stops: readonly AssignmentStopView[] = items.map((item, index) => {
+		const type = targetTypeOf(item.entityType);
+		const target = type === null ? undefined : byKey.get(targetKey(type, item.entityId));
+		const progress = itemProgress(item);
+		return {
+			pendingCollectionId: type === 'trap' ? (pendingByTrapId.get(item.entityId) ?? null) : null,
+			assignmentItemId: item.id,
+			ordinal: index + 1,
+			position: item.position,
+			entityType: type,
+			entityId: item.entityId,
+			directionsToNextItem: item.directionsToNextItem,
+			completedAt: item.completedAt,
+			completedByProfileId: item.completedByProfileId,
+			skippedAt: item.skippedAt,
+			skippedByProfileId: item.skippedByProfileId,
+			skipReason: item.skipReason,
+			progress,
+			target: target ?? null,
+			hasLocation: target?.lat != null && target?.lng != null,
+			isResolving: target === undefined && !targetsReady,
+		};
+	});
 
-	const features = useMemo<RouteStopFeature[]>(
-		() =>
-			stops
-				.filter((stop) => stop.hasLocation)
-				.map((stop) => ({
-					id: stop.assignmentItemId,
-					lng: stop.target?.lng as number,
-					lat: stop.target?.lat as number,
-					ordinal: stop.ordinal,
-					tone: assignmentStopTone(stop),
-				})),
-		[stops],
-	);
+	const features: RouteStopFeature[] = stops
+		.filter((stop) => stop.hasLocation)
+		.map((stop) => ({
+			id: stop.assignmentItemId,
+			lng: stop.target?.lng as number,
+			lat: stop.target?.lat as number,
+			ordinal: stop.ordinal,
+			tone: assignmentStopTone(stop),
+		}));
 
 	return {
 		stops,
@@ -652,20 +712,17 @@ export function useAssigneeOptions(): {
 } {
 	const profiles = useProfileRoster();
 
-	return useMemo(
-		() => ({
-			options: [
-				{ label: 'Unassigned', value: NO_ASSIGNEE },
-				...lifecycleOptions(
-					profiles,
-					(profile) => profile.isActive,
-					(profile) => profile.displayName,
-				),
-			],
-			nameById: new Map(profiles.map((profile) => [profile.id, profile.displayName])),
-		}),
-		[profiles],
-	);
+	return {
+		options: [
+			{ label: 'Unassigned', value: NO_ASSIGNEE },
+			...lifecycleOptions(
+				profiles,
+				(profile) => profile.isActive,
+				(profile) => profile.displayName,
+			),
+		],
+		nameById: new Map(profiles.map((profile) => [profile.id, profile.displayName])),
+	};
 }
 
 /** One open service request, for the target picker. Closed requests take no new stops. */

@@ -20,7 +20,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
@@ -133,17 +133,14 @@ function AssignmentPlanRoute() {
 	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
 	useBreadcrumbLabel(id, displayName);
 
-	const savedDetails = useMemo(
-		() => (assignment === null ? null : toAssignmentDetails(assignment, timeZone)),
-		[assignment, timeZone],
-	);
+	const savedDetails = assignment === null ? null : toAssignmentDetails(assignment, timeZone);
 	const values = detailDraft ?? savedDetails;
 	const isDirty =
 		detailDraft !== null &&
 		savedDetails !== null &&
 		!sameAssignmentDetails(detailDraft, savedDetails);
 
-	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
+	const commitMove = (plan: MovePlan) => moveStops(id, plan);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -152,34 +149,26 @@ function AssignmentPlanRoute() {
 
 	// Ordinals come off the *pending* order, not the synced one, so a reorder
 	// renumbers the pins on the same frame the list rearranges.
-	const features = useMemo<RouteStopFeature[]>(
-		() =>
-			orderedStops
-				.map((stop, index) => ({ stop, ordinal: index + 1 }))
-				.filter((entry) => entry.stop.hasLocation)
-				.map((entry) => ({
-					id: entry.stop.assignmentItemId,
-					lng: entry.stop.target?.lng as number,
-					lat: entry.stop.target?.lat as number,
-					ordinal: entry.ordinal,
-					tone: assignmentStopTone(entry.stop),
-				})),
-		[orderedStops],
-	);
+	const features: RouteStopFeature[] = orderedStops
+		.map((stop, index) => ({ stop, ordinal: index + 1 }))
+		.filter((entry) => entry.stop.hasLocation)
+		.map((entry) => ({
+			id: entry.stop.assignmentItemId,
+			lng: entry.stop.target?.lng as number,
+			lat: entry.stop.target?.lat as number,
+			ordinal: entry.ordinal,
+			tone: assignmentStopTone(entry.stop),
+		}));
 
-	const existingKeys = useMemo(
-		() =>
-			new Set(
-				stops
-					.filter((stop) => stop.entityType !== null)
-					.map((stop) => `${stop.entityType}:${stop.entityId}`),
-			),
-		[stops],
+	const existingKeys = new Set(
+		stops
+			.filter((stop) => stop.entityType !== null)
+			.map((stop) => `${stop.entityType}:${stop.entityId}`),
 	);
 
 	const editable = assignment !== null && canEditPlan(assignment.status);
 
-	const saveDetails = useCallback(async () => {
+	const saveDetails = async () => {
 		if (detailDraft === null || detailDraft.assignmentDate === '') {
 			return;
 		}
@@ -198,55 +187,46 @@ function AssignmentPlanRoute() {
 		} finally {
 			setSavingDetails(false);
 		}
-	}, [detailDraft, id, timeZone, updateDetails]);
+	};
 
-	const addStop = useCallback(
-		async (selection: AssignmentTargetSelection) => {
-			setError(null);
-			try {
-				await items.addStop({
-					assignmentId: id,
-					// The picker speaks the page's vocabulary; the row speaks the
-					// column's. `serviceRequest` is the only member the two spell
-					// differently, which is why this conversion has to be explicit.
-					target: {
-						type: selection.type === 'serviceRequest' ? 'service_request' : selection.type,
-						id: selection.id,
-					},
-					position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
-				});
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
-			}
-		},
-		[items, id, stops],
-	);
+	const addStop = async (selection: AssignmentTargetSelection) => {
+		setError(null);
+		try {
+			await items.addStop({
+				assignmentId: id,
+				// The picker speaks the page's vocabulary; the row speaks the
+				// column's. `serviceRequest` is the only member the two spell
+				// differently, which is why this conversion has to be explicit.
+				target: {
+					type: selection.type === 'serviceRequest' ? 'service_request' : selection.type,
+					id: selection.id,
+				},
+				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+		}
+	};
 
-	const move = useCallback(
-		async (index: number, action: MoveAction) => {
-			setError(null);
-			try {
-				await moveStop(index, action);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to reorder the assignment.');
-			}
-		},
-		[moveStop],
-	);
+	const move = async (index: number, action: MoveAction) => {
+		setError(null);
+		try {
+			await moveStop(index, action);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to reorder the assignment.');
+		}
+	};
 
-	const saveDirections = useCallback(
-		async (assignmentItemId: string, value: string) => {
-			setError(null);
-			try {
-				await items.setDirections(assignmentItemId, value);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
-			}
-		},
-		[items],
-	);
+	const saveDirections = async (assignmentItemId: string, value: string) => {
+		setError(null);
+		try {
+			await items.setDirections(assignmentItemId, value);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+		}
+	};
 
-	const confirmRemove = useCallback(async () => {
+	const confirmRemove = async () => {
 		const target = removeTarget;
 		setRemoveTarget(null);
 		if (target === null) {
@@ -258,7 +238,7 @@ function AssignmentPlanRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
 		}
-	}, [removeTarget, items]);
+	};
 
 	const body = (
 		<>
