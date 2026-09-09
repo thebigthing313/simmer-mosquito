@@ -193,9 +193,7 @@ const REACT_RULE_BACKLOG = new Map([
 	['apps/web/src/routes/public-engagement/service-requests/index.tsx', 3],
 	['apps/web/src/routes/search.tsx', 7],
 	['apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx', 4],
-	['packages/ui-web/src/components/app-shell/header/header-search-bar.tsx', 6],
 	['packages/ui-web/src/components/color-picker.tsx', 1],
-	['packages/ui-web/src/components/form/field-components/metadata-field.tsx', 1],
 	['packages/ui-web/src/hooks/use-mobile.ts', 1],
 ]);
 

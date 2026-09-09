@@ -99,10 +99,10 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 
 	return (
 		<SearchTriggerProvider
+			triggerRef={searchTriggerRef}
 			value={{
 				isOpen: searchOpen,
 				onOpen: () => setSearchOpen(true),
-				triggerRef: searchTriggerRef,
 			}}
 		>
 			<ShellProvider

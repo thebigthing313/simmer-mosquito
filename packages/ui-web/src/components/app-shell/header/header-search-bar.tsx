@@ -2,7 +2,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Kbd } from '@simmer-mosquito/ui-web/components/ui/kbd';
 import { SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useEffect, useState } from 'react';
-import { useSearchTrigger } from './search-trigger-context';
+import { useSearchTrigger, useSearchTriggerRef } from './search-trigger-context';
 
 /**
  * The header's way into global search: a button, not a field.
@@ -24,6 +24,7 @@ import { useSearchTrigger } from './search-trigger-context';
  */
 export function HeaderSearchBar() {
 	const trigger = useSearchTrigger();
+	const triggerRef = useSearchTriggerRef();
 	const [modKey] = useState(() =>
 		typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? '⌘' : 'Ctrl',
 	);
@@ -56,7 +57,7 @@ export function HeaderSearchBar() {
 			aria-label="Search"
 			className="h-9 gap-2 bg-background px-3 text-muted-foreground"
 			onClick={trigger.onOpen}
-			ref={trigger.triggerRef}
+			ref={triggerRef}
 			type="button"
 			variant="outline"
 		>
