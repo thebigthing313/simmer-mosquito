@@ -4,7 +4,6 @@ import {
 	proximityLabel,
 	proximitySearchUnit,
 } from '@simmer-mosquito/domain';
-import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page/list-states';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -14,7 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
 import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
@@ -28,7 +27,7 @@ import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { MapCanvas } from '../map';
 import { WriteOnly } from '../write-only';
-import { mergeMapData } from './habitat-merge-map';
+import { mergeMapData, searchBounds } from './habitat-merge-map';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
 import { CandidateRow } from './nearby-habitat-row';
 import { RECORD_CLEANUP_CONFIGS, recordCountLabel, recordLabel } from './record-cleanup-config';
@@ -78,25 +77,25 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 	const queryClient = useQueryClient();
 	const sources = candidates.filter((candidate) => selected.has(candidate.id));
 
-	const runMerge = useCallback(
-		async (acknowledged: boolean, fieldUpdates: MergeFieldUpdates): Promise<void> => {
-			if (target === undefined) {
-				return;
-			}
-			await merge({
-				targetId: target.id,
-				sourceIds: sources.map((source) => source.id),
-				acknowledged,
-				fieldUpdates,
-			});
-			toast.success(
-				`Merged ${recordCountLabel(sources.length, config)} into ${recordLabel(target, config)}.`,
-			);
-			clear();
-			await queryClient.invalidateQueries({ queryKey: nearbyHabitatsKey(habitatId) });
-		},
-		[clear, habitatId, merge, queryClient, sources, target],
-	);
+	const runMerge = async (
+		acknowledged: boolean,
+		fieldUpdates: MergeFieldUpdates,
+	): Promise<void> => {
+		if (target === undefined) {
+			return;
+		}
+		await merge({
+			targetId: target.id,
+			sourceIds: sources.map((source) => source.id),
+			acknowledged,
+			fieldUpdates,
+		});
+		toast.success(
+			`Merged ${recordCountLabel(sources.length, config)} into ${recordLabel(target, config)}.`,
+		);
+		clear();
+		await queryClient.invalidateQueries({ queryKey: nearbyHabitatsKey(habitatId) });
+	};
 
 	return (
 		<>
@@ -269,21 +268,9 @@ function useMergeSearch(habitatId: string) {
 	// way it does on every other by-id page.
 	useBreadcrumbLabel(habitatId, target?.label ?? '');
 
-	const mapData = useMemo(
-		() => mergeMapData(target, candidates, radiusMetres),
-		[candidates, radiusMetres, target],
-	);
+	const mapData = mergeMapData(target, candidates, radiusMetres);
 
-	// The ring, which is the extent the search covers whether or not anything came
-	// back. `fitToData` resolves a boolean from the tile layers, and this canvas
-	// has none: its features are a GeoJSON overlay, so the box has to be handed in.
-	const bounds = useMemo(
-		() =>
-			target === undefined || target.lat === null || target.lng === null
-				? null
-				: boundsFromGeoJson(circlePolygon({ lat: target.lat, lng: target.lng }, radiusMetres)),
-		[radiusMetres, target],
-	);
+	const bounds = searchBounds(target, radiusMetres);
 
 	return {
 		bounds,
@@ -307,7 +294,7 @@ function useMergeSearch(habitatId: string) {
 function useHabitatSelection() {
 	const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
 
-	const toggle = useCallback((habitatId: string) => {
+	const toggle = (habitatId: string) => {
 		setSelected((current) => {
 			const next = new Set(current);
 			if (!next.delete(habitatId)) {
@@ -315,9 +302,9 @@ function useHabitatSelection() {
 			}
 			return next;
 		});
-	}, []);
+	};
 
-	const clear = useCallback(() => setSelected(new Set()), []);
+	const clear = () => setSelected(new Set());
 
 	return { selected, toggle, clear };
 }

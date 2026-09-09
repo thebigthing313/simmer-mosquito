@@ -4,7 +4,6 @@ import {
 	type LngLat,
 } from '@simmer-mosquito/mapping';
 import { useQueries } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { fetchRegionGeometry, regionGeometryQueryKey } from '../../hooks/use-region-geometry';
 
 export interface RegionMembership {
@@ -38,22 +37,15 @@ export function useRegionMembership(regionIds: ReadonlySet<string>): RegionMembe
 	// Keyed on the ids themselves, not the set's identity, so a re-render with an
 	// equal-but-new Set doesn't restart the boundary reads.
 	const key = [...regionIds].sort().join(',');
-	const ids = useMemo(() => (key.length === 0 ? [] : key.split(',')), [key]);
+	const ids = key.length === 0 ? [] : key.split(',');
 
 	// The boundary list has to stay referentially stable across the renders
 	// between two loads: an unstable predicate rebuilds every caller's filtered
-	// list, and with it the map's whole feature source. A `useMemo` could not say
-	// that honestly, because what it reads is the results array, whose identity
-	// changes every render, so it named a status signature in its dependency list
-	// instead and carried a `biome-ignore` to allow the mismatch. That is a memo
-	// inference cannot reproduce, which is exactly what the React Compiler refused
-	// to compile (`PreserveManualMemo`, #822).
-	//
-	// `combine` is the library's own answer to it. `useQueries` runs the result
-	// through `replaceEqualDeep`, which returns the previous object when the new
-	// one is equal, and every element is a reference check rather than a deep walk
-	// of the polygon, so the cost is one comparison per selected region. Same
-	// stability, stated by the call rather than worked around beside it.
+	// list, and with it the map's whole feature source. `combine` is what states
+	// that. `useQueries` runs the result through `replaceEqualDeep`, which returns
+	// the previous object when the new one is equal, and every element is a
+	// reference check rather than a deep walk of the polygon, so the cost is one
+	// comparison per selected region (#822).
 	const { boundaries, isReady } = useQueries({
 		queries: ids.map((id) => ({
 			queryKey: regionGeometryQueryKey(id),
@@ -68,16 +60,23 @@ export function useRegionMembership(regionIds: ReadonlySet<string>): RegionMembe
 		}),
 	});
 
-	return useMemo(() => {
-		if (ids.length === 0) {
-			return NO_REGIONS;
-		}
-		return {
-			contains: (point: LngLat) =>
-				Number.isFinite(point.lng) &&
-				Number.isFinite(point.lat) &&
-				boundaries.some((boundary) => geometryContainsLngLat(boundary, point)),
-			isReady,
-		};
-	}, [ids.length, boundaries, isReady]);
+	return membership(ids.length, boundaries, isReady);
+}
+
+/** The predicate the selected boundaries answer, or the open one when none are. */
+function membership(
+	selectedCount: number,
+	boundaries: readonly GeoJsonGeometry[],
+	isReady: boolean,
+): RegionMembership {
+	if (selectedCount === 0) {
+		return NO_REGIONS;
+	}
+	return {
+		contains: (point: LngLat) =>
+			Number.isFinite(point.lng) &&
+			Number.isFinite(point.lat) &&
+			boundaries.some((boundary) => geometryContainsLngLat(boundary, point)),
+		isReady,
+	};
 }

@@ -1,7 +1,7 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useNavigate } from '@tanstack/react-router';
-import { type ReactNode, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import type { StopAcknowledgements } from '../lib/acknowledgements';
 import { mission_items } from '../lib/collections/mission_items';
 import { useAcknowledgedWrite } from './acknowledged-write';
@@ -162,24 +162,18 @@ export function useMissionStopExecution(search: {
 	);
 	const stop = stopResult.data[0] ?? null;
 
-	const resolveLocation = useCallback(
-		(geometry: unknown, messages: LocationMessages): ResolvedActionLocation =>
-			resolveActionLocation({ geometry, messages, missionItemId, stop }),
-		[missionItemId, stop],
-	);
+	const resolveLocation = (geometry: unknown, messages: LocationMessages): ResolvedActionLocation =>
+		resolveActionLocation({ geometry, messages, missionItemId, stop });
 
-	const navigateAfterSave = useCallback(
-		async (toRecord: () => Promise<void>) => {
-			// Back to the worklist the stop came from; the crew's next move is the
-			// next stop, not this record.
-			if (missionId !== null) {
-				await navigate({ params: { id: missionId }, to: '/operations/missions/$id' });
-				return;
-			}
-			await toRecord();
-		},
-		[missionId, navigate],
-	);
+	const navigateAfterSave = async (toRecord: () => Promise<void>) => {
+		// Back to the worklist the stop came from; the crew's next move is the next
+		// stop, not this record.
+		if (missionId !== null) {
+			await navigate({ params: { id: missionId }, to: '/operations/missions/$id' });
+			return;
+		}
+		await toRecord();
+	};
 
 	return {
 		dialog,

@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from 'react';
 import { activeDatePresetId, type DatePreset, datePresetRange } from '../date-range-filter';
 
 /** The only two keys this hook writes back through an explorer's `setFilters`. */
@@ -37,33 +36,24 @@ export function useDateRangeFilters({
 	readonly today: string;
 	readonly setFilters: (patch: DateRangePatch) => void;
 }): DateRangeBinding {
-	const onFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && to !== '' && next > to ? { to: next } : {}),
-			});
-		},
-		[setFilters, to],
-	);
-	const onToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && from !== '' && next < from ? { from: next } : {}),
-			});
-		},
-		[setFilters, from],
-	);
-	const onApplyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
+	const onFromChange = (next: string) => {
+		setFilters({
+			from: next,
+			...(next !== '' && to !== '' && next > to ? { to: next } : {}),
+		});
+	};
+	const onToChange = (next: string) => {
+		setFilters({
+			to: next,
+			...(next !== '' && from !== '' && next < from ? { from: next } : {}),
+		});
+	};
+	const onApplyPreset = (preset: DatePreset) => {
+		const range = datePresetRange(preset, today);
+		setFilters({ from: range.from, to: range.to });
+	};
 	// Which preset (if any) the current range exactly matches — drives chip highlight.
-	const activePreset = useMemo(() => activeDatePresetId(from, to, today), [from, to, today]);
+	const activePreset = activeDatePresetId(from, to, today);
 
 	return {
 		from,

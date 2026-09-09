@@ -3,7 +3,6 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { newRecordId } from '../../hooks/mutations/shared';
 import { useNotificationRegistrationMutations } from '../../hooks/mutations/use-notification-registration-mutations';
@@ -84,25 +83,22 @@ function CreateDraft({
 	// that never arrives, which reads as a frozen save rather than a slow one.
 	useRegistration(draft.registrationId);
 
-	const onSave = useCallback(
-		async (values: RegistrationFormValues, geometry: NonNullable<DraftGeometry>) => {
-			await mutations.record({
-				registrationId: draft.registrationId,
-				contactId,
-				location: { addressId: values.addressId, geometry },
-				buffer: bufferFrom(values),
-				flags: { hasBees: values.hasBees, isNoSpray: values.isNoSpray },
-				// The link rows are part of the same write, so their ids are minted
-				// here alongside the registration's.
-				subscriptions: values.notificationTypeIds.map((notificationTypeId) => ({
-					notificationRegistrationTypeId: newRecordId(),
-					notificationTypeId,
-				})),
-			});
-			onSaved('Registration added.');
-		},
-		[contactId, draft.registrationId, mutations, onSaved],
-	);
+	const onSave = async (values: RegistrationFormValues, geometry: NonNullable<DraftGeometry>) => {
+		await mutations.record({
+			registrationId: draft.registrationId,
+			contactId,
+			location: { addressId: values.addressId, geometry },
+			buffer: bufferFrom(values),
+			flags: { hasBees: values.hasBees, isNoSpray: values.isNoSpray },
+			// The link rows are part of the same write, so their ids are minted
+			// here alongside the registration's.
+			subscriptions: values.notificationTypeIds.map((notificationTypeId) => ({
+				notificationRegistrationTypeId: newRecordId(),
+				notificationTypeId,
+			})),
+		});
+		onSaved('Registration added.');
+	};
 
 	return (
 		<DraftForm
@@ -181,39 +177,36 @@ function EditDraftLoader({
 		registration.updatedAt.toISOString(),
 	);
 
-	const onSave = useCallback(
-		async (values: RegistrationFormValues, geometry: NonNullable<DraftGeometry>) => {
-			// Closing the panel is *inside* the callback on purpose: `askSave`
-			// resolves on a refusal as well as on a success, because a refusal is a
-			// question rather than a failure. Closing on the way past would read as a
-			// save that worked.
-			await askSave(async (acknowledgements) => {
-				await mutations.save({
-					registrationId: registration.id,
-					fields: {
-						contactId: registration.contactId,
-						addressId: values.addressId,
-						buffer: bufferFrom(values),
-						flags: { hasBees: values.hasBees, isNoSpray: values.isNoSpray },
-					},
-					current: savedFieldsOf(registration),
-					geometry,
-					acknowledgedFutureOnlyChange: acknowledgements.acknowledgedFutureOnlyChange === true,
-					acknowledgedHistoricalContactChange:
-						acknowledgements.acknowledgedHistoricalContactChange === true,
-				});
-				await reconcileSubscriptions({
-					chosen: values.notificationTypeIds,
-					current: subscriptions,
-					mutations,
-					registrationId: registration.id,
-					acknowledgedFutureOnlyChange: acknowledgements.acknowledgedFutureOnlyChange === true,
-				});
-				onSaved('Registration updated.');
+	const onSave = async (values: RegistrationFormValues, geometry: NonNullable<DraftGeometry>) => {
+		// Closing the panel is *inside* the callback on purpose: `askSave`
+		// resolves on a refusal as well as on a success, because a refusal is a
+		// question rather than a failure. Closing on the way past would read as a
+		// save that worked.
+		await askSave(async (acknowledgements) => {
+			await mutations.save({
+				registrationId: registration.id,
+				fields: {
+					contactId: registration.contactId,
+					addressId: values.addressId,
+					buffer: bufferFrom(values),
+					flags: { hasBees: values.hasBees, isNoSpray: values.isNoSpray },
+				},
+				current: savedFieldsOf(registration),
+				geometry,
+				acknowledgedFutureOnlyChange: acknowledgements.acknowledgedFutureOnlyChange === true,
+				acknowledgedHistoricalContactChange:
+					acknowledgements.acknowledgedHistoricalContactChange === true,
 			});
-		},
-		[askSave, mutations, onSaved, registration, subscriptions],
-	);
+			await reconcileSubscriptions({
+				chosen: values.notificationTypeIds,
+				current: subscriptions,
+				mutations,
+				registrationId: registration.id,
+				acknowledgedFutureOnlyChange: acknowledgements.acknowledgedFutureOnlyChange === true,
+			});
+			onSaved('Registration updated.');
+		});
+	};
 
 	if (savedGeometry.isError) {
 		return (

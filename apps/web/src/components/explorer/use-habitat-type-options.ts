@@ -1,5 +1,4 @@
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import type { FilterOption } from './multi-select-filter';
 
@@ -33,11 +32,8 @@ export function useHabitatTypeOptions(): {
 
 	const options = result.data;
 
-	return useMemo(
-		() => ({
-			options,
-			nameById: new Map(options.map((type) => [type.id, type.label] as const)),
-		}),
-		[options],
-	);
+	return {
+		options,
+		nameById: new Map(options.map((type) => [type.id, type.label] as const)),
+	};
 }

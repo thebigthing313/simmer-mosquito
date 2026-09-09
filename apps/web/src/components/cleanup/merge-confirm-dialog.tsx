@@ -11,7 +11,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
 import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
 import {
@@ -69,10 +69,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 	const [failure, setFailure] = useState<string | null>(null);
 	const [isMerging, setIsMerging] = useState(false);
 
-	const rows = useMemo(
-		() => mergeFieldRows(props.recordType, props.target, props.sources),
-		[props.recordType, props.target, props.sources],
-	);
+	const rows = mergeFieldRows(props.recordType, props.target, props.sources);
 	// Seeded once. The page unmounts this dialog when the set or the survivor
 	// changes, so there is no open dialog whose defaults could go stale, and
 	// re-seeding on every render would undo the reader's edit as they typed it.

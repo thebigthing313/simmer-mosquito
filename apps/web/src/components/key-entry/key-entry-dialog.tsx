@@ -29,7 +29,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useState } from 'react';
 import type {
 	ResolvedSpeciesKeyBinding,
 	SpeciesKeyBindingsView,
@@ -113,54 +113,59 @@ export function KeyEntryDialog({
 	const entriesRef = useRef<readonly TallyEntry[]>(tally.entries);
 	entriesRef.current = tally.entries;
 
-	const markCommitted = useCallback((signature: string) => {
+	const markCommitted = (signature: string) => {
 		committedRef.current = signature;
 		setCommittedSignature(signature);
-	}, []);
+	};
 
 	// The scheduled idle flush, so an explicit save can call it off. Without that, a
 	// burst followed straight by Enter leaves the timer to fire mid-save.
 	const autoSaveTimerRef = useRef<number | null>(null);
-	const cancelScheduledFlush = useCallback(() => {
+	const cancelScheduledFlush = () => {
 		if (autoSaveTimerRef.current !== null) {
 			window.clearTimeout(autoSaveTimerRef.current);
 			autoSaveTimerRef.current = null;
 		}
-	}, []);
+	};
 
 	const enqueueCommitRef = useRef(createCommitQueue());
 
-	const commit = useCallback(
-		(entries: readonly TallyEntry[]): Promise<boolean> =>
-			// Queued rather than called directly: a flush already in flight has to finish
-			// before the next plans, or both read the same pre-write state and insert the
-			// same row twice. Once the first lands, the signature check below turns a
-			// duplicate request into a no-op.
-			enqueueCommitRef.current(async () => {
-				const signature = signatureOf(entries);
-				if (signature === committedRef.current) {
-					return true;
-				}
-				setBusy(true);
-				setError(null);
-				try {
-					await onCommit(entries);
-					markCommitted(signature);
-					return true;
-				} catch (cause) {
-					setError(messageOf(cause, 'Unable to save these counts.'));
-					return false;
-				} finally {
-					setBusy(false);
-				}
-			}),
-		[markCommitted, onCommit],
-	);
+	const commit = (entries: readonly TallyEntry[]): Promise<boolean> =>
+		// Queued rather than called directly: a flush already in flight has to finish
+		// before the next plans, or both read the same pre-write state and insert the
+		// same row twice. Once the first lands, the signature check below turns a
+		// duplicate request into a no-op.
+		enqueueCommitRef.current(async () => {
+			const signature = signatureOf(entries);
+			if (signature === committedRef.current) {
+				return true;
+			}
+			setBusy(true);
+			setError(null);
+			try {
+				await onCommit(entries);
+				markCommitted(signature);
+				return true;
+			} catch (cause) {
+				setError(messageOf(cause, 'Unable to save these counts.'));
+				return false;
+			} finally {
+				setBusy(false);
+			}
+		});
 
 	const pendingEntries = tally.entries;
-	const pendingSignature = useMemo(() => signatureOf(pendingEntries), [pendingEntries]);
+	const pendingSignature = signatureOf(pendingEntries);
 	/** Storage does not yet match the tally — including when the tally is now empty. */
 	const hasPendingChanges = pendingSignature !== committedSignature;
+
+	// The write the timer makes is an event rather than a dependency of the pause:
+	// naming `commit` in the list below would restart the idle countdown on every
+	// render, and a burst of presses would never sit still long enough to flush.
+	const flush = useEffectEvent((entries: readonly TallyEntry[]) => {
+		autoSaveTimerRef.current = null;
+		void commit(entries);
+	});
 
 	// Auto-save flushes on an idle pause rather than per key press: the tally already
 	// renders instantly, so a burst of presses becomes one write per species instead of
@@ -171,8 +176,7 @@ export function KeyEntryDialog({
 			return;
 		}
 		const timer = window.setTimeout(() => {
-			autoSaveTimerRef.current = null;
-			void commit(pendingEntries);
+			flush(pendingEntries);
 		}, AUTO_SAVE_IDLE_MS);
 		autoSaveTimerRef.current = timer;
 		return () => {
@@ -181,7 +185,7 @@ export function KeyEntryDialog({
 				autoSaveTimerRef.current = null;
 			}
 		};
-	}, [open, autoSave, hasPendingChanges, pendingEntries, commit]);
+	}, [open, autoSave, hasPendingChanges, pendingEntries]);
 
 	// Clear the unknown-key warning once the next press lands.
 	useEffect(() => {
@@ -196,16 +200,16 @@ export function KeyEntryDialog({
 		};
 	}, [unknownKey]);
 
-	const reset = useCallback(() => {
+	const reset = () => {
 		tally.clear();
 		markCommitted('');
 		setError(null);
 		setConfirmDiscard(false);
 		setUnknownKey(null);
 		setVariant(mode?.defaultVariant ?? NO_VARIANT);
-	}, [markCommitted, mode, tally]);
+	};
 
-	const requestClose = useCallback(async () => {
+	const requestClose = async () => {
 		cancelScheduledFlush();
 		const hasUnsaved = signatureOf(entriesRef.current) !== committedRef.current;
 		if (hasUnsaved && !confirmDiscard) {
@@ -226,59 +230,56 @@ export function KeyEntryDialog({
 		}
 		reset();
 		onOpenChange(false);
-	}, [autoSave, cancelScheduledFlush, commit, confirmDiscard, onOpenChange, reset]);
+	};
 
-	const save = useCallback(async () => {
+	const save = async () => {
 		cancelScheduledFlush();
 		const saved = await commit(entriesRef.current);
 		if (saved) {
 			reset();
 			onOpenChange(false);
 		}
-	}, [cancelScheduledFlush, commit, onOpenChange, reset]);
+	};
 
-	const handleKeyDown = useCallback(
-		(event: React.KeyboardEvent<HTMLDivElement>) => {
-			// Never swallow browser and OS shortcuts.
-			if (event.ctrlKey || event.metaKey || event.altKey) {
-				return;
-			}
-			// A typed count in the tally list owns its own keys.
-			if (isTextEntryTarget(event.target)) {
-				return;
-			}
+	const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+		// Never swallow browser and OS shortcuts.
+		if (event.ctrlKey || event.metaKey || event.altKey) {
+			return;
+		}
+		// A typed count in the tally list owns its own keys.
+		if (isTextEntryTarget(event.target)) {
+			return;
+		}
 
-			if (event.key === 'Backspace') {
-				event.preventDefault();
-				tally.undo();
-				return;
-			}
-			if (event.key === 'Enter') {
-				event.preventDefault();
-				void save();
-				return;
-			}
-			// Escape is handled by the dialog's own onEscapeKeyDown, not here — Radix
-			// dismisses on a document-level listener, so a second handler on this node
-			// would race it and the unsaved-tally guard would lose.
-			if (!isBindableKey(event.key)) {
-				return;
-			}
-
-			// A bindable key belongs to entry, not to whatever button holds focus.
+		if (event.key === 'Backspace') {
 			event.preventDefault();
-			event.stopPropagation();
-			const binding = bindings.byKey.get(event.key.toLowerCase());
-			if (binding === undefined) {
-				setUnknownKey(event.key.toLowerCase());
-				return;
-			}
-			setUnknownKey(null);
-			setConfirmDiscard(false);
-			tally.add(binding.speciesId, variant);
-		},
-		[bindings, save, tally, variant],
-	);
+			tally.undo();
+			return;
+		}
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			void save();
+			return;
+		}
+		// Escape is handled by the dialog's own onEscapeKeyDown, not here — Radix
+		// dismisses on a document-level listener, so a second handler on this node
+		// would race it and the unsaved-tally guard would lose.
+		if (!isBindableKey(event.key)) {
+			return;
+		}
+
+		// A bindable key belongs to entry, not to whatever button holds focus.
+		event.preventDefault();
+		event.stopPropagation();
+		const binding = bindings.byKey.get(event.key.toLowerCase());
+		if (binding === undefined) {
+			setUnknownKey(event.key.toLowerCase());
+			return;
+		}
+		setUnknownKey(null);
+		setConfirmDiscard(false);
+		tally.add(binding.speciesId, variant);
+	};
 
 	const modeSummary = mode?.describe(variant) ?? null;
 

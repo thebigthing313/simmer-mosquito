@@ -11,7 +11,7 @@ import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environmen
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense, useMemo, useRef, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
@@ -62,17 +62,11 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const organizationResult = useLiveQuery((query) => query.from({ row: organizations() }), []);
 	const profileNameById = useProfileNames();
 	const timeZone = useOrganizationTimeZone();
-	// The first navigation built at render time. Memoised because it rebuilds a
-	// row per Profile, and the shell's context value is keyed on the array.
+	// The first navigation built at render time: a row per Profile on daily work,
+	// folded into the shell's domain list.
 	const dailyWork = useDailyWorkRoster();
-	const domains = useMemo(
-		() => withDailyWorkGroup(shellDomainsForRole(auth), dailyWork.listed),
-		[auth, dailyWork.listed],
-	);
-	const resolutionDomains = useMemo(
-		() => withDailyWorkGroup(webShellDomains, dailyWork.routable),
-		[dailyWork.routable],
-	);
+	const domains = withDailyWorkGroup(shellDomainsForRole(auth), dailyWork.listed);
+	const resolutionDomains = withDailyWorkGroup(webShellDomains, dailyWork.routable);
 
 	const organization = (organizationResult.data ?? []).find(
 		(row) => row.id === localIdentity?.organizationId,

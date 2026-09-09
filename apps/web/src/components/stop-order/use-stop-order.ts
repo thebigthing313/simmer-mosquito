@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { type MoveAction, type MovePlan, planMove } from './plan-move';
 
 /**
@@ -22,7 +22,7 @@ import { type MoveAction, type MovePlan, planMove } from './plan-move';
 export function useStopOrder<TItem>(input: {
 	readonly items: readonly TItem[];
 	readonly keyOf: (item: TItem) => string;
-	/** Sends the move command. Must be stable — wrap it in `useCallback`. */
+	/** Sends the move command. */
 	readonly commit: (plan: MovePlan) => Promise<void>;
 }): {
 	/** `items`, reordered by the pending overlay when one is active. */
@@ -32,17 +32,7 @@ export function useStopOrder<TItem>(input: {
 	const { items, keyOf, commit } = input;
 	const [pendingOrder, setPendingOrder] = useState<readonly string[] | null>(null);
 
-	const ordered = useMemo(() => {
-		if (pendingOrder === null) {
-			return items;
-		}
-		const rank = new Map(pendingOrder.map((key, index) => [key, index]));
-		return [...items].sort(
-			(first, second) =>
-				(rank.get(keyOf(first)) ?? Number.MAX_SAFE_INTEGER) -
-				(rank.get(keyOf(second)) ?? Number.MAX_SAFE_INTEGER),
-		);
-	}, [items, pendingOrder, keyOf]);
+	const ordered = sortedByOverlay(items, keyOf, pendingOrder);
 
 	// Sync caught up: the synced order now matches what we optimistically showed, so
 	// the overlay has nothing left to correct.
@@ -59,23 +49,37 @@ export function useStopOrder<TItem>(input: {
 		}
 	}, [items, pendingOrder, keyOf]);
 
-	const move = useCallback(
-		async (index: number, action: MoveAction) => {
-			const ids = ordered.map(keyOf);
-			const plan = planMove(ids, index, action);
-			if (plan === null) {
-				return;
-			}
-			setPendingOrder(plan.order);
-			try {
-				await commit(plan);
-			} catch (cause) {
-				setPendingOrder(null);
-				throw cause;
-			}
-		},
-		[ordered, keyOf, commit],
-	);
+	const move = async (index: number, action: MoveAction) => {
+		const ids = ordered.map(keyOf);
+		const plan = planMove(ids, index, action);
+		if (plan === null) {
+			return;
+		}
+		setPendingOrder(plan.order);
+		try {
+			await commit(plan);
+		} catch (cause) {
+			setPendingOrder(null);
+			throw cause;
+		}
+	};
 
 	return { ordered, move };
+}
+
+/** The synced rows in the order the overlay asked for, or as they arrived. */
+function sortedByOverlay<TItem>(
+	items: readonly TItem[],
+	keyOf: (item: TItem) => string,
+	pendingOrder: readonly string[] | null,
+): readonly TItem[] {
+	if (pendingOrder === null) {
+		return items;
+	}
+	const rank = new Map(pendingOrder.map((key, index) => [key, index]));
+	return [...items].sort(
+		(first, second) =>
+			(rank.get(keyOf(first)) ?? Number.MAX_SAFE_INTEGER) -
+			(rank.get(keyOf(second)) ?? Number.MAX_SAFE_INTEGER),
+	);
 }

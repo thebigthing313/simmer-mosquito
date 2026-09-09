@@ -20,7 +20,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQueryClient } from '@tanstack/react-query';
 import { type LinkProps, useNavigate } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import {
 	type DeletableRecordType,
@@ -203,7 +203,7 @@ function DangerZone({
 	const blockers = refusedBlockers.length > 0 ? refusedBlockers : (impact?.blockers ?? []);
 	const isBlocked = blockers.length > 0;
 
-	const confirmDelete = useCallback(async () => {
+	const confirmDelete = async () => {
 		setConfirmOpen(false);
 		setDeleteError(null);
 		setIsDeleting(true);
@@ -257,7 +257,7 @@ function DangerZone({
 			});
 			setIsDeleting(false);
 		}
-	}, [ask, navigate, noun, onDelete, onDeleted, queryClient, recordId, recordType, returnTo]);
+	};
 
 	// Quiet by default. This sits at the foot of a record the operator came to
 	// read, not to destroy, and a full-size destructive block there competes
