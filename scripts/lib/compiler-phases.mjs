@@ -87,6 +87,20 @@ const COMPILER_PHASES = [
 			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/](?!map[\\/]|route-planning[\\/])/,
 		],
 	},
+	{
+		phase: 5,
+		name: 'apps/web routes',
+		issue: 823,
+		/*
+		 * `operations/-worklist-map.tsx` is the one exclusion, held to phase 6
+		 * because it is a map surface. `routeTree.gen.ts` needs none: it sits at
+		 * `src/routeTree.gen.ts` rather than under `routes/`, so this pattern
+		 * never reaches it.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/](?!operations[\\/]-worklist-map[.]tsx$)/,
+		],
+	},
 ];
 
 /**
