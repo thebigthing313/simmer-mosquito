@@ -833,6 +833,11 @@
         "count": 3
       }
     },
+    "scripts/check-manual-memo.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
     "scripts/check-search-corpus.mjs": {
       "crap_high": {
         "count": 1

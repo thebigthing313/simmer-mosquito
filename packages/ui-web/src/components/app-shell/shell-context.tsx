@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext } from 'react';
 import { resolveActive } from './resolve-nav';
 import type {
 	ShellAccountLink,
@@ -72,8 +72,16 @@ export interface ShellProviderProps extends ShellContextValue {
 	readonly children: React.ReactNode;
 }
 
-export function ShellProvider({
-	children,
+/**
+ * The context value, with the optional halves left off rather than set to
+ * `undefined`, which is what `exactOptionalPropertyTypes` asks for.
+ *
+ * A plain function rather than the body of a `useMemo`, which is what it was
+ * until the compiler took the memoizing over. Its seven conditional spreads
+ * belong to a function of their own either way: inside the component they read
+ * as the provider's own branching, which is not what they are.
+ */
+const shellContextValue = ({
 	organizations,
 	currentOrganization,
 	onSelectOrganization,
@@ -88,43 +96,25 @@ export function ShellProvider({
 	onSignOut,
 	getToday,
 	timeZone,
-}: ShellProviderProps) {
-	const value = useMemo<ShellContextValue>(
-		() => ({
-			organizations,
-			currentOrganization,
-			onSelectOrganization,
-			user,
-			domains,
-			activePath,
-			onNavigate,
-			...(resolutionDomains ? { resolutionDomains } : {}),
-			...(standalonePages ? { standalonePages } : {}),
-			...(accountLinks ? { accountLinks } : {}),
-			...(version ? { version } : {}),
-			...(onSignOut ? { onSignOut } : {}),
-			...(getToday ? { getToday } : {}),
-			...(timeZone ? { timeZone } : {}),
-		}),
-		[
-			organizations,
-			currentOrganization,
-			onSelectOrganization,
-			user,
-			domains,
-			resolutionDomains,
-			standalonePages,
-			accountLinks,
-			version,
-			activePath,
-			onNavigate,
-			onSignOut,
-			getToday,
-			timeZone,
-		],
-	);
+}: ShellContextValue): ShellContextValue => ({
+	organizations,
+	currentOrganization,
+	onSelectOrganization,
+	user,
+	domains,
+	activePath,
+	onNavigate,
+	...(resolutionDomains ? { resolutionDomains } : {}),
+	...(standalonePages ? { standalonePages } : {}),
+	...(accountLinks ? { accountLinks } : {}),
+	...(version ? { version } : {}),
+	...(onSignOut ? { onSignOut } : {}),
+	...(getToday ? { getToday } : {}),
+	...(timeZone ? { timeZone } : {}),
+});
 
-	return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>;
+export function ShellProvider({ children, ...props }: ShellProviderProps) {
+	return <ShellContext.Provider value={shellContextValue(props)}>{children}</ShellContext.Provider>;
 }
 
 export function useShell(): ShellContextValue {
@@ -146,7 +136,7 @@ export function useResolutionDomains(): readonly ShellDomain[] {
 export function useActiveShellLocation(): ReturnType<typeof resolveActive> {
 	const { activePath } = useShell();
 	const domains = useResolutionDomains();
-	return useMemo(() => resolveActive(domains, activePath), [domains, activePath]);
+	return resolveActive(domains, activePath);
 }
 
 /** Convenience accessor used by the primary rail's active indicator. */

@@ -2,6 +2,17 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Slider as SliderPrimitive } from 'radix-ui';
 import * as React from 'react';
 
+// One thumb per value, falling back to the track's ends. A plain function
+// rather than the body of a `useMemo`, which is what it was until the compiler
+// took the memoizing over.
+const thumbValues = (
+	value: React.ComponentProps<typeof SliderPrimitive.Root>['value'],
+	defaultValue: React.ComponentProps<typeof SliderPrimitive.Root>['defaultValue'],
+	min: number,
+	max: number,
+): readonly number[] =>
+	Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max];
+
 function Slider({
 	className,
 	defaultValue,
@@ -10,10 +21,7 @@ function Slider({
 	max = 100,
 	...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
-	const _values = React.useMemo(
-		() => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
-		[value, defaultValue, min, max],
-	);
+	const _values = thumbValues(value, defaultValue, min, max);
 
 	return (
 		<SliderPrimitive.Root
