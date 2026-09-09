@@ -10,7 +10,7 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
@@ -85,7 +85,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 		missingMessage: 'Draw where the crew has to go.',
 	});
 
-	const submit = useCallback(() => {
+	const submit = () => {
 		if (!location.requireGeometry() || location.geometry === null) {
 			return;
 		}
@@ -102,7 +102,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 			});
 			await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
 		}, 'Unable to add that stop.');
-	}, [location, actorProfileId, mission.id, stopWrites, addressId, stops, run, navigate]);
+	};
 
 	return (
 		<RecordFormPage

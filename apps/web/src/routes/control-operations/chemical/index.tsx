@@ -1,7 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -91,24 +91,18 @@ const PATH = '/map/chemical';
 
 function ApplicationsExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults = useMemo<ApplicationFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			insecticides: new Set(),
-			people: new Set(),
-			methods: new Set(),
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: ApplicationFilters = {
+		from: defaultFrom,
+		to: today,
+		insecticides: new Set(),
+		people: new Set(),
+		methods: new Set(),
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -121,22 +115,10 @@ function ApplicationsExplorerRoute() {
 	const personIds = query.people;
 	const methodIds = query.methods;
 	const regionIds = query.regions;
-	const setInsecticideIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ insecticides: next }),
-		[setFilters],
-	);
-	const setPersonIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ people: next }),
-		[setFilters],
-	);
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setInsecticideIds = (next: ReadonlySet<string>) => setFilters({ insecticides: next });
+	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -150,29 +132,22 @@ function ApplicationsExplorerRoute() {
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
-	const filters = useMemo<ChemicalTileFilters>(
-		() => ({
-			...(insecticideIds.size > 0 ? { insecticideIds: [...insecticideIds] } : {}),
-			...(methodIds.size > 0 ? { applicationMethodIds: [...methodIds] } : {}),
-			...(personIds.size > 0 ? { applicatorProfileIds: [...personIds] } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[insecticideIds, methodIds, personIds, regionIds, dateFrom, dateTo],
-	);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				insecticideId: filters.insecticideIds,
-				applicationMethodId: filters.applicationMethodIds,
-				applicator: filters.applicatorProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			}),
-		[filters],
-	);
+	const filters: ChemicalTileFilters = {
+		...(insecticideIds.size > 0 ? { insecticideIds: [...insecticideIds] } : {}),
+		...(methodIds.size > 0 ? { applicationMethodIds: [...methodIds] } : {}),
+		...(personIds.size > 0 ? { applicatorProfileIds: [...personIds] } : {}),
+		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
+		...(dateFrom === '' ? {} : { dateFrom }),
+		...(dateTo === '' ? {} : { dateTo }),
+	};
+	const params = mapQueryParams({
+		insecticideId: filters.insecticideIds,
+		applicationMethodId: filters.applicationMethodIds,
+		applicator: filters.applicatorProfileIds,
+		regionId: filters.regionIds,
+		dateFrom: filters.dateFrom,
+		dateTo: filters.dateTo,
+	});
 
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<ApplicationSite>({
@@ -192,19 +167,16 @@ function ApplicationsExplorerRoute() {
 	});
 	useFlyToSelection(map, selected);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'chemical',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'chemical',
+			serverUrl: getServerUrl(),
+			filters,
+			selectedId,
+			onSelectFeature: setSelectedId,
+		},
+	];
 
 	const clearAll = reset;
 

@@ -1,5 +1,5 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useCallback, useEffect, useEffectEvent, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import {
 	type CommitBaseline,
 	flushedKeysAfter,
@@ -93,53 +93,50 @@ export function SampleKeyEntryDialog({
 		captureBaseline();
 	}, [open]);
 
-	const commit = useCallback(
-		async (entries: readonly TallyEntry[]) => {
-			const steps = planCommit({
-				entries,
-				baseline: baselineRef.current,
-				inserted: insertedRef.current,
-				flushed: flushedRef.current,
-			});
-			const writes = steps.map((step) => {
-				if (step.kind === 'update') {
-					const current = rows.find((row) => row.id === step.rowId);
-					return current === undefined
-						? Promise.resolve()
-						: mutations.save(step.rowId, { ...current, larvaeCount: step.count }, current);
-				}
-				if (step.kind === 'delete') {
-					insertedRef.current.delete(step.entryKey);
-					return mutations.remove(step.rowId);
-				}
+	const commit = async (entries: readonly TallyEntry[]) => {
+		const steps = planCommit({
+			entries,
+			baseline: baselineRef.current,
+			inserted: insertedRef.current,
+			flushed: flushedRef.current,
+		});
+		const writes = steps.map((step) => {
+			if (step.kind === 'update') {
+				const current = rows.find((row) => row.id === step.rowId);
+				return current === undefined
+					? Promise.resolve()
+					: mutations.save(step.rowId, { ...current, larvaeCount: step.count }, current);
+			}
+			if (step.kind === 'delete') {
+				insertedRef.current.delete(step.entryKey);
+				return mutations.remove(step.rowId);
+			}
 
-				const id = crypto.randomUUID();
-				// Remember the id only once the insert sticks. A rejected insert is rolled
-				// back out of the collection, so recording it up front would leave the next
-				// flush trying to update a row that no longer exists.
-				return mutations
-					.add({
-						sampleSpeciesId: id,
-						sampleId,
-						fields: {
-							speciesId: step.speciesId,
-							larvaeCount: step.count,
-							identifiedByProfileId: actorProfileId,
-							// A calendar date, not a timestamp — the domain builder validates
-							// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-							identifiedAt: todayInTimeZone(timeZone),
-						},
-					})
-					.then(() => {
-						insertedRef.current.set(step.entryKey, id);
-					});
-			});
+			const id = crypto.randomUUID();
+			// Remember the id only once the insert sticks. A rejected insert is rolled
+			// back out of the collection, so recording it up front would leave the next
+			// flush trying to update a row that no longer exists.
+			return mutations
+				.add({
+					sampleSpeciesId: id,
+					sampleId,
+					fields: {
+						speciesId: step.speciesId,
+						larvaeCount: step.count,
+						identifiedByProfileId: actorProfileId,
+						// A calendar date, not a timestamp — the domain builder validates
+						// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
+						identifiedAt: todayInTimeZone(timeZone),
+					},
+				})
+				.then(() => {
+					insertedRef.current.set(step.entryKey, id);
+				});
+		});
 
-			await Promise.all(writes);
-			flushedRef.current = flushedKeysAfter(entries);
-		},
-		[actorProfileId, sampleId, timeZone, mutations, rows],
-	);
+		await Promise.all(writes);
+		flushedRef.current = flushedKeysAfter(entries);
+	};
 
 	return (
 		<KeyEntryDialog

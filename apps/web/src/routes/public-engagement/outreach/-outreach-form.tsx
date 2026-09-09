@@ -9,7 +9,6 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -136,26 +135,19 @@ export function OutreachFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				outreachMethods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[outreachMethods],
+	const methodOptions = lifecycleOptions(
+		outreachMethods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
-	const technicianOptions = useMemo(
-		() => [
-			{ label: 'Unassigned', value: noTechnicianValue },
-			...lifecycleOptions(
-				profiles,
-				(profile) => profile.isActive,
-				(profile) => profile.displayName,
-			),
-		],
-		[profiles],
-	);
+	const technicianOptions = [
+		{ label: 'Unassigned', value: noTechnicianValue },
+		...lifecycleOptions(
+			profiles,
+			(profile) => profile.isActive,
+			(profile) => profile.displayName,
+		),
+	];
 
 	const form = useAppForm({
 		defaultValues,

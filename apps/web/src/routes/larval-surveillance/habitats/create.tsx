@@ -1,7 +1,6 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -38,39 +37,36 @@ function CreateHabitatRoute() {
 	const organizationId =
 		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
-			readonly values: HabitatFormValues;
-			readonly geometry: DrawGeometry;
-		}) => {
-			const drawn = geometry;
-			const centroid = ownedCentroidFromGeoJson(drawn);
-			if (centroid === null) {
-				throw new Error('Unable to determine the habitat location from the drawn geometry.');
-			}
+	const onSave = async ({
+		values,
+		geometry,
+	}: {
+		readonly values: HabitatFormValues;
+		readonly geometry: DrawGeometry;
+	}) => {
+		const drawn = geometry;
+		const centroid = ownedCentroidFromGeoJson(drawn);
+		if (centroid === null) {
+			throw new Error('Unable to determine the habitat location from the drawn geometry.');
+		}
 
-			const habitatId = await mutations.create(
-				{
-					habitatName: nullableText(values.habitatName),
-					description: values.description.trim(),
-					addressId: values.addressId,
-					habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
-					metadata: values.metadata,
-				},
-				drawn,
-				centroid,
-			);
+		const habitatId = await mutations.create(
+			{
+				habitatName: nullableText(values.habitatName),
+				description: values.description.trim(),
+				addressId: values.addressId,
+				habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+				metadata: values.metadata,
+			},
+			drawn,
+			centroid,
+		);
 
-			// Prime the detail's geometry cache so it renders the new shape on arrival
-			// instead of fetching (and briefly showing an empty state) from scratch.
-			seedHabitatGeometryCache(queryClient, habitatId, drawn);
-			await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitatId } });
-		},
-		[mutations, navigate, queryClient],
-	);
+		// Prime the detail's geometry cache so it renders the new shape on arrival
+		// instead of fetching (and briefly showing an empty state) from scratch.
+		seedHabitatGeometryCache(queryClient, habitatId, drawn);
+		await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitatId } });
+	};
 
 	return (
 		<HabitatFormPage

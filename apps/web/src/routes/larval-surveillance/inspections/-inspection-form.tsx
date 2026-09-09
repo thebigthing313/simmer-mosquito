@@ -37,7 +37,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { CheckIcon, PlusIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { densityLabel, type LifeStageFlags } from '../../../components/larval-display';
@@ -272,7 +272,7 @@ export function InspectionFormPage({
 	onSave,
 }: InspectionFormPageProps) {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 	const isEditing = mode === 'edit';
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
@@ -357,27 +357,24 @@ export function InspectionFormPage({
 	});
 
 	const { clearError } = location;
-	const handleHabitatSelected = useCallback(
-		(habitat: HabitatMatch | null) => {
-			clearError();
-			setHabitatError(null);
-			if (habitat === null) {
-				setReferenceGeometry(null);
-				return;
-			}
-			// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it
-			// so the map can frame the selected habitat.
-			void fetchHabitatGeometry(habitat.id).then((geometry) => setReferenceGeometry(geometry));
-		},
-		[clearError, setReferenceGeometry],
-	);
+	const handleHabitatSelected = (habitat: HabitatMatch | null) => {
+		clearError();
+		setHabitatError(null);
+		if (habitat === null) {
+			setReferenceGeometry(null);
+			return;
+		}
+		// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it
+		// so the map can frame the selected habitat.
+		void fetchHabitatGeometry(habitat.id).then((geometry) => setReferenceGeometry(geometry));
+	};
 
-	const startAdhocDraw = useCallback(() => {
+	const startAdhocDraw = () => {
 		// Ad-hoc geometry is the inspection's own; drop any habitat reference shape
 		// still framing the map from a previous mode.
 		setReferenceGeometry(null);
 		startDraw();
-	}, [setReferenceGeometry, startDraw]);
+	};
 
 	return (
 		<form.AppForm>

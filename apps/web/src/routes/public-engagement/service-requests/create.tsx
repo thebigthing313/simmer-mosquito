@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
@@ -50,7 +50,7 @@ function CreateServiceRequestRoute() {
 	// organization's day rather than the browser's — an intake taker keying in a
 	// call at 11pm files it under the day the organization is still working.
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 
 	// Both ids are minted up front and both rows are queried before either exists:
 	// `contacts` and `service_requests` are on-demand, and a write into a
@@ -61,44 +61,41 @@ function CreateServiceRequestRoute() {
 	useServiceRequestRecord(requestId);
 	useContact(contactId);
 
-	const onSave = useCallback(
-		async ({ values, geometry }: ServiceRequestSaveInput) => {
-			if (geometry === null || !isRequestLocation(geometry)) {
-				throw new Error('Place the request location on the map.');
-			}
+	const onSave = async ({ values, geometry }: ServiceRequestSaveInput) => {
+		if (geometry === null || !isRequestLocation(geometry)) {
+			throw new Error('Place the request location on the map.');
+		}
 
-			// 1. The new contact, if this is one — written first, so the request that
-			//    names it references a row that exists.
-			let requestContactId = values.contactId;
-			if (values.contactMode === 'new') {
-				await contactWrites.create(contactId, contactFieldsFromValues(values.newContact));
-				requestContactId = contactId;
-			}
-			if (requestContactId === null) {
-				throw new Error('Select or create a contact for this request.');
-			}
+		// 1. The new contact, if this is one — written first, so the request that
+		//    names it references a row that exists.
+		let requestContactId = values.contactId;
+		if (values.contactMode === 'new') {
+			await contactWrites.create(contactId, contactFieldsFromValues(values.newContact));
+			requestContactId = contactId;
+		}
+		if (requestContactId === null) {
+			throw new Error('Select or create a contact for this request.');
+		}
 
-			// 2. The address is always an existing row: new ones are created by the
-			//    picker's own inline form, which commits before handing back the id.
-			const addressId = values.addressId;
-			if (addressId === null) {
-				throw new Error('Select or create an address for this request.');
-			}
+		// 2. The address is always an existing row: new ones are created by the
+		//    picker's own inline form, which commits before handing back the id.
+		const addressId = values.addressId;
+		if (addressId === null) {
+			throw new Error('Select or create an address for this request.');
+		}
 
-			await requestWrites.record({
-				requestId,
-				fields: serviceRequestFieldsFrom(values),
-				contactId: requestContactId,
-				addressId,
-				geometry,
-			});
-			await navigate({
-				to: '/public-engagement/service-requests/$id',
-				params: { id: requestId },
-			});
-		},
-		[contactId, contactWrites, navigate, requestId, requestWrites],
-	);
+		await requestWrites.record({
+			requestId,
+			fields: serviceRequestFieldsFrom(values),
+			contactId: requestContactId,
+			addressId,
+			geometry,
+		});
+		await navigate({
+			to: '/public-engagement/service-requests/$id',
+			params: { id: requestId },
+		});
+	};
 
 	return (
 		<ServiceRequestFormPage

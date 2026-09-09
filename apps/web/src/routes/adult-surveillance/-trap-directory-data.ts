@@ -1,5 +1,4 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
-import { useMemo } from 'react';
 import { compareByCollectionDateDesc } from '../../hooks/queries/collection-view';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { type TrapListing, useActiveTraps } from '../../hooks/queries/use-active-traps';
@@ -58,22 +57,29 @@ export interface TrapDirectory {
  * fetch — only the selected trap's collections are on-demand, which is what makes
  * the selection rule below worth stating carefully.
  */
+/**
+ * The method tabs, in label order.
+ *
+ * A method only gets a tab if an active trap actually uses it. An organization
+ * that has never run a gravid trap should not be offered an empty gravid tab,
+ * which is why the tabs are built from the traps rather than from the catalog.
+ */
+function methodTabsFor(
+	activeTraps: readonly { readonly methodId: string; readonly methodName: string }[],
+): readonly { readonly id: string; readonly label: string }[] {
+	const byId = new Map<string, string>();
+	for (const trap of activeTraps) {
+		byId.set(trap.methodId, trap.methodName);
+	}
+	return [...byId.entries()]
+		.map(([id, label]) => ({ id, label }))
+		.sort((first, second) => first.label.localeCompare(second.label));
+}
+
 export function useTrapDirectory(filters: DirectoryFilters): TrapDirectory {
 	const { traps: activeTraps } = useActiveTraps();
 
-	// A method only gets a tab if an active trap actually uses it. An
-	// organization that has never run a gravid trap should not be offered an
-	// empty gravid tab — which is why the tabs are built from the traps rather
-	// than from the catalog.
-	const methodTabs = useMemo(() => {
-		const byId = new Map<string, string>();
-		for (const trap of activeTraps) {
-			byId.set(trap.methodId, trap.methodName);
-		}
-		return [...byId.entries()]
-			.map(([id, label]) => ({ id, label }))
-			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [activeTraps]);
+	const methodTabs = methodTabsFor(activeTraps);
 
 	// A method id left in the URL after its last trap was retired falls back to
 	// All, rather than an empty list under a tab that is no longer there.
@@ -83,16 +89,12 @@ export function useTrapDirectory(filters: DirectoryFilters): TrapDirectory {
 	// Filtered here rather than in the query, for the reason the label is composed
 	// here: a search runs against `Code - Name`, and the query cannot spell that.
 	// The inventory is one eager, active-only shape, so this is a few hundred rows.
-	const visibleTraps = useMemo(
-		() =>
-			activeTraps.filter((trap) => {
-				if (method !== ALL_METHODS && trap.methodId !== method) {
-					return false;
-				}
-				return search === '' || trapDisplayName(trap).toLowerCase().includes(search);
-			}),
-		[activeTraps, method, search],
-	);
+	const visibleTraps = activeTraps.filter((trap) => {
+		if (method !== ALL_METHODS && trap.methodId !== method) {
+			return false;
+		}
+		return search === '' || trapDisplayName(trap).toLowerCase().includes(search);
+	});
 
 	/*
 	 * The selection survives a search — narrowing the list is not a request to look

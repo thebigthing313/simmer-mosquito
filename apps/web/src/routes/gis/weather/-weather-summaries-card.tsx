@@ -34,7 +34,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { WriteOnly } from '../../../components/write-only';
 import { useWeatherSummaryMutations } from '../../../hooks/mutations/use-weather-summary-mutations';
 import {
@@ -85,17 +85,14 @@ export function WeatherSummariesCard({
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [confirming, setConfirming] = useState<WeatherSummaryListing | null>(null);
 
-	const remove = useCallback(
-		async (summaryId: string) => {
-			setRemoveError(null);
-			try {
-				await mutations.remove(summaryId);
-			} catch (error) {
-				setRemoveError(error instanceof Error ? error.message : 'Unable to delete summary.');
-			}
-		},
-		[mutations],
-	);
+	const remove = async (summaryId: string) => {
+		setRemoveError(null);
+		try {
+			await mutations.remove(summaryId);
+		} catch (error) {
+			setRemoveError(error instanceof Error ? error.message : 'Unable to delete summary.');
+		}
+	};
 
 	return (
 		<Card variant="surface">
@@ -172,8 +169,8 @@ function useActiveYear(
 
 	return {
 		activeYear: chosenYear ?? years[0] ?? null,
-		tabYears: useMemo(() => tabbedYears(years, chosenYear), [years, chosenYear]),
-		chooseYear: useCallback((year: number) => setChosen({ stationId, year }), [stationId]),
+		tabYears: tabbedYears(years, chosenYear),
+		chooseYear: (year: number) => setChosen({ stationId, year }),
 	};
 }
 

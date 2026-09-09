@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionFolderMutations } from '../../../hooks/mutations/use-region-folder-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
@@ -37,7 +37,7 @@ export function RegionFolderDialog({
 
 	const canSave = mutations.canWrite && name.trim().length > 0;
 
-	const onSave = useCallback(async () => {
+	const onSave = async () => {
 		if (!canSave) {
 			return;
 		}
@@ -67,7 +67,7 @@ export function RegionFolderDialog({
 		} finally {
 			setIsSaving(false);
 		}
-	}, [canSave, name, description, folder, mutations, onClose, onSaved]);
+	};
 
 	const isEdit = folder !== null;
 

@@ -1,5 +1,4 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
@@ -65,36 +64,33 @@ function EditServiceRequestLoader({
 	// Show the request number (or short id fallback) in the breadcrumb, not the raw uuid.
 	useBreadcrumbLabel(request.id, serviceRequestTitle(request));
 
-	const onSave = useCallback(
-		async ({ values }: ServiceRequestSaveInput) => {
-			// The question goes out unanswered and comes back as a refusal only when
-			// the contact moves, which is the only half of a save it can be put about.
-			//
-			// The navigation is *inside* the callback on purpose: `run` resolves on a
-			// refusal as well as on a success, because a refusal is a question rather
-			// than a failure. Leaving here on the way past would abandon the page
-			// before the question could be asked, and read as a save that worked.
-			await run(async (acknowledgements) => {
-				// `current` comes back through the same round trip as the edited values,
-				// so a field nobody touched compares equal to itself and the save names
-				// only the commands it has changed fields for.
-				await mutations.save({
-					requestId: request.id,
-					fields: serviceRequestFieldsFrom(values),
-					current: serviceRequestFieldsFrom(defaultsFromServiceRequest(request)),
-					contactId: values.contactId ?? request.contactId,
-					currentContactId: request.contactId,
-					acknowledgedHistoricalContactChange:
-						acknowledgements.acknowledgedHistoricalContactChange === true,
-				});
-				await navigate({
-					to: '/public-engagement/service-requests/$id',
-					params: { id: request.id },
-				});
+	const onSave = async ({ values }: ServiceRequestSaveInput) => {
+		// The question goes out unanswered and comes back as a refusal only when
+		// the contact moves, which is the only half of a save it can be put about.
+		//
+		// The navigation is *inside* the callback on purpose: `run` resolves on a
+		// refusal as well as on a success, because a refusal is a question rather
+		// than a failure. Leaving here on the way past would abandon the page
+		// before the question could be asked, and read as a save that worked.
+		await run(async (acknowledgements) => {
+			// `current` comes back through the same round trip as the edited values,
+			// so a field nobody touched compares equal to itself and the save names
+			// only the commands it has changed fields for.
+			await mutations.save({
+				requestId: request.id,
+				fields: serviceRequestFieldsFrom(values),
+				current: serviceRequestFieldsFrom(defaultsFromServiceRequest(request)),
+				contactId: values.contactId ?? request.contactId,
+				currentContactId: request.contactId,
+				acknowledgedHistoricalContactChange:
+					acknowledgements.acknowledgedHistoricalContactChange === true,
 			});
-		},
-		[mutations, navigate, request, run],
-	);
+			await navigate({
+				to: '/public-engagement/service-requests/$id',
+				params: { id: request.id },
+			});
+		});
+	};
 
 	return (
 		<>

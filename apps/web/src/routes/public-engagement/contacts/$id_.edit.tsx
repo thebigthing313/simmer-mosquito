@@ -1,5 +1,4 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
@@ -53,20 +52,17 @@ function EditContactLoader({ contact }: { readonly contact: Contact }) {
 	const navigate = useNavigate();
 	const mutations = useContactMutations();
 
-	const onSave = useCallback(
-		async (values: ContactFormValues) => {
-			// `current` comes back through the same round trip as the edited values,
-			// so a field nobody touched compares equal to itself and the save names
-			// only the command it has a changed field for.
-			await mutations.save(
-				contact.id,
-				contactFieldsFromValues(values),
-				contactFieldsFromValues(defaultsFromContact(contact)),
-			);
-			await navigate({ to: '/public-engagement/contacts/$id', params: { id: contact.id } });
-		},
-		[contact, mutations, navigate],
-	);
+	const onSave = async (values: ContactFormValues) => {
+		// `current` comes back through the same round trip as the edited values,
+		// so a field nobody touched compares equal to itself and the save names
+		// only the command it has a changed field for.
+		await mutations.save(
+			contact.id,
+			contactFieldsFromValues(values),
+			contactFieldsFromValues(defaultsFromContact(contact)),
+		);
+		await navigate({ to: '/public-engagement/contacts/$id', params: { id: contact.id } });
+	};
 
 	return (
 		<ContactFormPage

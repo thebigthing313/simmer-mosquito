@@ -11,7 +11,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -84,10 +83,7 @@ function BiocontrolDetailContent({
 	const methods = useBiocontrolMethodRoster();
 	const { remove } = useBiocontrolActionMutations();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
-	const habitatIds = useMemo(
-		() => (action.habitatId === null ? [] : [action.habitatId]),
-		[action.habitatId],
-	);
+	const habitatIds = action.habitatId === null ? [] : [action.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
 	const methodName = action.methodName;

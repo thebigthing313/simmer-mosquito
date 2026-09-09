@@ -19,7 +19,7 @@ import {
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -295,20 +295,13 @@ export function CollectionFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				collectionMethods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[collectionMethods],
+	const methodOptions = lifecycleOptions(
+		collectionMethods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 
-	const methodNameById = useMemo(
-		() => new Map(collectionMethods.map((method) => [method.id, method.name])),
-		[collectionMethods],
-	);
+	const methodNameById = new Map(collectionMethods.map((method) => [method.id, method.name]));
 
 	const form = useAppForm({
 		defaultValues,
@@ -604,10 +597,7 @@ function TimingSection({
 }) {
 	// A date-plus-duration collection is saying how long the trap ran, so the only
 	// units that carry meaning are times.
-	const durationUnitOptions = useMemo(
-		() => unitOptions(units, isCollectionDurationUnitType),
-		[units],
-	);
+	const durationUnitOptions = unitOptions(units, isCollectionDurationUnitType);
 
 	return (
 		<FormSection title="Timing">

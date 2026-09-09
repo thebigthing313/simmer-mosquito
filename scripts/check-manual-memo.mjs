@@ -51,7 +51,8 @@
  * over the workspace is what a swap holds, and per-file is what a swap inside
  * one module holds, which the strip phases are expected to make visible as they
  * land. The register empties at the end of the strip, and this gate then reads
- * as the zero it could not ship as.
+ * as the zero it could not ship as. It got there: six slices took 848 to zero,
+ * and the register is empty.
  *
  * A marker takes a wrapper out of the count entirely rather than lowering it,
  * so a survivor is invisible to the ratchet and only the backlog moves.
@@ -75,12 +76,12 @@
  * read no calls out of them. Both otherwise print the summary line a clean run
  * prints.
  *
- * `MINIMUM_WRAPPERS` comes down as a strip slice lands, because the corpus it
- * measures is the thing the strip is emptying: it shipped at 500 against 848 and
- * a slice that takes the register below it has to move it or fail on its own
- * work. It stays close under the register rather than being dropped to give
- * headroom, since a tripwire far below the count catches nothing, and it reaches
- * zero with the register, where `PROBES` is the only guard left.
+ * `MINIMUM_WRAPPERS` came down as each strip slice landed, because the corpus it
+ * measures is the thing the strip was emptying: it shipped at 500 against 848 and
+ * a slice that took the register below it had to move it or fail on its own
+ * work. It stayed close under the register rather than being dropped to give
+ * headroom, since a tripwire far below the count catches nothing, and it has
+ * reached zero with the register, where `PROBES` is the only guard left.
  *
  * `PROBES` is the guard neither floor can be, and it earns its place from the
  * end state rather than from today: when the backlog reaches empty, every count
@@ -116,133 +117,24 @@ const WRAPPERS = new Set(['useMemo', 'useCallback']);
  * A file absent from this register must hold none. A file present must hold
  * exactly its number. Both directions fail; see the header.
  *
+ * **Empty since the strip finished**, so the gate reads as the zero it could
+ * not ship as: a wrapper written on a compiled path now fails the branch that
+ * writes it, with no entry to add it to.
+ *
  * @type {Readonly<Record<string, number>>}
  */
-const MANUAL_MEMO_BACKLOG = {
-	'apps/web/src/forms/record-extras.ts': 2,
-	'apps/web/src/routes/-activity-data.ts': 1,
-	'apps/web/src/routes/-activity-view.ts': 7,
-	'apps/web/src/routes/-habitat-detail.tsx': 2,
-	'apps/web/src/routes/-habitat-inspection-stats.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/-adult-pickers.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/-collection-key-entry.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/-trap-collection-history.tsx': 3,
-	'apps/web/src/routes/adult-surveillance/-trap-directory-data.ts': 2,
-	'apps/web/src/routes/adult-surveillance/collections/$id.tsx': 6,
-	'apps/web/src/routes/adult-surveillance/collections/$id_.edit.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/collections/-collection-form.tsx': 3,
-	'apps/web/src/routes/adult-surveillance/collections/create.tsx': 2,
-	'apps/web/src/routes/adult-surveillance/collections/index.tsx': 11,
-	'apps/web/src/routes/adult-surveillance/index.tsx': 6,
-	'apps/web/src/routes/adult-surveillance/trap-directory.tsx': 3,
-	'apps/web/src/routes/adult-surveillance/traps/$id.tsx': 9,
-	'apps/web/src/routes/adult-surveillance/traps/$id_.edit.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/traps/-trap-form.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/traps/create.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/traps/index.tsx': 11,
-	'apps/web/src/routes/adult-surveillance/traps/routes/$id_.edit.tsx': 8,
-	'apps/web/src/routes/adult-surveillance/traps/routes/-trap-route-data.ts': 3,
-	'apps/web/src/routes/control-operations/biocontrol/$id.tsx': 1,
-	'apps/web/src/routes/control-operations/biocontrol/$id_.edit.tsx': 1,
-	'apps/web/src/routes/control-operations/biocontrol/-biocontrol-form.tsx': 3,
-	'apps/web/src/routes/control-operations/biocontrol/create.tsx': 1,
-	'apps/web/src/routes/control-operations/biocontrol/index.tsx': 12,
-	'apps/web/src/routes/control-operations/chemical/$id.tsx': 6,
-	'apps/web/src/routes/control-operations/chemical/$id_.edit.tsx': 1,
-	'apps/web/src/routes/control-operations/chemical/-application-form.tsx': 14,
-	'apps/web/src/routes/control-operations/chemical/-batch-drawer.tsx': 1,
-	'apps/web/src/routes/control-operations/chemical/-insecticide-drawer.tsx': 1,
-	'apps/web/src/routes/control-operations/chemical/create.tsx': 1,
-	'apps/web/src/routes/control-operations/chemical/formulations.tsx': 5,
-	'apps/web/src/routes/control-operations/chemical/index.tsx': 11,
-	'apps/web/src/routes/control-operations/chemical/insecticides.tsx': 1,
-	'apps/web/src/routes/control-operations/index.tsx': 7,
-	'apps/web/src/routes/control-operations/source-reduction/$id.tsx': 1,
-	'apps/web/src/routes/control-operations/source-reduction/$id_.edit.tsx': 1,
-	'apps/web/src/routes/control-operations/source-reduction/-source-reduction-form.tsx': 2,
-	'apps/web/src/routes/control-operations/source-reduction/create.tsx': 1,
-	'apps/web/src/routes/control-operations/source-reduction/index.tsx': 11,
-	'apps/web/src/routes/daily-work/$profileId.tsx': 4,
-	'apps/web/src/routes/gis/addresses/$id_.edit.tsx': 1,
-	'apps/web/src/routes/gis/addresses/-address-form.tsx': 7,
-	'apps/web/src/routes/gis/addresses/create.tsx': 1,
-	'apps/web/src/routes/gis/addresses/index.tsx': 6,
-	'apps/web/src/routes/gis/regions/$id_.edit.tsx': 1,
-	'apps/web/src/routes/gis/regions/-folder-dialog.tsx': 1,
-	'apps/web/src/routes/gis/regions/-region-dnd.ts': 1,
-	'apps/web/src/routes/gis/regions/-region-form.tsx': 1,
-	'apps/web/src/routes/gis/regions/-region-rename.ts': 1,
-	'apps/web/src/routes/gis/regions/create.tsx': 1,
-	'apps/web/src/routes/gis/regions/import.tsx': 7,
-	'apps/web/src/routes/gis/regions/index.tsx': 13,
-	'apps/web/src/routes/gis/weather/$id.tsx': 2,
-	'apps/web/src/routes/gis/weather/$id_.edit.tsx': 1,
-	'apps/web/src/routes/gis/weather/$id_.import.tsx': 2,
-	'apps/web/src/routes/gis/weather/-weather-summaries-card.tsx': 3,
-	'apps/web/src/routes/gis/weather/-weather-summary-dialog.tsx': 4,
-	'apps/web/src/routes/gis/weather/create.tsx': 1,
-	'apps/web/src/routes/gis/weather/index.tsx': 9,
-	'apps/web/src/routes/larval-surveillance/-inspection-filters.tsx': 11,
-	'apps/web/src/routes/larval-surveillance/-overview-data.ts': 1,
-	'apps/web/src/routes/larval-surveillance/-sample-key-entry.tsx': 1,
-	'apps/web/src/routes/larval-surveillance/habitats/$id_.edit.tsx': 1,
-	'apps/web/src/routes/larval-surveillance/habitats/-route-data.ts': 4,
-	'apps/web/src/routes/larval-surveillance/habitats/-route-stop-list.tsx': 3,
-	'apps/web/src/routes/larval-surveillance/habitats/create.tsx': 1,
-	'apps/web/src/routes/larval-surveillance/habitats/index.tsx': 15,
-	'apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx': 10,
-	'apps/web/src/routes/larval-surveillance/index.tsx': 7,
-	'apps/web/src/routes/larval-surveillance/inspections/$id_.edit.tsx': 1,
-	'apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx': 3,
-	'apps/web/src/routes/larval-surveillance/inspections/create.tsx': 2,
-	'apps/web/src/routes/larval-surveillance/inspections/index.tsx': 6,
-	'apps/web/src/routes/larval-surveillance/inspections/table.tsx': 5,
-	'apps/web/src/routes/larval-surveillance/samples/$id.tsx': 8,
-	'apps/web/src/routes/larval-surveillance/samples/index.tsx': 13,
-	'apps/web/src/routes/my-organization/-components/key-bindings.tsx': 4,
-	'apps/web/src/routes/operations/-command-runner.ts': 1,
-	'apps/web/src/routes/operations/-operations-data.ts': 5,
-	'apps/web/src/routes/operations/assignments/$id.tsx': 3,
-	'apps/web/src/routes/operations/assignments/$id_.edit.tsx': 9,
-	'apps/web/src/routes/operations/assignments/-assignment-data.ts': 12,
-	'apps/web/src/routes/operations/assignments/-assignment-form.tsx': 1,
-	'apps/web/src/routes/operations/assignments/-assignment-target-picker.tsx': 3,
-	'apps/web/src/routes/operations/assignments/create.tsx': 2,
-	'apps/web/src/routes/operations/assignments/index.tsx': 10,
-	'apps/web/src/routes/operations/index.tsx': 10,
-	'apps/web/src/routes/operations/missions/$id_.add-stop.tsx': 1,
-	'apps/web/src/routes/operations/missions/$id_.edit.tsx': 3,
-	'apps/web/src/routes/operations/missions/-mission-form.tsx': 3,
-	'apps/web/src/routes/operations/missions/-mission-notifications-card.tsx': 1,
-	'apps/web/src/routes/operations/missions/-mission-run.ts': 13,
-	'apps/web/src/routes/operations/missions/-mission-stops.tsx': 1,
-	'apps/web/src/routes/operations/missions/create.tsx': 2,
-	'apps/web/src/routes/operations/missions/index.tsx': 11,
-	'apps/web/src/routes/operations/requests-for-control/$id.tsx': 2,
-	'apps/web/src/routes/operations/requests-for-control/$id_.edit.tsx': 1,
-	'apps/web/src/routes/operations/requests-for-control/-request-form.tsx': 1,
-	'apps/web/src/routes/operations/requests-for-control/create.tsx': 2,
-	'apps/web/src/routes/operations/requests-for-control/index.tsx': 10,
-	'apps/web/src/routes/public-engagement/contacts/$id_.edit.tsx': 1,
-	'apps/web/src/routes/public-engagement/contacts/create.tsx': 1,
-	'apps/web/src/routes/public-engagement/contacts/index.tsx': 1,
-	'apps/web/src/routes/public-engagement/index.tsx': 5,
-	'apps/web/src/routes/public-engagement/outreach/$id_.edit.tsx': 1,
-	'apps/web/src/routes/public-engagement/outreach/-outreach-form.tsx': 2,
-	'apps/web/src/routes/public-engagement/outreach/create.tsx': 1,
-	'apps/web/src/routes/public-engagement/outreach/index.tsx': 10,
-	'apps/web/src/routes/public-engagement/service-requests/$id.tsx': 6,
-	'apps/web/src/routes/public-engagement/service-requests/$id_.edit.tsx': 1,
-	'apps/web/src/routes/public-engagement/service-requests/-service-request-form.tsx': 2,
-	'apps/web/src/routes/public-engagement/service-requests/create.tsx': 2,
-	'apps/web/src/routes/public-engagement/service-requests/index.tsx': 13,
-};
+const MANUAL_MEMO_BACKLOG = {};
 
 /** The floor under the walk. See the header. */
 const MINIMUM_FILES = 700;
 
-/** The floor under the detector. See the header. */
-const MINIMUM_WRAPPERS = 450;
+/**
+ * The floor under the detector, at zero with the register. See the header.
+ *
+ * It guards nothing now, because the check it gates on runs only while the
+ * register records something, and `PROBES` is the guard that takes over.
+ */
+const MINIMUM_WRAPPERS = 0;
 
 /**
  * Sources whose wrapper counts are known.

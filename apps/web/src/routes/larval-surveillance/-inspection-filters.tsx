@@ -15,7 +15,7 @@
 
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import {
 	ActiveFilterBar,
 	FilterChip,
@@ -118,20 +118,17 @@ function useInspectionFilterDefaults(opening: InspectionOpeningWindow): {
 	readonly today: string;
 } {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaults = useMemo<InspectionFilters>(
-		() => ({
-			from: opening === 'all-time' ? '' : addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-			to: opening === 'all-time' ? '' : today,
-			water: 'all',
-			density: new Set<LarvalDensity>(),
-			positive: false,
-			types: new Set<string>(),
-			inspectors: new Set<string>(),
-			regions: new Set<string>(),
-		}),
-		[opening, today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaults: InspectionFilters = {
+		from: opening === 'all-time' ? '' : addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
+		to: opening === 'all-time' ? '' : today,
+		water: 'all',
+		density: new Set<LarvalDensity>(),
+		positive: false,
+		types: new Set<string>(),
+		inspectors: new Set<string>(),
+		regions: new Set<string>(),
+	};
 	return { defaults, today };
 }
 
@@ -173,55 +170,31 @@ export function useInspectionFilterState(
 		activeCount,
 	} = useSearchFilters(defaults, inspectionFilterCodecs, counting);
 
-	const setWetness = useCallback(
-		(next: WaterFilterValue) => setFilters({ water: next }),
-		[setFilters],
-	);
-	const setDensities = useCallback(
-		(next: ReadonlySet<LarvalDensity>) => setFilters({ density: next }),
-		[setFilters],
-	);
-	const setPositiveOnly = useCallback(
-		(next: boolean) => setFilters({ positive: next }),
-		[setFilters],
-	);
-	const setTypeIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ types: next }),
-		[setFilters],
-	);
-	const setInspectorIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ inspectors: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setWetness = (next: WaterFilterValue) => setFilters({ water: next });
+	const setDensities = (next: ReadonlySet<LarvalDensity>) => setFilters({ density: next });
+	const setPositiveOnly = (next: boolean) => setFilters({ positive: next });
+	const setTypeIds = (next: ReadonlySet<string>) => setFilters({ types: next });
+	const setInspectorIds = (next: ReadonlySet<string>) => setFilters({ inspectors: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 
-	const state = useMemo<InspectionFilterState>(
-		() => ({
-			dateFrom: query.from,
-			dateTo: query.to,
-			densities: query.density,
-			inspectorIds: query.inspectors,
-			positiveOnly: query.positive,
-			regionIds: query.regions,
-			typeIds: query.types,
-			wetness: query.water,
-		}),
-		[query],
-	);
-	const set = useMemo<InspectionFilterSetters>(
-		() => ({
-			setDensities,
-			setInspectorIds,
-			setPositiveOnly,
-			setRegionIds,
-			setTypeIds,
-			setWetness,
-		}),
-		[setDensities, setInspectorIds, setPositiveOnly, setRegionIds, setTypeIds, setWetness],
-	);
+	const state: InspectionFilterState = {
+		dateFrom: query.from,
+		dateTo: query.to,
+		densities: query.density,
+		inspectorIds: query.inspectors,
+		positiveOnly: query.positive,
+		regionIds: query.regions,
+		typeIds: query.types,
+		wetness: query.water,
+	};
+	const set: InspectionFilterSetters = {
+		setDensities,
+		setInspectorIds,
+		setPositiveOnly,
+		setRegionIds,
+		setTypeIds,
+		setWetness,
+	};
 
 	return { activeCount, defaults, reset, set, setFilters, state, today };
 }
@@ -248,15 +221,12 @@ export function inspectionTableFilters(state: InspectionFilterState): Inspection
 export function useInspectionCatalogs(): InspectionCatalogs {
 	const habitatTypes = useHabitatTypeOptions();
 	const personnel = usePersonnelOptions();
-	return useMemo(
-		() => ({
-			habitatTypes: habitatTypes.options,
-			personnel: personnel.options,
-			typeNameById: habitatTypes.nameById,
-			personnelNameById: personnel.nameById,
-		}),
-		[habitatTypes, personnel],
-	);
+	return {
+		habitatTypes: habitatTypes.options,
+		personnel: personnel.options,
+		typeNameById: habitatTypes.nameById,
+		personnelNameById: personnel.nameById,
+	};
 }
 
 /**

@@ -42,7 +42,7 @@ import {
 import { iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -171,10 +171,7 @@ function CollectionDetailContent({
 	// since been deleted reads as an unknown one, and collapsing those would
 	// quietly turn a deleted catalog row into a blank.
 	const lureName = collection.lureId === null ? null : (collection.lureName ?? 'Unknown lure');
-	const profileNameById = useMemo(
-		() => new Map(profiles.map((profile) => [profile.id, profile.displayName])),
-		[profiles],
-	);
+	const profileNameById = new Map(profiles.map((profile) => [profile.id, profile.displayName]));
 
 	return (
 		<RecordDetailColumns
@@ -321,28 +318,16 @@ function ResultsCard({
 }) {
 	const speciesRows = useSpeciesCatalog();
 	// Sorted once here so every species picker/select on the page reads alphabetically.
-	const species = useMemo(
-		() => [...speciesRows].sort((a, b) => a.displayName.localeCompare(b.displayName)),
-		[speciesRows],
-	);
-	const speciesOptions = useMemo(
-		() => species.map((row) => ({ value: row.id, label: row.displayName })),
-		[species],
-	);
-	const speciesNameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName])),
-		[species],
-	);
+	const species = [...speciesRows].sort((a, b) => a.displayName.localeCompare(b.displayName));
+	const speciesOptions = species.map((row) => ({ value: row.id, label: row.displayName }));
+	const speciesNameById = new Map(species.map((row) => [row.id, row.displayName]));
 
 	const {
 		identifications: entries,
 		isReady,
 		isError,
 	} = useCollectionIdentifications(collection.id);
-	const total = useMemo(
-		() => entries.reduce((sum, entry) => sum + (entry.count ?? 0), 0),
-		[entries],
-	);
+	const total = entries.reduce((sum, entry) => sum + (entry.count ?? 0), 0);
 
 	const [keyEntryOpen, setKeyEntryOpen] = useState(false);
 
@@ -358,12 +343,9 @@ function ResultsCard({
 	// in the question is the server's own. This page used to count `entries` and
 	// ask on its own, which meant a list that had not finished streaming, or one
 	// another crew had added to, asked about the wrong number or did not ask.
-	const handleZeroResultChange = useCallback(
-		(value: boolean) => {
-			void run((acknowledgements) => setZeroResult(collection.id, value, acknowledgements));
-		},
-		[run, setZeroResult, collection.id],
-	);
+	const handleZeroResultChange = (value: boolean) => {
+		void run((acknowledgements) => setZeroResult(collection.id, value, acknowledgements));
+	};
 
 	return (
 		<Card variant="surface">

@@ -1,7 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -95,23 +95,17 @@ const PATH = '/map/collections';
 
 function CollectionsExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults = useMemo<CollectionFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			methods: new Set(),
-			problems: false,
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: CollectionFilters = {
+		from: defaultFrom,
+		to: today,
+		methods: new Set(),
+		problems: false,
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -123,18 +117,9 @@ function CollectionsExplorerRoute() {
 	const methodIds = query.methods;
 	const problemOnly = query.problems;
 	const regionIds = query.regions;
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setProblemOnly = useCallback(
-		(next: boolean) => setFilters({ problems: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setProblemOnly = (next: boolean) => setFilters({ problems: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -147,28 +132,21 @@ function CollectionsExplorerRoute() {
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
-	const filters = useMemo<CollectionTileFilters>(
-		() => ({
-			...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
-			...(problemOnly ? { problemOnly: true } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[methodIds, problemOnly, regionIds, dateFrom, dateTo],
-	);
-	const legend = useMemo(() => collectionLegend(problemOnly), [problemOnly]);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				collectionMethodId: filters.collectionMethodIds,
-				problem: filters.problemOnly,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			}),
-		[filters],
-	);
+	const filters: CollectionTileFilters = {
+		...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
+		...(problemOnly ? { problemOnly: true } : {}),
+		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
+		...(dateFrom === '' ? {} : { dateFrom }),
+		...(dateTo === '' ? {} : { dateTo }),
+	};
+	const legend = collectionLegend(problemOnly);
+	const params = mapQueryParams({
+		collectionMethodId: filters.collectionMethodIds,
+		problem: filters.problemOnly,
+		regionId: filters.regionIds,
+		dateFrom: filters.dateFrom,
+		dateTo: filters.dateTo,
+	});
 
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<CollectionSite>({
@@ -186,19 +164,16 @@ function CollectionsExplorerRoute() {
 	});
 	useFlyToSelection(map, selected);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'collections',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'collections',
+			serverUrl: getServerUrl(),
+			filters,
+			selectedId,
+			onSelectFeature: setSelectedId,
+		},
+	];
 
 	const clearAll = reset;
 

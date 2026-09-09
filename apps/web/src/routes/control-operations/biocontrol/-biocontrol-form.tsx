@@ -9,7 +9,6 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -145,29 +144,22 @@ export function BiocontrolFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				biocontrolMethods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[biocontrolMethods],
+	const methodOptions = lifecycleOptions(
+		biocontrolMethods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 	// Biocontrol releases are counted, measured by volume, or weighed — the domain
 	// rejects any other unit type.
-	const releaseUnitOptions = useMemo(() => unitOptions(units, isBiocontrolUnitType), [units]);
-	const technicianOptions = useMemo(
-		() => [
-			{ label: 'Unassigned', value: noTechnicianValue },
-			...lifecycleOptions(
-				profiles,
-				(profile) => profile.isActive,
-				(profile) => profile.displayName,
-			),
-		],
-		[profiles],
-	);
+	const releaseUnitOptions = unitOptions(units, isBiocontrolUnitType);
+	const technicianOptions = [
+		{ label: 'Unassigned', value: noTechnicianValue },
+		...lifecycleOptions(
+			profiles,
+			(profile) => profile.isActive,
+			(profile) => profile.displayName,
+		),
+	];
 
 	const form = useAppForm({
 		defaultValues,

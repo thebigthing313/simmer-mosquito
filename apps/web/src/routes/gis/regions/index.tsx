@@ -19,7 +19,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import {
 	ActiveFilterBar,
@@ -335,35 +335,29 @@ function useRegionEdits(
 	mutations: ReturnType<typeof useRegionMutations>,
 	regions: readonly RegionListing[],
 ) {
-	const renameRegion = useCallback(
-		async (id: string, rawName: string) => {
-			const name = rawName.trim();
-			const current = regions.find((region) => region.id === id);
-			if (current === undefined || name.length === 0 || name === current.name) {
-				return;
-			}
-			try {
-				await mutations.rename(id, name);
-			} catch {
-				// Optimistic mutation rolled back; the tree already shows the synced name.
-			}
-		},
-		[mutations, regions],
-	);
-	const moveRegion = useCallback(
-		async (id: string, folderId: string | null) => {
-			const current = regions.find((region) => region.id === id);
-			if (current === undefined || current.folderId === folderId) {
-				return;
-			}
-			try {
-				await mutations.move(id, folderId);
-			} catch {
-				// Optimistic mutation rolled back; the tree already shows the prior folder.
-			}
-		},
-		[mutations, regions],
-	);
+	const renameRegion = async (id: string, rawName: string) => {
+		const name = rawName.trim();
+		const current = regions.find((region) => region.id === id);
+		if (current === undefined || name.length === 0 || name === current.name) {
+			return;
+		}
+		try {
+			await mutations.rename(id, name);
+		} catch {
+			// Optimistic mutation rolled back; the tree already shows the synced name.
+		}
+	};
+	const moveRegion = async (id: string, folderId: string | null) => {
+		const current = regions.find((region) => region.id === id);
+		if (current === undefined || current.folderId === folderId) {
+			return;
+		}
+		try {
+			await mutations.move(id, folderId);
+		} catch {
+			// Optimistic mutation rolled back; the tree already shows the prior folder.
+		}
+	};
 	return { moveRegion, renameRegion };
 }
 
@@ -387,10 +381,7 @@ function RegionsExplorerRoute() {
 		setFilters: setRegionFilters,
 		activeCount: activeFilterCount,
 	} = useSearchFilters(REGION_FILTER_DEFAULTS, REGION_FILTER_CODECS);
-	const commitSearch = useCallback(
-		(next: string) => setRegionFilters({ search: next }),
-		[setRegionFilters],
-	);
+	const commitSearch = (next: string) => setRegionFilters({ search: next });
 	const {
 		input: search,
 		setInput: setSearch,
@@ -398,27 +389,21 @@ function RegionsExplorerRoute() {
 	} = useDebouncedTextFilter(regionQuery.search, commitSearch);
 	// Both halves: the field the operator is looking at, and the committed term on
 	// the URL that is actually cutting the tree.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderListing | 'new' | null>(null);
 
-	const sortedFolders = useMemo(
-		() => [...folders].sort((a, b) => a.name.localeCompare(b.name)),
-		[folders],
-	);
-	const regionsByFolder = useMemo(() => groupByFolder(regions), [regions]);
+	const sortedFolders = [...folders].sort((a, b) => a.name.localeCompare(b.name));
+	const regionsByFolder = groupByFolder(regions);
 
 	const query = search.trim().toLowerCase();
-	const filtered = useMemo(
-		() => searchTree(sortedFolders, regionsByFolder, query),
-		[query, sortedFolders, regionsByFolder],
-	);
+	const filtered = searchTree(sortedFolders, regionsByFolder, query);
 	const hasMatches = filtered.folders.length > 0 || filtered.unfiled.length > 0;
 	const emptyState = regionsEmptyState({
 		hasDirectory: regions.length > 0 || sortedFolders.length > 0,
@@ -426,38 +411,28 @@ function RegionsExplorerRoute() {
 		query: search.trim(),
 	});
 
-	const visibleArray = useMemo(() => [...visibleIds], [visibleIds]);
+	const visibleArray = [...visibleIds];
 	const serverUrl = getServerUrl();
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'regions',
-				serverUrl,
-				visibleIds: visibleArray,
-				selectedId: focusedId,
-				onSelectFeature: (id: string | null) => setFocusedId(id),
-			},
-		],
-		[serverUrl, visibleArray, focusedId],
-	);
-	const toggleRegion = useCallback(
-		(id: string, on: boolean) => setVisibleIds((prev) => withIds(prev, [id], on)),
-		[],
-	);
-	const toggleFolder = useCallback(
-		(regionIds: readonly string[], on: boolean) =>
-			setVisibleIds((prev) => withIds(prev, regionIds, on)),
-		[],
-	);
-	const toggleExpand = useCallback(
-		(folderId: string, open: boolean) => setExpandedIds((prev) => withIds(prev, [folderId], open)),
-		[],
-	);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'regions',
+			serverUrl,
+			visibleIds: visibleArray,
+			selectedId: focusedId,
+			onSelectFeature: (id: string | null) => setFocusedId(id),
+		},
+	];
+	const toggleRegion = (id: string, on: boolean) =>
+		setVisibleIds((prev) => withIds(prev, [id], on));
+	const toggleFolder = (regionIds: readonly string[], on: boolean) =>
+		setVisibleIds((prev) => withIds(prev, regionIds, on));
+	const toggleExpand = (folderId: string, open: boolean) =>
+		setExpandedIds((prev) => withIds(prev, [folderId], open));
 	// Focusing a region also switches it on, so the map has something to fly to.
-	const focusRegion = useCallback((id: string) => {
+	const focusRegion = (id: string) => {
 		setVisibleIds((prev) => withIds(prev, [id], true));
 		setFocusedId(id);
-	}, []);
+	};
 
 	const { moveRegion, renameRegion } = useRegionEdits(mutations, regions);
 

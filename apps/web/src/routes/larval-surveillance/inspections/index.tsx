@@ -2,7 +2,7 @@ import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -122,7 +122,7 @@ function useInspectionResults({
 	readonly selectedId: string | null;
 }) {
 	const bbox = useMapBoundsParam(map);
-	const params = useMemo(() => inspectionQueryParams(bbox, filters), [bbox, filters]);
+	const params = inspectionQueryParams(bbox, filters);
 	const paged = usePagedMapResource<InspectionSite>({
 		path: PATH,
 		rowsKey: 'inspections',
@@ -218,29 +218,23 @@ function InspectionsExplorerRoute() {
 	const carried = sharedInspectionSearch(Route.useSearch());
 
 	const filterOptions = useInspectionFilterOptions();
-	const filters = useMemo(() => inspectionTileFilters(state), [state]);
+	const filters = inspectionTileFilters(state);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 	const { paged, selected } = useInspectionResults({ filters, map, selectedId });
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } = paged;
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'inspections',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
-	const legend = useMemo(() => inspectionLegend(wetness, densities), [wetness, densities]);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'inspections',
+			serverUrl: getServerUrl(),
+			filters,
+			selectedId,
+			onSelectFeature: setSelectedId,
+		},
+	];
+	const legend = inspectionLegend(wetness, densities);
 
-	const resetDates = useCallback(
-		() => setFilters({ from: defaults.from, to: defaults.to }),
-		[setFilters, defaults.from, defaults.to],
-	);
+	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
 	const clearAll = reset;
 
 	return (

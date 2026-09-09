@@ -1,7 +1,6 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
@@ -100,61 +99,58 @@ function EditOutreachActionLoader({
 	const personnel = useAdditionalPersonnel({ type: 'outreachAction', id: action.id });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-		}: {
-			readonly values: OutreachFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) => {
-			if (values.reach === null) {
-				throw new Error('Enter how many people were reached.');
-			}
-			const trimmedDescription = values.reachDescription.trim();
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+	}: {
+		readonly values: OutreachFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) => {
+		if (values.reach === null) {
+			throw new Error('Enter how many people were reached.');
+		}
+		const trimmedDescription = values.reachDescription.trim();
 
-			// The shape and the address are independent: only state a location when the
-			// user actually redrew it. Absent means "leave it", which is not the same
-			// request as re-sending the shape it already has.
-			const redrawn = geometryChanged && geometry !== null ? geometry : null;
-			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
+		// The shape and the address are independent: only state a location when the
+		// user actually redrew it. Absent means "leave it", which is not the same
+		// request as re-sending the shape it already has.
+		const redrawn = geometryChanged && geometry !== null ? geometry : null;
+		const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
-			// Which commands this save means is worked out by the hook, from what
-			// actually moved — the field details and the placement are different
-			// builders, and naming one with nothing to read is refused.
-			await update(action, {
-				values: {
-					methodId: values.outreachMethodId,
-					technicianProfileId:
-						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-					actionDate: values.outreachDate,
-					addressId: values.addressId,
-					reach: values.reach,
-					reachDescription: trimmedDescription === '' ? null : trimmedDescription,
-					metadata: values.metadata,
-				},
-				...(centroid === null || redrawn === null
-					? {}
-					: {
-							location: {
-								lat: centroid.lat,
-								lng: centroid.lng,
-								geomType: centroid.geomType,
-								locationSource: { kind: 'geometry', geometry: redrawn },
-							},
-						}),
-			});
-			await setPersonnel({
-				target: { type: 'outreachAction', id: action.id },
-				existing: personnel.rows,
-				profileIds: values.additionalPersonnelIds,
-			});
-			await navigate({ to: '/public-engagement/outreach/$id', params: { id: action.id } });
-		},
-		[action, personnel.rows, navigate, update, setPersonnel],
-	);
+		// Which commands this save means is worked out by the hook, from what
+		// actually moved — the field details and the placement are different
+		// builders, and naming one with nothing to read is refused.
+		await update(action, {
+			values: {
+				methodId: values.outreachMethodId,
+				technicianProfileId:
+					values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+				actionDate: values.outreachDate,
+				addressId: values.addressId,
+				reach: values.reach,
+				reachDescription: trimmedDescription === '' ? null : trimmedDescription,
+				metadata: values.metadata,
+			},
+			...(centroid === null || redrawn === null
+				? {}
+				: {
+						location: {
+							lat: centroid.lat,
+							lng: centroid.lng,
+							geomType: centroid.geomType,
+							locationSource: { kind: 'geometry', geometry: redrawn },
+						},
+					}),
+		});
+		await setPersonnel({
+			target: { type: 'outreachAction', id: action.id },
+			existing: personnel.rows,
+			profileIds: values.additionalPersonnelIds,
+		});
+		await navigate({ to: '/public-engagement/outreach/$id', params: { id: action.id } });
+	};
 
 	if (geometryQuery.isError) {
 		return (

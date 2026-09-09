@@ -1,7 +1,7 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { inArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { type TrapListing, useActiveTraps } from '../../../hooks/queries/use-active-traps';
@@ -187,6 +187,37 @@ function TrapTargetPicker({
  * a second subset. No organization is passed: the shape is scoped server-side,
  * so the only rows it could ever hold are this organization's.
  */
+/**
+ * The first eight open requests the search matches, each with the label the row
+ * draws. A request is searched by its address and by its details, because an
+ * address is what most of them are known by and the rest have only the text.
+ */
+function requestMatches<
+	TRequest extends {
+		readonly id: string;
+		readonly addressId: string;
+		readonly details: string | null;
+	},
+>(
+	requests: readonly TRequest[],
+	addressById: ReadonlyMap<string, string>,
+	normalized: string,
+): readonly { readonly request: TRequest; readonly label: string }[] {
+	const labelled = requests.map((request) => ({
+		request,
+		label: addressById.get(request.addressId) ?? `Request ${request.id.slice(0, 8)}`,
+	}));
+	const filtered =
+		normalized.length === 0
+			? labelled
+			: labelled.filter(
+					(entry) =>
+						entry.label.toLowerCase().includes(normalized) ||
+						(entry.request.details ?? '').toLowerCase().includes(normalized),
+				);
+	return filtered.slice(0, 8);
+}
+
 function ServiceRequestPicker({
 	value,
 	onSelect,
@@ -203,21 +234,7 @@ function ServiceRequestPicker({
 	const addressById = useRequestAddresses(requests);
 
 	const normalized = search.trim().toLowerCase();
-	const matches = useMemo(() => {
-		const labelled = requests.map((request) => ({
-			request,
-			label: addressById.get(request.addressId) ?? `Request ${request.id.slice(0, 8)}`,
-		}));
-		const filtered =
-			normalized.length === 0
-				? labelled
-				: labelled.filter(
-						(entry) =>
-							entry.label.toLowerCase().includes(normalized) ||
-							(entry.request.details ?? '').toLowerCase().includes(normalized),
-					);
-		return filtered.slice(0, 8);
-	}, [requests, addressById, normalized]);
+	const matches = requestMatches(requests, addressById, normalized);
 
 	return (
 		<PickerFrame
@@ -280,10 +297,7 @@ function ServiceRequestPicker({
  * over exactly the request set — the same second-level join the stop list does.
  */
 function useRequestAddresses(requests: readonly OpenServiceRequest[]): ReadonlyMap<string, string> {
-	const addressIds = useMemo(
-		() => [...new Set(requests.map((request) => request.addressId))].sort(),
-		[requests],
-	);
+	const addressIds = [...new Set(requests.map((request) => request.addressId))].sort();
 	const addressKey = addressIds.join(',');
 
 	const result = useLiveQuery(
@@ -300,8 +314,5 @@ function useRequestAddresses(requests: readonly OpenServiceRequest[]): ReadonlyM
 		[addressKey],
 	);
 
-	return useMemo(
-		() => new Map(result.data.map((address) => [address.id, address.displayName])),
-		[result.data],
-	);
+	return new Map(result.data.map((address) => [address.id, address.displayName]));
 }

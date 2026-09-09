@@ -20,12 +20,12 @@ import {
 	type ActivityCopy,
 	type ActivityDayGroup,
 	type ActivityEntry,
+	type ActivityLookups,
 	type ActivityStateToken,
 	activityEntryKey,
 	activityStatus,
 	describeActivityEntry,
 	formatActivityTime,
-	type useActivityLookups,
 } from './-activity-data';
 import { HabitatMapCard } from './-habitat-map-card';
 import { CollectionMapCard } from './adult-surveillance/-collection-map-card';
@@ -42,9 +42,6 @@ import { ServiceRequestMapCard } from './public-engagement/-service-request-map-
 // or a pin names. Daily Work reads it over one day; the grouping below still
 // takes a window, because the endpoint behind it answers one.
 // Dash-prefixed so TanStack Router ignores this file as a route.
-
-/** The resolved lookup names + unit formatter every row's description needs. */
-export type ActivityLookups = ReturnType<typeof useActivityLookups>;
 
 export function ActivityLog({
 	days,

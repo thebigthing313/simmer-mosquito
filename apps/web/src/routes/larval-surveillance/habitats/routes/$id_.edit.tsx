@@ -28,7 +28,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
@@ -108,31 +108,27 @@ function RouteEditRoute() {
 	const { rename, remove: removeRoute, moveStops } = useRouteMutations();
 	const { addStop: addRouteItem, setDirections, removeStop } = useRouteItemMutations();
 
-	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
+	const commitMove = (plan: MovePlan) => moveStops(id, plan);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
 		commit: commitMove,
 	});
 
-	const features = useMemo<RouteStopFeature[]>(
-		() =>
-			orderedStops
-				.map((stop, index) => ({ stop, ordinal: index + 1 }))
-				.filter((entry) => entry.stop.hasLocation)
-				.map((entry) => ({
-					id: entry.stop.routeItemId,
-					lng: entry.stop.lng as number,
-					lat: entry.stop.lat as number,
-					ordinal: entry.ordinal,
-					tone: stopTone(entry.stop),
-				})),
-		[orderedStops],
-	);
+	const features: RouteStopFeature[] = orderedStops
+		.map((stop, index) => ({ stop, ordinal: index + 1 }))
+		.filter((entry) => entry.stop.hasLocation)
+		.map((entry) => ({
+			id: entry.stop.routeItemId,
+			lng: entry.stop.lng as number,
+			lat: entry.stop.lat as number,
+			ordinal: entry.ordinal,
+			tone: stopTone(entry.stop),
+		}));
 
-	const existingHabitatIds = useMemo(() => new Set(stops.map((stop) => stop.habitatId)), [stops]);
+	const existingHabitatIds = new Set(stops.map((stop) => stop.habitatId));
 
-	const commitName = useCallback(async () => {
+	const commitName = async () => {
 		if (route === null || nameDraft === null) {
 			setNameDraft(null);
 			return;
@@ -149,51 +145,42 @@ function RouteEditRoute() {
 		} finally {
 			setNameDraft(null);
 		}
-	}, [route, nameDraft, id, rename]);
+	};
 
-	const addStop = useCallback(
-		async (habitat: HabitatSite) => {
-			if (existingHabitatIds.has(habitat.id)) {
-				return;
-			}
-			setError(null);
-			try {
-				await addRouteItem({
-					routeId: id,
-					target: { type: 'habitat', id: habitat.id },
-					position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
-				});
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
-			}
-		},
-		[existingHabitatIds, stops, id, addRouteItem],
-	);
+	const addStop = async (habitat: HabitatSite) => {
+		if (existingHabitatIds.has(habitat.id)) {
+			return;
+		}
+		setError(null);
+		try {
+			await addRouteItem({
+				routeId: id,
+				target: { type: 'habitat', id: habitat.id },
+				position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+		}
+	};
 
-	const move = useCallback(
-		async (index: number, action: MoveAction) => {
-			setError(null);
-			try {
-				await moveStop(index, action);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
-			}
-		},
-		[moveStop],
-	);
+	const move = async (index: number, action: MoveAction) => {
+		setError(null);
+		try {
+			await moveStop(index, action);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
+		}
+	};
 
-	const saveDirections = useCallback(
-		async (routeItemId: string, value: string) => {
-			try {
-				await setDirections(routeItemId, value);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
-			}
-		},
-		[setDirections],
-	);
+	const saveDirections = async (routeItemId: string, value: string) => {
+		try {
+			await setDirections(routeItemId, value);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+		}
+	};
 
-	const saveDescription = useCallback(async (habitatId: string, value: string) => {
+	const saveDescription = async (habitatId: string, value: string) => {
 		try {
 			// The route reads habitats from a live on-demand subset, so the edited
 			// description streams back on its own — no invalidation needed.
@@ -201,9 +188,9 @@ function RouteEditRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save the description.');
 		}
-	}, []);
+	};
 
-	const confirmRemove = useCallback(async () => {
+	const confirmRemove = async () => {
 		const target = removeTarget;
 		setRemoveTarget(null);
 		if (target === null) {
@@ -215,9 +202,9 @@ function RouteEditRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
 		}
-	}, [removeTarget, removeStop]);
+	};
 
-	const confirmDeleteRoute = useCallback(async () => {
+	const confirmDeleteRoute = async () => {
 		setDeleteOpen(false);
 		setError(null);
 		try {
@@ -226,7 +213,7 @@ function RouteEditRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
 		}
-	}, [id, navigate, removeRoute]);
+	};
 
 	const body = (
 		<>

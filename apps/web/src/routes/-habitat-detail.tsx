@@ -43,7 +43,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { type CSSProperties, Suspense, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, Suspense, useEffect, useState } from 'react';
 import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
@@ -403,7 +403,7 @@ function HabitatMetadata({
 	readonly metadata: unknown;
 }) {
 	const schema = useHabitatTypeSchema(habitatTypeId);
-	const entries = useMemo(() => customFieldEntries(schema, metadata), [schema, metadata]);
+	const entries = customFieldEntries(schema, metadata);
 	if (entries.length === 0) {
 		return null;
 	}
@@ -728,9 +728,8 @@ function InspectionHistory({
 }
 
 function SampleHistory({ samples }: { readonly samples: readonly HabitatHistorySampleRow[] }) {
-	const sortedSamples = useMemo(
-		() => [...samples].sort((a, b) => b.inspectionDate.localeCompare(a.inspectionDate)),
-		[samples],
+	const sortedSamples = [...samples].sort((a, b) =>
+		b.inspectionDate.localeCompare(a.inspectionDate),
 	);
 	const { page, pageCount, pageRows, setPage } = usePagedRows(sortedSamples, historyPageSize);
 

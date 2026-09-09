@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 /** Shared inline-rename state + actions threaded down to every region row. */
 export interface RegionRename {
@@ -21,16 +21,13 @@ export function useRegionRename(
 ): RegionRename {
 	const [renamingId, setRenamingId] = useState<string | null>(null);
 
-	return useMemo<RegionRename>(
-		() => ({
-			renamingId,
-			start: (id) => setRenamingId(id),
-			commit: (id, name) => {
-				setRenamingId(null);
-				void onRename(id, name);
-			},
-			cancel: () => setRenamingId(null),
-		}),
-		[renamingId, onRename],
-	);
+	return {
+		renamingId,
+		start: (id) => setRenamingId(id),
+		commit: (id, name) => {
+			setRenamingId(null);
+			void onRename(id, name);
+		},
+		cancel: () => setRenamingId(null),
+	};
 }

@@ -2,7 +2,7 @@ import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import {
 	ActiveFilterBar,
@@ -64,12 +64,9 @@ function AddressesExplorerRoute() {
 	} = useSearchFilters(ADDRESS_FILTER_DEFAULTS, ADDRESS_FILTER_CODECS);
 	const search = query.search;
 	const regionIds = query.regions;
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const { searchInput, setSearch, clearSearch } = useAddressSearch(search, commitSearch);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const regions = useRegionOptions();
 	// The map narrows by region server-side; the list is built from synced rows, so
 	// it asks the same question of the boundaries directly.
@@ -79,25 +76,23 @@ function AddressesExplorerRoute() {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
 
-	const filtered = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		return addresses.filter((address) => {
-			const point = { lng: address.longitude ?? Number.NaN, lat: address.latitude ?? Number.NaN };
-			if (!regionMembership.contains(point)) {
-				return false;
-			}
-			if (query.length === 0) {
-				return true;
-			}
-			return [
-				address.displayName,
-				address.addressLine1,
-				address.locality,
-				address.region,
-				address.postalCode,
-			].some((part) => (part ?? '').toLowerCase().includes(query));
-		});
-	}, [addresses, search, regionMembership]);
+	const needle = search.trim().toLowerCase();
+	const filtered = addresses.filter((address) => {
+		const point = { lng: address.longitude ?? Number.NaN, lat: address.latitude ?? Number.NaN };
+		if (!regionMembership.contains(point)) {
+			return false;
+		}
+		if (needle.length === 0) {
+			return true;
+		}
+		return [
+			address.displayName,
+			address.addressLine1,
+			address.locality,
+			address.region,
+			address.postalCode,
+		].some((part) => (part ?? '').toLowerCase().includes(needle));
+	});
 
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	const regionKey = [...regionIds].sort().join(',');
@@ -116,24 +111,21 @@ function AddressesExplorerRoute() {
 	// points and the list stay in lockstep as the query changes.
 	const serverUrl = getServerUrl();
 	const trimmedSearch = search.trim();
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'addresses',
-				serverUrl,
-				selectedId: focusedId,
-				filters: {
-					...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
-					...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
-				},
-				onSelectFeature: (id: string | null) => setFocusedId(id),
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'addresses',
+			serverUrl,
+			selectedId: focusedId,
+			filters: {
+				...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
+				...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
 			},
-		],
-		[serverUrl, focusedId, trimmedSearch, regionKey],
-	);
-	const clearAll = useCallback(() => {
+			onSelectFeature: (id: string | null) => setFocusedId(id),
+		},
+	];
+	const clearAll = () => {
 		setFilters({ search: '', regions: new Set() });
-	}, [setFilters]);
+	};
 
 	// The rows come from synced records rather than a paged request, so the frame
 	// is told "loading" only until the collection and the boundaries are both in.
@@ -252,10 +244,10 @@ function useAddressSearch(
 	readonly clearSearch: () => void;
 } {
 	const { input, setInput, clear } = useDebouncedTextFilter(urlSearch, commitSearch);
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clear();
 		commitSearch('');
-	}, [clear, commitSearch]);
+	};
 
 	return { searchInput: input, setSearch: setInput, clearSearch };
 }

@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useRecordExtras } from '../../../forms/record-extras';
@@ -61,60 +61,57 @@ function CreateSourceReductionRoute() {
 	const recordExtras = useRecordExtras();
 	const { record } = useSourceReductionMutations();
 
-	const onSave = useCallback(
-		async (input: SourceReductionSaveInput) =>
-			mission.run(async (acknowledgements) => {
-				const { values, geometry } = input;
-				if (organization === null) {
-					throw new Error('Organization details are still loading.');
-				}
-				if (actorProfileId === null) {
-					throw new Error('Your profile is still loading.');
-				}
-				if (values.sourcesEliminatedAmount === null) {
-					throw new Error('Enter how many sources were eliminated.');
-				}
+	const onSave = async (input: SourceReductionSaveInput) =>
+		mission.run(async (acknowledgements) => {
+			const { values, geometry } = input;
+			if (organization === null) {
+				throw new Error('Organization details are still loading.');
+			}
+			if (actorProfileId === null) {
+				throw new Error('Your profile is still loading.');
+			}
+			if (values.sourcesEliminatedAmount === null) {
+				throw new Error('Enter how many sources were eliminated.');
+			}
 
-				// The point is the action's authoritative geometry; the address and habitat
-				// (if any) are reference only. Off a mission stop it is required; on one it
-				// is an override the crew may not have drawn, and the server falls back to
-				// the stop's own ground.
-				const location = mission.resolveLocation(geometry, {
-					missing: 'Place the point where the sources were eliminated.',
-					unresolvable: 'Unable to determine the source reduction location.',
-				});
+			// The point is the action's authoritative geometry; the address and habitat
+			// (if any) are reference only. Off a mission stop it is required; on one it
+			// is an override the crew may not have drawn, and the server falls back to
+			// the stop's own ground.
+			const location = mission.resolveLocation(geometry, {
+				missing: 'Place the point where the sources were eliminated.',
+				unresolvable: 'Unable to determine the source reduction location.',
+			});
 
-				// Off a stop this is `missionDispatch.recordSourceReductionForMissionItem`
-				// and links the stop; on its own it is
-				// `controlOperations.recordSourceReduction`. The hook reads the stop id
-				// rather than making this form say which command it meant.
-				await record({
-					sourceReductionId,
-					values: sourceReductionFieldsFrom(values),
-					location: {
-						lat: location.lat,
-						lng: location.lng,
-						geomType: location.geomType,
-						locationSource: location.locationSource,
-					},
-					missionItemId: mission.missionItemId,
-					acknowledgements,
+			// Off a stop this is `missionDispatch.recordSourceReductionForMissionItem`
+			// and links the stop; on its own it is
+			// `controlOperations.recordSourceReduction`. The hook reads the stop id
+			// rather than making this form say which command it meant.
+			await record({
+				sourceReductionId,
+				values: sourceReductionFieldsFrom(values),
+				location: {
+					lat: location.lat,
+					lng: location.lng,
+					geomType: location.geomType,
+					locationSource: location.locationSource,
+				},
+				missionItemId: mission.missionItemId,
+				acknowledgements,
+			});
+			// Crew rows reference the action, so they can only be written once it exists.
+			await recordExtras.attach({
+				target: { type: 'sourceReduction', id: sourceReductionId },
+				profileIds: values.additionalPersonnelIds,
+				commentText: values.comment,
+			});
+			await mission.navigateAfterSave(async () => {
+				await navigate({
+					to: '/control-operations/source-reduction/$id',
+					params: { id: sourceReductionId },
 				});
-				// Crew rows reference the action, so they can only be written once it exists.
-				await recordExtras.attach({
-					target: { type: 'sourceReduction', id: sourceReductionId },
-					profileIds: values.additionalPersonnelIds,
-					commentText: values.comment,
-				});
-				await mission.navigateAfterSave(async () => {
-					await navigate({
-						to: '/control-operations/source-reduction/$id',
-						params: { id: sourceReductionId },
-					});
-				});
-			}),
-		[organization, actorProfileId, sourceReductionId, navigate, mission, record, recordExtras],
-	);
+			});
+		});
 
 	return (
 		<>

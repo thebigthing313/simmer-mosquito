@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useContact } from '../../../hooks/queries/use-contact-record';
@@ -30,13 +30,10 @@ function CreateContactRoute() {
 	const [contactId] = useState(() => newRecordId());
 	useContact(contactId);
 
-	const onSave = useCallback(
-		async (values: ContactFormValues) => {
-			await mutations.create(contactId, contactFieldsFromValues(values));
-			await navigate({ to: '/public-engagement/contacts/$id', params: { id: contactId } });
-		},
-		[contactId, mutations, navigate],
-	);
+	const onSave = async (values: ContactFormValues) => {
+		await mutations.create(contactId, contactFieldsFromValues(values));
+		await navigate({ to: '/public-engagement/contacts/$id', params: { id: contactId } });
+	};
 
 	return (
 		<ContactFormPage

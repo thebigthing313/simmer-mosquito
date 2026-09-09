@@ -5,7 +5,6 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
@@ -116,14 +115,10 @@ export function TrapFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				collectionMethods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[collectionMethods],
+	const methodOptions = lifecycleOptions(
+		collectionMethods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 
 	const form = useAppForm({

@@ -22,7 +22,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
@@ -74,7 +74,7 @@ function EditTrapRouteRoute() {
 	const { rename, remove: removeRoute, moveStops } = useRouteMutations();
 	const { addStop: addRouteItem, setDirections, removeStop } = useRouteItemMutations();
 
-	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
+	const commitMove = (plan: MovePlan) => moveStops(id, plan);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -83,70 +83,54 @@ function EditTrapRouteRoute() {
 
 	// Numbered off the displayed order, so the map renumbers with the list while a
 	// move is still in flight rather than showing the last synced sequence.
-	const features = useMemo<readonly RouteStopFeature[]>(
-		() =>
-			orderedStops
-				.map((stop, index) => ({ stop, ordinal: index + 1 }))
-				.filter((entry) => entry.stop.hasLocation)
-				.map((entry) => ({
-					id: entry.stop.routeItemId,
-					lat: entry.stop.lat as number,
-					lng: entry.stop.lng as number,
-					ordinal: entry.ordinal,
-					tone: entry.stop.isActive ? ('default' as const) : ('inactive' as const),
-				})),
-		[orderedStops],
-	);
+	const features: readonly RouteStopFeature[] = orderedStops
+		.map((stop, index) => ({ stop, ordinal: index + 1 }))
+		.filter((entry) => entry.stop.hasLocation)
+		.map((entry) => ({
+			id: entry.stop.routeItemId,
+			lat: entry.stop.lat as number,
+			lng: entry.stop.lng as number,
+			ordinal: entry.ordinal,
+			tone: entry.stop.isActive ? ('default' as const) : ('inactive' as const),
+		}));
 
-	const onRoute = useMemo(() => new Set(stops.map((stop) => stop.trapId)), [stops]);
-	const availableTraps = useMemo(
-		() => traps.filter((trap) => !onRoute.has(trap.id)),
-		[traps, onRoute],
-	);
+	const onRoute = new Set(stops.map((stop) => stop.trapId));
+	const availableTraps = traps.filter((trap) => !onRoute.has(trap.id));
 
-	const renameRoute = useCallback(
-		(name: string) => {
-			const trimmed = name.trim();
-			if (route === null || trimmed.length === 0 || trimmed === route.routeName) {
-				return;
-			}
-			void rename(id, trimmed);
-		},
-		[id, route, rename],
-	);
+	const renameRoute = (name: string) => {
+		const trimmed = name.trim();
+		if (route === null || trimmed.length === 0 || trimmed === route.routeName) {
+			return;
+		}
+		void rename(id, trimmed);
+	};
 
-	const addStop = useCallback(
-		(trap: TrapListing | null) => {
-			if (trap === null || route === null) {
-				return;
-			}
-			setError(null);
-			try {
-				void addRouteItem({
-					routeId: id,
-					target: { type: 'trap', id: trap.id },
-					position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
-				});
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
-			}
-		},
-		[id, route, stops, addRouteItem],
-	);
+	const addStop = (trap: TrapListing | null) => {
+		if (trap === null || route === null) {
+			return;
+		}
+		setError(null);
+		try {
+			void addRouteItem({
+				routeId: id,
+				target: { type: 'trap', id: trap.id },
+				position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+		}
+	};
 
-	const move = useCallback(
-		async (index: number, action: MoveAction) => {
-			setError(null);
-			try {
-				await moveStop(index, action);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
-			}
-		},
-		[moveStop],
-	);
+	const move = async (index: number, action: MoveAction) => {
+		setError(null);
+		try {
+			await moveStop(index, action);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
+		}
+	};
 
-	const deleteRoute = useCallback(async () => {
+	const deleteRoute = async () => {
 		setConfirmDelete(false);
 		try {
 			await removeRoute(id);
@@ -154,7 +138,7 @@ function EditTrapRouteRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
 		}
-	}, [id, navigate, removeRoute]);
+	};
 
 	const body = (
 		<>

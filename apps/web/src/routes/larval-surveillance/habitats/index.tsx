@@ -3,7 +3,7 @@ import { ComponentIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import {
 	ActiveFilterBar,
@@ -113,26 +113,17 @@ function HabitatsExplorerRoute() {
 		activeCount: activeFilterCount,
 	} = useSearchFilters(HABITAT_FILTER_DEFAULTS, HABITAT_FILTER_CODECS);
 	const { search, status, access, typeIds, tagIds, regions: regionIds } = query;
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: searchInput,
 		setInput: setSearchInput,
 		clear: clearSearchInput,
 	} = useDebouncedTextFilter(search, commitSearch);
-	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
-	const setAccess = useCallback((next: AccessFilter) => setFilters({ access: next }), [setFilters]);
-	const setTypeIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ typeIds: next }),
-		[setFilters],
-	);
-	const setTagIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ tagIds: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setAccess = (next: AccessFilter) => setFilters({ access: next });
+	const setTypeIds = (next: ReadonlySet<string>) => setFilters({ typeIds: next });
+	const setTagIds = (next: ReadonlySet<string>) => setFilters({ tagIds: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -141,34 +132,27 @@ function HabitatsExplorerRoute() {
 	const { options: tags, byId: tagById } = useTagOptions();
 	const regions = useRegionOptions();
 
-	const filters = useMemo<HabitatTileFilters>(
-		() => ({
-			...(status === 'all' ? {} : { isActive: status === 'active' }),
-			...(access === 'all' ? {} : { isInaccessible: access === 'inaccessible' }),
-			...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
-			...(tagIds.size > 0 ? { tagIds: [...tagIds] } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(search.length > 0 ? { search } : {}),
-		}),
-		[status, access, typeIds, tagIds, regionIds, search],
-	);
+	const filters: HabitatTileFilters = {
+		...(status === 'all' ? {} : { isActive: status === 'active' }),
+		...(access === 'all' ? {} : { isInaccessible: access === 'inaccessible' }),
+		...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
+		...(tagIds.size > 0 ? { tagIds: [...tagIds] } : {}),
+		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
+		...(search.length > 0 ? { search } : {}),
+	};
 
-	const legend = useMemo(() => habitatLegend(status, access), [status, access]);
+	const legend = habitatLegend(status, access);
 
 	const bbox = useMapBoundsParam(map);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				bbox,
-				isActive: filters.isActive,
-				isInaccessible: filters.isInaccessible,
-				habitatTypeId: filters.habitatTypeIds,
-				tagId: filters.tagIds,
-				regionId: filters.regionIds,
-				search: filters.search,
-			}),
-		[bbox, filters],
-	);
+	const params = mapQueryParams({
+		bbox,
+		isActive: filters.isActive,
+		isInaccessible: filters.isInaccessible,
+		habitatTypeId: filters.habitatTypeIds,
+		tagId: filters.tagIds,
+		regionId: filters.regionIds,
+		search: filters.search,
+	});
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<HabitatListRow>({
 			path: PATH,
@@ -178,40 +162,37 @@ function HabitatsExplorerRoute() {
 			enabled: bbox !== null,
 		});
 	// Tags for the rows actually on screen, so the subset request stays small.
-	const pageHabitatIds = useMemo(() => rows.map((habitat) => habitat.id), [rows]);
+	const pageHabitatIds = rows.map((habitat) => habitat.id);
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
 
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+	const visibleById = new Map(rows.map((row) => [row.id, row]));
 	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
 	const selectedHabitat =
 		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
 	useFlyToSelection(map, selectedHabitat);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'habitats',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'habitats',
+			serverUrl: getServerUrl(),
+			filters,
+			selectedId,
+			onSelectFeature: setSelectedId,
+		},
+	];
 
-	const clearAll = useCallback(() => {
+	const clearAll = () => {
 		clearSearchInput();
 		reset();
-	}, [clearSearchInput, reset]);
+	};
 	// Both halves: the field the operator is looking at, and the committed term
 	// on the URL that is actually cutting the list. Clearing only the field
 	// leaves the chip up and the results filtered.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 
 	return (
 		<ExplorerMapPage

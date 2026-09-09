@@ -11,7 +11,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -94,10 +93,7 @@ function SourceReductionDetailContent({
 	const methods = useSourceReductionMethodRoster();
 	const { remove } = useSourceReductionMutations();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
-	const habitatIds = useMemo(
-		() => (sourceReduction.habitatId === null ? [] : [sourceReduction.habitatId]),
-		[sourceReduction.habitatId],
-	);
+	const habitatIds = sourceReduction.habitatId === null ? [] : [sourceReduction.habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 
 	const methodName = sourceReduction.methodName;

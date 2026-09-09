@@ -8,7 +8,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { type CSSProperties, type ReactNode, useMemo } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useEntityTags } from '../../../components/explorer/use-entity-tags';
 import { OrdinalBadge } from '../../../components/stop-order';
 import type { Tag } from '../../../hooks/queries/tag-view';
@@ -33,7 +33,7 @@ interface RouteStopListProps {
  * type and tags. Hovering or selecting a stop drives the map through the handlers.
  */
 export function RouteStopList({ clusters, selectedId, onSelect, onHover }: RouteStopListProps) {
-	const allStops = useMemo(() => clusters.flatMap((cluster) => cluster.stops), [clusters]);
+	const allStops = clusters.flatMap((cluster) => cluster.stops);
 	const { typeNameById, tagsByHabitatId } = useStopMeta(allStops);
 
 	const renderStop = (stop: RouteStopView, grouped: boolean) => (
@@ -73,18 +73,9 @@ export function useStopMeta(stops: readonly RouteStopView[]): {
 } {
 	const habitatTypes = useHabitatTypeRoster();
 
-	const typeNameById = useMemo(
-		() => new Map(habitatTypes.map((type) => [type.id, type.name])),
-		[habitatTypes],
-	);
+	const typeNameById = new Map(habitatTypes.map((type) => [type.id, type.name]));
 
-	const habitatIds = useMemo(() => {
-		const ids = new Set<string>();
-		for (const stop of stops) {
-			ids.add(stop.habitatId);
-		}
-		return [...ids];
-	}, [stops]);
+	const habitatIds = [...new Set(stops.map((stop) => stop.habitatId))];
 
 	// Scoped to the habitats on screen, and grouped for us — see `useEntityTags`.
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', habitatIds);

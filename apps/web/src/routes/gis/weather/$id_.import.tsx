@@ -20,7 +20,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
@@ -116,29 +116,26 @@ function useWeatherUpload(stationId: string) {
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);
 
-	const chooseFile = useCallback(
-		(file: File | undefined) => {
-			if (file === undefined) {
-				return;
-			}
-			setError(null);
-			setResult(null);
-			setFileName(file.name);
-			setIsBusy(true);
-			void parseWeatherFile(file)
-				.then((read) => {
-					setParsed(read);
-					// Assessed once, here, rather than on every render: the ids it mints
-					// are the ones the commit sends, and re-minting them would make a
-					// retry insert under different ids.
-					setAssessment(assessParsedRows(read.rows, summaries, newRecordId, today));
-				})
-				.finally(() => setIsBusy(false));
-		},
-		[summaries, today],
-	);
+	const chooseFile = (file: File | undefined) => {
+		if (file === undefined) {
+			return;
+		}
+		setError(null);
+		setResult(null);
+		setFileName(file.name);
+		setIsBusy(true);
+		void parseWeatherFile(file)
+			.then((read) => {
+				setParsed(read);
+				// Assessed once, here, rather than on every render: the ids it mints
+				// are the ones the commit sends, and re-minting them would make a
+				// retry insert under different ids.
+				setAssessment(assessParsedRows(read.rows, summaries, newRecordId, today));
+			})
+			.finally(() => setIsBusy(false));
+	};
 
-	const commit = useCallback(() => {
+	const commit = () => {
 		if (assessment === null || assessment.attemptable.length === 0) {
 			return;
 		}
@@ -167,7 +164,7 @@ function useWeatherUpload(stationId: string) {
 				setError(cause instanceof Error ? cause.message : 'Unable to import these readings.'),
 			)
 			.finally(() => setIsBusy(false));
-	}, [assessment, run, stationId]);
+	};
 
 	return {
 		fileName,

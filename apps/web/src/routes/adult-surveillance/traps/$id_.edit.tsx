@@ -1,6 +1,5 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
@@ -66,46 +65,43 @@ function EditTrapLoader({
 	const mutations = useTrapMutations();
 	const { run, dialog } = useAcknowledgedWrite({ askable: TRAP_SAVE_REFUSALS, ask: true });
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-		}: {
-			readonly values: TrapFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) => {
-			// The point and the address are independent: only state a location when the
-			// user actually refined the point. Naming the configuration command with the
-			// point the trap already has is a write with no edit behind it, and the
-			// centroid it would reseed is the one already on screen.
-			const shape = geometryChanged && geometry !== null ? geometry : null;
-			const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
-			if (shape !== null && centroid === null) {
-				throw new Error('Unable to determine the trap location.');
-			}
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+	}: {
+		readonly values: TrapFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) => {
+		// The point and the address are independent: only state a location when the
+		// user actually refined the point. Naming the configuration command with the
+		// point the trap already has is a write with no edit behind it, and the
+		// centroid it would reseed is the one already on screen.
+		const shape = geometryChanged && geometry !== null ? geometry : null;
+		const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
+		if (shape !== null && centroid === null) {
+			throw new Error('Unable to determine the trap location.');
+		}
 
-			// Both questions go out unanswered, and each rides only with the command
-			// that reads it, so a description-only edit answers nothing.
-			//
-			// The navigation is *inside* the callback on purpose: `run` resolves on a
-			// refusal as well as on a success, because a refusal is a question rather
-			// than a failure. Leaving here on the way past would abandon the page
-			// before the question could be asked, and read as a save that worked.
-			await run(async (acknowledgements) => {
-				await mutations.save(
-					trap.id,
-					trapFieldsFrom(values),
-					trapFieldsFrom(trapFormValuesFrom(trap)),
-					shape === null || centroid === null ? null : { geometry: shape, centroid },
-					acknowledgements,
-				);
-				await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trap.id } });
-			});
-		},
-		[trap, mutations, navigate, run],
-	);
+		// Both questions go out unanswered, and each rides only with the command
+		// that reads it, so a description-only edit answers nothing.
+		//
+		// The navigation is *inside* the callback on purpose: `run` resolves on a
+		// refusal as well as on a success, because a refusal is a question rather
+		// than a failure. Leaving here on the way past would abandon the page
+		// before the question could be asked, and read as a save that worked.
+		await run(async (acknowledgements) => {
+			await mutations.save(
+				trap.id,
+				trapFieldsFrom(values),
+				trapFieldsFrom(trapFormValuesFrom(trap)),
+				shape === null || centroid === null ? null : { geometry: shape, centroid },
+				acknowledgements,
+			);
+			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trap.id } });
+		});
+	};
 
 	return (
 		<>

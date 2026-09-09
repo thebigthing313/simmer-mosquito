@@ -26,7 +26,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -118,7 +118,7 @@ function ImportRegionsRoute() {
 
 	const canImport = items.length > 0 && mutations.canWrite && !isImporting;
 
-	const handleFile = useCallback(async (file: File) => {
+	const handleFile = async (file: File) => {
 		setParseError(null);
 		setImportErrors([]);
 		setPendingSync(0);
@@ -152,28 +152,22 @@ function ImportRegionsRoute() {
 			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
 			setItems([]);
 		}
-	}, []);
+	};
 
-	const previewGeoJson = useMemo<GeoJSON.GeoJSON>(
-		() => ({
-			type: 'FeatureCollection',
-			features: items.map((item, index) => ({
-				type: 'Feature',
-				id: index,
-				properties: { name: item.name },
-				geometry: item.geometry,
-			})),
-		}),
-		[items],
-	);
+	const previewGeoJson: GeoJSON.GeoJSON = {
+		type: 'FeatureCollection',
+		features: items.map((item, index) => ({
+			type: 'Feature',
+			id: index,
+			properties: { name: item.name },
+			geometry: item.geometry,
+		})),
+	};
 
-	const fitAll = useCallback(
-		(instance: MapboxMap) => {
-			setMap(instance);
-			fitMapToItems(instance, items);
-		},
-		[items],
-	);
+	const fitAll = (instance: MapboxMap) => {
+		setMap(instance);
+		fitMapToItems(instance, items);
+	};
 
 	// Re-fit whenever the item set changes (new upload, deletion).
 	const lastFitCount = useRef(0);
@@ -182,30 +176,27 @@ function ImportRegionsRoute() {
 		fitMapToItems(map, items);
 	}
 
-	const renameItem = useCallback((id: string, name: string) => {
+	const renameItem = (id: string, name: string) => {
 		setItems((prev) => prev.map((item) => (item.id === id ? { ...item, name } : item)));
-	}, []);
+	};
 
-	const deleteItem = useCallback((id: string) => {
+	const deleteItem = (id: string) => {
 		setItems((prev) => prev.filter((item) => item.id !== id));
 		setSelectedId((current) => (current === id ? null : current));
-	}, []);
+	};
 
-	const selectItem = useCallback(
-		(id: string | null) => {
-			setSelectedId(id);
-			if (id === null || map === null) {
-				return;
-			}
-			const item = items.find((entry) => entry.id === id);
-			if (item !== undefined) {
-				fitMapToItems(map, [item]);
-			}
-		},
-		[items, map],
-	);
+	const selectItem = (id: string | null) => {
+		setSelectedId(id);
+		if (id === null || map === null) {
+			return;
+		}
+		const item = items.find((entry) => entry.id === id);
+		if (item !== undefined) {
+			fitMapToItems(map, [item]);
+		}
+	};
 
-	const runImport = useCallback(async () => {
+	const runImport = async () => {
 		if (!mutations.canWrite) {
 			return;
 		}
@@ -272,7 +263,7 @@ function ImportRegionsRoute() {
 		if (errors.length === 0 && pending === 0) {
 			await navigate({ to: '/gis/regions' });
 		}
-	}, [mutations, items, folderId, navigate]);
+	};
 
 	return (
 		<MapSplitPage

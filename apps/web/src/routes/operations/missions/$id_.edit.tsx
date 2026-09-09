@@ -1,6 +1,5 @@
 import { createMissionCommand } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
@@ -50,55 +49,49 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const missionWrites = useMissionMutations();
 
-	const onSave = useCallback(
-		async (plan: MissionPlan) => {
-			// The mission as it stands goes with the plan: which of the five update
-			// commands this save means is decided by what actually moved, and naming
-			// one the change set has nothing for is refused by the domain.
-			await missionWrites.updateDetails(
-				mission.id,
-				{
-					controlType: plan.controlType,
-					scheduledStartAt: plan.startAt as Date,
-					scheduledEndAt: plan.endAt,
-					missionName: plan.missionName,
-					plannedMethodId: plan.plannedMethodId,
-					assignedToProfileId: plan.assignedToProfileId,
-					rainDate: plan.rainDate,
-					notificationTypeId: plan.notificationTypeId,
-				},
-				mission,
-			);
-			await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
-		},
-		[mission, missionWrites, navigate],
-	);
+	const onSave = async (plan: MissionPlan) => {
+		// The mission as it stands goes with the plan: which of the five update
+		// commands this save means is decided by what actually moved, and naming
+		// one the change set has nothing for is refused by the domain.
+		await missionWrites.updateDetails(
+			mission.id,
+			{
+				controlType: plan.controlType,
+				scheduledStartAt: plan.startAt as Date,
+				scheduledEndAt: plan.endAt,
+				missionName: plan.missionName,
+				plannedMethodId: plan.plannedMethodId,
+				assignedToProfileId: plan.assignedToProfileId,
+				rainDate: plan.rainDate,
+				notificationTypeId: plan.notificationTypeId,
+			},
+			mission,
+		);
+		await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
+	};
 
 	// The five update builders the server runs each validate a slice of these same
 	// fields; `createMissionCommand` covers all of them in one pass, which is what
 	// a form needs — it validates the whole thing at once rather than whichever
 	// slice happens to have changed. The server still runs the real builders.
-	const validate = useCallback(
-		(plan: MissionPlan) =>
-			createMissionCommand({
-				...FORM_VALIDATION_CONTEXT,
-				missionId: FORM_VALIDATION_CONTEXT.organizationId,
-				controlType: plan.controlType,
-				scheduledStartAt: plan.startAt as Date,
-				scheduledEndAt: plan.endAt,
-				rainDate: plan.rainDate,
-				missionName: plan.missionName,
-				plannedMethodId: plan.plannedMethodId,
-				assignedToProfileId: plan.assignedToProfileId,
-				notificationTypeId: plan.notificationTypeId,
-			}),
-		[],
-	);
+	const validate = (plan: MissionPlan) =>
+		createMissionCommand({
+			...FORM_VALIDATION_CONTEXT,
+			missionId: FORM_VALIDATION_CONTEXT.organizationId,
+			controlType: plan.controlType,
+			scheduledStartAt: plan.startAt as Date,
+			scheduledEndAt: plan.endAt,
+			rainDate: plan.rainDate,
+			missionName: plan.missionName,
+			plannedMethodId: plan.plannedMethodId,
+			assignedToProfileId: plan.assignedToProfileId,
+			notificationTypeId: plan.notificationTypeId,
+		});
 
 	return (
 		<MissionFormPage
 			canSubmit={actorProfileId !== null}
-			defaultValues={useMemo(() => missionFormValuesFrom(mission, timeZone), [mission, timeZone])}
+			defaultValues={missionFormValuesFrom(mission, timeZone)}
 			errorTitle="Unable to Save Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{

@@ -6,7 +6,6 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
@@ -122,10 +121,7 @@ export function RegionFormPage({
 	});
 	const { draw, geometry, geometryType } = location;
 
-	const activeFolders = useMemo(
-		() => [...regionFolders].sort((a, b) => a.name.localeCompare(b.name)),
-		[regionFolders],
-	);
+	const activeFolders = [...regionFolders].sort((a, b) => a.name.localeCompare(b.name));
 
 	const form = useAppForm({
 		defaultValues,

@@ -1,6 +1,5 @@
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
@@ -99,48 +98,45 @@ function EditCollectionLoader({
 	const personnel = useAdditionalPersonnel({ type: 'collection', id: collection.id });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 
-	const onSave = useCallback(
-		async ({ values, geometry, geometryChanged }: CollectionSaveInput) => {
-			// A location edit only means anything on an ad hoc collection: a trap one
-			// inherits its trap's point and address, and moving it means moving the
-			// trap.
-			const isAdhoc = collection.trapId === null;
-			// The narrowed shape, not a boolean. The save reads its coordinates, and a
-			// boolean left the route asking the same question twice to get the
-			// compiler there.
-			const refinedPoint =
-				isAdhoc && geometryChanged && geometry !== null && isCollectionLocation(geometry)
-					? geometry
-					: null;
+	const onSave = async ({ values, geometry, geometryChanged }: CollectionSaveInput) => {
+		// A location edit only means anything on an ad hoc collection: a trap one
+		// inherits its trap's point and address, and moving it means moving the
+		// trap.
+		const isAdhoc = collection.trapId === null;
+		// The narrowed shape, not a boolean. The save reads its coordinates, and a
+		// boolean left the route asking the same question twice to get the
+		// compiler there.
+		const refinedPoint =
+			isAdhoc && geometryChanged && geometry !== null && isCollectionLocation(geometry)
+				? geometry
+				: null;
 
-			await mutations.save({
-				collectionId: collection.id,
-				fields: collectionFieldsFrom(values, timeZone),
-				current: collectionFieldsFrom(formValuesFrom(collection, personnel, timeZone), timeZone),
-				geometry:
-					refinedPoint === null
-						? null
-						: {
-								geometry: refinedPoint,
-								centroid: {
-									lat: refinedPoint.coordinates[1],
-									lng: refinedPoint.coordinates[0],
-									geomType: 'point',
-								},
+		await mutations.save({
+			collectionId: collection.id,
+			fields: collectionFieldsFrom(values, timeZone),
+			current: collectionFieldsFrom(formValuesFrom(collection, personnel, timeZone), timeZone),
+			geometry:
+				refinedPoint === null
+					? null
+					: {
+							geometry: refinedPoint,
+							centroid: {
+								lat: refinedPoint.coordinates[1],
+								lng: refinedPoint.coordinates[0],
+								geomType: 'point',
 							},
-			});
-			await setPersonnel({
-				target: { type: 'collection', id: collection.id },
-				existing: personnel.rows,
-				profileIds: values.additionalPersonnelIds,
-			});
-			await navigate({
-				to: '/adult-surveillance/collections/$id',
-				params: { id: collection.id },
-			});
-		},
-		[collection, personnel, navigate, timeZone, setPersonnel, mutations],
-	);
+						},
+		});
+		await setPersonnel({
+			target: { type: 'collection', id: collection.id },
+			existing: personnel.rows,
+			profileIds: values.additionalPersonnelIds,
+		});
+		await navigate({
+			to: '/adult-surveillance/collections/$id',
+			params: { id: collection.id },
+		});
+	};
 
 	if (personnel.isError) {
 		return (

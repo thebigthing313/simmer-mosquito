@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -31,22 +31,19 @@ function CreateWeatherStationRoute() {
 	// already watching.
 	const [stationId] = useState(() => newRecordId());
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
-			readonly values: WeatherStationFormValues;
-			readonly geometry: DrawGeometry | null;
-		}) => {
-			if (geometry === null || !isStationLocation(geometry)) {
-				throw new Error('Place the station on the map before saving.');
-			}
-			await mutations.create(stationId, weatherStationFieldsFrom(values), geometry);
-			await navigate({ to: '/gis/weather/$id', params: { id: stationId } });
-		},
-		[mutations, navigate, stationId],
-	);
+	const onSave = async ({
+		values,
+		geometry,
+	}: {
+		readonly values: WeatherStationFormValues;
+		readonly geometry: DrawGeometry | null;
+	}) => {
+		if (geometry === null || !isStationLocation(geometry)) {
+			throw new Error('Place the station on the map before saving.');
+		}
+		await mutations.create(stationId, weatherStationFieldsFrom(values), geometry);
+		await navigate({ to: '/gis/weather/$id', params: { id: stationId } });
+	};
 
 	return (
 		<WeatherStationFormPage

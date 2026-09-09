@@ -1,7 +1,6 @@
 import { commandPathFor, sessionFetch, writeCommand } from '@simmer-mosquito/sync';
 import { and, coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { RouteStopFeature } from '../../../components/map';
 import type { RouteSummary } from '../../../components/route-planning/route-summary';
@@ -109,6 +108,17 @@ export function useHabitatRoutes(): {
 	};
 }
 
+/** How many stops each route id holds, over the rows the subset returned. */
+function countStopsByRouteId(
+	stops: readonly { readonly routeId: string }[],
+): ReadonlyMap<string, number> {
+	const map = new Map<string, number>();
+	for (const stop of stops) {
+		map.set(stop.routeId, (map.get(stop.routeId) ?? 0) + 1);
+	}
+	return map;
+}
+
 /**
  * Habitat-stop counts for every route, keyed by route id. Reads the org-scoped
  * `route_items` shape (the same on-demand collection the map preview subscribes to),
@@ -132,13 +142,7 @@ export function useRouteStopCounts(): {
 
 	const stops = result.data;
 
-	const countByRouteId = useMemo(() => {
-		const map = new Map<string, number>();
-		for (const stop of stops) {
-			map.set(stop.routeId, (map.get(stop.routeId) ?? 0) + 1);
-		}
-		return map;
-	}, [stops]);
+	const countByRouteId = countStopsByRouteId(stops);
 
 	return { countByRouteId, isLoading: result.isLoading };
 }
@@ -222,37 +226,29 @@ export function useRouteStops(routeId: string | null): {
 
 	const rows = result.data;
 
-	const stops = useMemo<RouteStopView[]>(
-		() =>
-			// The `ordinal` is the one thing the query cannot produce: it is the stop's
-			// place in the ordered result, and a projection sees a row rather than the
-			// sequence. `position` is the stored sort key and can have gaps, so it is
-			// not the number a crew reads off the list.
-			rows.map((row, index) => ({
-				...row,
-				ordinal: index + 1,
-				name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
-				hasLocation: row.lat !== null && row.lng !== null,
-				isResolving: row.resolvedHabitatId === undefined,
-			})),
-		[rows],
-	);
+	// The `ordinal` is the one thing the query cannot produce: it is the stop's
+	// place in the ordered result, and a projection sees a row rather than the
+	// sequence. `position` is the stored sort key and can have gaps, so it is
+	// not the number a crew reads off the list.
+	const stops: RouteStopView[] = rows.map((row, index) => ({
+		...row,
+		ordinal: index + 1,
+		name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
+		hasLocation: row.lat !== null && row.lng !== null,
+		isResolving: row.resolvedHabitatId === undefined,
+	}));
 
-	const clusters = useMemo(() => clusterByAddress(stops), [stops]);
+	const clusters = clusterByAddress(stops);
 
-	const features = useMemo<RouteStopFeature[]>(
-		() =>
-			stops
-				.filter((stop) => stop.hasLocation)
-				.map((stop) => ({
-					id: stop.routeItemId,
-					lng: stop.lng as number,
-					lat: stop.lat as number,
-					ordinal: stop.ordinal,
-					tone: stopTone(stop),
-				})),
-		[stops],
-	);
+	const features: RouteStopFeature[] = stops
+		.filter((stop) => stop.hasLocation)
+		.map((stop) => ({
+			id: stop.routeItemId,
+			lng: stop.lng as number,
+			lat: stop.lat as number,
+			ordinal: stop.ordinal,
+			tone: stopTone(stop),
+		}));
 
 	return {
 		stops,

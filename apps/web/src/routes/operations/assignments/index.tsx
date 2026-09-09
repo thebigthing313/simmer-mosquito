@@ -12,7 +12,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	activeDatePresetId,
@@ -92,16 +92,13 @@ const DEFAULT_DAYS_AHEAD = 14;
 
 function AssignmentsIndexRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const filterDefaults = useMemo<AssignmentFilters>(
-		() => ({
-			from: addCalendarDays(today, -DEFAULT_DAYS_BACK),
-			to: addCalendarDays(today, DEFAULT_DAYS_AHEAD),
-			people: new Set(),
-			statuses: new Set(),
-		}),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const filterDefaults: AssignmentFilters = {
+		from: addCalendarDays(today, -DEFAULT_DAYS_BACK),
+		to: addCalendarDays(today, DEFAULT_DAYS_AHEAD),
+		people: new Set(),
+		statuses: new Set(),
+	};
 	const { filters, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -111,31 +108,27 @@ function AssignmentsIndexRoute() {
 	const { assignments, isLoading } = useAssignments(filters.from, filters.to);
 	const { options: personnelOptions, nameById } = usePersonnelOptions();
 
-	const assigneeOptions = useMemo<readonly FilterOption[]>(
-		() => [{ id: UNASSIGNED, label: 'Unassigned' }, ...personnelOptions],
-		[personnelOptions],
-	);
+	const assigneeOptions: readonly FilterOption[] = [
+		{ id: UNASSIGNED, label: 'Unassigned' },
+		...personnelOptions,
+	];
 
 	// Assignee and status are filtered here rather than in the query: status is
 	// derived from three nullable timestamps, and "unassigned" matches a null column.
-	const visible = useMemo(
-		() =>
-			assignments.filter((assignment) => {
-				if (filters.statuses.size > 0 && !filters.statuses.has(assignmentStatus(assignment))) {
-					return false;
-				}
-				if (filters.people.size > 0) {
-					const key = assignment.assignedToProfileId ?? UNASSIGNED;
-					if (!filters.people.has(key)) {
-						return false;
-					}
-				}
-				return true;
-			}),
-		[assignments, filters.statuses, filters.people],
-	);
+	const visible = assignments.filter((assignment) => {
+		if (filters.statuses.size > 0 && !filters.statuses.has(assignmentStatus(assignment))) {
+			return false;
+		}
+		if (filters.people.size > 0) {
+			const key = assignment.assignedToProfileId ?? UNASSIGNED;
+			if (!filters.people.has(key)) {
+				return false;
+			}
+		}
+		return true;
+	});
 
-	const visibleIds = useMemo(() => visible.map((assignment) => assignment.id), [visible]);
+	const visibleIds = visible.map((assignment) => assignment.id);
 	const { countsById } = useAssignmentItemCounts(visibleIds);
 
 	// Default to the first row, and self-heal when a filter or delete removes it.
@@ -146,41 +139,29 @@ function AssignmentsIndexRoute() {
 	const selected = visible.find((assignment) => assignment.id === effectiveId) ?? null;
 	const { features, counts, stops } = useAssignmentStops(effectiveId);
 
-	const handleFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
-			});
-		},
-		[setFilters, filters.to],
-	);
-	const handleToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
-			});
-		},
-		[setFilters, filters.from],
-	);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-	const activePresetId = useMemo(
-		() => activeDatePresetId(filters.from, filters.to, today),
-		[filters.from, filters.to, today],
-	);
+	const handleFromChange = (next: string) => {
+		setFilters({
+			from: next,
+			...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
+		});
+	};
+	const handleToChange = (next: string) => {
+		setFilters({
+			to: next,
+			...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
+		});
+	};
+	const applyPreset = (preset: DatePreset) => {
+		const range = datePresetRange(preset, today);
+		setFilters({ from: range.from, to: range.to });
+	};
+	const activePresetId = activeDatePresetId(filters.from, filters.to, today);
 
-	const handleSelect = useCallback((id: string) => {
+	const handleSelect = (id: string) => {
 		setSelectedId(id);
 		setSelectedStopId(null);
 		setHighlightId(null);
-	}, []);
+	};
 
 	const hasFilters = filters.people.size > 0 || filters.statuses.size > 0;
 

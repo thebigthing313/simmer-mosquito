@@ -7,7 +7,7 @@ import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -45,7 +45,7 @@ function AssignmentCreateRoute() {
 	const { create, createFromRoute, canWrite } = useAssignmentMutations();
 
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 	// Minted up front so the streams below can be warmed against it before the
 	// write lands (a write to a cold on-demand collection waits out its txid
 	// confirmation, which reads as a frozen save).
@@ -75,7 +75,7 @@ function AssignmentCreateRoute() {
 		mode === 'blank' || (routeId !== null && routeItemsReady && routeStopCount > 0);
 	const canSubmit = canWrite && values.assignmentDate !== '' && routeReady && !saving;
 
-	const submit = useCallback(async () => {
+	const submit = async () => {
 		if (!canSubmit) {
 			return;
 		}
@@ -114,18 +114,7 @@ function AssignmentCreateRoute() {
 			setError(cause instanceof Error ? cause.message : 'Unable to create the assignment.');
 			setSaving(false);
 		}
-	}, [
-		canSubmit,
-		mode,
-		routeId,
-		routeItems,
-		values,
-		assignmentId,
-		navigate,
-		timeZone,
-		create,
-		createFromRoute,
-	]);
+	};
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">

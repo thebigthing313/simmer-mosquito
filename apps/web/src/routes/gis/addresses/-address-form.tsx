@@ -13,7 +13,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
@@ -122,7 +122,7 @@ export function AddressFormPage({
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	/*
 	 * This form holds the address point itself and draws it through `geoJson`, so
 	 * the controller's own value stays null and nothing renders twice. A commit
@@ -130,7 +130,7 @@ export function AddressFormPage({
 	 * a shape instead of going through this form's state. A null is the start of a
 	 * fresh draw rather than a clear, which is what `clearPoint` is for.
 	 */
-	const adoptDrawnPoint = useCallback((next: DrawGeometry | null) => {
+	const adoptDrawnPoint = (next: DrawGeometry | null) => {
 		if (next === null || !isAddressLocation(next)) {
 			return;
 		}
@@ -141,7 +141,7 @@ export function AddressFormPage({
 		setGeometry(next);
 		setGeometryChanged(true);
 		setLocationError(null);
-	}, []);
+	};
 	const draw = useMapDraw({
 		map,
 		isLoaded: map !== null,
@@ -152,11 +152,11 @@ export function AddressFormPage({
 
 	useCenterOnPoint(map, geometry);
 
-	const setField = useCallback((key: keyof AddressFormValues, value: string) => {
+	const setField = (key: keyof AddressFormValues, value: string) => {
 		setValues((prev) => ({ ...prev, [key]: value }));
-	}, []);
+	};
 
-	const geocodeAddress = useCallback(async () => {
+	const geocodeAddress = async () => {
 		setLocationError(null);
 		setIsGeocoding(true);
 		try {
@@ -176,9 +176,9 @@ export function AddressFormPage({
 		} finally {
 			setIsGeocoding(false);
 		}
-	}, [values]);
+	};
 
-	const drawManualPoint = useCallback(async () => {
+	const drawManualPoint = async () => {
 		setGeocoderOpen(false);
 		try {
 			const point = await requestPoint('Click the map to place this address.');
@@ -188,14 +188,14 @@ export function AddressFormPage({
 		} catch {
 			// Draw cancelled (Esc / mode switch); keep the prior point.
 		}
-	}, [requestPoint]);
+	};
 
-	const clearPoint = useCallback(() => {
+	const clearPoint = () => {
 		setGeometry(null);
 		setGeometryChanged(true);
-	}, []);
+	};
 
-	const handleSubmit = useCallback(async () => {
+	const handleSubmit = async () => {
 		setSaveError(null);
 		setLocationError(null);
 		if (geometry === null) {
@@ -235,7 +235,7 @@ export function AddressFormPage({
 		} finally {
 			setIsSaving(false);
 		}
-	}, [values, geometry, geometryChanged, geocoderResponse, onSave]);
+	};
 
 	// `[...]` rather than the stored pair: `GeoJSON.Position` is mutable
 	// `number[]`, and the draw types hold their pairs readonly.

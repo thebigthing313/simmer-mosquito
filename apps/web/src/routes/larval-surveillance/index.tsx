@@ -21,7 +21,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useState } from 'react';
 import {
 	DensityBadge,
 	hasAnyLifeStage,
@@ -105,8 +105,8 @@ function OverviewBody() {
 	// The organization's "today"; the day strip and windows are pure string math
 	// from here.
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const since = useMemo(() => addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1)), [today]);
+	const today = todayInTimeZone(timeZone);
+	const since = addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1));
 
 	return (
 		<div className="grid gap-5 xl:grid-cols-12">
@@ -190,10 +190,10 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 	// there is nothing to resolve and no second request to wait on.
 	const { rows: inspections, isReady, isError } = useLarvalActivityForDate(selectedDate);
 
-	const groups = useMemo(() => groupByInspector(inspections), [inspections]);
+	const groups = groupByInspector(inspections);
 
-	const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
-	const days = useMemo(() => buildWeek(weekStart), [weekStart]);
+	const weekStart = startOfWeek(selectedDate);
+	const days = buildWeek(weekStart);
 	// The current week is the latest browsable one; there is no future data.
 	const canGoNextWeek = weekStart < startOfWeek(today);
 
@@ -365,24 +365,24 @@ function InspectionRow({ row }: { readonly row: LarvalActivityRow }) {
 const SPECIES_PREVIEW_COUNT = 6;
 type SpeciesWindow = '7d' | '30d';
 
+/** The six species the panel draws, and the tail it sums into one "other" row. */
+function speciesPreview<TRow extends { readonly total: number }>(totals: readonly TRow[]) {
+	const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
+	const rest = totals.slice(SPECIES_PREVIEW_COUNT);
+	return {
+		top: previewed,
+		otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
+		otherCount: rest.length,
+		maxBar: previewed[0]?.total ?? 1,
+	};
+}
+
 function SpeciesCompositionPanel({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
-	const since = useMemo(
-		() => addDaysToDateString(today, window === '7d' ? -6 : -29),
-		[today, window],
-	);
+	const since = addDaysToDateString(today, window === '7d' ? -6 : -29);
 	const { totals, grandTotal, isReady, isError } = useSpeciesComposition(since);
 
-	const { top, otherTotal, otherCount, maxBar } = useMemo(() => {
-		const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
-		const rest = totals.slice(SPECIES_PREVIEW_COUNT);
-		return {
-			top: previewed,
-			otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
-			otherCount: rest.length,
-			maxBar: previewed[0]?.total ?? 1,
-		};
-	}, [totals]);
+	const { top, otherTotal, otherCount, maxBar } = speciesPreview(totals);
 
 	return (
 		<Panel

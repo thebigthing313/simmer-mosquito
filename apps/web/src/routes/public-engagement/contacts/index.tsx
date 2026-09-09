@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { WriteOnly } from '../../../components/write-only';
@@ -28,29 +28,42 @@ export const Route = createFileRoute('/public-engagement/contacts/')({
 const ContactIcon = iconRegistry.entities.organization.icon;
 const PAGE_SIZE = 25;
 
+/** The contacts the search matches. Every text field on the row is searched. */
+function contactMatches<
+	TContact extends {
+		readonly contactName: string | null;
+		readonly company: string | null;
+		readonly department: string | null;
+		readonly title: string | null;
+		readonly email: string | null;
+		readonly preferredPhone: string | null;
+		readonly alternatePhone: string | null;
+	},
+>(contacts: readonly TContact[], search: string): readonly TContact[] {
+	const query = search.trim().toLowerCase();
+	if (query.length === 0) {
+		return contacts;
+	}
+	return contacts.filter((contact) =>
+		[
+			contact.contactName,
+			contact.company,
+			contact.department,
+			contact.title,
+			contact.email,
+			contact.preferredPhone,
+			contact.alternatePhone,
+		].some((part) => (part ?? '').toLowerCase().includes(query)),
+	);
+}
+
 function ContactsExplorerRoute() {
 	const { contacts, isReady } = useContactDirectory();
 
 	const [search, setSearch] = useState('');
 	const [page, setPage] = useState(0);
 
-	const filtered = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		if (query.length === 0) {
-			return contacts;
-		}
-		return contacts.filter((contact) =>
-			[
-				contact.contactName,
-				contact.company,
-				contact.department,
-				contact.title,
-				contact.email,
-				contact.preferredPhone,
-				contact.alternatePhone,
-			].some((part) => (part ?? '').toLowerCase().includes(query)),
-		);
-	}, [contacts, search]);
+	const filtered = contactMatches(contacts, search);
 
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset to the first page on a new search.
