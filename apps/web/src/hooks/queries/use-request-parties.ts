@@ -17,7 +17,6 @@
  */
 
 import { inArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { addresses } from '../../lib/collections/addresses';
 import { contacts } from '../../lib/collections/contacts';
 import type { Address } from './address-view';
@@ -35,14 +34,8 @@ export function useRequestParties(
 ): RequestParties {
 	// Sorted and deduplicated so the query key is stable: the same page of rows in
 	// a different order must not re-plan the query or move the subset.
-	const contactIds = useMemo(
-		() => [...new Set(requests.map((request) => request.contactId))].sort(),
-		[requests],
-	);
-	const addressIds = useMemo(
-		() => [...new Set(requests.map((request) => request.addressId))].sort(),
-		[requests],
-	);
+	const contactIds = [...new Set(requests.map((request) => request.contactId))].sort();
+	const addressIds = [...new Set(requests.map((request) => request.addressId))].sort();
 	const contactKey = contactIds.join(',');
 	const addressKey = addressIds.join(',');
 	const contactQueryIds = contactIds.length > 0 ? contactIds : [unmatchableId];
@@ -89,12 +82,9 @@ export function useRequestParties(
 	const contactRows = contactResult.data;
 	const addressRows = addressResult.data;
 
-	return useMemo(
-		() => ({
-			contactById: new Map(contactRows.map((contact) => [contact.id, contact] as const)),
-			addressById: new Map(addressRows.map((address) => [address.id, address] as const)),
-			isReady: contactResult.isReady && addressResult.isReady,
-		}),
-		[contactRows, addressRows, contactResult.isReady, addressResult.isReady],
-	);
+	return {
+		contactById: new Map(contactRows.map((contact) => [contact.id, contact] as const)),
+		addressById: new Map(addressRows.map((address) => [address.id, address] as const)),
+		isReady: contactResult.isReady && addressResult.isReady,
+	};
 }

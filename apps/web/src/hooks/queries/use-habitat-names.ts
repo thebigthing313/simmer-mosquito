@@ -27,7 +27,6 @@
  */
 
 import { coalesce, concat, inArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { habitats } from '../../lib/collections/habitats';
 import { activityGcTimeMs, unmatchableId } from './shared';
 
@@ -58,5 +57,5 @@ export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, str
 
 	const rows = result.data;
 
-	return useMemo(() => new Map(rows.map((habitat) => [habitat.id, habitat.name] as const)), [rows]);
+	return new Map(rows.map((habitat) => [habitat.id, habitat.name] as const));
 }

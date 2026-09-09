@@ -23,7 +23,6 @@
  */
 
 import { type SampleSpecies, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { sample_species } from '../../lib/collections/sample_species';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -69,81 +68,79 @@ export function useSampleSpeciesMutations(): SampleSpeciesMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const add = useCallback(
-		async ({
-			sampleSpeciesId,
-			sampleId,
-			fields,
-		}: {
-			readonly sampleSpeciesId: string;
-			readonly sampleId: string;
-			readonly fields: SampleSpeciesFields;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const add = async ({
+		sampleSpeciesId,
+		sampleId,
+		fields,
+	}: {
+		readonly sampleSpeciesId: string;
+		readonly sampleId: string;
+		readonly fields: SampleSpeciesFields;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(sample_species(), {
-					operation: 'insert',
-					intent: 'larvalSurveillance.addSampleSpeciesCount',
-					row: {
-						id: sampleSpeciesId,
-						organization_id: organizationId,
-						sample_id: sampleId,
-						species_id: fields.speciesId,
-						larvae_count: fields.larvaeCount,
-						identified_by_profile_id: fields.identifiedByProfileId,
-						identified_at: fields.identifiedAt,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies SampleSpecies,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(sample_species(), {
+				operation: 'insert',
+				intent: 'larvalSurveillance.addSampleSpeciesCount',
+				row: {
+					id: sampleSpeciesId,
+					organization_id: organizationId,
+					sample_id: sampleId,
+					species_id: fields.speciesId,
+					larvae_count: fields.larvaeCount,
+					identified_by_profile_id: fields.identifiedByProfileId,
+					identified_at: fields.identifiedAt,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies SampleSpecies,
+			}),
+		);
+	};
 
-	const save = useCallback(
-		async (sampleSpeciesId: string, fields: SampleSpeciesFields, current: SampleSpeciesFields) => {
-			const changes: Partial<SampleSpecies> = {};
-			if (fields.speciesId !== current.speciesId) {
-				changes.species_id = fields.speciesId;
-			}
-			if (fields.larvaeCount !== current.larvaeCount) {
-				changes.larvae_count = fields.larvaeCount;
-			}
-			if (fields.identifiedByProfileId !== current.identifiedByProfileId) {
-				changes.identified_by_profile_id = fields.identifiedByProfileId;
-			}
-			if (fields.identifiedAt !== current.identifiedAt) {
-				changes.identified_at = fields.identifiedAt;
-			}
+	const save = async (
+		sampleSpeciesId: string,
+		fields: SampleSpeciesFields,
+		current: SampleSpeciesFields,
+	) => {
+		const changes: Partial<SampleSpecies> = {};
+		if (fields.speciesId !== current.speciesId) {
+			changes.species_id = fields.speciesId;
+		}
+		if (fields.larvaeCount !== current.larvaeCount) {
+			changes.larvae_count = fields.larvaeCount;
+		}
+		if (fields.identifiedByProfileId !== current.identifiedByProfileId) {
+			changes.identified_by_profile_id = fields.identifiedByProfileId;
+		}
+		if (fields.identifiedAt !== current.identifiedAt) {
+			changes.identified_at = fields.identifiedAt;
+		}
 
-			if (Object.keys(changes).length === 0) {
-				return;
-			}
+		if (Object.keys(changes).length === 0) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(sample_species(), {
-					operation: 'update',
-					intent: 'larvalSurveillance.updateSampleSpeciesCount',
-					key: sampleSpeciesId,
-					changes: {
-						...changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(sample_species(), {
+				operation: 'update',
+				intent: 'larvalSurveillance.updateSampleSpeciesCount',
+				key: sampleSpeciesId,
+				changes: {
+					...changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(async (sampleSpeciesId: string) => {
+	const remove = async (sampleSpeciesId: string) => {
 		await settleWrite(
 			mutateCollection(sample_species(), {
 				operation: 'delete',
@@ -153,7 +150,7 @@ export function useSampleSpeciesMutations(): SampleSpeciesMutations {
 				key: sampleSpeciesId,
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		add,

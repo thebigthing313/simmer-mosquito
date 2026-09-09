@@ -58,7 +58,6 @@
 
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type Habitat, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { habitats } from '../../lib/collections/habitats';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -211,128 +210,120 @@ export function useHabitatMutations(): HabitatMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (fields: HabitatFields, geometry: GeoJsonGeometry, centroid: HabitatCentroid) => {
-			if (organizationId === null) {
-				throw new Error('Organization details are still loading.');
-			}
+	const create = async (
+		fields: HabitatFields,
+		geometry: GeoJsonGeometry,
+		centroid: HabitatCentroid,
+	) => {
+		if (organizationId === null) {
+			throw new Error('Organization details are still loading.');
+		}
 
-			const now = optimisticStamp();
-			const habitatId = newRecordId();
-			await settleWrite(
-				mutateCollection(habitats(), {
-					operation: 'insert',
-					intent: 'larvalSurveillance.createHabitat',
-					row: {
-						id: habitatId,
-						organization_id: organizationId,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geom_type: centroid.geomType,
-						address_id: fields.addressId,
-						habitat_type_id: fields.habitatTypeId,
-						habitat_name: fields.habitatName,
-						description: fields.description,
-						is_active: true,
-						is_inaccessible: false,
-						metadata: fields.metadata ?? null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies Habitat,
-					locationSource: { kind: 'geometry', geometry },
-				}),
-			);
-			return habitatId;
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		const habitatId = newRecordId();
+		await settleWrite(
+			mutateCollection(habitats(), {
+				operation: 'insert',
+				intent: 'larvalSurveillance.createHabitat',
+				row: {
+					id: habitatId,
+					organization_id: organizationId,
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geom_type: centroid.geomType,
+					address_id: fields.addressId,
+					habitat_type_id: fields.habitatTypeId,
+					habitat_name: fields.habitatName,
+					description: fields.description,
+					is_active: true,
+					is_inaccessible: false,
+					metadata: fields.metadata ?? null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies Habitat,
+				locationSource: { kind: 'geometry', geometry },
+			}),
+		);
+		return habitatId;
+	};
 
-	const save = useCallback(
-		async (
-			habitatId: string,
-			fields: HabitatFields,
-			current: HabitatFields,
-			redraw: HabitatRedraw | null,
-		) => {
-			const plan = habitatUpdatePlan({ fields, current, redraw });
-			if (plan === null) {
-				return;
-			}
+	const save = async (
+		habitatId: string,
+		fields: HabitatFields,
+		current: HabitatFields,
+		redraw: HabitatRedraw | null,
+	) => {
+		const plan = habitatUpdatePlan({ fields, current, redraw });
+		if (plan === null) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(habitats(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: habitatId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					...(plan.locationSource === undefined ? {} : { locationSource: plan.locationSource }),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(habitats(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: habitatId,
+				changes: {
+					...plan.changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				...(plan.locationSource === undefined ? {} : { locationSource: plan.locationSource }),
+			}),
+		);
+	};
 
-	const setInaccessible = useCallback(
-		async (habitatId: string, isInaccessible: boolean) => {
-			await settleWrite(
-				mutateCollection(habitats(), {
-					operation: 'update',
-					intent: isInaccessible
-						? 'larvalSurveillance.markHabitatInaccessible'
-						: 'larvalSurveillance.clearHabitatInaccessible',
-					key: habitatId,
-					changes: {
-						is_inaccessible: isInaccessible,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setInaccessible = async (habitatId: string, isInaccessible: boolean) => {
+		await settleWrite(
+			mutateCollection(habitats(), {
+				operation: 'update',
+				intent: isInaccessible
+					? 'larvalSurveillance.markHabitatInaccessible'
+					: 'larvalSurveillance.clearHabitatInaccessible',
+				key: habitatId,
+				changes: {
+					is_inaccessible: isInaccessible,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const setActive = useCallback(
-		async (habitatId: string, isActive: boolean) => {
-			await settleWrite(
-				mutateCollection(habitats(), {
-					operation: 'update',
-					intent: isActive
-						? 'larvalSurveillance.reactivateHabitat'
-						: 'larvalSurveillance.retireHabitat',
-					key: habitatId,
-					changes: {
-						is_active: isActive,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setActive = async (habitatId: string, isActive: boolean) => {
+		await settleWrite(
+			mutateCollection(habitats(), {
+				operation: 'update',
+				intent: isActive
+					? 'larvalSurveillance.reactivateHabitat'
+					: 'larvalSurveillance.retireHabitat',
+				key: habitatId,
+				changes: {
+					is_active: isActive,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (habitatId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(habitats(), {
-					operation: 'delete',
-					intent: 'larvalSurveillance.deleteHabitat',
-					key: habitatId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		habitatId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(habitats(), {
+				operation: 'delete',
+				intent: 'larvalSurveillance.deleteHabitat',
+				key: habitatId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		create,

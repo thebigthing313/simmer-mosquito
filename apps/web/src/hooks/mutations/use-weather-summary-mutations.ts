@@ -29,7 +29,6 @@
  */
 
 import { settleWrite, type WeatherSummary } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { weather_summaries } from '../../lib/collections/weather_summaries';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -115,56 +114,53 @@ export function useWeatherSummaryMutations(): WeatherSummaryMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (input: {
-			readonly weatherSummaryId: string;
-			readonly weatherStationId: string;
-			readonly fields: WeatherSummaryFields;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(weather_summaries(), {
-					operation: 'insert',
-					intent: 'weather.createWeatherSummary',
-					row: {
-						id: input.weatherSummaryId,
-						organization_id: organizationId,
-						weather_source_id: input.weatherStationId,
-						...summaryChanges(input.fields),
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies WeatherSummary,
-					arguments: {},
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (input: {
+		readonly weatherSummaryId: string;
+		readonly weatherStationId: string;
+		readonly fields: WeatherSummaryFields;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(weather_summaries(), {
+				operation: 'insert',
+				intent: 'weather.createWeatherSummary',
+				row: {
+					id: input.weatherSummaryId,
+					organization_id: organizationId,
+					weather_source_id: input.weatherStationId,
+					...summaryChanges(input.fields),
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies WeatherSummary,
+				arguments: {},
+			}),
+		);
+	};
 
-	const save = useCallback(
-		async (input: { readonly weatherSummaryId: string; readonly fields: WeatherSummaryFields }) => {
-			await settleWrite(
-				mutateCollection(weather_summaries(), {
-					operation: 'update',
-					intent: 'weather.updateWeatherSummary',
-					key: input.weatherSummaryId,
-					changes: {
-						...summaryChanges(input.fields),
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const save = async (input: {
+		readonly weatherSummaryId: string;
+		readonly fields: WeatherSummaryFields;
+	}) => {
+		await settleWrite(
+			mutateCollection(weather_summaries(), {
+				operation: 'update',
+				intent: 'weather.updateWeatherSummary',
+				key: input.weatherSummaryId,
+				changes: {
+					...summaryChanges(input.fields),
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(async (weatherSummaryId: string) => {
+	const remove = async (weatherSummaryId: string) => {
 		await settleWrite(
 			mutateCollection(weather_summaries(), {
 				operation: 'delete',
@@ -172,7 +168,7 @@ export function useWeatherSummaryMutations(): WeatherSummaryMutations {
 				key: weatherSummaryId,
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		create,

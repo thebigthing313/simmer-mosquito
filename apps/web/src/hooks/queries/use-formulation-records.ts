@@ -12,7 +12,6 @@
  */
 
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { formulation_insecticides } from '../../lib/collections/formulation_insecticides';
 import { formulations } from '../../lib/collections/formulations';
 
@@ -72,18 +71,22 @@ export function useFormulationComponents(): ReadonlyMap<
 		[],
 	).data;
 
-	// The `useMemo` this folder allows: a query returns rows and cannot return a
-	// lookup of them.
-	return useMemo(() => {
-		const byFormulation = new Map<string, FormulationComponentRecord[]>();
-		for (const row of rows) {
-			const existing = byFormulation.get(row.formulationId);
-			if (existing === undefined) {
-				byFormulation.set(row.formulationId, [row]);
-			} else {
-				existing.push(row);
-			}
+	// A query returns rows and cannot return a lookup of them.
+	return groupedByFormulation(rows);
+}
+
+/** The components grouped by recipe, in the order the query returned them. */
+function groupedByFormulation(
+	rows: readonly FormulationComponentRecord[],
+): ReadonlyMap<string, readonly FormulationComponentRecord[]> {
+	const byFormulation = new Map<string, FormulationComponentRecord[]>();
+	for (const row of rows) {
+		const existing = byFormulation.get(row.formulationId);
+		if (existing === undefined) {
+			byFormulation.set(row.formulationId, [row]);
+		} else {
+			existing.push(row);
 		}
-		return byFormulation;
-	}, [rows]);
+	}
+	return byFormulation;
 }

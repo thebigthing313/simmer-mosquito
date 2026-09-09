@@ -16,7 +16,6 @@
  */
 
 import { type CollectionSpecies, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { collection_species } from '../../lib/collections/collection_species';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -64,87 +63,81 @@ export function useCollectionSpeciesMutations(): CollectionSpeciesMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const add = useCallback(
-		async ({
-			collectionId,
-			fields,
-			identifiedDate,
-			collectionSpeciesId,
-		}: {
-			readonly collectionId: string;
-			readonly fields: CollectionSpeciesFields;
-			readonly identifiedDate: string;
-			readonly collectionSpeciesId: string;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Organization details are still loading.');
-			}
+	const add = async ({
+		collectionId,
+		fields,
+		identifiedDate,
+		collectionSpeciesId,
+	}: {
+		readonly collectionId: string;
+		readonly fields: CollectionSpeciesFields;
+		readonly identifiedDate: string;
+		readonly collectionSpeciesId: string;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Organization details are still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(collection_species(), {
-					operation: 'insert',
-					intent: 'adultSurveillance.addCollectionSpeciesCount',
-					row: {
-						id: collectionSpeciesId,
-						organization_id: organizationId,
-						collection_id: collectionId,
-						species_id: fields.speciesId,
-						count: fields.count,
-						sex: fields.sex,
-						status: fields.status,
-						identified_by_profile_id: actorProfileId,
-						identified_date: identifiedDate,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies CollectionSpecies,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(collection_species(), {
+				operation: 'insert',
+				intent: 'adultSurveillance.addCollectionSpeciesCount',
+				row: {
+					id: collectionSpeciesId,
+					organization_id: organizationId,
+					collection_id: collectionId,
+					species_id: fields.speciesId,
+					count: fields.count,
+					sex: fields.sex,
+					status: fields.status,
+					identified_by_profile_id: actorProfileId,
+					identified_date: identifiedDate,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies CollectionSpecies,
+			}),
+		);
+	};
 
-	const save = useCallback(
-		async (collectionSpeciesId: string, changes: CollectionSpeciesChanges) => {
-			const columns: Partial<CollectionSpecies> = {};
-			if (changes.speciesId !== undefined) {
-				columns.species_id = changes.speciesId;
-			}
-			if (changes.count !== undefined) {
-				columns.count = changes.count;
-			}
-			if (changes.sex !== undefined) {
-				columns.sex = changes.sex;
-			}
-			if (changes.status !== undefined) {
-				columns.status = changes.status;
-			}
+	const save = async (collectionSpeciesId: string, changes: CollectionSpeciesChanges) => {
+		const columns: Partial<CollectionSpecies> = {};
+		if (changes.speciesId !== undefined) {
+			columns.species_id = changes.speciesId;
+		}
+		if (changes.count !== undefined) {
+			columns.count = changes.count;
+		}
+		if (changes.sex !== undefined) {
+			columns.sex = changes.sex;
+		}
+		if (changes.status !== undefined) {
+			columns.status = changes.status;
+		}
 
-			// The domain refuses a command with nothing to change, so an empty set is
-			// not a request worth making.
-			if (Object.keys(columns).length === 0) {
-				return;
-			}
+		// The domain refuses a command with nothing to change, so an empty set is
+		// not a request worth making.
+		if (Object.keys(columns).length === 0) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(collection_species(), {
-					operation: 'update',
-					intent: 'adultSurveillance.updateCollectionSpeciesCount',
-					key: collectionSpeciesId,
-					changes: {
-						...columns,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(collection_species(), {
+				operation: 'update',
+				intent: 'adultSurveillance.updateCollectionSpeciesCount',
+				key: collectionSpeciesId,
+				changes: {
+					...columns,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(async (collectionSpeciesId: string) => {
+	const remove = async (collectionSpeciesId: string) => {
 		await settleWrite(
 			mutateCollection(collection_species(), {
 				operation: 'delete',
@@ -152,7 +145,7 @@ export function useCollectionSpeciesMutations(): CollectionSpeciesMutations {
 				key: collectionSpeciesId,
 			}),
 		);
-	}, []);
+	};
 
 	return { add, save, remove, canWrite: organizationId !== null && actorProfileId !== null };
 }

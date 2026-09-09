@@ -19,7 +19,6 @@
 
 import { type AdditionalPersonnelTargetType, toDbEntityType } from '@simmer-mosquito/domain';
 import { and, eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { additional_personnel } from '../../lib/collections/additional_personnel';
 
 /** The record the crew is attached to. */
@@ -74,7 +73,7 @@ export function useAdditionalPersonnel(
 
 	// Memoized rather than mapped inline: `rows` is the observer's cached
 	// snapshot, so this hands back the same array until the crew actually changes.
-	const profileIds = useMemo(() => [...new Set(rows.map((row) => row.personnelProfileId))], [rows]);
+	const profileIds = [...new Set(rows.map((row) => row.personnelProfileId))];
 
 	return { rows, profileIds, isReady: result.isReady, isError: result.isError };
 }

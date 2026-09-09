@@ -28,7 +28,6 @@
 
 import type { MultiRowCommandType } from '@simmer-mosquito/domain';
 import { type Route as RouteRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { type MovePlan, planStopPositions } from '../../components/stop-order';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { route_items } from '../../lib/collections/route_items';
@@ -80,76 +79,70 @@ export function useRouteMutations(): RouteMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async ({
-			routeName,
-			routeType,
-		}: {
-			readonly routeName: string;
-			readonly routeType: RouteType;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const create = async ({
+		routeName,
+		routeType,
+	}: {
+		readonly routeName: string;
+		readonly routeType: RouteType;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const routeId = newRecordId();
-			await settleWrite(
-				mutateCollection(routes(), {
-					operation: 'insert',
-					intent: 'fieldWork.createRoute',
-					row: {
-						id: routeId,
-						organization_id: organizationId,
-						route_name: routeName,
-						route_type: routeType,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies RouteRow,
-				}),
-			);
-			return routeId;
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		const routeId = newRecordId();
+		await settleWrite(
+			mutateCollection(routes(), {
+				operation: 'insert',
+				intent: 'fieldWork.createRoute',
+				row: {
+					id: routeId,
+					organization_id: organizationId,
+					route_name: routeName,
+					route_type: routeType,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies RouteRow,
+			}),
+		);
+		return routeId;
+	};
 
-	const rename = useCallback(
-		async (routeId: string, routeName: string) => {
-			await settleWrite(
-				mutateCollection(routes(), {
-					operation: 'update',
-					intent: 'fieldWork.updateRouteDetails',
-					key: routeId,
-					changes: {
-						route_name: routeName,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const rename = async (routeId: string, routeName: string) => {
+		await settleWrite(
+			mutateCollection(routes(), {
+				operation: 'update',
+				intent: 'fieldWork.updateRouteDetails',
+				key: routeId,
+				changes: {
+					route_name: routeName,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (routeId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(routes(), {
-					operation: 'delete',
-					intent: 'fieldWork.deleteRoute',
-					key: routeId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		routeId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(routes(), {
+				operation: 'delete',
+				intent: 'fieldWork.deleteRoute',
+				key: routeId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
-	const moveStops = useCallback(async (routeId: string, plan: MovePlan) => {
+	const moveStops = async (routeId: string, plan: MovePlan) => {
 		await settleWrite(
 			commandTransaction({
 				intent: 'fieldWork.moveRouteItems' satisfies MultiRowCommandType,
@@ -180,7 +173,7 @@ export function useRouteMutations(): RouteMutations {
 				},
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		create,

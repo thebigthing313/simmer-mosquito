@@ -26,7 +26,6 @@
  */
 
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { getServerUrl } from '../../auth';
 import { commandErrorFrom, readResponseBody } from '../../sync/command-error';
 
@@ -144,7 +143,7 @@ export type GenerationOutcome =
 export function useGenerateMissionNotifications(): (
 	missionId: string,
 ) => Promise<GenerationOutcome> {
-	return useCallback(async (missionId: string): Promise<GenerationOutcome> => {
+	return async (missionId: string): Promise<GenerationOutcome> => {
 		const response = await sessionFetch(
 			`${getServerUrl()}/commands/mission_notifications/generate`,
 			{
@@ -166,7 +165,7 @@ export function useGenerateMissionNotifications(): (
 		}
 
 		return generationOutcomeOf(body as unknown as GenerationResult);
-	}, []);
+	};
 }
 
 /**

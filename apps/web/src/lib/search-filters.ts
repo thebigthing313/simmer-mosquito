@@ -1,5 +1,5 @@
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Explorer filter state, held in the URL rather than in the component.
@@ -78,39 +78,33 @@ export function useSearchFilters<TFilters extends object>(
 	const search = useSearch({ strict: false }) as Record<string, unknown>;
 	const navigate = useNavigate();
 
-	const filters = useMemo(
-		() => resolveFilters(defaults, codecs, search),
-		[search, defaults, codecs],
-	);
+	const filters = resolveFilters(defaults, codecs, search);
 
-	const setFilters = useCallback(
-		(patch: Partial<TFilters>) => {
-			navigate({
-				replace: true,
-				search: (previous: Record<string, unknown>) => {
-					const result: Record<string, unknown> = { ...previous };
-					for (const key of filterKeys(patch)) {
-						const value = patch[key];
-						if (value === undefined) {
-							continue;
-						}
-						const encoded = codecs[key].encode(value);
-						if (encoded === undefined) {
-							delete result[key];
-						} else {
-							result[key] = encoded;
-						}
+	const setFilters = (patch: Partial<TFilters>) => {
+		navigate({
+			replace: true,
+			search: (previous: Record<string, unknown>) => {
+				const result: Record<string, unknown> = { ...previous };
+				for (const key of filterKeys(patch)) {
+					const value = patch[key];
+					if (value === undefined) {
+						continue;
 					}
-					return result;
-				},
-				// This navigates within whatever route mounted the hook, which the
-				// router's typed `to` cannot express from a shared helper.
-			} as never);
-		},
-		[navigate, codecs],
-	);
+					const encoded = codecs[key].encode(value);
+					if (encoded === undefined) {
+						delete result[key];
+					} else {
+						result[key] = encoded;
+					}
+				}
+				return result;
+			},
+			// This navigates within whatever route mounted the hook, which the
+			// router's typed `to` cannot express from a shared helper.
+		} as never);
+	};
 
-	const reset = useCallback(() => {
+	const reset = () => {
 		navigate({
 			replace: true,
 			search: (previous: Record<string, unknown>) => {
@@ -121,12 +115,9 @@ export function useSearchFilters<TFilters extends object>(
 				return result;
 			},
 		} as never);
-	}, [navigate, defaults]);
+	};
 
-	const activeCount = useMemo(
-		() => countActiveFilters(defaults, filters, counting),
-		[defaults, filters, counting],
-	);
+	const activeCount = countActiveFilters(defaults, filters, counting);
 
 	return { filters, setFilters, reset, activeCount };
 }
@@ -269,24 +260,21 @@ export function useDebouncedTextFilter(
 
 	useEffect(() => () => window.clearTimeout(timer.current), []);
 
-	const setInput = useCallback(
-		(next: string) => {
-			setInputState(next);
-			isEditing.current = true;
-			window.clearTimeout(timer.current);
-			timer.current = window.setTimeout(() => {
-				isEditing.current = false;
-				commit(next.trim());
-			}, delayMs);
-		},
-		[commit, delayMs],
-	);
+	const setInput = (next: string) => {
+		setInputState(next);
+		isEditing.current = true;
+		window.clearTimeout(timer.current);
+		timer.current = window.setTimeout(() => {
+			isEditing.current = false;
+			commit(next.trim());
+		}, delayMs);
+	};
 
-	const clear = useCallback(() => {
+	const clear = () => {
 		window.clearTimeout(timer.current);
 		isEditing.current = false;
 		setInputState('');
-	}, []);
+	};
 
 	return { input, setInput, clear };
 }

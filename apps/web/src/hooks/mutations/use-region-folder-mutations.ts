@@ -10,7 +10,6 @@
  */
 
 import { type RegionFolder, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { region_folders } from '../../lib/collections/region_folders';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -39,57 +38,55 @@ export function useRegionFolderMutations(): RegionFolderMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (folderId: string, fields: RegionFolderFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const create = async (folderId: string, fields: RegionFolderFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(region_folders(), {
-					operation: 'insert',
-					intent: 'foundation.createRegionFolder',
-					row: {
-						id: folderId,
-						organization_id: organizationId,
-						name: fields.name,
-						description: fields.description,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies RegionFolder,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(region_folders(), {
+				operation: 'insert',
+				intent: 'foundation.createRegionFolder',
+				row: {
+					id: folderId,
+					organization_id: organizationId,
+					name: fields.name,
+					description: fields.description,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies RegionFolder,
+			}),
+		);
+	};
 
-	const save = useCallback(
-		async (folderId: string, fields: RegionFolderFields, current: RegionFolderFields) => {
-			// One command, so there is no plan to build — but the same rule holds:
-			// the domain refuses an update with nothing to change.
-			if (fields.name === current.name && fields.description === current.description) {
-				return;
-			}
+	const save = async (
+		folderId: string,
+		fields: RegionFolderFields,
+		current: RegionFolderFields,
+	) => {
+		// One command, so there is no plan to build — but the same rule holds:
+		// the domain refuses an update with nothing to change.
+		if (fields.name === current.name && fields.description === current.description) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(region_folders(), {
-					operation: 'update',
-					intent: 'foundation.updateRegionFolder',
-					key: folderId,
-					changes: {
-						name: fields.name,
-						description: fields.description,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(region_folders(), {
+				operation: 'update',
+				intent: 'foundation.updateRegionFolder',
+				key: folderId,
+				changes: {
+					name: fields.name,
+					description: fields.description,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
 	return { create, save, canWrite: organizationId !== null && actorProfileId !== null };
 }

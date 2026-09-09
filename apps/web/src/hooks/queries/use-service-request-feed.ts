@@ -26,7 +26,6 @@
 
 import { toDbEntityType } from '@simmer-mosquito/domain';
 import { and, eq, gte, or, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { comments } from '../../lib/collections/comments';
 import { localDayStartAsInstant } from '../../lib/local-date';
 import { activityGcTimeMs } from './shared';
@@ -78,7 +77,7 @@ export function useServiceRequestFeed(
 } {
 	// Memoized so the bound keeps one identity: it is both a query dependency and
 	// a fold dependency, and a fresh `Date` each render would re-plan the query.
-	const since = useMemo(() => localDayStartAsInstant(sinceDate, timeZone), [sinceDate, timeZone]);
+	const since = localDayStartAsInstant(sinceDate, timeZone);
 
 	const result = useLiveQuery(
 		{
@@ -110,10 +109,7 @@ export function useServiceRequestFeed(
 	);
 
 	const rows = result.data;
-	const events = useMemo(
-		() => deriveServiceRequestEvents(requests, rows, since),
-		[requests, rows, since],
-	);
+	const events = deriveServiceRequestEvents(requests, rows, since);
 
 	return { events, isReady: result.isReady, isError: result.isError };
 }

@@ -41,7 +41,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type MissionItem as MissionItemRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mission_items } from '../../lib/collections/mission_items';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -85,119 +84,110 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const newStopRow = useCallback(
-		(input: {
-			readonly missionId: string;
-			readonly lat: number;
-			readonly lng: number;
-			readonly geomType: string;
-			readonly requestedControlActionId: string | null;
-			readonly addressId: string | null;
-			readonly position: number;
-		}): MissionItemRow => {
-			const now = optimisticStamp();
-			return {
-				id: newRecordId(),
-				organization_id: organizationId ?? '',
-				mission_id: input.missionId,
-				requested_control_action_id: input.requestedControlActionId,
-				lat: input.lat,
-				lng: input.lng,
-				geom_type: input.geomType,
-				address_id: input.addressId,
-				position: input.position,
-				completed_at: null,
-				completed_by_profile_id: null,
-				skipped_at: null,
-				skipped_by_profile_id: null,
-				skip_reason: null,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			};
-		},
-		[organizationId, actorProfileId],
-	);
+	const newStopRow = (input: {
+		readonly missionId: string;
+		readonly lat: number;
+		readonly lng: number;
+		readonly geomType: string;
+		readonly requestedControlActionId: string | null;
+		readonly addressId: string | null;
+		readonly position: number;
+	}): MissionItemRow => {
+		const now = optimisticStamp();
+		return {
+			id: newRecordId(),
+			organization_id: organizationId ?? '',
+			mission_id: input.missionId,
+			requested_control_action_id: input.requestedControlActionId,
+			lat: input.lat,
+			lng: input.lng,
+			geom_type: input.geomType,
+			address_id: input.addressId,
+			position: input.position,
+			completed_at: null,
+			completed_by_profile_id: null,
+			skipped_at: null,
+			skipped_by_profile_id: null,
+			skip_reason: null,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		};
+	};
 
-	const addFromRequest = useCallback(
-		async ({
-			missionId,
-			request,
-			position,
-		}: {
-			readonly missionId: string;
-			readonly request: RequestStopSeed;
-			readonly position: number;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const addFromRequest = async ({
+		missionId,
+		request,
+		position,
+	}: {
+		readonly missionId: string;
+		readonly request: RequestStopSeed;
+		readonly position: number;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			await settleWrite(
-				mutateCollection(mission_items(), {
-					operation: 'insert',
-					intent: 'missionDispatch.addMissionItemFromRequestedControlAction',
-					// No location source: the command names where the ground comes from,
-					// and the server reads it off the request inside the transaction. The
-					// centroid copied onto the row is only so the pin appears now.
-					row: newStopRow({
-						missionId,
-						lat: request.lat,
-						lng: request.lng,
-						geomType: request.geomType,
-						requestedControlActionId: request.requestedControlActionId,
-						addressId: null,
-						position,
-					}),
+		await settleWrite(
+			mutateCollection(mission_items(), {
+				operation: 'insert',
+				intent: 'missionDispatch.addMissionItemFromRequestedControlAction',
+				// No location source: the command names where the ground comes from,
+				// and the server reads it off the request inside the transaction. The
+				// centroid copied onto the row is only so the pin appears now.
+				row: newStopRow({
+					missionId,
+					lat: request.lat,
+					lng: request.lng,
+					geomType: request.geomType,
+					requestedControlActionId: request.requestedControlActionId,
+					addressId: null,
+					position,
 				}),
-			);
-		},
-		[organizationId, newStopRow],
-	);
+			}),
+		);
+	};
 
-	const addAtGeometry = useCallback(
-		async ({
-			missionId,
-			geometry,
-			addressId,
-			position,
-		}: {
-			readonly missionId: string;
-			readonly geometry: GeoJsonGeometry;
-			readonly addressId: string | null;
-			readonly position: number;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const addAtGeometry = async ({
+		missionId,
+		geometry,
+		addressId,
+		position,
+	}: {
+		readonly missionId: string;
+		readonly geometry: GeoJsonGeometry;
+		readonly addressId: string | null;
+		readonly position: number;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const centroid = ownedCentroidFromGeoJson(geometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine where this stop is.');
-			}
+		const centroid = ownedCentroidFromGeoJson(geometry);
+		if (centroid === null) {
+			throw new Error('Unable to determine where this stop is.');
+		}
 
-			await settleWrite(
-				mutateCollection(mission_items(), {
-					operation: 'insert',
-					intent: 'missionDispatch.addMissionItem',
-					row: newStopRow({
-						missionId,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geomType: centroid.geomType,
-						requestedControlActionId: null,
-						addressId,
-						position,
-					}),
-					locationSource: { kind: 'geometry', geometry },
+		await settleWrite(
+			mutateCollection(mission_items(), {
+				operation: 'insert',
+				intent: 'missionDispatch.addMissionItem',
+				row: newStopRow({
+					missionId,
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geomType: centroid.geomType,
+					requestedControlActionId: null,
+					addressId,
+					position,
 				}),
-			);
-		},
-		[organizationId, newStopRow],
-	);
+				locationSource: { kind: 'geometry', geometry },
+			}),
+		);
+	};
 
-	const removeStop = useCallback(async (missionItemId: string) => {
+	const removeStop = async (missionItemId: string) => {
 		await settleWrite(
 			mutateCollection(mission_items(), {
 				operation: 'delete',
@@ -205,95 +195,83 @@ export function useMissionItemMutations(): MissionItemMutations {
 				key: missionItemId,
 			}),
 		);
-	}, []);
+	};
 
-	const complete = useCallback(
-		async (missionItemId: string) => {
-			await settleWrite(
-				mutateCollection(mission_items(), {
-					operation: 'update',
-					intent: 'missionDispatch.completeMissionItem',
-					key: missionItemId,
-					// The skip columns are cleared here as well as server-side: completing
-					// a stop that had been skipped is a legal path, and leaving the reason
-					// on the row would render it as still skipped.
-					changes: {
-						completed_at: lifecycleStamp(),
-						completed_by_profile_id: actorProfileId,
-						skipped_at: null,
-						skipped_by_profile_id: null,
-						skip_reason: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					arguments: { autoStartMission: true },
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const complete = async (missionItemId: string) => {
+		await settleWrite(
+			mutateCollection(mission_items(), {
+				operation: 'update',
+				intent: 'missionDispatch.completeMissionItem',
+				key: missionItemId,
+				// The skip columns are cleared here as well as server-side: completing
+				// a stop that had been skipped is a legal path, and leaving the reason
+				// on the row would render it as still skipped.
+				changes: {
+					completed_at: lifecycleStamp(),
+					completed_by_profile_id: actorProfileId,
+					skipped_at: null,
+					skipped_by_profile_id: null,
+					skip_reason: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				arguments: { autoStartMission: true },
+			}),
+		);
+	};
 
-	const reopen = useCallback(
-		async (missionItemId: string) => {
-			await settleWrite(
-				mutateCollection(mission_items(), {
-					operation: 'update',
-					intent: 'missionDispatch.reopenMissionItem',
-					key: missionItemId,
-					changes: {
-						completed_at: null,
-						completed_by_profile_id: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const reopen = async (missionItemId: string) => {
+		await settleWrite(
+			mutateCollection(mission_items(), {
+				operation: 'update',
+				intent: 'missionDispatch.reopenMissionItem',
+				key: missionItemId,
+				changes: {
+					completed_at: null,
+					completed_by_profile_id: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const skip = useCallback(
-		async (missionItemId: string, skipReason: string) => {
-			await settleWrite(
-				mutateCollection(mission_items(), {
-					operation: 'update',
-					intent: 'missionDispatch.skipMissionItem',
-					key: missionItemId,
-					changes: {
-						skipped_at: lifecycleStamp(),
-						skipped_by_profile_id: actorProfileId,
-						skip_reason: skipReason,
-						completed_at: null,
-						completed_by_profile_id: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					arguments: { autoStartMission: true },
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const skip = async (missionItemId: string, skipReason: string) => {
+		await settleWrite(
+			mutateCollection(mission_items(), {
+				operation: 'update',
+				intent: 'missionDispatch.skipMissionItem',
+				key: missionItemId,
+				changes: {
+					skipped_at: lifecycleStamp(),
+					skipped_by_profile_id: actorProfileId,
+					skip_reason: skipReason,
+					completed_at: null,
+					completed_by_profile_id: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				arguments: { autoStartMission: true },
+			}),
+		);
+	};
 
-	const unskip = useCallback(
-		async (missionItemId: string) => {
-			await settleWrite(
-				mutateCollection(mission_items(), {
-					operation: 'update',
-					intent: 'missionDispatch.unskipMissionItem',
-					key: missionItemId,
-					changes: {
-						skipped_at: null,
-						skipped_by_profile_id: null,
-						skip_reason: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const unskip = async (missionItemId: string) => {
+		await settleWrite(
+			mutateCollection(mission_items(), {
+				operation: 'update',
+				intent: 'missionDispatch.unskipMissionItem',
+				key: missionItemId,
+				changes: {
+					skipped_at: null,
+					skipped_by_profile_id: null,
+					skip_reason: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
 	return {
 		addFromRequest,

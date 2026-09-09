@@ -9,7 +9,6 @@
  */
 
 import { and, caseWhen, count, inArray, isNull, not, sum, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { activityGcTimeMs, unmatchableId } from './shared';
 import { type WorklistProgress, worklistProgress } from './worklist-progress';
@@ -19,7 +18,7 @@ export function useAssignmentItemCounts(assignmentIds: readonly string[]): {
 	readonly isReady: boolean;
 } {
 	// Sorted and joined so a reordered id list does not re-run an identical query.
-	const idsKey = useMemo(() => [...assignmentIds].sort().join(','), [assignmentIds]);
+	const idsKey = [...assignmentIds].sort().join(',');
 	const queryIds = assignmentIds.length > 0 ? [...assignmentIds] : [unmatchableId];
 
 	const result = useLiveQuery(
@@ -45,18 +44,14 @@ export function useAssignmentItemCounts(assignmentIds: readonly string[]): {
 		[idsKey],
 	);
 
-	const countsById = useMemo(
-		() =>
-			new Map(
-				result.data.map(
-					(row) =>
-						[
-							row.assignmentId,
-							worklistProgress(Number(row.total), Number(row.completed), Number(row.skipped)),
-						] as const,
-				),
-			),
-		[result.data],
+	const countsById = new Map(
+		result.data.map(
+			(row) =>
+				[
+					row.assignmentId,
+					worklistProgress(Number(row.total), Number(row.completed), Number(row.skipped)),
+				] as const,
+		),
 	);
 
 	return { countsById, isReady: result.isReady };

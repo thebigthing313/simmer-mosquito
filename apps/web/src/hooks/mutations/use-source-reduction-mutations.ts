@@ -37,7 +37,6 @@
  */
 
 import { type SourceReduction as SourceReductionRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { source_reductions } from '../../lib/collections/source_reductions';
@@ -107,152 +106,146 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async ({
-			sourceReductionId,
-			values,
-			location,
-			missionItemId,
-			acknowledgements,
-		}: RecordSourceReductionInput) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(source_reductions(), {
-					operation: 'insert',
-					// The stop is what makes it the other command. Both write this table;
-					// only one of them also closes the mission item.
-					intent:
-						missionItemId === null
-							? 'controlOperations.recordSourceReduction'
-							: 'missionDispatch.recordSourceReductionForMissionItem',
-					row: {
-						id: sourceReductionId,
-						organization_id: organizationId,
-						source_reduction_method_id: values.methodId,
-						technician_profile_id: values.technicianProfileId,
-						source_reduction_date: values.actionDate,
-						lat: location.lat,
-						lng: location.lng,
-						geom_type: location.geomType,
-						address_id: values.addressId,
-						habitat_id: values.habitatId,
-						sources_eliminated_amount: values.sourcesEliminated,
-						sources_eliminated_unit_id: values.unitId,
-						// A create never promotes an existing Inspection or requested action;
-						// both are attached by the flows that own them.
-						inspection_id: null,
-						requested_control_action_id: null,
-						mission_item_id: missionItemId,
-						metadata: values.metadata,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-						// `satisfies` rather than `as`: it is what makes a wrong column name a
-						// compile error. The cast is exactly what let camelCase rows through.
-					} satisfies SourceReductionRow,
-					...(location.locationSource === undefined
+	const record = async ({
+		sourceReductionId,
+		values,
+		location,
+		missionItemId,
+		acknowledgements,
+	}: RecordSourceReductionInput) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(source_reductions(), {
+				operation: 'insert',
+				// The stop is what makes it the other command. Both write this table;
+				// only one of them also closes the mission item.
+				intent:
+					missionItemId === null
+						? 'controlOperations.recordSourceReduction'
+						: 'missionDispatch.recordSourceReductionForMissionItem',
+				row: {
+					id: sourceReductionId,
+					organization_id: organizationId,
+					source_reduction_method_id: values.methodId,
+					technician_profile_id: values.technicianProfileId,
+					source_reduction_date: values.actionDate,
+					lat: location.lat,
+					lng: location.lng,
+					geom_type: location.geomType,
+					address_id: values.addressId,
+					habitat_id: values.habitatId,
+					sources_eliminated_amount: values.sourcesEliminated,
+					sources_eliminated_unit_id: values.unitId,
+					// A create never promotes an existing Inspection or requested action;
+					// both are attached by the flows that own them.
+					inspection_id: null,
+					requested_control_action_id: null,
+					mission_item_id: missionItemId,
+					metadata: values.metadata,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+					// `satisfies` rather than `as`: it is what makes a wrong column name a
+					// compile error. The cast is exactly what let camelCase rows through.
+				} satisfies SourceReductionRow,
+				...(location.locationSource === undefined
+					? {}
+					: { locationSource: location.locationSource }),
+				context: contextFor(values.habitatId, null),
+				...(acknowledgements === undefined ? {} : { acknowledgements }),
+			}),
+		);
+	};
+
+	const update = async (
+		current: SourceReduction,
+		{ values, location, acknowledgements }: UpdateSourceReductionInput,
+	) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+
+		const fieldsMoved =
+			current.methodId !== values.methodId ||
+			current.technicianProfileId !== values.technicianProfileId ||
+			current.actionDate !== values.actionDate ||
+			current.sourcesEliminated !== values.sourcesEliminated ||
+			current.unitId !== values.unitId ||
+			metadataChanged(current.metadata, values.metadata);
+
+		const habitatMoved = current.habitatId !== values.habitatId;
+		const addressMoved = current.addressId !== values.addressId;
+		const pointMoved = location?.locationSource !== undefined;
+		const placementMoved = habitatMoved || addressMoved || pointMoved;
+
+		if (!fieldsMoved && !placementMoved) {
+			return;
+		}
+
+		const intent = actionEditIntents({
+			fieldsMoved,
+			fieldsIntent: 'controlOperations.updateSourceReductionFieldDetails',
+			placementMoved,
+			placementIntent: 'controlOperations.updateSourceReductionLocationAndContext',
+		});
+
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(source_reductions(), {
+				operation: 'update',
+				intent,
+				key: current.id,
+				changes: {
+					...(fieldsMoved
+						? {
+								source_reduction_method_id: values.methodId,
+								technician_profile_id: values.technicianProfileId,
+								source_reduction_date: values.actionDate,
+								sources_eliminated_amount: values.sourcesEliminated,
+								sources_eliminated_unit_id: values.unitId,
+								metadata: values.metadata,
+							}
+						: {}),
+					...(addressMoved ? { address_id: values.addressId } : {}),
+					...(habitatMoved ? { habitat_id: values.habitatId } : {}),
+					// Reseeded so the record's marker moves before the server answers. The
+					// server recomputes all three from the geometry it stores.
+					...(location === undefined
 						? {}
-						: { locationSource: location.locationSource }),
-					context: contextFor(values.habitatId, null),
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+						: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
+					updated_by_profile_id: actorProfileId,
+					updated_at: now,
+				},
+				...(location?.locationSource === undefined
+					? {}
+					: { locationSource: location.locationSource }),
+				// Only when the attachment is what changed. Sent every time, an
+				// unchanged Habitat would still rewrite the Inspection alongside it.
+				...(habitatMoved ? { context: contextFor(values.habitatId, current.inspectionId) } : {}),
+				...(acknowledgements === undefined ? {} : { acknowledgements }),
+			}),
+		);
+	};
 
-	const update = useCallback(
-		async (
-			current: SourceReduction,
-			{ values, location, acknowledgements }: UpdateSourceReductionInput,
-		) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-
-			const fieldsMoved =
-				current.methodId !== values.methodId ||
-				current.technicianProfileId !== values.technicianProfileId ||
-				current.actionDate !== values.actionDate ||
-				current.sourcesEliminated !== values.sourcesEliminated ||
-				current.unitId !== values.unitId ||
-				metadataChanged(current.metadata, values.metadata);
-
-			const habitatMoved = current.habitatId !== values.habitatId;
-			const addressMoved = current.addressId !== values.addressId;
-			const pointMoved = location?.locationSource !== undefined;
-			const placementMoved = habitatMoved || addressMoved || pointMoved;
-
-			if (!fieldsMoved && !placementMoved) {
-				return;
-			}
-
-			const intent = actionEditIntents({
-				fieldsMoved,
-				fieldsIntent: 'controlOperations.updateSourceReductionFieldDetails',
-				placementMoved,
-				placementIntent: 'controlOperations.updateSourceReductionLocationAndContext',
-			});
-
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(source_reductions(), {
-					operation: 'update',
-					intent,
-					key: current.id,
-					changes: {
-						...(fieldsMoved
-							? {
-									source_reduction_method_id: values.methodId,
-									technician_profile_id: values.technicianProfileId,
-									source_reduction_date: values.actionDate,
-									sources_eliminated_amount: values.sourcesEliminated,
-									sources_eliminated_unit_id: values.unitId,
-									metadata: values.metadata,
-								}
-							: {}),
-						...(addressMoved ? { address_id: values.addressId } : {}),
-						...(habitatMoved ? { habitat_id: values.habitatId } : {}),
-						// Reseeded so the record's marker moves before the server answers. The
-						// server recomputes all three from the geometry it stores.
-						...(location === undefined
-							? {}
-							: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
-						updated_by_profile_id: actorProfileId,
-						updated_at: now,
-					},
-					...(location?.locationSource === undefined
-						? {}
-						: { locationSource: location.locationSource }),
-					// Only when the attachment is what changed. Sent every time, an
-					// unchanged Habitat would still rewrite the Inspection alongside it.
-					...(habitatMoved ? { context: contextFor(values.habitatId, current.inspectionId) } : {}),
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
-
-	const remove = useCallback(
-		async (sourceReductionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(source_reductions(), {
-					operation: 'delete',
-					intent: 'controlOperations.deleteSourceReduction',
-					key: sourceReductionId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		sourceReductionId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(source_reductions(), {
+				operation: 'delete',
+				intent: 'controlOperations.deleteSourceReduction',
+				key: sourceReductionId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return { record, update, remove, canWrite: organizationId !== null && actorProfileId !== null };
 }

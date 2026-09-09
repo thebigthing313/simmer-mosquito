@@ -17,7 +17,6 @@
  * the expression language has no substring.
  */
 import { useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { traps } from '../../lib/collections/traps';
 import { trapDisplayName } from './trap-view';
 
@@ -34,5 +33,5 @@ export function useTrapNames(): ReadonlyMap<string, string> {
 
 	const rows = result.data;
 
-	return useMemo(() => new Map(rows.map((row) => [row.id, trapDisplayName(row)] as const)), [rows]);
+	return new Map(rows.map((row) => [row.id, trapDisplayName(row)] as const));
 }

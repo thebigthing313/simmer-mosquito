@@ -25,7 +25,6 @@
 
 import type { UnitSystem, UnitType } from '@simmer-mosquito/domain';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { units } from '../../lib/collections/units';
 
 /** A unit as the surfaces that show one read it: how to print it, how to convert it. */
@@ -66,12 +65,9 @@ export function useUnitLabels(): {
 
 	const rows = result.data;
 
-	return useMemo(
-		() => ({
-			all: rows,
-			byId: new Map(rows.map((unit) => [unit.id, unit] as const)),
-			byCode: new Map(rows.map((unit) => [unit.code, unit] as const)),
-		}),
-		[rows],
-	);
+	return {
+		all: rows,
+		byId: new Map(rows.map((unit) => [unit.id, unit] as const)),
+		byCode: new Map(rows.map((unit) => [unit.code, unit] as const)),
+	};
 }

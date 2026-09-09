@@ -20,7 +20,6 @@
  */
 
 import { caseWhen, coalesce, eq, isNull, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
@@ -197,25 +196,21 @@ export function useControlActionsForDay(date: string): {
 	const sourceReductionRows = sourceReductionResult.data;
 	const biocontrolRows = biocontrolResult.data;
 
-	const actions = useMemo<readonly DailyControlAction[]>(
-		() =>
-			[
-				...applicationRows.map((row) => ({ ...row, kind: 'application' as const })),
-				...sourceReductionRows.map((row) => ({
-					...row,
-					kind: 'sourceReduction' as const,
-					methodName: null,
-				})),
-				...biocontrolRows.map((row) => ({
-					...row,
-					kind: 'biocontrol' as const,
-					methodName: null,
-				})),
-				// Recording order, which is the order the crew worked in — the three
-				// subsets each arrive sorted, and this is what interleaves them.
-			].sort((first, second) => first.createdAt.getTime() - second.createdAt.getTime()),
-		[applicationRows, sourceReductionRows, biocontrolRows],
-	);
+	const actions: readonly DailyControlAction[] = [
+		...applicationRows.map((row) => ({ ...row, kind: 'application' as const })),
+		...sourceReductionRows.map((row) => ({
+			...row,
+			kind: 'sourceReduction' as const,
+			methodName: null,
+		})),
+		...biocontrolRows.map((row) => ({
+			...row,
+			kind: 'biocontrol' as const,
+			methodName: null,
+		})),
+		// Recording order, which is the order the crew worked in — the three
+		// subsets each arrive sorted, and this is what interleaves them.
+	].sort((first, second) => first.createdAt.getTime() - second.createdAt.getTime());
 
 	return {
 		actions,

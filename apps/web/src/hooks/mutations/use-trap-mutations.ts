@@ -70,7 +70,6 @@
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { settleWrite, type Trap } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { traps } from '../../lib/collections/traps';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -318,125 +317,116 @@ export function useTrapMutations(): TrapMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (
-			fields: TrapFields,
-			geometry: GeoJsonGeometry,
-			centroid: TrapCentroid,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
-			if (organizationId === null) {
-				throw new Error('Organization details are still loading.');
-			}
+	const create = async (
+		fields: TrapFields,
+		geometry: GeoJsonGeometry,
+		centroid: TrapCentroid,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		if (organizationId === null) {
+			throw new Error('Organization details are still loading.');
+		}
 
-			const now = optimisticStamp();
-			const trapId = newRecordId();
-			await settleWrite(
-				mutateCollection(traps(), {
-					operation: 'insert',
-					intent: fields.isActive
-						? 'adultSurveillance.createTrap'
-						: ['adultSurveillance.createTrap', 'adultSurveillance.retireTrap'],
-					row: {
-						id: trapId,
-						organization_id: organizationId,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geom_type: centroid.geomType,
-						collection_method_id: fields.collectionMethodId,
-						address_id: fields.addressId,
-						collection_lure_id: fields.collectionLureId,
-						trap_name: fields.trapName,
-						trap_code: fields.trapCode,
-						description: fields.description,
-						is_active: fields.isActive,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies Trap,
-					locationSource: { kind: 'geometry', geometry },
-					// Passed through whole. The form's askable map covers both trap
-					// questions, and a flag no handler reads is a key on the body and
-					// nothing more, while filtering here would be this file deciding
-					// what the endpoint reads.
-					acknowledgements,
-				}),
-			);
-			return trapId;
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		const trapId = newRecordId();
+		await settleWrite(
+			mutateCollection(traps(), {
+				operation: 'insert',
+				intent: fields.isActive
+					? 'adultSurveillance.createTrap'
+					: ['adultSurveillance.createTrap', 'adultSurveillance.retireTrap'],
+				row: {
+					id: trapId,
+					organization_id: organizationId,
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geom_type: centroid.geomType,
+					collection_method_id: fields.collectionMethodId,
+					address_id: fields.addressId,
+					collection_lure_id: fields.collectionLureId,
+					trap_name: fields.trapName,
+					trap_code: fields.trapCode,
+					description: fields.description,
+					is_active: fields.isActive,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies Trap,
+				locationSource: { kind: 'geometry', geometry },
+				// Passed through whole. The form's askable map covers both trap
+				// questions, and a flag no handler reads is a key on the body and
+				// nothing more, while filtering here would be this file deciding
+				// what the endpoint reads.
+				acknowledgements,
+			}),
+		);
+		return trapId;
+	};
 
-	const save = useCallback(
-		async (
-			trapId: string,
-			fields: TrapFields,
-			current: TrapFields,
-			geometry: TrapPoint | null,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
-			const plan = trapUpdatePlan({ acknowledgements, current, fields, point: geometry });
-			if (plan === null) {
-				return;
-			}
+	const save = async (
+		trapId: string,
+		fields: TrapFields,
+		current: TrapFields,
+		geometry: TrapPoint | null,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		const plan = trapUpdatePlan({ acknowledgements, current, fields, point: geometry });
+		if (plan === null) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(traps(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: trapId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					acknowledgements: plan.acknowledgements,
-					// Absent unless the point was redrawn: a shape sent under a command
-					// with no reader for it is a key the server ignores, and sending one
-					// anyway makes the body claim an edit it is not making.
-					...(geometry === null
-						? {}
-						: { locationSource: { kind: 'geometry', geometry: geometry.geometry } }),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(traps(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: trapId,
+				changes: {
+					...plan.changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				acknowledgements: plan.acknowledgements,
+				// Absent unless the point was redrawn: a shape sent under a command
+				// with no reader for it is a key the server ignores, and sending one
+				// anyway makes the body claim an edit it is not making.
+				...(geometry === null
+					? {}
+					: { locationSource: { kind: 'geometry', geometry: geometry.geometry } }),
+			}),
+		);
+	};
 
-	const setActive = useCallback(
-		async (trapId: string, isActive: boolean) => {
-			await settleWrite(
-				mutateCollection(traps(), {
-					operation: 'update',
-					intent: isActive ? 'adultSurveillance.reactivateTrap' : 'adultSurveillance.retireTrap',
-					key: trapId,
-					changes: {
-						is_active: isActive,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setActive = async (trapId: string, isActive: boolean) => {
+		await settleWrite(
+			mutateCollection(traps(), {
+				operation: 'update',
+				intent: isActive ? 'adultSurveillance.reactivateTrap' : 'adultSurveillance.retireTrap',
+				key: trapId,
+				changes: {
+					is_active: isActive,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (trapId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(traps(), {
-					operation: 'delete',
-					intent: 'adultSurveillance.deleteTrap',
-					key: trapId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		trapId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(traps(), {
+				operation: 'delete',
+				intent: 'adultSurveillance.deleteTrap',
+				key: trapId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		create,

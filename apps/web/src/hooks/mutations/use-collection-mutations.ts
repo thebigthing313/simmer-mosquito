@@ -65,7 +65,6 @@ import type {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type AdultCollection, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { collections } from '../../lib/collections/collections';
@@ -201,228 +200,74 @@ export function useCollectionMutations(): CollectionMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async ({
-			collectionId,
-			fields,
-			placement,
-			centroid,
-			isCollected,
-			acknowledgements,
-		}: {
-			readonly collectionId: string;
-			readonly fields: CollectionFields;
-			readonly placement: CollectionPlacement;
-			readonly centroid: CollectionCentroid;
-			readonly isCollected: boolean;
-			readonly acknowledgements?: StopAcknowledgements;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Organization details are still loading.');
-			}
+	const record = async ({
+		collectionId,
+		fields,
+		placement,
+		centroid,
+		isCollected,
+		acknowledgements,
+	}: {
+		readonly collectionId: string;
+		readonly fields: CollectionFields;
+		readonly placement: CollectionPlacement;
+		readonly centroid: CollectionCentroid;
+		readonly isCollected: boolean;
+		readonly acknowledgements?: StopAcknowledgements;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Organization details are still loading.');
+		}
 
-			const now = optimisticStamp();
-			const row = {
-				id: collectionId,
-				organization_id: organizationId,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geom_type: centroid.geomType,
-				trap_id: placement.kind === 'adhoc' ? null : placement.trapId,
-				collection_method_id: fields.collectionMethodId,
-				collection_lure_id: fields.collectionLureId,
-				address_id: placement.kind === 'adhoc' ? fields.addressId : null,
-				...timingColumns(fields.timing),
-				set_by_profile_id: fields.setByProfileId,
-				collected_by_profile_id: fields.collectedByProfileId,
-				// One visit, so the same stop is claimed for both halves and the server
-				// decides which of the two columns it lands in — the collected one only
-				// once there is something collected to attribute.
-				set_assignment_item_id: placement.kind === 'stop' ? placement.assignmentItemId : null,
-				collected_assignment_item_id:
-					placement.kind === 'stop' && isCollected ? placement.assignmentItemId : null,
-				has_problem: fields.hasProblem,
-				is_zero_result: false,
-				has_bycatch: false,
-				metadata: fields.metadata ?? null,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-				// `satisfies` rather than `as`: it is what makes a wrong column name a
-				// compile error. The cast is exactly what let camelCase rows through.
-			} satisfies AdultCollection;
+		const now = optimisticStamp();
+		const row = {
+			id: collectionId,
+			organization_id: organizationId,
+			lat: centroid.lat,
+			lng: centroid.lng,
+			geom_type: centroid.geomType,
+			trap_id: placement.kind === 'adhoc' ? null : placement.trapId,
+			collection_method_id: fields.collectionMethodId,
+			collection_lure_id: fields.collectionLureId,
+			address_id: placement.kind === 'adhoc' ? fields.addressId : null,
+			...timingColumns(fields.timing),
+			set_by_profile_id: fields.setByProfileId,
+			collected_by_profile_id: fields.collectedByProfileId,
+			// One visit, so the same stop is claimed for both halves and the server
+			// decides which of the two columns it lands in — the collected one only
+			// once there is something collected to attribute.
+			set_assignment_item_id: placement.kind === 'stop' ? placement.assignmentItemId : null,
+			collected_assignment_item_id:
+				placement.kind === 'stop' && isCollected ? placement.assignmentItemId : null,
+			has_problem: fields.hasProblem,
+			is_zero_result: false,
+			has_bycatch: false,
+			metadata: fields.metadata ?? null,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+			// `satisfies` rather than `as`: it is what makes a wrong column name a
+			// compile error. The cast is exactly what let camelCase rows through.
+		} satisfies AdultCollection;
 
-			if (placement.kind === 'stop') {
-				await settleWrite(
-					commandTransaction({
-						intent: (isCollected
-							? 'fieldWork.recordCollectedTrapCollectionForAssignmentItem'
-							: 'fieldWork.setTrapCollectionForAssignmentItem') satisfies MultiRowCommandType,
-						request: {
-							table: 'collections',
-							method: 'POST',
-							body: stopCollectionRequestBody(row, placement, acknowledgements),
-						},
-						apply: () => {
-							collections().insert(row);
-							// The stop the technician was sent to, closed by the visit that
-							// was the reason for it. Backdated like every lifecycle stamp, so
-							// a fast browser clock cannot have it refused as future.
-							assignment_items().update(placement.assignmentItemId, (draft) => {
-								draft.completed_at = lifecycleStamp();
-								draft.completed_by_profile_id = actorProfileId;
-								draft.skipped_at = null;
-								draft.skipped_by_profile_id = null;
-								draft.skip_reason = null;
-								draft.updated_by_profile_id = actorProfileId;
-								draft.updated_at = now;
-							});
-						},
-					}),
-				);
-				return;
-			}
-
-			await settleWrite(
-				mutateCollection(collections(), {
-					operation: 'insert',
-					intent: createIntentFor(placement.kind, isCollected),
-					row,
-					...(placement.kind === 'adhoc'
-						? { locationSource: { kind: 'geometry', geometry: placement.geometry } }
-						: {}),
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
-
-	const save = useCallback(
-		async ({
-			collectionId,
-			fields,
-			current,
-			geometry,
-		}: {
-			readonly collectionId: string;
-			readonly fields: CollectionFields;
-			readonly current: CollectionFields;
-			readonly geometry: {
-				readonly geometry: GeoJsonGeometry;
-				readonly centroid: CollectionCentroid;
-			} | null;
-		}) => {
-			const intents: SingleRowCommandType[] = [];
-			const changes: Partial<AdultCollection> = {};
-
-			if (
-				timingMoved(fields.timing, current.timing) ||
-				fields.setByProfileId !== current.setByProfileId ||
-				fields.collectedByProfileId !== current.collectedByProfileId ||
-				fields.hasProblem !== current.hasProblem ||
-				metadataChanged(current.metadata, fields.metadata)
-			) {
-				intents.push('adultSurveillance.updateCollectionFieldDetails');
-				Object.assign(changes, timingColumns(fields.timing));
-				changes.set_by_profile_id = fields.setByProfileId;
-				changes.collected_by_profile_id = fields.collectedByProfileId;
-				changes.has_problem = fields.hasProblem;
-				changes.metadata = fields.metadata ?? null;
-			}
-
-			if (
-				geometry !== null ||
-				fields.collectionMethodId !== current.collectionMethodId ||
-				fields.collectionLureId !== current.collectionLureId ||
-				fields.addressId !== current.addressId
-			) {
-				intents.push('adultSurveillance.updateAdHocCollectionConfiguration');
-				changes.collection_method_id = fields.collectionMethodId;
-				changes.collection_lure_id = fields.collectionLureId;
-				changes.address_id = fields.addressId;
-				if (geometry !== null) {
-					changes.lat = geometry.centroid.lat;
-					changes.lng = geometry.centroid.lng;
-					changes.geom_type = geometry.centroid.geomType;
-				}
-			}
-
-			if (intents.length === 0) {
-				return;
-			}
-
-			await settleWrite(
-				mutateCollection(collections(), {
-					operation: 'update',
-					intent: intents,
-					key: collectionId,
-					changes: {
-						...changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					...(geometry === null
-						? {}
-						: { locationSource: { kind: 'geometry', geometry: geometry.geometry } }),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
-
-	const collect = useCallback(
-		async ({
-			collectionId,
-			collectedAt,
-			assignmentItemId,
-			acknowledgements,
-		}: {
-			readonly collectionId: string;
-			readonly collectedAt: Date;
-			readonly assignmentItemId?: string | null;
-			readonly acknowledgements?: StopAcknowledgements;
-		}) => {
-			const now = optimisticStamp();
-			const changes = {
-				collected_at: collectedAt,
-				collected_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				updated_at: now,
-			} satisfies Partial<AdultCollection>;
-
-			if (assignmentItemId == null) {
-				await settleWrite(
-					mutateCollection(collections(), {
-						operation: 'update',
-						intent: 'adultSurveillance.collectCollection',
-						key: collectionId,
-						changes,
-						...(acknowledgements === undefined ? {} : { acknowledgements }),
-					}),
-				);
-				return;
-			}
-
+		if (placement.kind === 'stop') {
 			await settleWrite(
 				commandTransaction({
-					intent: 'fieldWork.collectTrapCollectionForAssignmentItem' satisfies MultiRowCommandType,
+					intent: (isCollected
+						? 'fieldWork.recordCollectedTrapCollectionForAssignmentItem'
+						: 'fieldWork.setTrapCollectionForAssignmentItem') satisfies MultiRowCommandType,
 					request: {
 						table: 'collections',
-						method: 'PATCH',
-						key: collectionId,
-						body: stopCollectRequestBody(
-							{ collectedAt, collectedByProfileId: actorProfileId, assignmentItemId },
-							acknowledgements,
-						),
+						method: 'POST',
+						body: stopCollectionRequestBody(row, placement, acknowledgements),
 					},
 					apply: () => {
-						collections().update(collectionId, (draft) => {
-							Object.assign(draft, changes);
-							draft.collected_assignment_item_id = assignmentItemId;
-						});
-						assignment_items().update(assignmentItemId, (draft) => {
+						collections().insert(row);
+						// The stop the technician was sent to, closed by the visit that
+						// was the reason for it. Backdated like every lifecycle stamp, so
+						// a fast browser clock cannot have it refused as future.
+						assignment_items().update(placement.assignmentItemId, (draft) => {
 							draft.completed_at = lifecycleStamp();
 							draft.completed_by_profile_id = actorProfileId;
 							draft.skipped_at = null;
@@ -434,89 +279,225 @@ export function useCollectionMutations(): CollectionMutations {
 					},
 				}),
 			);
-		},
-		[actorProfileId],
-	);
+			return;
+		}
 
-	const setZeroResult = useCallback(
-		async (
-			collectionId: string,
-			isZeroResult: boolean,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
+		await settleWrite(
+			mutateCollection(collections(), {
+				operation: 'insert',
+				intent: createIntentFor(placement.kind, isCollected),
+				row,
+				...(placement.kind === 'adhoc'
+					? { locationSource: { kind: 'geometry', geometry: placement.geometry } }
+					: {}),
+				...(acknowledgements === undefined ? {} : { acknowledgements }),
+			}),
+		);
+	};
+
+	const save = async ({
+		collectionId,
+		fields,
+		current,
+		geometry,
+	}: {
+		readonly collectionId: string;
+		readonly fields: CollectionFields;
+		readonly current: CollectionFields;
+		readonly geometry: {
+			readonly geometry: GeoJsonGeometry;
+			readonly centroid: CollectionCentroid;
+		} | null;
+	}) => {
+		const intents: SingleRowCommandType[] = [];
+		const changes: Partial<AdultCollection> = {};
+
+		if (
+			timingMoved(fields.timing, current.timing) ||
+			fields.setByProfileId !== current.setByProfileId ||
+			fields.collectedByProfileId !== current.collectedByProfileId ||
+			fields.hasProblem !== current.hasProblem ||
+			metadataChanged(current.metadata, fields.metadata)
+		) {
+			intents.push('adultSurveillance.updateCollectionFieldDetails');
+			Object.assign(changes, timingColumns(fields.timing));
+			changes.set_by_profile_id = fields.setByProfileId;
+			changes.collected_by_profile_id = fields.collectedByProfileId;
+			changes.has_problem = fields.hasProblem;
+			changes.metadata = fields.metadata ?? null;
+		}
+
+		if (
+			geometry !== null ||
+			fields.collectionMethodId !== current.collectionMethodId ||
+			fields.collectionLureId !== current.collectionLureId ||
+			fields.addressId !== current.addressId
+		) {
+			intents.push('adultSurveillance.updateAdHocCollectionConfiguration');
+			changes.collection_method_id = fields.collectionMethodId;
+			changes.collection_lure_id = fields.collectionLureId;
+			changes.address_id = fields.addressId;
+			if (geometry !== null) {
+				changes.lat = geometry.centroid.lat;
+				changes.lng = geometry.centroid.lng;
+				changes.geom_type = geometry.centroid.geomType;
+			}
+		}
+
+		if (intents.length === 0) {
+			return;
+		}
+
+		await settleWrite(
+			mutateCollection(collections(), {
+				operation: 'update',
+				intent: intents,
+				key: collectionId,
+				changes: {
+					...changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				...(geometry === null
+					? {}
+					: { locationSource: { kind: 'geometry', geometry: geometry.geometry } }),
+			}),
+		);
+	};
+
+	const collect = async ({
+		collectionId,
+		collectedAt,
+		assignmentItemId,
+		acknowledgements,
+	}: {
+		readonly collectionId: string;
+		readonly collectedAt: Date;
+		readonly assignmentItemId?: string | null;
+		readonly acknowledgements?: StopAcknowledgements;
+	}) => {
+		const now = optimisticStamp();
+		const changes = {
+			collected_at: collectedAt,
+			collected_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			updated_at: now,
+		} satisfies Partial<AdultCollection>;
+
+		if (assignmentItemId == null) {
 			await settleWrite(
 				mutateCollection(collections(), {
 					operation: 'update',
-					intent: isZeroResult
-						? 'adultSurveillance.markCollectionZeroResult'
-						: 'adultSurveillance.clearCollectionZeroResult',
+					intent: 'adultSurveillance.collectCollection',
 					key: collectionId,
-					changes: {
-						is_zero_result: isZeroResult,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					// Sent in both directions. Only marking can be refused, and clearing
-					// carries a flag the command has no reader for rather than making
-					// this callback branch on which of the two it named.
-					acknowledgements,
+					changes,
+					...(acknowledgements === undefined ? {} : { acknowledgements }),
 				}),
 			);
-		},
-		[actorProfileId],
-	);
+			return;
+		}
 
-	const setBycatch = useCallback(
-		async (collectionId: string, hasBycatch: boolean) => {
-			await settleWrite(
-				mutateCollection(collections(), {
-					operation: 'update',
-					intent: 'adultSurveillance.setCollectionBycatch',
+		await settleWrite(
+			commandTransaction({
+				intent: 'fieldWork.collectTrapCollectionForAssignmentItem' satisfies MultiRowCommandType,
+				request: {
+					table: 'collections',
+					method: 'PATCH',
 					key: collectionId,
-					changes: {
-						has_bycatch: hasBycatch,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+					body: stopCollectRequestBody(
+						{ collectedAt, collectedByProfileId: actorProfileId, assignmentItemId },
+						acknowledgements,
+					),
+				},
+				apply: () => {
+					collections().update(collectionId, (draft) => {
+						Object.assign(draft, changes);
+						draft.collected_assignment_item_id = assignmentItemId;
+					});
+					assignment_items().update(assignmentItemId, (draft) => {
+						draft.completed_at = lifecycleStamp();
+						draft.completed_by_profile_id = actorProfileId;
+						draft.skipped_at = null;
+						draft.skipped_by_profile_id = null;
+						draft.skip_reason = null;
+						draft.updated_by_profile_id = actorProfileId;
+						draft.updated_at = now;
+					});
+				},
+			}),
+		);
+	};
 
-	const setProblem = useCallback(
-		async (collectionId: string, hasProblem: boolean) => {
-			await settleWrite(
-				mutateCollection(collections(), {
-					operation: 'update',
-					intent: 'adultSurveillance.updateCollectionFieldDetails',
-					key: collectionId,
-					changes: {
-						has_problem: hasProblem,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setZeroResult = async (
+		collectionId: string,
+		isZeroResult: boolean,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(collections(), {
+				operation: 'update',
+				intent: isZeroResult
+					? 'adultSurveillance.markCollectionZeroResult'
+					: 'adultSurveillance.clearCollectionZeroResult',
+				key: collectionId,
+				changes: {
+					is_zero_result: isZeroResult,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				// Sent in both directions. Only marking can be refused, and clearing
+				// carries a flag the command has no reader for rather than making
+				// this callback branch on which of the two it named.
+				acknowledgements,
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (collectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(collections(), {
-					operation: 'delete',
-					intent: 'adultSurveillance.deleteCollection',
-					key: collectionId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const setBycatch = async (collectionId: string, hasBycatch: boolean) => {
+		await settleWrite(
+			mutateCollection(collections(), {
+				operation: 'update',
+				intent: 'adultSurveillance.setCollectionBycatch',
+				key: collectionId,
+				changes: {
+					has_bycatch: hasBycatch,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
+
+	const setProblem = async (collectionId: string, hasProblem: boolean) => {
+		await settleWrite(
+			mutateCollection(collections(), {
+				operation: 'update',
+				intent: 'adultSurveillance.updateCollectionFieldDetails',
+				key: collectionId,
+				changes: {
+					has_problem: hasProblem,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
+
+	const remove = async (
+		collectionId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(collections(), {
+				operation: 'delete',
+				intent: 'adultSurveillance.deleteCollection',
+				key: collectionId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		record,

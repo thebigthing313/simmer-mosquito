@@ -30,7 +30,6 @@
  */
 
 import { useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { service_requests } from '../../lib/collections/service_requests';
 import { activityGcTimeMs } from './shared';
 
@@ -83,10 +82,7 @@ export function useOrganizationServiceRequests(): {
 	);
 
 	const requests = result.data;
-	const openRequests = useMemo(
-		() => requests.filter((request) => request.closedAt === null),
-		[requests],
-	);
+	const openRequests = requests.filter((request) => request.closedAt === null);
 
 	return {
 		requests,

@@ -19,7 +19,6 @@
 
 import type { RouteType } from '@simmer-mosquito/domain';
 import { type RouteItem as RouteItemRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { route_items } from '../../lib/collections/route_items';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -51,64 +50,58 @@ export function useRouteItemMutations(): RouteItemMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const addStop = useCallback(
-		async ({
-			routeId,
-			target,
-			position,
-		}: {
-			readonly routeId: string;
-			readonly target: RouteStopTarget;
-			readonly position: number;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const addStop = async ({
+		routeId,
+		target,
+		position,
+	}: {
+		readonly routeId: string;
+		readonly target: RouteStopTarget;
+		readonly position: number;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(route_items(), {
-					operation: 'insert',
-					intent: 'fieldWork.addRouteItem',
-					row: {
-						id: newRecordId(),
-						organization_id: organizationId,
-						route_id: routeId,
-						entity_type: target.type,
-						entity_id: target.id,
-						position,
-						directions_to_next_item: null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies RouteItemRow,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(route_items(), {
+				operation: 'insert',
+				intent: 'fieldWork.addRouteItem',
+				row: {
+					id: newRecordId(),
+					organization_id: organizationId,
+					route_id: routeId,
+					entity_type: target.type,
+					entity_id: target.id,
+					position,
+					directions_to_next_item: null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies RouteItemRow,
+			}),
+		);
+	};
 
-	const setDirections = useCallback(
-		async (routeItemId: string, directions: string) => {
-			const trimmed = directions.trim();
-			await settleWrite(
-				mutateCollection(route_items(), {
-					operation: 'update',
-					intent: 'fieldWork.updateRouteItem',
-					key: routeItemId,
-					changes: {
-						directions_to_next_item: trimmed.length === 0 ? null : trimmed,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setDirections = async (routeItemId: string, directions: string) => {
+		const trimmed = directions.trim();
+		await settleWrite(
+			mutateCollection(route_items(), {
+				operation: 'update',
+				intent: 'fieldWork.updateRouteItem',
+				key: routeItemId,
+				changes: {
+					directions_to_next_item: trimmed.length === 0 ? null : trimmed,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const removeStop = useCallback(async (routeItemId: string) => {
+	const removeStop = async (routeItemId: string) => {
 		await settleWrite(
 			mutateCollection(route_items(), {
 				operation: 'delete',
@@ -116,7 +109,7 @@ export function useRouteItemMutations(): RouteItemMutations {
 				key: routeItemId,
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		addStop,

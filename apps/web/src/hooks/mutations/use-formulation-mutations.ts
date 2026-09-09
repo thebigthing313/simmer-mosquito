@@ -28,7 +28,6 @@
 
 import type { Formulation, FormulationInsecticide } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { formulation_insecticides } from '../../lib/collections/formulation_insecticides';
 import { formulations } from '../../lib/collections/formulations';
 import { mutateCollection } from '../../lib/collections/mutate';
@@ -79,91 +78,85 @@ export function useFormulationMutations(): FormulationMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (fields: FormulationFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			const row = {
-				id: newRecordId(),
-				organization_id: organizationId,
-				formulation_name: fields.formulationName,
-				description: fields.description,
-				is_active: fields.isActive,
-				batch_size: fields.batchSize,
-				batch_unit_id: fields.batchUnitId,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			} satisfies Formulation;
+	const create = async (fields: FormulationFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		const row = {
+			id: newRecordId(),
+			organization_id: organizationId,
+			formulation_name: fields.formulationName,
+			description: fields.description,
+			is_active: fields.isActive,
+			batch_size: fields.batchSize,
+			batch_unit_id: fields.batchUnitId,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		} satisfies Formulation;
 
-			await settleWrite(
-				mutateCollection(formulations(), {
-					operation: 'insert',
-					// A recipe with nothing in it cannot be mixed, so a new one that the
-					// dialog left inactive says so rather than being written active and
-					// flicking back — see `catalog-writes.ts`.
-					intent: fields.isActive
-						? 'controlOperations.createFormulation'
-						: ['controlOperations.createFormulation', 'controlOperations.deactivateFormulation'],
-					row,
-				}),
+		await settleWrite(
+			mutateCollection(formulations(), {
+				operation: 'insert',
+				// A recipe with nothing in it cannot be mixed, so a new one that the
+				// dialog left inactive says so rather than being written active and
+				// flicking back — see `catalog-writes.ts`.
+				intent: fields.isActive
+					? 'controlOperations.createFormulation'
+					: ['controlOperations.createFormulation', 'controlOperations.deactivateFormulation'],
+				row,
+			}),
+		);
+		return row.id;
+	};
+
+	const save = async (id: string, fields: FormulationFields, current: FormulationFields) => {
+		const changes: Partial<Formulation> = {};
+		if (fields.formulationName !== current.formulationName) {
+			changes.formulation_name = fields.formulationName;
+		}
+		if (fields.description !== current.description) {
+			changes.description = fields.description;
+		}
+		if (fields.batchSize !== current.batchSize) {
+			changes.batch_size = fields.batchSize;
+		}
+		if (fields.batchUnitId !== current.batchUnitId) {
+			changes.batch_unit_id = fields.batchUnitId;
+		}
+
+		const intents: (
+			| 'controlOperations.updateFormulationDetails'
+			| 'controlOperations.activateFormulation'
+			| 'controlOperations.deactivateFormulation'
+		)[] = [];
+		if (Object.keys(changes).length > 0) {
+			intents.push('controlOperations.updateFormulationDetails');
+		}
+		if (fields.isActive !== current.isActive) {
+			intents.push(
+				fields.isActive
+					? 'controlOperations.activateFormulation'
+					: 'controlOperations.deactivateFormulation',
 			);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+		}
+		if (intents.length === 0) {
+			return;
+		}
 
-	const save = useCallback(
-		async (id: string, fields: FormulationFields, current: FormulationFields) => {
-			const changes: Partial<Formulation> = {};
-			if (fields.formulationName !== current.formulationName) {
-				changes.formulation_name = fields.formulationName;
-			}
-			if (fields.description !== current.description) {
-				changes.description = fields.description;
-			}
-			if (fields.batchSize !== current.batchSize) {
-				changes.batch_size = fields.batchSize;
-			}
-			if (fields.batchUnitId !== current.batchUnitId) {
-				changes.batch_unit_id = fields.batchUnitId;
-			}
+		await settleWrite(
+			mutateCollection(formulations(), {
+				operation: 'update',
+				intent: intents,
+				key: id,
+				changes: { ...changes, is_active: fields.isActive, updated_at: optimisticStamp() },
+			}),
+		);
+	};
 
-			const intents: (
-				| 'controlOperations.updateFormulationDetails'
-				| 'controlOperations.activateFormulation'
-				| 'controlOperations.deactivateFormulation'
-			)[] = [];
-			if (Object.keys(changes).length > 0) {
-				intents.push('controlOperations.updateFormulationDetails');
-			}
-			if (fields.isActive !== current.isActive) {
-				intents.push(
-					fields.isActive
-						? 'controlOperations.activateFormulation'
-						: 'controlOperations.deactivateFormulation',
-				);
-			}
-			if (intents.length === 0) {
-				return;
-			}
-
-			await settleWrite(
-				mutateCollection(formulations(), {
-					operation: 'update',
-					intent: intents,
-					key: id,
-					changes: { ...changes, is_active: fields.isActive, updated_at: optimisticStamp() },
-				}),
-			);
-		},
-		[],
-	);
-
-	const setActive = useCallback(async (id: string, isActive: boolean) => {
+	const setActive = async (id: string, isActive: boolean) => {
 		await settleWrite(
 			mutateCollection(formulations(), {
 				operation: 'update',
@@ -174,9 +167,9 @@ export function useFormulationMutations(): FormulationMutations {
 				changes: { is_active: isActive, updated_at: optimisticStamp() },
 			}),
 		);
-	}, []);
+	};
 
-	const remove = useCallback(async (id: string) => {
+	const remove = async (id: string) => {
 		await settleWrite(
 			mutateCollection(formulations(), {
 				operation: 'delete',
@@ -187,57 +180,51 @@ export function useFormulationMutations(): FormulationMutations {
 				acknowledgements: { acknowledgedComponentDeletion: true },
 			}),
 		);
-	}, []);
+	};
 
-	const addComponent = useCallback(
-		async (formulationId: string, fields: FormulationComponentFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(formulation_insecticides(), {
-					operation: 'insert',
-					intent: 'controlOperations.addFormulationInsecticide',
-					row: {
-						id: newRecordId(),
-						organization_id: organizationId,
-						formulation_id: formulationId,
-						insecticide_id: fields.insecticideId,
-						amount: fields.amount,
-						unit_id: fields.unitId,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies FormulationInsecticide,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+	const addComponent = async (formulationId: string, fields: FormulationComponentFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(formulation_insecticides(), {
+				operation: 'insert',
+				intent: 'controlOperations.addFormulationInsecticide',
+				row: {
+					id: newRecordId(),
+					organization_id: organizationId,
+					formulation_id: formulationId,
+					insecticide_id: fields.insecticideId,
+					amount: fields.amount,
+					unit_id: fields.unitId,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies FormulationInsecticide,
+			}),
+		);
+	};
 
-	const saveComponent = useCallback(
-		async (componentId: string, fields: FormulationComponentFields) => {
-			await settleWrite(
-				mutateCollection(formulation_insecticides(), {
-					operation: 'update',
-					intent: 'controlOperations.updateFormulationInsecticide',
-					key: componentId,
-					changes: {
-						insecticide_id: fields.insecticideId,
-						amount: fields.amount,
-						unit_id: fields.unitId,
-						updated_at: optimisticStamp(),
-					},
-					acknowledgements: { acknowledgedDeactivateEmptyFormulation: true },
-				}),
-			);
-		},
-		[],
-	);
+	const saveComponent = async (componentId: string, fields: FormulationComponentFields) => {
+		await settleWrite(
+			mutateCollection(formulation_insecticides(), {
+				operation: 'update',
+				intent: 'controlOperations.updateFormulationInsecticide',
+				key: componentId,
+				changes: {
+					insecticide_id: fields.insecticideId,
+					amount: fields.amount,
+					unit_id: fields.unitId,
+					updated_at: optimisticStamp(),
+				},
+				acknowledgements: { acknowledgedDeactivateEmptyFormulation: true },
+			}),
+		);
+	};
 
-	const removeComponent = useCallback(async (componentId: string) => {
+	const removeComponent = async (componentId: string) => {
 		await settleWrite(
 			mutateCollection(formulation_insecticides(), {
 				operation: 'delete',
@@ -246,7 +233,7 @@ export function useFormulationMutations(): FormulationMutations {
 				acknowledgements: { acknowledgedDeactivateEmptyFormulation: true },
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		create,

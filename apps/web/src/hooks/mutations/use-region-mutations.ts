@@ -43,7 +43,6 @@ import type { RegionGeometry } from '@simmer-mosquito/domain';
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type Region, settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { regions } from '../../lib/collections/regions';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -168,132 +167,117 @@ export function useRegionMutations(): RegionMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		(regionId: string, fields: RegionFields, geometry: RegionGeometry) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const centroid = ownedCentroidFromGeoJson(geometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine where the region sits.');
-			}
+	const create = (regionId: string, fields: RegionFields, geometry: RegionGeometry) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const centroid = ownedCentroidFromGeoJson(geometry);
+		if (centroid === null) {
+			throw new Error('Unable to determine where the region sits.');
+		}
 
-			const now = optimisticStamp();
-			const write = mutateCollection(regions(), {
-				operation: 'insert',
-				intent: 'foundation.createRegion',
-				row: {
-					id: regionId,
-					organization_id: organizationId,
-					region_folder_id: fields.folderId,
-					lat: centroid.lat,
-					lng: centroid.lng,
-					geom_type: centroid.geomType,
-					name: fields.name,
-					description: fields.description,
-					metadata: fields.metadata ?? null,
-					created_by_profile_id: actorProfileId,
+		const now = optimisticStamp();
+		const write = mutateCollection(regions(), {
+			operation: 'insert',
+			intent: 'foundation.createRegion',
+			row: {
+				id: regionId,
+				organization_id: organizationId,
+				region_folder_id: fields.folderId,
+				lat: centroid.lat,
+				lng: centroid.lng,
+				geom_type: centroid.geomType,
+				name: fields.name,
+				description: fields.description,
+				metadata: fields.metadata ?? null,
+				created_by_profile_id: actorProfileId,
+				updated_by_profile_id: actorProfileId,
+				created_at: now,
+				updated_at: now,
+			} satisfies Region,
+			arguments: { geometry },
+		});
+		// This one hands the write back rather than awaiting it, so the clear
+		// hangs off the persisted promise. Clearing before the server commits
+		// would refetch the answer from before the region existed. A failed
+		// write left nothing stale, so its rejection is nothing to act on and
+		// the caller is the one reporting it.
+		void write.isPersisted.promise.then(
+			() => invalidateAllRecordRegions(queryClient),
+			() => undefined,
+		);
+		return write;
+	};
+
+	const save = async (input: {
+		readonly regionId: string;
+		readonly fields: RegionFields;
+		readonly current: RegionFields;
+		readonly geometry: RegionGeometry | null;
+	}) => {
+		const plan = regionUpdatePlan(input);
+		if (plan === null) {
+			return;
+		}
+
+		await settleWrite(
+			mutateCollection(regions(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: input.regionId,
+				changes: {
+					...plan.changes,
 					updated_by_profile_id: actorProfileId,
-					created_at: now,
-					updated_at: now,
-				} satisfies Region,
-				arguments: { geometry },
-			});
-			// This one hands the write back rather than awaiting it, so the clear
-			// hangs off the persisted promise. Clearing before the server commits
-			// would refetch the answer from before the region existed. A failed
-			// write left nothing stale, so its rejection is nothing to act on and
-			// the caller is the one reporting it.
-			void write.isPersisted.promise.then(
-				() => invalidateAllRecordRegions(queryClient),
-				() => undefined,
-			);
-			return write;
-		},
-		[organizationId, actorProfileId, queryClient],
-	);
+					updated_at: optimisticStamp(),
+				},
+				...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
+			}),
+		);
+		invalidateAllRecordRegions(queryClient);
+	};
 
-	const save = useCallback(
-		async (input: {
-			readonly regionId: string;
-			readonly fields: RegionFields;
-			readonly current: RegionFields;
-			readonly geometry: RegionGeometry | null;
-		}) => {
-			const plan = regionUpdatePlan(input);
-			if (plan === null) {
-				return;
-			}
+	const rename = async (regionId: string, name: string) => {
+		await settleWrite(
+			mutateCollection(regions(), {
+				operation: 'update',
+				intent: 'foundation.updateRegionDetails',
+				key: regionId,
+				changes: {
+					name,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+		invalidateAllRecordRegions(queryClient);
+	};
 
-			await settleWrite(
-				mutateCollection(regions(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: input.regionId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
-				}),
-			);
-			invalidateAllRecordRegions(queryClient);
-		},
-		[actorProfileId, queryClient],
-	);
+	const move = async (regionId: string, folderId: string | null) => {
+		await settleWrite(
+			mutateCollection(regions(), {
+				operation: 'update',
+				intent: 'foundation.moveRegionToFolder',
+				key: regionId,
+				changes: {
+					region_folder_id: folderId,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+		invalidateAllRecordRegions(queryClient);
+	};
 
-	const rename = useCallback(
-		async (regionId: string, name: string) => {
-			await settleWrite(
-				mutateCollection(regions(), {
-					operation: 'update',
-					intent: 'foundation.updateRegionDetails',
-					key: regionId,
-					changes: {
-						name,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-			invalidateAllRecordRegions(queryClient);
-		},
-		[actorProfileId, queryClient],
-	);
-
-	const move = useCallback(
-		async (regionId: string, folderId: string | null) => {
-			await settleWrite(
-				mutateCollection(regions(), {
-					operation: 'update',
-					intent: 'foundation.moveRegionToFolder',
-					key: regionId,
-					changes: {
-						region_folder_id: folderId,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-			invalidateAllRecordRegions(queryClient);
-		},
-		[actorProfileId, queryClient],
-	);
-
-	const remove = useCallback(
-		async (regionId: string) => {
-			await settleWrite(
-				mutateCollection(regions(), {
-					operation: 'delete',
-					intent: 'foundation.deleteRegion',
-					key: regionId,
-				}),
-			);
-			invalidateAllRecordRegions(queryClient);
-		},
-		[queryClient],
-	);
+	const remove = async (regionId: string) => {
+		await settleWrite(
+			mutateCollection(regions(), {
+				operation: 'delete',
+				intent: 'foundation.deleteRegion',
+				key: regionId,
+			}),
+		);
+		invalidateAllRecordRegions(queryClient);
+	};
 
 	return {
 		create,

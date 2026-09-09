@@ -19,7 +19,6 @@
  */
 
 import { coalesce, concat, inArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { habitats } from '../../lib/collections/habitats';
 import { traps } from '../../lib/collections/traps';
 import { activityGcTimeMs, unmatchableId } from './shared';
@@ -96,28 +95,18 @@ export function useAddressSurveillance(addressIds: readonly string[]): AddressSu
 	const habitatRows = habitatResult.data;
 	const trapRows = trapResult.data;
 
-	return useMemo(
-		() => ({
-			habitatsByAddress: groupByAddress(habitatRows, (habitat) => habitat),
-			// Composed rather than projected: `trapDisplayName` falls back to a
-			// substring of the id and the expression language has no substring.
-			trapsByAddress: groupByAddress(trapRows, (trap) => ({
-				id: trap.id,
-				name: trapDisplayName(trap),
-				isActive: trap.isActive,
-			})),
-			isReady: habitatResult.isReady && trapResult.isReady,
-			isError: habitatResult.isError || trapResult.isError,
-		}),
-		[
-			habitatRows,
-			trapRows,
-			habitatResult.isReady,
-			habitatResult.isError,
-			trapResult.isReady,
-			trapResult.isError,
-		],
-	);
+	return {
+		habitatsByAddress: groupByAddress(habitatRows, (habitat) => habitat),
+		// Composed rather than projected: `trapDisplayName` falls back to a
+		// substring of the id and the expression language has no substring.
+		trapsByAddress: groupByAddress(trapRows, (trap) => ({
+			id: trap.id,
+			name: trapDisplayName(trap),
+			isActive: trap.isActive,
+		})),
+		isReady: habitatResult.isReady && trapResult.isReady,
+		isError: habitatResult.isError || trapResult.isError,
+	};
 }
 
 /**

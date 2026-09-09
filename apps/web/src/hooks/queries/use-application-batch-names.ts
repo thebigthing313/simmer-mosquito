@@ -15,7 +15,6 @@
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { application_batches } from '../../lib/collections/application_batches';
 import { insecticide_batches } from '../../lib/collections/insecticide_batches';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
@@ -43,5 +42,5 @@ export function useApplicationBatchNames(applicationId: string | null): readonly
 
 	// Memoized rather than mapped inline: `rows` is the observer's cached snapshot,
 	// so this hands back the same array until a batch actually changes.
-	return useMemo(() => rows.map((row) => row.name), [rows]);
+	return rows.map((row) => row.name);
 }

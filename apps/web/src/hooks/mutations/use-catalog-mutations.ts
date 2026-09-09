@@ -30,7 +30,6 @@ import type {
 	HabitatType,
 	NotificationType,
 } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import type { Acknowledgements } from '../../components/acknowledged-write';
 import {
 	CATALOG_SAVE_REFUSALS,
@@ -184,57 +183,51 @@ const collectionMethodCommands: CatalogCommandNames = {
 export function useCollectionMethodMutations(): CatalogMutations {
 	const { organizationId, actorProfileId } = useWriterIdentity();
 
-	const create = useCallback(
-		async (fields: CatalogFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const row = {
-				...catalogRowBase(organizationId, actorProfileId),
-				name: fields.name,
-				description: fields.description ?? null,
-				custom_schema: fields.customSchema ?? null,
-				action_threshold: fields.actionThreshold ?? null,
-				is_active: fields.isActive,
-			} satisfies CollectionMethod;
-			await createCatalogRow(collection_methods(), collectionMethodCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: CatalogFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const row = {
+			...catalogRowBase(organizationId, actorProfileId),
+			name: fields.name,
+			description: fields.description ?? null,
+			custom_schema: fields.customSchema ?? null,
+			action_threshold: fields.actionThreshold ?? null,
+			is_active: fields.isActive,
+		} satisfies CollectionMethod;
+		await createCatalogRow(collection_methods(), collectionMethodCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: CatalogFields,
-			current: CatalogFields,
-			acknowledgements: Acknowledgements,
-		) => {
-			const changes: Partial<CollectionMethod> = {};
-			if (fields.name !== current.name) {
-				changes.name = fields.name;
-			}
-			if (fields.description !== current.description) {
-				changes.description = fields.description ?? null;
-			}
-			if (fields.customSchema !== current.customSchema) {
-				changes.custom_schema = fields.customSchema ?? null;
-			}
-			if (fields.actionThreshold !== current.actionThreshold) {
-				changes.action_threshold = fields.actionThreshold ?? null;
-			}
-			await saveCatalogRow(collection_methods(), collectionMethodCommands, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
-					renames: changes.name !== undefined,
-					retires: !fields.isActive && current.isActive,
-				}),
-			});
-		},
-		[],
-	);
+	const save = async (
+		id: string,
+		fields: CatalogFields,
+		current: CatalogFields,
+		acknowledgements: Acknowledgements,
+	) => {
+		const changes: Partial<CollectionMethod> = {};
+		if (fields.name !== current.name) {
+			changes.name = fields.name;
+		}
+		if (fields.description !== current.description) {
+			changes.description = fields.description ?? null;
+		}
+		if (fields.customSchema !== current.customSchema) {
+			changes.custom_schema = fields.customSchema ?? null;
+		}
+		if (fields.actionThreshold !== current.actionThreshold) {
+			changes.action_threshold = fields.actionThreshold ?? null;
+		}
+		await saveCatalogRow(collection_methods(), collectionMethodCommands, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+				renames: changes.name !== undefined,
+				retires: !fields.isActive && current.isActive,
+			}),
+		});
+	};
 
 	return catalogMutations(collection_methods(), collectionMethodCommands, CATALOG_SAVE_REFUSALS, {
 		create,
@@ -254,49 +247,43 @@ const collectionLureCommands: CatalogCommandNames = {
 export function useCollectionLureMutations(): CatalogMutations {
 	const { organizationId, actorProfileId } = useWriterIdentity();
 
-	const create = useCallback(
-		async (fields: CatalogFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const row = {
-				...catalogRowBase(organizationId, actorProfileId),
-				name: fields.name,
-				description: fields.description ?? null,
-				is_active: fields.isActive,
-			} satisfies CollectionLure;
-			await createCatalogRow(collection_lures(), collectionLureCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: CatalogFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const row = {
+			...catalogRowBase(organizationId, actorProfileId),
+			name: fields.name,
+			description: fields.description ?? null,
+			is_active: fields.isActive,
+		} satisfies CollectionLure;
+		await createCatalogRow(collection_lures(), collectionLureCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: CatalogFields,
-			current: CatalogFields,
-			acknowledgements: Acknowledgements,
-		) => {
-			const changes: Partial<CollectionLure> = {};
-			if (fields.name !== current.name) {
-				changes.name = fields.name;
-			}
-			if (fields.description !== current.description) {
-				changes.description = fields.description ?? null;
-			}
-			await saveCatalogRow(collection_lures(), collectionLureCommands, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
-					renames: changes.name !== undefined,
-					retires: !fields.isActive && current.isActive,
-				}),
-			});
-		},
-		[],
-	);
+	const save = async (
+		id: string,
+		fields: CatalogFields,
+		current: CatalogFields,
+		acknowledgements: Acknowledgements,
+	) => {
+		const changes: Partial<CollectionLure> = {};
+		if (fields.name !== current.name) {
+			changes.name = fields.name;
+		}
+		if (fields.description !== current.description) {
+			changes.description = fields.description ?? null;
+		}
+		await saveCatalogRow(collection_lures(), collectionLureCommands, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+				renames: changes.name !== undefined,
+				retires: !fields.isActive && current.isActive,
+			}),
+		});
+	};
 
 	return catalogMutations(collection_lures(), collectionLureCommands, CATALOG_SAVE_REFUSALS, {
 		create,
@@ -316,53 +303,47 @@ const habitatTypeCommands: CatalogCommandNames = {
 export function useHabitatTypeMutations(): CatalogMutations {
 	const { organizationId, actorProfileId } = useWriterIdentity();
 
-	const create = useCallback(
-		async (fields: CatalogFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const row = {
-				...catalogRowBase(organizationId, actorProfileId),
-				name: fields.name,
-				description: fields.description ?? null,
-				custom_schema: fields.customSchema ?? null,
-				is_active: fields.isActive,
-			} satisfies HabitatType;
-			await createCatalogRow(habitat_types(), habitatTypeCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: CatalogFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const row = {
+			...catalogRowBase(organizationId, actorProfileId),
+			name: fields.name,
+			description: fields.description ?? null,
+			custom_schema: fields.customSchema ?? null,
+			is_active: fields.isActive,
+		} satisfies HabitatType;
+		await createCatalogRow(habitat_types(), habitatTypeCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: CatalogFields,
-			current: CatalogFields,
-			acknowledgements: Acknowledgements,
-		) => {
-			const changes: Partial<HabitatType> = {};
-			if (fields.name !== current.name) {
-				changes.name = fields.name;
-			}
-			if (fields.description !== current.description) {
-				changes.description = fields.description ?? null;
-			}
-			if (fields.customSchema !== current.customSchema) {
-				changes.custom_schema = fields.customSchema ?? null;
-			}
-			await saveCatalogRow(habitat_types(), habitatTypeCommands, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
-					renames: changes.name !== undefined,
-					retires: !fields.isActive && current.isActive,
-				}),
-			});
-		},
-		[],
-	);
+	const save = async (
+		id: string,
+		fields: CatalogFields,
+		current: CatalogFields,
+		acknowledgements: Acknowledgements,
+	) => {
+		const changes: Partial<HabitatType> = {};
+		if (fields.name !== current.name) {
+			changes.name = fields.name;
+		}
+		if (fields.description !== current.description) {
+			changes.description = fields.description ?? null;
+		}
+		if (fields.customSchema !== current.customSchema) {
+			changes.custom_schema = fields.customSchema ?? null;
+		}
+		await saveCatalogRow(habitat_types(), habitatTypeCommands, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+				renames: changes.name !== undefined,
+				retires: !fields.isActive && current.isActive,
+			}),
+		});
+	};
 
 	return catalogMutations(habitat_types(), habitatTypeCommands, CATALOG_SAVE_REFUSALS, {
 		create,
@@ -382,53 +363,43 @@ const notificationTypeCommands: CatalogCommandNames = {
 export function useNotificationTypeMutations(): CatalogMutations {
 	const { organizationId, actorProfileId } = useWriterIdentity();
 
-	const create = useCallback(
-		async (fields: CatalogFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const row = {
-				...catalogRowBase(organizationId, actorProfileId),
-				name: fields.name,
-				description: fields.description ?? null,
-				is_active: fields.isActive,
-			} satisfies NotificationType;
-			await createCatalogRow(notification_types(), notificationTypeCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: CatalogFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const row = {
+			...catalogRowBase(organizationId, actorProfileId),
+			name: fields.name,
+			description: fields.description ?? null,
+			is_active: fields.isActive,
+		} satisfies NotificationType;
+		await createCatalogRow(notification_types(), notificationTypeCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: CatalogFields,
-			current: CatalogFields,
-			acknowledgements: Acknowledgements,
-		) => {
-			const changes: Partial<NotificationType> = {};
-			if (fields.name !== current.name) {
-				changes.name = fields.name;
-			}
-			if (fields.description !== current.description) {
-				changes.description = fields.description ?? null;
-			}
-			await saveCatalogRow(notification_types(), notificationTypeCommands, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				acknowledgements: catalogAcknowledgements(
-					NOTIFICATION_TYPE_SAVE_REFUSALS,
-					acknowledgements,
-					{
-						renames: changes.name !== undefined,
-						retires: !fields.isActive && current.isActive,
-					},
-				),
-			});
-		},
-		[],
-	);
+	const save = async (
+		id: string,
+		fields: CatalogFields,
+		current: CatalogFields,
+		acknowledgements: Acknowledgements,
+	) => {
+		const changes: Partial<NotificationType> = {};
+		if (fields.name !== current.name) {
+			changes.name = fields.name;
+		}
+		if (fields.description !== current.description) {
+			changes.description = fields.description ?? null;
+		}
+		await saveCatalogRow(notification_types(), notificationTypeCommands, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			acknowledgements: catalogAcknowledgements(NOTIFICATION_TYPE_SAVE_REFUSALS, acknowledgements, {
+				renames: changes.name !== undefined,
+				retires: !fields.isActive && current.isActive,
+			}),
+		});
+	};
 
 	return catalogMutations(
 		notification_types(),
@@ -497,49 +468,43 @@ function useControlMethodMutations(
 ): CatalogMutations {
 	const { organizationId, actorProfileId } = useWriterIdentity();
 
-	const create = useCallback(
-		async (fields: CatalogFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const row = {
-				...catalogRowBase(organizationId, actorProfileId),
-				name: fields.name,
-				custom_schema: fields.customSchema ?? null,
-				is_active: fields.isActive,
-			} satisfies ApplicationMethod;
-			await createCatalogRow(collection, names, row);
-			return row.id;
-		},
-		[collection, names, organizationId, actorProfileId],
-	);
+	const create = async (fields: CatalogFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const row = {
+			...catalogRowBase(organizationId, actorProfileId),
+			name: fields.name,
+			custom_schema: fields.customSchema ?? null,
+			is_active: fields.isActive,
+		} satisfies ApplicationMethod;
+		await createCatalogRow(collection, names, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: CatalogFields,
-			current: CatalogFields,
-			acknowledgements: Acknowledgements,
-		) => {
-			const changes: Partial<ApplicationMethod> = {};
-			if (fields.name !== current.name) {
-				changes.name = fields.name;
-			}
-			if (fields.customSchema !== current.customSchema) {
-				changes.custom_schema = fields.customSchema ?? null;
-			}
-			await saveCatalogRow(collection, names, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
-					renames: changes.name !== undefined,
-					retires: !fields.isActive && current.isActive,
-				}),
-			});
-		},
-		[collection, names],
-	);
+	const save = async (
+		id: string,
+		fields: CatalogFields,
+		current: CatalogFields,
+		acknowledgements: Acknowledgements,
+	) => {
+		const changes: Partial<ApplicationMethod> = {};
+		if (fields.name !== current.name) {
+			changes.name = fields.name;
+		}
+		if (fields.customSchema !== current.customSchema) {
+			changes.custom_schema = fields.customSchema ?? null;
+		}
+		await saveCatalogRow(collection, names, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+				renames: changes.name !== undefined,
+				retires: !fields.isActive && current.isActive,
+			}),
+		});
+	};
 
 	return catalogMutations(collection, names, CATALOG_SAVE_REFUSALS, {
 		create,

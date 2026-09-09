@@ -15,7 +15,6 @@
  */
 
 import { useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { profiles } from '../../lib/collections/profiles';
 
 export function useProfileNames(): ReadonlyMap<string, string> {
@@ -29,5 +28,5 @@ export function useProfileNames(): ReadonlyMap<string, string> {
 
 	const rows = result.data;
 
-	return useMemo(() => new Map(rows.map((row) => [row.id, row.name] as const)), [rows]);
+	return new Map(rows.map((row) => [row.id, row.name] as const));
 }

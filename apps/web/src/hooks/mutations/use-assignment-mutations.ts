@@ -34,7 +34,6 @@ import {
 	type Assignment as AssignmentRow,
 	settleWrite,
 } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { type MovePlan, planStopPositions } from '../../components/stop-order';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { assignments } from '../../lib/collections/assignments';
@@ -102,236 +101,212 @@ export function useAssignmentMutations(): AssignmentMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const newAssignmentRow = useCallback(
-		(assignmentId: string, details: AssignmentDetails): AssignmentRow => {
-			const now = optimisticStamp();
-			return {
-				id: assignmentId,
-				organization_id: organizationId ?? '',
-				assignment_name: details.assignmentName,
-				assigned_to_profile_id: details.assignedToProfileId,
-				// Mirrors what the server stamps, so the row does not change under the
-				// list a moment after it appears.
-				assigned_by_profile_id: actorProfileId,
-				assignment_date: details.assignmentDate,
-				due_at: details.dueAt,
-				started_at: null,
-				completed_at: null,
-				cancelled_at: null,
-				cancellation_reason: null,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			};
-		},
-		[organizationId, actorProfileId],
-	);
+	const newAssignmentRow = (assignmentId: string, details: AssignmentDetails): AssignmentRow => {
+		const now = optimisticStamp();
+		return {
+			id: assignmentId,
+			organization_id: organizationId ?? '',
+			assignment_name: details.assignmentName,
+			assigned_to_profile_id: details.assignedToProfileId,
+			// Mirrors what the server stamps, so the row does not change under the
+			// list a moment after it appears.
+			assigned_by_profile_id: actorProfileId,
+			assignment_date: details.assignmentDate,
+			due_at: details.dueAt,
+			started_at: null,
+			completed_at: null,
+			cancelled_at: null,
+			cancellation_reason: null,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		};
+	};
 
-	const create = useCallback(
-		async (assignmentId: string, details: AssignmentDetails) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const create = async (assignmentId: string, details: AssignmentDetails) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			await settleWrite(
-				mutateCollection(assignments(), {
-					operation: 'insert',
-					intent: 'fieldWork.createAssignment',
-					row: newAssignmentRow(assignmentId, details),
-				}),
-			);
-		},
-		[organizationId, newAssignmentRow],
-	);
+		await settleWrite(
+			mutateCollection(assignments(), {
+				operation: 'insert',
+				intent: 'fieldWork.createAssignment',
+				row: newAssignmentRow(assignmentId, details),
+			}),
+		);
+	};
 
-	const createFromRoute = useCallback(
-		async ({
-			assignmentId,
-			routeId,
-			details,
-			stops,
-		}: {
-			readonly assignmentId: string;
-			readonly routeId: string;
-			readonly details: AssignmentDetails;
-			readonly stops: readonly RouteStopSnapshot[];
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const createFromRoute = async ({
+		assignmentId,
+		routeId,
+		details,
+		stops,
+	}: {
+		readonly assignmentId: string;
+		readonly routeId: string;
+		readonly details: AssignmentDetails;
+		readonly stops: readonly RouteStopSnapshot[];
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const assignment = newAssignmentRow(assignmentId, details);
+		const now = optimisticStamp();
+		const assignment = newAssignmentRow(assignmentId, details);
 
-			await settleWrite(
-				commandTransaction({
-					intent: 'fieldWork.createAssignmentFromRoute' satisfies MultiRowCommandType,
-					request: {
-						table: 'assignments',
-						method: 'POST',
-						body: {
-							id: assignmentId,
-							route_id: routeId,
-							assignment_date: details.assignmentDate,
-							assignment_name: details.assignmentName,
-							assigned_to_profile_id: details.assignedToProfileId,
-							due_at: details.dueAt,
-							// Named for the table they become, each entry keyed by that
-							// table's own columns — the same shape a Chemical Application
-							// states its batches in.
-							assignment_items: stops.map((stop) => ({
-								id: stop.assignmentItemId,
-								route_item_id: stop.routeItemId,
-							})),
-						},
-					},
-					apply: () => {
-						assignments().insert(assignment);
-						stops.forEach((stop, index) => {
-							assignment_items().insert({
-								id: stop.assignmentItemId,
-								organization_id: organizationId,
-								assignment_id: assignmentId,
-								entity_type: stop.entityType,
-								entity_id: stop.entityId,
-								position: index,
-								directions_to_next_item: stop.directionsToNextItem,
-								completed_at: null,
-								completed_by_profile_id: null,
-								skipped_at: null,
-								skipped_by_profile_id: null,
-								skip_reason: null,
-								created_by_profile_id: actorProfileId,
-								updated_by_profile_id: actorProfileId,
-								created_at: now,
-								updated_at: now,
-							} satisfies AssignmentItemRow);
-						});
-					},
-				}),
-			);
-		},
-		[organizationId, actorProfileId, newAssignmentRow],
-	);
-
-	const updateDetails = useCallback(
-		async (assignmentId: string, details: AssignmentDetails) => {
-			await settleWrite(
-				mutateCollection(assignments(), {
-					operation: 'update',
-					intent: 'fieldWork.updateAssignmentDetails',
-					key: assignmentId,
-					changes: {
+		await settleWrite(
+			commandTransaction({
+				intent: 'fieldWork.createAssignmentFromRoute' satisfies MultiRowCommandType,
+				request: {
+					table: 'assignments',
+					method: 'POST',
+					body: {
+						id: assignmentId,
+						route_id: routeId,
 						assignment_date: details.assignmentDate,
 						assignment_name: details.assignmentName,
 						assigned_to_profile_id: details.assignedToProfileId,
 						due_at: details.dueAt,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
+						// Named for the table they become, each entry keyed by that
+						// table's own columns — the same shape a Chemical Application
+						// states its batches in.
+						assignment_items: stops.map((stop) => ({
+							id: stop.assignmentItemId,
+							route_item_id: stop.routeItemId,
+						})),
 					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+				},
+				apply: () => {
+					assignments().insert(assignment);
+					stops.forEach((stop, index) => {
+						assignment_items().insert({
+							id: stop.assignmentItemId,
+							organization_id: organizationId,
+							assignment_id: assignmentId,
+							entity_type: stop.entityType,
+							entity_id: stop.entityId,
+							position: index,
+							directions_to_next_item: stop.directionsToNextItem,
+							completed_at: null,
+							completed_by_profile_id: null,
+							skipped_at: null,
+							skipped_by_profile_id: null,
+							skip_reason: null,
+							created_by_profile_id: actorProfileId,
+							updated_by_profile_id: actorProfileId,
+							created_at: now,
+							updated_at: now,
+						} satisfies AssignmentItemRow);
+					});
+				},
+			}),
+		);
+	};
 
-	const start = useCallback(
-		async (assignmentId: string) => {
-			await settleWrite(
-				mutateCollection(assignments(), {
-					operation: 'update',
-					intent: 'fieldWork.startAssignment',
-					key: assignmentId,
-					changes: {
-						started_at: lifecycleStamp(),
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const updateDetails = async (assignmentId: string, details: AssignmentDetails) => {
+		await settleWrite(
+			mutateCollection(assignments(), {
+				operation: 'update',
+				intent: 'fieldWork.updateAssignmentDetails',
+				key: assignmentId,
+				changes: {
+					assignment_date: details.assignmentDate,
+					assignment_name: details.assignmentName,
+					assigned_to_profile_id: details.assignedToProfileId,
+					due_at: details.dueAt,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const complete = useCallback(
-		async (assignmentId: string) => {
-			await settleWrite(
-				mutateCollection(assignments(), {
-					operation: 'update',
-					intent: 'fieldWork.completeAssignment',
-					key: assignmentId,
-					changes: {
-						completed_at: lifecycleStamp(),
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const start = async (assignmentId: string) => {
+		await settleWrite(
+			mutateCollection(assignments(), {
+				operation: 'update',
+				intent: 'fieldWork.startAssignment',
+				key: assignmentId,
+				changes: {
+					started_at: lifecycleStamp(),
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const cancel = useCallback(
-		async (assignmentId: string, cancellationReason: string | null) => {
-			await settleWrite(
-				mutateCollection(assignments(), {
-					operation: 'update',
-					intent: 'fieldWork.cancelAssignment',
-					key: assignmentId,
-					changes: {
-						cancelled_at: lifecycleStamp(),
-						cancellation_reason: cancellationReason,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const complete = async (assignmentId: string) => {
+		await settleWrite(
+			mutateCollection(assignments(), {
+				operation: 'update',
+				intent: 'fieldWork.completeAssignment',
+				key: assignmentId,
+				changes: {
+					completed_at: lifecycleStamp(),
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const reopen = useCallback(
-		async (assignmentId: string) => {
-			await settleWrite(
-				mutateCollection(assignments(), {
-					operation: 'update',
-					intent: 'fieldWork.reopenAssignment',
-					key: assignmentId,
-					changes: {
-						completed_at: null,
-						cancelled_at: null,
-						cancellation_reason: null,
-						// `started_at` is deliberately left alone. The server keeps it
-						// (issue #38) — reopening resumes work rather than resetting it, and
-						// nothing else on the row records when the crew actually started.
-						// Nulling it here would show "Not started" until sync corrected it.
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const cancel = async (assignmentId: string, cancellationReason: string | null) => {
+		await settleWrite(
+			mutateCollection(assignments(), {
+				operation: 'update',
+				intent: 'fieldWork.cancelAssignment',
+				key: assignmentId,
+				changes: {
+					cancelled_at: lifecycleStamp(),
+					cancellation_reason: cancellationReason,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (assignmentId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(assignments(), {
-					operation: 'delete',
-					intent: 'fieldWork.deleteAssignment',
-					key: assignmentId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const reopen = async (assignmentId: string) => {
+		await settleWrite(
+			mutateCollection(assignments(), {
+				operation: 'update',
+				intent: 'fieldWork.reopenAssignment',
+				key: assignmentId,
+				changes: {
+					completed_at: null,
+					cancelled_at: null,
+					cancellation_reason: null,
+					// `started_at` is deliberately left alone. The server keeps it
+					// (issue #38) — reopening resumes work rather than resetting it, and
+					// nothing else on the row records when the crew actually started.
+					// Nulling it here would show "Not started" until sync corrected it.
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const moveStops = useCallback(async (assignmentId: string, plan: MovePlan) => {
+	const remove = async (
+		assignmentId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(assignments(), {
+				operation: 'delete',
+				intent: 'fieldWork.deleteAssignment',
+				key: assignmentId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
+
+	const moveStops = async (assignmentId: string, plan: MovePlan) => {
 		await settleWrite(
 			commandTransaction({
 				intent: 'fieldWork.moveAssignmentItems' satisfies MultiRowCommandType,
@@ -360,7 +335,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 				},
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		create,

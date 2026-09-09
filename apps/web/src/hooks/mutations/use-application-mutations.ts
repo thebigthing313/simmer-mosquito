@@ -43,7 +43,6 @@ import {
 	commandBodyFromRow,
 	settleWrite,
 } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { application_batches } from '../../lib/collections/application_batches';
 import { applications } from '../../lib/collections/applications';
@@ -149,213 +148,204 @@ export function useApplicationMutations(): ApplicationMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async ({
-			applicationId,
-			values,
-			location,
-			insecticideBatchIds,
-			missionItemId,
-			acknowledgements,
-		}: RecordApplicationInput) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const record = async ({
+		applicationId,
+		values,
+		location,
+		insecticideBatchIds,
+		missionItemId,
+		acknowledgements,
+	}: RecordApplicationInput) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const row = {
-				id: applicationId,
-				organization_id: organizationId,
-				application_method_id: values.methodId,
-				insecticide_id: values.insecticideId,
-				applicator_profile_id: values.applicatorProfileId,
-				application_date: values.actionDate,
-				lat: location.lat,
-				lng: location.lng,
-				geom_type: location.geomType,
-				address_id: values.addressId,
-				vehicle_id: values.vehicleId,
-				equipment_id: values.equipmentId,
-				amount_applied: values.amountApplied,
-				application_unit_id: values.unitId,
-				habitat_id: values.habitatId,
-				// A create never promotes an existing Inspection, Collection or requested
-				// action; all three are attached by the flows that own them.
-				collection_id: null,
-				inspection_id: null,
-				requested_control_action_id: null,
-				mission_item_id: missionItemId,
-				metadata: values.metadata,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-				// `satisfies` rather than `as`: it is what makes a wrong column name a
-				// compile error rather than a field the server silently ignores.
-			} satisfies ApplicationRow;
+		const now = optimisticStamp();
+		const row = {
+			id: applicationId,
+			organization_id: organizationId,
+			application_method_id: values.methodId,
+			insecticide_id: values.insecticideId,
+			applicator_profile_id: values.applicatorProfileId,
+			application_date: values.actionDate,
+			lat: location.lat,
+			lng: location.lng,
+			geom_type: location.geomType,
+			address_id: values.addressId,
+			vehicle_id: values.vehicleId,
+			equipment_id: values.equipmentId,
+			amount_applied: values.amountApplied,
+			application_unit_id: values.unitId,
+			habitat_id: values.habitatId,
+			// A create never promotes an existing Inspection, Collection or requested
+			// action; all three are attached by the flows that own them.
+			collection_id: null,
+			inspection_id: null,
+			requested_control_action_id: null,
+			mission_item_id: missionItemId,
+			metadata: values.metadata,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+			// `satisfies` rather than `as`: it is what makes a wrong column name a
+			// compile error rather than a field the server silently ignores.
+		} satisfies ApplicationRow;
 
-			// Ids minted here so the same values describe the optimistic row and the
-			// row the server writes — a link the server invented an id for would arrive
-			// over sync as a second copy of one already on screen.
-			const links = insecticideBatchIds.map(
-				(insecticideBatchId) =>
-					({
-						id: newRecordId(),
-						organization_id: organizationId,
-						application_id: applicationId,
-						insecticide_batch_id: insecticideBatchId,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					}) satisfies ApplicationBatchRow,
-			);
+		// Ids minted here so the same values describe the optimistic row and the
+		// row the server writes — a link the server invented an id for would arrive
+		// over sync as a second copy of one already on screen.
+		const links = insecticideBatchIds.map(
+			(insecticideBatchId) =>
+				({
+					id: newRecordId(),
+					organization_id: organizationId,
+					application_id: applicationId,
+					insecticide_batch_id: insecticideBatchId,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				}) satisfies ApplicationBatchRow,
+		);
 
-			await settleWrite(
-				commandTransaction({
-					// The stop is what makes it the other command. Both write this table
-					// and its batches; only one of them also closes the mission item.
-					intent:
-						missionItemId === null
-							? 'controlOperations.recordChemicalApplication'
-							: 'missionDispatch.recordChemicalApplicationForMissionItem',
-					request: {
-						table: 'applications',
-						method: 'POST',
-						body: {
-							...commandBodyFromRow(row, {
-								...(location.locationSource === undefined
-									? {}
-									: { locationSource: location.locationSource }),
-								context: contextFor(values.habitatId, null),
-								...(acknowledgements === undefined ? {} : { acknowledgements }),
-							}),
-							// The children, spelled as the rows they become.
-							application_batches: links.map((link) => ({
-								id: link.id,
-								insecticide_batch_id: link.insecticide_batch_id,
-							})),
-						},
+		await settleWrite(
+			commandTransaction({
+				// The stop is what makes it the other command. Both write this table
+				// and its batches; only one of them also closes the mission item.
+				intent:
+					missionItemId === null
+						? 'controlOperations.recordChemicalApplication'
+						: 'missionDispatch.recordChemicalApplicationForMissionItem',
+				request: {
+					table: 'applications',
+					method: 'POST',
+					body: {
+						...commandBodyFromRow(row, {
+							...(location.locationSource === undefined
+								? {}
+								: { locationSource: location.locationSource }),
+							context: contextFor(values.habitatId, null),
+							...(acknowledgements === undefined ? {} : { acknowledgements }),
+						}),
+						// The children, spelled as the rows they become.
+						application_batches: links.map((link) => ({
+							id: link.id,
+							insecticide_batch_id: link.insecticide_batch_id,
+						})),
 					},
-					apply: () => {
-						applications().insert(row);
-						for (const link of links) {
-							application_batches().insert(link);
-						}
-					},
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+				},
+				apply: () => {
+					applications().insert(row);
+					for (const link of links) {
+						application_batches().insert(link);
+					}
+				},
+			}),
+		);
+	};
 
-	const update = useCallback(
-		async (
-			current: ChemicalApplication,
-			{ values, location, acknowledgements }: UpdateApplicationInput,
-		) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const update = async (
+		current: ChemicalApplication,
+		{ values, location, acknowledgements }: UpdateApplicationInput,
+	) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const productMoved = current.insecticideId !== values.insecticideId;
-			const fieldsMoved =
-				productMoved ||
-				current.amountApplied !== values.amountApplied ||
-				current.unitId !== values.unitId ||
-				current.actionDate !== values.actionDate ||
-				current.methodId !== values.methodId ||
-				current.applicatorProfileId !== values.applicatorProfileId ||
-				current.vehicleId !== values.vehicleId ||
-				current.equipmentId !== values.equipmentId ||
-				metadataChanged(current.metadata, values.metadata);
+		const productMoved = current.insecticideId !== values.insecticideId;
+		const fieldsMoved =
+			productMoved ||
+			current.amountApplied !== values.amountApplied ||
+			current.unitId !== values.unitId ||
+			current.actionDate !== values.actionDate ||
+			current.methodId !== values.methodId ||
+			current.applicatorProfileId !== values.applicatorProfileId ||
+			current.vehicleId !== values.vehicleId ||
+			current.equipmentId !== values.equipmentId ||
+			metadataChanged(current.metadata, values.metadata);
 
-			const habitatMoved = current.habitatId !== values.habitatId;
-			const addressMoved = current.addressId !== values.addressId;
-			const placementMoved = habitatMoved || addressMoved || location?.locationSource !== undefined;
+		const habitatMoved = current.habitatId !== values.habitatId;
+		const addressMoved = current.addressId !== values.addressId;
+		const placementMoved = habitatMoved || addressMoved || location?.locationSource !== undefined;
 
-			if (!fieldsMoved && !placementMoved) {
-				return;
-			}
+		if (!fieldsMoved && !placementMoved) {
+			return;
+		}
 
-			const intent = actionEditIntents({
-				fieldsMoved,
-				fieldsIntent: 'controlOperations.updateChemicalApplicationFieldDetails',
-				placementMoved,
-				placementIntent: 'controlOperations.updateChemicalApplicationLocationAndContext',
-			});
+		const intent = actionEditIntents({
+			fieldsMoved,
+			fieldsIntent: 'controlOperations.updateChemicalApplicationFieldDetails',
+			placementMoved,
+			placementIntent: 'controlOperations.updateChemicalApplicationLocationAndContext',
+		});
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(applications(), {
-					operation: 'update',
-					intent,
-					key: current.id,
-					changes: {
-						...(fieldsMoved
-							? {
-									insecticide_id: values.insecticideId,
-									amount_applied: values.amountApplied,
-									application_unit_id: values.unitId,
-									application_date: values.actionDate,
-									application_method_id: values.methodId,
-									applicator_profile_id: values.applicatorProfileId,
-									vehicle_id: values.vehicleId,
-									equipment_id: values.equipmentId,
-									metadata: values.metadata,
-								}
-							: {}),
-						...(addressMoved ? { address_id: values.addressId } : {}),
-						...(habitatMoved ? { habitat_id: values.habitatId } : {}),
-						// Reseeded so the record's marker moves before the server answers. The
-						// server recomputes all three from the geometry it stores.
-						...(location === undefined
-							? {}
-							: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
-						updated_by_profile_id: actorProfileId,
-						updated_at: now,
-					},
-					...(location?.locationSource === undefined
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(applications(), {
+				operation: 'update',
+				intent,
+				key: current.id,
+				changes: {
+					...(fieldsMoved
+						? {
+								insecticide_id: values.insecticideId,
+								amount_applied: values.amountApplied,
+								application_unit_id: values.unitId,
+								application_date: values.actionDate,
+								application_method_id: values.methodId,
+								applicator_profile_id: values.applicatorProfileId,
+								vehicle_id: values.vehicleId,
+								equipment_id: values.equipmentId,
+								metadata: values.metadata,
+							}
+						: {}),
+					...(addressMoved ? { address_id: values.addressId } : {}),
+					...(habitatMoved ? { habitat_id: values.habitatId } : {}),
+					// Reseeded so the record's marker moves before the server answers. The
+					// server recomputes all three from the geometry it stores.
+					...(location === undefined
 						? {}
-						: { locationSource: location.locationSource }),
-					// Only when the attachment is what changed, and carrying the Inspection
-					// through — see `contextFor`.
-					...(habitatMoved ? { context: contextFor(values.habitatId, current.inspectionId) } : {}),
-					acknowledgements: outgoingAcknowledgements(acknowledgements, productMoved),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+						: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
+					updated_by_profile_id: actorProfileId,
+					updated_at: now,
+				},
+				...(location?.locationSource === undefined
+					? {}
+					: { locationSource: location.locationSource }),
+				// Only when the attachment is what changed, and carrying the Inspection
+				// through — see `contextFor`.
+				...(habitatMoved ? { context: contextFor(values.habitatId, current.inspectionId) } : {}),
+				acknowledgements: outgoingAcknowledgements(acknowledgements, productMoved),
+			}),
+		);
+	};
 
-	const addBatch = useCallback(
-		async (applicationId: string, insecticideBatchId: string) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const addBatch = async (applicationId: string, insecticideBatchId: string) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(application_batches(), {
-					operation: 'insert',
-					intent: 'controlOperations.addChemicalApplicationBatch',
-					row: {
-						id: newRecordId(),
-						organization_id: organizationId,
-						application_id: applicationId,
-						insecticide_batch_id: insecticideBatchId,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies ApplicationBatchRow,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(application_batches(), {
+				operation: 'insert',
+				intent: 'controlOperations.addChemicalApplicationBatch',
+				row: {
+					id: newRecordId(),
+					organization_id: organizationId,
+					application_id: applicationId,
+					insecticide_batch_id: insecticideBatchId,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies ApplicationBatchRow,
+			}),
+		);
+	};
 
-	const removeBatch = useCallback(async (applicationBatchId: string) => {
+	const removeBatch = async (applicationBatchId: string) => {
 		await settleWrite(
 			mutateCollection(application_batches(), {
 				operation: 'delete',
@@ -363,41 +353,42 @@ export function useApplicationMutations(): ApplicationMutations {
 				key: applicationBatchId,
 			}),
 		);
-	}, []);
+	};
 
-	const setBatches = useCallback(
-		async ({ applicationId, existing, insecticideBatchIds }: SetApplicationBatchesInput) => {
-			const { removals, additions } = reconcileLinks(
-				existing,
-				(row) => row.insecticideBatchId,
-				insecticideBatchIds,
-			);
+	const setBatches = async ({
+		applicationId,
+		existing,
+		insecticideBatchIds,
+	}: SetApplicationBatchesInput) => {
+		const { removals, additions } = reconcileLinks(
+			existing,
+			(row) => row.insecticideBatchId,
+			insecticideBatchIds,
+		);
 
-			// Concurrently: these are independent rows, and each is its own command, so
-			// there is no order for them to be in.
-			await Promise.all([
-				...removals.map((row) => removeBatch(row.id)),
-				...additions.map((insecticideBatchId) => addBatch(applicationId, insecticideBatchId)),
-			]);
-		},
-		[addBatch, removeBatch],
-	);
+		// Concurrently: these are independent rows, and each is its own command, so
+		// there is no order for them to be in.
+		await Promise.all([
+			...removals.map((row) => removeBatch(row.id)),
+			...additions.map((insecticideBatchId) => addBatch(applicationId, insecticideBatchId)),
+		]);
+	};
 
-	const remove = useCallback(
-		async (applicationId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(applications(), {
-					operation: 'delete',
-					intent: 'controlOperations.deleteChemicalApplication',
-					key: applicationId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		applicationId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(applications(), {
+				operation: 'delete',
+				intent: 'controlOperations.deleteChemicalApplication',
+				key: applicationId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		record,
