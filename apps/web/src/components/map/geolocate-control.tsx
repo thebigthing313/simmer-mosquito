@@ -1,6 +1,6 @@
 import { Loader2Icon, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap, Marker } from 'mapbox-gl';
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { MapControlButton, MapControlGroup } from './map-control';
 import { loadMapboxGl } from './mapbox-gl-loader';
 import { type GeolocationCoords, useGeolocation } from './use-geolocation';
@@ -13,27 +13,24 @@ import { type GeolocationCoords, useGeolocation } from './use-geolocation';
 export function GeolocateControl({ map }: { readonly map: MapboxMap | null }) {
 	const markerRef = useRef<Marker | null>(null);
 
-	const flyToCoords = useCallback(
-		async (coords: GeolocationCoords) => {
-			if (map === null) {
-				return;
-			}
-			map.flyTo({
-				center: [coords.longitude, coords.latitude],
-				zoom: Math.max(map.getZoom(), 15),
-				duration: 1100,
-				essential: true,
-			});
+	const flyToCoords = async (coords: GeolocationCoords) => {
+		if (map === null) {
+			return;
+		}
+		map.flyTo({
+			center: [coords.longitude, coords.latitude],
+			zoom: Math.max(map.getZoom(), 15),
+			duration: 1100,
+			essential: true,
+		});
 
-			// This control only renders alongside a live map, so the runtime is
-			// already resolved and this awaits a settled promise rather than a fetch.
-			const mapboxgl = await loadMapboxGl();
-			const marker = markerRef.current ?? new mapboxgl.Marker({ element: createLocationDot() });
-			markerRef.current = marker;
-			marker.setLngLat([coords.longitude, coords.latitude]).addTo(map);
-		},
-		[map],
-	);
+		// This control only renders alongside a live map, so the runtime is
+		// already resolved and this awaits a settled promise rather than a fetch.
+		const mapboxgl = await loadMapboxGl();
+		const marker = markerRef.current ?? new mapboxgl.Marker({ element: createLocationDot() });
+		markerRef.current = marker;
+		marker.setLngLat([coords.longitude, coords.latitude]).addTo(map);
+	};
 
 	const { status, locate } = useGeolocation(flyToCoords);
 

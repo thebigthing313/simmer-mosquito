@@ -8,7 +8,7 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { formatCount } from '../../lib/format-count';
 import { MAP_CHROME_SURFACE } from './chrome';
@@ -56,14 +56,14 @@ export function MapReadout({
 	const state = useMapReadout(map);
 	const coordinates = state === null ? '' : formatLatLng(state.lat, state.lng);
 
-	const onCopy = useCallback(() => {
+	const onCopy = () => {
 		// `writeText` rejects without a secure context or clipboard permission, and
 		// a button that does nothing silently is worse than one that says so.
 		navigator.clipboard.writeText(coordinates).then(
 			() => toast.success('Coordinates copied', { description: coordinates }),
 			() => toast.error('Could not copy the coordinates to the clipboard.'),
 		);
-	}, [coordinates]);
+	};
 
 	if (state === null) {
 		return null;

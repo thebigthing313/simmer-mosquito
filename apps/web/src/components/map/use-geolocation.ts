@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type GeolocationStatus =
 	| 'idle'
@@ -64,7 +64,7 @@ export function useGeolocation(
 		};
 	}, []);
 
-	const locate = useCallback(() => {
+	const locate = () => {
 		if (!isSupported) {
 			setStatus('unavailable');
 			setError('Location services are not available in this browser.');
@@ -107,7 +107,7 @@ export function useGeolocation(
 			},
 			GEOLOCATION_OPTIONS,
 		);
-	}, [isSupported]);
+	};
 
 	return { status, coords, error, isSupported, locate };
 }

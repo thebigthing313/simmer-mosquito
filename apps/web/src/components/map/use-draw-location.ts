@@ -5,7 +5,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import type { RequestMapPoint } from '../pickers/new-address-form';
 import { useFitToGeometry } from './geometry-control';
 import { type DrawPoint, useAddressPoint } from './use-address-point';
@@ -143,13 +143,13 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 	);
 	const [locationError, setLocationError] = useState<string | null>(null);
 
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
+	const handleGeometryChange = (next: DrawGeometry | null) => {
 		setGeometry(next);
 		setGeometryChanged(true);
 		if (next !== null) {
 			setLocationError(null);
 		}
-	}, []);
+	};
 
 	const draw = useMapDraw({
 		map,
@@ -167,64 +167,58 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 
 	// Seeding from an address (or moving onto one) replaces the drawn shape with a
 	// point, so the tool selector follows it.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
+	const placeAddressPoint = (point: DrawPoint) => {
 		setGeometry(point);
 		setGeometryType('Point');
 		setGeometryChanged(true);
 		setLocationError(null);
-	}, []);
+	};
 	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
 		geometry,
 		onPlacePoint: placeAddressPoint,
 	});
 
-	const selectReference = useCallback(
-		(point: { readonly lat: number; readonly lng: number } | null) => {
-			if (point === null) {
-				setReferenceGeometry(null);
-				return;
-			}
-			const drawn: DrawGeometry = { type: 'Point', coordinates: [point.lng, point.lat] };
-			if (geometry === null) {
-				// Seeded as the record's own geometry, so it needs no reference copy.
-				setGeometry(drawn);
-				setGeometryType('Point');
-				setGeometryChanged(true);
-				setReferenceGeometry(null);
-				return;
-			}
-			setReferenceGeometry(drawn);
-		},
-		[geometry],
-	);
+	const selectReference = (point: { readonly lat: number; readonly lng: number } | null) => {
+		if (point === null) {
+			setReferenceGeometry(null);
+			return;
+		}
+		const drawn: DrawGeometry = { type: 'Point', coordinates: [point.lng, point.lat] };
+		if (geometry === null) {
+			// Seeded as the record's own geometry, so it needs no reference copy.
+			setGeometry(drawn);
+			setGeometryType('Point');
+			setGeometryChanged(true);
+			setReferenceGeometry(null);
+			return;
+		}
+		setReferenceGeometry(drawn);
+	};
 
 	// Switching tools replaces the shape, so the old one is cleared rather than
 	// silently saved under the wrong type.
-	const changeType = useCallback(
-		(next: DrawGeometryType) => {
-			setGeometryType(next);
-			setGeometry(null);
-			setGeometryChanged(true);
-			if (draw.isDrawing) {
-				start(next);
-			}
-		},
-		[draw.isDrawing, start],
-	);
+	const changeType = (next: DrawGeometryType) => {
+		setGeometryType(next);
+		setGeometry(null);
+		setGeometryChanged(true);
+		if (draw.isDrawing) {
+			start(next);
+		}
+	};
 
-	const startDraw = useCallback(() => {
+	const startDraw = () => {
 		setLocationError(null);
 		start(geometryType);
-	}, [geometryType, start]);
+	};
 
-	const requireGeometry = useCallback(() => {
+	const requireGeometry = () => {
 		if (geometry === null && required) {
 			setLocationError(missingMessage);
 			return false;
 		}
 		setLocationError(null);
 		return true;
-	}, [geometry, missingMessage, required]);
+	};
 
 	return {
 		geometry,
@@ -235,21 +229,18 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 		locationError,
 		addressCoord,
 		onMapReady: setOwnMap,
-		requestMapPoint: useCallback<RequestMapPoint>(
-			(pointOptions) => requestPoint(pointOptions?.prompt),
-			[requestPoint],
-		),
+		requestMapPoint: (pointOptions) => requestPoint(pointOptions?.prompt),
 		selectAddress,
 		moveToAddress,
 		selectReference,
 		setReferenceGeometry,
 		startDraw,
 		changeType,
-		clear: useCallback(() => {
+		clear: () => {
 			setGeometry(null);
 			setGeometryChanged(true);
-		}, []),
-		clearError: useCallback(() => setLocationError(null), []),
+		},
+		clearError: () => setLocationError(null),
 		requireGeometry,
 	};
 }

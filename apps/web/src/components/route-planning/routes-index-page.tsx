@@ -15,7 +15,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useHasRole } from '../../hooks/use-can-write';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../map';
@@ -57,9 +57,7 @@ export function useRouteSelection(routes: readonly RouteSummary[]): RouteSelecti
 		selectedRouteId !== null && routes.some((route) => route.id === selectedRouteId)
 			? selectedRouteId
 			: (routes[0]?.id ?? null);
-	// Memoized so the page keeps one object across the renders between two
-	// selections; `setSelectedRouteId` is stable, so the list names everything read.
-	return useMemo(() => ({ effectiveRouteId, select: setSelectedRouteId }), [effectiveRouteId]);
+	return { effectiveRouteId, select: setSelectedRouteId };
 }
 
 /**
@@ -94,13 +92,10 @@ export function RoutesIndexPage({
 	const [createOpen, setCreateOpen] = useState(false);
 
 	const search = searchInput.trim().toLowerCase();
-	const filtered = useMemo(
-		() =>
-			search.length === 0
-				? routes
-				: routes.filter((route) => route.routeName.toLowerCase().includes(search)),
-		[routes, search],
-	);
+	const filtered =
+		search.length === 0
+			? routes
+			: routes.filter((route) => route.routeName.toLowerCase().includes(search));
 
 	const selectedRoute = routes.find((route) => route.id === effectiveRouteId) ?? null;
 	const { stops, features, itemCount } = selectedStops;
