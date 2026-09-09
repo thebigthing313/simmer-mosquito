@@ -114,9 +114,7 @@ const shellContextValue = ({
 });
 
 export function ShellProvider({ children, ...props }: ShellProviderProps) {
-	return (
-		<ShellContext.Provider value={shellContextValue(props)}>{children}</ShellContext.Provider>
-	);
+	return <ShellContext.Provider value={shellContextValue(props)}>{children}</ShellContext.Provider>;
 }
 
 export function useShell(): ShellContextValue {
