@@ -408,6 +408,9 @@ function useHeldRows(
 	isReady: boolean,
 	windowKey: string,
 ): readonly InspectionTableRow[] {
+	// no-memo-reason: a render-phase ref read is the cache, and no compiler release makes that compilable.
+	'use no memo';
+
 	const held = useRef({ rows, windowKey });
 	if (isReady) {
 		held.current = { rows, windowKey };

@@ -324,15 +324,21 @@ function searchTree(
  * the domain refuses, and a drag that lands a region back in its own folder is
  * the same. The `null` folder means unfiled, which is why the move guard
  * compares the value rather than asking whether one arrived.
+ *
+ * The rows arrive as a value rather than through a ref. The ref existed to keep
+ * these two handlers stable while still reading the latest rows, and writing it
+ * during render is what the compiler refuses (`Refs`, #823). Naming `regions` in
+ * the dependency lists is the honest form: the handlers read the rows, so they
+ * change when the rows do, and nothing downstream depends on them not changing.
  */
 function useRegionEdits(
 	mutations: ReturnType<typeof useRegionMutations>,
-	regionsRef: { readonly current: readonly RegionListing[] },
+	regions: readonly RegionListing[],
 ) {
 	const renameRegion = useCallback(
 		async (id: string, rawName: string) => {
 			const name = rawName.trim();
-			const current = regionsRef.current.find((region) => region.id === id);
+			const current = regions.find((region) => region.id === id);
 			if (current === undefined || name.length === 0 || name === current.name) {
 				return;
 			}
@@ -342,11 +348,11 @@ function useRegionEdits(
 				// Optimistic mutation rolled back; the tree already shows the synced name.
 			}
 		},
-		[mutations, regionsRef],
+		[mutations, regions],
 	);
 	const moveRegion = useCallback(
 		async (id: string, folderId: string | null) => {
-			const current = regionsRef.current.find((region) => region.id === id);
+			const current = regions.find((region) => region.id === id);
 			if (current === undefined || current.folderId === folderId) {
 				return;
 			}
@@ -356,7 +362,7 @@ function useRegionEdits(
 				// Optimistic mutation rolled back; the tree already shows the prior folder.
 			}
 		},
-		[mutations, regionsRef],
+		[mutations, regions],
 	);
 	return { moveRegion, renameRegion };
 }
@@ -370,10 +376,6 @@ function RegionsExplorerRoute() {
 	const { regions, isReady: regionsReady } = useRegionDirectory();
 	const isReady = foldersReady && regionsReady;
 	const mutations = useRegionMutations();
-	// A ref keeps rename/move handlers stable while still reading the latest rows.
-	const regionsRef = useRef(regions);
-	regionsRef.current = regions;
-
 	// Visibility (map) is off for every region until a checkbox turns it on.
 	const [visibleIds, setVisibleIds] = useState<ReadonlySet<string>>(() => new Set());
 	// Folders default collapsed; only explicitly-opened ones are tracked.
@@ -457,7 +459,7 @@ function RegionsExplorerRoute() {
 		setFocusedId(id);
 	}, []);
 
-	const { moveRegion, renameRegion } = useRegionEdits(mutations, regionsRef);
+	const { moveRegion, renameRegion } = useRegionEdits(mutations, regions);
 
 	const dnd = useRegionDnd(moveRegion);
 	const rename = useRegionRename(renameRegion);

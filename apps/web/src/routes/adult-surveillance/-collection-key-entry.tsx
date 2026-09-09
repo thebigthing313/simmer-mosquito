@@ -1,5 +1,5 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useEffectEvent, useRef } from 'react';
 import {
 	type CommitBaseline,
 	flushedKeysAfter,
@@ -70,16 +70,20 @@ export function CollectionKeyEntryDialog({
 	const insertedRef = useRef<Map<string, string>>(new Map());
 	const flushedRef = useRef<ReadonlySet<string>>(new Set());
 
-	const rowsRef = useRef(identifications);
-	rowsRef.current = identifications;
+	// The rows are read when the modal opens and must not re-run the effect, which
+	// is what a latest-value ref written during render used to buy. That write is
+	// a render-phase ref access the compiler refuses (#779, group A).
+	const captureBaseline = useEffectEvent(() => {
+		baselineRef.current = baselineFrom(identifications);
+		insertedRef.current = new Map();
+		flushedRef.current = new Set();
+	});
 
 	useEffect(() => {
 		if (!open) {
 			return;
 		}
-		baselineRef.current = baselineFrom(rowsRef.current);
-		insertedRef.current = new Map();
-		flushedRef.current = new Set();
+		captureBaseline();
 	}, [open]);
 
 	const commit = useCallback(

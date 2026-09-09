@@ -561,8 +561,12 @@ function requestFeatures(requests: readonly RequestListing[]): GeoJSON.GeoJSON |
 /** Dedupe + sort an id list into a stable array reference for query deps. */
 function useStableIds(ids: readonly string[]): readonly string[] {
 	const key = ids.join(',');
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` captures `ids`.
-	return useMemo(() => [...new Set(ids)].sort(), [key]);
+	// Built from `key` rather than from `ids`, so the memo reads exactly what its
+	// dependency list names. The two disagreed before, held open by a
+	// `biome-ignore`, and that is a memo the React Compiler cannot reproduce
+	// (`PreserveManualMemo`, #823). Ids are UUIDs and carry no comma, so splitting
+	// the key back is lossless.
+	return useMemo(() => (key === '' ? [] : [...new Set(key.split(','))].sort()), [key]);
 }
 
 /**

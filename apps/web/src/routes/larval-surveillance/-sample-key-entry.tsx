@@ -1,5 +1,5 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useEffectEvent, useRef } from 'react';
 import {
 	type CommitBaseline,
 	flushedKeysAfter,
@@ -69,15 +69,12 @@ export function SampleKeyEntryDialog({
 	const insertedRef = useRef<Map<string, string>>(new Map());
 	const flushedRef = useRef<ReadonlySet<string>>(new Set());
 
-	const rowsRef = useRef(rows);
-	rowsRef.current = rows;
-
-	useEffect(() => {
-		if (!open) {
-			return;
-		}
+	// See the adult dialog: the rows are read when the modal opens and must not
+	// re-run the effect. The latest-value ref that used to do it was written
+	// during render, which the compiler refuses (#779, group A).
+	const captureBaseline = useEffectEvent(() => {
 		baselineRef.current = new Map(
-			rowsRef.current.map(
+			rows.map(
 				(row) =>
 					[
 						entryKeyFor(row.speciesId, NO_VARIANT),
@@ -87,6 +84,13 @@ export function SampleKeyEntryDialog({
 		);
 		insertedRef.current = new Map();
 		flushedRef.current = new Set();
+	});
+
+	useEffect(() => {
+		if (!open) {
+			return;
+		}
+		captureBaseline();
 	}, [open]);
 
 	const commit = useCallback(
@@ -99,7 +103,7 @@ export function SampleKeyEntryDialog({
 			});
 			const writes = steps.map((step) => {
 				if (step.kind === 'update') {
-					const current = rowsRef.current.find((row) => row.id === step.rowId);
+					const current = rows.find((row) => row.id === step.rowId);
 					return current === undefined
 						? Promise.resolve()
 						: mutations.save(step.rowId, { ...current, larvaeCount: step.count }, current);
@@ -134,7 +138,7 @@ export function SampleKeyEntryDialog({
 			await Promise.all(writes);
 			flushedRef.current = flushedKeysAfter(entries);
 		},
-		[actorProfileId, sampleId, timeZone, mutations],
+		[actorProfileId, sampleId, timeZone, mutations, rows],
 	);
 
 	return (
