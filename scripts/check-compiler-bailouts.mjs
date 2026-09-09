@@ -312,8 +312,6 @@ const BAILING_FILES = [
 	'apps/web/src/routes/public-engagement/service-requests/index.tsx',
 	'apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx',
 	'apps/web/src/tests/unit/components/map/fake-map.tsx',
-	'packages/ui-web/src/components/app-shell/header/header-search-bar.tsx',
-	'packages/ui-web/src/components/form/field-components/metadata-field.tsx',
 ];
 
 /**

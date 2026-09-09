@@ -17,10 +17,17 @@
  *
  * What the build filters is a resolved absolute module id, and this is a
  * Windows checkout, so the separator is a backslash there and a forward slash
- * in CI. Every pattern therefore writes its separators as `[\\/]` and anchors
- * on nothing, which makes the same pattern true of an absolute id and of a
- * repo-relative POSIX path. The gate tests the second, the build tests the
- * first, and neither needs a translation step.
+ * in CI. Every pattern therefore writes its separators as `[\\/]`, which makes
+ * the same pattern true of both. The gate tests a repo-relative POSIX path and
+ * the build tests an absolute id, so neither needs a translation step.
+ *
+ * The leading `(?:^|[\\/])` is the half that was missing until #820. A
+ * pattern opening on `[\\/]apps` demands a separator in front of `apps`,
+ * which an absolute id has and `pathFrom`'s `apps/admin/src/main.tsx` does not,
+ * so the gate read every module as outside the allowlist from the day phase 1
+ * shipped. Nothing failed, because admin's one finding is a `Todo` and that
+ * category is counted apart from both halves. Anchoring on start-or-separator is
+ * what makes the sentence above true rather than only intended.
  *
  * ## Adding a phase
  *
@@ -46,7 +53,13 @@ const COMPILER_PHASES = [
 		phase: 1,
 		name: 'apps/admin',
 		issue: 657,
-		include: [/[\\/]apps[\\/]admin[\\/]src[\\/]/],
+		include: [/(?:^|[\\/])apps[\\/]admin[\\/]src[\\/]/],
+	},
+	{
+		phase: 2,
+		name: 'packages/ui-web',
+		issue: 820,
+		include: [/(?:^|[\\/])packages[\\/]ui-web[\\/]src[\\/]/],
 	},
 ];
 
