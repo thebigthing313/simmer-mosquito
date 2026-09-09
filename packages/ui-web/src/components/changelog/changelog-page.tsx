@@ -3,7 +3,6 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { type ChangelogRelease, parseChangelog } from '@simmer-mosquito/ui-web/lib/changelog';
-import { useMemo } from 'react';
 
 const HistoryIcon = iconRegistry.generic.history.icon;
 
@@ -27,7 +26,7 @@ export function ChangelogPage({
 	/** The running build, badged against its entry so "what am I on" is answered on the page. */
 	readonly currentVersion: string;
 }) {
-	const releases = useMemo(() => parseChangelog(markdown), [markdown]);
+	const releases = parseChangelog(markdown);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">

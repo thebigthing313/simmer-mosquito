@@ -328,6 +328,17 @@ jobs:
       - name: Compiler coverage
         run: pnpm check:compiler-coverage
 
+      # The third of that set, over what the compiler makes redundant rather
+      # than over what it compiles. #839 settled that a `useMemo` or
+      # `useCallback` on a compiled path is stripped by default and a survivor
+      # carries a written reason, and 848 of them stood on the day the rule
+      # landed, so this ships as a per-file ratchet failing in both directions
+      # and empties as the strip phases land. Its corpus is `COMPILER_PHASES`,
+      # so it inherits whatever that register covers, which is what the gate
+      # above exists to keep complete.
+      - name: Manual memoization
+        run: pnpm check:manual-memo
+
       # The other half of the same question, and the only thing here that reads
       # a React rule at all: Biome's `react` domain is off, so 104 Rules of
       # React violations had collected under a green `pnpm check` (#651). The
