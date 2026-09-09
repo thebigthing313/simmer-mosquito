@@ -61,6 +61,15 @@ const COMPILER_PHASES = [
 		issue: 820,
 		include: [/(?:^|[\\/])packages[\\/]ui-web[\\/]src[\\/]/],
 	},
+	{
+		phase: 3,
+		name: 'apps/web lib and hooks',
+		issue: 821,
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]lib[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]hooks[\\/]/,
+		],
+	},
 ];
 
 /**
