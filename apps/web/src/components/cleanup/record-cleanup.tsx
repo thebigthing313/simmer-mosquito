@@ -6,7 +6,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
 import {
@@ -71,7 +71,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 	 * from the one that was shared.
 	 */
 	const [matchTypes, setMatchTypes] = useState<ReadonlySet<DuplicateReason>>(() => new Set());
-	const clearMatchTypes = useCallback(() => setMatchTypes(new Set()), []);
+	const clearMatchTypes = () => setMatchTypes(new Set());
 
 	/*
 	 * Keyed by group, not by record. A contact is compared three ways, so the same
@@ -79,33 +79,33 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 	 * evidence. Refusing one proposal is not refusing the other, and a flat set
 	 * would silently withdraw both.
 	 */
-	const exclude = useCallback((groupKey: string, recordId: string) => {
+	const exclude = (groupKey: string, recordId: string) => {
 		setExcluded((current) => new Set(current).add(exclusionKey(groupKey, recordId)));
-	}, []);
+	};
 
-	const runMerge = useCallback(
-		async (acknowledged: boolean, fieldUpdates: MergeFieldUpdates): Promise<void> => {
-			if (pending === null) {
-				return;
-			}
-			await merge({
-				targetId: pending.target.id,
-				sourceIds: pending.sources.map((record) => record.id),
-				acknowledged,
-				fieldUpdates,
-			});
-			toast.success(
-				`Merged ${recordCountLabel(pending.sources.length, config)} into ${recordLabel(
-					pending.target,
-					config,
-				)}.`,
-			);
-			await queryClient.invalidateQueries({
-				queryKey: duplicateCandidatesQueryKey(recordType),
-			});
-		},
-		[config, merge, pending, queryClient, recordType],
-	);
+	const runMerge = async (
+		acknowledged: boolean,
+		fieldUpdates: MergeFieldUpdates,
+	): Promise<void> => {
+		if (pending === null) {
+			return;
+		}
+		await merge({
+			targetId: pending.target.id,
+			sourceIds: pending.sources.map((record) => record.id),
+			acknowledged,
+			fieldUpdates,
+		});
+		toast.success(
+			`Merged ${recordCountLabel(pending.sources.length, config)} into ${recordLabel(
+				pending.target,
+				config,
+			)}.`,
+		);
+		await queryClient.invalidateQueries({
+			queryKey: duplicateCandidatesQueryKey(recordType),
+		});
+	};
 
 	return (
 		<div className={pageContainer({ gap: 'detail' })}>

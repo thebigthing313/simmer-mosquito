@@ -1,4 +1,4 @@
-import { type RefCallback, useCallback, useMemo, useState } from 'react';
+import { type RefCallback, useState } from 'react';
 import { type MapInset, NO_MAP_INSET } from '../map/map-inset';
 
 /** Gap between the panel and the map edge, and between the panel and the controls. */
@@ -94,21 +94,7 @@ export function useExplorerPanel(options?: {
 	// never told about a height the panel has not taken yet.
 	const sheetHeight = stage === null ? 0 : Math.round(stage.height * SHEET_STAGE_FRACTION);
 
-	const inset = useMemo<MapInset>(() => {
-		// Collapsed, the panel is a pill in a corner. It covers a few hundred square
-		// pixels of basemap and nothing the camera should steer around.
-		if (isCollapsed) {
-			return NO_MAP_INSET;
-		}
-		if (isNarrow) {
-			return { ...NO_MAP_INSET, bottom: sheetHeight + SHEET_EDGE };
-		}
-		// Only the results rail. The filter card pops up over the map and is meant
-		// to leave the camera where it is: it is opened to set something and shut
-		// again, and counting it would re-frame twice on every visit, once away from
-		// the records the reader is looking at and once back.
-		return { ...NO_MAP_INSET, left: PANEL_EDGE + PANEL_WIDTH };
-	}, [isCollapsed, isNarrow, sheetHeight]);
+	const inset = insetFor(isCollapsed, isNarrow, sheetHeight);
 
 	return {
 		isCollapsed,
@@ -122,6 +108,23 @@ export function useExplorerPanel(options?: {
 		inset,
 		stageRef,
 	};
+}
+
+/** The ground the panel covers, as the camera has to steer around it. */
+function insetFor(isCollapsed: boolean, isNarrow: boolean, sheetHeight: number): MapInset {
+	// Collapsed, the panel is a pill in a corner. It covers a few hundred square
+	// pixels of basemap and nothing the camera should steer around.
+	if (isCollapsed) {
+		return NO_MAP_INSET;
+	}
+	if (isNarrow) {
+		return { ...NO_MAP_INSET, bottom: sheetHeight + SHEET_EDGE };
+	}
+	// Only the results rail. The filter card pops up over the map and is meant to
+	// leave the camera where it is: it is opened to set something and shut again,
+	// and counting it would re-frame twice on every visit, once away from the
+	// records the reader is looking at and once back.
+	return { ...NO_MAP_INSET, left: PANEL_EDGE + PANEL_WIDTH };
 }
 
 interface MeasuredBox {
@@ -139,41 +142,38 @@ interface MeasuredBox {
 function useMeasuredBox(): [RefCallback<HTMLElement>, MeasuredBox | null] {
 	const [box, setBox] = useState<MeasuredBox | null>(null);
 
-	const record = useCallback((width: number, height: number) => {
+	const record = (width: number, height: number) => {
 		setBox((current) =>
 			current !== null && current.width === width && current.height === height
 				? current
 				: { width, height },
 		);
-	}, []);
+	};
 
-	const ref = useCallback(
-		(element: HTMLElement | null) => {
-			if (element === null) {
-				return;
-			}
-			// Read once here rather than waiting for the observer's first delivery.
-			// ResizeObserver reports after layout and before paint, so a document
-			// that has not painted yet — a background tab, a hidden pane — never
-			// hears from it, and a layout chosen from no measurement would flash the
-			// wrong one on the first frame everywhere else.
-			const rect = element.getBoundingClientRect();
-			record(rect.width, rect.height);
+	const ref: RefCallback<HTMLElement> = (element: HTMLElement | null) => {
+		if (element === null) {
+			return;
+		}
+		// Read once here rather than waiting for the observer's first delivery.
+		// ResizeObserver reports after layout and before paint, so a document
+		// that has not painted yet — a background tab, a hidden pane — never
+		// hears from it, and a layout chosen from no measurement would flash the
+		// wrong one on the first frame everywhere else.
+		const rect = element.getBoundingClientRect();
+		record(rect.width, rect.height);
 
-			if (typeof ResizeObserver === 'undefined') {
-				return;
+		if (typeof ResizeObserver === 'undefined') {
+			return;
+		}
+		const observer = new ResizeObserver((entries) => {
+			const box = entries[0]?.contentRect;
+			if (box !== undefined) {
+				record(box.width, box.height);
 			}
-			const observer = new ResizeObserver((entries) => {
-				const box = entries[0]?.contentRect;
-				if (box !== undefined) {
-					record(box.width, box.height);
-				}
-			});
-			observer.observe(element);
-			return () => observer.disconnect();
-		},
-		[record],
-	);
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	};
 
 	return [ref, box];
 }

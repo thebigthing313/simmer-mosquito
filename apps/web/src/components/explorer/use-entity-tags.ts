@@ -1,5 +1,4 @@
 import { and, coalesce, eq, inArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { unmatchableId } from '../../hooks/queries/shared';
 import type { Tag } from '../../hooks/queries/tag-view';
 import { tag_items } from '../../lib/collections/tag_items';
@@ -32,7 +31,7 @@ export function useEntityTags(
 	 */
 	readonly isReady: boolean;
 } {
-	const uniqueIds = useMemo(() => [...new Set(entityIds)], [entityIds]);
+	const uniqueIds = [...new Set(entityIds)];
 	const idsKey = uniqueIds.join(',');
 
 	const result = useLiveQuery(
@@ -72,20 +71,23 @@ export function useEntityTags(
 	const assignments = result.data;
 	const isReady = result.isReady;
 
-	const byId = useMemo(() => {
-		const byEntity = new Map<string, Tag[]>();
-		for (const { entityId, ...tag } of assignments) {
-			const list = byEntity.get(entityId) ?? [];
-			// A record can carry the same tag only once, but an optimistic row and its
-			// synced twin are two assignments of it for as long as the write is in
-			// flight, and two identical chips is a visible flicker.
-			if (!list.some((existing) => existing.id === tag.id)) {
-				list.push(tag);
-			}
-			byEntity.set(entityId, list);
-		}
-		return byEntity;
-	}, [assignments]);
+	return { byId: groupByEntity(assignments), isReady };
+}
 
-	return { byId, isReady };
+/** The assignments the query returned, gathered under the record each is on. */
+function groupByEntity(
+	assignments: readonly ({ readonly entityId: string } & Tag)[],
+): ReadonlyMap<string, readonly Tag[]> {
+	const byEntity = new Map<string, Tag[]>();
+	for (const { entityId, ...tag } of assignments) {
+		const list = byEntity.get(entityId) ?? [];
+		// A record can carry the same tag only once, but an optimistic row and its
+		// synced twin are two assignments of it for as long as the write is in
+		// flight, and two identical chips is a visible flicker.
+		if (!list.some((existing) => existing.id === tag.id)) {
+			list.push(tag);
+		}
+		byEntity.set(entityId, list);
+	}
+	return byEntity;
 }

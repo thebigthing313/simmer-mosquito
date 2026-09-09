@@ -21,7 +21,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { type KeyboardEvent, useCallback, useMemo, useState } from 'react';
+import { type KeyboardEvent, useState } from 'react';
 import { useCommentMutations } from '../hooks/mutations/use-comment-mutations';
 import { type CommentTarget, type RecordComment, useComments } from '../hooks/queries/use-comments';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
@@ -83,54 +83,39 @@ export function CommentsSection({
 	const { comments, isReady, isError } = useComments(target);
 	const { add, edit, setPinned, remove } = useCommentMutations();
 
-	const { pinned, unpinned } = useMemo(() => partitionByPin(comments), [comments]);
+	const { pinned, unpinned } = partitionByPin(comments);
 
 	const [error, setError] = useState<string | null>(null);
 	// The id of the just-added comment, so only it plays the entrance animation
 	// instead of the whole list animating on every mount (the AI "reveal reflex").
 	const [enteredId, setEnteredId] = useState<string | null>(null);
 
-	const handleAdd = useCallback(
-		async (text: string) => {
-			setError(null);
-			// The id comes back so only the new comment plays the entrance animation.
-			setEnteredId(await add(target, text));
-		},
-		[add, target],
-	);
+	const handleAdd = async (text: string) => {
+		setError(null);
+		// The id comes back so only the new comment plays the entrance animation.
+		setEnteredId(await add(target, text));
+	};
 
-	const handleEdit = useCallback(
-		async (commentId: string, text: string) => {
-			setError(null);
-			await edit(commentId, text);
-		},
-		[edit],
-	);
+	const handleEdit = async (commentId: string, text: string) => {
+		setError(null);
+		await edit(commentId, text);
+	};
 
-	const handleTogglePin = useCallback(
-		async (comment: RecordComment) => {
-			setError(null);
-			try {
-				await setPinned(comment.id, !comment.isPinned);
-			} catch (cause) {
-				setError(
-					messageOf(
-						cause,
-						comment.isPinned ? 'Unable to unpin comment.' : 'Unable to pin comment.',
-					),
-				);
-			}
-		},
-		[setPinned],
-	);
+	const handleTogglePin = async (comment: RecordComment) => {
+		setError(null);
+		try {
+			await setPinned(comment.id, !comment.isPinned);
+		} catch (cause) {
+			setError(
+				messageOf(cause, comment.isPinned ? 'Unable to unpin comment.' : 'Unable to pin comment.'),
+			);
+		}
+	};
 
-	const handleDelete = useCallback(
-		async (commentId: string) => {
-			setError(null);
-			await remove(commentId);
-		},
-		[remove],
-	);
+	const handleDelete = async (commentId: string) => {
+		setError(null);
+		await remove(commentId);
+	};
 
 	const renderComment = (comment: RecordComment) => (
 		<CommentItem

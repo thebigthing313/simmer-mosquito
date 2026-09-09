@@ -1,6 +1,6 @@
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getServerUrl } from '../../auth';
 
 /** Rows per page on every explorer. */
@@ -107,22 +107,11 @@ export function usePagedMapResource<TRow>({
 		}
 	}, [page, pageCount]);
 
-	const raw = query.data?.rows;
-	const rows = useMemo(
-		() => (raw === undefined ? [] : normalizeRow === undefined ? raw : raw.map(normalizeRow)),
-		[raw, normalizeRow],
-	);
+	const rows = normalized(query.data?.rows, normalizeRow);
 
-	// Destructured, because the callback closing over `query` while the
-	// dependency list names `query.refetch` is a memo the compiler cannot
-	// reproduce: it infers the dependency it can see, which is the whole query
-	// object, and that is a new reference every render. Naming `refetch` alone
-	// makes the written list and the inferred one the same (`PreserveManualMemo`,
-	// #822).
-	const { refetch } = query;
-	const retry = useCallback(() => {
-		void refetch();
-	}, [refetch]);
+	const retry = () => {
+		void query.refetch();
+	};
 
 	return {
 		rows,
@@ -134,6 +123,17 @@ export function usePagedMapResource<TRow>({
 		pageCount,
 		setPage,
 	};
+}
+
+/** The page's rows, put through the caller's shaping if it asked for any. */
+function normalized<TRow>(
+	raw: readonly TRow[] | undefined,
+	normalizeRow: ((row: TRow) => TRow) | undefined,
+): readonly TRow[] {
+	if (raw === undefined) {
+		return [];
+	}
+	return normalizeRow === undefined ? raw : raw.map(normalizeRow);
 }
 
 /**
@@ -158,7 +158,7 @@ export function useSelectedMapRecord<TRow extends { readonly id: string }>({
 	readonly selectedId: string | null;
 	readonly normalizeRow?: (row: TRow) => TRow;
 }): TRow | null {
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
+	const visibleById = new Map(rows.map((row) => [row.id, row]));
 	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
 	const query = useQuery({
 		enabled: needsFetch,

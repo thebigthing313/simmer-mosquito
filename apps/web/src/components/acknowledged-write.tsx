@@ -7,7 +7,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import type { DeleteImpactEntry } from '../hooks/use-delete-impact';
 import { impactCountLabel } from '../hooks/use-delete-impact';
 import { acknowledgementCopyFor, STOP_ACKNOWLEDGEABLE_REFUSALS } from '../lib/acknowledgement-copy';
@@ -94,37 +94,31 @@ export function useAcknowledgedWrite(
 		readonly consequences: readonly DeleteImpactEntry[];
 	} | null>(null);
 
-	const attempt = useCallback(
-		async (
-			write: (acknowledgements: Acknowledgements) => Promise<void>,
-			acknowledgements: Acknowledgements,
-		) => {
-			try {
-				await write(acknowledgements);
-				setPending(null);
-			} catch (error) {
-				const flag = acknowledgeableRefusalOf(error, askable);
-				if (flag === null) {
-					// Not a question — hand it back to whatever the caller does with a
-					// failed save.
-					throw error;
-				}
-				setPending({
-					acknowledgements,
-					consequences: consequencesOf(error),
-					flag,
-					write,
-				});
+	const attempt = async (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+		acknowledgements: Acknowledgements,
+	) => {
+		try {
+			await write(acknowledgements);
+			setPending(null);
+		} catch (error) {
+			const flag = acknowledgeableRefusalOf(error, askable);
+			if (flag === null) {
+				// Not a question — hand it back to whatever the caller does with a
+				// failed save.
+				throw error;
 			}
-		},
-		[askable],
-	);
+			setPending({
+				acknowledgements,
+				consequences: consequencesOf(error),
+				flag,
+				write,
+			});
+		}
+	};
 
-	const run = useCallback(
-		(write: (acknowledgements: Acknowledgements) => Promise<void>) =>
-			attempt(write, ask ? withheld(askable) : {}),
-		[ask, askable, attempt],
-	);
+	const run = (write: (acknowledgements: Acknowledgements) => Promise<void>) =>
+		attempt(write, ask ? withheld(askable) : {});
 
 	const dialog =
 		pending === null ? null : (

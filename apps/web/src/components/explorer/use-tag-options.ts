@@ -1,5 +1,4 @@
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import type { Tag } from '../../hooks/queries/tag-view';
 import { tags } from '../../lib/collections/tags';
 import type { FilterOption } from './multi-select-filter';
@@ -34,11 +33,8 @@ export function useTagOptions(): {
 
 	const catalog = result.data;
 
-	return useMemo(
-		() => ({
-			options: catalog.map((tag) => ({ id: tag.id, label: tag.name })),
-			byId: new Map(catalog.map((tag) => [tag.id, tag] as const)),
-		}),
-		[catalog],
-	);
+	return {
+		options: catalog.map((tag) => ({ id: tag.id, label: tag.name })),
+		byId: new Map(catalog.map((tag) => [tag.id, tag] as const)),
+	};
 }

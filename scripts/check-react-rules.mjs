@@ -148,7 +148,6 @@ const fail = failure(GATE);
  */
 const REACT_RULE_BACKLOG = new Map([
 	['apps/preview/src/useCssTokens.ts', 1],
-	['apps/web/src/components/cleanup/habitat-merge.tsx', 1],
 	['apps/web/src/components/cleanup/merge-confirm-dialog.tsx', 1],
 	['apps/web/src/components/explorer/result-list.tsx', 1],
 	['apps/web/src/components/explorer/use-map-bounds.ts', 1],

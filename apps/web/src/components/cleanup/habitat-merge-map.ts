@@ -1,4 +1,6 @@
 import {
+	type BoundingBox,
+	boundsFromGeoJson,
 	circlePolygon,
 	type GeoJsonFeature,
 	type GeoJsonFeatureCollection,
@@ -49,4 +51,21 @@ export function mergeMapData(
 	});
 
 	return { type: 'FeatureCollection', features };
+}
+
+/**
+ * The box the map opens on: the ring, which is the extent the search covers
+ * whether or not anything came back.
+ *
+ * `fitToData` resolves a boolean from the tile layers, and this canvas has none:
+ * its features are a GeoJSON overlay, so the box has to be handed in.
+ */
+export function searchBounds(
+	target: DuplicateRecord | undefined,
+	radiusMetres: number,
+): BoundingBox | null {
+	if (target === undefined || target.lat === null || target.lng === null) {
+		return null;
+	}
+	return boundsFromGeoJson(circlePolygon({ lat: target.lat, lng: target.lng }, radiusMetres));
 }

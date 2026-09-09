@@ -13,7 +13,7 @@ import {
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { newRecordId } from '../../hooks/mutations/shared';
 import type { Contact } from '../../hooks/queries/contact-view';
@@ -82,10 +82,7 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 	useBreadcrumbLabel(contactId, contact?.contactName ?? '');
 
 	const roster = useRegistrationRoster(contactId, includeInactive);
-	const coverage = useMemo(
-		() => coverageFeatures(roster.registrations, roster.unitsById),
-		[roster.registrations, roster.unitsById],
-	);
+	const coverage = coverageFeatures(roster.registrations, roster.unitsById);
 
 	return (
 		<MapSplitPage
