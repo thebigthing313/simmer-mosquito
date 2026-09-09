@@ -247,6 +247,18 @@ const isHookCall = (node) =>
 	HOOK_NAME.test(node.callee.name);
 
 /**
+ * Whether one node is itself React, which is the three disjuncts in one place.
+ *
+ * The walk below asks this of every node it reaches, so the three rules read as
+ * the one question they are rather than as three exits from a traversal.
+ */
+const declaresReact = (node) =>
+	node.type === 'JSXElement' ||
+	node.type === 'JSXFragment' ||
+	isHookCall(node) ||
+	(node.type === 'ImportDeclaration' && bindsReactValue(node));
+
+/**
  * Whether one parsed module holds React.
  *
  * The walk stops at the first node that answers yes, so a component file costs
@@ -259,13 +271,7 @@ const holdsReact = (node) => {
 	if (Array.isArray(node)) {
 		return node.some(holdsReact);
 	}
-	if (node.type === 'JSXElement' || node.type === 'JSXFragment') {
-		return true;
-	}
-	if (node.type === 'ImportDeclaration') {
-		return bindsReactValue(node);
-	}
-	if (isHookCall(node)) {
+	if (declaresReact(node)) {
 		return true;
 	}
 	return Object.keys(node).some((key) => key !== 'loc' && holdsReact(node[key]));
@@ -299,7 +305,14 @@ const readsAsReact = (path, source) => {
 
 const exemptionFor = (path) => EXEMPT_PATHS.find((entry) => entry.pattern.test(path));
 
-const run = () => {
+/**
+ * Run the six probes, and refuse a run that reads any of them wrong.
+ *
+ * This is ahead of the counts rather than beside them, because the detector has
+ * three disjuncts and nearly every React module answers yes to more than one,
+ * so a broken disjunct moves no total far enough to notice.
+ */
+const verifyProbes = () => {
 	for (const probe of PROBES) {
 		const answer = readsAsReact(probe.name, probe.source);
 		if (answer !== probe.react) {
@@ -308,7 +321,15 @@ const run = () => {
 			);
 		}
 	}
+};
 
+/**
+ * The workspace's modules and the ones holding React, both held to their floor.
+ *
+ * The two floors fail on different silent passes: a walk that has stopped
+ * finding the workspace, and a detector that has stopped detecting.
+ */
+const readCorpus = () => {
 	const modules = [...sourceFiles(workspaceRoot, [], { tests: true })].map((path) =>
 		pathFrom(workspaceRoot, path),
 	);
@@ -329,13 +350,24 @@ const run = () => {
 		);
 	}
 
-	const uncompiled = react.filter((path) => !isOptedIn(path));
+	return { modules, react };
+};
+
+/**
+ * What the rule refuses: an uncompiled React module nothing excuses, and an
+ * `EXEMPT_PATHS` entry excusing nothing.
+ *
+ * The second half is the rule every marker register here follows. An entry that
+ * matches nothing is headroom the next uncompiled directory lands inside, which
+ * is how a gate goes quiet without anyone editing it.
+ */
+const problemsIn = (uncompiled) => {
 	const unexcused = uncompiled.filter((path) => exemptionFor(path) === undefined);
 	const stale = EXEMPT_PATHS.filter(
 		(entry) => !uncompiled.some((path) => entry.pattern.test(path)),
 	);
 
-	const problems = [
+	return [
 		...unexcused.map(
 			(path) =>
 				`${path} holds React and is not on the compiler allowlist.\n  Add its path to COMPILER_PHASES as a phase of its own, or give it an EXEMPT_PATHS entry saying why it stays uncompiled.`,
@@ -345,6 +377,14 @@ const run = () => {
 				`the EXEMPT_PATHS entry ${entry.pattern} excuses nothing, so it is headroom the next uncompiled directory lands inside.\n  Its reason reads: ${entry.reason}`,
 		),
 	];
+};
+
+const run = () => {
+	verifyProbes();
+
+	const { modules, react } = readCorpus();
+	const uncompiled = react.filter((path) => !isOptedIn(path));
+	const problems = problemsIn(uncompiled);
 
 	if (problems.length > 0) {
 		console.error(problems.join('\n\n'));
