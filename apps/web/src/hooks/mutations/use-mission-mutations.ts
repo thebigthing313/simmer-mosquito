@@ -31,7 +31,6 @@
 
 import type { MultiRowCommandType } from '@simmer-mosquito/domain';
 import { type Mission as MissionRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { type MovePlan, planStopPositions } from '../../components/stop-order';
 import { mission_items } from '../../lib/collections/mission_items';
 import { missions } from '../../lib/collections/missions';
@@ -116,248 +115,234 @@ export function useMissionMutations(): MissionMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (missionId: string, plan: MissionPlanInput) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const create = async (missionId: string, plan: MissionPlanInput) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const mission: MissionRow = {
-				id: missionId,
-				organization_id: organizationId,
-				mission_name: plan.missionName,
-				control_type: plan.controlType,
-				planned_method_id: plan.plannedMethodId,
-				assigned_to_profile_id: plan.assignedToProfileId,
-				// Mirrors what the server stamps, so the row does not change under the
-				// list a moment after it appears.
-				assigned_by_profile_id: plan.assignedToProfileId === null ? null : actorProfileId,
-				scheduled_start_at: plan.scheduledStartAt,
-				scheduled_end_at: plan.scheduledEndAt,
-				rain_date: plan.rainDate,
-				started_at: null,
-				completed_at: null,
-				cancelled_at: null,
-				cancellation_reason: null,
-				notification_type_id: plan.notificationTypeId,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			};
+		const now = optimisticStamp();
+		const mission: MissionRow = {
+			id: missionId,
+			organization_id: organizationId,
+			mission_name: plan.missionName,
+			control_type: plan.controlType,
+			planned_method_id: plan.plannedMethodId,
+			assigned_to_profile_id: plan.assignedToProfileId,
+			// Mirrors what the server stamps, so the row does not change under the
+			// list a moment after it appears.
+			assigned_by_profile_id: plan.assignedToProfileId === null ? null : actorProfileId,
+			scheduled_start_at: plan.scheduledStartAt,
+			scheduled_end_at: plan.scheduledEndAt,
+			rain_date: plan.rainDate,
+			started_at: null,
+			completed_at: null,
+			cancelled_at: null,
+			cancellation_reason: null,
+			notification_type_id: plan.notificationTypeId,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		};
 
-			// A transaction rather than `mutateCollection`, because the command may
-			// carry the stops the mission is planned around — `mission_items` in the
-			// payload, one Postgres transaction. This app does not use that half yet:
-			// a mission is planned empty and its stops are added on the detail page,
-			// which is a legal plan the domain accepts and simply refuses to start.
-			// The type is what puts it here regardless, and it is right to: a create
-			// that grew stops and stayed a single-row write would land the mission and
-			// leave its stops off the screen.
-			await settleWrite(
-				commandTransaction({
-					intent: 'missionDispatch.createMission' satisfies MultiRowCommandType,
-					request: {
-						table: 'missions',
-						method: 'POST',
-						body: {
-							id: missionId,
-							mission_name: plan.missionName,
-							control_type: plan.controlType,
-							planned_method_id: plan.plannedMethodId,
-							assigned_to_profile_id: plan.assignedToProfileId,
-							scheduled_start_at: plan.scheduledStartAt,
-							scheduled_end_at: plan.scheduledEndAt,
-							rain_date: plan.rainDate,
-							notification_type_id: plan.notificationTypeId,
-						},
+		// A transaction rather than `mutateCollection`, because the command may
+		// carry the stops the mission is planned around — `mission_items` in the
+		// payload, one Postgres transaction. This app does not use that half yet:
+		// a mission is planned empty and its stops are added on the detail page,
+		// which is a legal plan the domain accepts and simply refuses to start.
+		// The type is what puts it here regardless, and it is right to: a create
+		// that grew stops and stayed a single-row write would land the mission and
+		// leave its stops off the screen.
+		await settleWrite(
+			commandTransaction({
+				intent: 'missionDispatch.createMission' satisfies MultiRowCommandType,
+				request: {
+					table: 'missions',
+					method: 'POST',
+					body: {
+						id: missionId,
+						mission_name: plan.missionName,
+						control_type: plan.controlType,
+						planned_method_id: plan.plannedMethodId,
+						assigned_to_profile_id: plan.assignedToProfileId,
+						scheduled_start_at: plan.scheduledStartAt,
+						scheduled_end_at: plan.scheduledEndAt,
+						rain_date: plan.rainDate,
+						notification_type_id: plan.notificationTypeId,
 					},
-					apply: () => {
-						missions().insert(mission);
-					},
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+				},
+				apply: () => {
+					missions().insert(mission);
+				},
+			}),
+		);
+	};
 
-	const updateDetails = useCallback(
-		async (missionId: string, plan: MissionPlanInput, current: MissionPlanInput) => {
-			// Which commands this save means, decided by what moved. Naming one the
-			// change set has nothing for is refused by the domain, so a form that
-			// always named all four would fail the moment a user touched one group.
-			const intents: (
-				| 'missionDispatch.updateMissionDetails'
-				| 'missionDispatch.updateMissionSchedule'
-				| 'missionDispatch.updateMissionPlan'
-				| 'missionDispatch.assignMission'
-				| 'missionDispatch.updateMissionNotificationType'
-			)[] = [];
-			const changes: Partial<MissionRow> = {};
+	const updateDetails = async (
+		missionId: string,
+		plan: MissionPlanInput,
+		current: MissionPlanInput,
+	) => {
+		// Which commands this save means, decided by what moved. Naming one the
+		// change set has nothing for is refused by the domain, so a form that
+		// always named all four would fail the moment a user touched one group.
+		const intents: (
+			| 'missionDispatch.updateMissionDetails'
+			| 'missionDispatch.updateMissionSchedule'
+			| 'missionDispatch.updateMissionPlan'
+			| 'missionDispatch.assignMission'
+			| 'missionDispatch.updateMissionNotificationType'
+		)[] = [];
+		const changes: Partial<MissionRow> = {};
 
-			if (plan.missionName !== current.missionName) {
-				intents.push('missionDispatch.updateMissionDetails');
-				changes.mission_name = plan.missionName;
-			}
+		if (plan.missionName !== current.missionName) {
+			intents.push('missionDispatch.updateMissionDetails');
+			changes.mission_name = plan.missionName;
+		}
 
-			if (
-				!sameInstant(plan.scheduledStartAt, current.scheduledStartAt) ||
-				!sameInstant(plan.scheduledEndAt, current.scheduledEndAt) ||
-				plan.rainDate !== current.rainDate
-			) {
-				intents.push('missionDispatch.updateMissionSchedule');
-				changes.scheduled_start_at = plan.scheduledStartAt;
-				changes.scheduled_end_at = plan.scheduledEndAt;
-				changes.rain_date = plan.rainDate;
-			}
+		if (
+			!sameInstant(plan.scheduledStartAt, current.scheduledStartAt) ||
+			!sameInstant(plan.scheduledEndAt, current.scheduledEndAt) ||
+			plan.rainDate !== current.rainDate
+		) {
+			intents.push('missionDispatch.updateMissionSchedule');
+			changes.scheduled_start_at = plan.scheduledStartAt;
+			changes.scheduled_end_at = plan.scheduledEndAt;
+			changes.rain_date = plan.rainDate;
+		}
 
-			if (
-				plan.controlType !== current.controlType ||
-				plan.plannedMethodId !== current.plannedMethodId
-			) {
-				intents.push('missionDispatch.updateMissionPlan');
-				changes.control_type = plan.controlType;
-				changes.planned_method_id = plan.plannedMethodId;
-			}
+		if (
+			plan.controlType !== current.controlType ||
+			plan.plannedMethodId !== current.plannedMethodId
+		) {
+			intents.push('missionDispatch.updateMissionPlan');
+			changes.control_type = plan.controlType;
+			changes.planned_method_id = plan.plannedMethodId;
+		}
 
-			if (plan.assignedToProfileId !== current.assignedToProfileId) {
-				intents.push('missionDispatch.assignMission');
-				changes.assigned_to_profile_id = plan.assignedToProfileId;
-				// Mirrored the way the server stamps it: who handed the work over is
-				// recorded by the act of handing it over.
-				changes.assigned_by_profile_id = plan.assignedToProfileId === null ? null : actorProfileId;
-			}
+		if (plan.assignedToProfileId !== current.assignedToProfileId) {
+			intents.push('missionDispatch.assignMission');
+			changes.assigned_to_profile_id = plan.assignedToProfileId;
+			// Mirrored the way the server stamps it: who handed the work over is
+			// recorded by the act of handing it over.
+			changes.assigned_by_profile_id = plan.assignedToProfileId === null ? null : actorProfileId;
+		}
 
-			if (plan.notificationTypeId !== current.notificationTypeId) {
-				intents.push('missionDispatch.updateMissionNotificationType');
-				changes.notification_type_id = plan.notificationTypeId;
-			}
+		if (plan.notificationTypeId !== current.notificationTypeId) {
+			intents.push('missionDispatch.updateMissionNotificationType');
+			changes.notification_type_id = plan.notificationTypeId;
+		}
 
-			if (intents.length === 0) {
-				return;
-			}
+		if (intents.length === 0) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(missions(), {
-					operation: 'update',
-					intent: intents,
-					key: missionId,
-					changes: {
-						...changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(missions(), {
+				operation: 'update',
+				intent: intents,
+				key: missionId,
+				changes: {
+					...changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const start = useCallback(
-		async (missionId: string) => {
-			await settleWrite(
-				mutateCollection(missions(), {
-					operation: 'update',
-					intent: 'missionDispatch.startMission',
-					key: missionId,
-					changes: {
-						started_at: lifecycleStamp(),
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const start = async (missionId: string) => {
+		await settleWrite(
+			mutateCollection(missions(), {
+				operation: 'update',
+				intent: 'missionDispatch.startMission',
+				key: missionId,
+				changes: {
+					started_at: lifecycleStamp(),
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const complete = useCallback(
-		async (missionId: string) => {
-			await settleWrite(
-				mutateCollection(missions(), {
-					operation: 'update',
-					intent: 'missionDispatch.completeMission',
-					key: missionId,
-					changes: {
-						completed_at: lifecycleStamp(),
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					// `started_at` is deliberately not written here. The server stamps
-					// whatever start it settles on for a mission finished straight from
-					// scheduled, and guessing at it would show a start that is not the
-					// stored one until sync corrected it.
-					arguments: { autoStartMission: true },
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const complete = async (missionId: string) => {
+		await settleWrite(
+			mutateCollection(missions(), {
+				operation: 'update',
+				intent: 'missionDispatch.completeMission',
+				key: missionId,
+				changes: {
+					completed_at: lifecycleStamp(),
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				// `started_at` is deliberately not written here. The server stamps
+				// whatever start it settles on for a mission finished straight from
+				// scheduled, and guessing at it would show a start that is not the
+				// stored one until sync corrected it.
+				arguments: { autoStartMission: true },
+			}),
+		);
+	};
 
-	const cancel = useCallback(
-		async (missionId: string, cancellationReason: string) => {
-			await settleWrite(
-				mutateCollection(missions(), {
-					operation: 'update',
-					intent: 'missionDispatch.cancelMission',
-					key: missionId,
-					changes: {
-						cancelled_at: lifecycleStamp(),
-						cancellation_reason: cancellationReason,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					// The comment the reason becomes. Minted here so a retry writes the
-					// same comment rather than a second one.
-					arguments: { cancellationCommentId: newRecordId() },
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const cancel = async (missionId: string, cancellationReason: string) => {
+		await settleWrite(
+			mutateCollection(missions(), {
+				operation: 'update',
+				intent: 'missionDispatch.cancelMission',
+				key: missionId,
+				changes: {
+					cancelled_at: lifecycleStamp(),
+					cancellation_reason: cancellationReason,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				// The comment the reason becomes. Minted here so a retry writes the
+				// same comment rather than a second one.
+				arguments: { cancellationCommentId: newRecordId() },
+			}),
+		);
+	};
 
-	const reopen = useCallback(
-		async (missionId: string, reopenReason: string) => {
-			await settleWrite(
-				mutateCollection(missions(), {
-					operation: 'update',
-					intent: 'missionDispatch.reopenMission',
-					key: missionId,
-					changes: {
-						completed_at: null,
-						cancelled_at: null,
-						cancellation_reason: null,
-						// `started_at` is deliberately left alone. The server keeps it:
-						// reopening resumes work rather than resetting it, and nothing else
-						// on the row records when the crew actually started.
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					arguments: { reopenCommentId: newRecordId(), reopenReason },
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const reopen = async (missionId: string, reopenReason: string) => {
+		await settleWrite(
+			mutateCollection(missions(), {
+				operation: 'update',
+				intent: 'missionDispatch.reopenMission',
+				key: missionId,
+				changes: {
+					completed_at: null,
+					cancelled_at: null,
+					cancellation_reason: null,
+					// `started_at` is deliberately left alone. The server keeps it:
+					// reopening resumes work rather than resetting it, and nothing else
+					// on the row records when the crew actually started.
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				arguments: { reopenCommentId: newRecordId(), reopenReason },
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (missionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(missions(), {
-					operation: 'delete',
-					intent: 'missionDispatch.deleteMission',
-					key: missionId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		missionId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(missions(), {
+				operation: 'delete',
+				intent: 'missionDispatch.deleteMission',
+				key: missionId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
-	const moveStops = useCallback(async (missionId: string, plan: MovePlan) => {
+	const moveStops = async (missionId: string, plan: MovePlan) => {
 		await settleWrite(
 			commandTransaction({
 				intent: 'missionDispatch.moveMissionItems' satisfies MultiRowCommandType,
@@ -386,7 +371,7 @@ export function useMissionMutations(): MissionMutations {
 				},
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		create,

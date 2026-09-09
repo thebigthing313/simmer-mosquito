@@ -18,7 +18,6 @@ import {
 	type AdditionalPersonnel as AdditionalPersonnelRow,
 	settleWrite,
 } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { additional_personnel } from '../../lib/collections/additional_personnel';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { reconcileLinks } from '../../sync/reconcile-links';
@@ -53,35 +52,32 @@ export function useAdditionalPersonnelMutations(): AdditionalPersonnelMutations 
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const attach = useCallback(
-		async (target: AdditionalPersonnelTarget, personnelProfileId: string) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const attach = async (target: AdditionalPersonnelTarget, personnelProfileId: string) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(additional_personnel(), {
-					operation: 'insert',
-					intent: 'fieldWork.addAdditionalPersonnel',
-					row: {
-						id: newRecordId(),
-						organization_id: organizationId,
-						personnel_profile_id: personnelProfileId,
-						entity_type: toDbEntityType(target.type),
-						entity_id: target.id,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies AdditionalPersonnelRow,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(additional_personnel(), {
+				operation: 'insert',
+				intent: 'fieldWork.addAdditionalPersonnel',
+				row: {
+					id: newRecordId(),
+					organization_id: organizationId,
+					personnel_profile_id: personnelProfileId,
+					entity_type: toDbEntityType(target.type),
+					entity_id: target.id,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies AdditionalPersonnelRow,
+			}),
+		);
+	};
 
-	const detach = useCallback(async (additionalPersonnelId: string) => {
+	const detach = async (additionalPersonnelId: string) => {
 		await settleWrite(
 			mutateCollection(additional_personnel(), {
 				operation: 'delete',
@@ -89,25 +85,22 @@ export function useAdditionalPersonnelMutations(): AdditionalPersonnelMutations 
 				key: additionalPersonnelId,
 			}),
 		);
-	}, []);
+	};
 
-	const setPersonnel = useCallback(
-		async ({ target, existing, profileIds }: SetAdditionalPersonnelInput) => {
-			const { removals, additions } = reconcileLinks(
-				existing,
-				(row) => row.personnelProfileId,
-				profileIds,
-			);
+	const setPersonnel = async ({ target, existing, profileIds }: SetAdditionalPersonnelInput) => {
+		const { removals, additions } = reconcileLinks(
+			existing,
+			(row) => row.personnelProfileId,
+			profileIds,
+		);
 
-			// Concurrently: these are independent rows, and each is its own command, so
-			// there is no order for them to be in.
-			await Promise.all([
-				...removals.map((row) => detach(row.id)),
-				...additions.map((personnelProfileId) => attach(target, personnelProfileId)),
-			]);
-		},
-		[attach, detach],
-	);
+		// Concurrently: these are independent rows, and each is its own command, so
+		// there is no order for them to be in.
+		await Promise.all([
+			...removals.map((row) => detach(row.id)),
+			...additions.map((personnelProfileId) => attach(target, personnelProfileId)),
+		]);
+	};
 
 	return {
 		attach,

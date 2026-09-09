@@ -27,7 +27,6 @@
  */
 
 import type { Tag } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { tags } from '../../lib/collections/tags';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import {
@@ -86,32 +85,29 @@ export function useTagMutations(): TagMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (fields: TagFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const create = async (fields: TagFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const row = {
-				id: newRecordId(),
-				organization_id: organizationId,
-				tag_name: fields.name,
-				description: fields.description,
-				color: fields.color,
-				is_active: fields.isActive,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			} satisfies Tag;
-			await createCatalogRow(tags(), tagCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		const row = {
+			id: newRecordId(),
+			organization_id: organizationId,
+			tag_name: fields.name,
+			description: fields.description,
+			color: fields.color,
+			is_active: fields.isActive,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		} satisfies Tag;
+		await createCatalogRow(tags(), tagCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(async (id: string, fields: TagFields, current: TagFields) => {
+	const save = async (id: string, fields: TagFields, current: TagFields) => {
 		// Only the columns that moved: the domain refuses an update with nothing
 		// to change, so naming it on a save that only flipped the switch would
 		// fail the whole write.
@@ -131,14 +127,12 @@ export function useTagMutations(): TagMutations {
 			isActive: fields.isActive,
 			wasActive: current.isActive,
 		});
-	}, []);
+	};
 
-	const setActive = useCallback(
-		(id: string, isActive: boolean) => setCatalogRowActive(tags(), tagCommands, id, isActive),
-		[],
-	);
+	const setActive = (id: string, isActive: boolean) =>
+		setCatalogRowActive(tags(), tagCommands, id, isActive);
 
-	const remove = useCallback((id: string) => deleteCatalogRow(tags(), tagCommands, id), []);
+	const remove = (id: string) => deleteCatalogRow(tags(), tagCommands, id);
 
 	return {
 		create,

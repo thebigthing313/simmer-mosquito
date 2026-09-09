@@ -26,7 +26,6 @@
  */
 
 import { type Sample, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { samples } from '../../lib/collections/samples';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -77,137 +76,122 @@ export function useSampleMutations(): SampleMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const add = useCallback(
-		async ({
-			sampleId,
-			inspectionId,
-			displayName,
-		}: {
-			readonly sampleId: string;
-			readonly inspectionId: string;
-			readonly displayName: string | null;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const add = async ({
+		sampleId,
+		inspectionId,
+		displayName,
+	}: {
+		readonly sampleId: string;
+		readonly inspectionId: string;
+		readonly displayName: string | null;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(samples(), {
-					operation: 'insert',
-					// Two intentions, not one command with an optional field.
-					intent:
-						displayName === null
-							? 'larvalSurveillance.addUnlabeledInspectionSample'
-							: 'larvalSurveillance.addInspectionSample',
-					row: {
-						id: sampleId,
-						organization_id: organizationId,
-						inspection_id: inspectionId,
-						display_name: displayName,
-						is_zero_larvae: false,
-						has_non_mosquito: false,
-						unidentifiable_reason: null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies Sample,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(samples(), {
+				operation: 'insert',
+				// Two intentions, not one command with an optional field.
+				intent:
+					displayName === null
+						? 'larvalSurveillance.addUnlabeledInspectionSample'
+						: 'larvalSurveillance.addInspectionSample',
+				row: {
+					id: sampleId,
+					organization_id: organizationId,
+					inspection_id: inspectionId,
+					display_name: displayName,
+					is_zero_larvae: false,
+					has_non_mosquito: false,
+					unidentifiable_reason: null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies Sample,
+			}),
+		);
+	};
 
-	const rename = useCallback(
-		async (sampleId: string, displayName: string) => {
-			await settleWrite(
-				mutateCollection(samples(), {
-					operation: 'update',
-					intent: 'larvalSurveillance.updateInspectionSample',
-					key: sampleId,
-					changes: {
-						display_name: displayName,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const rename = async (sampleId: string, displayName: string) => {
+		await settleWrite(
+			mutateCollection(samples(), {
+				operation: 'update',
+				intent: 'larvalSurveillance.updateInspectionSample',
+				key: sampleId,
+				changes: {
+					display_name: displayName,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const setZeroLarvae = useCallback(
-		async (sampleId: string, isZeroLarvae: boolean) => {
-			await settleWrite(
-				mutateCollection(samples(), {
-					operation: 'update',
-					intent: isZeroLarvae
-						? 'larvalSurveillance.markSampleZeroLarvae'
-						: 'larvalSurveillance.clearSampleZeroLarvae',
-					key: sampleId,
-					changes: {
-						is_zero_larvae: isZeroLarvae,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setZeroLarvae = async (sampleId: string, isZeroLarvae: boolean) => {
+		await settleWrite(
+			mutateCollection(samples(), {
+				operation: 'update',
+				intent: isZeroLarvae
+					? 'larvalSurveillance.markSampleZeroLarvae'
+					: 'larvalSurveillance.clearSampleZeroLarvae',
+				key: sampleId,
+				changes: {
+					is_zero_larvae: isZeroLarvae,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const setNonMosquito = useCallback(
-		async (sampleId: string, hasNonMosquito: boolean) => {
-			await settleWrite(
-				mutateCollection(samples(), {
-					operation: 'update',
-					intent: 'larvalSurveillance.setSampleNonMosquitoPresence',
-					key: sampleId,
-					changes: {
-						has_non_mosquito: hasNonMosquito,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setNonMosquito = async (sampleId: string, hasNonMosquito: boolean) => {
+		await settleWrite(
+			mutateCollection(samples(), {
+				operation: 'update',
+				intent: 'larvalSurveillance.setSampleNonMosquitoPresence',
+				key: sampleId,
+				changes: {
+					has_non_mosquito: hasNonMosquito,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const setUnidentifiableReason = useCallback(
-		async (sampleId: string, unidentifiableReason: string | null) => {
-			await settleWrite(
-				mutateCollection(samples(), {
-					operation: 'update',
-					intent: 'larvalSurveillance.setSampleUnidentifiableReason',
-					key: sampleId,
-					changes: {
-						unidentifiable_reason: unidentifiableReason,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setUnidentifiableReason = async (sampleId: string, unidentifiableReason: string | null) => {
+		await settleWrite(
+			mutateCollection(samples(), {
+				operation: 'update',
+				intent: 'larvalSurveillance.setSampleUnidentifiableReason',
+				key: sampleId,
+				changes: {
+					unidentifiable_reason: unidentifiableReason,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (sampleId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(samples(), {
-					operation: 'delete',
-					intent: 'larvalSurveillance.deleteInspectionSample',
-					key: sampleId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		sampleId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(samples(), {
+				operation: 'delete',
+				intent: 'larvalSurveillance.deleteInspectionSample',
+				key: sampleId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		add,

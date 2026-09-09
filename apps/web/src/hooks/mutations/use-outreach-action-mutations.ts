@@ -19,7 +19,6 @@
  */
 
 import { type OutreachAction as OutreachActionRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
@@ -89,145 +88,139 @@ export function useOutreachActionMutations(): OutreachActionMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async ({
-			outreachActionId,
-			values,
-			location,
-			missionItemId,
-			acknowledgements,
-		}: RecordOutreachActionInput) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(outreach_actions(), {
-					operation: 'insert',
-					intent:
-						missionItemId === null
-							? 'controlOperations.recordOutreachAction'
-							: 'missionDispatch.recordOutreachActionForMissionItem',
-					row: {
-						id: outreachActionId,
-						organization_id: organizationId,
-						outreach_method_id: values.methodId,
-						technician_profile_id: values.technicianProfileId,
-						outreach_date: values.actionDate,
-						lat: location.lat,
-						lng: location.lng,
-						geom_type: location.geomType,
-						address_id: values.addressId,
-						inspection_id: null,
-						reach: values.reach,
-						reach_description: values.reachDescription,
-						requested_control_action_id: null,
-						mission_item_id: missionItemId,
-						metadata: values.metadata,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies OutreachActionRow,
-					...(location.locationSource === undefined
+	const record = async ({
+		outreachActionId,
+		values,
+		location,
+		missionItemId,
+		acknowledgements,
+	}: RecordOutreachActionInput) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(outreach_actions(), {
+				operation: 'insert',
+				intent:
+					missionItemId === null
+						? 'controlOperations.recordOutreachAction'
+						: 'missionDispatch.recordOutreachActionForMissionItem',
+				row: {
+					id: outreachActionId,
+					organization_id: organizationId,
+					outreach_method_id: values.methodId,
+					technician_profile_id: values.technicianProfileId,
+					outreach_date: values.actionDate,
+					lat: location.lat,
+					lng: location.lng,
+					geom_type: location.geomType,
+					address_id: values.addressId,
+					inspection_id: null,
+					reach: values.reach,
+					reach_description: values.reachDescription,
+					requested_control_action_id: null,
+					mission_item_id: missionItemId,
+					metadata: values.metadata,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies OutreachActionRow,
+				...(location.locationSource === undefined
+					? {}
+					: { locationSource: location.locationSource }),
+				// No Habitat on this table, so the only context a create can state is
+				// the absence of one.
+				context: contextFor(null, null),
+				...(acknowledgements === undefined ? {} : { acknowledgements }),
+			}),
+		);
+	};
+
+	const update = async (
+		current: OutreachAction,
+		{ values, location, acknowledgements }: UpdateOutreachActionInput,
+	) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+
+		const fieldsMoved =
+			current.methodId !== values.methodId ||
+			current.technicianProfileId !== values.technicianProfileId ||
+			current.outreachDate !== values.actionDate ||
+			current.reach !== values.reach ||
+			current.reachDescription !== values.reachDescription ||
+			metadataChanged(current.metadata, values.metadata);
+
+		// No Habitat to move: the address and the drawn shape are the whole of this
+		// record's placement.
+		const addressMoved = current.addressId !== values.addressId;
+		const placementMoved = addressMoved || location?.locationSource !== undefined;
+
+		if (!fieldsMoved && !placementMoved) {
+			return;
+		}
+
+		const intent = actionEditIntents({
+			fieldsMoved,
+			fieldsIntent: 'controlOperations.updateOutreachActionFieldDetails',
+			placementMoved,
+			placementIntent: 'controlOperations.updateOutreachActionLocationAndContext',
+		});
+
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(outreach_actions(), {
+				operation: 'update',
+				intent,
+				key: current.id,
+				changes: {
+					...(fieldsMoved
+						? {
+								outreach_method_id: values.methodId,
+								technician_profile_id: values.technicianProfileId,
+								outreach_date: values.actionDate,
+								reach: values.reach,
+								reach_description: values.reachDescription,
+								metadata: values.metadata,
+							}
+						: {}),
+					...(addressMoved ? { address_id: values.addressId } : {}),
+					// Reseeded so the record's marker moves before the server answers. The
+					// server recomputes all three from the geometry it stores.
+					...(location === undefined
 						? {}
-						: { locationSource: location.locationSource }),
-					// No Habitat on this table, so the only context a create can state is
-					// the absence of one.
-					context: contextFor(null, null),
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+						: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
+					updated_by_profile_id: actorProfileId,
+					updated_at: now,
+				},
+				...(location?.locationSource === undefined
+					? {}
+					: { locationSource: location.locationSource }),
+				// Deliberately no `context`: nothing on this form can change the
+				// Inspection, and sending one would rewrite it.
+				...(acknowledgements === undefined ? {} : { acknowledgements }),
+			}),
+		);
+	};
 
-	const update = useCallback(
-		async (
-			current: OutreachAction,
-			{ values, location, acknowledgements }: UpdateOutreachActionInput,
-		) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-
-			const fieldsMoved =
-				current.methodId !== values.methodId ||
-				current.technicianProfileId !== values.technicianProfileId ||
-				current.outreachDate !== values.actionDate ||
-				current.reach !== values.reach ||
-				current.reachDescription !== values.reachDescription ||
-				metadataChanged(current.metadata, values.metadata);
-
-			// No Habitat to move: the address and the drawn shape are the whole of this
-			// record's placement.
-			const addressMoved = current.addressId !== values.addressId;
-			const placementMoved = addressMoved || location?.locationSource !== undefined;
-
-			if (!fieldsMoved && !placementMoved) {
-				return;
-			}
-
-			const intent = actionEditIntents({
-				fieldsMoved,
-				fieldsIntent: 'controlOperations.updateOutreachActionFieldDetails',
-				placementMoved,
-				placementIntent: 'controlOperations.updateOutreachActionLocationAndContext',
-			});
-
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(outreach_actions(), {
-					operation: 'update',
-					intent,
-					key: current.id,
-					changes: {
-						...(fieldsMoved
-							? {
-									outreach_method_id: values.methodId,
-									technician_profile_id: values.technicianProfileId,
-									outreach_date: values.actionDate,
-									reach: values.reach,
-									reach_description: values.reachDescription,
-									metadata: values.metadata,
-								}
-							: {}),
-						...(addressMoved ? { address_id: values.addressId } : {}),
-						// Reseeded so the record's marker moves before the server answers. The
-						// server recomputes all three from the geometry it stores.
-						...(location === undefined
-							? {}
-							: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
-						updated_by_profile_id: actorProfileId,
-						updated_at: now,
-					},
-					...(location?.locationSource === undefined
-						? {}
-						: { locationSource: location.locationSource }),
-					// Deliberately no `context`: nothing on this form can change the
-					// Inspection, and sending one would rewrite it.
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
-
-	const remove = useCallback(
-		async (outreachActionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(outreach_actions(), {
-					operation: 'delete',
-					intent: 'controlOperations.deleteOutreachAction',
-					key: outreachActionId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		outreachActionId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(outreach_actions(), {
+				operation: 'delete',
+				intent: 'controlOperations.deleteOutreachAction',
+				key: outreachActionId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return { record, update, remove, canWrite: organizationId !== null && actorProfileId !== null };
 }

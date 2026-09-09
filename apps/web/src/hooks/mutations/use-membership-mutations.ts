@@ -35,7 +35,6 @@ import {
 	settleWrite,
 	writeCommand,
 } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { getServerUrl } from '../../auth';
 import { memberships } from '../../lib/collections/memberships';
 import { mutateCollection } from '../../lib/collections/mutate';
@@ -84,18 +83,18 @@ export function useMembershipMutations(): MembershipMutations {
 	const auth = useAuthSnapshot();
 	const organizationId = auth?.authenticated === true ? auth.localIdentity.organizationId : null;
 
-	const invite = useCallback(async (fields: InviteFields) => {
+	const invite = async (fields: InviteFields) => {
 		await postMembershipCommand('POST', null, inviteCommandBody(fields, newRecordId));
-	}, []);
+	};
 
-	const reinvite = useCallback(async (membershipId: string, role: SimmerRole) => {
+	const reinvite = async (membershipId: string, role: SimmerRole) => {
 		await postMembershipCommand('PATCH', membershipId, {
 			intents: ['identity.reinvite'],
 			role,
 		});
-	}, []);
+	};
 
-	const changeRole = useCallback(async (membershipId: string, role: SimmerRole) => {
+	const changeRole = async (membershipId: string, role: SimmerRole) => {
 		await settleWrite(
 			mutateCollection(memberships(), {
 				operation: 'update',
@@ -104,9 +103,9 @@ export function useMembershipMutations(): MembershipMutations {
 				changes: { role },
 			}),
 		);
-	}, []);
+	};
 
-	const endMembership = useCallback(async (membershipId: string) => {
+	const endMembership = async (membershipId: string) => {
 		await settleWrite(
 			mutateCollection(memberships(), {
 				operation: 'update',
@@ -119,7 +118,7 @@ export function useMembershipMutations(): MembershipMutations {
 				changes: { status: 'inactive', is_default: false } satisfies Partial<Membership>,
 			}),
 		);
-	}, []);
+	};
 
 	return { invite, reinvite, changeRole, endMembership, canWrite: organizationId !== null };
 }

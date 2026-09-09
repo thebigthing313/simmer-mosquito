@@ -12,7 +12,6 @@
  */
 
 import { and, gte, lte, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { missions } from '../../lib/collections/missions';
 import { addCalendarDays, localDayStartAsInstant } from '../../lib/local-date';
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
@@ -32,16 +31,11 @@ export function useMissions(
 	readonly isReady: boolean;
 } {
 	const timeZone = useOrganizationTimeZone();
-	const fromBound = useMemo(
-		() => (from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, timeZone)),
-		[from, timeZone],
-	);
+	const fromBound = from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, timeZone);
 	// The start of the day *after* `to`, so a mission dispatched at any hour of the
 	// closing day is still inside the window.
-	const toBound = useMemo(
-		() => (to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone)),
-		[to, timeZone],
-	);
+	const toBound =
+		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone);
 
 	const result = useLiveQuery(
 		{

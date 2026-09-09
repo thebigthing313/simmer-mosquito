@@ -36,7 +36,6 @@
 
 import { type GeoJsonPoint, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type Address, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { addresses } from '../../lib/collections/addresses';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -150,80 +149,74 @@ export function useAddressMutations(): AddressMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (fields: AddressFields, country: string, geometry: GeoJsonPoint) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const create = async (fields: AddressFields, country: string, geometry: GeoJsonPoint) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const centroid = ownedCentroidFromGeoJson(geometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine where the address sits.');
-			}
+		const centroid = ownedCentroidFromGeoJson(geometry);
+		if (centroid === null) {
+			throw new Error('Unable to determine where the address sits.');
+		}
 
-			const now = optimisticStamp();
-			const addressId = newRecordId();
-			await settleWrite(
-				mutateCollection(addresses(), {
-					operation: 'insert',
-					intent: 'foundation.createAddress',
-					row: {
-						id: addressId,
-						organization_id: organizationId,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geom_type: centroid.geomType,
-						display_name: fields.displayName,
-						country,
-						address_line_1: fields.addressLine1,
-						address_line_2: fields.addressLine2,
-						locality: fields.locality,
-						region: fields.region,
-						postal_code: fields.postalCode,
-						geocoder_response: fields.geocoderResponse ?? null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies Address,
-					arguments: { geometry },
-				}),
-			);
-			return addressId;
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		const addressId = newRecordId();
+		await settleWrite(
+			mutateCollection(addresses(), {
+				operation: 'insert',
+				intent: 'foundation.createAddress',
+				row: {
+					id: addressId,
+					organization_id: organizationId,
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geom_type: centroid.geomType,
+					display_name: fields.displayName,
+					country,
+					address_line_1: fields.addressLine1,
+					address_line_2: fields.addressLine2,
+					locality: fields.locality,
+					region: fields.region,
+					postal_code: fields.postalCode,
+					geocoder_response: fields.geocoderResponse ?? null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies Address,
+				arguments: { geometry },
+			}),
+		);
+		return addressId;
+	};
 
-	const save = useCallback(
-		async (
-			addressId: string,
-			fields: AddressFields,
-			current: AddressFields,
-			geometry: GeoJsonPoint | null,
-		) => {
-			const plan = addressUpdatePlan({ fields, current, geometry });
-			if (plan === null) {
-				return;
-			}
+	const save = async (
+		addressId: string,
+		fields: AddressFields,
+		current: AddressFields,
+		geometry: GeoJsonPoint | null,
+	) => {
+		const plan = addressUpdatePlan({ fields, current, geometry });
+		if (plan === null) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(addresses(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: addressId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(addresses(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: addressId,
+				changes: {
+					...plan.changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
+			}),
+		);
+	};
 
-	const remove = useCallback(async (addressId: string) => {
+	const remove = async (addressId: string) => {
 		await settleWrite(
 			mutateCollection(addresses(), {
 				operation: 'delete',
@@ -231,7 +224,7 @@ export function useAddressMutations(): AddressMutations {
 				key: addressId,
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		create,

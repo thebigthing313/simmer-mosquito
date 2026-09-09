@@ -49,7 +49,6 @@
 import type { LarvalDensity, MultiRowCommandType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type Inspection, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { inspections } from '../../lib/collections/inspections';
@@ -152,178 +151,172 @@ export function useInspectionMutations(): InspectionMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async ({
-			inspectionId,
-			result,
-			placement,
-			centroid,
-			acknowledgements,
-		}: {
-			readonly inspectionId: string;
-			readonly result: InspectionResult;
-			readonly placement: InspectionPlacement;
-			readonly centroid: InspectionCentroid;
-			readonly acknowledgements?: StopAcknowledgements;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const record = async ({
+		inspectionId,
+		result,
+		placement,
+		centroid,
+		acknowledgements,
+	}: {
+		readonly inspectionId: string;
+		readonly result: InspectionResult;
+		readonly placement: InspectionPlacement;
+		readonly centroid: InspectionCentroid;
+		readonly acknowledgements?: StopAcknowledgements;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const row = {
-				id: inspectionId,
-				organization_id: organizationId,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geom_type: centroid.geomType,
-				habitat_id: placement.kind === 'adhoc' ? null : placement.habitatId,
-				habitat_type_id: placement.kind === 'adhoc' ? placement.habitatTypeId : null,
-				address_id: placement.kind === 'adhoc' ? placement.addressId : null,
-				assignment_item_id: placement.kind === 'stop' ? placement.assignmentItemId : null,
-				...resultColumns(result),
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-				// `satisfies` rather than `as`: it is what makes a wrong column name a
-				// compile error. The cast is exactly what let camelCase rows through.
-			} satisfies Inspection;
+		const now = optimisticStamp();
+		const row = {
+			id: inspectionId,
+			organization_id: organizationId,
+			lat: centroid.lat,
+			lng: centroid.lng,
+			geom_type: centroid.geomType,
+			habitat_id: placement.kind === 'adhoc' ? null : placement.habitatId,
+			habitat_type_id: placement.kind === 'adhoc' ? placement.habitatTypeId : null,
+			address_id: placement.kind === 'adhoc' ? placement.addressId : null,
+			assignment_item_id: placement.kind === 'stop' ? placement.assignmentItemId : null,
+			...resultColumns(result),
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+			// `satisfies` rather than `as`: it is what makes a wrong column name a
+			// compile error. The cast is exactly what let camelCase rows through.
+		} satisfies Inspection;
 
-			if (placement.kind === 'stop') {
-				await settleWrite(
-					commandTransaction({
-						intent:
-							'fieldWork.recordHabitatInspectionForAssignmentItem' satisfies MultiRowCommandType,
-						request: {
-							table: 'inspections',
-							method: 'POST',
-							body: stopInspectionRequestBody(row, placement, acknowledgements),
-						},
-						apply: () => {
-							inspections().insert(row);
-							// The stop the inspector was sent to, closed by the record that
-							// was the reason for it. Backdated like every lifecycle stamp,
-							// so a fast browser clock cannot have it refused as future.
-							assignment_items().update(placement.assignmentItemId, (draft) => {
-								draft.completed_at = lifecycleStamp();
-								draft.completed_by_profile_id = actorProfileId;
-								draft.skipped_at = null;
-								draft.skipped_by_profile_id = null;
-								draft.skip_reason = null;
-								draft.updated_by_profile_id = actorProfileId;
-								draft.updated_at = now;
-							});
-						},
-					}),
-				);
-				return;
-			}
-
+		if (placement.kind === 'stop') {
 			await settleWrite(
-				mutateCollection(inspections(), {
-					operation: 'insert',
+				commandTransaction({
 					intent:
-						placement.kind === 'habitat'
-							? 'larvalSurveillance.recordHabitatInspection'
-							: 'larvalSurveillance.recordAdHocInspection',
-					row,
-					...(placement.kind === 'adhoc'
-						? { locationSource: { kind: 'geometry', geometry: placement.geometry } }
-						: {}),
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
-
-	const save = useCallback(
-		async ({
-			inspectionId,
-			result,
-			current,
-			adhoc,
-			centroid,
-		}: {
-			readonly inspectionId: string;
-			readonly result: InspectionResult;
-			readonly current: InspectionResult;
-			readonly adhoc: { readonly next: AdHocPlacement; readonly current: AdHocPlacement } | null;
-			readonly centroid: InspectionCentroid | null;
-		}) => {
-			const intents: (
-				| 'larvalSurveillance.updateInspectionFieldDetails'
-				| 'larvalSurveillance.updateAdHocInspectionLocation'
-			)[] = [];
-			const changes: Partial<Inspection> = {};
-
-			if (resultMoved(result, current)) {
-				intents.push('larvalSurveillance.updateInspectionFieldDetails');
-				Object.assign(changes, resultColumns(result));
-			}
-
-			// The three ad hoc fields are read by presence on the server, where a null
-			// address means "detach" and an absent one means "leave it" — so each is
-			// stated only when it actually moved.
-			const redrawn = adhoc !== null && adhoc.next.geometry !== null;
-			const addressMoved = adhoc !== null && adhoc.next.addressId !== adhoc.current.addressId;
-			const typeMoved = adhoc !== null && adhoc.next.habitatTypeId !== adhoc.current.habitatTypeId;
-			if (redrawn || addressMoved || typeMoved) {
-				intents.push('larvalSurveillance.updateAdHocInspectionLocation');
-				if (addressMoved) {
-					changes.address_id = adhoc?.next.addressId ?? null;
-				}
-				if (typeMoved) {
-					changes.habitat_type_id = adhoc?.next.habitatTypeId ?? null;
-				}
-				if (redrawn && centroid !== null) {
-					changes.lat = centroid.lat;
-					changes.lng = centroid.lng;
-					changes.geom_type = centroid.geomType;
-				}
-			}
-
-			if (intents.length === 0) {
-				return;
-			}
-
-			await settleWrite(
-				mutateCollection(inspections(), {
-					operation: 'update',
-					intent: intents,
-					key: inspectionId,
-					changes: {
-						...changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
+						'fieldWork.recordHabitatInspectionForAssignmentItem' satisfies MultiRowCommandType,
+					request: {
+						table: 'inspections',
+						method: 'POST',
+						body: stopInspectionRequestBody(row, placement, acknowledgements),
 					},
-					// Absent unless the shape was redrawn: a geometry sent under a command
-					// that has no reader for it is a key the server ignores, and sending one
-					// anyway makes the body claim an edit it is not making.
-					...(redrawn && adhoc?.next.geometry != null
-						? { locationSource: { kind: 'geometry', geometry: adhoc.next.geometry } }
-						: {}),
+					apply: () => {
+						inspections().insert(row);
+						// The stop the inspector was sent to, closed by the record that
+						// was the reason for it. Backdated like every lifecycle stamp,
+						// so a fast browser clock cannot have it refused as future.
+						assignment_items().update(placement.assignmentItemId, (draft) => {
+							draft.completed_at = lifecycleStamp();
+							draft.completed_by_profile_id = actorProfileId;
+							draft.skipped_at = null;
+							draft.skipped_by_profile_id = null;
+							draft.skip_reason = null;
+							draft.updated_by_profile_id = actorProfileId;
+							draft.updated_at = now;
+						});
+					},
 				}),
 			);
-		},
-		[actorProfileId],
-	);
+			return;
+		}
 
-	const remove = useCallback(
-		async (inspectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(inspections(), {
-					operation: 'delete',
-					intent: 'larvalSurveillance.deleteInspection',
-					key: inspectionId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+		await settleWrite(
+			mutateCollection(inspections(), {
+				operation: 'insert',
+				intent:
+					placement.kind === 'habitat'
+						? 'larvalSurveillance.recordHabitatInspection'
+						: 'larvalSurveillance.recordAdHocInspection',
+				row,
+				...(placement.kind === 'adhoc'
+					? { locationSource: { kind: 'geometry', geometry: placement.geometry } }
+					: {}),
+			}),
+		);
+	};
+
+	const save = async ({
+		inspectionId,
+		result,
+		current,
+		adhoc,
+		centroid,
+	}: {
+		readonly inspectionId: string;
+		readonly result: InspectionResult;
+		readonly current: InspectionResult;
+		readonly adhoc: { readonly next: AdHocPlacement; readonly current: AdHocPlacement } | null;
+		readonly centroid: InspectionCentroid | null;
+	}) => {
+		const intents: (
+			| 'larvalSurveillance.updateInspectionFieldDetails'
+			| 'larvalSurveillance.updateAdHocInspectionLocation'
+		)[] = [];
+		const changes: Partial<Inspection> = {};
+
+		if (resultMoved(result, current)) {
+			intents.push('larvalSurveillance.updateInspectionFieldDetails');
+			Object.assign(changes, resultColumns(result));
+		}
+
+		// The three ad hoc fields are read by presence on the server, where a null
+		// address means "detach" and an absent one means "leave it" — so each is
+		// stated only when it actually moved.
+		const redrawn = adhoc !== null && adhoc.next.geometry !== null;
+		const addressMoved = adhoc !== null && adhoc.next.addressId !== adhoc.current.addressId;
+		const typeMoved = adhoc !== null && adhoc.next.habitatTypeId !== adhoc.current.habitatTypeId;
+		if (redrawn || addressMoved || typeMoved) {
+			intents.push('larvalSurveillance.updateAdHocInspectionLocation');
+			if (addressMoved) {
+				changes.address_id = adhoc?.next.addressId ?? null;
+			}
+			if (typeMoved) {
+				changes.habitat_type_id = adhoc?.next.habitatTypeId ?? null;
+			}
+			if (redrawn && centroid !== null) {
+				changes.lat = centroid.lat;
+				changes.lng = centroid.lng;
+				changes.geom_type = centroid.geomType;
+			}
+		}
+
+		if (intents.length === 0) {
+			return;
+		}
+
+		await settleWrite(
+			mutateCollection(inspections(), {
+				operation: 'update',
+				intent: intents,
+				key: inspectionId,
+				changes: {
+					...changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				// Absent unless the shape was redrawn: a geometry sent under a command
+				// that has no reader for it is a key the server ignores, and sending one
+				// anyway makes the body claim an edit it is not making.
+				...(redrawn && adhoc?.next.geometry != null
+					? { locationSource: { kind: 'geometry', geometry: adhoc.next.geometry } }
+					: {}),
+			}),
+		);
+	};
+
+	const remove = async (
+		inspectionId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(inspections(), {
+				operation: 'delete',
+				intent: 'larvalSurveillance.deleteInspection',
+				key: inspectionId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		record,

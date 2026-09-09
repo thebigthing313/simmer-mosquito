@@ -16,7 +16,6 @@
  */
 
 import { useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import type { DailyWorkPerson, DailyWorkRoster } from '../../components/app-shell/navigation';
 import { profiles } from '../../lib/collections/profiles';
 
@@ -70,5 +69,5 @@ export function useDailyWorkRoster(): DailyWorkRoster {
 	const rows = result.data;
 	const { isReady } = result;
 
-	return useMemo(() => dailyWorkRoster(rows, isReady), [rows, isReady]);
+	return dailyWorkRoster(rows, isReady);
 }

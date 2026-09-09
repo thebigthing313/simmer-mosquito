@@ -30,7 +30,6 @@
 
 import type { ControlType } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { applications } from '../../lib/collections/applications';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
@@ -193,37 +192,52 @@ export function useLinkedControlActions(inspectionId: string): {
 	const biocontrolRows = biocontrolResult.data;
 	const requestedRows = requestedResult.data;
 
-	// The `useMemo` exception `shared.ts` allows: five queries cannot return one
-	// interleaved list, so the union is assembled after them rather than inside.
-	const actions = useMemo<readonly LinkedControlAction[]>(() => {
-		const list: LinkedControlAction[] = [];
-		for (const row of applicationRows ?? []) {
-			list.push({ kind: 'application', ...row } as LinkedControlAction);
-		}
-		for (const row of sourceReductionRows ?? []) {
-			list.push({ kind: 'sourceReduction', ...row } as LinkedControlAction);
-		}
-		for (const row of outreachRows ?? []) {
-			list.push({ kind: 'outreachAction', ...row } as LinkedControlAction);
-		}
-		for (const row of biocontrolRows ?? []) {
-			list.push({ kind: 'biocontrolAction', ...row } as LinkedControlAction);
-		}
-		for (const row of requestedRows ?? []) {
-			list.push({
-				kind: 'requestedControlAction',
-				...row,
-				date: row.date.toISOString(),
-			} as LinkedControlAction);
-		}
-		// Newest first; date strings (YYYY-MM-DD or ISO) sort lexicographically.
-		list.sort((first, second) => second.date.localeCompare(first.date));
-		return list;
-	}, [applicationRows, sourceReductionRows, outreachRows, biocontrolRows, requestedRows]);
+	// Five queries cannot return one interleaved list, so the union is assembled
+	// after them rather than inside.
+	const actions = interleaved({
+		applicationRows,
+		sourceReductionRows,
+		outreachRows,
+		biocontrolRows,
+		requestedRows,
+	});
 
 	return {
 		actions,
 		isReady: results.every((result) => result.isReady),
 		isError: results.some((result) => result.isError),
 	};
+}
+
+/** The five subsets as one list, newest first. */
+function interleaved(subsets: {
+	readonly applicationRows: readonly Record<string, unknown>[] | undefined;
+	readonly sourceReductionRows: readonly Record<string, unknown>[] | undefined;
+	readonly outreachRows: readonly Record<string, unknown>[] | undefined;
+	readonly biocontrolRows: readonly Record<string, unknown>[] | undefined;
+	readonly requestedRows: readonly { readonly date: Date }[] | undefined;
+}): readonly LinkedControlAction[] {
+	const list: LinkedControlAction[] = [];
+	for (const row of subsets.applicationRows ?? []) {
+		list.push({ kind: 'application', ...row } as LinkedControlAction);
+	}
+	for (const row of subsets.sourceReductionRows ?? []) {
+		list.push({ kind: 'sourceReduction', ...row } as LinkedControlAction);
+	}
+	for (const row of subsets.outreachRows ?? []) {
+		list.push({ kind: 'outreachAction', ...row } as LinkedControlAction);
+	}
+	for (const row of subsets.biocontrolRows ?? []) {
+		list.push({ kind: 'biocontrolAction', ...row } as LinkedControlAction);
+	}
+	for (const row of subsets.requestedRows ?? []) {
+		list.push({
+			kind: 'requestedControlAction',
+			...row,
+			date: row.date.toISOString(),
+		} as LinkedControlAction);
+	}
+	// Newest first; date strings (YYYY-MM-DD or ISO) sort lexicographically.
+	list.sort((first, second) => second.date.localeCompare(first.date));
+	return list;
 }

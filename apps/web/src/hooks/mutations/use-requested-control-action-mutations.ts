@@ -41,7 +41,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type RequestedControlAction as RequestRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -101,186 +100,174 @@ export function useRequestedControlActionMutations(): RequestMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (requestId: string, fields: RequestFields, geometry: GeoJsonGeometry) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
+	const create = async (requestId: string, fields: RequestFields, geometry: GeoJsonGeometry) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+
+		// The server recomputes `geom` from the location source, so this seeds the
+		// optimistic row only — without it the new pin would not appear until the
+		// shape round-trips.
+		const centroid = ownedCentroidFromGeoJson(geometry);
+		if (centroid === null) {
+			throw new Error('Unable to determine the requested location.');
+		}
+
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(requested_control_actions(), {
+				operation: 'insert',
+				intent: 'controlOperations.requestControlAction',
+				row: {
+					id: requestId,
+					organization_id: organizationId,
+					control_type: fields.controlType,
+					recommended_method_id: fields.recommendedMethodId,
+					summary: fields.summary,
+					habitat_id: fields.habitatId,
+					inspection_id: null,
+					collection_id: null,
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geom_type: centroid.geomType,
+					address_id: fields.addressId,
+					requested_by_profile_id: actorProfileId,
+					requested_at: lifecycleStamp(),
+					resolved_at: null,
+					resolved_by_profile_id: null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies RequestRow,
+				locationSource: { kind: 'geometry', geometry },
+				context: contextFor(fields.habitatId, null),
+			}),
+		);
+	};
+
+	const update = async (
+		requestId: string,
+		fields: RequestFields,
+		current: RequestFields,
+		geometry: GeoJsonGeometry | null,
+	) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+
+		const centroid = geometry === null ? null : ownedCentroidFromGeoJson(geometry);
+		if (geometry !== null && centroid === null) {
+			throw new Error('Unable to determine the requested location.');
+		}
+
+		const intents: (
+			| 'controlOperations.updateRequestedControlActionDetails'
+			| 'controlOperations.updateRequestedControlActionLocationAndContext'
+		)[] = [];
+		const changes: Partial<RequestRow> = {};
+
+		if (
+			fields.controlType !== current.controlType ||
+			fields.summary !== current.summary ||
+			fields.recommendedMethodId !== current.recommendedMethodId
+		) {
+			intents.push('controlOperations.updateRequestedControlActionDetails');
+			changes.control_type = fields.controlType;
+			changes.summary = fields.summary;
+			changes.recommended_method_id = fields.recommendedMethodId;
+		}
+
+		const contextMoved = fields.habitatId !== current.habitatId;
+		const addressMoved = fields.addressId !== current.addressId;
+		if (geometry !== null || addressMoved || contextMoved) {
+			intents.push('controlOperations.updateRequestedControlActionLocationAndContext');
+			changes.address_id = fields.addressId;
+			if (contextMoved) {
+				changes.habitat_id = fields.habitatId;
 			}
-
-			// The server recomputes `geom` from the location source, so this seeds the
-			// optimistic row only — without it the new pin would not appear until the
-			// shape round-trips.
-			const centroid = ownedCentroidFromGeoJson(geometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine the requested location.');
+			if (centroid !== null) {
+				changes.lat = centroid.lat;
+				changes.lng = centroid.lng;
+				changes.geom_type = centroid.geomType;
 			}
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(requested_control_actions(), {
-					operation: 'insert',
-					intent: 'controlOperations.requestControlAction',
-					row: {
-						id: requestId,
-						organization_id: organizationId,
-						control_type: fields.controlType,
-						recommended_method_id: fields.recommendedMethodId,
-						summary: fields.summary,
-						habitat_id: fields.habitatId,
-						inspection_id: null,
-						collection_id: null,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geom_type: centroid.geomType,
-						address_id: fields.addressId,
-						requested_by_profile_id: actorProfileId,
-						requested_at: lifecycleStamp(),
-						resolved_at: null,
-						resolved_by_profile_id: null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies RequestRow,
-					locationSource: { kind: 'geometry', geometry },
-					context: contextFor(fields.habitatId, null),
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		if (intents.length === 0) {
+			return;
+		}
 
-	const update = useCallback(
-		async (
-			requestId: string,
-			fields: RequestFields,
-			current: RequestFields,
-			geometry: GeoJsonGeometry | null,
-		) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+		await settleWrite(
+			mutateCollection(requested_control_actions(), {
+				operation: 'update',
+				intent: intents,
+				key: requestId,
+				changes: {
+					...changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				// Both absent unless the location command is one of the names: an
+				// instruction the command has no reader for is a key the server
+				// ignores, and sending one anyway makes the body claim an edit it is
+				// not making.
+				...(geometry === null ? {} : { locationSource: { kind: 'geometry', geometry } }),
+				...(contextMoved ? { context: contextFor(fields.habitatId, null) } : {}),
+			}),
+		);
+	};
 
-			const centroid = geometry === null ? null : ownedCentroidFromGeoJson(geometry);
-			if (geometry !== null && centroid === null) {
-				throw new Error('Unable to determine the requested location.');
-			}
+	const resolve = async (requestId: string) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const intents: (
-				| 'controlOperations.updateRequestedControlActionDetails'
-				| 'controlOperations.updateRequestedControlActionLocationAndContext'
-			)[] = [];
-			const changes: Partial<RequestRow> = {};
+		await settleWrite(
+			mutateCollection(requested_control_actions(), {
+				operation: 'update',
+				intent: 'controlOperations.resolveRequestedControlAction',
+				key: requestId,
+				changes: {
+					resolved_at: lifecycleStamp(),
+					resolved_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-			if (
-				fields.controlType !== current.controlType ||
-				fields.summary !== current.summary ||
-				fields.recommendedMethodId !== current.recommendedMethodId
-			) {
-				intents.push('controlOperations.updateRequestedControlActionDetails');
-				changes.control_type = fields.controlType;
-				changes.summary = fields.summary;
-				changes.recommended_method_id = fields.recommendedMethodId;
-			}
+	const reopen = async (requestId: string) => {
+		await settleWrite(
+			mutateCollection(requested_control_actions(), {
+				operation: 'update',
+				intent: 'controlOperations.reopenRequestedControlAction',
+				key: requestId,
+				changes: {
+					resolved_at: null,
+					resolved_by_profile_id: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-			const contextMoved = fields.habitatId !== current.habitatId;
-			const addressMoved = fields.addressId !== current.addressId;
-			if (geometry !== null || addressMoved || contextMoved) {
-				intents.push('controlOperations.updateRequestedControlActionLocationAndContext');
-				changes.address_id = fields.addressId;
-				if (contextMoved) {
-					changes.habitat_id = fields.habitatId;
-				}
-				if (centroid !== null) {
-					changes.lat = centroid.lat;
-					changes.lng = centroid.lng;
-					changes.geom_type = centroid.geomType;
-				}
-			}
-
-			if (intents.length === 0) {
-				return;
-			}
-
-			await settleWrite(
-				mutateCollection(requested_control_actions(), {
-					operation: 'update',
-					intent: intents,
-					key: requestId,
-					changes: {
-						...changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					// Both absent unless the location command is one of the names: an
-					// instruction the command has no reader for is a key the server
-					// ignores, and sending one anyway makes the body claim an edit it is
-					// not making.
-					...(geometry === null ? {} : { locationSource: { kind: 'geometry', geometry } }),
-					...(contextMoved ? { context: contextFor(fields.habitatId, null) } : {}),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
-
-	const resolve = useCallback(
-		async (requestId: string) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-
-			await settleWrite(
-				mutateCollection(requested_control_actions(), {
-					operation: 'update',
-					intent: 'controlOperations.resolveRequestedControlAction',
-					key: requestId,
-					changes: {
-						resolved_at: lifecycleStamp(),
-						resolved_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
-
-	const reopen = useCallback(
-		async (requestId: string) => {
-			await settleWrite(
-				mutateCollection(requested_control_actions(), {
-					operation: 'update',
-					intent: 'controlOperations.reopenRequestedControlAction',
-					key: requestId,
-					changes: {
-						resolved_at: null,
-						resolved_by_profile_id: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
-
-	const remove = useCallback(
-		async (requestId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(requested_control_actions(), {
-					operation: 'delete',
-					intent: 'controlOperations.deleteRequestedControlAction',
-					key: requestId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		requestId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(requested_control_actions(), {
+				operation: 'delete',
+				intent: 'controlOperations.deleteRequestedControlAction',
+				key: requestId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		create,

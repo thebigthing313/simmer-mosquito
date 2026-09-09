@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * A value held back until the typing stops, with a way to land one at once.
@@ -34,10 +34,10 @@ export function useDebouncedValue<T>(
 		return () => window.clearTimeout(timer.current);
 	}, [value, delayMs]);
 
-	const settle = useCallback((next: T) => {
+	const settle = (next: T) => {
 		window.clearTimeout(timer.current);
 		setDebounced(next);
-	}, []);
+	};
 
 	return { debounced, settle };
 }

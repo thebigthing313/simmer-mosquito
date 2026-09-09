@@ -24,7 +24,6 @@
 
 import { toDbEntityType } from '@simmer-mosquito/domain';
 import { type Comment as CommentRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { comments } from '../../lib/collections/comments';
 import { mutateCollection } from '../../lib/collections/mutate';
 import type { CommentTarget } from '../queries/use-comments';
@@ -47,89 +46,80 @@ export function useCommentMutations(): CommentMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const add = useCallback(
-		async (target: CommentTarget, commentText: string) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const add = async (target: CommentTarget, commentText: string) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const commentId = newRecordId();
-			await settleWrite(
-				mutateCollection(comments(), {
-					operation: 'insert',
-					intent: 'fieldWork.addComment',
-					row: {
-						id: commentId,
-						organization_id: organizationId,
-						entity_type: toDbEntityType(target.type),
-						entity_id: target.id,
-						comment_text: commentText,
-						commented_by_profile_id: actorProfileId,
-						// When the note was left rather than when the row was written. They are
-						// the same moment here; a comment keyed in after the fact is not
-						// something this thread offers.
-						commented_at: now,
-						is_pinned: false,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies CommentRow,
-				}),
-			);
-			return commentId;
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		const commentId = newRecordId();
+		await settleWrite(
+			mutateCollection(comments(), {
+				operation: 'insert',
+				intent: 'fieldWork.addComment',
+				row: {
+					id: commentId,
+					organization_id: organizationId,
+					entity_type: toDbEntityType(target.type),
+					entity_id: target.id,
+					comment_text: commentText,
+					commented_by_profile_id: actorProfileId,
+					// When the note was left rather than when the row was written. They are
+					// the same moment here; a comment keyed in after the fact is not
+					// something this thread offers.
+					commented_at: now,
+					is_pinned: false,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies CommentRow,
+			}),
+		);
+		return commentId;
+	};
 
-	const edit = useCallback(
-		async (commentId: string, commentText: string) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const edit = async (commentId: string, commentText: string) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			await settleWrite(
-				mutateCollection(comments(), {
-					operation: 'update',
-					intent: 'fieldWork.updateComment',
-					key: commentId,
-					changes: {
-						comment_text: commentText,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(comments(), {
+				operation: 'update',
+				intent: 'fieldWork.updateComment',
+				key: commentId,
+				changes: {
+					comment_text: commentText,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const setPinned = useCallback(
-		async (commentId: string, isPinned: boolean) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const setPinned = async (commentId: string, isPinned: boolean) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			await settleWrite(
-				mutateCollection(comments(), {
-					operation: 'update',
-					// Which way it moved is the command's to say — the endpoint does not read
-					// the column to work it out.
-					intent: isPinned ? 'fieldWork.pinComment' : 'fieldWork.unpinComment',
-					key: commentId,
-					changes: {
-						is_pinned: isPinned,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(comments(), {
+				operation: 'update',
+				// Which way it moved is the command's to say — the endpoint does not read
+				// the column to work it out.
+				intent: isPinned ? 'fieldWork.pinComment' : 'fieldWork.unpinComment',
+				key: commentId,
+				changes: {
+					is_pinned: isPinned,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(async (commentId: string) => {
+	const remove = async (commentId: string) => {
 		await settleWrite(
 			mutateCollection(comments(), {
 				operation: 'delete',
@@ -137,7 +127,7 @@ export function useCommentMutations(): CommentMutations {
 				key: commentId,
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		add,

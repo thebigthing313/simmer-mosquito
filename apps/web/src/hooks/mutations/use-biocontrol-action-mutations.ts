@@ -12,7 +12,6 @@
  */
 
 import { type BiocontrolAction as BiocontrolActionRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { mutateCollection } from '../../lib/collections/mutate';
@@ -82,148 +81,139 @@ export function useBiocontrolActionMutations(): BiocontrolActionMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async ({
-			biocontrolActionId,
-			values,
-			location,
-			missionItemId,
-			acknowledgements,
-		}: RecordBiocontrolActionInput) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(biocontrol_actions(), {
-					operation: 'insert',
-					intent:
-						missionItemId === null
-							? 'controlOperations.recordBiocontrolAction'
-							: 'missionDispatch.recordBiocontrolActionForMissionItem',
-					row: {
-						id: biocontrolActionId,
-						organization_id: organizationId,
-						biocontrol_method_id: values.methodId,
-						technician_profile_id: values.technicianProfileId,
-						biocontrol_date: values.actionDate,
-						lat: location.lat,
-						lng: location.lng,
-						geom_type: location.geomType,
-						address_id: values.addressId,
-						habitat_id: values.habitatId,
-						inspection_id: null,
-						amount_released: values.amountReleased,
-						release_unit_id: values.unitId,
-						requested_control_action_id: null,
-						mission_item_id: missionItemId,
-						metadata: values.metadata,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies BiocontrolActionRow,
-					...(location.locationSource === undefined
+	const record = async ({
+		biocontrolActionId,
+		values,
+		location,
+		missionItemId,
+		acknowledgements,
+	}: RecordBiocontrolActionInput) => {
+		if (organizationId === null || actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(biocontrol_actions(), {
+				operation: 'insert',
+				intent:
+					missionItemId === null
+						? 'controlOperations.recordBiocontrolAction'
+						: 'missionDispatch.recordBiocontrolActionForMissionItem',
+				row: {
+					id: biocontrolActionId,
+					organization_id: organizationId,
+					biocontrol_method_id: values.methodId,
+					technician_profile_id: values.technicianProfileId,
+					biocontrol_date: values.actionDate,
+					lat: location.lat,
+					lng: location.lng,
+					geom_type: location.geomType,
+					address_id: values.addressId,
+					habitat_id: values.habitatId,
+					inspection_id: null,
+					amount_released: values.amountReleased,
+					release_unit_id: values.unitId,
+					requested_control_action_id: null,
+					mission_item_id: missionItemId,
+					metadata: values.metadata,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies BiocontrolActionRow,
+				...(location.locationSource === undefined
+					? {}
+					: { locationSource: location.locationSource }),
+				context: contextFor(values.habitatId, null),
+				...(acknowledgements === undefined ? {} : { acknowledgements }),
+			}),
+		);
+	};
+
+	const update = async (
+		current: BiocontrolAction,
+		{ values, location, acknowledgements }: UpdateBiocontrolActionInput,
+	) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+
+		const fieldsMoved =
+			current.methodId !== values.methodId ||
+			current.technicianProfileId !== values.technicianProfileId ||
+			current.actionDate !== values.actionDate ||
+			current.amountReleased !== values.amountReleased ||
+			current.unitId !== values.unitId ||
+			metadataChanged(current.metadata, values.metadata);
+
+		const habitatMoved = current.habitatId !== values.habitatId;
+		const addressMoved = current.addressId !== values.addressId;
+		const placementMoved = habitatMoved || addressMoved || location?.locationSource !== undefined;
+
+		if (!fieldsMoved && !placementMoved) {
+			return;
+		}
+
+		const intent = actionEditIntents({
+			fieldsMoved,
+			fieldsIntent: 'controlOperations.updateBiocontrolActionFieldDetails',
+			placementMoved,
+			placementIntent: 'controlOperations.updateBiocontrolActionLocationAndContext',
+		});
+
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(biocontrol_actions(), {
+				operation: 'update',
+				intent,
+				key: current.id,
+				changes: {
+					...(fieldsMoved
+						? {
+								biocontrol_method_id: values.methodId,
+								technician_profile_id: values.technicianProfileId,
+								biocontrol_date: values.actionDate,
+								amount_released: values.amountReleased,
+								release_unit_id: values.unitId,
+								metadata: values.metadata,
+							}
+						: {}),
+					...(addressMoved ? { address_id: values.addressId } : {}),
+					...(habitatMoved ? { habitat_id: values.habitatId } : {}),
+					// Reseeded so the record's marker moves before the server answers. The
+					// server recomputes all three from the geometry it stores.
+					...(location === undefined
 						? {}
-						: { locationSource: location.locationSource }),
-					context: contextFor(values.habitatId, null),
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+						: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
+					updated_by_profile_id: actorProfileId,
+					updated_at: now,
+				},
+				...(location?.locationSource === undefined
+					? {}
+					: { locationSource: location.locationSource }),
+				// Only when the attachment is what changed, and carrying the Inspection
+				// through — see `contextFor`.
+				...(habitatMoved ? { context: contextFor(values.habitatId, current.inspectionId) } : {}),
+				...(acknowledgements === undefined ? {} : { acknowledgements }),
+			}),
+		);
+	};
 
-	const update = useCallback(
-		async (
-			current: BiocontrolAction,
-			{ values, location, acknowledgements }: UpdateBiocontrolActionInput,
-		) => {
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-
-			const fieldsMoved =
-				current.methodId !== values.methodId ||
-				current.technicianProfileId !== values.technicianProfileId ||
-				current.actionDate !== values.actionDate ||
-				current.amountReleased !== values.amountReleased ||
-				current.unitId !== values.unitId ||
-				metadataChanged(current.metadata, values.metadata);
-
-			const habitatMoved = current.habitatId !== values.habitatId;
-			const addressMoved = current.addressId !== values.addressId;
-			const placementMoved = habitatMoved || addressMoved || location?.locationSource !== undefined;
-
-			if (!fieldsMoved && !placementMoved) {
-				return;
-			}
-
-			const intent = actionEditIntents({
-				fieldsMoved,
-				fieldsIntent: 'controlOperations.updateBiocontrolActionFieldDetails',
-				placementMoved,
-				placementIntent: 'controlOperations.updateBiocontrolActionLocationAndContext',
-			});
-
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(biocontrol_actions(), {
-					operation: 'update',
-					intent,
-					key: current.id,
-					changes: {
-						...(fieldsMoved
-							? {
-									biocontrol_method_id: values.methodId,
-									technician_profile_id: values.technicianProfileId,
-									biocontrol_date: values.actionDate,
-									amount_released: values.amountReleased,
-									release_unit_id: values.unitId,
-									metadata: values.metadata,
-								}
-							: {}),
-						...(addressMoved ? { address_id: values.addressId } : {}),
-						...(habitatMoved ? { habitat_id: values.habitatId } : {}),
-						// Reseeded so the record's marker moves before the server answers. The
-						// server recomputes all three from the geometry it stores.
-						...(location === undefined
-							? {}
-							: { lat: location.lat, lng: location.lng, geom_type: location.geomType }),
-						updated_by_profile_id: actorProfileId,
-						updated_at: now,
-					},
-					...(location?.locationSource === undefined
-						? {}
-						: { locationSource: location.locationSource }),
-					// Only when the attachment is what changed, and carrying the Inspection
-					// through — see `contextFor`.
-					...(habitatMoved ? { context: contextFor(values.habitatId, current.inspectionId) } : {}),
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
-				}),
-			);
-		},
-		[actorProfileId],
-	);
-
-	const remove = useCallback(
-		async (
-			biocontrolActionId: string,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
-			await settleWrite(
-				mutateCollection(biocontrol_actions(), {
-					operation: 'delete',
-					intent: 'controlOperations.deleteBiocontrolAction',
-					key: biocontrolActionId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		biocontrolActionId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(biocontrol_actions(), {
+				operation: 'delete',
+				intent: 'controlOperations.deleteBiocontrolAction',
+				key: biocontrolActionId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return { record, update, remove, canWrite: organizationId !== null && actorProfileId !== null };
 }

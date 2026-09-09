@@ -12,7 +12,6 @@
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import type { RequestDetail, RequestStatus } from './operations-view';
 import { requestStatus } from './operations-view';
@@ -64,10 +63,7 @@ export function useRequestedControlAction(requestId: string | null): {
 	// Derived rather than projected, and derived here rather than in the query —
 	// the same reading `useMission` gets. See `operations-view.ts`.
 	const row = result.data[0];
-	const request = useMemo(
-		() => (row === undefined ? undefined : { ...row, status: requestStatus(row) }),
-		[row],
-	);
+	const request = row === undefined ? undefined : { ...row, status: requestStatus(row) };
 
 	return { request, isReady: result.isReady, isError: result.isError };
 }

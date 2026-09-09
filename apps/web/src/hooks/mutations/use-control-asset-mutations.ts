@@ -16,7 +16,6 @@
  */
 
 import type { Equipment, Vehicle } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { equipment } from '../../lib/collections/equipment';
 import { vehicles } from '../../lib/collections/vehicles';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -72,62 +71,56 @@ const vehicleCommands: CatalogCommandNames = {
 export function useVehicleMutations(): ControlAssetMutations {
 	const { organizationId, actorProfileId } = useAssetWriterIdentity();
 
-	const create = useCallback(
-		async (fields: ControlAssetFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			const row = {
-				id: newRecordId(),
-				organization_id: organizationId,
-				vehicle_name: fields.name,
-				metadata: fields.metadata,
-				is_active: fields.isActive,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			} satisfies Vehicle;
-			await createCatalogRow(vehicles(), vehicleCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: ControlAssetFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		const row = {
+			id: newRecordId(),
+			organization_id: organizationId,
+			vehicle_name: fields.name,
+			metadata: fields.metadata,
+			is_active: fields.isActive,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		} satisfies Vehicle;
+		await createCatalogRow(vehicles(), vehicleCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: ControlAssetFields,
-			current: ControlAssetFields,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
-			const changes: Partial<Vehicle> = {};
-			if (fields.name !== current.name) {
-				changes.vehicle_name = fields.name;
-			}
-			if (fields.metadata !== current.metadata) {
-				changes.metadata = fields.metadata;
-			}
-			await saveCatalogRow(vehicles(), vehicleCommands, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				// An application names the vehicle it was made from and keeps no copy
-				// of what it was called, so the rename is the only thing this save can
-				// be refused over. The metadata is notes.
-				...(changes.vehicle_name === undefined
-					? {}
-					: {
-							acknowledgements: {
-								acknowledgedHistoricalVehicleLabelChange:
-									acknowledgements.acknowledgedHistoricalVehicleLabelChange === true,
-							},
-						}),
-			});
-		},
-		[],
-	);
+	const save = async (
+		id: string,
+		fields: ControlAssetFields,
+		current: ControlAssetFields,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		const changes: Partial<Vehicle> = {};
+		if (fields.name !== current.name) {
+			changes.vehicle_name = fields.name;
+		}
+		if (fields.metadata !== current.metadata) {
+			changes.metadata = fields.metadata;
+		}
+		await saveCatalogRow(vehicles(), vehicleCommands, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			// An application names the vehicle it was made from and keeps no copy
+			// of what it was called, so the rename is the only thing this save can
+			// be refused over. The metadata is notes.
+			...(changes.vehicle_name === undefined
+				? {}
+				: {
+						acknowledgements: {
+							acknowledgedHistoricalVehicleLabelChange:
+								acknowledgements.acknowledgedHistoricalVehicleLabelChange === true,
+						},
+					}),
+		});
+	};
 
 	return {
 		create,
@@ -149,65 +142,59 @@ const equipmentCommands: CatalogCommandNames = {
 export function useEquipmentMutations(): ControlAssetMutations {
 	const { organizationId, actorProfileId } = useAssetWriterIdentity();
 
-	const create = useCallback(
-		async (fields: ControlAssetFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			const row = {
-				id: newRecordId(),
-				organization_id: organizationId,
-				equipment_name: fields.name,
-				serial_number: fields.serialNumber,
-				metadata: fields.metadata,
-				is_active: fields.isActive,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			} satisfies Equipment;
-			await createCatalogRow(equipment(), equipmentCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: ControlAssetFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		const row = {
+			id: newRecordId(),
+			organization_id: organizationId,
+			equipment_name: fields.name,
+			serial_number: fields.serialNumber,
+			metadata: fields.metadata,
+			is_active: fields.isActive,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		} satisfies Equipment;
+		await createCatalogRow(equipment(), equipmentCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: ControlAssetFields,
-			current: ControlAssetFields,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
-			const changes: Partial<Equipment> = {};
-			if (fields.name !== current.name) {
-				changes.equipment_name = fields.name;
-			}
-			if (fields.serialNumber !== current.serialNumber) {
-				changes.serial_number = fields.serialNumber;
-			}
-			if (fields.metadata !== current.metadata) {
-				changes.metadata = fields.metadata;
-			}
-			await saveCatalogRow(equipment(), equipmentCommands, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				// The name and the serial number are both what a past application is
-				// read back under, so either one is the question. The metadata is notes.
-				...(changes.equipment_name === undefined && changes.serial_number === undefined
-					? {}
-					: {
-							acknowledgements: {
-								acknowledgedHistoricalEquipmentLabelChange:
-									acknowledgements.acknowledgedHistoricalEquipmentLabelChange === true,
-							},
-						}),
-			});
-		},
-		[],
-	);
+	const save = async (
+		id: string,
+		fields: ControlAssetFields,
+		current: ControlAssetFields,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		const changes: Partial<Equipment> = {};
+		if (fields.name !== current.name) {
+			changes.equipment_name = fields.name;
+		}
+		if (fields.serialNumber !== current.serialNumber) {
+			changes.serial_number = fields.serialNumber;
+		}
+		if (fields.metadata !== current.metadata) {
+			changes.metadata = fields.metadata;
+		}
+		await saveCatalogRow(equipment(), equipmentCommands, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			// The name and the serial number are both what a past application is
+			// read back under, so either one is the question. The metadata is notes.
+			...(changes.equipment_name === undefined && changes.serial_number === undefined
+				? {}
+				: {
+						acknowledgements: {
+							acknowledgedHistoricalEquipmentLabelChange:
+								acknowledgements.acknowledgedHistoricalEquipmentLabelChange === true,
+						},
+					}),
+		});
+	};
 
 	return {
 		create,

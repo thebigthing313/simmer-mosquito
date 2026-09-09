@@ -53,7 +53,6 @@
 
 import type { MultiRowCommandType, SingleRowCommandType } from '@simmer-mosquito/domain';
 import { CommandError, writeCommand } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { getServerUrl } from '../../auth';
 import type { MergeableRecordType } from '../use-merge-candidates';
 
@@ -199,16 +198,13 @@ export function recordMergeRequest(
 }
 
 export function useRecordMerge(recordType: MergeableRecordType) {
-	return useCallback(
-		async (plan: RecordMergePlan): Promise<void> => {
-			const { intents, request } = recordMergeRequest(recordType, plan);
-			await writeCommand(
-				`${getServerUrl()}/commands/${request.table}/${request.key}`,
-				request.method,
-				{ ...request.body, intents },
-				'Unable to merge these records.',
-			);
-		},
-		[recordType],
-	);
+	return async (plan: RecordMergePlan): Promise<void> => {
+		const { intents, request } = recordMergeRequest(recordType, plan);
+		await writeCommand(
+			`${getServerUrl()}/commands/${request.table}/${request.key}`,
+			request.method,
+			{ ...request.body, intents },
+			'Unable to merge these records.',
+		);
+	};
 }

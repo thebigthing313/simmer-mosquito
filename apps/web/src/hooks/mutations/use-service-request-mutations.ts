@@ -41,7 +41,6 @@
 
 import { type GeoJsonPoint, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type ServiceRequest, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { service_requests } from '../../lib/collections/service_requests';
 import type { RequestIntakeType } from '../queries/service-request-view';
@@ -191,159 +190,147 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async (input: {
-			readonly requestId: string;
-			readonly fields: ServiceRequestFields;
-			readonly contactId: string;
-			readonly addressId: string;
-			readonly geometry: GeoJsonPoint;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const record = async (input: {
+		readonly requestId: string;
+		readonly fields: ServiceRequestFields;
+		readonly contactId: string;
+		readonly addressId: string;
+		readonly geometry: GeoJsonPoint;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const { fields, geometry } = input;
-			// The column's own vocabulary rather than GeoJSON's — `st_point`, not
-			// `Point` — so the optimistic row reads the way the trigger will write it.
-			const centroid = ownedCentroidFromGeoJson(geometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine where the request was reported.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(service_requests(), {
-					operation: 'insert',
-					intent: 'publicEngagement.createServiceRequest',
-					row: {
-						id: input.requestId,
-						organization_id: organizationId,
-						// The server assigns the sequential number the request is titled by;
-						// until it syncs back the title falls back to a short id.
-						display_name: null,
-						intake_type: fields.intakeType,
-						request_date: fields.requestDate,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geom_type: centroid.geomType,
-						address_id: input.addressId,
-						contact_id: input.contactId,
-						received_by_profile_id: fields.receivedByProfileId,
-						details: fields.details,
-						closed_at: null,
-						closed_by_profile_id: null,
-						metadata: null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies ServiceRequest,
-					arguments: {
-						contact: { kind: 'existing', contactId: input.contactId },
-						location: {
-							address: { kind: 'existing', addressId: input.addressId },
-							geometry,
-						},
+		const { fields, geometry } = input;
+		// The column's own vocabulary rather than GeoJSON's — `st_point`, not
+		// `Point` — so the optimistic row reads the way the trigger will write it.
+		const centroid = ownedCentroidFromGeoJson(geometry);
+		if (centroid === null) {
+			throw new Error('Unable to determine where the request was reported.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(service_requests(), {
+				operation: 'insert',
+				intent: 'publicEngagement.createServiceRequest',
+				row: {
+					id: input.requestId,
+					organization_id: organizationId,
+					// The server assigns the sequential number the request is titled by;
+					// until it syncs back the title falls back to a short id.
+					display_name: null,
+					intake_type: fields.intakeType,
+					request_date: fields.requestDate,
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geom_type: centroid.geomType,
+					address_id: input.addressId,
+					contact_id: input.contactId,
+					received_by_profile_id: fields.receivedByProfileId,
+					details: fields.details,
+					closed_at: null,
+					closed_by_profile_id: null,
+					metadata: null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies ServiceRequest,
+				arguments: {
+					contact: { kind: 'existing', contactId: input.contactId },
+					location: {
+						address: { kind: 'existing', addressId: input.addressId },
+						geometry,
 					},
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+				},
+			}),
+		);
+	};
 
-	const save = useCallback(
-		async (input: {
-			readonly requestId: string;
-			readonly fields: ServiceRequestFields;
-			readonly current: ServiceRequestFields;
-			readonly contactId: string;
-			readonly currentContactId: string;
-			readonly acknowledgedHistoricalContactChange: boolean;
-		}) => {
-			const plan = serviceRequestUpdatePlan(input);
-			if (plan === null) {
-				return;
-			}
+	const save = async (input: {
+		readonly requestId: string;
+		readonly fields: ServiceRequestFields;
+		readonly current: ServiceRequestFields;
+		readonly contactId: string;
+		readonly currentContactId: string;
+		readonly acknowledgedHistoricalContactChange: boolean;
+	}) => {
+		const plan = serviceRequestUpdatePlan(input);
+		if (plan === null) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(service_requests(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: input.requestId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
-					acknowledgements: plan.acknowledgements,
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(service_requests(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: input.requestId,
+				changes: {
+					...plan.changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
+				acknowledgements: plan.acknowledgements,
+			}),
+		);
+	};
 
-	const close = useCallback(
-		async (requestId: string, resolutionSummary: string) => {
-			await settleWrite(
-				mutateCollection(service_requests(), {
-					operation: 'update',
-					intent: 'publicEngagement.closeServiceRequest',
-					key: requestId,
-					changes: {
-						closed_at: lifecycleStamp(),
-						closed_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					// The comment the summary becomes. Minted here so a retry writes the
-					// same comment rather than a second one.
-					arguments: { resolutionCommentId: newRecordId(), resolutionSummary },
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const close = async (requestId: string, resolutionSummary: string) => {
+		await settleWrite(
+			mutateCollection(service_requests(), {
+				operation: 'update',
+				intent: 'publicEngagement.closeServiceRequest',
+				key: requestId,
+				changes: {
+					closed_at: lifecycleStamp(),
+					closed_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				// The comment the summary becomes. Minted here so a retry writes the
+				// same comment rather than a second one.
+				arguments: { resolutionCommentId: newRecordId(), resolutionSummary },
+			}),
+		);
+	};
 
-	const reopen = useCallback(
-		async (requestId: string, reopenReason: string) => {
-			await settleWrite(
-				mutateCollection(service_requests(), {
-					operation: 'update',
-					intent: 'publicEngagement.reopenServiceRequest',
-					key: requestId,
-					changes: {
-						closed_at: null,
-						closed_by_profile_id: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					arguments: {
-						reopenCommentId: newRecordId(),
-						reopenReason,
-						reopenedAt: lifecycleStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const reopen = async (requestId: string, reopenReason: string) => {
+		await settleWrite(
+			mutateCollection(service_requests(), {
+				operation: 'update',
+				intent: 'publicEngagement.reopenServiceRequest',
+				key: requestId,
+				changes: {
+					closed_at: null,
+					closed_by_profile_id: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				arguments: {
+					reopenCommentId: newRecordId(),
+					reopenReason,
+					reopenedAt: lifecycleStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (requestId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
-			await settleWrite(
-				mutateCollection(service_requests(), {
-					operation: 'delete',
-					intent: 'publicEngagement.deleteServiceRequest',
-					key: requestId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements,
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (
+		requestId: string,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		await settleWrite(
+			mutateCollection(service_requests(), {
+				operation: 'delete',
+				intent: 'publicEngagement.deleteServiceRequest',
+				key: requestId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements,
+			}),
+		);
+	};
 
 	return {
 		record,

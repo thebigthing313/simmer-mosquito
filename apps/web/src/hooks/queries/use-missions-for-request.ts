@@ -13,7 +13,6 @@
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { mission_items } from '../../lib/collections/mission_items';
 import { missions } from '../../lib/collections/missions';
 import type { MissionListing, MissionStatus } from './operations-view';
@@ -59,10 +58,7 @@ export function useMissionsForRequest(requestId: string | null): {
 
 	// Not named `missions`: that is the collection this query reads from, and
 	// shadowing it here makes the query above compile against an empty namespace.
-	const linked = useMemo(
-		() => result.data.map((mission) => ({ ...mission, status: missionStatus(mission) })),
-		[result.data],
-	);
+	const linked = result.data.map((mission) => ({ ...mission, status: missionStatus(mission) }));
 
 	return { missions: linked, isReady: result.isReady };
 }

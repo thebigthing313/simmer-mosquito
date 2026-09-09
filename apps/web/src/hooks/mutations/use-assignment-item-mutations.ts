@@ -22,7 +22,6 @@
  */
 
 import { type AssignmentItem as AssignmentItemRow, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -66,69 +65,63 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const addStop = useCallback(
-		async ({
-			assignmentId,
-			target,
-			position,
-		}: {
-			readonly assignmentId: string;
-			readonly target: AssignmentStopTarget;
-			readonly position: number;
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const addStop = async ({
+		assignmentId,
+		target,
+		position,
+	}: {
+		readonly assignmentId: string;
+		readonly target: AssignmentStopTarget;
+		readonly position: number;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(assignment_items(), {
-					operation: 'insert',
-					intent: 'fieldWork.addAssignmentItem',
-					row: {
-						id: newRecordId(),
-						organization_id: organizationId,
-						assignment_id: assignmentId,
-						entity_type: target.type,
-						entity_id: target.id,
-						position,
-						directions_to_next_item: null,
-						completed_at: null,
-						completed_by_profile_id: null,
-						skipped_at: null,
-						skipped_by_profile_id: null,
-						skip_reason: null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies AssignmentItemRow,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(assignment_items(), {
+				operation: 'insert',
+				intent: 'fieldWork.addAssignmentItem',
+				row: {
+					id: newRecordId(),
+					organization_id: organizationId,
+					assignment_id: assignmentId,
+					entity_type: target.type,
+					entity_id: target.id,
+					position,
+					directions_to_next_item: null,
+					completed_at: null,
+					completed_by_profile_id: null,
+					skipped_at: null,
+					skipped_by_profile_id: null,
+					skip_reason: null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies AssignmentItemRow,
+			}),
+		);
+	};
 
-	const setDirections = useCallback(
-		async (assignmentItemId: string, directions: string) => {
-			const trimmed = directions.trim();
-			await settleWrite(
-				mutateCollection(assignment_items(), {
-					operation: 'update',
-					intent: 'fieldWork.updateAssignmentItem',
-					key: assignmentItemId,
-					changes: {
-						directions_to_next_item: trimmed.length === 0 ? null : trimmed,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setDirections = async (assignmentItemId: string, directions: string) => {
+		const trimmed = directions.trim();
+		await settleWrite(
+			mutateCollection(assignment_items(), {
+				operation: 'update',
+				intent: 'fieldWork.updateAssignmentItem',
+				key: assignmentItemId,
+				changes: {
+					directions_to_next_item: trimmed.length === 0 ? null : trimmed,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const removeStop = useCallback(async (assignmentItemId: string) => {
+	const removeStop = async (assignmentItemId: string) => {
 		await settleWrite(
 			mutateCollection(assignment_items(), {
 				operation: 'delete',
@@ -136,93 +129,81 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 				key: assignmentItemId,
 			}),
 		);
-	}, []);
+	};
 
-	const complete = useCallback(
-		async (assignmentItemId: string) => {
-			await settleWrite(
-				mutateCollection(assignment_items(), {
-					operation: 'update',
-					intent: 'fieldWork.completeAssignmentItem',
-					key: assignmentItemId,
-					// The skip columns are cleared here as well as server-side: completing
-					// a stop that had been skipped is a legal path, and leaving the reason
-					// on the row would render it as still skipped.
-					changes: {
-						completed_at: lifecycleStamp(),
-						completed_by_profile_id: actorProfileId,
-						skipped_at: null,
-						skipped_by_profile_id: null,
-						skip_reason: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const complete = async (assignmentItemId: string) => {
+		await settleWrite(
+			mutateCollection(assignment_items(), {
+				operation: 'update',
+				intent: 'fieldWork.completeAssignmentItem',
+				key: assignmentItemId,
+				// The skip columns are cleared here as well as server-side: completing
+				// a stop that had been skipped is a legal path, and leaving the reason
+				// on the row would render it as still skipped.
+				changes: {
+					completed_at: lifecycleStamp(),
+					completed_by_profile_id: actorProfileId,
+					skipped_at: null,
+					skipped_by_profile_id: null,
+					skip_reason: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const reopen = useCallback(
-		async (assignmentItemId: string) => {
-			await settleWrite(
-				mutateCollection(assignment_items(), {
-					operation: 'update',
-					intent: 'fieldWork.reopenAssignmentItem',
-					key: assignmentItemId,
-					changes: {
-						completed_at: null,
-						completed_by_profile_id: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const reopen = async (assignmentItemId: string) => {
+		await settleWrite(
+			mutateCollection(assignment_items(), {
+				operation: 'update',
+				intent: 'fieldWork.reopenAssignmentItem',
+				key: assignmentItemId,
+				changes: {
+					completed_at: null,
+					completed_by_profile_id: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const skip = useCallback(
-		async (assignmentItemId: string, skipReason: string) => {
-			await settleWrite(
-				mutateCollection(assignment_items(), {
-					operation: 'update',
-					intent: 'fieldWork.skipAssignmentItem',
-					key: assignmentItemId,
-					changes: {
-						skipped_at: lifecycleStamp(),
-						skipped_by_profile_id: actorProfileId,
-						skip_reason: skipReason,
-						completed_at: null,
-						completed_by_profile_id: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const skip = async (assignmentItemId: string, skipReason: string) => {
+		await settleWrite(
+			mutateCollection(assignment_items(), {
+				operation: 'update',
+				intent: 'fieldWork.skipAssignmentItem',
+				key: assignmentItemId,
+				changes: {
+					skipped_at: lifecycleStamp(),
+					skipped_by_profile_id: actorProfileId,
+					skip_reason: skipReason,
+					completed_at: null,
+					completed_by_profile_id: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const unskip = useCallback(
-		async (assignmentItemId: string) => {
-			await settleWrite(
-				mutateCollection(assignment_items(), {
-					operation: 'update',
-					intent: 'fieldWork.unskipAssignmentItem',
-					key: assignmentItemId,
-					changes: {
-						skipped_at: null,
-						skipped_by_profile_id: null,
-						skip_reason: null,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const unskip = async (assignmentItemId: string) => {
+		await settleWrite(
+			mutateCollection(assignment_items(), {
+				operation: 'update',
+				intent: 'fieldWork.unskipAssignmentItem',
+				key: assignmentItemId,
+				changes: {
+					skipped_at: null,
+					skipped_by_profile_id: null,
+					skip_reason: null,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
 	return {
 		addStop,

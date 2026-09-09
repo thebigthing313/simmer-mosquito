@@ -22,7 +22,6 @@
  */
 
 import { coalesce, eq, gte, or, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collections } from '../../lib/collections/collections';
 import { profiles } from '../../lib/collections/profiles';
@@ -114,7 +113,7 @@ export function useRecentCollections(
 
 	const rows = result.data;
 	// Sorted here rather than in the query — see `compareByCollectionDateDesc`.
-	const sorted = useMemo(() => [...rows].sort(compareByCollectionDateDesc), [rows]);
+	const sorted = [...rows].sort(compareByCollectionDateDesc);
 
 	return { collections: sorted, isReady: result.isReady, isError: result.isError };
 }

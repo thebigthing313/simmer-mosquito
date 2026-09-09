@@ -45,7 +45,6 @@ import {
 	type NotificationRegistrationType,
 	settleWrite,
 } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { notification_registration_types } from '../../lib/collections/notification_registration_types';
 import { notification_registrations } from '../../lib/collections/notification_registrations';
@@ -312,154 +311,139 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const record = useCallback(
-		async (input: {
-			readonly registrationId: string;
-			readonly contactId: string;
-			readonly location: RegistrationLocation;
-			readonly buffer: RegistrationBuffer | null;
-			readonly flags: RegistrationFlags;
-			readonly subscriptions: readonly RegistrationSubscription[];
-		}) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const record = async (input: {
+		readonly registrationId: string;
+		readonly contactId: string;
+		readonly location: RegistrationLocation;
+		readonly buffer: RegistrationBuffer | null;
+		readonly flags: RegistrationFlags;
+		readonly subscriptions: readonly RegistrationSubscription[];
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			// The column's own vocabulary rather than GeoJSON's: `st_point`, not
-			// `Point`, so the optimistic row reads the way the trigger will write it.
-			const centroid = ownedCentroidFromGeoJson(input.location.geometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine where this registration is.');
-			}
-			const now = optimisticStamp();
+		// The column's own vocabulary rather than GeoJSON's: `st_point`, not
+		// `Point`, so the optimistic row reads the way the trigger will write it.
+		const centroid = ownedCentroidFromGeoJson(input.location.geometry);
+		if (centroid === null) {
+			throw new Error('Unable to determine where this registration is.');
+		}
+		const now = optimisticStamp();
 
-			await settleWrite(
-				commandTransaction({
-					intent: 'publicEngagement.createNotificationRegistration',
-					request: {
-						table: 'notification_registrations',
-						method: 'POST',
-						body: {
-							id: input.registrationId,
-							contact: { kind: 'existing', contactId: input.contactId },
-							location: {
-								address:
-									input.location.addressId === null
-										? { kind: 'none' }
-										: { kind: 'existing', addressId: input.location.addressId },
-								geometry: input.location.geometry,
-							},
-							buffer_distance: input.buffer?.distance ?? null,
-							buffer_unit_id: input.buffer?.unitId ?? null,
-							has_bees: input.flags.hasBees,
-							is_no_spray: input.flags.isNoSpray,
-							subscriptions: input.subscriptions.map((subscription) => ({
-								notificationRegistrationTypeId: subscription.notificationRegistrationTypeId,
-								notificationTypeId: subscription.notificationTypeId,
-							})),
+		await settleWrite(
+			commandTransaction({
+				intent: 'publicEngagement.createNotificationRegistration',
+				request: {
+					table: 'notification_registrations',
+					method: 'POST',
+					body: {
+						id: input.registrationId,
+						contact: { kind: 'existing', contactId: input.contactId },
+						location: {
+							address:
+								input.location.addressId === null
+									? { kind: 'none' }
+									: { kind: 'existing', addressId: input.location.addressId },
+							geometry: input.location.geometry,
 						},
+						buffer_distance: input.buffer?.distance ?? null,
+						buffer_unit_id: input.buffer?.unitId ?? null,
+						has_bees: input.flags.hasBees,
+						is_no_spray: input.flags.isNoSpray,
+						subscriptions: input.subscriptions.map((subscription) => ({
+							notificationRegistrationTypeId: subscription.notificationRegistrationTypeId,
+							notificationTypeId: subscription.notificationTypeId,
+						})),
 					},
-					apply: () => {
-						notification_registrations().insert({
-							id: input.registrationId,
+				},
+				apply: () => {
+					notification_registrations().insert({
+						id: input.registrationId,
+						organization_id: organizationId,
+						contact_id: input.contactId,
+						lat: centroid.lat,
+						lng: centroid.lng,
+						geom_type: centroid.geomType,
+						address_id: input.location.addressId,
+						buffer_distance: input.buffer?.distance ?? null,
+						buffer_unit_id: input.buffer?.unitId ?? null,
+						has_bees: input.flags.hasBees,
+						is_no_spray: input.flags.isNoSpray,
+						is_active: true,
+						created_by_profile_id: actorProfileId,
+						updated_by_profile_id: actorProfileId,
+						created_at: now,
+						updated_at: now,
+					} satisfies NotificationRegistration);
+
+					for (const subscription of input.subscriptions) {
+						notification_registration_types().insert({
+							id: subscription.notificationRegistrationTypeId,
 							organization_id: organizationId,
-							contact_id: input.contactId,
-							lat: centroid.lat,
-							lng: centroid.lng,
-							geom_type: centroid.geomType,
-							address_id: input.location.addressId,
-							buffer_distance: input.buffer?.distance ?? null,
-							buffer_unit_id: input.buffer?.unitId ?? null,
-							has_bees: input.flags.hasBees,
-							is_no_spray: input.flags.isNoSpray,
-							is_active: true,
+							notification_registration_id: input.registrationId,
+							notification_type_id: subscription.notificationTypeId,
 							created_by_profile_id: actorProfileId,
 							updated_by_profile_id: actorProfileId,
 							created_at: now,
 							updated_at: now,
-						} satisfies NotificationRegistration);
+						} satisfies NotificationRegistrationType);
+					}
+				},
+			}),
+		);
+	};
 
-						for (const subscription of input.subscriptions) {
-							notification_registration_types().insert({
-								id: subscription.notificationRegistrationTypeId,
-								organization_id: organizationId,
-								notification_registration_id: input.registrationId,
-								notification_type_id: subscription.notificationTypeId,
-								created_by_profile_id: actorProfileId,
-								updated_by_profile_id: actorProfileId,
-								created_at: now,
-								updated_at: now,
-							} satisfies NotificationRegistrationType);
-						}
-					},
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+	const save = async (input: {
+		readonly registrationId: string;
+		readonly fields: RegistrationFields;
+		readonly current: RegistrationFields;
+		readonly geometry: GeoJsonGeometry | null;
+		readonly acknowledgedFutureOnlyChange: boolean;
+		readonly acknowledgedHistoricalContactChange: boolean;
+	}) => {
+		const plan = registrationUpdatePlan(input);
+		if (plan === null) {
+			return;
+		}
 
-	const save = useCallback(
-		async (input: {
-			readonly registrationId: string;
-			readonly fields: RegistrationFields;
-			readonly current: RegistrationFields;
-			readonly geometry: GeoJsonGeometry | null;
-			readonly acknowledgedFutureOnlyChange: boolean;
-			readonly acknowledgedHistoricalContactChange: boolean;
-		}) => {
-			const plan = registrationUpdatePlan(input);
-			if (plan === null) {
-				return;
-			}
+		await settleWrite(
+			mutateCollection(notification_registrations(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: input.registrationId,
+				changes: {
+					...plan.changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				arguments: plan.arguments,
+				acknowledgements: plan.acknowledgements,
+			}),
+		);
+	};
 
-			await settleWrite(
-				mutateCollection(notification_registrations(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: input.registrationId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					arguments: plan.arguments,
-					acknowledgements: plan.acknowledgements,
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setActive = async (registrationId: string, isActive: boolean) => {
+		await settleWrite(
+			mutateCollection(notification_registrations(), {
+				operation: 'update',
+				intent: isActive
+					? 'publicEngagement.reactivateNotificationRegistration'
+					: 'publicEngagement.deactivateNotificationRegistration',
+				key: registrationId,
+				changes: {
+					is_active: isActive,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const setActive = useCallback(
-		async (registrationId: string, isActive: boolean) => {
-			await settleWrite(
-				mutateCollection(notification_registrations(), {
-					operation: 'update',
-					intent: isActive
-						? 'publicEngagement.reactivateNotificationRegistration'
-						: 'publicEngagement.deactivateNotificationRegistration',
-					key: registrationId,
-					changes: {
-						is_active: isActive,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const deactivate = (registrationId: string) => setActive(registrationId, false);
+	const reactivate = (registrationId: string) => setActive(registrationId, true);
 
-	const deactivate = useCallback(
-		(registrationId: string) => setActive(registrationId, false),
-		[setActive],
-	);
-	const reactivate = useCallback(
-		(registrationId: string) => setActive(registrationId, true),
-		[setActive],
-	);
-
-	const remove = useCallback(async (registrationId: string) => {
+	const remove = async (registrationId: string) => {
 		await settleWrite(
 			mutateCollection(notification_registrations(), {
 				operation: 'delete',
@@ -467,49 +451,46 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 				key: registrationId,
 			}),
 		);
-	}, []);
+	};
 
-	const subscribe = useCallback(
-		async (input: { readonly registrationId: string; readonly notificationTypeId: string }) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(notification_registration_types(), {
-					operation: 'insert',
-					intent: 'publicEngagement.subscribeNotificationRegistrationType',
-					row: {
-						id: newRecordId(),
-						organization_id: organizationId,
-						notification_registration_id: input.registrationId,
-						notification_type_id: input.notificationTypeId,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies NotificationRegistrationType,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+	const subscribe = async (input: {
+		readonly registrationId: string;
+		readonly notificationTypeId: string;
+	}) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(notification_registration_types(), {
+				operation: 'insert',
+				intent: 'publicEngagement.subscribeNotificationRegistrationType',
+				row: {
+					id: newRecordId(),
+					organization_id: organizationId,
+					notification_registration_id: input.registrationId,
+					notification_type_id: input.notificationTypeId,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies NotificationRegistrationType,
+			}),
+		);
+	};
 
-	const unsubscribe = useCallback(
-		async (subscriptionId: string, acknowledgedFutureOnlyChange: boolean) => {
-			await settleWrite(
-				mutateCollection(notification_registration_types(), {
-					operation: 'delete',
-					intent: 'publicEngagement.unsubscribeNotificationRegistrationType',
-					key: subscriptionId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements: { acknowledgedFutureOnlyChange },
-				}),
-			);
-		},
-		[],
-	);
+	const unsubscribe = async (subscriptionId: string, acknowledgedFutureOnlyChange: boolean) => {
+		await settleWrite(
+			mutateCollection(notification_registration_types(), {
+				operation: 'delete',
+				intent: 'publicEngagement.unsubscribeNotificationRegistrationType',
+				key: subscriptionId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements: { acknowledgedFutureOnlyChange },
+			}),
+		);
+	};
 
 	return {
 		record,

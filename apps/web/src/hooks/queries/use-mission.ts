@@ -12,7 +12,6 @@
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { missions } from '../../lib/collections/missions';
 import type { MissionDetail, MissionStatus } from './operations-view';
 import { missionStatus } from './operations-view';
@@ -62,10 +61,7 @@ export function useMission(missionId: string | null): {
 	// the precedence has to match the server's own read, and a `caseWhen` per
 	// query is how two copies of it drift. See `operations-view.ts`.
 	const row = result.data[0];
-	const mission = useMemo(
-		() => (row === undefined ? undefined : { ...row, status: missionStatus(row) }),
-		[row],
-	);
+	const mission = row === undefined ? undefined : { ...row, status: missionStatus(row) };
 
 	return { mission, isReady: result.isReady, isError: result.isError };
 }

@@ -31,7 +31,6 @@
 
 import { type GeoJsonPoint, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { settleWrite, type WeatherSource } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { weather_sources } from '../../lib/collections/weather_sources';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -157,116 +156,106 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (weatherStationId: string, fields: WeatherStationFields, geometry: GeoJsonPoint) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const centroid = ownedCentroidFromGeoJson(geometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine where the station sits.');
-			}
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(weather_sources(), {
-					operation: 'insert',
-					intent: 'weather.createWeatherStation',
-					row: {
-						id: weatherStationId,
-						organization_id: organizationId,
-						lat: centroid.lat,
-						lng: centroid.lng,
-						geom_type: centroid.geomType,
-						// An organization's own station is always its own source. The `nws`
-						// type is plumbing for a provider feed no command writes, so the
-						// server sets this rather than reading it, and the optimistic row
-						// says what the server will.
-						source_type: 'organization',
-						source_name: fields.name,
-						source_code: fields.code,
-						metadata: fields.metadata ?? null,
-						provider_source_id: null,
-						is_active: true,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies WeatherSource,
-					arguments: { geometry, metadata: fields.metadata ?? null },
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (
+		weatherStationId: string,
+		fields: WeatherStationFields,
+		geometry: GeoJsonPoint,
+	) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const centroid = ownedCentroidFromGeoJson(geometry);
+		if (centroid === null) {
+			throw new Error('Unable to determine where the station sits.');
+		}
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(weather_sources(), {
+				operation: 'insert',
+				intent: 'weather.createWeatherStation',
+				row: {
+					id: weatherStationId,
+					organization_id: organizationId,
+					lat: centroid.lat,
+					lng: centroid.lng,
+					geom_type: centroid.geomType,
+					// An organization's own station is always its own source. The `nws`
+					// type is plumbing for a provider feed no command writes, so the
+					// server sets this rather than reading it, and the optimistic row
+					// says what the server will.
+					source_type: 'organization',
+					source_name: fields.name,
+					source_code: fields.code,
+					metadata: fields.metadata ?? null,
+					provider_source_id: null,
+					is_active: true,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies WeatherSource,
+				arguments: { geometry, metadata: fields.metadata ?? null },
+			}),
+		);
+	};
 
-	const save = useCallback(
-		async (input: {
-			readonly weatherStationId: string;
-			readonly fields: WeatherStationFields;
-			readonly current: WeatherStationFields;
-			readonly geometry: GeoJsonPoint | null;
-			readonly acknowledgedIdentityChange: boolean;
-			readonly acknowledgedLocationChange: boolean;
-		}) => {
-			const plan = stationUpdatePlan(input);
-			if (plan === null) {
-				return;
-			}
-			await settleWrite(
-				mutateCollection(weather_sources(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: input.weatherStationId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-					arguments: plan.arguments,
-					acknowledgements: plan.acknowledgements,
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const save = async (input: {
+		readonly weatherStationId: string;
+		readonly fields: WeatherStationFields;
+		readonly current: WeatherStationFields;
+		readonly geometry: GeoJsonPoint | null;
+		readonly acknowledgedIdentityChange: boolean;
+		readonly acknowledgedLocationChange: boolean;
+	}) => {
+		const plan = stationUpdatePlan(input);
+		if (plan === null) {
+			return;
+		}
+		await settleWrite(
+			mutateCollection(weather_sources(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: input.weatherStationId,
+				changes: {
+					...plan.changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+				arguments: plan.arguments,
+				acknowledgements: plan.acknowledgements,
+			}),
+		);
+	};
 
-	const setActive = useCallback(
-		async (weatherStationId: string, isActive: boolean) => {
-			await settleWrite(
-				mutateCollection(weather_sources(), {
-					operation: 'update',
-					// `is_active` is a column the client can see, so which direction a
-					// write means has to be said rather than read off the value.
-					intent: isActive
-						? 'weather.reactivateWeatherStation'
-						: 'weather.deactivateWeatherStation',
-					key: weatherStationId,
-					changes: {
-						is_active: isActive,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+	const setActive = async (weatherStationId: string, isActive: boolean) => {
+		await settleWrite(
+			mutateCollection(weather_sources(), {
+				operation: 'update',
+				// `is_active` is a column the client can see, so which direction a
+				// write means has to be said rather than read off the value.
+				intent: isActive ? 'weather.reactivateWeatherStation' : 'weather.deactivateWeatherStation',
+				key: weatherStationId,
+				changes: {
+					is_active: isActive,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(
-		async (weatherStationId: string, acknowledgedSummaryDeletion: boolean) => {
-			await settleWrite(
-				mutateCollection(weather_sources(), {
-					operation: 'delete',
-					intent: 'weather.deleteWeatherStation',
-					key: weatherStationId,
-					// A delete carries no row and no changed fields, so an acknowledgement
-					// is the only thing it can say beyond the command's name.
-					acknowledgements: { acknowledgedSummaryDeletion },
-				}),
-			);
-		},
-		[],
-	);
+	const remove = async (weatherStationId: string, acknowledgedSummaryDeletion: boolean) => {
+		await settleWrite(
+			mutateCollection(weather_sources(), {
+				operation: 'delete',
+				intent: 'weather.deleteWeatherStation',
+				key: weatherStationId,
+				// A delete carries no row and no changed fields, so an acknowledgement
+				// is the only thing it can say beyond the command's name.
+				acknowledgements: { acknowledgedSummaryDeletion },
+			}),
+		);
+	};
 
 	return {
 		create,

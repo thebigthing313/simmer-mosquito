@@ -16,7 +16,6 @@
  */
 
 import type { Insecticide, InsecticideBatch } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { insecticide_batches } from '../../lib/collections/insecticide_batches';
 import { insecticides } from '../../lib/collections/insecticides';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -136,64 +135,58 @@ function insecticideReferenceChanges(
 export function useInsecticideMutations(): InsecticideMutations {
 	const { organizationId, actorProfileId } = useProductWriterIdentity();
 
-	const create = useCallback(
-		async (fields: InsecticideFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			const row = {
-				id: newRecordId(),
-				organization_id: organizationId,
-				trade_name: fields.tradeName,
-				active_ingredient: fields.activeIngredient,
-				is_active: fields.isActive,
-				type: fields.type,
-				registration_number: fields.registrationNumber,
-				default_unit_id: fields.defaultUnitId,
-				inventory_unit_id: null,
-				conversion_factor: null,
-				label_url: fields.labelUrl,
-				msds_url: fields.msdsUrl,
-				shorthand: fields.shorthand,
-				metadata: fields.metadata,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			} satisfies Insecticide;
-			await createCatalogRow(insecticides(), insecticideCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: InsecticideFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		const row = {
+			id: newRecordId(),
+			organization_id: organizationId,
+			trade_name: fields.tradeName,
+			active_ingredient: fields.activeIngredient,
+			is_active: fields.isActive,
+			type: fields.type,
+			registration_number: fields.registrationNumber,
+			default_unit_id: fields.defaultUnitId,
+			inventory_unit_id: null,
+			conversion_factor: null,
+			label_url: fields.labelUrl,
+			msds_url: fields.msdsUrl,
+			shorthand: fields.shorthand,
+			metadata: fields.metadata,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		} satisfies Insecticide;
+		await createCatalogRow(insecticides(), insecticideCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: InsecticideFields,
-			current: InsecticideFields,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
-			const identity = insecticideIdentityChanges(fields, current);
-			const identityMoved = Object.keys(identity).length > 0;
+	const save = async (
+		id: string,
+		fields: InsecticideFields,
+		current: InsecticideFields,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		const identity = insecticideIdentityChanges(fields, current);
+		const identityMoved = Object.keys(identity).length > 0;
 
-			await saveCatalogRow(insecticides(), insecticideCommands, id, {
-				changes: { ...identity, ...insecticideReferenceChanges(fields, current) },
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				...(identityMoved
-					? {
-							acknowledgements: {
-								acknowledgedHistoricalProductChange:
-									acknowledgements.acknowledgedHistoricalProductChange === true,
-							},
-						}
-					: {}),
-			});
-		},
-		[],
-	);
+		await saveCatalogRow(insecticides(), insecticideCommands, id, {
+			changes: { ...identity, ...insecticideReferenceChanges(fields, current) },
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			...(identityMoved
+				? {
+						acknowledgements: {
+							acknowledgedHistoricalProductChange:
+								acknowledgements.acknowledgedHistoricalProductChange === true,
+						},
+					}
+				: {}),
+		});
+	};
 
 	return {
 		create,
@@ -242,61 +235,55 @@ const batchCommands: CatalogCommandNames = {
 export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 	const { organizationId, actorProfileId } = useProductWriterIdentity();
 
-	const create = useCallback(
-		async (fields: InsecticideBatchFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			const now = optimisticStamp();
-			const row = {
-				id: newRecordId(),
-				organization_id: organizationId,
-				insecticide_id: fields.insecticideId,
-				batch_name: fields.batchName,
-				is_active: fields.isActive,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-				created_at: now,
-				updated_at: now,
-			} satisfies InsecticideBatch;
-			await createCatalogRow(insecticide_batches(), batchCommands, row);
-			return row.id;
-		},
-		[organizationId, actorProfileId],
-	);
+	const create = async (fields: InsecticideBatchFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		const now = optimisticStamp();
+		const row = {
+			id: newRecordId(),
+			organization_id: organizationId,
+			insecticide_id: fields.insecticideId,
+			batch_name: fields.batchName,
+			is_active: fields.isActive,
+			created_by_profile_id: actorProfileId,
+			updated_by_profile_id: actorProfileId,
+			created_at: now,
+			updated_at: now,
+		} satisfies InsecticideBatch;
+		await createCatalogRow(insecticide_batches(), batchCommands, row);
+		return row.id;
+	};
 
-	const save = useCallback(
-		async (
-			id: string,
-			fields: InsecticideBatchFields,
-			current: InsecticideBatchFields,
-			acknowledgements: Readonly<Record<string, boolean>> = {},
-		) => {
-			// Only the name: `updateInsecticideBatch` does not move a batch between
-			// products, because an application already recorded against it was made
-			// with what was in that tin.
-			const changes: Partial<InsecticideBatch> = {};
-			if (fields.batchName !== current.batchName) {
-				changes.batch_name = fields.batchName;
-			}
-			await saveCatalogRow(insecticide_batches(), batchCommands, id, {
-				changes,
-				isActive: fields.isActive,
-				wasActive: current.isActive,
-				// The name is the whole of what an application's batch link reads back
-				// under, so retiring a batch on its own answers nothing.
-				...(changes.batch_name === undefined
-					? {}
-					: {
-							acknowledgements: {
-								acknowledgedHistoricalBatchLabelChange:
-									acknowledgements.acknowledgedHistoricalBatchLabelChange === true,
-							},
-						}),
-			});
-		},
-		[],
-	);
+	const save = async (
+		id: string,
+		fields: InsecticideBatchFields,
+		current: InsecticideBatchFields,
+		acknowledgements: Readonly<Record<string, boolean>> = {},
+	) => {
+		// Only the name: `updateInsecticideBatch` does not move a batch between
+		// products, because an application already recorded against it was made
+		// with what was in that tin.
+		const changes: Partial<InsecticideBatch> = {};
+		if (fields.batchName !== current.batchName) {
+			changes.batch_name = fields.batchName;
+		}
+		await saveCatalogRow(insecticide_batches(), batchCommands, id, {
+			changes,
+			isActive: fields.isActive,
+			wasActive: current.isActive,
+			// The name is the whole of what an application's batch link reads back
+			// under, so retiring a batch on its own answers nothing.
+			...(changes.batch_name === undefined
+				? {}
+				: {
+						acknowledgements: {
+							acknowledgedHistoricalBatchLabelChange:
+								acknowledgements.acknowledgedHistoricalBatchLabelChange === true,
+						},
+					}),
+		});
+	};
 
 	return {
 		create,
