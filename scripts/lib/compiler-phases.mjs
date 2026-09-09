@@ -119,6 +119,25 @@ const COMPILER_PHASES = [
 			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/]operations[\\/]-worklist-map[.]tsx$/,
 		],
 	},
+	{
+		phase: 7,
+		name: 'apps/web forms',
+		issue: 838,
+		/*
+		 * The surface no phase named. `forms/` sits beside `lib`, `hooks`,
+		 * `components` and `routes` under `apps/web/src`, and phases 3 to 6
+		 * between them reach every one of those but this. Nothing failed,
+		 * because the gate's two halves are complementary and a compile-clean
+		 * module outside the allowlist sits quietly on the ratcheted side.
+		 *
+		 * A seventh entry rather than collapsing phases 3 to 7 into one
+		 * `apps/web[\\/]src[\\/]` pattern, which now compiles the same set. The
+		 * header rule is that a phase is one entry, and an entry is the record
+		 * of which phase turned a path on; collapsing would compile the same
+		 * modules and lose the ordering #656 §4 wrote.
+		 */
+		include: [/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]forms[\\/]/],
+	},
 ];
 
 /**

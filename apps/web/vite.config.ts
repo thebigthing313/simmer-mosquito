@@ -14,8 +14,9 @@ import { version } from './package.json' with { type: 'json' };
  * filter: it is `COMPILER_PHASES`, the whole allowlist rather than this app's
  * slice of it, because `packages/ui-web` is compiled by whichever app imports it
  * and an app filtering to its own root would compile a shared component in one
- * consumer and not the next. This app's own `src` is not on that list yet, so
- * the pass runs over the ui-web modules it imports and nothing else.
+ * consumer and not the next. This app's own `src` joined that list over phases 3
+ * to 7, so the pass now runs over `lib`, `hooks`, `components`, `routes` and
+ * `forms` here as well as over the ui-web modules this app imports.
  */
 const compilerPreset = reactCompilerPreset();
 compilerPreset.rolldown.filter = {
