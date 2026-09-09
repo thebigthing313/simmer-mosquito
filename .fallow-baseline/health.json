@@ -32,9 +32,6 @@
       }
     },
     "apps/admin/src/routes/organizations/$organizationId/members.tsx": {
-      "complexity_high": {
-        "count": 1
-      },
       "crap_high": {
         "count": 1
       },
@@ -306,11 +303,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/route-planning/routes-index-page.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/hooks/mutations/use-application-mutations.ts": {
       "complexity_critical": {
         "count": 1
@@ -572,11 +564,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/operations/-worklist-map.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/operations/assignments/$id.tsx": {
       "complexity_high": {
         "count": 1
@@ -824,16 +811,18 @@
       }
     },
     "scripts/check-build-graph.mjs": {
-      "crap_high": {
-        "count": 1
-      },
       "crap_moderate": {
-        "count": 4
+        "count": 5
       }
     },
     "scripts/check-column-vocabularies.mjs": {
       "crap_moderate": {
         "count": 6
+      }
+    },
+    "scripts/check-compiler-coverage.mjs": {
+      "crap_moderate": {
+        "count": 3
       }
     },
     "scripts/check-geometry-policies.mjs": {
@@ -903,16 +892,16 @@
     "apps/web/src/routes/control-operations/biocontrol/index.tsx:complexity",
     "apps/web/src/components/map/record-location-card.tsx:complexity",
     "apps/web/src/routes/control-operations/chemical/-application-form.tsx:complexity",
-    "apps/web/src/routes/operations/assignments/index.tsx:complexity",
     "apps/web/src/routes/operations/assignments/create.tsx:complexity",
-    "apps/web/src/routes/adult-surveillance/traps/index.tsx:complexity",
+    "apps/web/src/routes/operations/assignments/index.tsx:complexity",
     "packages/auth/src/index.ts:complexity",
+    "apps/web/src/routes/adult-surveillance/traps/index.tsx:complexity",
     "apps/web/src/routes/gis/regions/index.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
+    "apps/web/src/routes/larval-surveillance/samples/$id.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
     "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
-    "apps/web/src/routes/larval-surveillance/samples/$id.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",

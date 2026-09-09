@@ -138,6 +138,38 @@ const COMPILER_PHASES = [
 		 */
 		include: [/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]forms[\\/]/],
 	},
+	{
+		phase: 8,
+		name: 'apps/web entry point and sync seam',
+		issue: 842,
+		/*
+		 * The last two React modules in `apps/web` that sat in no directory a
+		 * phase named: `main.tsx` at the root of `src`, and the one `.tsx` in
+		 * `sync/` beside three modules holding no React. #838 found `forms/` by
+		 * reading and these two were still there afterwards, which is what says
+		 * the register cannot audit itself.
+		 *
+		 * So this entry ships beside `check:compiler-coverage`, which parses
+		 * every module in the workspace and refuses one that holds React and is
+		 * on neither this list nor its own exemption register. The gate is what
+		 * makes this the last such entry rather than the next-to-last.
+		 *
+		 * `sync/` names the directory and `main.tsx` names the file, because
+		 * `sync/` is a seam that will grow React and `src/` itself is not: the
+		 * other things directly under it are `app-auth.ts`, `auth.ts`, a
+		 * `globals.d.ts` and a generated route tree.
+		 *
+		 * #838's rule is that an edit here cannot move `check:compiler-bailouts`
+		 * counts, so a pattern is proved matched by `isOptedIn` over the three
+		 * path spellings and by a build diff. Both were run: the two modules
+		 * compile clean, and `apps/web`'s boot payload is 259 raw bytes and 72
+		 * gzipped larger than the same build with these two patterns deleted.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]sync[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]main[.]tsx$/,
+		],
+	},
 ];
 
 /**
