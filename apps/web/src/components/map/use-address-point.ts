@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DrawGeometry } from './use-map-draw';
 
 /** A finished point geometry, the only shape an address can produce. */
@@ -39,9 +39,16 @@ export function useAddressPoint({
 	// Read through refs so the callbacks stay stable across a form's re-renders and
 	// never seed against a geometry that has since been drawn.
 	const geometryRef = useRef(geometry);
-	geometryRef.current = geometry;
 	const placeRef = useRef(onPlacePoint);
-	placeRef.current = onPlacePoint;
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		geometryRef.current = geometry;
+		placeRef.current = onPlacePoint;
+	});
 
 	const selectAddress = useCallback((address: AddressPoint | null) => {
 		const coord = addressCoordOf(address);

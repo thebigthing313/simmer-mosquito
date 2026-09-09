@@ -320,25 +320,40 @@ export function useRouteLayer(
 	config: RouteLayerConfig | undefined,
 ): void {
 	const enabled = config !== undefined;
-	const stops = config?.stops ?? [];
+	// The fallback is memoized because `data` is keyed on this array. A fresh `[]`
+	// per render would rebuild it on every render of the map, which is the churn the
+	// key exists to avoid.
+	const stops = useMemo(() => config?.stops ?? [], [config?.stops]);
 	const signature = enabled ? stopsSignature(stops) : '';
 	const selectedId = config?.selectedId ?? null;
 	const highlightId = config?.highlightId ?? null;
 
 	const stopsRef = useRef(stops);
-	stopsRef.current = stops;
 	const onSelectRef = useRef(config?.onSelectStop);
-	onSelectRef.current = config?.onSelectStop;
 	const onHoverRef = useRef(config?.onHoverStop);
-	onHoverRef.current = config?.onHoverStop;
 	const selectedRef = useRef(selectedId);
 	const highlightRef = useRef(highlightId);
 
-	// The stop set as one value, rebuilt only when the signature says the stops
-	// actually changed — the primitive pushes a new `data` identity through
-	// `setData`, and an unmemoized build would do that on every render.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: signature is the change key for the ref-read stops.
-	const data = useMemo(() => (enabled ? buildData(stopsRef.current) : null), [enabled, signature]);
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox event, so the value each one sees is unchanged. The
+	// effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		stopsRef.current = stops;
+		onSelectRef.current = config?.onSelectStop;
+		onHoverRef.current = config?.onHoverStop;
+	});
+
+	// The stop set as one value. The primitive pushes a new `data` identity through
+	// `setData`, so an unmemoized build would do that on every render.
+	//
+	// The key is the stops themselves and not `stopsSignature`. That signature
+	// carries a shape's type and vertex count and not its coordinates, so keying on
+	// it drew a stale shape whenever a stop's geometry moved without gaining or
+	// losing a vertex, and the memo read the stops through a ref to get around
+	// saying so.
+	const data = useMemo(() => (enabled ? buildData(stops) : null), [enabled, stops]);
 
 	useGeoJsonSource({
 		map,

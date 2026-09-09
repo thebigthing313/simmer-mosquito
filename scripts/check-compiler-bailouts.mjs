@@ -285,18 +285,6 @@ const TODO = 'Todo';
  * path in, and either way that is an edit in the phase's own PR.
  */
 const BAILING_FILES = [
-	'apps/web/src/components/map/map-canvas.tsx',
-	'apps/web/src/components/map/use-address-point.ts',
-	'apps/web/src/components/map/use-geojson-layer.ts',
-	'apps/web/src/components/map/use-geojson-source.ts',
-	'apps/web/src/components/map/use-geolocation.ts',
-	'apps/web/src/components/map/use-map-draw.ts',
-	'apps/web/src/components/map/use-map-measure.ts',
-	'apps/web/src/components/map/use-mapbox-map.ts',
-	'apps/web/src/components/map/use-route-layer.ts',
-	'apps/web/src/components/map/use-tile-layer.ts',
-	'apps/web/src/components/route-planning/route-map.tsx',
-	'apps/web/src/routes/operations/-worklist-map.tsx',
 	'apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx',
 	'apps/web/src/tests/unit/components/map/fake-map.tsx',
 ];
@@ -305,8 +293,17 @@ const BAILING_FILES = [
  * How many `Todo` findings the corpus holds, allowed to fall and not to rise.
  *
  * The one single-direction ratchet here, and the header says why.
+ *
+ * It went 42 to 43 in phase 6 (#824) with no new source, which is the one way
+ * this number rises that the header's "read what arrived" does not describe.
+ * `useGeoJsonSource` reported six `Refs` findings and no `Todo`; the compiler
+ * stops at the first validation a function fails, so it had never reached the
+ * try/catch further down. Fixing the six ref reads let it get there, and the
+ * same function at the same `fnLoc` now reports one `Todo` instead. A phase that
+ * clears a bail-out can therefore uncover a `Todo` behind it, and the check is
+ * that the new finding sits in a function the phase just fixed.
  */
-const TODO_FINDINGS = 42;
+const TODO_FINDINGS = 43;
 
 /** The floor under the walk. See the header. */
 const MINIMUM_MODULES = 950;
@@ -433,6 +430,31 @@ const findingsOf = (module) => [...module.bailouts, ...module.skips];
 /** The bail-outs in a module that no directive opts out of. */
 const unexcused = (module) =>
 	module.bailouts.filter((bailout) => !module.directives.some((each) => covers(each, bailout)));
+
+/**
+ * How many functions in a module carry a live opt-out.
+ *
+ * Not the `CompileSkip` count, which is what the summary line reported until
+ * phase 6 and which read zero against the workspace's one live directive.
+ * #777 measured the reason: validation runs before the emit decision, so a
+ * function that bails logs its `CompileError` with the directive or without it
+ * and logs no `CompileSkip` at all. Only a function that would otherwise have
+ * compiled skips. An opt-out is therefore a skip **or** a bail-out some
+ * directive covers, and the second kind is the one anybody writes a directive
+ * for, so counting skips alone reports zero exactly when a reader is asking.
+ *
+ * Counted by function and not by finding, which is #826's granularity rule:
+ * three findings inside one function are one opt-out, because the compiler
+ * bails at function granularity and a directive is written per function.
+ */
+const optOuts = (module) => {
+	const excused = module.bailouts.filter((bailout) =>
+		module.directives.some((each) => covers(each, bailout)),
+	);
+	const spans = [...excused, ...module.skips].map((finding) => `${finding.start}:${finding.end}`);
+
+	return new Set(spans).size;
+};
 
 /**
  * The opt-out directives in one file, and what each one's marker says.
@@ -653,7 +675,7 @@ const todoSlack = (todos) =>
 
 /** The one line a clean run prints. */
 function announce(modules, compiled, todos) {
-	const skips = modules.reduce((total, module) => total + module.skips.length, 0);
+	const skips = modules.reduce((total, module) => total + optOuts(module), 0);
 	console.log(
 		`${GATE}: ${count(modules.length, 'module')}, ${count(compiled, 'compiled function')}, ${count(BAILING_FILES.length, 'file')} on the ratchet, ${count(skips, 'opted-out function')}, ${count(todos, 'Todo finding')}${todoSlack(todos)}.`,
 	);

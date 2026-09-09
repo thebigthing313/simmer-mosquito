@@ -49,29 +49,34 @@ export function WorklistMap({
 	readonly children?: ReactNode;
 }) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
-	const featuresRef = useRef(features);
-	featuresRef.current = features;
 	const lastFitRef = useRef<string | null>(null);
 
-	const fitToWorklist = useCallback((instance: MapboxMap, animate: boolean) => {
-		const bounds = boundsOfFeatures(featuresRef.current);
-		if (bounds === null) {
-			return;
-		}
-		const [[west, south], [east, north]] = bounds;
-		const duration = animate ? 650 : 0;
-		if (west === east && south === north) {
-			instance.easeTo({ center: [west, south], zoom: Math.max(instance.getZoom(), 15), duration });
-			return;
-		}
-		instance.fitBounds(
-			[
-				[west, south],
-				[east, north],
-			],
-			{ padding: 72, maxZoom: 16, duration },
-		);
-	}, []);
+	const fitToWorklist = useCallback(
+		(instance: MapboxMap, animate: boolean) => {
+			const bounds = boundsOfFeatures(features);
+			if (bounds === null) {
+				return;
+			}
+			const [[west, south], [east, north]] = bounds;
+			const duration = animate ? 650 : 0;
+			if (west === east && south === north) {
+				instance.easeTo({
+					center: [west, south],
+					zoom: Math.max(instance.getZoom(), 15),
+					duration,
+				});
+				return;
+			}
+			instance.fitBounds(
+				[
+					[west, south],
+					[east, north],
+				],
+				{ padding: 72, maxZoom: 16, duration },
+			);
+		},
+		[features],
+	);
 
 	// Fit once per worklist, and only once coordinates have actually resolved —
 	// the targets stream in separately, so an early fit would frame an empty set.

@@ -165,7 +165,14 @@ export function useGeoJsonLayer(
 	// The layer builder reads the selection at ensure time, so a new selection
 	// re-filters the highlight (below) instead of re-adding every layer.
 	const selectedRef = useRef(selectedId);
-	selectedRef.current = selectedId;
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		selectedRef.current = selectedId;
+	});
 
 	useGeoJsonSource({
 		map,

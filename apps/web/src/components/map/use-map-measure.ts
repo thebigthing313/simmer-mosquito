@@ -183,11 +183,19 @@ export function useMapMeasure({
 	// of React state — a re-render per mousemove would be visible on a big map.
 	const cursorRef = useRef<LngLat | null>(null);
 	const toolRef = useRef(tool);
-	toolRef.current = tool;
 	const draftRef = useRef(draft);
-	draftRef.current = draft;
 	const shapesRef = useRef(shapes);
-	shapesRef.current = shapes;
+
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox event, so the value each one sees is unchanged. The
+	// effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		toolRef.current = tool;
+		draftRef.current = draft;
+		shapesRef.current = shapes;
+	});
 
 	const repaint = useCallback(() => {
 		if (!isMapLive(map)) {
@@ -213,11 +221,12 @@ export function useMapMeasure({
 		publishDraft(draft);
 	}, [draft, publishDraft]);
 
-	// What the source holds after a real state change — a shape finished, a draft
-	// started or abandoned. The cursor is deliberately not a dependency: it moves
-	// every frame and rides `repaint` instead, so dragging out a rectangle costs
-	// no renders.
-	const features = useMemo(() => buildFeatures(shapes, draft, cursorRef.current), [shapes, draft]);
+	// What the source holds after a real state change: a shape finished, a draft
+	// started or abandoned. The cursor is not here at all. It moves every frame and
+	// rides `repaint` instead, so dragging out a rectangle costs no renders, and
+	// reading it here was a render-phase ref read that named a frame this value is
+	// not keyed on.
+	const features = useMemo(() => buildFeatures(shapes, draft, null), [shapes, draft]);
 
 	// The source lifecycle — add, re-add on restyle, setData for updates, guarded
 	// teardown — is {@link useGeoJsonSource}'s. `onEnsure` repaints from the refs
@@ -232,6 +241,15 @@ export function useMapMeasure({
 		onEnsure: repaint,
 	});
 
+	// `features` carries no cursor, so the source has just been set to the shapes
+	// without the live preview on them. Layering it back on is `repaint`'s job, and
+	// this is the commit-time moment to do it. Declared after the source primitive
+	// so its `setData` has already run.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `features` is the trigger rather than something the effect reads, and dropping it would stop the transients coming back after a state change.
+	useEffect(() => {
+		repaint();
+	}, [features, repaint]);
+
 	const commitDraft = useCallback(() => {
 		const current = draftRef.current;
 		const cursor = cursorRef.current;
@@ -242,9 +260,6 @@ export function useMapMeasure({
 		setDraft(null);
 		cursorRef.current = null;
 	}, []);
-
-	const finishRef = useRef(commitDraft);
-	finishRef.current = commitDraft;
 
 	// Interaction is wired only while a tool is selected, so a map with the
 	// measure panel closed carries no extra listeners and keeps its own cursor.
@@ -284,7 +299,7 @@ export function useMapMeasure({
 				return;
 			}
 			cursorRef.current = point;
-			finishRef.current();
+			commitDraft();
 		}
 
 		function handleMove(event: MapMouseEvent) {
@@ -295,7 +310,7 @@ export function useMapMeasure({
 
 		function handleDoubleClick() {
 			if (draftRef.current?.tool === 'distance') {
-				finishRef.current();
+				commitDraft();
 			}
 		}
 
@@ -316,7 +331,7 @@ export function useMapMeasure({
 				return;
 			}
 			if (event.key === 'Enter') {
-				finishRef.current();
+				commitDraft();
 			}
 			if (event.key === 'Escape') {
 				setDraft(null);
@@ -339,7 +354,7 @@ export function useMapMeasure({
 				activeMap.doubleClickZoom.enable();
 			}
 		};
-	}, [map, isLoaded, tool, publishDraft, repaint]);
+	}, [map, isLoaded, tool, commitDraft, publishDraft, repaint]);
 
 	const selectTool = useCallback((next: MeasureTool) => {
 		// Switching tools abandons a half-drawn shape rather than trying to
