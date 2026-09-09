@@ -148,13 +148,11 @@ const fail = failure(GATE);
  */
 const REACT_RULE_BACKLOG = new Map([
 	['apps/preview/src/useCssTokens.ts', 1],
-	['apps/web/src/components/catalog/catalog-record-dialog.tsx', 1],
 	['apps/web/src/components/cleanup/habitat-merge.tsx', 1],
 	['apps/web/src/components/cleanup/merge-confirm-dialog.tsx', 1],
 	['apps/web/src/components/explorer/result-list.tsx', 1],
 	['apps/web/src/components/explorer/use-map-bounds.ts', 1],
-	['apps/web/src/components/explorer/use-paged-map-resource.ts', 3],
-	['apps/web/src/components/explorer/use-region-membership.ts', 1],
+	['apps/web/src/components/explorer/use-paged-map-resource.ts', 2],
 	['apps/web/src/components/key-entry/key-entry-dialog.tsx', 1],
 	['apps/web/src/components/map/map-canvas.tsx', 1],
 	['apps/web/src/components/map/map-readout.tsx', 1],
@@ -171,7 +169,6 @@ const REACT_RULE_BACKLOG = new Map([
 	['apps/web/src/components/map/use-route-layer.ts', 5],
 	['apps/web/src/components/map/use-tile-layer.ts', 2],
 	['apps/web/src/components/route-planning/route-map.tsx', 1],
-	['apps/web/src/components/search/search-palette.tsx', 1],
 	['apps/web/src/components/search/search-result-row.tsx', 1],
 	['apps/web/src/components/search/use-palette-content.ts', 1],
 	['apps/web/src/components/search/use-search-navigation.ts', 2],

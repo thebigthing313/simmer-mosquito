@@ -40,28 +40,33 @@ export function useRegionMembership(regionIds: ReadonlySet<string>): RegionMembe
 	const key = [...regionIds].sort().join(',');
 	const ids = useMemo(() => (key.length === 0 ? [] : key.split(',')), [key]);
 
-	const results = useQueries({
+	// The boundary list has to stay referentially stable across the renders
+	// between two loads: an unstable predicate rebuilds every caller's filtered
+	// list, and with it the map's whole feature source. A `useMemo` could not say
+	// that honestly, because what it reads is the results array, whose identity
+	// changes every render, so it named a status signature in its dependency list
+	// instead and carried a `biome-ignore` to allow the mismatch. That is a memo
+	// inference cannot reproduce, which is exactly what the React Compiler refused
+	// to compile (`PreserveManualMemo`, #822).
+	//
+	// `combine` is the library's own answer to it. `useQueries` runs the result
+	// through `replaceEqualDeep`, which returns the previous object when the new
+	// one is equal, and every element is a reference check rather than a deep walk
+	// of the polygon, so the cost is one comparison per selected region. Same
+	// stability, stated by the call rather than worked around beside it.
+	const { boundaries, isReady } = useQueries({
 		queries: ids.map((id) => ({
 			queryKey: regionGeometryQueryKey(id),
 			queryFn: ({ signal }: { readonly signal: AbortSignal }) => fetchRegionGeometry(id, signal),
 			staleTime: Number.POSITIVE_INFINITY,
 		})),
-	});
-
-	// A status-per-region signature changes exactly when the loaded set does, so
-	// the boundary list — and the predicate built from it — stays referentially
-	// stable across the renders in between. An unstable predicate would rebuild
-	// every caller's filtered list, and with it the map's whole feature source.
-	const readiness = results.map((result) => result.status).join(',');
-	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the id set + each read's state.
-	const boundaries = useMemo(
-		() =>
-			results
+		combine: (results) => ({
+			boundaries: results
 				.map((result) => result.data?.geojson)
 				.filter((geometry): geometry is GeoJsonGeometry => geometry != null),
-		[key, readiness],
-	);
-	const isReady = results.every((result) => !result.isPending);
+			isReady: results.every((result) => !result.isPending),
+		}),
+	});
 
 	return useMemo(() => {
 		if (ids.length === 0) {

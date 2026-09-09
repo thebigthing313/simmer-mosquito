@@ -113,9 +113,16 @@ export function usePagedMapResource<TRow>({
 		[raw, normalizeRow],
 	);
 
+	// Destructured, because the callback closing over `query` while the
+	// dependency list names `query.refetch` is a memo the compiler cannot
+	// reproduce: it infers the dependency it can see, which is the whole query
+	// object, and that is a new reference every render. Naming `refetch` alone
+	// makes the written list and the inferred one the same (`PreserveManualMemo`,
+	// #822).
+	const { refetch } = query;
 	const retry = useCallback(() => {
-		void query.refetch();
-	}, [query.refetch]);
+		void refetch();
+	}, [refetch]);
 
 	return {
 		rows,
