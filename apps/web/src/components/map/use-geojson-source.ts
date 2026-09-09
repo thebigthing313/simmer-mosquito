@@ -88,17 +88,24 @@ export function useGeoJsonSource({
 	// Everything the setup effect reads but must not re-run for. Re-adding the
 	// source on a data change would drop and rebuild layers on every tick.
 	const dataRef = useRef(data);
-	dataRef.current = data;
 	const layersRef = useRef(layers);
-	layersRef.current = layers;
 	const onEnsureRef = useRef(onEnsure);
-	onEnsureRef.current = onEnsure;
 	const sourceOptionsRef = useRef(sourceOptions);
-	sourceOptionsRef.current = sourceOptions;
 	const onSelectRef = useRef(interactive?.onSelectFeature);
-	onSelectRef.current = interactive?.onSelectFeature;
 	const interactiveLayerIdsRef = useRef(interactive?.layerIds ?? []);
-	interactiveLayerIdsRef.current = interactive?.layerIds ?? [];
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		dataRef.current = data;
+		layersRef.current = layers;
+		onEnsureRef.current = onEnsure;
+		sourceOptionsRef.current = sourceOptions;
+		onSelectRef.current = interactive?.onSelectFeature;
+		interactiveLayerIdsRef.current = interactive?.layerIds ?? [];
+	});
 
 	// The ids actually added, so teardown removes what this hook put there even
 	// if `layers()` would answer differently by then.

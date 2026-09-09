@@ -362,13 +362,21 @@ export function useMapDraw({
 	// repainted on mousemove without a React re-render per frame.
 	const cursorRef = useRef<PlanarPosition | null>(null);
 	const modeRef = useRef(mode);
-	modeRef.current = mode;
 	const verticesRef = useRef(vertices);
-	verticesRef.current = vertices;
 	const valueRef = useRef(value);
-	valueRef.current = value;
 	const onChangeRef = useRef(onChange);
-	onChangeRef.current = onChange;
+
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox pointer event, so the value each one sees is
+	// unchanged. The effect is declared above its readers, so the write lands first
+	// inside one commit.
+	useEffect(() => {
+		modeRef.current = mode;
+		verticesRef.current = vertices;
+		valueRef.current = value;
+		onChangeRef.current = onChange;
+	});
 
 	// The vertex the pointer has hold of rides a ref rather than state, the way
 	// the rubber band does: a drag repaints every frame and lands as one change.
@@ -417,18 +425,20 @@ export function useMapDraw({
 		);
 	}, [map, highlightedRef]);
 
-	// What the draft source holds after a real state change — a new committed
-	// value, another vertex, a mode switch. The cursor is deliberately not a
-	// dependency: it moves every frame and rides `repaint` instead, so a
-	// mousemove repaints the rubber band without re-rendering anything.
+	// What the draft source holds after a real state change: a new committed value,
+	// another vertex, a mode switch. The cursor and the drag are not here at all.
+	// Both move every frame and ride `repaint` instead, so a mousemove repaints the
+	// rubber band without re-rendering anything, and reading them here was a
+	// render-phase ref read of what the map is currently showing, which is
+	// commit-time information rather than render-time.
 	const features = useMemo(
 		() =>
 			buildFeatures({
 				committed: value,
 				mode,
 				vertices,
-				cursor: cursorRef.current,
-				drag: dragRef.current,
+				cursor: null,
+				drag: null,
 				highlighted: highlightedPart,
 			}),
 		[value, mode, vertices, highlightedPart],
@@ -446,6 +456,15 @@ export function useMapDraw({
 		layers: drawLayers,
 		onEnsure: repaint,
 	});
+
+	// `features` carries no cursor and no drag, so the source has just been set to
+	// the committed shape without the transients on it. Layering them back on is
+	// `repaint`'s job, and this is the commit-time moment to do it. Declared after
+	// the source primitive so its `setData` has already run.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `features` is the trigger rather than something the effect reads, and dropping it would stop the transients coming back after a state change.
+	useEffect(() => {
+		repaint();
+	}, [features, repaint]);
 
 	const finishRef = useRef<() => void>(() => {});
 
@@ -682,7 +701,12 @@ function useDrawSession({
 			applyParts(finished.target, finished.parts);
 		}
 	}, [applyParts, cursorRef, modeRef, setMode, valueRef, verticesRef]);
-	finishRef.current = finish;
+	// Written in an effect rather than during render, which is what the React
+	// Compiler permits. The two readers are keyboard handlers registered inside
+	// effects, so they read it after this commit either way.
+	useEffect(() => {
+		finishRef.current = finish;
+	});
 
 	const requestPoint = useCallback(
 		(_prompt?: string) =>
@@ -857,7 +881,12 @@ function useDrawPartActions({
 }) {
 	const [highlightedPart, setHighlightedPart] = useState<number | null>(null);
 	const highlightedRef = useRef(highlightedPart);
-	highlightedRef.current = highlightedPart;
+	// Written in an effect rather than during render, which is what the React
+	// Compiler permits. `repaint` is the only reader and runs from an effect or a
+	// Mapbox event, so it reads the same value it did before.
+	useEffect(() => {
+		highlightedRef.current = highlightedPart;
+	});
 
 	// The one place a finished draw lands. `replace` throws the committed parts
 	// away, `part` appends to them, `hole` puts back the one part it names with

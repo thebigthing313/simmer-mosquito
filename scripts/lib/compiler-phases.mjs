@@ -101,6 +101,24 @@ const COMPILER_PHASES = [
 			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/](?!operations[\\/]-worklist-map[.]tsx$)/,
 		],
 	},
+	{
+		phase: 6,
+		name: 'apps/web map surfaces',
+		issue: 824,
+		/*
+		 * The last phase, and the three paths phases 4 and 5 held back. It is an
+		 * appended entry rather than the two lookahead deletions the phase 4
+		 * comment predicted, because the header rule is that a phase is one entry,
+		 * and an entry is also the record of which phase turned a path on. The two
+		 * spellings compile exactly the same set; only this one leaves the ordering
+		 * #656 §4 wrote readable afterwards.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/]map[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/]route-planning[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/]operations[\\/]-worklist-map[.]tsx$/,
+		],
+	},
 ];
 
 /**

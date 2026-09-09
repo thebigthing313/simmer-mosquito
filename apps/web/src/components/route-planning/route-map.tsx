@@ -35,29 +35,34 @@ export function RouteMap({
 	children,
 }: RouteMapProps) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
-	const stopsRef = useRef(stops);
-	stopsRef.current = stops;
 	const lastFitRef = useRef<string | null>(null);
 
-	const fitToRoute = useCallback((instance: MapboxMap, animate: boolean) => {
-		const bounds = boundsOfStops(stopsRef.current);
-		if (bounds === null) {
-			return;
-		}
-		const [[west, south], [east, north]] = bounds;
-		const duration = animate ? 650 : 0;
-		if (west === east && south === north) {
-			instance.easeTo({ center: [west, south], zoom: Math.max(instance.getZoom(), 15), duration });
-			return;
-		}
-		instance.fitBounds(
-			[
-				[west, south],
-				[east, north],
-			],
-			{ padding: 72, maxZoom: 16, duration },
-		);
-	}, []);
+	const fitToRoute = useCallback(
+		(instance: MapboxMap, animate: boolean) => {
+			const bounds = boundsOfStops(stops);
+			if (bounds === null) {
+				return;
+			}
+			const [[west, south], [east, north]] = bounds;
+			const duration = animate ? 650 : 0;
+			if (west === east && south === north) {
+				instance.easeTo({
+					center: [west, south],
+					zoom: Math.max(instance.getZoom(), 15),
+					duration,
+				});
+				return;
+			}
+			instance.fitBounds(
+				[
+					[west, south],
+					[east, north],
+				],
+				{ padding: 72, maxZoom: 16, duration },
+			);
+		},
+		[stops],
+	);
 
 	// Auto-fit once per fitKey, but only after geometry has actually resolved.
 	useEffect(() => {
