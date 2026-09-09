@@ -9,7 +9,7 @@ import type {
 	MapMouseEvent,
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { toMapboxGeometry } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
@@ -320,10 +320,7 @@ export function useRouteLayer(
 	config: RouteLayerConfig | undefined,
 ): void {
 	const enabled = config !== undefined;
-	// The fallback is memoized because `data` is keyed on this array. A fresh `[]`
-	// per render would rebuild it on every render of the map, which is the churn the
-	// key exists to avoid.
-	const stops = useMemo(() => config?.stops ?? [], [config?.stops]);
+	const stops = config?.stops ?? [];
 	const signature = enabled ? stopsSignature(stops) : '';
 	const selectedId = config?.selectedId ?? null;
 	const highlightId = config?.highlightId ?? null;
@@ -346,14 +343,11 @@ export function useRouteLayer(
 	});
 
 	// The stop set as one value. The primitive pushes a new `data` identity through
-	// `setData`, so an unmemoized build would do that on every render.
-	//
-	// The key is the stops themselves and not `stopsSignature`. That signature
-	// carries a shape's type and vertex count and not its coordinates, so keying on
-	// it drew a stale shape whenever a stop's geometry moved without gaining or
-	// losing a vertex, and the memo read the stops through a ref to get around
-	// saying so.
-	const data = useMemo(() => (enabled ? buildData(stops) : null), [enabled, stops]);
+	// `setData`, so this is built from the stops themselves rather than from
+	// `stopsSignature`: that signature carries a shape's type and vertex count and
+	// not its coordinates, so building against it drew a stale shape whenever a
+	// stop's geometry moved without gaining or losing a vertex.
+	const data = enabled ? buildData(stops) : null;
 
 	useGeoJsonSource({
 		map,

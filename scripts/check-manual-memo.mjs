@@ -75,6 +75,13 @@
  * read no calls out of them. Both otherwise print the summary line a clean run
  * prints.
  *
+ * `MINIMUM_WRAPPERS` comes down as a strip slice lands, because the corpus it
+ * measures is the thing the strip is emptying: it shipped at 500 against 848 and
+ * a slice that takes the register below it has to move it or fail on its own
+ * work. It stays close under the register rather than being dropped to give
+ * headroom, since a tripwire far below the count catches nothing, and it reaches
+ * zero with the register, where `PROBES` is the only guard left.
+ *
  * `PROBES` is the guard neither floor can be, and it earns its place from the
  * end state rather than from today: when the backlog reaches empty, every count
  * this gate produces is zero, and a detector that has stopped detecting reads
@@ -112,19 +119,6 @@ const WRAPPERS = new Set(['useMemo', 'useCallback']);
  * @type {Readonly<Record<string, number>>}
  */
 const MANUAL_MEMO_BACKLOG = {
-	'apps/web/src/components/map/geolocate-control.tsx': 1,
-	'apps/web/src/components/map/map-context-menu.tsx': 1,
-	'apps/web/src/components/map/map-readout.tsx': 1,
-	'apps/web/src/components/map/record-location-card.tsx': 6,
-	'apps/web/src/components/map/region-boundary-picker.tsx': 1,
-	'apps/web/src/components/map/use-address-point.ts': 2,
-	'apps/web/src/components/map/use-draw-location.ts': 9,
-	'apps/web/src/components/map/use-geolocation.ts': 1,
-	'apps/web/src/components/map/use-map-draw.ts': 29,
-	'apps/web/src/components/map/use-map-measure.ts': 7,
-	'apps/web/src/components/map/use-route-layer.ts': 2,
-	'apps/web/src/components/route-planning/route-map.tsx': 2,
-	'apps/web/src/components/route-planning/routes-index-page.tsx': 2,
 	'apps/web/src/forms/record-extras.ts': 2,
 	'apps/web/src/routes/-activity-data.ts': 1,
 	'apps/web/src/routes/-activity-view.ts': 7,
@@ -208,7 +202,6 @@ const MANUAL_MEMO_BACKLOG = {
 	'apps/web/src/routes/my-organization/-components/key-bindings.tsx': 4,
 	'apps/web/src/routes/operations/-command-runner.ts': 1,
 	'apps/web/src/routes/operations/-operations-data.ts': 5,
-	'apps/web/src/routes/operations/-worklist-map.tsx': 2,
 	'apps/web/src/routes/operations/assignments/$id.tsx': 3,
 	'apps/web/src/routes/operations/assignments/$id_.edit.tsx': 9,
 	'apps/web/src/routes/operations/assignments/-assignment-data.ts': 12,
@@ -249,7 +242,7 @@ const MANUAL_MEMO_BACKLOG = {
 const MINIMUM_FILES = 700;
 
 /** The floor under the detector. See the header. */
-const MINIMUM_WRAPPERS = 500;
+const MINIMUM_WRAPPERS = 450;
 
 /**
  * Sources whose wrapper counts are known.

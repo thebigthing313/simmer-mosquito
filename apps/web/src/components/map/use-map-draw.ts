@@ -25,9 +25,8 @@ import type {
 import {
 	type Dispatch,
 	type SetStateAction,
-	useCallback,
 	useEffect,
-	useMemo,
+	useEffectEvent,
 	useRef,
 	useState,
 } from 'react';
@@ -408,7 +407,7 @@ export function useMapDraw({
 
 	const { holeDraft, continuedPart, editedPart } = useDrawDrafts(mode, value, vertices);
 
-	const repaint = useCallback(() => {
+	const repaint = () => {
 		if (!isMapLive(map)) {
 			return;
 		}
@@ -423,7 +422,14 @@ export function useMapDraw({
 				highlighted: highlightedRef.current,
 			}),
 		);
-	}, [map, highlightedRef]);
+	};
+	// `repaint` reads only refs and the map, so it is never what an effect reacts
+	// to, and naming it in a dependency array would say otherwise. The effect below
+	// reaches it through an effect event; the ordinary function stays for
+	// `onEnsure` and the two inner hooks, which are call sites outside an effect.
+	const repaintNow = useEffectEvent(() => {
+		repaint();
+	});
 
 	// What the draft source holds after a real state change: a new committed value,
 	// another vertex, a mode switch. The cursor and the drag are not here at all.
@@ -431,18 +437,14 @@ export function useMapDraw({
 	// rubber band without re-rendering anything, and reading them here was a
 	// render-phase ref read of what the map is currently showing, which is
 	// commit-time information rather than render-time.
-	const features = useMemo(
-		() =>
-			buildFeatures({
-				committed: value,
-				mode,
-				vertices,
-				cursor: null,
-				drag: null,
-				highlighted: highlightedPart,
-			}),
-		[value, mode, vertices, highlightedPart],
-	);
+	const features = buildFeatures({
+		committed: value,
+		mode,
+		vertices,
+		cursor: null,
+		drag: null,
+		highlighted: highlightedPart,
+	});
 
 	// The source lifecycle — add, re-add on restyle, setData for updates, guarded
 	// teardown — is {@link useGeoJsonSource}'s. `onEnsure` repaints from the refs
@@ -463,8 +465,8 @@ export function useMapDraw({
 	// the source primitive so its `setData` has already run.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `features` is the trigger rather than something the effect reads, and dropping it would stop the transients coming back after a state change.
 	useEffect(() => {
-		repaint();
-	}, [features, repaint]);
+		repaintNow();
+	}, [features]);
 
 	const finishRef = useRef<() => void>(() => {});
 
@@ -596,13 +598,11 @@ function useDrawDrafts(
 	readonly continuedPart: DrawContinueDraft | null;
 	readonly editedPart: DrawEditDraft | null;
 } {
-	const holeDraft = useMemo(() => holeDraftOf(mode, value, vertices), [mode, value, vertices]);
-	const continuedPart = useMemo(
-		() => continuedPartOf(mode, value, vertices),
-		[mode, value, vertices],
-	);
-	const editedPart = useMemo(() => editDraftOf(mode, value), [mode, value]);
-	return { holeDraft, continuedPart, editedPart };
+	return {
+		holeDraft: holeDraftOf(mode, value, vertices),
+		continuedPart: continuedPartOf(mode, value, vertices),
+		editedPart: editDraftOf(mode, value),
+	};
 }
 
 /**
@@ -644,52 +644,46 @@ function useDrawSession({
 	// Nothing of the last draw survives a mode change: a pending point request is
 	// told it was superseded, and the cursor, the grabbed vertex and the placed
 	// vertices all go.
-	const clear = useCallback(() => {
+	const clear = () => {
 		rejectPending(modeRef.current);
 		cursorRef.current = null;
 		dragRef.current = null;
 		setVertices([]);
-	}, [cursorRef, dragRef, modeRef, setVertices]);
+	};
 
-	const start = useCallback(
-		(type: DrawGeometryType) => {
-			// Starting a fresh draw clears every committed part, at any part count, so
-			// the map shows exactly what the in-progress shape will become.
-			clear();
-			highlightPart(null);
-			onChangeRef.current(null);
-			setMode({ kind: 'draw', type, target: { kind: 'replace' } });
-		},
-		[clear, highlightPart, onChangeRef, setMode],
-	);
+	const start = (type: DrawGeometryType) => {
+		// Starting a fresh draw clears every committed part, at any part count, so
+		// the map shows exactly what the in-progress shape will become.
+		clear();
+		highlightPart(null);
+		onChangeRef.current(null);
+		setMode({ kind: 'draw', type, target: { kind: 'replace' } });
+	};
 
-	const cancel = useCallback(() => {
+	const cancel = () => {
 		clear();
 		setMode({ kind: 'idle' });
-	}, [clear, setMode]);
+	};
 
-	const commit = useCallback(
-		(geometry: DrawGeometry | null) => {
-			clear();
-			onChangeRef.current(geometry);
-			setMode({ kind: 'idle' });
-		},
-		[clear, onChangeRef, setMode],
-	);
+	const commit = (geometry: DrawGeometry | null) => {
+		clear();
+		onChangeRef.current(geometry);
+		setMode({ kind: 'idle' });
+	};
 
-	const undo = useCallback(() => {
+	const undo = () => {
 		if (modeRef.current.kind === 'edit') {
 			setMode(undoneEdit);
 			return;
 		}
 		setVertices((previous) => poppedTo(previous, vertexFloor(modeRef.current)));
-	}, [modeRef, setMode, setVertices]);
+	};
 
 	// An open reshape is what Finish lands, and the Finish after that commits the
 	// part. Two presses rather than one because the reshaped outline is still a
 	// draft the other gestures can work on, the way a moved vertex is. A split
 	// takes one press: two pieces are not a draft this mode can hold.
-	const finish = useCallback(() => {
+	const finish = () => {
 		const current = modeRef.current;
 		if (current.kind === 'edit' && current.sketch?.tool === 'reshape') {
 			cursorRef.current = null;
@@ -700,7 +694,7 @@ function useDrawSession({
 		if (finished !== null) {
 			applyParts(finished.target, finished.parts);
 		}
-	}, [applyParts, cursorRef, modeRef, setMode, valueRef, verticesRef]);
+	};
 	// Written in an effect rather than during render, which is what the React
 	// Compiler permits. The two readers are keyboard handlers registered inside
 	// effects, so they read it after this commit either way.
@@ -708,18 +702,15 @@ function useDrawSession({
 		finishRef.current = finish;
 	});
 
-	const requestPoint = useCallback(
-		(_prompt?: string) =>
-			new Promise<DrawGeometry & { readonly type: 'Point' }>((resolve, reject) => {
-				if (!isMapLive(map)) {
-					reject(new Error('The map is not ready yet.'));
-					return;
-				}
-				clear();
-				setMode({ kind: 'point', resolve, reject });
-			}),
-		[clear, map, setMode],
-	);
+	const requestPoint = (_prompt?: string) =>
+		new Promise<DrawGeometry & { readonly type: 'Point' }>((resolve, reject) => {
+			if (!isMapLive(map)) {
+				reject(new Error('The map is not ready yet.'));
+				return;
+			}
+			clear();
+			setMode({ kind: 'point', resolve, reject });
+		});
 
 	return { start, cancel, commit, undo, finish, requestPoint };
 }
@@ -734,110 +725,89 @@ function useDrawSession({
  * record one.
  */
 function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
-	const selectVertex = useCallback(
-		(vertex: DrawVertexRef | null) => {
-			setMode((previous) =>
-				previous.kind === 'edit' ? { ...previous, selected: vertex } : previous,
-			);
-		},
-		[setMode],
-	);
+	const selectVertex = (vertex: DrawVertexRef | null) => {
+		setMode((previous) =>
+			previous.kind === 'edit' ? { ...previous, selected: vertex } : previous,
+		);
+	};
 
-	const changeRings = useCallback(
-		(
-			change: (rings: readonly PlanarPath[]) => readonly PlanarPath[] | null,
-			selected: (rings: readonly PlanarPath[]) => DrawVertexRef | null,
-		) => {
-			setMode((previous) => {
-				if (previous.kind !== 'edit') {
-					return previous;
-				}
-				const rings = change(previous.rings);
-				if (rings === null) {
-					return previous;
-				}
-				return {
-					...previous,
-					rings,
-					history: [...previous.history, previous.rings],
-					selected: selected(rings),
-				};
-			});
-		},
-		[setMode],
-	);
+	const changeRings = (
+		change: (rings: readonly PlanarPath[]) => readonly PlanarPath[] | null,
+		selected: (rings: readonly PlanarPath[]) => DrawVertexRef | null,
+	) => {
+		setMode((previous) => {
+			if (previous.kind !== 'edit') {
+				return previous;
+			}
+			const rings = change(previous.rings);
+			if (rings === null) {
+				return previous;
+			}
+			return {
+				...previous,
+				rings,
+				history: [...previous.history, previous.rings],
+				selected: selected(rings),
+			};
+		});
+	};
 
-	const moveVertex = useCallback(
-		(vertex: DrawVertexRef, position: PlanarPosition) => {
-			changeRings(
-				(rings) => moveRingVertex(rings, vertex, position),
-				() => vertex,
-			);
-		},
-		[changeRings],
-	);
+	const moveVertex = (vertex: DrawVertexRef, position: PlanarPosition) => {
+		changeRings(
+			(rings) => moveRingVertex(rings, vertex, position),
+			() => vertex,
+		);
+	};
 
 	// The new vertex is picked, so clicking an edge and pressing Delete undoes
 	// itself rather than removing whichever corner happened to be picked before.
-	const insertVertex = useCallback(
-		(edge: DrawVertexRef, position: PlanarPosition) => {
-			changeRings(
-				(rings) => insertRingVertex(rings, edge, position),
-				() => ({ ring: edge.ring, vertex: edge.vertex + 1 }),
-			);
-		},
-		[changeRings],
-	);
+	const insertVertex = (edge: DrawVertexRef, position: PlanarPosition) => {
+		changeRings(
+			(rings) => insertRingVertex(rings, edge, position),
+			() => ({ ring: edge.ring, vertex: edge.vertex + 1 }),
+		);
+	};
 
 	// Nothing stays picked: every index after the one dropped has shifted, so a
 	// pick kept here would name a different corner than the one on screen did.
-	const deleteVertex = useCallback(
-		(vertex: DrawVertexRef) => {
-			changeRings(
-				(rings) => removeRingVertex(rings, vertex),
-				() => null,
-			);
-		},
-		[changeRings],
-	);
+	const deleteVertex = (vertex: DrawVertexRef) => {
+		changeRings(
+			(rings) => removeRingVertex(rings, vertex),
+			() => null,
+		);
+	};
 
 	// A point has one corner and no boundary a line could cross, so there is
 	// nothing here to sketch across. The pick goes because the vertex gestures are
 	// off for as long as the sketch is open.
-	const openSketch = useCallback(
-		(tool: DrawSketchTool) => {
-			setMode((previous) =>
-				previous.kind === 'edit' && previous.type !== 'Point'
-					? { ...previous, selected: null, sketch: { tool, positions: [] } }
-					: previous,
-			);
-		},
-		[setMode],
-	);
-	const startReshape = useCallback(() => openSketch('reshape'), [openSketch]);
+	const openSketch = (tool: DrawSketchTool) => {
+		setMode((previous) =>
+			previous.kind === 'edit' && previous.type !== 'Point'
+				? { ...previous, selected: null, sketch: { tool, positions: [] } }
+				: previous,
+		);
+	};
+	const startReshape = () => openSketch('reshape');
 	// Not refused here even where the record kind cannot hold two pieces. The
 	// draft names that refusal and the toolbar says it, which is the only place
 	// the user would find out why the tool did nothing.
-	const startSplit = useCallback(() => openSketch('split'), [openSketch]);
+	const startSplit = () => openSketch('split');
 
 	// Not through `changeRings`: a sketch vertex changes no ring, and Undo pops it
 	// one at a time rather than taking the whole sketch back at once.
-	const sketchVertex = useCallback(
-		(position: PlanarPosition) => {
-			setMode((previous) =>
-				previous.kind === 'edit' && previous.sketch !== null
-					? {
-							...previous,
-							sketch: {
-								...previous.sketch,
-								positions: [...previous.sketch.positions, position],
-							},
-						}
-					: previous,
-			);
-		},
-		[setMode],
-	);
+	const sketchVertex = (position: PlanarPosition) => {
+		setMode((previous) =>
+			previous.kind === 'edit' && previous.sketch !== null
+				? {
+						...previous,
+						sketch: {
+							...previous.sketch,
+							positions: [...previous.sketch.positions, position],
+						},
+					}
+				: previous,
+		);
+	};
 
 	return {
 		selectVertex,
@@ -901,28 +871,25 @@ function useDrawPartActions({
 	// The compare is over the geometry about to go out, so a ring closed on Finish
 	// matches the ring it was seeded from, and it runs once per Finish rather than
 	// on any render.
-	const applyParts = useCallback(
-		(target: DrawTarget, parts: readonly DrawPartGeometry[]) => {
-			const existing = drawParts(valueRef.current);
-			const next = geometryFromParts(withParts(existing, target, parts));
-			const unchanged = sameDrawGeometry(next, valueRef.current);
-			cursorRef.current = null;
-			dragRef.current = null;
-			setVertices([]);
-			setMode({ kind: 'idle' });
-			// The draw still ends: the mode, the cursor and the vertices go either
-			// way, and only the change notification is withheld.
-			if (!unchanged) {
-				onChangeRef.current(next);
-			}
-		},
-		[cursorRef, dragRef, valueRef, onChangeRef, setMode, setVertices],
-	);
+	const applyParts = (target: DrawTarget, parts: readonly DrawPartGeometry[]) => {
+		const existing = drawParts(valueRef.current);
+		const next = geometryFromParts(withParts(existing, target, parts));
+		const unchanged = sameDrawGeometry(next, valueRef.current);
+		cursorRef.current = null;
+		dragRef.current = null;
+		setVertices([]);
+		setMode({ kind: 'idle' });
+		// The draw still ends: the mode, the cursor and the vertices go either
+		// way, and only the change notification is withheld.
+		if (!unchanged) {
+			onChangeRef.current(next);
+		}
+	};
 
 	// The base shape comes off the committed parts rather than off the toggle:
 	// they are the thing being added to, and a toggle change has already cleared
 	// them.
-	const startPart = useCallback(() => {
+	const startPart = () => {
 		const base = drawParts(valueRef.current)[0]?.type;
 		if (base === undefined) {
 			return;
@@ -932,121 +899,102 @@ function useDrawPartActions({
 		setVertices([]);
 		setHighlightedPart(null);
 		setMode({ kind: 'draw', type: base, target: { kind: 'part' } });
-	}, [cursorRef, modeRef, valueRef, setMode, setVertices]);
+	};
 
 	// Refused here rather than left to whichever button happens to be hidden. A
 	// part that is not an area has no inside, and the containment check would read
 	// its coordinate pair as a ring and call every vertex of the hole escaped.
-	const startHole = useCallback(
-		(index: number) => {
-			const part = drawParts(valueRef.current)[index];
-			if (part?.type !== 'Polygon') {
-				return;
-			}
-			rejectPending(modeRef.current);
-			cursorRef.current = null;
-			setVertices([]);
-			setHighlightedPart(null);
-			setMode({ kind: 'draw', type: 'Polygon', target: { kind: 'hole', partIndex: index } });
-		},
-		[cursorRef, modeRef, valueRef, setMode, setVertices],
-	);
+	const startHole = (index: number) => {
+		const part = drawParts(valueRef.current)[index];
+		if (part?.type !== 'Polygon') {
+			return;
+		}
+		rejectPending(modeRef.current);
+		cursorRef.current = null;
+		setVertices([]);
+		setHighlightedPart(null);
+		setMode({ kind: 'draw', type: 'Polygon', target: { kind: 'hole', partIndex: index } });
+	};
 
 	// The part stays committed through the continuation, so Cancel and Escape put
 	// it back with nothing to restore: the draw is abandoned and the part is still
 	// where it was. What is committed is what the map draws, so the draft takes
 	// over drawing this one part while the mode is on it.
-	const continuePart = useCallback(
-		(index: number) => {
-			const part = drawParts(valueRef.current)[index];
-			const seeded = part === undefined ? null : continuedVertices(part);
-			if (part === undefined || seeded === null) {
-				return;
-			}
-			rejectPending(modeRef.current);
-			cursorRef.current = null;
-			setVertices(seeded);
-			setHighlightedPart(null);
-			setMode({
-				kind: 'draw',
-				type: part.type,
-				target: { kind: 'continue', partIndex: index, seeded: seeded.length },
-			});
-		},
-		[cursorRef, modeRef, valueRef, setMode, setVertices],
-	);
+	const continuePart = (index: number) => {
+		const part = drawParts(valueRef.current)[index];
+		const seeded = part === undefined ? null : continuedVertices(part);
+		if (part === undefined || seeded === null) {
+			return;
+		}
+		rejectPending(modeRef.current);
+		cursorRef.current = null;
+		setVertices(seeded);
+		setHighlightedPart(null);
+		setMode({
+			kind: 'draw',
+			type: part.type,
+			target: { kind: 'continue', partIndex: index, seeded: seeded.length },
+		});
+	};
 
 	// Every ring the part has, not just its outline: a hole is edited with the same
 	// three gestures as the shell, so all of them are seeded together and go back
 	// together. The part stays committed through the edit, so Cancel and Escape put
 	// it back with nothing to restore, holes included.
-	const editPart = useCallback(
-		(index: number) => {
-			const part = drawParts(valueRef.current)[index];
-			if (part === undefined) {
-				return;
-			}
-			rejectPending(modeRef.current);
-			cursorRef.current = null;
-			dragRef.current = null;
-			setVertices([]);
-			setHighlightedPart(null);
-			setMode({
-				kind: 'edit',
-				type: part.type,
-				partIndex: index,
-				rings: ringsOfPart(part),
-				history: [],
-				selected: null,
-				sketch: null,
-				allowsParts:
-					geometryKind !== undefined && ownedGeometryAllowsParts(geometryKind, part.type),
-			});
-		},
-		[cursorRef, dragRef, geometryKind, modeRef, valueRef, setMode, setVertices],
-	);
+	const editPart = (index: number) => {
+		const part = drawParts(valueRef.current)[index];
+		if (part === undefined) {
+			return;
+		}
+		rejectPending(modeRef.current);
+		cursorRef.current = null;
+		dragRef.current = null;
+		setVertices([]);
+		setHighlightedPart(null);
+		setMode({
+			kind: 'edit',
+			type: part.type,
+			partIndex: index,
+			rings: ringsOfPart(part),
+			history: [],
+			selected: null,
+			sketch: null,
+			allowsParts: geometryKind !== undefined && ownedGeometryAllowsParts(geometryKind, part.type),
+		});
+	};
 
-	const removePart = useCallback(
-		(index: number) => {
-			setHighlightedPart(null);
-			onChangeRef.current(
-				geometryFromParts(drawParts(valueRef.current).filter((_, at) => at !== index)),
-			);
-		},
-		[valueRef, onChangeRef],
-	);
+	const removePart = (index: number) => {
+		setHighlightedPart(null);
+		onChangeRef.current(
+			geometryFromParts(drawParts(valueRef.current).filter((_, at) => at !== index)),
+		);
+	};
 
 	// `holeIndex` counts holes, not rings, so nothing outside this file has to
 	// know that ring zero is the outline.
-	const removeHole = useCallback(
-		(partIndex: number, holeIndex: number) => {
-			const parts = drawParts(valueRef.current);
-			const part = parts[partIndex];
-			if (part?.type !== 'Polygon' || drawHoles(part)[holeIndex] === undefined) {
-				return;
-			}
-			const rings = part.coordinates.filter((_, at) => at !== holeIndex + 1);
-			onChangeRef.current(
-				geometryFromParts(
-					parts.map((at, index) =>
-						index === partIndex ? { type: 'Polygon', coordinates: rings } : at,
-					),
+	const removeHole = (partIndex: number, holeIndex: number) => {
+		const parts = drawParts(valueRef.current);
+		const part = parts[partIndex];
+		if (part?.type !== 'Polygon' || drawHoles(part)[holeIndex] === undefined) {
+			return;
+		}
+		const rings = part.coordinates.filter((_, at) => at !== holeIndex + 1);
+		onChangeRef.current(
+			geometryFromParts(
+				parts.map((at, index) =>
+					index === partIndex ? { type: 'Polygon', coordinates: rings } : at,
 				),
-			);
-		},
-		[valueRef, onChangeRef],
-	);
+			),
+		);
+	};
 
-	const zoomToPart = useCallback(
-		(index: number) => {
-			const part = drawParts(valueRef.current)[index];
-			if (part === undefined || !isMapLive(map)) {
-				return;
-			}
-			fitMapToGeometry(map, part);
-		},
-		[map, valueRef],
-	);
+	const zoomToPart = (index: number) => {
+		const part = drawParts(valueRef.current)[index];
+		if (part === undefined || !isMapLive(map)) {
+			return;
+		}
+		fitMapToGeometry(map, part);
+	};
 
 	return {
 		applyParts,

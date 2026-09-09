@@ -9,7 +9,7 @@ import {
 import { iconRegistry, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { OptionRow, PickerFallback } from '../../components/pickers/entity-picker';
 import { useRegionFolders } from '../../hooks/queries/use-region-folders';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
@@ -222,10 +222,7 @@ function RegionResults({
 function useRegionFolderNames(): ReadonlyMap<string, string> {
 	const { folders } = useRegionFolders();
 
-	return useMemo(
-		() => new Map(folders.map((folder) => [folder.id, folder.name] as const)),
-		[folders],
-	);
+	return new Map(folders.map((folder) => [folder.id, folder.name] as const));
 }
 
 function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, string>): string {

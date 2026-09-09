@@ -31,7 +31,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { MapCanvas } from './map-canvas';
 import type { MapCamera } from './map-styles';
 
@@ -97,58 +97,32 @@ export function RecordLocationCard({
 	readonly unsupportedShape?: string | null;
 }) {
 	const contextGeojson = context?.geojson ?? null;
-	const bounds = useMemo(() => unionBounds(geojson, contextGeojson), [geojson, contextGeojson]);
+	const bounds = unionBounds(geojson, contextGeojson);
 	const focus = geojson ?? contextGeojson;
-	const centroid = useMemo(() => (focus === null ? null : centroidFromGeoJson(focus)), [focus]);
-	const camera = useMemo<MapCamera | undefined>(
-		() => (centroid === null ? undefined : { center: [centroid.lng, centroid.lat], zoom: 15 }),
-		[centroid],
-	);
+	const centroid = focus === null ? null : centroidFromGeoJson(focus);
+	const camera: MapCamera | undefined =
+		centroid === null ? undefined : { center: [centroid.lng, centroid.lat], zoom: 15 };
 
 	// Framing runs both on map-ready and whenever the geometry changes, so a
 	// late-arriving fetch still lands framed rather than on the default camera.
 	const mapRef = useRef<MapboxMap | null>(null);
-	const fitToBounds = useCallback(
-		(map: MapboxMap, animate = false) => {
-			if (bounds === null) {
-				return;
-			}
-			const duration = animate ? 400 : 0;
-			const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-			if (hasArea) {
-				map.fitBounds(
-					[
-						[bounds.west, bounds.south],
-						[bounds.east, bounds.north],
-					],
-					{ padding: 48, maxZoom: 17, duration },
-				);
-				return;
-			}
-			map.easeTo({ center: [bounds.west, bounds.south], zoom: 16, duration });
-		},
-		[bounds],
-	);
-	const handleMapReady = useCallback(
-		(map: MapboxMap) => {
-			mapRef.current = map;
-			fitToBounds(map);
-		},
-		[fitToBounds],
-	);
+	const handleMapReady = (map: MapboxMap) => {
+		mapRef.current = map;
+		fitToBounds(map, bounds);
+	};
 	useEffect(() => {
 		if (mapRef.current !== null) {
-			fitToBounds(mapRef.current);
+			fitToBounds(mapRef.current, bounds);
 		}
-	}, [fitToBounds]);
+	}, [bounds]);
 
 	// Panning away is easy and there is no other landmark in a 320px well to
 	// navigate back by, so the header keeps a way to return to the geometry.
-	const recenter = useCallback(() => {
+	const recenter = () => {
 		if (mapRef.current !== null) {
-			fitToBounds(mapRef.current, true);
+			fitToBounds(mapRef.current, bounds, true);
 		}
-	}, [fitToBounds]);
+	};
 
 	const hasMap = !isPending && focus !== null;
 
@@ -310,6 +284,30 @@ function ContextLegend({ context }: { readonly context: RecordLocationContext })
 }
 
 /** Frame the record and its context together — the point is seeing one inside the other. */
+/**
+ * Frame a map on the record's geometry. It takes the bounds as an argument
+ * rather than closing over them so the effect below can depend on the bounds
+ * themselves, which is what changes when a late fetch lands.
+ */
+function fitToBounds(map: MapboxMap, bounds: BoundingBox | null, animate = false): void {
+	if (bounds === null) {
+		return;
+	}
+	const duration = animate ? 400 : 0;
+	const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
+	if (hasArea) {
+		map.fitBounds(
+			[
+				[bounds.west, bounds.south],
+				[bounds.east, bounds.north],
+			],
+			{ padding: 48, maxZoom: 17, duration },
+		);
+		return;
+	}
+	map.easeTo({ center: [bounds.west, bounds.south], zoom: 16, duration });
+}
+
 function unionBounds(
 	geojson: GeoJsonGeometry | null,
 	contextGeojson: GeoJsonGeometry | null,

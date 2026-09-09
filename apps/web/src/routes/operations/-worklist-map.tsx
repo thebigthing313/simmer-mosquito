@@ -6,7 +6,7 @@ import {
 } from '@simmer-mosquito/mapping';
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { MapCanvas, type RouteStopFeature } from '../../components/map';
 import { MapControlButton, MapControlGroup } from '../../components/map/map-control';
 
@@ -51,33 +51,6 @@ export function WorklistMap({
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const lastFitRef = useRef<string | null>(null);
 
-	const fitToWorklist = useCallback(
-		(instance: MapboxMap, animate: boolean) => {
-			const bounds = boundsOfFeatures(features);
-			if (bounds === null) {
-				return;
-			}
-			const [[west, south], [east, north]] = bounds;
-			const duration = animate ? 650 : 0;
-			if (west === east && south === north) {
-				instance.easeTo({
-					center: [west, south],
-					zoom: Math.max(instance.getZoom(), 15),
-					duration,
-				});
-				return;
-			}
-			instance.fitBounds(
-				[
-					[west, south],
-					[east, north],
-				],
-				{ padding: 72, maxZoom: 16, duration },
-			);
-		},
-		[features],
-	);
-
 	// Fit once per worklist, and only once coordinates have actually resolved —
 	// the targets stream in separately, so an early fit would frame an empty set.
 	useEffect(() => {
@@ -89,14 +62,14 @@ export function WorklistMap({
 			return;
 		}
 		lastFitRef.current = key;
-		fitToWorklist(map, true);
-	}, [map, fitKey, features, fitToWorklist]);
+		fitToWorklist(map, features, true);
+	}, [map, fitKey, features]);
 
-	const handleZoom = useCallback(() => {
+	const handleZoom = () => {
 		if (map !== null) {
-			fitToWorklist(map, true);
+			fitToWorklist(map, features, true);
 		}
-	}, [map, fitToWorklist]);
+	};
 
 	const hasMappedStops = features.length > 0;
 
@@ -144,6 +117,39 @@ export function WorklistMap({
  * at its centroid: fitting a treated block on its centre point zooms past three
  * of its four edges.
  */
+/**
+ * Frame a map on a worklist's targets. It takes the features as an argument
+ * rather than closing over them so the auto-fit effect can depend on the
+ * features themselves.
+ */
+function fitToWorklist(
+	instance: MapboxMap,
+	features: readonly RouteStopFeature[],
+	animate: boolean,
+): void {
+	const bounds = boundsOfFeatures(features);
+	if (bounds === null) {
+		return;
+	}
+	const [[west, south], [east, north]] = bounds;
+	const duration = animate ? 650 : 0;
+	if (west === east && south === north) {
+		instance.easeTo({
+			center: [west, south],
+			zoom: Math.max(instance.getZoom(), 15),
+			duration,
+		});
+		return;
+	}
+	instance.fitBounds(
+		[
+			[west, south],
+			[east, north],
+		],
+		{ padding: 72, maxZoom: 16, duration },
+	);
+}
+
 function boundsOfFeatures(
 	features: readonly RouteStopFeature[],
 ): [[number, number], [number, number]] | null {
