@@ -112,9 +112,6 @@ const WRAPPERS = new Set(['useMemo', 'useCallback']);
  * @type {Readonly<Record<string, number>>}
  */
 const MANUAL_MEMO_BACKLOG = {
-	'apps/admin/src/hooks/queries/use-genus-roster.ts': 1,
-	'apps/admin/src/routes/organizations/index.tsx': 1,
-	'apps/admin/src/routes/taxonomy/species.tsx': 1,
 	'apps/web/src/components/acknowledged-write.tsx': 2,
 	'apps/web/src/components/additional-personnel-list.tsx': 1,
 	'apps/web/src/components/app-shell/app-shell-root.tsx': 2,

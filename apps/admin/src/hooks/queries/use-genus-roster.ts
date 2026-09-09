@@ -41,7 +41,6 @@
  */
 
 import { count, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { genera } from '../../lib/collections/genera';
 import { species } from '../../lib/collections/species';
 
@@ -83,17 +82,13 @@ export function useGenusRoster(): {
 		[],
 	);
 
-	const speciesCountById = useMemo(
-		() =>
-			new Map(
-				counts.data
-					// A species may name no genus — the special categories do — and that
-					// group is a real row here with a null key. It belongs to no genus, so
-					// it belongs in no genus's count.
-					.filter((row) => row.genusId !== null)
-					.map((row) => [row.genusId as string, Number(row.total)] as const),
-			),
-		[counts.data],
+	const speciesCountById = new Map(
+		counts.data
+			// A species may name no genus — the special categories do — and that
+			// group is a real row here with a null key. It belongs to no genus, so it
+			// belongs in no genus's count.
+			.filter((row) => row.genusId !== null)
+			.map((row) => [row.genusId as string, Number(row.total)] as const),
 	);
 
 	return {
