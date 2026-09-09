@@ -3,7 +3,7 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AdminPage } from '../../components/admin-page';
 import {
@@ -96,10 +96,9 @@ function SpeciesRoute() {
 	const { species: all, isReady } = useSpeciesRoster();
 	const [dialog, setDialog] = useState<SpeciesDialog>(null);
 
-	// The one `useMemo` the read seam does not remove: a query returns rows and
-	// cannot return a lookup of them. The form needs one to name a genus while the
-	// operator is still choosing.
-	const genusById = useMemo(() => new Map(genera.map((genus) => [genus.id, genus])), [genera]);
+	// A query returns rows and cannot return a lookup of them. The form needs one
+	// to name a genus while the operator is still choosing.
+	const genusById = new Map(genera.map((genus) => [genus.id, genus]));
 
 	const canAdd = genera.length > 0;
 

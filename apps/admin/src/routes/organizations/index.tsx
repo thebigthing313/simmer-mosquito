@@ -3,7 +3,6 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
 import type { AdminOrganization } from '../../api';
 import { AdminError, AdminPage } from '../../components/admin-page';
 import { CatalogBody } from '../../components/catalog';
@@ -28,10 +27,15 @@ function matchesOrganization(organization: AdminOrganization, query: string): bo
 	);
 }
 
+/** The directory's order, over a copy, with no rows read as an empty list. */
+function byName(organizations: readonly AdminOrganization[] | undefined): AdminOrganization[] {
+	return [...(organizations ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 function OrganizationDirectoryRoute() {
 	const { data, isPending, error } = useOrganizations();
 
-	const all = useMemo(() => [...(data ?? [])].sort((a, b) => a.name.localeCompare(b.name)), [data]);
+	const all = byName(data);
 
 	/*
 	 * Organizations nobody can sign in to. This is the only condition in the
