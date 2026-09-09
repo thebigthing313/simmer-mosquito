@@ -318,6 +318,16 @@ jobs:
       - name: Compiler bail-outs
         run: pnpm check:compiler-bailouts
 
+      # Its neighbour asks whether a module compiles; this asks whether it is on
+      # the allowlist at all. `apps/web/src/forms` sat uncompiled through four
+      # phases of #649 with every gate green, because a compile-clean module
+      # reads the same whether or not the compiler ever saw it (#838). This
+      # parses every module in the workspace, not the four React roots, and
+      # refuses one that holds React and is on neither `COMPILER_PHASES` nor the
+      # written exemption register. Two seconds, since it runs no compiler.
+      - name: Compiler coverage
+        run: pnpm check:compiler-coverage
+
       # The other half of the same question, and the only thing here that reads
       # a React rule at all: Biome's `react` domain is off, so 104 Rules of
       # React violations had collected under a green `pnpm check` (#651). The
