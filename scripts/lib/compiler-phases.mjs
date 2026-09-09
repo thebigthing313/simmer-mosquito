@@ -70,6 +70,23 @@ const COMPILER_PHASES = [
 			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]hooks[\\/]/,
 		],
 	},
+	{
+		phase: 4,
+		name: 'apps/web components, except the map',
+		issue: 822,
+		/*
+		 * One pattern with a lookahead rather than ten subdirectory entries. The
+		 * phase is "components except the map", and a lookahead says that once,
+		 * so phase 6 deletes two names instead of merging two lists. The cost is
+		 * that a new folder under `components/` is compiled the day it lands
+		 * rather than when somebody lists it, which is the right default here:
+		 * the gate holds it to a hard zero either way, and the alternative is a
+		 * surface silently left out of the rollout.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/](?!map[\\/]|route-planning[\\/])/,
+		],
+	},
 ];
 
 /**

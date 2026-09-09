@@ -73,6 +73,15 @@ export function SearchPalette({
 	const showViewAll =
 		query !== '' && !failed && !firstQuery && !empty && total > 0 && seed === null;
 
+	// A route comment selected before the routes collection has answered has no
+	// destination yet. The row is held and opened when the lookup lands, so the
+	// selection reads as a wait instead of a click that did nothing.
+	const opening = useDeferredOpen(content.destinationOf, go);
+	// Declared above its readers rather than below them: `close`, `selectRow`
+	// and `leaveSeed` all reach it, and a `const` read above its own line is
+	// what the compiler refuses (`Immutability`, #822). `go` is a function
+	// declaration and hoists, so the reference below still resolves.
+
 	function close() {
 		onOpenChange(false);
 		// A row selected and still waiting on its lookup is dropped here, or it
@@ -121,11 +130,6 @@ export function SearchPalette({
 		setSeed(null);
 		setQuery('');
 	}
-
-	// A route comment selected before the routes collection has answered has no
-	// destination yet. The row is held and opened when the lookup lands, so the
-	// selection reads as a wait instead of a click that did nothing.
-	const opening = useDeferredOpen(content.destinationOf, go);
 
 	return (
 		<Dialog onOpenChange={(next) => (next ? onOpenChange(true) : close())} open={open}>

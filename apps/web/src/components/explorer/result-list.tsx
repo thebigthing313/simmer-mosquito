@@ -176,6 +176,9 @@ export function ResultRows<TRow>({
 	readonly rows: readonly TRow[];
 	readonly children: (row: TRow) => ReactNode;
 }) {
+	// no-memo-reason: @tanstack/react-virtual's useVirtualizer is not compilable, and the fix is the library's.
+	'use no memo';
+
 	/*
 	 * State rather than a ref, because the virtualizer has to be told the
 	 * viewport exists. Radix mounts it below this component, so the node is not

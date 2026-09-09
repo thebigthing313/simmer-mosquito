@@ -285,10 +285,6 @@ const TODO = 'Todo';
  * path in, and either way that is an edit in the phase's own PR.
  */
 const BAILING_FILES = [
-	'apps/web/src/components/catalog/catalog-record-dialog.tsx',
-	'apps/web/src/components/explorer/result-list.tsx',
-	'apps/web/src/components/explorer/use-paged-map-resource.ts',
-	'apps/web/src/components/explorer/use-region-membership.ts',
 	'apps/web/src/components/map/map-canvas.tsx',
 	'apps/web/src/components/map/use-address-point.ts',
 	'apps/web/src/components/map/use-geojson-layer.ts',
@@ -301,7 +297,6 @@ const BAILING_FILES = [
 	'apps/web/src/components/map/use-tile-layer.ts',
 	'apps/web/src/components/route-planning/route-map.tsx',
 	'apps/web/src/components/route-planning/routes-index-page.tsx',
-	'apps/web/src/components/search/search-palette.tsx',
 	'apps/web/src/routes/adult-surveillance/-collection-key-entry.tsx',
 	'apps/web/src/routes/adult-surveillance/traps/routes/index.tsx',
 	'apps/web/src/routes/gis/regions/index.tsx',
