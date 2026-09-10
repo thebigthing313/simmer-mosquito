@@ -90,9 +90,8 @@ export function KeyBindingsSettings({
 			await setSpeciesKeyBindings(next);
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
-		} finally {
-			setBusyKey(null);
 		}
+		setBusyKey(null);
 	}
 
 	function assign(speciesId: string, rawKey: string): void {

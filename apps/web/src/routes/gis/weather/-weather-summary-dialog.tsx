@@ -120,9 +120,8 @@ function useSummaryForm(input: {
 			onClose();
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save summary.');
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	};
 
 	return {

@@ -958,12 +958,15 @@ function CloseReopenButton({
 		const trimmed = reason.trim();
 		const text = trimmed.length === 0 ? copy.unexplained : trimmed;
 		try {
-			await (open ? mutations.close(requestId, text) : mutations.reopen(requestId, text));
+			if (open) {
+				await mutations.close(requestId, text);
+			} else {
+				await mutations.reopen(requestId, text);
+			}
 		} catch (thrown) {
 			setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
-		} finally {
-			setBusy(false);
 		}
+		setBusy(false);
 	};
 
 	return (

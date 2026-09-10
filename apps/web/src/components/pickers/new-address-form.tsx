@@ -1,20 +1,18 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
-import { sessionFetch } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Loader2Icon, MapPinnedIcon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
-import { getServerUrl } from '../../auth';
 import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../forms/domain-validation';
 import { useAddressMutations } from '../../hooks/mutations/use-address-mutations';
 import type { AddressOption } from './address-picker';
 import {
 	GeocoderDialog,
 	type GeocoderPoint,
-	type GeocoderResponse,
 	type GeocoderResult,
 	geocoderPointSummary,
 	LabeledInput,
 	pointFromGeocoderResult,
+	searchGeocoder,
 } from './geocoder-dialog';
 
 /**
@@ -70,26 +68,14 @@ export function NewAddressForm({
 	async function geocodeAddress() {
 		setSaveError(null);
 		setIsGeocoding(true);
+		const query = addressQueryText({ addressLine1, locality, region, postalCode });
 		try {
-			const url = new URL('/geocoder/search', getServerUrl());
-			url.searchParams.set('q', addressQueryText({ addressLine1, locality, region, postalCode }));
-			url.searchParams.set('country', country);
-			url.searchParams.set('limit', '5');
-			const response = await sessionFetch(url);
-			const body = (await response.json().catch(() => null)) as
-				| GeocoderResponse
-				| { readonly error?: string }
-				| null;
-			if (!response.ok || body === null || !('results' in body)) {
-				throw new Error(geocoderErrorMessage(response.status, readErrorCode(body)));
-			}
-			setGeocoderResults(body.results);
+			setGeocoderResults(await searchGeocoder(query, country));
 			setGeocoderOpen(true);
 		} catch (error) {
 			setSaveError(error instanceof Error ? error.message : 'Unable to geocode address.');
-		} finally {
-			setIsGeocoding(false);
 		}
+		setIsGeocoding(false);
 	}
 
 	async function drawManualPoint() {
@@ -161,9 +147,8 @@ export function NewAddressForm({
 			});
 		} catch (error) {
 			setSaveError(error instanceof Error ? error.message : 'Unable to create address.');
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	}
 
 	return (
@@ -235,43 +220,6 @@ export function NewAddressForm({
 			/>
 		</div>
 	);
-}
-
-function readErrorCode(body: unknown): string | undefined {
-	if (typeof body !== 'object' || body === null) {
-		return undefined;
-	}
-	const error = (body as { readonly error?: unknown }).error;
-	return typeof error === 'string' ? error : undefined;
-}
-
-/**
- * Every geocoder failure used to read "Unable to geocode address." — equally
- * true of an unset API key, a rate limit, an expired session, and an upstream
- * outage, and equally useless for deciding whether to retry, place the point by
- * hand, or tell someone the deployment is misconfigured. `/geocoder/search`
- * already distinguishes them; this says which, and names the way out.
- *
- * Placing the point on the map is always available in this form, so it is the
- * fallback every message points at.
- */
-function geocoderErrorMessage(status: number, error: string | undefined): string {
-	if (status === 401) {
-		return 'Your session has expired. Sign in again to look up addresses.';
-	}
-	if (error === 'geocoder_not_configured') {
-		return 'Address lookup is not configured on this deployment. Place the point on the map instead.';
-	}
-	if (status === 429) {
-		return 'Address lookup is rate limited right now. Try again shortly, or place the point on the map.';
-	}
-	if (error === 'invalid_query') {
-		return 'Enter more of the address before looking it up.';
-	}
-	if (status >= 500) {
-		return 'The address lookup service is unavailable. Place the point on the map instead.';
-	}
-	return 'Unable to geocode address. Place the point on the map instead.';
 }
 
 function addressQueryText(input: {

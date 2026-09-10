@@ -225,9 +225,8 @@ function CommentComposer({
 			// Restore the draft so a transient failure never loses the user's text.
 			setValue(trimmed);
 			onError(messageOf(cause, 'Unable to add comment.'));
-		} finally {
-			setSubmitting(false);
 		}
+		setSubmitting(false);
 	};
 
 	const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -324,9 +323,8 @@ function CommentItem({
 			setMode('view');
 		} catch (cause) {
 			onError(messageOf(cause, 'Unable to save comment.'));
-		} finally {
-			setBusy(false);
 		}
+		setBusy(false);
 	};
 
 	const confirmDelete = async () => {
@@ -339,9 +337,8 @@ function CommentItem({
 		} catch (cause) {
 			setMode('view');
 			onError(messageOf(cause, 'Unable to delete comment.'));
-		} finally {
-			setBusy(false);
 		}
+		setBusy(false);
 	};
 
 	const handleEditKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {

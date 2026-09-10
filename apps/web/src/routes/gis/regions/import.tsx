@@ -140,14 +140,14 @@ function ImportRegionsRoute() {
 				setItems([]);
 				return;
 			}
-			setItems(
-				result.regions.map((region) => ({
-					id: crypto.randomUUID(),
-					name: region.name,
-					geometry: region.geometry,
-					note: region.note,
-				})),
-			);
+			const parsed = result.regions.map((region) => ({
+				id: crypto.randomUUID(),
+				name: region.name,
+				geometry: region.geometry,
+				note: region.note,
+			}));
+			setItems(parsed);
+			fitToItems(parsed);
 		} catch (error) {
 			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
 			setItems([]);
@@ -169,20 +169,26 @@ function ImportRegionsRoute() {
 		fitMapToItems(instance, items);
 	};
 
-	// Re-fit whenever the item set changes (new upload, deletion).
-	const lastFitCount = useRef(0);
-	if (map !== null && items.length !== lastFitCount.current) {
-		lastFitCount.current = items.length;
-		fitMapToItems(map, items);
-	}
+	// Called where the item set changes rather than watched from render. It used
+	// to be a counting ref read during render, which is a side effect in the
+	// render pass and bailed the whole route out of the React Compiler (#856); an
+	// effect keyed on the count is the other shape, and Biome refuses it, since
+	// what the effect reads and what should retrigger it are different things.
+	const fitToItems = (next: readonly ImportItem[]) => {
+		if (map !== null) {
+			fitMapToItems(map, next);
+		}
+	};
 
 	const renameItem = (id: string, name: string) => {
 		setItems((prev) => prev.map((item) => (item.id === id ? { ...item, name } : item)));
 	};
 
 	const deleteItem = (id: string) => {
-		setItems((prev) => prev.filter((item) => item.id !== id));
+		const remaining = items.filter((item) => item.id !== id);
+		setItems(remaining);
 		setSelectedId((current) => (current === id ? null : current));
+		fitToItems(remaining);
 	};
 
 	const selectItem = (id: string | null) => {
@@ -214,12 +220,7 @@ function ImportRegionsRoute() {
 			try {
 				const transaction = mutations.create(
 					newRecordId(),
-					{
-						name: item.name.trim().length === 0 ? 'Region' : item.name.trim(),
-						description: null,
-						folderId: folderId === UNFILED ? null : folderId,
-						metadata: null,
-					},
+					regionFieldsFor(item, folderId),
 					item.geometry,
 				);
 				// Fold persistence into a promise that never rejects, so once the
@@ -247,10 +248,9 @@ function ImportRegionsRoute() {
 				}
 			} catch (error) {
 				errors.push(`${item.name}: ${error instanceof Error ? error.message : 'failed to import'}`);
-			} finally {
-				done += 1;
-				setProgress({ done, total });
 			}
+			done += 1;
+			setProgress({ done, total });
 		});
 
 		setIsImporting(false);
@@ -555,6 +555,23 @@ async function forEachWithConcurrency<T>(
 		}
 	});
 	await Promise.all(runners);
+}
+
+/**
+ * The Region one imported shape is saved as.
+ *
+ * A module function rather than an object literal at the call site, because the
+ * call site is inside a try block and the React Compiler cannot lower a
+ * conditional there: one bails the whole route (#856).
+ */
+function regionFieldsFor(item: ImportItem, folderId: string) {
+	const name = item.name.trim();
+	return {
+		name: name.length === 0 ? 'Region' : name,
+		description: null,
+		folderId: folderId === UNFILED ? null : folderId,
+		metadata: null,
+	};
 }
 
 /**

@@ -95,6 +95,16 @@ export function GeometryImportDialog({
 		setSelectedId(null);
 	}
 
+	// Named rather than written inline: the id is picked with a conditional, and
+	// the React Compiler bails on a whole component when a try block holds a
+	// branching expression (#856). This one is read inside `readFile`'s try.
+	function soleShapeId(shapes: readonly { readonly id: string }[]): string | null {
+		if (shapes.length !== 1) {
+			return null;
+		}
+		return shapes[0]?.id ?? null;
+	}
+
 	async function readFile(file: File) {
 		reset();
 		try {
@@ -128,7 +138,7 @@ export function GeometryImportDialog({
 				},
 			});
 			// A file holding exactly one usable shape needs no choosing.
-			setSelectedId(shapes.length === 1 ? (shapes[0]?.id ?? null) : null);
+			setSelectedId(soleShapeId(shapes));
 		} catch (error) {
 			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
 		}

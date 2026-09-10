@@ -447,6 +447,7 @@ function IdentificationCard({
 			return;
 		}
 		setError(null);
+		const identifiedByProfileId = identity?.profileId ?? null;
 		try {
 			await speciesMutations.add({
 				sampleSpeciesId: crypto.randomUUID(),
@@ -454,7 +455,7 @@ function IdentificationCard({
 				fields: {
 					speciesId,
 					larvaeCount,
-					identifiedByProfileId: identity?.profileId ?? null,
+					identifiedByProfileId,
 					// A calendar date, not a timestamp — the domain builder validates
 					// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
 					identifiedAt: todayInTimeZone(timeZone),
@@ -703,20 +704,12 @@ function SpeciesResultRow({
 			return;
 		}
 		setBusy(true);
-		try {
-			await onUpdateCount(row.id, resolved);
-		} finally {
-			setBusy(false);
-		}
+		await onUpdateCount(row.id, resolved).finally(() => setBusy(false));
 	};
 
 	const remove = async () => {
 		setBusy(true);
-		try {
-			await onRemove(row.id);
-		} finally {
-			setBusy(false);
-		}
+		await onRemove(row.id).finally(() => setBusy(false));
 	};
 
 	return (
@@ -783,13 +776,9 @@ function AddSpeciesRow({
 			return;
 		}
 		setBusy(true);
-		try {
-			await onAdd(speciesId, Math.trunc(count));
-			setSpeciesId(null);
-			setCount(1);
-		} finally {
-			setBusy(false);
-		}
+		await onAdd(speciesId, Math.trunc(count)).finally(() => setBusy(false));
+		setSpeciesId(null);
+		setCount(1);
 	};
 
 	return (
@@ -960,11 +949,7 @@ function TextPatchField({
 			return;
 		}
 		setBusy(true);
-		try {
-			await onCommit(next);
-		} finally {
-			setBusy(false);
-		}
+		await onCommit(next).finally(() => setBusy(false));
 	};
 
 	if (!canManage) {

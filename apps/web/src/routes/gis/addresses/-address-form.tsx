@@ -1,5 +1,4 @@
 import { createAddressCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
-import { sessionFetch } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { LocationSection } from '@simmer-mosquito/ui-web/components/form';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -14,7 +13,6 @@ import {
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
-import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import { GeometryControl } from '../../../components/map/geometry-control';
@@ -26,10 +24,10 @@ import {
 import {
 	GeocoderDialog,
 	type GeocoderPoint,
-	type GeocoderResponse,
 	type GeocoderResult,
 	LabeledInput,
 	pointFromGeocoderResult,
+	searchGeocoder,
 } from '../../../components/pickers/geocoder-dialog';
 import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/domain-validation';
 
@@ -159,23 +157,15 @@ export function AddressFormPage({
 	const geocodeAddress = async () => {
 		setLocationError(null);
 		setIsGeocoding(true);
+		const query = addressQueryText(values);
+		const country = values.country.trim() || 'US';
 		try {
-			const url = new URL('/geocoder/search', getServerUrl());
-			url.searchParams.set('q', addressQueryText(values));
-			url.searchParams.set('country', values.country.trim() || 'US');
-			url.searchParams.set('limit', '5');
-			const response = await sessionFetch(url);
-			const body = (await response.json()) as GeocoderResponse | { readonly error: string };
-			if (!response.ok || !('results' in body)) {
-				throw new Error('Unable to geocode address.');
-			}
-			setGeocoderResults(body.results);
+			setGeocoderResults(await searchGeocoder(query, country));
 			setGeocoderOpen(true);
 		} catch (error) {
 			setLocationError(error instanceof Error ? error.message : 'Unable to geocode address.');
-		} finally {
-			setIsGeocoding(false);
 		}
+		setIsGeocoding(false);
 	};
 
 	const drawManualPoint = async () => {
@@ -232,9 +222,8 @@ export function AddressFormPage({
 			await onSave({ values, geometry, geometryChanged, geocoderResponse });
 		} catch (error) {
 			setSaveError(error instanceof Error ? error.message : 'Unable to save address.');
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	};
 
 	// `[...]` rather than the stored pair: `GeoJSON.Position` is mutable

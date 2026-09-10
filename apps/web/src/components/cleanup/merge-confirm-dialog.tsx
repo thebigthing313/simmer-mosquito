@@ -99,9 +99,8 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 			props.onOpenChange(false);
 		} catch (error) {
 			setFailure(refusalMessage(error, props.config));
-		} finally {
-			setIsMerging(false);
 		}
+		setIsMerging(false);
 	}
 
 	return (

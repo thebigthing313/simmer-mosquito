@@ -85,9 +85,8 @@ function RemoveMemberAction({
 			const message = saveFailureMessage(removeError, `${name} still has access.`);
 			setFailure(message);
 			toast.error(message);
-		} finally {
-			setIsRemoving(false);
 		}
+		setIsRemoving(false);
 	}
 
 	return (

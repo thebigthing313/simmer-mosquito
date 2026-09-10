@@ -36,6 +36,17 @@ import {
  * retired notification type and an unpriceable buffer unit are conditions
  * somebody has to go and fix, and a toast is gone before they have read it.
  */
+/**
+ * What the toast says after a generation run added rows.
+ *
+ * Named rather than interpolated at the call site because that call site is
+ * inside a try block, where the React Compiler cannot lower the conditional and
+ * bails the whole component (#856).
+ */
+function addedNotifications(count: number): string {
+	return `Added ${count} ${count === 1 ? 'notification' : 'notifications'}.`;
+}
+
 export function MissionNotificationsCard({ missionId }: { readonly missionId: string }) {
 	const { notifications, isReady, isError } = useMissionNotifications(missionId);
 	const { contacts } = useContactDirectory();
@@ -55,9 +66,7 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 			const outcome = await generate(missionId);
 			switch (outcome.kind) {
 				case 'created':
-					toast.success(
-						`Added ${outcome.count} ${outcome.count === 1 ? 'notification' : 'notifications'}.`,
-					);
+					toast.success(addedNotifications(outcome.count));
 					break;
 				case 'nothing_new':
 					toast.success('Nothing new. Everyone in range is already on the list.');
@@ -71,9 +80,8 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 			}
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to work out who to notify.');
-		} finally {
-			setIsGenerating(false);
 		}
+		setIsGenerating(false);
 	};
 
 	return (

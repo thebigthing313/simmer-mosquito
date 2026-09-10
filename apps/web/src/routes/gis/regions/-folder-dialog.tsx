@@ -60,13 +60,14 @@ export function RegionFolderDialog({
 					description: folder.description,
 				});
 			}
-			onSaved?.(savedId);
+			if (onSaved !== undefined) {
+				onSaved(savedId);
+			}
 			onClose();
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save folder.');
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	};
 
 	const isEdit = folder !== null;

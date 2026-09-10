@@ -110,8 +110,6 @@ export function KeyEntryDialog({
 	// session was retracted and the rows have to be walked back.
 	const [committedSignature, setCommittedSignature] = useState('');
 	const committedRef = useRef<string>('');
-	const entriesRef = useRef<readonly TallyEntry[]>(tally.entries);
-	entriesRef.current = tally.entries;
 
 	const markCommitted = (signature: string) => {
 		committedRef.current = signature;
@@ -145,13 +143,13 @@ export function KeyEntryDialog({
 			try {
 				await onCommit(entries);
 				markCommitted(signature);
-				return true;
 			} catch (cause) {
 				setError(messageOf(cause, 'Unable to save these counts.'));
-				return false;
-			} finally {
 				setBusy(false);
+				return false;
 			}
+			setBusy(false);
+			return true;
 		});
 
 	const pendingEntries = tally.entries;
@@ -211,14 +209,14 @@ export function KeyEntryDialog({
 
 	const requestClose = async () => {
 		cancelScheduledFlush();
-		const hasUnsaved = signatureOf(entriesRef.current) !== committedRef.current;
+		const hasUnsaved = pendingSignature !== committedRef.current;
 		if (hasUnsaved && !confirmDiscard) {
 			// Auto-save owes the user this write, so try it before closing. A failure
 			// must never trap them here though — it falls through to the same
 			// close-again-to-discard confirmation an explicit save uses, so the second
 			// attempt always closes whatever the server said.
 			if (autoSave) {
-				const saved = await commit(entriesRef.current);
+				const saved = await commit(pendingEntries);
 				if (saved) {
 					reset();
 					onOpenChange(false);
@@ -234,7 +232,7 @@ export function KeyEntryDialog({
 
 	const save = async () => {
 		cancelScheduledFlush();
-		const saved = await commit(entriesRef.current);
+		const saved = await commit(pendingEntries);
 		if (saved) {
 			reset();
 			onOpenChange(false);

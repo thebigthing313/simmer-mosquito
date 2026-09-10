@@ -167,9 +167,8 @@ function PasswordResetButton({ email }: { readonly email: string }) {
 			toast.success('Reset link sent', { description: `Check ${email}.` });
 		} catch {
 			toast.error('Could not send the reset link. Try again.');
-		} finally {
-			setPending(false);
 		}
+		setPending(false);
 	}
 
 	return (

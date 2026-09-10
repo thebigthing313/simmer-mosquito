@@ -276,7 +276,26 @@ function densityRangeFormValue(range: LarvalDensityRange): DensityRangeFormValue
 	};
 }
 
-export function densityRangesFromFormValues(values: DensityRangeFormValues): LarvalDensityRanges {
+/**
+ * The density bands to save, or `null` when the Organization keys plain counts.
+ *
+ * The branch lives here rather than at the call site because that call site is
+ * inside a try block, and the React Compiler bails on a whole component when a
+ * try block holds a branching expression (#856). Throwing is the point: an
+ * out-of-order band has to refuse the save, so the validation stays inside the
+ * caller's try.
+ */
+export function densityRangesOrNull(
+	enabled: boolean,
+	values: DensityRangeFormValues,
+): LarvalDensityRanges | null {
+	if (!enabled) {
+		return null;
+	}
+	return densityRangesFromFormValues(values);
+}
+
+function densityRangesFromFormValues(values: DensityRangeFormValues): LarvalDensityRanges {
 	const ranges = {
 		light: densityRangeFromFormValue(values.light, 'light'),
 		medium: densityRangeFromFormValue(values.medium, 'medium'),

@@ -26,9 +26,8 @@ export function useCommandRunner(): CommandRunner {
 			await work();
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : fallback);
-		} finally {
-			setBusy(false);
 		}
+		setBusy(false);
 	};
 
 	return { busy, error, run };

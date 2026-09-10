@@ -217,9 +217,8 @@ function StationLifecycleCard({
 			await mutations.setActive(station.id, !station.isActive);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to change the station.');
-		} finally {
-			setIsBusy(false);
 		}
+		setIsBusy(false);
 	};
 
 	const remove = async () => {
@@ -238,10 +237,9 @@ function StationLifecycleCard({
 			});
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the station.');
-		} finally {
-			setIsBusy(false);
-			setConfirmingDelete(false);
 		}
+		setIsBusy(false);
+		setConfirmingDelete(false);
 	};
 
 	return (
