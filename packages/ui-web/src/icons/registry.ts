@@ -171,6 +171,9 @@ export const iconRegistry = {
 		formulation: icon('formulation', 'Formulation', 'entities', Beaker),
 		// A Habitat is where larvae are found, and the worm is the mark the product
 		// already reads as larval, so it heads a Habitat everywhere one is named.
+		// It is the same glyph as `domains.larvalSurveillance` on purpose: the
+		// Habitat is the core record of that domain, so the two share a mark
+		// rather than competing for one. Do not split them.
 		habitat: icon('habitat', 'Habitat', 'entities', Worm),
 		insecticide: icon('insecticide', 'Insecticide', 'entities', SprayCan),
 		inspection: icon('inspection', 'Inspection', 'entities', ClipboardCheck),
