@@ -1,3 +1,4 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
@@ -11,7 +12,6 @@ import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultRegionFormValues,
-	isRegionBoundary,
 	RegionFormPage,
 	type RegionFormValues,
 	regionFieldsFrom,
@@ -45,7 +45,7 @@ function CreateRegionRoute() {
 		readonly values: RegionFormValues;
 		readonly geometry: DrawGeometry | null;
 	}) => {
-		if (geometry === null || !isRegionBoundary(geometry)) {
+		if (geometry === null || !isOwnedGeometry('region', geometry)) {
 			throw new Error('Draw the region boundary before saving.');
 		}
 

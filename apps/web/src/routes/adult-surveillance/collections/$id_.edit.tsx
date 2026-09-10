@@ -1,3 +1,4 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
@@ -28,7 +29,6 @@ import {
 	type CollectionFormValues,
 	type CollectionSaveInput,
 	collectionFieldsFrom,
-	isCollectionLocation,
 	noLureValue,
 	noUnitValue,
 } from './-collection-form';
@@ -107,7 +107,7 @@ function EditCollectionLoader({
 		// boolean left the route asking the same question twice to get the
 		// compiler there.
 		const refinedPoint =
-			isAdhoc && geometryChanged && geometry !== null && isCollectionLocation(geometry)
+			isAdhoc && geometryChanged && geometry !== null && isOwnedGeometry('collection', geometry)
 				? geometry
 				: null;
 

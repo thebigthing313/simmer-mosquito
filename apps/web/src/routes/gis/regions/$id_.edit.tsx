@@ -1,3 +1,4 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
@@ -11,7 +12,6 @@ import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-r
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
-	isRegionBoundary,
 	noRegionFolderValue,
 	RegionFormPage,
 	type RegionFormValues,
@@ -87,7 +87,7 @@ function EditRegionLoader({
 		// `null` unless the user actually redrew it: the form holds the boundary it
 		// loaded, and sending that back names a command with nothing to change.
 		const boundary =
-			geometryChanged && geometry !== null && isRegionBoundary(geometry) ? geometry : null;
+			geometryChanged && geometry !== null && isOwnedGeometry('region', geometry) ? geometry : null;
 
 		// `current` comes back through the same round trip as the edited values, so
 		// a field nobody touched compares equal to itself and the save names only

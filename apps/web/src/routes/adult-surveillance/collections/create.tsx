@@ -1,3 +1,4 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -30,7 +31,6 @@ import {
 	type CollectionSaveInput,
 	collectionFieldsFrom,
 	defaultCollectionFormValues,
-	isCollectionLocation,
 } from './-collection-form';
 
 const createCollectionSearchSchema = z.object({
@@ -120,7 +120,7 @@ function CreateCollectionRoute() {
 			const centroid =
 				isTrap && trap !== null
 					? { lat: trap.latitude, lng: trap.longitude, geomType: 'point' }
-					: geometry !== null && isCollectionLocation(geometry)
+					: geometry !== null && isOwnedGeometry('collection', geometry)
 						? {
 								lat: geometry.coordinates[1],
 								lng: geometry.coordinates[0],

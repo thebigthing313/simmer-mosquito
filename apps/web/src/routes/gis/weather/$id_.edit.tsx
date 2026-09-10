@@ -1,3 +1,4 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -9,7 +10,6 @@ import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 import {
 	type DrawGeometry,
-	isStationLocation,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
@@ -67,7 +67,9 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 		// `null` unless the user actually moved the pin: the form holds the point
 		// it loaded, and sending that back names a command with nothing to change.
 		const point =
-			geometryChanged && geometry !== null && isStationLocation(geometry) ? geometry : null;
+			geometryChanged && geometry !== null && isOwnedGeometry('weatherStation', geometry)
+				? geometry
+				: null;
 
 		// The two questions go out unanswered and come back as refusals if the
 		// station has readings, which is the only time either matters. See

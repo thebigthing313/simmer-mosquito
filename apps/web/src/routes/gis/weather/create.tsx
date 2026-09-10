@@ -1,3 +1,4 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
@@ -6,7 +7,6 @@ import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultWeatherStationFormValues,
-	isStationLocation,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
@@ -38,7 +38,7 @@ function CreateWeatherStationRoute() {
 		readonly values: WeatherStationFormValues;
 		readonly geometry: DrawGeometry | null;
 	}) => {
-		if (geometry === null || !isStationLocation(geometry)) {
+		if (geometry === null || !isOwnedGeometry('weatherStation', geometry)) {
 			throw new Error('Place the station on the map before saving.');
 		}
 		await mutations.create(stationId, weatherStationFieldsFrom(values), geometry);

@@ -1,3 +1,4 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
@@ -14,7 +15,6 @@ import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { contactFieldsFromValues } from '../-contact-fields';
 import {
 	defaultServiceRequestFormValues,
-	isRequestLocation,
 	ServiceRequestFormPage,
 	type ServiceRequestSaveInput,
 	serviceRequestFieldsFrom,
@@ -62,7 +62,7 @@ function CreateServiceRequestRoute() {
 	useContact(contactId);
 
 	const onSave = async ({ values, geometry }: ServiceRequestSaveInput) => {
-		if (geometry === null || !isRequestLocation(geometry)) {
+		if (geometry === null || !isOwnedGeometry('serviceRequest', geometry)) {
 			throw new Error('Place the request location on the map.');
 		}
 

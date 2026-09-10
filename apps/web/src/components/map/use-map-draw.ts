@@ -81,7 +81,6 @@ export type {
 	DrawContinueDraft,
 	DrawEditDraft,
 	DrawGeometry,
-	DrawGeometryFor,
 	DrawGeometryType,
 	DrawHoleDraft,
 	DrawPartGeometry,
