@@ -7,6 +7,9 @@ left, the record's icon and type over its name and supporting line, with a
 pencil and a `...` against the name. On the right, its flags and its Tags.
 Fifteen pages drew fifteen headers before, four of them hand-built.
 
+The pencil and the `...` name themselves with the product's tooltip on hover
+and on keyboard focus, rather than with the browser's own `title` bubble.
+
 Changed: a record's Tags are visible without opening a card, on the six record
 kinds that take them.
 

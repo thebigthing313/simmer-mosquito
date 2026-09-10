@@ -8,6 +8,11 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/tooltip';
+import {
 	iconRegistry,
 	MoreHorizontalIcon,
 	type RegistryIcon,
@@ -46,6 +51,14 @@ import { TagBadge } from '../tag-badge';
  * a reader wants without scrolling, and both are the record's own state rather
  * than an action, so they read as the far end of the bar rather than as
  * controls somebody has to look past.
+ *
+ * Both controls carry a `Tooltip` rather than a `title` attribute. The
+ * `aria-label` is what names them, and `title` was never doing that job: support
+ * for it as a name source varies by browser and screen reader, and it is
+ * invisible to a touch device. What it did do was draw the browser's own
+ * unstyled bubble a second after the pointer stopped, next to the cursor rather
+ * than next to the button. The tooltip is the product's, on the shell's 300ms
+ * provider, and it points at the control.
  *
  * There is no back link. It said the same thing the breadcrumb above it says
  * and the browser's own back button does, three ways of going up, and the one
@@ -200,11 +213,16 @@ function EditControl({ edit }: { readonly edit: DetailEditLink }) {
 		return null;
 	}
 	return (
-		<Button asChild aria-label="Edit" size="icon-sm" title="Edit" variant="ghost">
-			<Link {...{ to: edit.to, params: edit.params ?? {} }}>
-				<EditIcon aria-hidden="true" />
-			</Link>
-		</Button>
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button asChild aria-label="Edit" size="icon-sm" variant="ghost">
+					<Link {...{ to: edit.to, params: edit.params ?? {} }}>
+						<EditIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>Edit</TooltipContent>
+		</Tooltip>
 	);
 }
 
@@ -226,11 +244,16 @@ function ActionsMenu({ actions }: { readonly actions: readonly DetailAction[] })
 	}
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button aria-label="More actions" size="icon-sm" title="More actions" variant="ghost">
-					<MoreHorizontalIcon aria-hidden="true" />
-				</Button>
-			</DropdownMenuTrigger>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<DropdownMenuTrigger asChild>
+						<Button aria-label="More actions" size="icon-sm" variant="ghost">
+							<MoreHorizontalIcon aria-hidden="true" />
+						</Button>
+					</DropdownMenuTrigger>
+				</TooltipTrigger>
+				<TooltipContent>More actions</TooltipContent>
+			</Tooltip>
 			<DropdownMenuContent align="start" className="min-w-52">
 				{visible.map((action) => (
 					<ActionItem action={action} key={action.id} />
