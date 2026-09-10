@@ -162,7 +162,6 @@ const REACT_RULE_BACKLOG = new Map([
 	['apps/web/src/components/stop-order/inline-edit-field.tsx', 1],
 	['apps/web/src/components/stop-order/use-stop-order.ts', 1],
 	['apps/web/src/routes/-auth.tsx', 1],
-	['apps/web/src/routes/-habitat-detail.tsx', 1],
 	['apps/web/src/routes/gis/addresses/index.tsx', 2],
 	['apps/web/src/routes/larval-surveillance/habitats/-route-address-dialog.tsx', 1],
 	['apps/web/src/routes/larval-surveillance/inspections/table.tsx', 3],

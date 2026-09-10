@@ -362,14 +362,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/adult-surveillance/collections/$id.tsx": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/adult-surveillance/collections/create.tsx": {
       "complexity_moderate": {
         "count": 1
@@ -384,11 +376,6 @@
       }
     },
     "apps/web/src/routes/adult-surveillance/index.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/adult-surveillance/traps/$id.tsx": {
       "complexity_moderate": {
         "count": 1
       }
@@ -520,10 +507,10 @@
       }
     },
     "apps/web/src/routes/larval-surveillance/samples/$id.tsx": {
-      "complexity_critical": {
+      "complexity_high": {
         "count": 1
       },
-      "crap_critical": {
+      "crap_high": {
         "count": 1
       }
     },
@@ -866,7 +853,6 @@
     "apps/web/src/components/comments-section.tsx:complexity",
     "apps/web/src/routes/operations/assignments/create.tsx:complexity",
     "packages/auth/src/index.ts:complexity",
-    "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",

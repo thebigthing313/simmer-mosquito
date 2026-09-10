@@ -3,6 +3,7 @@ import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -15,16 +16,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import {
 	CalendarIcon,
@@ -564,44 +557,49 @@ function IdentificationCard({
 					</Alert>
 				) : null}
 
-				{isError ? (
-					<ResultsUnavailable />
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-12 w-full" key={index} />
-						))}
-					</div>
-				) : (
-					<>
-						<SpeciesResultList
-							canManage={canManage}
-							nameById={nameById}
-							onRemove={handleRemoveSpecies}
-							onUpdateCount={handleUpdateCount}
-							rows={speciesRows}
-							total={larvaeTotal}
-						/>
-
-						{canManage ? (
-							<AddSpeciesRow
-								onAdd={handleAddSpecies}
-								options={options}
-								takenSpeciesIds={takenSpeciesIds}
+				{/* No `empty`: a sample nobody has keyed out still needs its add row and
+				    its disposition controls, so `SpeciesResultList` says there are no
+				    species where the list would be rather than in place of the card. */}
+				<PanelRows
+					icon={<SpeciesIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: speciesRows }}
+					unavailable={{
+						description: 'The sample’s identification could not be loaded. Try again shortly.',
+						title: 'Results Unavailable',
+					}}
+					wrap="none"
+				>
+					{(rows) => (
+						<>
+							<SpeciesResultList
+								canManage={canManage}
+								nameById={nameById}
+								onRemove={handleRemoveSpecies}
+								onUpdateCount={handleUpdateCount}
+								rows={rows}
+								total={larvaeTotal}
 							/>
-						) : null}
 
-						<DispositionSection
-							canManage={canManage}
-							displayName={displayName}
-							hasNonMosquito={hasNonMosquito}
-							hasSpecies={speciesRows.length > 0}
-							isZeroLarvae={isZeroLarvae}
-							disposition={disposition}
-							unidentifiableReason={unidentifiableReason}
-						/>
-					</>
-				)}
+							{canManage ? (
+								<AddSpeciesRow
+									onAdd={handleAddSpecies}
+									options={options}
+									takenSpeciesIds={takenSpeciesIds}
+								/>
+							) : null}
+
+							<DispositionSection
+								canManage={canManage}
+								displayName={displayName}
+								hasNonMosquito={hasNonMosquito}
+								hasSpecies={rows.length > 0}
+								isZeroLarvae={isZeroLarvae}
+								disposition={disposition}
+								unidentifiableReason={unidentifiableReason}
+							/>
+						</>
+					)}
+				</PanelRows>
 			</CardContent>
 
 			{identity?.organizationId == null ? null : (
@@ -1087,22 +1085,6 @@ async function fetchSampleGeoContext(
 }
 
 // --- presentational states --------------------------------------------------
-
-function ResultsUnavailable() {
-	return (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<SpeciesIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>Results Unavailable</EmptyTitle>
-				<EmptyDescription>
-					The sample’s identification could not be loaded. Try again shortly.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
 
 // --- helpers ----------------------------------------------------------------
 
