@@ -25,7 +25,11 @@ import type { AddressOption } from '../../../components/pickers/address-picker';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	FORM_VALIDATION_GEOMETRY,
+} from '../../../forms/domain-validation';
 import type { ServiceRequestFields } from '../../../hooks/mutations/use-service-request-mutations';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -33,7 +37,6 @@ import {
 	CONTACT_FIELD_PATHS,
 	type ContactFormValues,
 	defaultContactFormValues,
-	validateContactForm,
 } from '../-contact-fields';
 import { ContactFieldsBlock } from '../-contact-fields-block';
 
@@ -112,10 +115,20 @@ export function isRequestLocation(
 }
 
 /**
- * The create path's rules, straight from the domain builder: intake type, date,
+ * The form's rules, straight from the domain builder: intake type, date,
  * details, and whichever of the contact/address subforms is in play.
+ *
+ * Both surfaces run it, which the create path alone used to. The edit page does
+ * not own the point, and the builder requires one, so it is handed the stand-in
+ * and reports on everything else. Skipping it there left the edit page with only
+ * a hand-rolled channel that threw a bare string into the page alert.
  */
-function validateServiceRequest(value: ServiceRequestFormValues, geometry: DrawGeometry | null) {
+export function validateServiceRequest(
+	value: ServiceRequestFormValues,
+	geometry: DrawGeometry | null,
+	options: { readonly hideLocation: boolean; readonly disableNewContact: boolean },
+) {
+	const existingContact = value.contactMode === 'existing' || options.disableNewContact;
 	return domainValidator(
 		() =>
 			createServiceRequestCommand({
@@ -125,16 +138,15 @@ function validateServiceRequest(value: ServiceRequestFormValues, geometry: DrawG
 				requestDate: value.requestDate,
 				details: value.details,
 				receivedByProfileId: value.receivedByProfileId === '' ? null : value.receivedByProfileId,
-				contact:
-					value.contactMode === 'existing'
-						? { kind: 'existing', contactId: value.contactId ?? '' }
-						: {
-								kind: 'new',
-								contactId: FORM_VALIDATION_CONTEXT.organizationId,
-								details: value.newContact,
-							},
+				contact: existingContact
+					? { kind: 'existing', contactId: value.contactId ?? '' }
+					: {
+							kind: 'new',
+							contactId: FORM_VALIDATION_CONTEXT.organizationId,
+							details: value.newContact,
+						},
 				location: {
-					geometry: (geometry ?? null) as never,
+					geometry: (options.hideLocation ? FORM_VALIDATION_GEOMETRY : (geometry ?? null)) as never,
 					address: { kind: 'existing', addressId: value.addressId ?? '' },
 				},
 			}),
@@ -230,19 +242,11 @@ export function ServiceRequestFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			/*
-			 * Skipped when the location is locked (the edit form does not own the
-			 * point) — the builder requires one, and there would be no field to fix.
-			 */
 			onSubmit: (input: { readonly value: ServiceRequestFormValues }) =>
-				hideLocation ? undefined : validateServiceRequest(input.value, geometry),
+				validateServiceRequest(input.value, geometry, { hideLocation, disableNewContact }),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const error = validateServiceRequestForm(value, { hideLocation, disableNewContact });
-			if (error !== null) {
-				throw new Error(error);
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -489,37 +493,6 @@ function RequestLocation({
 			/>
 		</LocationSection>
 	);
-}
-
-// --- validation -------------------------------------------------------------
-
-function validateServiceRequestForm(
-	values: ServiceRequestFormValues,
-	options: { readonly hideLocation: boolean; readonly disableNewContact: boolean },
-): string | null {
-	if (values.details.trim().length === 0) {
-		return 'Enter the request details.';
-	}
-	if (values.receivedByProfileId.trim().length === 0) {
-		return 'Select who received the request.';
-	}
-
-	if (values.contactMode === 'existing' || options.disableNewContact) {
-		if (values.contactId === null) {
-			return 'Select the contact for this request.';
-		}
-	} else {
-		const contactError = validateContactForm(values.newContact);
-		if (contactError !== null) {
-			return contactError;
-		}
-	}
-
-	if (!options.hideLocation && values.addressId === null) {
-		return 'Select or create the address for this request.';
-	}
-
-	return null;
 }
 
 // --- controls ---------------------------------------------------------------

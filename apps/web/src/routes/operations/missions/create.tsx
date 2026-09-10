@@ -1,7 +1,5 @@
-import { createMissionCommand } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -12,6 +10,7 @@ import {
 	MISSION_FIELD_PATHS,
 	MissionFormPage,
 	type MissionPlan,
+	validateMissionPlan,
 } from './-mission-form';
 
 export const Route = createFileRoute('/operations/missions/create')({
@@ -72,22 +71,7 @@ function CreateMissionRoute() {
 			}}
 			onSave={onSave}
 			submitLabel="Create Mission"
-			validate={(plan) =>
-				createMissionCommand({
-					...FORM_VALIDATION_CONTEXT,
-					missionId: FORM_VALIDATION_CONTEXT.organizationId,
-					controlType: plan.controlType,
-					// The builder reports a missing start itself; handing it the null keeps
-					// that one message rather than adding a second, earlier one here.
-					scheduledStartAt: plan.startAt as Date,
-					scheduledEndAt: plan.endAt,
-					rainDate: plan.rainDate,
-					missionName: plan.missionName,
-					plannedMethodId: plan.plannedMethodId,
-					assignedToProfileId: plan.assignedToProfileId,
-					notificationTypeId: plan.notificationTypeId,
-				})
-			}
+			validate={validateMissionPlan}
 		/>
 	);
 }

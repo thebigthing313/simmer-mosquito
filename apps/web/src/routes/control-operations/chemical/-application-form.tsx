@@ -119,6 +119,77 @@ function isApplicationUnitType(unitType: UnitType): boolean {
  */
 export type ApplicationProductMode = 'insecticide' | 'formulation';
 
+/** The chosen mix, as the expansion needs it: how big a batch is, and what is in one. */
+export interface ApplicationMix {
+	/** The mix's batch size, or `NaN` when no mix is chosen. */
+	readonly batchSize: number;
+	/** The chosen mix's component products, empty when no mix is chosen. */
+	readonly components: readonly FormulationComponentListing[];
+}
+
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * A mix is validated as what it becomes: the same expansion the save runs, so a
+ * rule that would reject one of the generated applications is reported here
+ * rather than after the first row lands. An unchosen mix reaches the expansion
+ * as no components and a `NaN` batch size, and both of those issues map onto the
+ * formulation field.
+ *
+ * The builder is the only channel. A second pass over the product, the amount,
+ * the unit and the date used to run in `onSubmit` and throw a bare string into
+ * the page alert, which told an operator a save had failed without saying where
+ * to look.
+ */
+export function validateApplication(
+	value: ApplicationFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+	mix: ApplicationMix,
+) {
+	const shared = {
+		...FORM_VALIDATION_CONTEXT,
+		locationSource: validationLocationSource(geometry, requireLocation),
+		applicationDate: value.applicationDate,
+		applicatorProfileId:
+			value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,
+		applicationMethodId:
+			value.applicationMethodId === noSelectionValue ? null : value.applicationMethodId,
+		vehicleId: value.vehicleId === noSelectionValue ? null : value.vehicleId,
+		equipmentId: value.equipmentId === noSelectionValue ? null : value.equipmentId,
+		addressId: value.addressId,
+		metadata: value.metadata,
+	};
+	if (value.productMode === 'formulation') {
+		return domainValidator(
+			() =>
+				expandFormulationApplicationCommands({
+					...shared,
+					totalAmount: value.amountApplied as number,
+					batchSize: mix.batchSize,
+					components: mix.components.map((component, index) => ({
+						insecticideId: component.insecticideId,
+						amount: component.amount,
+						unitId: component.unitId,
+						applicationId: placeholderApplicationId(index),
+					})),
+				}),
+			FORMULATION_FIELD_PATHS,
+		)({ value });
+	}
+	return domainValidator(
+		() =>
+			recordChemicalApplicationCommand({
+				...shared,
+				applicationId: FORM_VALIDATION_CONTEXT.organizationId,
+				insecticideId: value.insecticideId,
+				amountApplied: value.amountApplied as number,
+				applicationUnitId: value.applicationUnitId,
+			}),
+		APPLICATION_FIELD_PATHS,
+	)({ value });
+}
+
 export interface ApplicationFormValues {
 	readonly productMode: ApplicationProductMode;
 	/** An insecticide id, or '' when unset (placeholder shown). Single-product entry. */
@@ -315,60 +386,14 @@ export function ApplicationFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) => {
-				const locationSource = validationLocationSource(geometry, requireLocation);
-				const shared = {
-					...FORM_VALIDATION_CONTEXT,
-					locationSource,
-					applicationDate: value.applicationDate,
-					applicatorProfileId:
-						value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,
-					applicationMethodId:
-						value.applicationMethodId === noSelectionValue ? null : value.applicationMethodId,
-					vehicleId: value.vehicleId === noSelectionValue ? null : value.vehicleId,
-					equipmentId: value.equipmentId === noSelectionValue ? null : value.equipmentId,
-					addressId: value.addressId,
-					metadata: value.metadata,
-				};
-				// A mix is validated as what it becomes: the same expansion the save
-				// runs, so a rule that would reject one of the generated applications
-				// is reported here rather than after the first row lands.
-				if (value.productMode === 'formulation') {
-					return domainValidator(
-						() =>
-							expandFormulationApplicationCommands({
-								...shared,
-								totalAmount: value.amountApplied as number,
-								batchSize: formulationFor(value.formulationId)?.batchSize ?? Number.NaN,
-								components: componentsFor(value.formulationId).map((component, index) => ({
-									insecticideId: component.insecticideId,
-									amount: component.amount,
-									unitId: component.unitId,
-									applicationId: placeholderApplicationId(index),
-								})),
-							}),
-						FORMULATION_FIELD_PATHS,
-					)({ value });
-				}
-				return domainValidator(
-					() =>
-						recordChemicalApplicationCommand({
-							...shared,
-							applicationId: FORM_VALIDATION_CONTEXT.organizationId,
-							insecticideId: value.insecticideId,
-							amountApplied: value.amountApplied as number,
-							applicationUnitId: value.applicationUnitId,
-						}),
-					APPLICATION_FIELD_PATHS,
-				)({ value });
-			},
+			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) =>
+				validateApplication(value, geometry, requireLocation, {
+					batchSize: formulationFor(value.formulationId)?.batchSize ?? Number.NaN,
+					components: componentsFor(value.formulationId),
+				}),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const invalid = validate(value, componentsFor(value.formulationId).length);
-			if (invalid !== null) {
-				throw new Error(invalid);
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -901,34 +926,6 @@ function optionalOptions(
 	emptyLabel: string,
 ): readonly FieldOption[] {
 	return [{ label: emptyLabel, value: noSelectionValue }, ...options];
-}
-
-function validate(values: ApplicationFormValues, componentCount: number): string | null {
-	const mixed = values.productMode === 'formulation';
-	if (mixed) {
-		if (values.formulationId === '') {
-			return 'Select the formulation that was applied.';
-		}
-		if (componentCount === 0) {
-			return 'This formulation has no products to record against.';
-		}
-	} else if (values.insecticideId === '') {
-		return 'Select the insecticide that was applied.';
-	}
-	if (
-		values.amountApplied === null ||
-		!Number.isFinite(values.amountApplied) ||
-		values.amountApplied <= 0
-	) {
-		return mixed ? 'Enter the total amount of mix applied.' : 'Enter the amount applied.';
-	}
-	if (values.applicationUnitId === '') {
-		return 'Select the unit the amount was measured in.';
-	}
-	if (values.applicationDate === '') {
-		return 'Enter the date this application was made.';
-	}
-	return null;
 }
 
 /** A component product's name, for a label or a breakdown row. */

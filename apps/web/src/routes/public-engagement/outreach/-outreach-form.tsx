@@ -41,6 +41,39 @@ const OUTREACH_FIELD_PATHS: Readonly<Record<string, string>> = {
 	metadata: 'metadata',
 };
 
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * The builder is the only channel: it holds the method, the reach and the date,
+ * and every issue it raises comes back attributed to the field that holds it. A
+ * second pass over the same three rules used to run in `onSubmit` and throw a
+ * bare string into the page alert, which told an operator a save had failed
+ * without saying where to look.
+ */
+export function validateOutreach(
+	value: OutreachFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+) {
+	return domainValidator(
+		() =>
+			recordOutreachActionCommand({
+				...FORM_VALIDATION_CONTEXT,
+				outreachActionId: FORM_VALIDATION_CONTEXT.organizationId,
+				locationSource: validationLocationSource(geometry, requireLocation),
+				outreachMethodId: value.outreachMethodId,
+				reach: value.reach as number,
+				reachDescription: value.reachDescription.trim() === '' ? null : value.reachDescription,
+				outreachDate: value.outreachDate,
+				technicianProfileId:
+					value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
+				addressId: value.addressId,
+				metadata: value.metadata,
+			}),
+		OUTREACH_FIELD_PATHS,
+	)({ value });
+}
+
 export interface OutreachFormValues {
 	/**
 	 * Optional address the outreach happened at — reference data only. The action's
@@ -151,35 +184,11 @@ export function OutreachFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: OutreachFormValues }) =>
-					recordOutreachActionCommand({
-						...FORM_VALIDATION_CONTEXT,
-						outreachActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: validationLocationSource(geometry, requireLocation),
-						outreachMethodId: value.outreachMethodId,
-						reach: value.reach as number,
-						reachDescription: value.reachDescription.trim() === '' ? null : value.reachDescription,
-						outreachDate: value.outreachDate,
-						technicianProfileId:
-							value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
-						addressId: value.addressId,
-						metadata: value.metadata,
-					}),
-				OUTREACH_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: OutreachFormValues }) =>
+				validateOutreach(value, geometry, requireLocation),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			if (value.outreachMethodId === '') {
-				throw new Error('Select the outreach method that was used.');
-			}
-			if (value.reach === null || !(value.reach > 0)) {
-				throw new Error('Enter how many people were reached.');
-			}
-			if (value.outreachDate === '') {
-				throw new Error('Enter the date the outreach happened.');
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}

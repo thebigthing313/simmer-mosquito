@@ -44,6 +44,39 @@ const BIOCONTROL_FIELD_PATHS: Readonly<Record<string, string>> = {
 	metadata: 'metadata',
 };
 
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * The builder is the only channel: it holds the method, the amount, the unit and
+ * the date, and every issue it raises comes back attributed to the field that
+ * holds it. A second pass over the same four rules used to run in `onSubmit` and
+ * throw a bare string into the page alert, which told an operator a save had
+ * failed without saying where to look.
+ */
+export function validateBiocontrol(
+	value: BiocontrolFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+) {
+	return domainValidator(
+		() =>
+			recordBiocontrolActionCommand({
+				...FORM_VALIDATION_CONTEXT,
+				biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
+				locationSource: validationLocationSource(geometry, requireLocation),
+				biocontrolMethodId: value.biocontrolMethodId,
+				amountReleased: value.amountReleased as number,
+				releaseUnitId: value.releaseUnitId,
+				biocontrolDate: value.biocontrolDate,
+				technicianProfileId:
+					value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
+				addressId: value.addressId,
+				metadata: value.metadata,
+			}),
+		BIOCONTROL_FIELD_PATHS,
+	)({ value });
+}
+
 export interface BiocontrolFormValues {
 	/**
 	 * Optional address the release happened at — reference data only. The action's
@@ -164,38 +197,11 @@ export function BiocontrolFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: BiocontrolFormValues }) =>
-					recordBiocontrolActionCommand({
-						...FORM_VALIDATION_CONTEXT,
-						biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: validationLocationSource(geometry, requireLocation),
-						biocontrolMethodId: value.biocontrolMethodId,
-						amountReleased: value.amountReleased as number,
-						releaseUnitId: value.releaseUnitId,
-						biocontrolDate: value.biocontrolDate,
-						technicianProfileId:
-							value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
-						addressId: value.addressId,
-						metadata: value.metadata,
-					}),
-				BIOCONTROL_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: BiocontrolFormValues }) =>
+				validateBiocontrol(value, geometry, requireLocation),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			if (value.biocontrolMethodId === '') {
-				throw new Error('Select the biocontrol method that was used.');
-			}
-			if (value.amountReleased === null || !(value.amountReleased > 0)) {
-				throw new Error('Enter how much was released.');
-			}
-			if (value.releaseUnitId === '') {
-				throw new Error('Select the unit the release was measured in.');
-			}
-			if (value.biocontrolDate === '') {
-				throw new Error('Enter the date the agents were released.');
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
