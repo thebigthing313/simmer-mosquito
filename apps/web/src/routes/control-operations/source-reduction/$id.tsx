@@ -50,7 +50,7 @@ const EditIcon = iconRegistry.actions.edit.icon;
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -109,6 +109,12 @@ function SourceReductionDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
+				<CommentsSection
+					description="Follow-up, access notes, and anything crews should know about this work."
+					target={{ type: 'sourceReduction', id: sourceReduction.id }}
+				/>
+			}
+			facts={
 				<>
 					<SourceReductionDetailsCard
 						amountLabel={amountLabel}
@@ -121,10 +127,6 @@ function SourceReductionDetailContent({
 					<CustomFieldsCard
 						metadata={sourceReduction.metadata}
 						schema={customSchemaFor(methods, sourceReduction.methodId)}
-					/>
-					<CommentsSection
-						description="Follow-up, access notes, and anything crews should know about this work."
-						target={{ type: 'sourceReduction', id: sourceReduction.id }}
 					/>
 				</>
 			}
@@ -150,15 +152,20 @@ function SourceReductionDetailContent({
 				/>
 			}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<SourceReductionLocationCard
+						habitatName={habitatName}
+						sourceReduction={sourceReduction}
+					/>
+					<RecordRegionsBand
+						noun="source reduction action"
+						recordId={sourceReduction.id}
+						recordType="source_reductions"
+					/>
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<SourceReductionLocationCard habitatName={habitatName} sourceReduction={sourceReduction} />
-				<RecordRegionsBand
-					noun="source reduction action"
-					recordId={sourceReduction.id}
-					recordType="source_reductions"
-				/>
-			</div>
 			<DangerZoneCard
 				ask={askDelete}
 				name={methodName}

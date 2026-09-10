@@ -68,7 +68,6 @@ export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
-	padding: 'trailing',
 	stickyAside: true,
 	skeleton: {
 		eyebrow: 'w-28',
@@ -184,21 +183,21 @@ function InspectionDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
-				<>
-					<ContextCard inspection={inspection} />
-					<CommentsSection
-						description="Access notes, conditions, and follow-up for this inspection."
-						target={{ type: 'inspection', id: inspection.id }}
-					/>
-				</>
+				<CommentsSection
+					description="Access notes, conditions, and follow-up for this inspection."
+					target={{ type: 'inspection', id: inspection.id }}
+				/>
 			}
+			facts={<ContextCard inspection={inspection} />}
 			header={<InspectionHeader inspection={inspection} />}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
+					<RecordRegionsBand noun="inspection" recordId={inspection.id} recordType="inspections" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
-				<RecordRegionsBand noun="inspection" recordId={inspection.id} recordType="inspections" />
-			</div>
 			<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 			<LinkedControlActionsCard inspectionId={inspection.id} />
 			<DangerZoneCard

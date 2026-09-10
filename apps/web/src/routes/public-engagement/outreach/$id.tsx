@@ -45,7 +45,7 @@ export const Route = createFileRoute('/public-engagement/outreach/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -88,6 +88,12 @@ function OutreachDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
+				<CommentsSection
+					description="Follow-up, materials, and response notes for this outreach."
+					target={{ type: 'outreachAction', id: action.id }}
+				/>
+			}
+			facts={
 				<>
 					<OutreachDetailsCard
 						action={action}
@@ -97,10 +103,6 @@ function OutreachDetailContent({
 					<CustomFieldsCard
 						metadata={action.metadata}
 						schema={customSchemaFor(methods, action.methodId)}
-					/>
-					<CommentsSection
-						description="Follow-up, materials, and response notes for this outreach."
-						target={{ type: 'outreachAction', id: action.id }}
 					/>
 				</>
 			}
@@ -123,15 +125,17 @@ function OutreachDetailContent({
 				/>
 			}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<OutreachLocationCard action={action} />
+					<RecordRegionsBand
+						noun="outreach action"
+						recordId={action.id}
+						recordType="outreach_actions"
+					/>
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<OutreachLocationCard action={action} />
-				<RecordRegionsBand
-					noun="outreach action"
-					recordId={action.id}
-					recordType="outreach_actions"
-				/>
-			</div>
 			<DangerZoneCard
 				ask={askDelete}
 				name={methodName}

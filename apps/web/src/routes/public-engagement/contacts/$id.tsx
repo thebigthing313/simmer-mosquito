@@ -46,7 +46,7 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-40', 'h-40'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-20', main: [['h-40', 'h-40'], 'h-56'], aside: ['h-72'] },
 };
 
 function ContactDetailRoute() {
@@ -77,6 +77,25 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					description="Notes and follow-up for this contact."
 					target={{ type: 'contact', id: contact.id }}
 				/>
+			}
+			facts={
+				<Card variant="surface">
+					<CardHeader padding="compact">
+						<CardTitle>Communication</CardTitle>
+					</CardHeader>
+					<CardContent className="grid gap-4" padding="compact">
+						<DetailList>
+							<DetailRow label="Preferred">{contact.preferredPhone}</DetailRow>
+							<DetailRow label="Alternate">{contact.alternatePhone}</DetailRow>
+							<DetailRow label="Email">{mailtoLink(contact.email)}</DetailRow>
+						</DetailList>
+						<div className="flex flex-wrap gap-1.5">
+							<PreferenceBadge active={contact.wantsEmail} label="Email" />
+							<PreferenceBadge active={contact.wantsSms} label="SMS" />
+							<PreferenceBadge active={contact.wantsPhone} label="Phone" />
+						</div>
+					</CardContent>
+				</Card>
 			}
 			header={
 				<PageHeader
@@ -116,39 +135,22 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 				/>
 			}
 			layout={layout}
+			lead={
+				<Card variant="surface">
+					<CardHeader padding="compact">
+						<CardTitle>Identity</CardTitle>
+					</CardHeader>
+					<CardContent padding="compact">
+						<DetailList>
+							<DetailRow label="Name">{contact.contactName}</DetailRow>
+							<DetailRow label="Company">{contact.company}</DetailRow>
+							<DetailRow label="Department">{contact.department}</DetailRow>
+							<DetailRow label="Title">{contact.title}</DetailRow>
+						</DetailList>
+					</CardContent>
+				</Card>
+			}
 		>
-			<Card variant="surface">
-				<CardHeader padding="compact">
-					<CardTitle>Identity</CardTitle>
-				</CardHeader>
-				<CardContent padding="compact">
-					<DetailList>
-						<DetailRow label="Name">{contact.contactName}</DetailRow>
-						<DetailRow label="Company">{contact.company}</DetailRow>
-						<DetailRow label="Department">{contact.department}</DetailRow>
-						<DetailRow label="Title">{contact.title}</DetailRow>
-					</DetailList>
-				</CardContent>
-			</Card>
-
-			<Card variant="surface">
-				<CardHeader padding="compact">
-					<CardTitle>Communication</CardTitle>
-				</CardHeader>
-				<CardContent className="grid gap-4" padding="compact">
-					<DetailList>
-						<DetailRow label="Preferred">{contact.preferredPhone}</DetailRow>
-						<DetailRow label="Alternate">{contact.alternatePhone}</DetailRow>
-						<DetailRow label="Email">{mailtoLink(contact.email)}</DetailRow>
-					</DetailList>
-					<div className="flex flex-wrap gap-1.5">
-						<PreferenceBadge active={contact.wantsEmail} label="Email" />
-						<PreferenceBadge active={contact.wantsSms} label="SMS" />
-						<PreferenceBadge active={contact.wantsPhone} label="Phone" />
-					</div>
-				</CardContent>
-			</Card>
-
 			<ContactServiceRequestsCard contactId={contact.id} />
 
 			<DangerZoneCard

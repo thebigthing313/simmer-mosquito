@@ -76,7 +76,7 @@ const EditIcon = iconRegistry.actions.edit.icon;
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]', 'h-48'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -118,14 +118,12 @@ function TrapDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
-				<>
-					<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />
-					<CommentsSection
-						description="Access notes, maintenance, and follow-up for this trap."
-						target={{ type: 'trap', id: trap.id }}
-					/>
-				</>
+				<CommentsSection
+					description="Access notes, maintenance, and follow-up for this trap."
+					target={{ type: 'trap', id: trap.id }}
+				/>
 			}
+			facts={<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />}
 			header={
 				<PageHeader
 					actions={
@@ -148,11 +146,13 @@ function TrapDetailContent({
 				/>
 			}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
+					<RecordRegionsBand noun="trap" recordId={trap.id} recordType="traps" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
-				<RecordRegionsBand noun="trap" recordId={trap.id} recordType="traps" />
-			</div>
 			<TrapCollectionsCard trapId={trap.id} />
 			<DangerZoneCard
 				ask={askDelete}

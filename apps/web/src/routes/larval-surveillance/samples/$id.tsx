@@ -66,12 +66,11 @@ export const Route = createFileRoute('/larval-surveillance/samples/$id')({
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
-	padding: 'trailing',
 	stickyAside: true,
 	skeleton: {
 		eyebrow: 'w-28',
 		subtitle: 'w-48',
-		main: ['h-[320px]', 'h-64'],
+		main: [['h-[320px]', 'h-64'], 'h-64'],
 		aside: ['h-96'],
 	},
 };
@@ -244,18 +243,16 @@ function SampleDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
-				<>
-					<ContextCard geo={geo} />
-					<CommentsSection
-						description="Lab notes, identification context, and follow-up for this sample."
-						target={{ type: 'sample', id: geo.id }}
-					/>
-				</>
+				<CommentsSection
+					description="Lab notes, identification context, and follow-up for this sample."
+					target={{ type: 'sample', id: geo.id }}
+				/>
 			}
+			facts={<ContextCard geo={geo} />}
 			header={<SampleHeader canManage={canManage} geo={geo} />}
 			layout={layout}
+			lead={<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />}
 		>
-			<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />
 			<IdentificationCard canManage={canManage} identity={identity} sampleId={geo.id} seed={geo} />
 			<DangerZoneCard
 				ask={askDelete}

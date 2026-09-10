@@ -151,7 +151,6 @@ const NO_CARD_ROWS: readonly never[] = [];
  */
 const layout: RecordDetailLayout = {
 	aside: 'wide',
-	padding: 'trailing',
 	stickyAside: true,
 	skeleton: {
 		title: 'w-64',
@@ -253,21 +252,20 @@ function HabitatDetailContent({
 					/>
 				</>
 			}
-			header={<HabitatDetailHeader habitat={habitat} />}
-			layout={layout}
-		>
-			{/* The only page whose map card is half the main column, so the band
-			    goes under the pair rather than inside the left half: the spec
-			    puts it at the full width of the main column, and at 328px a
-			    folder row wraps where six chips are meant to fit on one line. */}
-			<div className="grid gap-5 lg:grid-cols-2">
-				<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
+			facts={
 				<HabitatDetailsCard
 					geometry={resolvedGeometry}
 					habitat={habitat}
 					isGeometryPending={isGeometryPending}
 				/>
-			</div>
+			}
+			header={<HabitatDetailHeader habitat={habitat} />}
+			layout={layout}
+			lead={<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />}
+		>
+			{/* The band goes under the lead row rather than inside its left half:
+			    the spec puts it at the full width of the main column, and at 328px
+			    a folder row wraps where six chips are meant to fit on one line. */}
 			<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
 			<Suspense fallback={<HistorySkeleton />}>
 				<HabitatHistoryCard habitatId={habitat.id} />

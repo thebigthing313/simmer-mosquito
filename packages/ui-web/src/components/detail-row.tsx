@@ -68,6 +68,20 @@ export function DetailRow({
  * the rhythm between rows is settled here too. `className` is for what a
  * particular card adds around that, such as the rule the service request page
  * draws above its second group.
+ *
+ * ## The list carries its own measure
+ *
+ * A fact row is a 7.5rem label beside a short value, so it is the one thing on
+ * a record page that a wider page makes worse rather than better. Measured on
+ * the contact page at 1920: the value column ran 600px around 81px of ink, and
+ * the eye had to travel the whole way back to the next label. That is the
+ * reason the detail frame could not simply be widened, and it is why the cap
+ * lives here rather than on the page: the card is what knows it holds facts.
+ *
+ * 34rem is the label, the gap and about 22rem of value, which clears the
+ * longest values in the workspace (a full street address, a product name, a
+ * pair of coordinates) with room to spare. A card whose values genuinely need
+ * more passes `max-w-*` in `className`; `cn` lets the caller's width win.
  */
 export function DetailList({
 	children,
@@ -76,7 +90,7 @@ export function DetailList({
 	readonly children: ReactNode;
 	readonly className?: string;
 }) {
-	return <dl className={cn('m-0 grid gap-2.5', className)}>{children}</dl>;
+	return <dl className={cn('m-0 grid max-w-[34rem] gap-2.5', className)}>{children}</dl>;
 }
 
 /**

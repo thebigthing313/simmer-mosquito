@@ -47,8 +47,7 @@ const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 const layout: RecordDetailLayout = {
-	aside: 'narrow',
-	skeleton: { eyebrow: 'w-24', title: 'w-56', main: ['h-64'], aside: ['h-48'] },
+	skeleton: { eyebrow: 'w-24', title: 'w-56', main: [['h-64', 'h-64'], 'h-48'] },
 };
 
 function RouteComponent() {
@@ -85,28 +84,26 @@ function WeatherStationContent({
 
 	return (
 		<RecordDetailColumns
-			aside={
-				<>
-					<StationDetailsCard station={station} />
-					{isOwned ? (
-						<WriteOnly minimum="manager">
-							<StationLifecycleCard askDelete={askDelete} station={station} />
-						</WriteOnly>
-					) : null}
-				</>
-			}
+			facts={<StationDetailsCard station={station} />}
 			header={<StationHeader isOwned={isOwned} station={station} />}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<StationLocationCard station={station} />
+					<RecordRegionsBand
+						noun="weather station"
+						recordId={station.id}
+						recordType="weather_sources"
+					/>
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<StationLocationCard station={station} />
-				<RecordRegionsBand
-					noun="weather station"
-					recordId={station.id}
-					recordType="weather_sources"
-				/>
-			</div>
 			<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
+			{isOwned ? (
+				<WriteOnly minimum="manager">
+					<StationLifecycleCard askDelete={askDelete} station={station} />
+				</WriteOnly>
+			) : null}
 		</RecordDetailColumns>
 	);
 }

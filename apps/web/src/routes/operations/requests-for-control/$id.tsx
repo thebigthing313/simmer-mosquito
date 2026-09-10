@@ -68,7 +68,7 @@ export const Route = createFileRoute('/operations/requests-for-control/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-32', main: ['h-[360px]', 'h-40'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-32', main: [['h-[360px]', 'h-64'], 'h-40'], aside: ['h-72'] },
 };
 
 /**
@@ -126,14 +126,12 @@ function RequestDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
-				<>
-					<RequestDetailsCard habitatName={habitatName} request={request} />
-					<CommentsSection
-						description="Why this was raised, what was found, and how it was settled."
-						target={{ type: 'requestedControlAction', id: request.id }}
-					/>
-				</>
+				<CommentsSection
+					description="Why this was raised, what was found, and how it was settled."
+					target={{ type: 'requestedControlAction', id: request.id }}
+				/>
 			}
+			facts={<RequestDetailsCard habitatName={habitatName} request={request} />}
 			header={
 				<>
 					<RequestHeader
@@ -150,15 +148,17 @@ function RequestDetailContent({
 				</>
 			}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<RequestLocationCard habitatName={habitatName} request={request} />
+					<RecordRegionsBand
+						noun="request"
+						recordId={request.id}
+						recordType="requested_control_actions"
+					/>
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<RequestLocationCard habitatName={habitatName} request={request} />
-				<RecordRegionsBand
-					noun="request"
-					recordId={request.id}
-					recordType="requested_control_actions"
-				/>
-			</div>
 			<RequestMissionsCard requestId={request.id} />
 			<DangerZoneCard
 				ask={askDelete}

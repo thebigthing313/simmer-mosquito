@@ -109,7 +109,7 @@ const READ_ONLY_ROLES = new Set(['viewer']);
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-24', main: ['h-[360px]', 'h-64'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-24', main: [['h-[360px]', 'h-64'], 'h-64'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -168,6 +168,12 @@ function CollectionDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
+				<CommentsSection
+					description="Field notes, identification remarks, and follow-up for this collection."
+					target={{ type: 'collection', id: collection.id }}
+				/>
+			}
+			facts={
 				<>
 					<DetailsCard
 						collection={collection}
@@ -178,10 +184,6 @@ function CollectionDetailContent({
 					<CustomFieldsCard
 						metadata={collection.metadata}
 						schema={customSchemaFor(methods, collection.methodId)}
-					/>
-					<CommentsSection
-						description="Field notes, identification remarks, and follow-up for this collection."
-						target={{ type: 'collection', id: collection.id }}
 					/>
 				</>
 			}
@@ -220,11 +222,13 @@ function CollectionDetailContent({
 				/>
 			}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<CollectionLocationCard collection={collection} />
+					<RecordRegionsBand noun="collection" recordId={collection.id} recordType="collections" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<CollectionLocationCard collection={collection} />
-				<RecordRegionsBand noun="collection" recordId={collection.id} recordType="collections" />
-			</div>
 			<ResultsCard canEdit={canEdit} collection={collection} />
 			<DangerZoneCard
 				ask={askDelete}

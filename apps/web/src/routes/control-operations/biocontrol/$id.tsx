@@ -47,7 +47,7 @@ export const Route = createFileRoute('/control-operations/biocontrol/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -96,6 +96,12 @@ function BiocontrolDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
+				<CommentsSection
+					description="Follow-up, agent survival, and restocking notes for this release."
+					target={{ type: 'biocontrolAction', id: action.id }}
+				/>
+			}
+			facts={
 				<>
 					<BiocontrolDetailsCard
 						action={action}
@@ -107,10 +113,6 @@ function BiocontrolDetailContent({
 					<CustomFieldsCard
 						metadata={action.metadata}
 						schema={customSchemaFor(methods, action.methodId)}
-					/>
-					<CommentsSection
-						description="Follow-up, agent survival, and restocking notes for this release."
-						target={{ type: 'biocontrolAction', id: action.id }}
 					/>
 				</>
 			}
@@ -136,15 +138,17 @@ function BiocontrolDetailContent({
 				/>
 			}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<ReleaseLocationCard action={action} habitatName={habitatName} />
+					<RecordRegionsBand
+						noun="biocontrol action"
+						recordId={action.id}
+						recordType="biocontrol_actions"
+					/>
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<ReleaseLocationCard action={action} habitatName={habitatName} />
-				<RecordRegionsBand
-					noun="biocontrol action"
-					recordId={action.id}
-					recordType="biocontrol_actions"
-				/>
-			</div>
 			<DangerZoneCard
 				ask={askDelete}
 				name={methodName}

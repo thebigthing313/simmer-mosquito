@@ -33,9 +33,8 @@ const RegionIcon = iconRegistry.entities.region.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
 const layout: RecordDetailLayout = {
-	aside: 'wide',
 	mainGap: 'tight',
-	skeleton: { eyebrow: 'w-20', main: ['h-[420px]'], aside: ['h-48'] },
+	skeleton: { eyebrow: 'w-20', main: [['h-[420px]', 'h-48'], 'h-40'] },
 };
 
 function RouteComponent() {
@@ -65,19 +64,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 
 	return (
 		<RecordDetailColumns
-			aside={
-				<>
-					<RegionDetailsCard description={region.description} folderName={folderName} />
-					<DangerZoneCard
-						name={region.name}
-						noun="region"
-						onDelete={() => mutations.remove(region.id)}
-						recordId={region.id}
-						recordType="region"
-						returnTo="/gis/regions"
-					/>
-				</>
-			}
+			facts={<RegionDetailsCard description={region.description} folderName={folderName} />}
 			header={
 				<PageHeader
 					actions={
@@ -97,13 +84,23 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 				/>
 			}
 			layout={layout}
+			lead={
+				<RegionBoundaryCard
+					geojson={geometryQuery.data?.geojson ?? null}
+					isLoading={geometryQuery.isLoading}
+					unsupportedShape={geometryQuery.data?.unsupportedShape ?? null}
+				/>
+			}
 		>
-			<RegionBoundaryCard
-				geojson={geometryQuery.data?.geojson ?? null}
-				isLoading={geometryQuery.isLoading}
-				unsupportedShape={geometryQuery.data?.unsupportedShape ?? null}
-			/>
 			<RecordRegionsBand noun="region" recordId={region.id} recordType="regions" />
+			<DangerZoneCard
+				name={region.name}
+				noun="region"
+				onDelete={() => mutations.remove(region.id)}
+				recordId={region.id}
+				recordType="region"
+				returnTo="/gis/regions"
+			/>
 		</RecordDetailColumns>
 	);
 }

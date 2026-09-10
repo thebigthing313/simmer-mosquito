@@ -1,5 +1,10 @@
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { detailAsideClass, detailGridClass, detailMainClass } from './record-detail-columns';
+import {
+	detailAsideClass,
+	detailCardRowClass,
+	detailGridClass,
+	detailMainClass,
+} from './record-detail-columns';
 import type { RecordDetailBlock, RecordDetailLayout } from './record-detail-layout';
 import { keyedPlaceholders } from './skeleton-keys';
 
@@ -48,7 +53,7 @@ function SkeletonBlock({ block }: { readonly block: RecordDetailBlock }) {
 		return <Skeleton className={block} />;
 	}
 	return (
-		<div className="grid gap-5 lg:grid-cols-2">
+		<div className={detailCardRowClass}>
 			{keyedPlaceholders(block, 'card').map((card) => (
 				<Skeleton className={card.value} key={card.key} />
 			))}

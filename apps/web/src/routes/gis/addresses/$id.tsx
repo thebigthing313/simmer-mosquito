@@ -33,9 +33,8 @@ const AddressIcon = iconRegistry.actions.searchCheck.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
 const layout: RecordDetailLayout = {
-	aside: 'wide',
 	mainGap: 'tight',
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-64'] },
+	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64'], 'h-40'] },
 };
 
 function RouteComponent() {
@@ -64,19 +63,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 
 	return (
 		<RecordDetailColumns
-			aside={
-				<>
-					<AddressDetailsCard address={address} />
-					<DangerZoneCard
-						name={address.displayName}
-						noun="address"
-						onDelete={() => mutations.remove(address.id)}
-						recordId={address.id}
-						recordType="address"
-						returnTo="/gis/addresses"
-					/>
-				</>
-			}
+			facts={<AddressDetailsCard address={address} />}
 			header={
 				<PageHeader
 					actions={
@@ -109,13 +96,23 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 				/>
 			}
 			layout={layout}
+			lead={
+				<AddressLocationCard
+					geometry={geometryQuery.data ?? null}
+					isLoading={geometryQuery.isLoading}
+				/>
+			}
 		>
-			<AddressLocationCard
-				geometry={geometryQuery.data ?? null}
-				isLoading={geometryQuery.isLoading}
-			/>
 			<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
+			<DangerZoneCard
+				name={address.displayName}
+				noun="address"
+				onDelete={() => mutations.remove(address.id)}
+				recordId={address.id}
+				recordType="address"
+				returnTo="/gis/addresses"
+			/>
 		</RecordDetailColumns>
 	);
 }

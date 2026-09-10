@@ -89,7 +89,7 @@ const READ_ONLY_ROLES = new Set(['viewer']);
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-24', main: ['h-[360px]', 'h-48'], aside: ['h-72'] },
+	skeleton: { eyebrow: 'w-24', main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -149,6 +149,12 @@ function ApplicationDetailContent({
 	return (
 		<RecordDetailColumns
 			aside={
+				<CommentsSection
+					description="Field notes, product observations, and follow-up for this application."
+					target={{ type: 'application', id: application.id }}
+				/>
+			}
+			facts={
 				<>
 					<ApplicationDetailsCard
 						amount={amount}
@@ -159,10 +165,6 @@ function ApplicationDetailContent({
 					<CustomFieldsCard
 						metadata={application.metadata}
 						schema={customSchemaFor(methods, application.methodId)}
-					/>
-					<CommentsSection
-						description="Field notes, product observations, and follow-up for this application."
-						target={{ type: 'application', id: application.id }}
 					/>
 				</>
 			}
@@ -193,11 +195,17 @@ function ApplicationDetailContent({
 				/>
 			}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<ApplicationLocationCard application={application} habitatName={habitatName} />
+					<RecordRegionsBand
+						noun="application"
+						recordId={application.id}
+						recordType="applications"
+					/>
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<ApplicationLocationCard application={application} habitatName={habitatName} />
-				<RecordRegionsBand noun="application" recordId={application.id} recordType="applications" />
-			</div>
 			<ApplicationBatchesCard
 				application={application}
 				canEdit={canEdit}

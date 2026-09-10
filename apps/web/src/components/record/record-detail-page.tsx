@@ -108,6 +108,12 @@ interface RecordDetailBodyProps extends RecordDetailBase {
  * placeholder, unavailable and content, and the acknowledgement dialog a delete
  * may raise. A page supplies its record, its noun, its cards and its writes.
  *
+ * The measure is `record` rather than the 1200px `page` one, so a detail page
+ * fills the stage instead of sitting in a centred column with a quarter of a
+ * 1920 screen empty beside it. What keeps that from stretching the content is
+ * that the cards carry their own widths: a fact list stops at 34rem, and only
+ * the maps and the child-record tables are greedy. See `pageContainer`.
+ *
  * Fourteen pages assembled this by hand and answered its questions
  * independently. Seven of them had `isError` to hand and drew the missing-record
  * state anyway, so a read that failed said "could not be found, or you do not
@@ -128,8 +134,13 @@ export function RecordDetailPage<TRecord>(
 	);
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: layout.padding ?? 'detail' })}>
+		/*
+		 * The scroll box is also the `record` container every split on this page
+		 * is measured against: see `record-detail-columns.tsx`. It is the stage,
+		 * the window less the two rails, which is the box the page has to divide.
+		 */
+		<div className="@container/record h-full min-h-0 overflow-y-auto">
+			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
 				{actions === undefined ? (
 					<BackTo back={back} />
 				) : (
