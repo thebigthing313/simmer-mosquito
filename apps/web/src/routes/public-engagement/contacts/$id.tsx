@@ -1,9 +1,7 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -17,11 +15,10 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
@@ -39,14 +36,13 @@ export const Route = createFileRoute('/public-engagement/contacts/$id')({
 });
 
 const ContactIcon = iconRegistry.entities.organization.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 const CoverageIcon = iconRegistry.generic.map.icon;
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: [['h-40', 'h-40'], 'h-56'], aside: ['h-72'] },
+	skeleton: { main: [['h-40', 'h-40'], 'h-56'], aside: ['h-72'] },
 };
 
 function ContactDetailRoute() {
@@ -55,7 +51,6 @@ function ContactDetailRoute() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to Contacts', to: '/public-engagement/contacts' }}
 			layout={layout}
 			noun="contact"
 			reading={{ isError, isReady, record: contact }}
@@ -71,7 +66,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 	const mutations = useContactMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Notes and follow-up for this contact."
@@ -97,43 +92,36 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					</CardContent>
 				</Card>
 			}
-			header={
-				<PageHeader
-					actions={
-						<>
-							{/*
-							 * A registration is always somebody's, so this is the way in. There is
-							 * no organization-wide registrations page to reach them from any more,
-							 * and arriving from the contact answers the one question a standalone
-							 * create page had to ask first.
-							 */}
-							<Button asChild size="sm" variant="outline">
-								<Link
-									params={{ id: contact.id }}
-									to="/public-engagement/contacts/$id/registrations"
-								>
-									<CoverageIcon aria-hidden="true" />
-									Manage registrations
-								</Link>
-							</Button>
-							<WriteOnly minimum="manager">
-								<Button asChild size="sm" variant="outline">
-									<Link params={{ id: contact.id }} to="/public-engagement/contacts/$id/edit">
-										<EditIcon aria-hidden="true" />
-										Edit
-									</Link>
-								</Button>
-							</WriteOnly>
-						</>
-					}
-					eyebrow="Contact"
-					icon={ContactIcon}
-					title={name}
-					{...(contact.title === null && contact.company === null
-						? {}
-						: { description: [contact.title, contact.company].filter(Boolean).join(' · ') })}
-				/>
-			}
+			header={{
+				/*
+				 * A registration is always somebody's, so this is the way in. There is
+				 * no organization-wide registrations page to reach them from any more,
+				 * and arriving from the contact answers the one question a standalone
+				 * create page had to ask first.
+				 */
+				actions: [
+					{
+						icon: CoverageIcon,
+						id: 'registrations',
+						label: 'Manage registrations',
+						params: { id: contact.id },
+						to: '/public-engagement/contacts/$id/registrations',
+					},
+				],
+				edit: {
+					minimum: 'manager',
+					params: { id: contact.id },
+					to: '/public-engagement/contacts/$id/edit',
+				},
+				icon: ContactIcon,
+				subtitle:
+					contact.title === null && contact.company === null
+						? undefined
+						: [contact.title, contact.company].filter(Boolean).join(' · '),
+				recordType: 'Contact',
+				tags: { recordId: contact.id },
+				title: name,
+			}}
 			layout={layout}
 			lead={
 				<Card variant="surface">
@@ -161,7 +149,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 				recordType="contact"
 				returnTo="/public-engagement/contacts"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

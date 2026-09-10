@@ -13,7 +13,8 @@ import { cva, type VariantProps } from 'class-variance-authority';
  *               pages breathe (`overview`); record detail pages run tighter
  *               (`detail`) because they stack many small fact groups.
  * - `padding` — `page` is the standard framed page. `detail` adds bottom room so
- *               a long record doesn't end flush against the viewport.
+ *               a long record doesn't end flush against the viewport, and
+ *               `header` is the pinned bar above it.
  * - `measure` — how wide the column is allowed to get. See below.
  *
  * Route-level `className` should stay layout-local (a grid template, a local
@@ -68,6 +69,13 @@ export const pageContainer = cva('mx-auto w-full', {
 		padding: {
 			page: 'px-4 py-6 md:px-8 md:py-8',
 			detail: 'px-4 py-6 pb-10 md:px-8',
+			/*
+			 * The pinned bar a record detail page opens with. Same side padding as
+			 * `detail`, so the header's title sits over the first card's edge, and a
+			 * shorter vertical rhythm because a pinned bar costs every screen below it
+			 * the room it takes.
+			 */
+			header: 'px-4 py-4 md:px-8',
 			none: '',
 		},
 	},

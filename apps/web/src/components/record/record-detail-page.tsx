@@ -1,9 +1,6 @@
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { Link, type LinkProps } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../acknowledged-write';
+import { detailBodyClass } from './detail-page-shell';
 import type { RecordDetailLayout } from './record-detail-layout';
 import { RecordDetailSkeleton } from './record-detail-skeleton';
 import { RecordUnavailable } from './record-unavailable';
@@ -14,21 +11,6 @@ import { RecordUnavailable } from './record-unavailable';
  * stop's. Hoisted so the hook's callbacks keep their identity across renders.
  */
 const NO_REFUSALS = {} as const;
-
-/**
- * Where the back link goes.
- *
- * `to` is widened to every route rather than to this page's domain, the same
- * trade `RecordFormPage` makes: a component cannot know each domain's routes, so
- * it takes the union and a wrong string is still refused. A page that wants the
- * narrower check declares its own type for the constant it passes.
- */
-interface RecordDetailBack {
-	readonly to: NonNullable<LinkProps['to']>;
-	readonly params?: Readonly<Record<string, string>>;
-	/** The whole link text: `Back to Habitats`. */
-	readonly label: string;
-}
 
 /** What a page knows about its record, before the frame decides what to draw. */
 export interface RecordReading<TRecord> {
@@ -42,7 +24,6 @@ export interface RecordReading<TRecord> {
 
 interface RecordDetailBase {
 	readonly layout: RecordDetailLayout;
-	readonly back: RecordDetailBack;
 	/** Lowercase, as it reads mid-sentence: `collection`, `weather station`. */
 	readonly noun: string;
 	/**
@@ -54,8 +35,6 @@ interface RecordDetailBase {
 	 * two happened, which is exactly what the frame decides.
 	 */
 	readonly unavailableTitle?: string;
-	/** Controls that belong beside the back link rather than in the header. */
-	readonly actions?: ReactNode;
 	/**
 	 * The refusals this record's delete may answer, from
 	 * `lib/acknowledgement-copy.ts`.
@@ -104,11 +83,12 @@ interface RecordDetailBodyProps extends RecordDetailBase {
 /**
  * The frame every record detail page is drawn in.
  *
- * It owns the scroll container, the measure, the back link, the fork between
- * placeholder, unavailable and content, and the acknowledgement dialog a delete
- * may raise. A page supplies its record, its noun, its cards and its writes.
+ * It owns the scroll container, the fork between placeholder, unavailable and
+ * content, and the acknowledgement dialog a delete may raise. A page supplies
+ * its record, its noun, its cards and its writes, and draws them in
+ * {@link DetailPageShell}, which owns the header bar and the measure.
  *
- * The measure is `record` rather than the 1200px `page` one, so a detail page
+ * That measure is `record` rather than the 1200px `page` one, so a detail page
  * fills the stage instead of sitting in a centred column with a quarter of a
  * 1920 screen empty beside it. What keeps that from stretching the content is
  * that the cards carry their own widths: a fact list stops at 34rem, and only
@@ -124,7 +104,7 @@ interface RecordDetailBodyProps extends RecordDetailBase {
 export function RecordDetailPage<TRecord>(
 	props: RecordDetailReadingProps<TRecord> | RecordDetailBodyProps,
 ) {
-	const { layout, back, noun, unavailableTitle, actions, deleteRefusals } = props;
+	const { layout, noun, unavailableTitle, deleteRefusals } = props;
 	// With nothing askable every refusal is rethrown, so a page that declares no
 	// refusals gets exactly the behaviour it had before it had a runner at all.
 	const { run, dialog } = useAcknowledgedWrite(
@@ -136,34 +116,29 @@ export function RecordDetailPage<TRecord>(
 	return (
 		/*
 		 * The scroll box is also the `record` container every split on this page
-		 * is measured against: see `record-detail-columns.tsx`. It is the stage,
-		 * the window less the two rails, which is the box the page has to divide.
+		 * is measured against: see `detail-page-shell.tsx`. It is the stage, the
+		 * window less the two rails, which is the box the page has to divide.
+		 *
+		 * The header is `sticky` and a header only sticks to the box it scrolls
+		 * in, so nothing may sit between this element and the one the page draws
+		 * its bar as. That is why the fork's states each render their own frame
+		 * rather than being wrapped in one here.
 		 */
 		<div className="@container/record h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
-				{actions === undefined ? (
-					<BackTo back={back} />
-				) : (
-					<div className="flex items-center justify-between gap-3">
-						<BackTo back={back} />
-						<div className="flex flex-wrap items-center gap-2">{actions}</div>
-					</div>
-				)}
-				{props.body === undefined ? (
-					<Fork
-						askDelete={run}
-						layout={layout}
-						noun={noun}
-						reading={props.reading}
-						unavailableTitle={unavailableTitle}
-					>
-						{props.children}
-					</Fork>
-				) : (
-					props.body(run)
-				)}
-				{dialog}
-			</div>
+			{props.body === undefined ? (
+				<Fork
+					askDelete={run}
+					layout={layout}
+					noun={noun}
+					reading={props.reading}
+					unavailableTitle={unavailableTitle}
+				>
+					{props.children}
+				</Fork>
+			) : (
+				props.body(run)
+			)}
+			{dialog}
 		</div>
 	);
 }
@@ -194,7 +169,7 @@ function Fork<TRecord>({
 }) {
 	const title = unavailableTitle === undefined ? {} : { title: unavailableTitle };
 	if (reading.isError === true) {
-		return <RecordUnavailable noun={noun} reason="error" {...title} />;
+		return <Unavailable noun={noun} reason="error" {...title} />;
 	}
 	if (reading.record !== null && reading.record !== undefined) {
 		return children(reading.record, askDelete);
@@ -202,14 +177,20 @@ function Fork<TRecord>({
 	if (!reading.isReady) {
 		return <RecordDetailSkeleton layout={layout} />;
 	}
-	return <RecordUnavailable noun={noun} reason="not-found" {...title} />;
+	return <Unavailable noun={noun} reason="not-found" {...title} />;
 }
 
-function BackTo({ back }: { readonly back: RecordDetailBack }) {
+/**
+ * The missing-record state, indented to where the record would have been.
+ *
+ * No header bar over it: the bar names a record, and this is the state where
+ * there is not one to name. The breadcrumb above the page still says which page
+ * the reader asked for.
+ */
+function Unavailable(props: ComponentProps<typeof RecordUnavailable>) {
 	return (
-		<Link className={backLink()} {...{ to: back.to, params: back.params ?? {} }}>
-			<ArrowLeftIcon aria-hidden="true" />
-			{back.label}
-		</Link>
+		<div className={detailBodyClass()}>
+			<RecordUnavailable {...props} />
+		</div>
 	);
 }

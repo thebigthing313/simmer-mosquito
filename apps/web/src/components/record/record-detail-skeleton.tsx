@@ -1,10 +1,12 @@
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { DetailPageHeaderSkeleton } from './detail-page-header';
 import {
 	detailAsideClass,
+	detailBodyClass,
 	detailCardRowClass,
 	detailGridClass,
 	detailMainClass,
-} from './record-detail-columns';
+} from './detail-page-shell';
 import type { RecordDetailBlock, RecordDetailLayout } from './record-detail-layout';
 import { keyedPlaceholders } from './skeleton-keys';
 
@@ -21,27 +23,25 @@ import { keyedPlaceholders } from './skeleton-keys';
  * a flag, which hands this to `fallback` instead of letting the frame fork.
  */
 export function RecordDetailSkeleton({ layout }: { readonly layout: RecordDetailLayout }) {
-	const { eyebrow, title, subtitle, main, aside } = layout.skeleton;
+	const { main, aside } = layout.skeleton;
 	return (
 		<>
-			<div className="grid gap-2">
-				{eyebrow === undefined ? null : <Skeleton className={`h-4 ${eyebrow}`} />}
-				<Skeleton className={`h-8 ${title ?? 'w-64'}`} />
-				{subtitle === undefined ? null : <Skeleton className={`h-4 ${subtitle}`} />}
-			</div>
-			<div className={detailGridClass(layout.aside)}>
-				<div className={detailMainClass(layout)}>
-					{keyedPlaceholders(main, 'main').map((block) => (
-						<SkeletonBlock block={block.value} key={block.key} />
-					))}
-				</div>
-				{aside === undefined ? null : (
-					<div className={detailAsideClass(layout)}>
-						{keyedPlaceholders(aside, 'aside').map((card) => (
-							<Skeleton className={card.value} key={card.key} />
+			<DetailPageHeaderSkeleton />
+			<div className={detailBodyClass()}>
+				<div className={detailGridClass(layout.aside)}>
+					<div className={detailMainClass(layout)}>
+						{keyedPlaceholders(main, 'main').map((block) => (
+							<SkeletonBlock block={block.value} key={block.key} />
 						))}
 					</div>
-				)}
+					{aside === undefined ? null : (
+						<div className={detailAsideClass(layout)}>
+							{keyedPlaceholders(aside, 'aside').map((card) => (
+								<Skeleton className={card.value} key={card.key} />
+							))}
+						</div>
+					)}
+				</div>
 			</div>
 		</>
 	);

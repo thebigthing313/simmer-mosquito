@@ -1,8 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -21,11 +19,10 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -38,7 +35,6 @@ import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-cop
 import { ContextBadge, controlContext, formatActionDate, formatMeasure } from '../-control-display';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 export const Route = createFileRoute('/control-operations/biocontrol/$id')({
 	component: RouteComponent,
@@ -47,7 +43,7 @@ export const Route = createFileRoute('/control-operations/biocontrol/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -59,7 +55,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to biocontrol', to: '/control-operations/biocontrol' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
 			noun="biocontrol action"
@@ -94,7 +89,7 @@ function BiocontrolDetailContent({
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.actionDate)}`);
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Follow-up, agent survival, and restocking notes for this release."
@@ -116,27 +111,14 @@ function BiocontrolDetailContent({
 					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<>
-							<ContextBadge context={controlContext(action)} />
-							<WriteOnly>
-								<Button asChild size="sm" variant="outline">
-									<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id/edit">
-										<EditIcon aria-hidden="true" />
-										Edit
-									</Link>
-								</Button>
-							</WriteOnly>
-						</>
-					}
-					eyebrow="Biocontrol"
-					icon={BiocontrolIcon}
-					description={`${amountLabel} released on ${formatActionDate(action.actionDate)}`}
-					title={methodName}
-				/>
-			}
+			header={{
+				edit: { params: { id: action.id }, to: '/control-operations/biocontrol/$id/edit' },
+				flags: <ContextBadge context={controlContext(action)} />,
+				icon: BiocontrolIcon,
+				recordType: 'Biocontrol',
+				subtitle: `${amountLabel} released on ${formatActionDate(action.actionDate)}`,
+				title: methodName,
+			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
@@ -158,7 +140,7 @@ function BiocontrolDetailContent({
 				recordType="biocontrolAction"
 				returnTo="/control-operations/biocontrol"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

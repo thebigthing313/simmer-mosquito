@@ -1,7 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -9,7 +7,7 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -20,11 +18,10 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -36,7 +33,6 @@ import { formatActionDate } from '../../control-operations/-control-display';
 import { formatReach } from '../-public-engagement-display';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 export const Route = createFileRoute('/public-engagement/outreach/$id')({
 	component: RouteComponent,
@@ -45,7 +41,7 @@ export const Route = createFileRoute('/public-engagement/outreach/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -57,7 +53,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to outreach', to: '/public-engagement/outreach' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
 			noun="outreach action"
@@ -86,7 +81,7 @@ function OutreachDetailContent({
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.outreachDate)}`);
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Follow-up, materials, and response notes for this outreach."
@@ -106,24 +101,13 @@ function OutreachDetailContent({
 					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: action.id }} to="/public-engagement/outreach/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					}
-					eyebrow="Outreach"
-					icon={OutreachIcon}
-					description={`${formatReach(action.reach)} reached on ${formatActionDate(action.outreachDate)}`}
-					title={methodName}
-				/>
-			}
+			header={{
+				edit: { params: { id: action.id }, to: '/public-engagement/outreach/$id/edit' },
+				icon: OutreachIcon,
+				recordType: 'Outreach',
+				subtitle: `${formatReach(action.reach)} reached on ${formatActionDate(action.outreachDate)}`,
+				title: methodName,
+			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
@@ -145,7 +129,7 @@ function OutreachDetailContent({
 				recordType="outreachAction"
 				returnTo="/public-engagement/outreach"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

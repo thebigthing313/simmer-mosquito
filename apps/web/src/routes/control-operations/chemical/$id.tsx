@@ -1,7 +1,6 @@
 import type { InsecticideBatch as InsecticideBatchOption } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -49,11 +48,10 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -79,7 +77,6 @@ export const Route = createFileRoute('/control-operations/chemical/$id')({
 
 const ApplicationIcon = iconRegistry.entities.application.icon;
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 // Roles that get a read-only view — no batch add/remove (mirrors the adult
@@ -89,7 +86,7 @@ const READ_ONLY_ROLES = new Set(['viewer']);
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-24', main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -105,7 +102,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to applications', to: '/control-operations/chemical' }}
 			deleteRefusals={APPLICATION_DELETE_REFUSALS}
 			layout={layout}
 			noun="application"
@@ -147,7 +143,7 @@ function ApplicationDetailContent({
 			: (habitatNameById.get(application.habitatId) ?? 'Unknown habitat');
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Field notes, product observations, and follow-up for this application."
@@ -168,32 +164,21 @@ function ApplicationDetailContent({
 					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<>
-							<ContextBadge context={controlContext(application)} />
-							{canEdit ? (
-								<WriteOnly>
-									<Button asChild size="sm" variant="outline">
-										<Link
-											params={{ id: application.id }}
-											to="/control-operations/chemical/$id/edit"
-										>
-											<EditIcon aria-hidden="true" />
-											Edit
-										</Link>
-									</Button>
-								</WriteOnly>
-							) : null}
-						</>
-					}
-					eyebrow="Application"
-					icon={ApplicationIcon}
-					description={`${amount} · ${formatActionDate(application.actionDate)}`}
-					title={productName}
-				/>
-			}
+			header={{
+				...(canEdit
+					? {
+							edit: {
+								params: { id: application.id },
+								to: '/control-operations/chemical/$id/edit' as const,
+							},
+						}
+					: {}),
+				flags: <ContextBadge context={controlContext(application)} />,
+				icon: ApplicationIcon,
+				recordType: 'Application',
+				subtitle: `${amount} · ${formatActionDate(application.actionDate)}`,
+				title: productName,
+			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
@@ -220,7 +205,7 @@ function ApplicationDetailContent({
 				recordType="application"
 				returnTo="/control-operations/chemical"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

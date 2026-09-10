@@ -7,5 +7,5 @@ export const Route = createFileRoute('/larval-surveillance/habitats/$id')({
 
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <HabitatDetail backTo="/larval-surveillance/habitats" habitatId={id} />;
+	return <HabitatDetail habitatId={id} />;
 }

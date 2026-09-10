@@ -1,8 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -11,7 +9,6 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -24,12 +21,11 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
 import { RequestStatusBadge } from '../../../components/request-status-badge';
-import { WriteOnly } from '../../../components/write-only';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
 	controlTypeLabel,
@@ -58,8 +54,9 @@ import { useCommandRunner } from '../-command-runner';
 import { MissionStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
+const ResolveIcon = iconRegistry.actions.select.icon;
+const ReopenIcon = iconRegistry.actions.reset.icon;
 const MissionIcon = iconRegistry.entities.route.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 export const Route = createFileRoute('/operations/requests-for-control/$id')({
 	component: RequestDetailRoute,
@@ -68,7 +65,7 @@ export const Route = createFileRoute('/operations/requests-for-control/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-32', main: [['h-[360px]', 'h-64'], 'h-40'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-40'], aside: ['h-72'] },
 };
 
 /**
@@ -87,7 +84,6 @@ function RequestDetailRoute() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to requests for control', to: '/operations/requests-for-control' }}
 			deleteRefusals={CONTROL_REQUEST_DELETE_REFUSALS}
 			layout={layout}
 			noun="request"
@@ -112,6 +108,8 @@ function RequestDetailContent({
 	const habitatName = useLinkedHabitatName(request.habitatId);
 	const requestWrites = useRequestedControlActionMutations();
 	const { busy, error, run } = useCommandRunner();
+	const timeZone = useOrganizationTimeZone();
+	const isOpen = request.status === 'open';
 
 	const toggleResolved = () => {
 		void run(
@@ -124,7 +122,7 @@ function RequestDetailContent({
 	};
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Why this was raised, what was found, and how it was settled."
@@ -132,21 +130,30 @@ function RequestDetailContent({
 				/>
 			}
 			facts={<RequestDetailsCard habitatName={habitatName} request={request} />}
-			header={
-				<>
-					<RequestHeader
-						busy={busy}
-						onToggleResolved={toggleResolved}
-						request={request}
-						subject={subject}
-					/>
-					{error === null ? null : (
-						<Alert variant="destructive">
-							<AlertDescription>{error}</AlertDescription>
-						</Alert>
-					)}
-				</>
-			}
+			header={{
+				actions: [
+					{
+						// Resolving is a manager call: it takes work off the queue.
+						disabled: busy,
+						icon: isOpen ? ResolveIcon : ReopenIcon,
+						id: 'resolution',
+						label: isOpen ? 'Mark Resolved' : 'Reopen Request',
+						minimum: 'manager',
+						onSelect: toggleResolved,
+					},
+				],
+				/*
+				 * Editing is `OWN_REQUESTED_ACTION`, the author or a manager. The
+				 * browser cannot tell authorship apart, so the pencil shows at the
+				 * write line and the server settles the rest.
+				 */
+				edit: { params: { id: request.id }, to: '/operations/requests-for-control/$id/edit' },
+				flags: <RequestStatusBadge status={request.status} />,
+				icon: RequestIcon,
+				recordType: 'Request for control',
+				subtitle: `${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`,
+				title: subject,
+			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
@@ -159,6 +166,11 @@ function RequestDetailContent({
 				</div>
 			}
 		>
+			{error === null ? null : (
+				<Alert variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
+			)}
 			<RequestMissionsCard requestId={request.id} />
 			<DangerZoneCard
 				ask={askDelete}
@@ -169,7 +181,7 @@ function RequestDetailContent({
 				recordType="requestedControlAction"
 				returnTo="/operations/requests-for-control"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
@@ -178,60 +190,6 @@ function useLinkedHabitatName(habitatId: string | null): string | null {
 	const habitatIds = habitatId === null ? [] : [habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 	return habitatId === null ? null : (habitatNameById.get(habitatId) ?? null);
-}
-
-function RequestHeader({
-	request,
-	subject,
-	busy,
-	onToggleResolved,
-}: {
-	readonly request: RequestRecord;
-	readonly subject: string;
-	readonly busy: boolean;
-	readonly onToggleResolved: () => void;
-}) {
-	const isOpen = request.status === 'open';
-	const timeZone = useOrganizationTimeZone();
-
-	return (
-		<PageHeader
-			actions={
-				<>
-					<RequestStatusBadge status={request.status} />
-					{/*
-					 * Editing is `OWN_REQUESTED_ACTION` — the author or a manager. The
-					 * browser cannot tell authorship apart, so the button shows at the
-					 * write line and the server settles the rest.
-					 */}
-					<WriteOnly>
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: request.id }} to="/operations/requests-for-control/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-					{/* Resolving is a manager call: it takes work off the queue. */}
-					<WriteOnly minimum="manager">
-						<Button
-							disabled={busy}
-							onClick={onToggleResolved}
-							size="sm"
-							variant={isOpen ? 'default' : 'outline'}
-						>
-							{busy ? <Spinner /> : null}
-							{isOpen ? 'Mark Resolved' : 'Reopen Request'}
-						</Button>
-					</WriteOnly>
-				</>
-			}
-			eyebrow="Request for Control"
-			icon={RequestIcon}
-			description={`${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`}
-			title={subject}
-		/>
-	);
 }
 
 /**

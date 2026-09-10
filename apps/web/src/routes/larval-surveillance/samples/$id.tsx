@@ -2,7 +2,6 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -40,7 +39,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -68,8 +67,6 @@ const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
 	skeleton: {
-		eyebrow: 'w-28',
-		subtitle: 'w-48',
 		main: [['h-[320px]', 'h-64'], 'h-64'],
 		aside: ['h-96'],
 	},
@@ -81,13 +78,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			actions={
-				<SampleSourceButtons
-					habitatId={query.data?.habitatId ?? null}
-					inspectionId={query.data?.inspectionId ?? null}
-				/>
-			}
-			back={{ label: 'Back to samples', to: '/larval-surveillance/samples' }}
 			deleteRefusals={SAMPLE_DELETE_REFUSALS}
 			layout={layout}
 			noun="sample"
@@ -193,36 +183,6 @@ interface SampleGeoRow {
 	readonly updatedAt: string;
 }
 
-/** The inspection this sample was taken on, and the site that inspection was at. */
-function SampleSourceButtons({
-	habitatId,
-	inspectionId,
-}: {
-	readonly habitatId: string | null;
-	readonly inspectionId: string | null;
-}) {
-	return (
-		<>
-			{inspectionId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: inspectionId }} to="/larval-surveillance/inspections/$id">
-						<InspectionIcon aria-hidden="true" />
-						View inspection
-					</Link>
-				</Button>
-			)}
-			{habitatId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-						<HabitatIcon aria-hidden="true" />
-						View habitat
-					</Link>
-				</Button>
-			)}
-		</>
-	);
-}
-
 function SampleDetailContent({
 	geo,
 	askDelete,
@@ -241,7 +201,7 @@ function SampleDetailContent({
 	const sampleMutations = useSampleMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Lab notes, identification context, and follow-up for this sample."
@@ -249,7 +209,13 @@ function SampleDetailContent({
 				/>
 			}
 			facts={<ContextCard geo={geo} />}
-			header={<SampleHeader canManage={canManage} geo={geo} />}
+			header={{
+				flags: <AccessBadge canManage={canManage} />,
+				icon: SampleIcon,
+				recordType: 'Larval sample',
+				subtitle: <SampleSubtitle geo={geo} />,
+				title: sampleName(geo),
+			}}
 			layout={layout}
 			lead={<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />}
 		>
@@ -263,48 +229,35 @@ function SampleDetailContent({
 				recordType="sample"
 				returnTo="/larval-surveillance/samples"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
-function SampleHeader({
-	geo,
-	canManage,
-}: {
-	readonly geo: SampleGeoRow;
-	readonly canManage: boolean;
-}) {
+/** When the sample was collected, and off what. */
+function SampleSubtitle({ geo }: { readonly geo: SampleGeoRow }) {
 	return (
-		<PageHeader
-			actions={<AccessBadge canManage={canManage} />}
-			description={
-				<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
-					<CalendarIcon aria-hidden="true" className="size-4" />
-					<span>Collected {formatFullDate(geo.inspectionDate)}</span>
-					{geo.habitatId === null ? (
-						<>
-							<span aria-hidden="true">·</span>
-							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
-						</>
-					) : (
-						<>
-							<span aria-hidden="true">·</span>
-							<span>at</span>
-							<Link
-								className={recordLink()}
-								params={{ id: geo.habitatId }}
-								to="/larval-surveillance/habitats/$id"
-							>
-								{habitatLabel(geo)}
-							</Link>
-						</>
-					)}
-				</p>
-			}
-			eyebrow="Larval sample"
-			icon={SampleIcon}
-			title={sampleName(geo)}
-		/>
+		<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
+			<CalendarIcon aria-hidden="true" className="size-4" />
+			<span>Collected {formatFullDate(geo.inspectionDate)}</span>
+			{geo.habitatId === null ? (
+				<>
+					<span aria-hidden="true">·</span>
+					<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
+				</>
+			) : (
+				<>
+					<span aria-hidden="true">·</span>
+					<span>at</span>
+					<Link
+						className={recordLink()}
+						params={{ id: geo.habitatId }}
+						to="/larval-surveillance/habitats/$id"
+					>
+						{habitatLabel(geo)}
+					</Link>
+				</>
+			)}
+		</p>
 	);
 }
 

@@ -5,7 +5,6 @@ import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -13,7 +12,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -35,11 +34,10 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import {
 	useBiocontrolMethodRoster,
@@ -70,8 +68,6 @@ const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
 	skeleton: {
-		eyebrow: 'w-28',
-		subtitle: 'w-48',
 		main: [['h-[420px]', 'h-[420px]'], 'h-48'],
 		aside: ['h-96'],
 	},
@@ -83,8 +79,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			actions={<ViewHabitatButton habitatId={query.data?.habitatId ?? null} />}
-			back={{ label: 'Back to inspections', to: '/larval-surveillance/inspections' }}
 			deleteRefusals={INSPECTION_DELETE_REFUSALS}
 			layout={layout}
 			noun="inspection"
@@ -100,7 +94,6 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const HabitatIcon = iconRegistry.entities.habitat.icon;
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 /**
  * The `/map/inspections/:id` display projection: the owned-geometry columns plus
@@ -154,21 +147,6 @@ interface SampleEntry {
 	readonly species: readonly SampleSpeciesEntry[];
 }
 
-/** The site this inspection was filed against, beside the way back to the list. */
-function ViewHabitatButton({ habitatId }: { readonly habitatId: string | null }) {
-	if (habitatId === null) {
-		return null;
-	}
-	return (
-		<Button asChild size="sm" variant="outline">
-			<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-				<HabitatIcon aria-hidden="true" />
-				View habitat
-			</Link>
-		</Button>
-	);
-}
-
 function InspectionDetailContent({
 	inspection,
 	askDelete,
@@ -181,7 +159,7 @@ function InspectionDetailContent({
 	const mutations = useInspectionMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Access notes, conditions, and follow-up for this inspection."
@@ -189,7 +167,23 @@ function InspectionDetailContent({
 				/>
 			}
 			facts={<ContextCard inspection={inspection} />}
-			header={<InspectionHeader inspection={inspection} />}
+			header={{
+				edit: {
+					params: { id: inspection.id },
+					to: '/larval-surveillance/inspections/$id/edit',
+				},
+				/*
+				 * What the inspection found belongs to the record's identity, so it
+				 * reads at the end of the header bar rather than in a band of its own.
+				 * A full-page strip carrying six cells and a short sentence was the
+				 * same complaint turned sideways.
+				 */
+				flags: <FindingsLine inspection={inspection} />,
+				icon: InspectionIcon,
+				recordType: 'Larval inspection',
+				subtitle: <InspectionSubtitle inspection={inspection} />,
+				title: formatFullDate(inspection.inspectionDate),
+			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
@@ -209,41 +203,7 @@ function InspectionDetailContent({
 				recordType="inspection"
 				returnTo="/larval-surveillance/inspections"
 			/>
-		</RecordDetailColumns>
-	);
-}
-
-function InspectionHeader({ inspection }: { readonly inspection: InspectionDetailRow }) {
-	return (
-		<div className="flex flex-wrap items-start justify-between gap-3">
-			<div className="grid gap-1.5">
-				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					<InspectionIcon aria-hidden="true" className="size-3.5" />
-					Larval inspection
-				</span>
-				<h1 className="m-0 flex items-center gap-2 font-semibold text-foreground text-heading leading-heading">
-					<CalendarIcon aria-hidden="true" className="size-5 text-muted-foreground" />
-					{formatFullDate(inspection.inspectionDate)}
-				</h1>
-				<InspectionSubtitle inspection={inspection} />
-				{/*
-				 * The result belongs to the record's identity — what this inspection
-				 * found is the last line of what it *is*, under the date and the site.
-				 * It sits in the header stack rather than in a band of its own so it
-				 * takes the width of what it holds; a full-page strip carrying six
-				 * cells and a short sentence was the same complaint turned sideways.
-				 */}
-				<FindingsLine inspection={inspection} />
-			</div>
-			<WriteOnly>
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id/edit">
-						<EditIcon aria-hidden="true" />
-						Edit
-					</Link>
-				</Button>
-			</WriteOnly>
-		</div>
+		</DetailPageShell>
 	);
 }
 

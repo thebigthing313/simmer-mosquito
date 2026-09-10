@@ -1,0 +1,286 @@
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import {
+	iconRegistry,
+	MoreHorizontalIcon,
+	type RegistryIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
+import { Link, type LinkProps } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
+import { useRecordTags } from '../../hooks/queries/use-record-tags';
+import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
+import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
+import { TagBadge } from '../tag-badge';
+
+/**
+ * The bar every record detail page opens with.
+ *
+ * Pinned rather than scrolled away, because a record page is long and the thing
+ * a reader loses first is which record they are on: the habitat history runs
+ * nine rows, the trap's collections twenty-two pages, and past the fold the
+ * page was a table with no name over it.
+ *
+ * It is `sticky` rather than `fixed`, which is what lets it share the scroll
+ * box with the content and therefore share the `record` container the layout is
+ * measured against. A fixed bar would be positioned against the viewport, so it
+ * would sit over the rails and need its own copy of the measure to line its
+ * title up with the first card. It follows DESIGN.md's Opaque Pin Rule: an
+ * opaque surface, a one-pixel bottom border, `z-10`, and no blur, since nothing
+ * shows through a surface that is already opaque.
+ *
+ * ## What is in it, and what is not
+ *
+ * Left: the record's icon and type, its name, and its supporting line. The
+ * controls that act on the record sit against the name rather than at the far
+ * right, because the far right of a page that now fills a 2560 screen is a
+ * thousand pixels from the thing being acted on.
+ *
+ * Right: the record's flags and its Tags. Both are facts about the record that
+ * a reader wants without scrolling, and both are the record's own state rather
+ * than an action, so they read as the far end of the bar rather than as
+ * controls somebody has to look past.
+ *
+ * There is no back link. It said the same thing the breadcrumb above it says
+ * and the browser's own back button does, three ways of going up, and the one
+ * that cost a row of the page was the one that could be wrong: it named a fixed
+ * destination, so a habitat opened from Daily Work offered "Back to habitats".
+ */
+export function DetailPageHeader({
+	icon: RecordIcon,
+	recordType,
+	title,
+	subtitle,
+	edit,
+	actions,
+	flags,
+	tags,
+}: DetailPageHeaderProps) {
+	return (
+		<DetailHeaderBar>
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					<RecordIcon aria-hidden="true" className="size-3.5" />
+					{recordType}
+				</span>
+				<div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-2">
+					<h1 className="m-0 text-pretty font-semibold text-foreground text-heading leading-heading">
+						{title}
+					</h1>
+					{edit === undefined ? null : <EditControl edit={edit} />}
+					<ActionsMenu actions={actions ?? NO_ACTIONS} />
+				</div>
+				{subtitle === undefined ? null : (
+					<div className="max-w-[68ch] text-pretty text-muted-foreground text-sm leading-snug">
+						{subtitle}
+					</div>
+				)}
+			</div>
+			<div className="flex flex-wrap items-center justify-end gap-1.5">
+				{flags}
+				{tags === undefined ? null : <RecordTags recordId={tags.recordId} />}
+			</div>
+		</DetailHeaderBar>
+	);
+}
+
+export interface DetailPageHeaderProps {
+	/** The record type's mark, from `iconRegistry.entities`. */
+	readonly icon: RegistryIcon;
+	/** The record type, sentence case: `Trap`, `Weather station`. */
+	readonly recordType: string;
+	/** The record's name. */
+	readonly title: string;
+	/** The line under the name: what this record is, in a few words. */
+	readonly subtitle?: ReactNode;
+	/** The pencil. Omit for a record with no edit route, which is the inspection. */
+	readonly edit?: DetailEditLink;
+	/** Everything else the page can do, behind the `...`. */
+	readonly actions?: readonly DetailAction[];
+	/** The record's state badges, drawn at the right end of the bar. */
+	readonly flags?: ReactNode;
+	/** The record's id, for the six record kinds `TAG_TARGET_TYPES` allows. */
+	readonly tags?: { readonly recordId: string };
+}
+
+/** Where the pencil goes, and who may press it. */
+export interface DetailEditLink {
+	readonly to: NonNullable<LinkProps['to']>;
+	readonly params?: Readonly<Record<string, string>>;
+	/** The floor for this record's edit command. Defaults to `collector`. */
+	readonly minimum?: MinimumRole;
+}
+
+interface DetailActionBase {
+	/** Stable across renders; the React key and nothing else. */
+	readonly id: string;
+	readonly label: string;
+	readonly icon: RegistryIcon;
+	/** The floor for the command behind it. Defaults to `collector`. */
+	readonly minimum?: MinimumRole;
+	/**
+	 * Leave the item out entirely. For an action the record's own state rules
+	 * out, such as collecting a Collection that has already been collected.
+	 */
+	readonly hidden?: boolean;
+}
+
+/** An action that goes somewhere: a merge page, a registrations page. */
+interface DetailActionLink extends DetailActionBase {
+	readonly to: NonNullable<LinkProps['to']>;
+	readonly params?: Readonly<Record<string, string>>;
+	readonly onSelect?: undefined;
+}
+
+/** An action that writes from here: resolving a request, collecting a trap. */
+interface DetailActionCommand extends DetailActionBase {
+	readonly onSelect: () => void;
+	readonly disabled?: boolean;
+	readonly to?: undefined;
+}
+
+/**
+ * One entry in the `...` menu.
+ *
+ * A union rather than a bag of optional fields, so an action cannot be both a
+ * link and a command and leave the reader of the call site guessing which one
+ * the click does.
+ */
+export type DetailAction = DetailActionLink | DetailActionCommand;
+
+const NO_ACTIONS: readonly DetailAction[] = [];
+
+const EditIcon = iconRegistry.actions.edit.icon;
+
+/**
+ * The bar's chrome and measure, shared with {@link DetailPageHeaderSkeleton} so
+ * the pinned bar is the same height before the record arrives and the content
+ * below it does not jump.
+ */
+function DetailHeaderBar({ children }: { readonly children: ReactNode }) {
+	return (
+		<header className="sticky top-0 z-10 border-border border-b bg-background">
+			<div
+				className={pageContainer({
+					flow: 'block',
+					gap: 'none',
+					measure: 'record',
+					padding: 'header',
+				})}
+			>
+				<div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">{children}</div>
+			</div>
+		</header>
+	);
+}
+
+/** The bar before the record, in the frame's skeleton. */
+export function DetailPageHeaderSkeleton() {
+	return (
+		<DetailHeaderBar>
+			<div className="flex min-w-0 flex-col gap-1.5">
+				<Skeleton className="h-4 w-24" />
+				<Skeleton className="h-8 w-64" />
+				<Skeleton className="h-4 w-48" />
+			</div>
+			<Skeleton className="h-6 w-32" />
+		</DetailHeaderBar>
+	);
+}
+
+function EditControl({ edit }: { readonly edit: DetailEditLink }) {
+	const auth = useAuthSnapshot();
+	if (!hasAtLeastRole(auth, edit.minimum ?? 'collector')) {
+		return null;
+	}
+	return (
+		<Button asChild aria-label="Edit" size="icon-sm" title="Edit" variant="ghost">
+			<Link {...{ to: edit.to, params: edit.params ?? {} }}>
+				<EditIcon aria-hidden="true" />
+			</Link>
+		</Button>
+	);
+}
+
+/**
+ * The `...` beside the record's name.
+ *
+ * The role check reads the snapshot once and filters, rather than wrapping each
+ * item in `WriteOnly`. Both hide the same items, but only this one can tell
+ * that every item is hidden, and a `...` that opens on an empty menu is worse
+ * than no `...` at all.
+ */
+function ActionsMenu({ actions }: { readonly actions: readonly DetailAction[] }) {
+	const auth = useAuthSnapshot();
+	const visible = actions.filter(
+		(action) => action.hidden !== true && hasAtLeastRole(auth, action.minimum ?? 'collector'),
+	);
+	if (visible.length === 0) {
+		return null;
+	}
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button aria-label="More actions" size="icon-sm" title="More actions" variant="ghost">
+					<MoreHorizontalIcon aria-hidden="true" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="min-w-52">
+				{visible.map((action) => (
+					<ActionItem action={action} key={action.id} />
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+function ActionItem({ action }: { readonly action: DetailAction }) {
+	const ActionIcon = action.icon;
+	if (action.to === undefined) {
+		return (
+			<DropdownMenuItem disabled={action.disabled ?? false} onSelect={action.onSelect}>
+				<ActionIcon aria-hidden="true" />
+				{action.label}
+			</DropdownMenuItem>
+		);
+	}
+	return (
+		<DropdownMenuItem asChild>
+			<Link {...{ to: action.to, params: action.params ?? {} }}>
+				<ActionIcon aria-hidden="true" />
+				{action.label}
+			</Link>
+		</DropdownMenuItem>
+	);
+}
+
+/**
+ * The record's Tags, at the right end of the bar.
+ *
+ * A sibling query rather than something the page passes down: it is keyed on
+ * the record id the header already has, and `tag_items.entity_id` is globally
+ * unique, so it needs no entity type. See `use-record-tags.ts`.
+ *
+ * Nothing is drawn for a record with no Tags. An empty row of chips would be a
+ * permanent blank at the top right of every untagged record, and "no tags" is
+ * already said in words on the pages whose fact card lists them.
+ */
+function RecordTags({ recordId }: { readonly recordId: string }) {
+	const tags = useRecordTags(recordId);
+	if (tags.length === 0) {
+		return null;
+	}
+	return (
+		<>
+			{tags.map((tag) => (
+				<TagBadge key={tag.id} tag={tag} />
+			))}
+		</>
+	);
+}

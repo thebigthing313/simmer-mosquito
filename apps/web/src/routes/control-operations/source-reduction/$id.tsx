@@ -1,8 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -21,11 +19,10 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -45,12 +42,11 @@ export const Route = createFileRoute('/control-operations/source-reduction/$id')
 });
 
 const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -66,7 +62,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to source reduction', to: '/control-operations/source-reduction' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
 			noun="source reduction action"
@@ -107,7 +102,7 @@ function SourceReductionDetailContent({
 	useBreadcrumbLabel(sourceReduction.id, methodName);
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Follow-up, access notes, and anything crews should know about this work."
@@ -130,27 +125,16 @@ function SourceReductionDetailContent({
 					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link
-									params={{ id: sourceReduction.id }}
-									to="/control-operations/source-reduction/$id/edit"
-								>
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					}
-					eyebrow="Source reduction"
-					icon={SourceReductionIcon}
-					description={`${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`}
-					title={methodName}
-				/>
-			}
+			header={{
+				edit: {
+					params: { id: sourceReduction.id },
+					to: '/control-operations/source-reduction/$id/edit',
+				},
+				icon: SourceReductionIcon,
+				recordType: 'Source reduction',
+				subtitle: `${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`,
+				title: methodName,
+			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
@@ -175,7 +159,7 @@ function SourceReductionDetailContent({
 				recordType="sourceReduction"
 				returnTo="/control-operations/source-reduction"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

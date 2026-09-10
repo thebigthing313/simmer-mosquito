@@ -1,5 +1,4 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
@@ -38,7 +37,7 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -71,12 +70,11 @@ export const Route = createFileRoute('/adult-surveillance/traps/$id')({
 const TrapIcon = iconRegistry.entities.trap.icon;
 const CollectionIcon = iconRegistry.entities.collection.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -86,7 +84,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to traps', to: '/adult-surveillance/traps' }}
 			deleteRefusals={TRAP_DELETE_REFUSALS}
 			layout={layout}
 			noun="trap"
@@ -116,7 +113,7 @@ function TrapDetailContent({
 	const lureName = trap.lureId === null ? null : (trap.lureName ?? 'Unknown lure');
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<CommentsSection
 					description="Access notes, maintenance, and follow-up for this trap."
@@ -124,27 +121,19 @@ function TrapDetailContent({
 				/>
 			}
 			facts={<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />}
-			header={
-				<PageHeader
-					actions={
-						<>
-							<StatusBadge isActive={trap.isActive} />
-							<WriteOnly minimum="manager">
-								<Button asChild size="sm" variant="outline">
-									<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id/edit">
-										<EditIcon aria-hidden="true" />
-										Edit
-									</Link>
-								</Button>
-							</WriteOnly>
-						</>
-					}
-					eyebrow="Trap"
-					icon={TrapIcon}
-					description={methodName}
-					title={trapDisplayName(trap)}
-				/>
-			}
+			header={{
+				edit: {
+					minimum: 'manager',
+					params: { id: trap.id },
+					to: '/adult-surveillance/traps/$id/edit',
+				},
+				flags: <StatusBadge isActive={trap.isActive} />,
+				icon: TrapIcon,
+				recordType: 'Trap',
+				subtitle: methodName,
+				tags: { recordId: trap.id },
+				title: trapDisplayName(trap),
+			}}
 			layout={layout}
 			lead={
 				<div className="grid content-start gap-3">
@@ -163,7 +152,7 @@ function TrapDetailContent({
 				recordType="trap"
 				returnTo="/adult-surveillance/traps"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

@@ -100,7 +100,7 @@ const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance',
  * do, so those are shared and the fork stays.
  */
 const layout: RecordDetailLayout = {
-	skeleton: { eyebrow: 'w-28', title: 'w-56', main: ['h-40', 'h-56'] },
+	skeleton: { main: ['h-40', 'h-56'] },
 };
 
 function ServiceRequestDetailRoute() {

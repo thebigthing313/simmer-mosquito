@@ -1,5 +1,7 @@
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
+import { DetailPageHeader, type DetailPageHeaderProps } from './detail-page-header';
 import type { RecordDetailAside, RecordDetailLayout } from './record-detail-layout';
 
 /*
@@ -79,11 +81,13 @@ function DetailCardRow({
 }
 
 /**
- * A record's cards, under its header.
+ * The frame one record is drawn in: a pinned header, then the record's cards.
  *
- * The header sits outside the split rather than in the left column, because it
- * names the whole record and a title indented to the width of one column reads
- * as a heading for that column alone.
+ * The header sits outside the column split rather than in the left column,
+ * because it names the whole record and a title indented to the width of one
+ * column reads as a heading for that column alone. It is also `sticky`, which
+ * only works on a direct child of the scroll box, so it is a sibling of the
+ * padded body rather than the first row of it. See {@link DetailPageHeader}.
  *
  * ## Where a record's facts go
  *
@@ -104,13 +108,12 @@ function DetailCardRow({
  * fact card. A page with only one of them gets a single card at the full width
  * of the main column, which is what it would have got anyway.
  *
- * The danger zone is not a slot here. It is a card, and every page but two puts
- * it last in the primary column, so a page passes it as the last child of
- * `children` and the two that keep it beside the fact cards pass it in `aside`.
+ * The danger zone is not a slot here. It is a card, and every page puts it last
+ * in the primary column, so a page passes it as the last child of `children`.
  * What the frame owns is holding the acknowledgement dialog above it, which is
  * the part a page gets wrong: see {@link RecordDetailPage}.
  */
-export function RecordDetailColumns({
+export function DetailPageShell({
 	layout,
 	header,
 	lead,
@@ -119,8 +122,8 @@ export function RecordDetailColumns({
 	children,
 }: {
 	readonly layout: RecordDetailLayout;
-	/** The record's name and the controls that act on it. */
-	readonly header: ReactNode;
+	/** The record's name, type, flags, Tags and the controls that act on it. */
+	readonly header: DetailPageHeaderProps;
 	/** Where the record is: its location card, usually a map. */
 	readonly lead?: ReactNode;
 	/** What the record says: its fact card, and any custom fields under it. */
@@ -132,20 +135,35 @@ export function RecordDetailColumns({
 }) {
 	return (
 		<>
-			{header}
-			<div className={detailGridClass(layout.aside)}>
-				<div className={detailMainClass(layout)}>
-					{lead === undefined && facts === undefined ? null : (
-						<DetailCardRow>
-							{lead}
-							{/* A run of fact cards stacks inside the half rather than beside it. */}
-							{facts === undefined ? null : <div className="grid content-start gap-5">{facts}</div>}
-						</DetailCardRow>
-					)}
-					{children}
+			<DetailPageHeader {...header} />
+			<div className={detailBodyClass()}>
+				<div className={detailGridClass(layout.aside)}>
+					<div className={detailMainClass(layout)}>
+						{lead === undefined && facts === undefined ? null : (
+							<DetailCardRow>
+								{lead}
+								{/* A run of fact cards stacks inside the half rather than beside it. */}
+								{facts === undefined ? null : (
+									<div className="grid content-start gap-5">{facts}</div>
+								)}
+							</DetailCardRow>
+						)}
+						{children}
+					</div>
+					{aside === undefined ? null : <div className={detailAsideClass(layout)}>{aside}</div>}
 				</div>
-				{aside === undefined ? null : <div className={detailAsideClass(layout)}>{aside}</div>}
 			</div>
 		</>
 	);
+}
+
+/**
+ * The measure and padding the record's cards sit in, under the pinned header.
+ *
+ * Exported because the skeleton and the unavailable state stand in the same
+ * body, and a page whose content is missing should still be indented to where
+ * the content would have been.
+ */
+export function detailBodyClass(): string {
+	return pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' });
 }

@@ -32,14 +32,16 @@ export type RecordDetailAside = 'wide';
  */
 export type RecordDetailBlock = string | readonly string[];
 
-/** What the frame draws while the record is still syncing. */
+/**
+ * What the frame draws while the record is still syncing.
+ *
+ * The header is not in here any more. Every detail page draws the same bar now,
+ * so its placeholder is the same three lines on every page and
+ * `DetailPageHeaderSkeleton` owns them. The fifteen `eyebrow`, `title` and
+ * `subtitle` widths that used to be declared here were fifteen guesses at the
+ * length of a name nobody had read yet.
+ */
 export interface RecordDetailSkeletonShape {
-	/** Width of the eyebrow line. Omit on a page whose header has no eyebrow. */
-	readonly eyebrow?: string | undefined;
-	/** Width of the title line. */
-	readonly title?: string | undefined;
-	/** Width of the line under the title, on the pages whose header has three. */
-	readonly subtitle?: string | undefined;
 	/** The primary column's cards, top to bottom. */
 	readonly main: readonly RecordDetailBlock[];
 	/** The side column's cards. Omit on a page with no side column. */

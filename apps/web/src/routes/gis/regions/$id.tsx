@@ -1,7 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -9,17 +7,16 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import type { Region } from '../../../hooks/queries/region-view';
 import { useRegion } from '../../../hooks/queries/use-region';
@@ -30,11 +27,10 @@ export const Route = createFileRoute('/gis/regions/$id')({
 });
 
 const RegionIcon = iconRegistry.entities.region.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 const layout: RecordDetailLayout = {
 	mainGap: 'tight',
-	skeleton: { eyebrow: 'w-20', main: [['h-[420px]', 'h-48'], 'h-40'] },
+	skeleton: { main: [['h-[420px]', 'h-48'], 'h-40'] },
 };
 
 function RouteComponent() {
@@ -44,12 +40,7 @@ function RouteComponent() {
 	const { region, isReady, isError } = useRegion(id);
 
 	return (
-		<RecordDetailPage
-			back={{ label: 'Back to Regions', to: '/gis/regions' }}
-			layout={layout}
-			noun="region"
-			reading={{ isError, isReady, record: region }}
-		>
+		<RecordDetailPage layout={layout} noun="region" reading={{ isError, isReady, record: region }}>
 			{(record) => <RegionDetailContent region={record} />}
 		</RecordDetailPage>
 	);
@@ -63,26 +54,16 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 	const geometryQuery = useRegionGeometry(region.id);
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			facts={<RegionDetailsCard description={region.description} folderName={folderName} />}
-			header={
-				<PageHeader
-					actions={
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: region.id }} to="/gis/regions/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					}
-					eyebrow="Region"
-					icon={RegionIcon}
-					description={folderName ?? 'Unfiled'}
-					title={region.name}
-				/>
-			}
+			header={{
+				edit: { minimum: 'manager', params: { id: region.id }, to: '/gis/regions/$id/edit' },
+				icon: RegionIcon,
+				recordType: 'Region',
+				subtitle: folderName ?? 'Unfiled',
+				tags: { recordId: region.id },
+				title: region.name,
+			}}
 			layout={layout}
 			lead={
 				<RegionBoundaryCard
@@ -101,7 +82,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 				recordType="region"
 				returnTo="/gis/regions"
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

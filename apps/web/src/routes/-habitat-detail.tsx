@@ -3,12 +3,10 @@ import { countGeoJsonVertices, formatGeometryTypeLabel } from '@simmer-mosquito/
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows, type PanelRowsMessage } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -46,14 +44,14 @@ import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordRegionsBand } from '../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
+	detailBodyClass,
 	type RecordDetailLayout,
 	RecordDetailPage,
 	RecordDetailSkeleton,
 	RecordUnavailable,
 } from '../components/record';
 import { RequestStatusBadge } from '../components/request-status-badge';
-import { WriteOnly } from '../components/write-only';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { controlTypeLabel, requestStatus } from '../hooks/queries/operations-view';
@@ -105,15 +103,11 @@ const historyPageSize = 25;
  * keyboard cannot reach.
  */
 const historyLinkClassName = recordLink({ tone: 'inherit', underline: 'hover' });
-// The larval-surveillance explorer is the only habitats index, so "Back to
-// habitats" always returns there.
-type HabitatDetailBackTo = '/larval-surveillance/habitats';
-
 interface HabitatDetailProps {
 	readonly habitatId: string;
-	readonly backTo?: HabitatDetailBackTo;
 }
 
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 const MergeIcon = iconRegistry.actions.merge.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
@@ -153,47 +147,14 @@ const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
 	skeleton: {
-		title: 'w-64',
 		main: [['h-[460px]', 'h-[460px]'], 'h-64'],
 		aside: ['h-96'],
 	},
 };
 
-export function HabitatDetail({
-	habitatId,
-	backTo = '/larval-surveillance/habitats',
-}: HabitatDetailProps) {
+export function HabitatDetail({ habitatId }: HabitatDetailProps) {
 	return (
 		<RecordDetailPage
-			actions={
-				backTo === '/larval-surveillance/habitats' ? (
-					<>
-						{/*
-						 * Merging is reached from a habitat rather than from a list of
-						 * proposals, because two records for one catch basin agree about
-						 * nothing except where they are. The habitat somebody is already
-						 * looking at is the one that survives, which is the choice a
-						 * cleanup page has to make with a radio and get wrong in silence.
-						 */}
-						<WriteOnly minimum={WRITE_SURFACE_FLOORS['/larval-surveillance/habitats/$id/merge']}>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/merge">
-									<MergeIcon aria-hidden="true" />
-									Merge duplicates
-								</Link>
-							</Button>
-						</WriteOnly>
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
-									Edit Habitat
-								</Link>
-							</Button>
-						</WriteOnly>
-					</>
-				) : undefined
-			}
-			back={{ label: 'Back to habitats', to: backTo }}
 			body={(askDelete) => (
 				<Suspense fallback={<RecordDetailSkeleton layout={layout} />}>
 					<HabitatDetailLoader askDelete={askDelete} habitatId={habitatId} />
@@ -218,7 +179,11 @@ function HabitatDetailLoader({
 	const habitat = useHabitatSuspense(habitatId);
 
 	if (habitat === undefined) {
-		return <RecordUnavailable noun="habitat" reason="not-found" />;
+		return (
+			<div className={detailBodyClass()}>
+				<RecordUnavailable noun="habitat" reason="not-found" />
+			</div>
+		);
 	}
 
 	return <HabitatDetailContent askDelete={askDelete} habitat={habitat} />;
@@ -242,7 +207,7 @@ function HabitatDetailContent({
 	const mutations = useHabitatMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<>
 					<HabitatInspectionStats habitatId={habitat.id} />
@@ -259,7 +224,36 @@ function HabitatDetailContent({
 					isGeometryPending={isGeometryPending}
 				/>
 			}
-			header={<HabitatDetailHeader habitat={habitat} />}
+			header={{
+				actions: [
+					{
+						/*
+						 * Merging is reached from a habitat rather than from a list of
+						 * proposals, because two records for one catch basin agree about
+						 * nothing except where they are. The habitat somebody is already
+						 * looking at is the one that survives, which is the choice a
+						 * cleanup page has to make with a radio and get wrong in silence.
+						 */
+						icon: MergeIcon,
+						id: 'merge',
+						label: 'Merge duplicates',
+						minimum: WRITE_SURFACE_FLOORS['/larval-surveillance/habitats/$id/merge'],
+						params: { id: habitat.id },
+						to: '/larval-surveillance/habitats/$id/merge',
+					},
+				],
+				edit: { params: { id: habitat.id }, to: '/larval-surveillance/habitats/$id/edit' },
+				flags: <HabitatStateBadges habitat={habitat} />,
+				icon: HabitatIcon,
+				recordType: 'Habitat',
+				subtitle: (
+					<Suspense fallback={<span>Loading type…</span>}>
+						<HabitatTypeLabel habitatTypeId={habitat.typeId} />
+					</Suspense>
+				),
+				tags: { recordId: habitat.id },
+				title: habitat.name,
+			}}
 			layout={layout}
 			lead={<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />}
 		>
@@ -279,21 +273,7 @@ function HabitatDetailContent({
 				recordType="habitat"
 				returnTo="/larval-surveillance/habitats"
 			/>
-		</RecordDetailColumns>
-	);
-}
-
-function HabitatDetailHeader({ habitat }: { readonly habitat: Habitat }) {
-	return (
-		<PageHeader
-			actions={<HabitatStateBadges habitat={habitat} />}
-			description={
-				<Suspense fallback={<span>Loading type…</span>}>
-					<HabitatTypeLabel habitatTypeId={habitat.typeId} />
-				</Suspense>
-			}
-			title={habitat.name}
-		/>
+		</DetailPageShell>
 	);
 }
 
