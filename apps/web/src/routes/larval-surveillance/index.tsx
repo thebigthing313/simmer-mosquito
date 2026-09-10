@@ -1,4 +1,3 @@
-import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
@@ -530,10 +529,6 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 }
 
 // --- heavy / very heavy -----------------------------------------------------
-
-function _isHot(density: LarvalDensity | null): boolean {
-	return density === 'heavy' || density === 'very_heavy';
-}
 
 function HeavyInspectionsPanel({
 	since,

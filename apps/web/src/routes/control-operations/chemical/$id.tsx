@@ -56,6 +56,7 @@ import {
 import { WriteOnly } from '../../../components/write-only';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useApplication } from '../../../hooks/queries/use-application';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
 import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -74,8 +75,6 @@ const ApplicationIcon = iconRegistry.entities.application.icon;
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
-
-const applicationGcTimeMs = 30_000;
 
 // Roles that get a read-only view — no batch add/remove (mirrors the adult
 // collection detail's read-only gate).
@@ -96,7 +95,7 @@ function RouteComponent() {
 	// One query for the application, its product, method, unit, applicator, rig and
 	// address — the lookups this page used to do for itself. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id, { gcTime: applicationGcTimeMs });
+	const { application, isReady, isError } = useApplication(id, { gcTime: activityGcTimeMs });
 
 	return (
 		<RecordDetailPage
@@ -276,7 +275,7 @@ function ApplicationBatchesCard({
 	// linked, so scope the subset to the applied insecticide.
 	const batchResult = useLiveQuery(
 		{
-			gcTime: applicationGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ batch: insecticide_batches() })

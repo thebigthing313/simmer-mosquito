@@ -228,17 +228,6 @@ export function validateEmail({ value }: { readonly value: string }): string | u
 	return 'Main contact must be a valid email address.';
 }
 
-function _nullableNonnegativeIntegerValue(value: number | null, label: string): number | null {
-	if (value === null) {
-		return null;
-	}
-
-	if (!Number.isInteger(value) || value < 0) {
-		throw new Error(`${label} must be a nonnegative whole number.`);
-	}
-	return value;
-}
-
 function nonnegativeNumberValue(value: number | null, label: string): number {
 	if (value === null || !Number.isFinite(value) || value < 0) {
 		throw new Error(`${label} must be zero or greater.`);

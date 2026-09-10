@@ -28,6 +28,7 @@ import {
 import { WriteOnly } from '../../../components/write-only';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
 import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
@@ -38,8 +39,6 @@ import { ContextBadge, formatActionDate, formatMeasure } from '../-control-displ
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-
-const biocontrolGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/control-operations/biocontrol/$id')({
 	component: RouteComponent,
@@ -56,7 +55,7 @@ function RouteComponent() {
 	// One query for the release, its method, unit, technician and address — the
 	// lookups this page used to do for itself. `biocontrol_actions` is on-demand,
 	// so this is status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: biocontrolGcTimeMs });
+	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: activityGcTimeMs });
 
 	return (
 		<RecordDetailPage

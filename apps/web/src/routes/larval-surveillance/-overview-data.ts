@@ -2,6 +2,7 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { gte, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../auth';
+import { activityGcTimeMs } from '../../hooks/queries/shared';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { sample_species } from '../../lib/collections/sample_species';
 import { addCalendarDays, calendarDateParts, utcCalendarDay } from '../../lib/local-date';
@@ -11,10 +12,6 @@ import { unreadable, warnUnreadable } from '../../lib/unreadable-input';
 export const ACTIVITY_WINDOW_DAYS = 14;
 /** Days in a calendar week (the daily-inspections strip). */
 const WEEK_LENGTH = 7;
-
-// Inspections, samples, and sample_species are on-demand shapes (docs/sync.md).
-// Keep the subset warm briefly after unmount so quick nav back reuses it.
-const activityGcTimeMs = 30_000;
 
 // --- projected query shapes -------------------------------------------------
 

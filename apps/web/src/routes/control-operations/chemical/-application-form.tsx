@@ -29,6 +29,7 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type {
 	FormulationComponentListing,
@@ -871,10 +872,6 @@ function FormulationBreakdown({
 	);
 }
 
-// insecticide_batches is on-demand (docs/sync.md); keep a product's subset warm
-// briefly so flipping between products does not refetch each time.
-const batchOptionsGcTimeMs = 30_000;
-
 /**
  * The chosen product's lots, as picker options. They sync on demand, so the list
  * comes from a live subset scoped to that product rather than a client-side
@@ -890,7 +887,7 @@ function InsecticideBatchOptions({
 }) {
 	const result = useLiveQuery(
 		{
-			gcTime: batchOptionsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ batch: insecticide_batches() })

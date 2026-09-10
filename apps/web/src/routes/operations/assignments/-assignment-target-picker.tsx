@@ -3,6 +3,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
+import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { type TrapListing, useActiveTraps } from '../../../hooks/queries/use-active-traps';
 import { addresses } from '../../../lib/collections/addresses';
@@ -16,9 +17,6 @@ import { useOpenServiceRequests } from './-assignment-data';
 // one combined search — each catalog already searches the way it wants to (eager
 // filter, live `ilike` subset, open-requests list), and merging them would mean
 // rebuilding all three to agree on one.
-
-const addressGcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 const TYPE_TABS: readonly { readonly type: TargetType; readonly label: string }[] = [
 	{ type: 'habitat', label: 'Habitat' },
@@ -302,12 +300,12 @@ function useRequestAddresses(requests: readonly OpenServiceRequest[]): ReadonlyM
 
 	const result = useLiveQuery(
 		{
-			gcTime: addressGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ address: addresses() })
 					.where(({ address }) =>
-						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
+						inArray(address.id, addressIds.length > 0 ? addressIds : [unmatchableId]),
 					)
 					.select(({ address }) => ({ id: address.id, displayName: address.display_name })),
 		},

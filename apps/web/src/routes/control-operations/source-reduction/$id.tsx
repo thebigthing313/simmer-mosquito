@@ -28,6 +28,7 @@ import {
 import { WriteOnly } from '../../../components/write-only';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
@@ -46,8 +47,6 @@ export const Route = createFileRoute('/control-operations/source-reduction/$id')
 const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
-const sourceReductionGcTimeMs = 30_000;
-
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
@@ -63,7 +62,7 @@ function RouteComponent() {
 		action: sourceReduction,
 		isReady,
 		isError,
-	} = useSourceReduction(id, { gcTime: sourceReductionGcTimeMs });
+	} = useSourceReduction(id, { gcTime: activityGcTimeMs });
 
 	return (
 		<RecordDetailPage

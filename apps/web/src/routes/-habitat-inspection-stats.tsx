@@ -15,13 +15,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Cell, Pie, PieChart } from 'recharts';
+import { activityGcTimeMs } from '../hooks/queries/shared';
 import { inspections } from '../lib/collections/inspections';
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
-
-// Same on-demand collection + gcTime contract as the history card; the subset is
-// shared, so this second live query reuses the warm habitat slice.
-const statsGcTimeMs = 30_000;
 
 // Minimal projection: just the fields that decide dry / wet-negative / wet-positive.
 interface InspectionStatsRow {
@@ -128,7 +125,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 	// pattern (not useLiveSuspenseQuery) to avoid the post-unmount suspense hang.
 	const result = useLiveQuery(
 		{
-			gcTime: statsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ inspection: inspections() })

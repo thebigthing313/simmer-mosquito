@@ -5,6 +5,7 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -27,8 +28,6 @@ import {
 	noTechnicianValue,
 } from './-biocontrol-form';
 
-const biocontrolGcTimeMs = 30_000;
-
 export const Route = createFileRoute('/control-operations/biocontrol/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
 		if (await isBelowWriteFloor(context, '/control-operations/biocontrol/$id/edit')) {
@@ -50,7 +49,7 @@ function EditBiocontrolActionRoute() {
 	const { all: units } = useUnitLabels();
 	const profiles = useProfileRoster();
 
-	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: biocontrolGcTimeMs });
+	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: activityGcTimeMs });
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

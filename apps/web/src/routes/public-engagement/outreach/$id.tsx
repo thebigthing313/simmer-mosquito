@@ -27,6 +27,7 @@ import {
 import { WriteOnly } from '../../../components/write-only';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
@@ -36,8 +37,6 @@ import { formatReach } from '../-public-engagement-display';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-
-const outreachGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/public-engagement/outreach/$id')({
 	component: RouteComponent,
@@ -54,7 +53,7 @@ function RouteComponent() {
 	// One query for the action, its method, technician and address — the lookups
 	// this page used to do for itself. `outreach_actions` is on-demand, so this is
 	// status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useOutreachAction(id, { gcTime: outreachGcTimeMs });
+	const { action, isReady, isError } = useOutreachAction(id, { gcTime: activityGcTimeMs });
 
 	return (
 		<RecordDetailPage

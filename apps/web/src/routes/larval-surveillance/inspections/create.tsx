@@ -8,6 +8,7 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../forms/record-extras';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
@@ -44,8 +45,6 @@ export const Route = createFileRoute('/larval-surveillance/inspections/create')(
 	},
 	component: CreateInspectionRoute,
 });
-
-const warmGcTimeMs = 30_000;
 
 /**
  * The habitat to open the form on, the counterpart of the collection form's
@@ -92,7 +91,7 @@ function useNewInspectionDraft(): string {
 	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
 	useLiveQuery(
 		{
-			gcTime: warmGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ sample: samples() })

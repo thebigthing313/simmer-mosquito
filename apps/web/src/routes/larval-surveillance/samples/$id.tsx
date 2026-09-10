@@ -56,6 +56,7 @@ import {
 	type SampleSpeciesFields,
 	useSampleSpeciesMutations,
 } from '../../../hooks/mutations/use-sample-species-mutations';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -111,10 +112,6 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
-
-// The sample record + its species rows stream from on-demand collections; keep the
-// subset warm briefly after unmount so returning to the page reuses it.
-const sampleRecordGcTimeMs = 30_000;
 
 /**
  * One identification as this page holds it.
@@ -384,7 +381,7 @@ function IdentificationCard({
 	// and label. Falls back to the one-shot seed until the subset is ready.
 	const recordResult = useLiveQuery(
 		{
-			gcTime: sampleRecordGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
 		},
@@ -392,7 +389,7 @@ function IdentificationCard({
 	);
 	const speciesResult = useLiveQuery(
 		{
-			gcTime: sampleRecordGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ sampleSpecies: sample_species() })

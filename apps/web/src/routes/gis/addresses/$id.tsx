@@ -32,8 +32,6 @@ export const Route = createFileRoute('/gis/addresses/$id')({
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
-const _addressGcTimeMs = 30_000;
-
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	mainGap: 'tight',

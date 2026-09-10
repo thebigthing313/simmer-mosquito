@@ -3,6 +3,7 @@ import type { RouteStopFeature } from '../../../components/map';
 import type { StopTone } from '../../../components/stop-order';
 import type { AssignmentStatus, ProgressCounts } from '../../../hooks/queries/assignment-view';
 import { assignmentStatus } from '../../../hooks/queries/assignment-view';
+import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { addresses } from '../../../lib/collections/addresses';
@@ -34,14 +35,6 @@ import { type LifecycleOption, lifecycleOptions } from '../../../lib/lifecycle-o
  * to — which is a page's question rather than a table's, and stays beside the
  * pages that ask it.
  */
-
-// `assignments` and `assignment_items` are both on-demand shapes (docs/sync.md);
-// hold a worklist's rows briefly after unmount so list → run → plan reuses them.
-const assignmentsGcTimeMs = 30_000;
-
-// A syntactically valid uuid that matches no row — keeps an `IN`/`eq` subset
-// predicate live (and empty) while an id set is still unresolved.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 /** Radix Select forbids an empty-string item value, so "nobody" needs a name. */
 export const NO_ASSIGNEE = 'none';
@@ -228,11 +221,11 @@ export function useAssignment(assignmentId: string | null): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ assignment: assignments() })
-					.where(({ assignment }) => eq(assignment.id, assignmentId ?? UNMATCHABLE_ID))
+					.where(({ assignment }) => eq(assignment.id, assignmentId ?? unmatchableId))
 					.select(({ assignment }) => ({
 						id: assignment.id,
 						assignmentName: assignment.assignment_name,
@@ -285,11 +278,11 @@ export function useAssignmentItems(assignmentId: string | null): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: assignment_items() })
-					.where(({ item }) => eq(item.assignment_id, assignmentId ?? UNMATCHABLE_ID))
+					.where(({ item }) => eq(item.assignment_id, assignmentId ?? unmatchableId))
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item }) => ({
 						id: item.id,
@@ -340,11 +333,11 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 	// branches reading the same way.
 	const trapResult = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ trap: traps() })
-					.where(({ trap }) => inArray(trap.id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]))
+					.where(({ trap }) => inArray(trap.id, trapIds.length > 0 ? trapIds : [unmatchableId]))
 					.select(({ trap }) => ({
 						id: trap.id,
 						trapName: trap.trap_name,
@@ -361,12 +354,12 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 
 	const habitatResult = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ habitat: habitats() })
 					.where(({ habitat }) =>
-						inArray(habitat.id, habitatIds.length > 0 ? habitatIds : [UNMATCHABLE_ID]),
+						inArray(habitat.id, habitatIds.length > 0 ? habitatIds : [unmatchableId]),
 					)
 					.select(({ habitat }) => ({
 						id: habitat.id,
@@ -384,12 +377,12 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 
 	const requestResult = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ request: service_requests() })
 					.where(({ request }) =>
-						inArray(request.id, requestIds.length > 0 ? requestIds : [UNMATCHABLE_ID]),
+						inArray(request.id, requestIds.length > 0 ? requestIds : [unmatchableId]),
 					)
 					.select(({ request }) => ({
 						id: request.id,
@@ -413,12 +406,12 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 
 	const addressResult = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ address: addresses() })
 					.where(({ address }) =>
-						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
+						inArray(address.id, addressIds.length > 0 ? addressIds : [unmatchableId]),
 					)
 					.select(({ address }) => ({ id: address.id, displayName: address.display_name })),
 		},
@@ -628,13 +621,13 @@ function usePendingTrapCollections(
 
 	const result = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ collection: collections() })
 					.where(({ collection }) =>
 						and(
-							inArray(collection.trap_id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]),
+							inArray(collection.trap_id, trapIds.length > 0 ? trapIds : [unmatchableId]),
 							// The pending state, spelled out: a date-plus-duration collection
 							// also has a null `collected_at` and is not waiting for anybody.
 							// `isNull`, not `eq(…, null)` — the query builder follows SQL
@@ -747,7 +740,7 @@ export function useOpenServiceRequests(): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ request: service_requests() })
@@ -788,11 +781,11 @@ export function useRouteSnapshotItems(routeId: string | null): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: assignmentsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
-					.where(({ item }) => eq(item.route_id, routeId ?? UNMATCHABLE_ID))
+					.where(({ item }) => eq(item.route_id, routeId ?? unmatchableId))
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item }) => ({
 						routeItemId: item.id,

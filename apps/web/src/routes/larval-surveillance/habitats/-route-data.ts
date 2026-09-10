@@ -4,18 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../../auth';
 import type { RouteStopFeature } from '../../../components/map';
 import type { RouteSummary } from '../../../components/route-planning/route-summary';
+import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
 import { addresses } from '../../../lib/collections/addresses';
 import { habitats } from '../../../lib/collections/habitats';
 import { route_items } from '../../../lib/collections/route_items';
 import { routes } from '../../../lib/collections/routes';
-
-// `route_items` is an on-demand shape (docs/sync.md); keep a route's members warm
-// briefly after unmount so hopping index → detail → edit reuses the subset.
-const routeItemsGcTimeMs = 30_000;
-
-// A syntactically valid uuid that matches no row — keeps an `IN`/`eq` subset
-// predicate live (and empty) while a route/id set is still unresolved.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 /** The slice of a habitat the route surfaces need — geometry, status, address. */
 export interface HabitatSite {
@@ -130,7 +123,7 @@ export function useRouteStopCounts(): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -173,7 +166,7 @@ export function useRouteStops(routeId: string | null): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -181,7 +174,7 @@ export function useRouteStops(routeId: string | null): {
 						and(
 							// An unmatchable id keeps the hook order stable while no route is
 							// selected — a live query cannot be conditional.
-							eq(item.route_id, routeId ?? UNMATCHABLE_ID),
+							eq(item.route_id, routeId ?? unmatchableId),
 							// Pushed into the predicate rather than filtered afterwards: a trap
 							// route's items are rows this subset should never have loaded.
 							eq(item.entity_type, 'habitat'),

@@ -15,7 +15,7 @@ import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, DrawGeometryType } from '../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { WriteOnly } from '../../../components/write-only';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
@@ -340,42 +340,6 @@ function habitatTypeOptions(habitatTypes: readonly SchemaCatalogListing[]) {
 			(type) => type.name,
 		),
 	];
-}
-
-function _drawInstruction(type: DrawGeometryType, vertexCount: number): string {
-	if (type === 'Point') {
-		return 'Click the map to place the point.';
-	}
-	const noun = type === 'LineString' ? 'line' : 'area';
-	const minimum = type === 'LineString' ? 2 : 3;
-	if (vertexCount === 0) {
-		return `Click the map to start the ${noun}.`;
-	}
-	const count = `${vertexCount} ${vertexCount === 1 ? 'vertex' : 'vertices'}`;
-	if (vertexCount < minimum) {
-		const remaining = minimum - vertexCount;
-		return `${count} · add ${remaining} more to finish.`;
-	}
-	return `${count} · double-click or Finish to complete.`;
-}
-
-function _geometrySummary(geometry: DrawGeometry | null): string {
-	if (geometry === null) {
-		return 'No geometry drawn yet.';
-	}
-	if (geometry.type === 'Point') {
-		const coordinates = geometry.coordinates;
-		if (!Array.isArray(coordinates) || coordinates.length < 2) {
-			return 'Point';
-		}
-		return `Point · ${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)}`;
-	}
-	if (geometry.type === 'LineString') {
-		const count = Array.isArray(geometry.coordinates) ? geometry.coordinates.length : 0;
-		return `Line · ${count} vertices`;
-	}
-	const ring = geometry.coordinates?.[0] ?? [];
-	return `Polygon · ${Math.max(ring.length - 1, 0)} vertices`;
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

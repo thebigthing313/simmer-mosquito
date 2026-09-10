@@ -36,26 +36,6 @@ import { unreadable } from '../../lib/unreadable-input';
  * navigation group they sit in.
  */
 
-// `missions`, `mission_items`, and `requested_control_actions` are all on-demand
-// shapes (docs/sync.md); hold their rows briefly after unmount so map → create →
-// back reuses the stream rather than refetching it.
-const _operationsGcTimeMs = 30_000;
-
-/** A syntactically valid uuid no row matches — keeps a subset predicate live and empty. */
-const _UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
-/**
- * Timestamps are validated against the server's clock with no tolerance, so a
- * client running even slightly fast has its writes rejected as "in the future"
- * (issue #37). Backdating by a couple of seconds costs nothing on a provenance
- * timestamp — see the same margin in `-assignment-data`.
- */
-const CLOCK_SKEW_MARGIN_MS = 2_000;
-
-function _nowTimestamp(): string {
-	return new Date(Date.now() - CLOCK_SKEW_MARGIN_MS).toISOString();
-}
-
 // --- derived state ----------------------------------------------------------
 
 /**

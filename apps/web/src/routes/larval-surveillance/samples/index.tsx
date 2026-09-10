@@ -637,17 +637,6 @@ function SpeciesResults({
 	);
 }
 
-function _StatusDot({ status }: { readonly status: SampleStatus }) {
-	return (
-		<span
-			aria-hidden="true"
-			className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
-			style={{ backgroundColor: SAMPLE_STATUS_COLORS[status] }}
-			title={sampleStatusLabel(status)}
-		/>
-	);
-}
-
 // --- selected sample detail card --------------------------------------------
 
 // --- data hooks -------------------------------------------------------------
