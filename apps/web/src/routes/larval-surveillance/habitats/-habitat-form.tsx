@@ -4,7 +4,6 @@ import { centroidFromGeoJson } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -12,13 +11,13 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { getServerUrl } from '../../../auth';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
-import { AddressPicker } from '../../../components/pickers/address-picker';
 import { WriteOnly } from '../../../components/write-only';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
@@ -94,7 +93,7 @@ export function HabitatFormPage({
 		initialGeometry,
 		missingMessage: 'Draw the habitat geometry on the map before saving.',
 	});
-	const { addressCoord, draw, geometry, geometryType } = location;
+	const { draw, geometry, geometryType } = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -200,41 +199,26 @@ export function HabitatFormPage({
 				{/* Address above geometry, in one section — the same Location block
 							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
-					<LocationSection
+					<LocationBand
 						description={locationDescription({
 							geometryKind: 'habitat',
 							subject: 'The geometry is the habitat itself.',
 						})}
-						error={location.locationError}
+						geometryKind="habitat"
+						location={location}
+						organizationId={organizationId}
 					>
 						<form.AppField name="addressId">
 							{(field) => (
-								<AddressPicker
-									create={{ requestMapPoint: location.requestMapPoint }}
-									onSelect={(address) => {
-										field.handleChange(address?.id ?? null);
-										location.selectAddress(address);
-									}}
+								<LocationAddressField
+									location={location}
+									onChange={field.handleChange}
 									organizationId={organizationId}
 									value={field.state.value}
 								/>
 							)}
 						</form.AppField>
-
-						<GeometryControl
-							controller={draw}
-							geometry={geometry}
-							geometryType={geometryType}
-							geometryKind="habitat"
-							label="Geometry"
-							required
-							onClear={location.clear}
-							onDraw={location.startDraw}
-							onTypeChange={location.changeType}
-							organizationId={organizationId}
-							{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-						/>
-					</LocationSection>
+					</LocationBand>
 				</WriteOnly>
 
 				<form.AppField

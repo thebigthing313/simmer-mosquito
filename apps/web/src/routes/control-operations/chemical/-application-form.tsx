@@ -7,7 +7,6 @@ import {
 	customSchemaFor,
 	type FieldOption,
 	FormSection,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -19,7 +18,7 @@ import type { ReactNode } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
@@ -29,6 +28,7 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type {
@@ -44,7 +44,7 @@ import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
 import { insecticideDisplayName } from '../-control-display';
-import { AddressPicker, HabitatPicker } from '../-control-pickers';
+import { HabitatPicker } from '../-control-pickers';
 import {
 	componentAmounts,
 	formatAmountValue,
@@ -251,7 +251,7 @@ export function ApplicationFormPage({
 		missingMessage: 'Map where the product was applied.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType } = location;
+	const { draw, geometry, geometryType } = location;
 
 	const insecticideOptions = lifecycleOptions(
 		insecticides,
@@ -443,55 +443,40 @@ export function ApplicationFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection
+				<LocationBand
+					below={
+						<form.AppField name="habitatId">
+							{(field) => (
+								<HabitatPicker
+									label="Habitat"
+									organizationId={organizationId}
+									onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+					}
 					description={locationDescription({
 						geometryKind: 'controlAction',
 						subject: 'The geometry is where the product was applied.',
 						habitat: true,
 					})}
-					error={location.locationError}
+					geometryKind="controlAction"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="controlAction"
-						label="Geometry"
-						required={requireLocation}
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						onTypeChange={location.changeType}
-						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-
-					<form.AppField name="habitatId">
-						{(field) => (
-							<HabitatPicker
-								label="Habitat"
-								organizationId={organizationId}
-								onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Product">
 					{formulationEntry ? (

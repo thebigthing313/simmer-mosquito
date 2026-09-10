@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import { AddressPicker } from '../../../components/pickers/address-picker';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-item-mutations';
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
@@ -22,7 +22,6 @@ import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { useCommandRunner } from '../-command-runner';
-import { LocationSection } from '../-location-section';
 import { canEditMissionPlan, useMissionStopViews } from '../-operations-data';
 import { addStopDescription } from '../-operations-display';
 
@@ -139,24 +138,19 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 				</Alert>
 			)}
 
-			<LocationSection
+			<LocationBand
 				geometryKind="missionItem"
 				description="A point for one spot, a line for a run, an area for a block. The stop stores the shape as drawn."
 				location={location}
 				organizationId={mission.organizationId}
 			>
-				<AddressPicker
-					create={{ requestMapPoint: location.requestMapPoint }}
-					label="Address"
-					onSelect={(address) => {
-						setAddressId(address?.id ?? null);
-						location.clearError();
-						location.selectAddress(address);
-					}}
+				<LocationAddressField
+					location={location}
+					onChange={setAddressId}
 					organizationId={mission.organizationId}
 					value={addressId}
 				/>
-			</LocationSection>
+			</LocationBand>
 
 			<p className="m-0 text-muted-foreground text-sm">
 				The stop goes on the end of the mission. Reorder it from the mission page.

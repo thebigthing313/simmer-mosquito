@@ -46,9 +46,9 @@ import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
-import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField } from '../../../forms/location-band';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
@@ -514,14 +514,9 @@ export function InspectionFormPage({
 									    one is refined off. */}
 									<form.AppField name="addressId">
 										{(field) => (
-											<AddressPicker
-												create={{ requestMapPoint: location.requestMapPoint }}
-												label="Address"
-												onSelect={(address) => {
-													field.handleChange(address?.id ?? null);
-													location.clearError();
-													location.selectAddress(address);
-												}}
+											<LocationAddressField
+												location={location}
+												onChange={field.handleChange}
 												organizationId={organizationId}
 												value={field.state.value}
 											/>

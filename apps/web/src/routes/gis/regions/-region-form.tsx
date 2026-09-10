@@ -1,16 +1,13 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createRegionCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import {
-	LocationSection,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { LocationBand } from '../../../forms/location-band';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
 
@@ -193,22 +190,13 @@ export function RegionFormPage({
 					</form.AppField>
 				</div>
 
-				<LocationSection
+				<LocationBand
 					description="Draw the region's area on the map."
-					error={location.locationError}
+					geometryKind="region"
+					label="Boundary"
+					location={location}
 					title="Region boundary"
-				>
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="region"
-						label="Boundary"
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						required
-					/>
-				</LocationSection>
+				/>
 
 				<form.AppField name="description">
 					{(field) => (

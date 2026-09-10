@@ -3,7 +3,6 @@ import {
 	customFieldCount,
 	customSchemaFor,
 	FormSection,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -12,7 +11,7 @@ import {
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
@@ -22,13 +21,14 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
-import { AddressPicker, HabitatPicker } from '../-control-pickers';
+import { HabitatPicker } from '../-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noTechnicianValue = 'none';
@@ -147,7 +147,7 @@ export function SourceReductionFormPage({
 		missingMessage: 'Map where the sources were eliminated.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
+	const { draw, geometry, geometryType, referenceGeometry } = location;
 
 	const methodOptions = lifecycleOptions(
 		methods,
@@ -257,67 +257,52 @@ export function SourceReductionFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection
+				<LocationBand
+					below={
+						<form.AppField name="habitatId">
+							{(field) => (
+								<HabitatPicker
+									label="Habitat"
+									organizationId={organizationId}
+									onSelect={(habitat) => {
+										field.handleChange(habitat?.id ?? null);
+										// The habitat is larval context, not the action's location, but
+										// framing the map on it (and seeding unplaced geometry) saves the
+										// crew a pan across the county.
+										location.selectReference(
+											habitat === null ||
+												typeof habitat.latitude !== 'number' ||
+												typeof habitat.longitude !== 'number'
+												? null
+												: { lat: habitat.latitude, lng: habitat.longitude },
+										);
+									}}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+					}
 					description={locationDescription({
 						geometryKind: 'controlAction',
 						subject: 'The geometry is where the sources were eliminated.',
 						habitat: true,
 					})}
-					error={location.locationError}
+					geometryKind="controlAction"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="controlAction"
-						label="Geometry"
-						required={requireLocation}
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						onTypeChange={location.changeType}
-						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-
-					<form.AppField name="habitatId">
-						{(field) => (
-							<HabitatPicker
-								label="Habitat"
-								organizationId={organizationId}
-								onSelect={(habitat) => {
-									field.handleChange(habitat?.id ?? null);
-									// The habitat is larval context, not the action's location, but
-									// framing the map on it (and seeding unplaced geometry) saves the
-									// crew a pan across the county.
-									location.selectReference(
-										habitat === null ||
-											typeof habitat.latitude !== 'number' ||
-											typeof habitat.longitude !== 'number'
-											? null
-											: { lat: habitat.latitude, lng: habitat.longitude },
-									);
-								}}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Work Performed">
 					<form.AppField name="sourceReductionMethodId">
