@@ -307,6 +307,17 @@ jobs:
       - name: Session credentials
         run: pnpm check:session-credentials
 
+      # An underscore prefix is a claim that a binding is deliberately unused,
+      # and nothing asked whether the claim was still true. Biome's unused rules
+      # are silenced by exactly that prefix and `fallow dead-code` gates unused
+      # exports, so a module-private declaration wearing one was invisible to
+      # both and fifteen collected under a green `pnpm check:all` (#860). This
+      # parses every module in the workspace and refuses one, at zero with no
+      # allowance list. A parameter and a destructuring omission are out of
+      # scope, being what the convention exists for.
+      - name: Unread declarations
+        run: pnpm check:unread-declarations
+
       # The React Compiler reports through a `logger` and nowhere else, and the
       # rollout in #649 accepts on "every component compiles or carries a
       # deliberate opt-out with a reason", which nothing could check. This runs

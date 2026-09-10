@@ -35,6 +35,7 @@
 		"check:session-fetcher": "node scripts/check-session-fetcher.mjs",
 		"check:table-types": "node scripts/generate-table-types.mjs --check",
 		"check:tileset-keys": "node scripts/check-tileset-keys.mjs",
+		"check:unread-declarations": "node scripts/check-unread-declarations.mjs",
 		"check:vocabulary": "node scripts/check-vocabulary.mjs",
 		"check:write-references": "node scripts/check-write-references.mjs",
 		"check:write-surfaces": "node scripts/check-write-surfaces.mjs",
