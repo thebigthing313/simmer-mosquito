@@ -70,14 +70,7 @@ export interface ExplorerPanel {
  * place its own chrome (a focus card) over the same map. One value, one owner,
  * and no explorer computing it for itself.
  */
-export function useExplorerPanel(options?: {
-	/**
-	 * Start with the filter card open. For a surface whose filters *are* the page
-	 * rather than a way of narrowing it: Daily Work is one person on one day, so a
-	 * shut card there hides the only control the page has.
-	 */
-	readonly filtersOpen?: boolean;
-}): ExplorerPanel {
+export function useExplorerPanel(): ExplorerPanel {
 	const [isCollapsed, setCollapsed] = useState(false);
 	/*
 	 * Shut to begin with. The filters are a card that stands beside the results
@@ -86,7 +79,7 @@ export function useExplorerPanel(options?: {
 	 * that opens them carries the active count, so a filtered list never looks
 	 * unfiltered while they are away.
 	 */
-	const [isFiltersOpen, setFiltersOpen] = useState(options?.filtersOpen ?? false);
+	const [isFiltersOpen, setFiltersOpen] = useState(false);
 	const [stageRef, stage] = useMeasuredBox();
 
 	const isNarrow = stage !== null && stage.width < NARROW_STAGE_WIDTH;

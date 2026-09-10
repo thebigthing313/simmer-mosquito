@@ -8,7 +8,13 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { ArrowLeftIcon, ContactIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	ArrowLeftIcon,
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	ContactIcon,
+	iconRegistry,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { ExplorerMapPage, useExplorerPanel, usePersonnelOptions } from '../../components/explorer';
@@ -24,7 +30,13 @@ import {
 import { activityPanelState, useActivityLookups, useProfileActivity } from '../-activity-data';
 import { ActivityFocusCard, ActivityLog } from '../-activity-log';
 import { activityReach, useActivitySelection } from '../-activity-view';
-import { DAILY_WORK_COPY, dailyWorkDay, dailyWorkWindow, isProfileId } from './-daily-work';
+import {
+	DAILY_WORK_COPY,
+	dailyWorkDay,
+	dailyWorkStep,
+	dailyWorkWindow,
+	isProfileId,
+} from './-daily-work';
 import { dailyWorkLegend } from './-legend';
 
 /**
@@ -45,10 +57,6 @@ interface DailyWorkFilters {
 }
 
 const DAILY_WORK_FILTER_CODECS: FilterCodecs<DailyWorkFilters> = { date: dateParam };
-
-// The day is this page rather than a way of cutting it down, so it carries no
-// filter count the way an explorer's filters do.
-const DAILY_WORK_FILTER_COUNTING = { uncounted: ['date'] } as const;
 
 export const Route = createFileRoute('/daily-work/$profileId')({
 	component: DailyWorkRoute,
@@ -80,7 +88,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 	// The organization's today, not the browser's. A supervisor two zones away
 	// opens the same day the collector on the road is filling in.
 	const today = todayInTimeZone(timeZone);
-	const { day, setDay, activeCount } = useDailyWorkDay(today);
+	const { day, setDay } = useDailyWorkDay(today);
 	const lookups = useActivityLookups();
 
 	const activity = useProfileActivity(dailyWorkWindow(profileId, day));
@@ -100,14 +108,10 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 	);
 	const legend = dailyWorkLegend(view.items);
 
-	// The day is this page, not a way of narrowing it, so the card it lives in
-	// opens with the page.
-	const panel = useExplorerPanel({ filtersOpen: true });
+	const panel = useExplorerPanel();
 
 	return (
 		<ExplorerMapPage
-			activeFilterCount={activeCount}
-			filters={<DayFilter onChange={setDay} today={today} value={day} />}
 			heading={{
 				title: name,
 				icon: iconRegistry.simmer.fieldWork.icon,
@@ -153,6 +157,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 				// the rail sizes its placeholders to by default.
 				skeletonClassName: 'h-8',
 			}}
+			toolbar={<DayStepper onChange={setDay} today={today} value={day} />}
 		/>
 	);
 }
@@ -166,15 +171,11 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 function useDailyWorkDay(today: string): {
 	readonly day: string;
 	readonly setDay: (next: string) => void;
-	/** Always zero here: see `DAILY_WORK_FILTER_COUNTING`. */
-	readonly activeCount: number;
 } {
 	const defaults: DailyWorkFilters = { date: today };
-	const { filters, setFilters, activeCount } = useSearchFilters(
-		defaults,
-		DAILY_WORK_FILTER_CODECS,
-		DAILY_WORK_FILTER_COUNTING,
-	);
+	// No filter counting: the page has no filter card to report a count to, since
+	// the day is what the page is rather than a way of narrowing it.
+	const { filters, setFilters } = useSearchFilters(defaults, DAILY_WORK_FILTER_CODECS);
 	const day = dailyWorkDay(filters.date, today);
 
 	// A stale or hand-typed future day is drawn as today, so the address has to
@@ -187,14 +188,25 @@ function useDailyWorkDay(today: string): {
 	}, [filters.date, day, setFilters]);
 
 	return {
-		activeCount,
 		day,
 		setDay: (next: string) => setFilters({ date: next === '' ? today : next }),
 	};
 }
 
-/** The one control the page has. `today` bounds it, so no future day is reachable. */
-function DayFilter({
+/**
+ * The one control the page has: the day, with the day either side of it.
+ *
+ * It sits in the panel header rather than in a filter card, which is what it
+ * used to be. A card is a thing a reader opens to narrow a list and shuts
+ * again, and it cost this page a second 380px column of map to hold one
+ * control the page cannot be read without. The arrows are what the card never
+ * had: reading a person's week is six visits to a calendar popover, and this
+ * makes it six clicks in one place.
+ *
+ * `today` bounds it, so no future day is reachable by either the picker or the
+ * forward arrow.
+ */
+function DayStepper({
 	value,
 	today,
 	onChange,
@@ -203,17 +215,44 @@ function DayFilter({
 	readonly today: string;
 	readonly onChange: (next: string) => void;
 }) {
+	// Disabled rather than hidden, so the pair keeps its width and the picker
+	// between them does not shift sideways on the day a reader steps to today.
+	const isToday = value >= today;
 	return (
-		<div className="flex items-center gap-3">
-			<span className="w-14 shrink-0 font-medium text-muted-foreground text-xs">Day</span>
+		<div className="flex items-center gap-1">
+			<Button
+				aria-label="Previous day"
+				onClick={() => onChange(dailyWorkStep(value, -1, today))}
+				size="icon-sm"
+				title="Previous day"
+				variant="ghost"
+			>
+				<ChevronLeftIcon aria-hidden="true" />
+			</Button>
 			<DatePicker
 				ariaLabel="Day"
 				className="h-8 flex-1 text-xs"
+				// The weekday and the month written out. That is how a supervisor
+				// reads a round: a Tuesday's larval route and a Saturday's service
+				// requests are different days of work, and the date alone does not
+				// say which. The control is the whole width of the panel header
+				// here, so there is room for the words.
+				displayFormat="EEEE, MMMM d, yyyy"
 				max={parseLocalDate(today)}
 				onChange={(date) => onChange(date === undefined ? '' : formatLocalDate(date))}
 				placeholder="Pick a day"
 				value={parseLocalDate(value)}
 			/>
+			<Button
+				aria-label="Next day"
+				disabled={isToday}
+				onClick={() => onChange(dailyWorkStep(value, 1, today))}
+				size="icon-sm"
+				title="Next day"
+				variant="ghost"
+			>
+				<ChevronRightIcon aria-hidden="true" />
+			</Button>
 		</div>
 	);
 }
