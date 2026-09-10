@@ -2,11 +2,9 @@ import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers/entity-picker';
 import { type TrapName, trapDisplayName } from '../../hooks/queries/trap-view';
 
-// The adult forms pick an address (shared, on-demand subset search) or a trap.
 // The trap picker searches the eager `traps` set client-side, over whatever set
-// the caller handed it.
-
-export { AddressPicker } from '../../components/pickers/address-picker';
+// the caller handed it. Picking an address is `LocationAddressField`'s, in
+// `forms/location-band.tsx`, because that pick also moves the map.
 
 /**
  * The three things this picker reads off a trap.

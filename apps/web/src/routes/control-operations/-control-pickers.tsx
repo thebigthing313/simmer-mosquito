@@ -3,12 +3,11 @@ import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers
 import type { HabitatMatch } from '../../hooks/queries/habitat-view';
 import { useHabitatSearch } from '../../hooks/queries/use-habitat-search';
 
-// Control actions pick an address (shared, on-demand subset search) or a habitat
-// when the work was done against a known larval site. Habitats sync on demand
-// (docs/sync.md), so results come from a live `ilike` subset query rather than a
-// client-side filter over an eager set.
-
-export { AddressPicker } from '../../components/pickers/address-picker';
+// A control action picks a habitat when the work was done against a known larval
+// site. Habitats sync on demand (docs/sync.md), so results come from a live
+// `ilike` subset query rather than a client-side filter over an eager set.
+// Picking an address is `LocationAddressField`'s, in `forms/location-band.tsx`,
+// because that pick also moves the map.
 
 export function HabitatPicker({
 	label = 'Habitat',
