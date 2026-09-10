@@ -11,6 +11,7 @@ import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
 	AddressFormPage,
+	type AddressFormSave,
 	type AddressFormValues,
 	type AddressPointGeometry,
 } from './-address-form';
@@ -83,12 +84,7 @@ function EditAddressLoader({
 		geometry,
 		geometryChanged,
 		geocoderResponse,
-	}: {
-		readonly values: AddressFormValues;
-		readonly geometry: AddressPointGeometry | null;
-		readonly geometryChanged: boolean;
-		readonly geocoderResponse: unknown | null;
-	}) => {
+	}: AddressFormSave) => {
 		const refinedPoint = geometryChanged && geometry !== null;
 		// The point goes only when it actually moved: naming the location command
 		// with the point the row already has is a write with no edit behind it.

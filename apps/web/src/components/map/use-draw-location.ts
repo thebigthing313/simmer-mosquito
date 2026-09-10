@@ -70,6 +70,13 @@ export interface DrawLocation {
 	readonly changeType: (next: DrawGeometryType) => void;
 	readonly clear: () => void;
 	readonly clearError: () => void;
+	/**
+	 * Say what is wrong with the location, where the missing-shape refusal is
+	 * already said. The geocoder refusing a lookup is the one caller: it is a
+	 * failure of a way to a point rather than of a save, so putting it in the
+	 * form's save alert would be filing it under the wrong heading.
+	 */
+	readonly reportError: (message: string) => void;
 	/** Reports the missing shape on submit; returns false when there is nothing to save. */
 	readonly requireGeometry: () => boolean;
 }
@@ -241,6 +248,7 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 			setGeometryChanged(true);
 		},
 		clearError: () => setLocationError(null),
+		reportError: setLocationError,
 		requireGeometry,
 	};
 }

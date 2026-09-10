@@ -1,34 +1,44 @@
 import { createAddressCommand, isOwnedGeometry } from '@simmer-mosquito/domain';
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
-import { LocationSection } from '@simmer-mosquito/ui-web/components/form';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
+import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	ArrowLeftIcon,
-	Loader2Icon,
-	MapPinnedIcon,
-	SearchIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { Link } from '@tanstack/react-router';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useRef, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
+import { SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
-import { GeometryControl } from '../../../components/map/geometry-control';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { DrawToolbar } from '../../../components/map/geometry-control';
+import type { DrawPoint } from '../../../components/map/use-address-point';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	GeocoderDialog,
-	type GeocoderPoint,
 	type GeocoderResult,
-	LabeledInput,
 	pointFromGeocoderResult,
 	searchGeocoder,
 } from '../../../components/pickers/geocoder-dialog';
-import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	FORM_VALIDATION_GEOMETRY,
+} from '../../../forms/domain-validation';
+import { LocationBand } from '../../../forms/location-band';
 
-/** The GIS form's public point type, and the one the geocoder helpers return. */
-export type AddressPointGeometry = GeocoderPoint;
+/** The one shape an address stores, which is the shape the geocoder returns. */
+export type AddressPointGeometry = DrawPoint;
+
+/**
+ * Domain issue path → the form field holding it. The point is placed on the map
+ * rather than typed, so its issues land on the alert, and `geocoderResponse` is
+ * the geocoder's own answer, which no operator can fix on a field either.
+ */
+const ADDRESS_FIELD_PATHS: Readonly<Record<string, string>> = {
+	displayName: 'displayName',
+	country: 'country',
+	addressLine1: 'addressLine1',
+	addressLine2: 'addressLine2',
+	locality: 'locality',
+	region: 'region',
+	postalCode: 'postalCode',
+};
 
 export interface AddressFormValues {
 	readonly displayName: string;
@@ -40,12 +50,67 @@ export interface AddressFormValues {
 	readonly postalCode: string;
 }
 
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * They used to be copied out of it by hand and had already drifted: the
+ * display-name length cap and the postal and region formats were never checked
+ * here, so each of them came back as a save that failed for no stated reason.
+ *
+ * The point is the one input the builder is not handed as it stands. An address
+ * without one is a real refusal, but it is `requireGeometry`'s to report, on the
+ * location band and in words an operator can act on. Passing the null instead
+ * puts "Geometry must be a GeoJSON geometry object." in the alert and stops
+ * every other rule from being reached.
+ */
+export function validateAddress(
+	value: AddressFormValues,
+	geometry: DrawGeometry | null,
+	geocoderResponse: unknown,
+) {
+	return domainValidator(
+		() =>
+			createAddressCommand({
+				...FORM_VALIDATION_CONTEXT,
+				addressId: FORM_VALIDATION_CONTEXT.organizationId,
+				displayName: value.displayName,
+				geometry: geometry ?? FORM_VALIDATION_GEOMETRY,
+				country: value.country,
+				addressLine1: value.addressLine1,
+				addressLine2: value.addressLine2,
+				locality: value.locality,
+				region: value.region,
+				postalCode: value.postalCode,
+				geocoderResponse,
+			}),
+		ADDRESS_FIELD_PATHS,
+	)({ value });
+}
+
 export interface AddressFormHeader {
 	readonly title: string;
 	readonly description: string;
 	readonly backTo: '/gis/addresses' | '/gis/addresses/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
+}
+
+/**
+ * What a save is handed, and where the geocoder's answer sits in it.
+ *
+ * `values` is the form's; the other three are the point's. The response is the
+ * provenance of a point the geocoder placed: nobody types it, no field shows it,
+ * and it is stored so a later reader can see which match this address came from.
+ * So it travels beside the geometry it explains rather than as an eighth form
+ * value. A point placed by hand keeps whatever response the address already had,
+ * which is the one the row was geocoded to.
+ */
+export interface AddressFormSave {
+	readonly values: AddressFormValues;
+	readonly geometry: AddressPointGeometry | null;
+	/** True when the point was geocoded, drawn or cleared this session. */
+	readonly geometryChanged: boolean;
+	readonly geocoderResponse: unknown | null;
 }
 
 export interface AddressFormPageProps {
@@ -55,12 +120,7 @@ export interface AddressFormPageProps {
 	readonly initialGeocoderResponse?: unknown | null;
 	readonly header: AddressFormHeader;
 	readonly submitLabel: string;
-	readonly onSave: (input: {
-		readonly values: AddressFormValues;
-		readonly geometry: AddressPointGeometry | null;
-		readonly geometryChanged: boolean;
-		readonly geocoderResponse: unknown | null;
-	}) => Promise<void>;
+	readonly onSave: (input: AddressFormSave) => Promise<void>;
 }
 
 export function defaultAddressFormValues(): AddressFormValues {
@@ -84,338 +144,167 @@ export function AddressFormPage({
 	submitLabel,
 	onSave,
 }: AddressFormPageProps) {
-	const [values, setValues] = useState<AddressFormValues>(defaultValues);
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<AddressPointGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
+	const location = useDrawLocation({
+		geometryKind: 'address',
+		initialGeometry,
+		missingMessage: 'Geocode the address or place a point on the map.',
+	});
+	const { draw, geometry, geometryType } = location;
+
 	const [geocoderResponse, setGeocoderResponse] = useState<unknown | null>(initialGeocoderResponse);
 	const [geocoderResults, setGeocoderResults] = useState<readonly GeocoderResult[]>([]);
 	const [geocoderOpen, setGeocoderOpen] = useState(false);
 	const [isGeocoding, setIsGeocoding] = useState(false);
-	const [locationError, setLocationError] = useState<string | null>(null);
-	const [saveError, setSaveError] = useState<string | null>(null);
-	const [isSaving, setIsSaving] = useState(false);
 
-	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	/*
-	 * This form holds the address point itself and draws it through `geoJson`, so
-	 * the controller's own value stays null and nothing renders twice. A commit
-	 * still has to land: the file import is the one path that hands the controller
-	 * a shape instead of going through this form's state. A null is the start of a
-	 * fresh draw rather than a clear, which is what `clearPoint` is for.
-	 */
-	const adoptDrawnPoint = (next: DrawGeometry | null) => {
-		if (next === null || !isOwnedGeometry('address', next)) {
-			return;
-		}
-		// The narrowed value, not a pair rebuilt from `coordinates[0]` and `[1]`.
-		// The indices were the second place this file said Point, and reading them
-		// off a shape that is not one builds a Point out of rings. Assigning is what
-		// makes the compiler hold this form's state to what the predicate asserts.
-		setGeometry(next);
-		setGeometryChanged(true);
-		setLocationError(null);
-	};
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: null,
-		onChange: adoptDrawnPoint,
+	const form = useAppForm({
+		defaultValues,
+		validators: {
+			onSubmit: ({ value }: { readonly value: AddressFormValues }) =>
+				validateAddress(value, geometry, geocoderResponse),
+		},
+		onSubmit: async ({ value }) => {
+			if (!location.requireGeometry() || geometry === null) {
+				return;
+			}
+			if (!isOwnedGeometry('address', geometry)) {
+				// Unreachable while the register says Point and nothing else, which is
+				// what leaves this form one tool. Thrown rather than returned so a
+				// widened policy says so in the alert instead of dropping the save.
+				throw new Error('An address stores a single point.');
+			}
+			await onSave({
+				values: value,
+				geometry,
+				geometryChanged: location.geometryChanged,
+				geocoderResponse,
+			});
+		},
 	});
-	const { requestPoint } = draw;
-
-	useCenterOnPoint(map, geometry);
-
-	const setField = (key: keyof AddressFormValues, value: string) => {
-		setValues((prev) => ({ ...prev, [key]: value }));
-	};
 
 	const geocodeAddress = async () => {
-		setLocationError(null);
+		const values = form.state.values;
+		location.clearError();
 		setIsGeocoding(true);
-		const query = addressQueryText(values);
-		const country = values.country.trim() || 'US';
 		try {
-			setGeocoderResults(await searchGeocoder(query, country));
+			setGeocoderResults(await searchGeocoder(addressQueryText(values), countryOf(values)));
 			setGeocoderOpen(true);
 		} catch (error) {
-			setLocationError(error instanceof Error ? error.message : 'Unable to geocode address.');
+			location.reportError(error instanceof Error ? error.message : 'Unable to geocode address.');
 		}
 		setIsGeocoding(false);
 	};
 
-	const drawManualPoint = async () => {
+	// Placing the point by hand is the gesture the band's own Draw button starts,
+	// so the dialog's way out is that gesture rather than a second one.
+	const drawPointByHand = () => {
 		setGeocoderOpen(false);
-		try {
-			const point = await requestPoint('Click the map to place this address.');
-			setGeometry({ type: 'Point', coordinates: point.coordinates });
-			setGeometryChanged(true);
-			setLocationError(null);
-		} catch {
-			// Draw cancelled (Esc / mode switch); keep the prior point.
-		}
+		location.startDraw();
 	};
-
-	const clearPoint = () => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	};
-
-	const handleSubmit = async () => {
-		setSaveError(null);
-		setLocationError(null);
-		if (geometry === null) {
-			setLocationError('Geocode the address or place a point on the map.');
-			return;
-		}
-		/*
-		 * The rules here were hand-copied from the domain builder and had already
-		 * drifted — the display-name length cap and the postal/region formats were
-		 * never checked, so they came back as a generic save failure. Running the
-		 * builder keeps the form and the server saying the same thing.
-		 */
-		const issues = validateAgainstCommand(() =>
-			createAddressCommand({
-				...FORM_VALIDATION_CONTEXT,
-				addressId: FORM_VALIDATION_CONTEXT.organizationId,
-				displayName: values.displayName,
-				geometry,
-				country: values.country,
-				addressLine1: values.addressLine1,
-				addressLine2: values.addressLine2,
-				locality: values.locality,
-				region: values.region,
-				postalCode: values.postalCode,
-			}),
-		);
-		if (issues !== undefined) {
-			const messages = [...Object.values(issues.fields), ...issues.form];
-			setSaveError(messages.join(' '));
-			return;
-		}
-		setIsSaving(true);
-		try {
-			await onSave({ values, geometry, geometryChanged, geocoderResponse });
-		} catch (error) {
-			setSaveError(error instanceof Error ? error.message : 'Unable to save address.');
-		}
-		setIsSaving(false);
-	};
-
-	// `[...]` rather than the stored pair: `GeoJSON.Position` is mutable
-	// `number[]`, and the draw types hold their pairs readonly.
-	const geoJson: GeoJSON.Feature | null =
-		geometry === null
-			? null
-			: {
-					type: 'Feature',
-					properties: {},
-					geometry: { type: 'Point', coordinates: [...geometry.coordinates] },
-				};
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					<MapCanvas geoJson={geoJson} onMapReady={handleMapReady} />
-					{draw.isRequestingPoint ? (
-						<MapPrompt>
-							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />
-							Click the map to place the address. Press Esc to cancel.
-						</MapPrompt>
-					) : null}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
-					<Link className={backLink()} params={header.backParams ?? {}} to={header.backTo}>
-						<ArrowLeftIcon aria-hidden="true" />
-						{header.backLabel}
-					</Link>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							{header.title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				aside={
+					<>
+						<MapCanvas onMapReady={location.onMapReady} />
+						<DrawToolbar
+							controller={draw}
+							geometryKind="address"
+							geometryType={geometryType}
+							pointPrompt="Click the map to place the address."
+						/>
+					</>
+				}
+				header={header}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Address" />
+
+				<FormSection title="Address">
+					<div className="grid gap-4 sm:grid-cols-2">
+						<form.AppField name="displayName">
+							{(field) => <field.TextField label="Display name" required />}
+						</form.AppField>
+						<form.AppField name="country">
+							{(field) => <field.TextField label="Country" maxLength={2} required />}
+						</form.AppField>
+						<form.AppField name="addressLine1">
+							{(field) => <field.TextField label="Street address" />}
+						</form.AppField>
+						<form.AppField name="addressLine2">
+							{(field) => <field.TextField label="Unit" />}
+						</form.AppField>
+						<form.AppField name="locality">
+							{(field) => <field.TextField label="City" />}
+						</form.AppField>
+						<form.AppField name="region">
+							{(field) => <field.TextField label="State" />}
+						</form.AppField>
+						<form.AppField name="postalCode">
+							{(field) => <field.TextField label="Postal code" />}
+						</form.AppField>
 					</div>
-				</header>
+				</FormSection>
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<form
-						className="grid gap-6"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void handleSubmit();
-						}}
-					>
-						{saveError === null ? null : (
-							<Alert variant="destructive">
-								<AlertTitle>Unable to Save Address</AlertTitle>
-								<AlertDescription>{saveError}</AlertDescription>
-							</Alert>
-						)}
-
-						<section className="grid gap-4">
-							<h2 className="m-0 font-semibold text-foreground text-sm">Address</h2>
-							<div className="grid gap-4 sm:grid-cols-2">
-								<LabeledInput
-									label="Display name"
-									required
-									onValueChange={(value) => setField('displayName', value)}
-									value={values.displayName}
-								/>
-								<LabeledInput
-									label="Country"
-									required
-									maxLength={2}
-									onValueChange={(value) => setField('country', value)}
-									value={values.country}
-								/>
-								<LabeledInput
-									label="Street address"
-									onValueChange={(value) => setField('addressLine1', value)}
-									value={values.addressLine1}
-								/>
-								<LabeledInput
-									label="Unit"
-									onValueChange={(value) => setField('addressLine2', value)}
-									value={values.addressLine2}
-								/>
-								<LabeledInput
-									label="City"
-									onValueChange={(value) => setField('locality', value)}
-									value={values.locality}
-								/>
-								<LabeledInput
-									label="State"
-									onValueChange={(value) => setField('region', value)}
-									value={values.region}
-								/>
-								<LabeledInput
-									label="Postal code"
-									onValueChange={(value) => setField('postalCode', value)}
-									value={values.postalCode}
-								/>
-							</div>
-						</section>
-
-						<LocationSection
-							description="Geocode from the fields above, or place the point by hand."
-							error={locationError}
-							title="Address location"
+				<LocationBand
+					description="Geocode from the fields above, or place the point by hand."
+					extraActions={
+						<Button
+							disabled={isGeocoding}
+							onClick={() => void geocodeAddress()}
+							size="sm"
+							type="button"
+							variant="outline"
 						>
-							{/*
-							 * The one form that writes the shape name by hand. Everywhere else
-							 * it comes off `useDrawLocation`, which reads the register. This
-							 * form holds its own `GeocoderPoint` instead, so deriving the
-							 * toolbar from the register while the state stays a point would let
-							 * the two disagree the day the address policy widens.
-							 */}
-							<GeometryControl
-								controller={draw}
-								extraActions={
-									<Button
-										disabled={isGeocoding}
-										onClick={geocodeAddress}
-										size="sm"
-										type="button"
-										variant="outline"
-									>
-										{isGeocoding ? (
-											<Loader2Icon
-												aria-hidden="true"
-												className="animate-spin"
-												data-icon="inline-start"
-											/>
-										) : (
-											<SearchIcon aria-hidden="true" data-icon="inline-start" />
-										)}
-										Geocode
-									</Button>
-								}
-								geometry={geometry}
-								geometryType="Point"
-								geometryKind="address"
-								label="Location"
-								onClear={clearPoint}
-								onDraw={() => void drawManualPoint()}
-								required
-							/>
-						</LocationSection>
-
-						<div className="flex flex-wrap justify-end gap-2 border-border/50 border-t pt-5">
-							<Button asChild type="button" variant="ghost">
-								<Link params={header.backParams ?? {}} to={header.backTo}>
-									Cancel
-								</Link>
-							</Button>
-							<Button disabled={!canSubmit || isSaving} type="submit">
-								{isSaving ? (
-									<Loader2Icon
-										aria-hidden="true"
-										className="animate-spin"
-										data-icon="inline-start"
-									/>
-								) : null}
-								{submitLabel}
-							</Button>
-						</div>
-					</form>
-				</div>
-			</div>
+							{isGeocoding ? (
+								<Spinner data-icon="inline-start" />
+							) : (
+								<SearchIcon aria-hidden="true" data-icon="inline-start" />
+							)}
+							Geocode
+						</Button>
+					}
+					geometryKind="address"
+					label="Location"
+					location={location}
+					title="Address location"
+				/>
+			</RecordFormPage>
 
 			<GeocoderDialog
 				onOpenChange={setGeocoderOpen}
 				onSelect={(result) => {
 					const point = pointFromGeocoderResult(result);
 					if (point !== null) {
-						setGeometry(point);
-						setGeometryChanged(true);
+						// Through the controller, so the map draws the point it holds and
+						// the redraw flag is set in the one place every other source of a
+						// geometry sets it.
+						draw.commit(point);
 						setGeocoderResponse(result);
-						setLocationError(null);
 					}
 					setGeocoderOpen(false);
 				}}
-				onUseManualCoordinates={drawManualPoint}
+				onUseManualCoordinates={drawPointByHand}
 				open={geocoderOpen}
 				results={geocoderResults}
 			/>
-		</MapSplitPage>
-	);
-}
-
-// --- geocoder dialog --------------------------------------------------------
-
-function MapPrompt({ children }: { readonly children: React.ReactNode }) {
-	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in">
-			<p className="m-0 inline-flex items-center gap-2 rounded-md border border-border/60 bg-card/95 px-3 py-2 text-foreground text-sm shadow-lg backdrop-blur-sm">
-				{children}
-			</p>
-		</div>
+		</form.AppForm>
 	);
 }
 
 // --- helpers ----------------------------------------------------------------
 
-function useCenterOnPoint(map: MapboxMap | null, geometry: AddressPointGeometry | null): void {
-	const lastRef = useRef<string | null>(null);
-	useEffect(() => {
-		if (map === null || geometry === null) {
-			return;
-		}
-		const signature = JSON.stringify(geometry.coordinates);
-		if (lastRef.current === signature) {
-			return;
-		}
-		lastRef.current = signature;
-		map.easeTo({
-			center: [geometry.coordinates[0], geometry.coordinates[1]],
-			zoom: Math.max(map.getZoom(), 15),
-			duration: 500,
-		});
-	}, [map, geometry]);
+/** The country the lookup is scoped to. US is what an unset field means here. */
+function countryOf(values: AddressFormValues): string {
+	return values.country.trim() || 'US';
 }
 
 function addressQueryText(values: AddressFormValues): string {

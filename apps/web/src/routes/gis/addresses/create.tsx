@@ -5,12 +5,7 @@ import { useAddressMutations } from '../../../hooks/mutations/use-address-mutati
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache } from './-address-data';
-import {
-	AddressFormPage,
-	type AddressFormValues,
-	type AddressPointGeometry,
-	defaultAddressFormValues,
-} from './-address-form';
+import { AddressFormPage, type AddressFormSave, defaultAddressFormValues } from './-address-form';
 
 export const Route = createFileRoute('/gis/addresses/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
@@ -37,15 +32,7 @@ function CreateAddressRoute() {
 	const canSubmit = organization !== null && actorProfileId !== null;
 	const mutations = useAddressMutations();
 
-	const onSave = async ({
-		values,
-		geometry,
-		geocoderResponse,
-	}: {
-		readonly values: AddressFormValues;
-		readonly geometry: AddressPointGeometry | null;
-		readonly geocoderResponse: unknown | null;
-	}) => {
+	const onSave = async ({ values, geometry, geocoderResponse }: AddressFormSave) => {
 		if (organization === null) {
 			throw new Error('Organization details are still loading.');
 		}
