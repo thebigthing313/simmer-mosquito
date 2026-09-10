@@ -125,7 +125,7 @@ function RouteComponent() {
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	const { collection, isReady } = useAdultCollection(id, { gcTime: activityGcTimeMs });
+	const { collection, isReady, isError } = useAdultCollection(id, { gcTime: activityGcTimeMs });
 
 	return (
 		<RecordDetailPage
@@ -133,7 +133,7 @@ function RouteComponent() {
 			deleteRefusals={COLLECTION_DELETE_REFUSALS}
 			layout={layout}
 			noun="collection"
-			reading={{ isReady, record: collection }}
+			reading={{ isError, isReady, record: collection }}
 		>
 			{(record, askDelete) => (
 				<CollectionDetailContent askDelete={askDelete} canEdit={canEdit} collection={record} />

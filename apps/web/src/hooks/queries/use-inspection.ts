@@ -23,98 +23,96 @@
  * same collection, is one subset.
  */
 
-import { caseWhen, coalesce, concat, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { caseWhen, coalesce, concat, eq, isNull } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import type { InspectionCard } from './larval-activity-view';
-import { mapCardGcTimeMs } from './shared';
+import { useRecordById } from './shared';
 
 export function useInspection(inspectionId: string): {
 	readonly inspection: InspectionCard | undefined;
 	readonly isReady: boolean;
+	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: inspections() })
-					.where(({ inspection }) => eq(inspection.id, inspectionId))
-					// `left` throughout: an Ad Hoc Inspection has no Habitat, an inspection
-					// need not name a type, and nobody may have been recorded as inspector.
-					// An `inner` join would return no row at all for any of those.
-					.join(
-						{ habitat: habitats() },
-						({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
-						'left',
-					)
-					.join(
-						{ type: habitat_types() },
-						({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
-						'left',
-					)
-					.join(
-						{ inspector: profiles() },
-						({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
-						'left',
-					)
-					.join(
-						{ address: addresses() },
-						({ inspection, address }) => eq(inspection.address_id, address.id),
-						'left',
-					)
-					.select(({ inspection, habitat, type, inspector, address }) => ({
-						address: {
-							id: address.id,
-							displayName: address.display_name,
-							addressLine1: address.address_line_1,
-							addressLine2: address.address_line_2,
-							locality: address.locality,
-							region: address.region,
-							postalCode: address.postal_code,
-						},
-						id: inspection.id,
-						inspectionDate: inspection.inspection_date,
-						inspectedByProfileId: inspection.inspected_by_profile_id,
-						// Guarded on the inspection's own column rather than read off the joined
-						// row: an unmatched `left` join yields `undefined` for every `x.*`, and
-						// the guard is what turns that into the `null` this row speaks in.
-						inspectedByName: caseWhen(
-							isNull(inspection.inspected_by_profile_id),
-							null,
-							inspector.display_name,
-						),
-						isWet: inspection.is_wet,
-						density: inspection.density,
-						larvaeCount: inspection.larvae_count,
+	const result = useRecordById({
+		collection: inspections(),
+		id: inspectionId,
+		query: (query) =>
+			query
+				// `left` throughout: an Ad Hoc Inspection has no Habitat, an inspection
+				// need not name a type, and nobody may have been recorded as inspector.
+				// An `inner` join would return no row at all for any of those.
+				.join(
+					{ habitat: habitats() },
+					({ record: inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
+					'left',
+				)
+				.join(
+					{ type: habitat_types() },
+					({ record: inspection, type }) => eq(inspection.habitat_type_id, type.id),
+					'left',
+				)
+				.join(
+					{ inspector: profiles() },
+					({ record: inspection, inspector }) =>
+						eq(inspection.inspected_by_profile_id, inspector.id),
+					'left',
+				)
+				.join(
+					{ address: addresses() },
+					({ record: inspection, address }) => eq(inspection.address_id, address.id),
+					'left',
+				)
+				.select(({ record: inspection, habitat, type, inspector, address }) => ({
+					address: {
+						id: address.id,
+						displayName: address.display_name,
+						addressLine1: address.address_line_1,
+						addressLine2: address.address_line_2,
+						locality: address.locality,
+						region: address.region,
+						postalCode: address.postal_code,
+					},
+					id: inspection.id,
+					inspectionDate: inspection.inspection_date,
+					inspectedByProfileId: inspection.inspected_by_profile_id,
+					// Guarded on the inspection's own column rather than read off the joined
+					// row: an unmatched `left` join yields `undefined` for every `x.*`, and
+					// the guard is what turns that into the `null` this row speaks in.
+					inspectedByName: caseWhen(
+						isNull(inspection.inspected_by_profile_id),
+						null,
+						inspector.display_name,
+					),
+					isWet: inspection.is_wet,
+					density: inspection.density,
+					larvaeCount: inspection.larvae_count,
 
-						habitatId: inspection.habitat_id,
-						habitatName: caseWhen(
-							isNull(inspection.habitat_id),
-							null,
-							coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
-						),
-						habitatTypeId: inspection.habitat_type_id,
-						typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
+					habitatId: inspection.habitat_id,
+					habitatName: caseWhen(
+						isNull(inspection.habitat_id),
+						null,
+						coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+					),
+					habitatTypeId: inspection.habitat_type_id,
+					typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
 
-						latitude: inspection.lat,
-						longitude: inspection.lng,
-						geometryKind: inspection.geom_type,
-						addressId: inspection.address_id,
+					latitude: inspection.lat,
+					longitude: inspection.lng,
+					geometryKind: inspection.geom_type,
+					addressId: inspection.address_id,
 
-						hasEggs: inspection.has_eggs,
-						hasFirstInstar: inspection.has_first_instar,
-						hasSecondInstar: inspection.has_second_instar,
-						hasThirdInstar: inspection.has_third_instar,
-						hasFourthInstar: inspection.has_fourth_instar,
-						hasPupae: inspection.has_pupae,
-					})),
-		},
-		[inspectionId],
-	);
+					hasEggs: inspection.has_eggs,
+					hasFirstInstar: inspection.has_first_instar,
+					hasSecondInstar: inspection.has_second_instar,
+					hasThirdInstar: inspection.has_third_instar,
+					hasFourthInstar: inspection.has_fourth_instar,
+					hasPupae: inspection.has_pupae,
+				})),
+	});
 
-	return { inspection: result.data[0], isReady: result.isReady };
+	return { inspection: result.record, isReady: result.isReady, isError: result.isError };
 }

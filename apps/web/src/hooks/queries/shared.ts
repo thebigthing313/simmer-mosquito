@@ -37,6 +37,16 @@
  * returns rows and cannot return a lookup of them.
  */
 
+import {
+	type Context,
+	type ContextFromSource,
+	eq,
+	type GetResult,
+	type QueryBuilder,
+	useLiveQuery,
+} from '@tanstack/react-db';
+import type { CollectionOf, SyncedRow } from '../../lib/collections/registry';
+
 /**
  * A uuid no row has, for the moment a hook is asked about nothing.
  *
@@ -67,3 +77,62 @@ export const mapCardGcTimeMs = 30_000;
  * seconds out again.
  */
 export const activityGcTimeMs = 30_000;
+
+/** The query a caller of {@link useRecordById} builds, with the row aliased `record`. */
+type RecordQuery<TRow extends SyncedRow, TContext extends Context> = (
+	query: QueryBuilder<ContextFromSource<{ record: CollectionOf<TRow> }>>,
+) => QueryBuilder<TContext>;
+
+/**
+ * One record by id, with the joins and projection the caller writes.
+ *
+ * Three things a hook stops deciding for itself: the alias, the id predicate,
+ * and forwarding `isError`. The last is the one that was going wrong. A failed
+ * read and a table holding no such row are different answers, and a hook that
+ * returns `{record, isReady}` alone leaves a detail page unable to tell them
+ * apart, so `RecordDetailPage` drew "could not be found, or you do not have
+ * access to it" over a read that had failed and told the reader to stop looking
+ * for a record that exists. Six hooks did that; here it is the factory's
+ * behaviour rather than something each one remembers.
+ *
+ * The id is nullable so a form can ask before the user has chosen a record. A
+ * hook cannot be called conditionally, so the absent case asks for an id no row
+ * has rather than being skipped, which is an empty result instead of the table.
+ */
+export function useRecordById<TRow extends SyncedRow, TContext extends Context>(options: {
+	readonly collection: CollectionOf<TRow>;
+	readonly id: string | null;
+	readonly query: RecordQuery<TRow, TContext>;
+	/** Defaults to {@link mapCardGcTimeMs}, the window a map card is reopened inside. */
+	readonly gcTime?: number | undefined;
+}): {
+	readonly record: GetResult<TContext> | undefined;
+	readonly isReady: boolean;
+	readonly isError: boolean;
+} {
+	const { collection, id } = options;
+	const result = useLiveQuery(
+		{
+			gcTime: options.gcTime ?? mapCardGcTimeMs,
+			query: (query) =>
+				options.query(
+					query
+						.from({ record: collection })
+						.where(({ record }) => eq(record.id, id ?? unmatchableId)),
+				),
+		},
+		[collection, id],
+	);
+
+	// The cast is the price of the callback being generic. `useLiveQuery` reads the
+	// row type off the builder its query returns, and here that builder is still
+	// `QueryBuilder<TContext>` with `TContext` unresolved, so it widens the row to
+	// `{}`. The signature states the caller's own `TContext` instead, and each hook
+	// on this declares the view model it hands back, so a projection that does not
+	// match still fails at the hook rather than reaching a page.
+	return {
+		record: result.data[0] as GetResult<TContext> | undefined,
+		isReady: result.isReady,
+		isError: result.isError,
+	};
+}

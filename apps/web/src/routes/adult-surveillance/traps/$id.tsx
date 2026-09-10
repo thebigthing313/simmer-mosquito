@@ -98,7 +98,7 @@ const layout: RecordDetailLayout = {
 function RouteComponent() {
 	const { id } = Route.useParams();
 	// traps is an eager collection, so this resolves without a fetch.
-	const { trap, isReady } = useTrap(id);
+	const { trap, isReady, isError } = useTrap(id);
 
 	return (
 		<RecordDetailPage
@@ -106,7 +106,7 @@ function RouteComponent() {
 			deleteRefusals={TRAP_DELETE_REFUSALS}
 			layout={layout}
 			noun="trap"
-			reading={{ isReady, record: trap }}
+			reading={{ isError, isReady, record: trap }}
 		>
 			{(record, askDelete) => <TrapDetailContent askDelete={askDelete} trap={record} />}
 		</RecordDetailPage>
