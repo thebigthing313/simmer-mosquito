@@ -12,9 +12,8 @@
  */
 
 import type { WeatherSourceType } from '@simmer-mosquito/domain';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { weather_sources } from '../../lib/collections/weather_sources';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { useRecordById } from './shared';
 
 export type { WeatherSourceType };
 
@@ -44,29 +43,24 @@ export function useWeatherStation(stationId: string | null): {
 	 */
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ source: weather_sources() })
-					.where(({ source }) => eq(source.id, stationId ?? unmatchableId))
-					.select(({ source }) => ({
-						id: source.id,
-						name: source.source_name,
-						sourceType: source.source_type,
-						sourceCode: source.source_code,
-						providerSourceId: source.provider_source_id,
-						isActive: source.is_active,
-						organizationId: source.organization_id,
-						latitude: source.lat,
-						longitude: source.lng,
-						geometryKind: source.geom_type,
-						metadata: source.metadata,
-					})),
-		},
-		[stationId],
-	);
+	const result = useRecordById({
+		collection: weather_sources(),
+		id: stationId,
+		query: (query) =>
+			query.select(({ record: source }) => ({
+				id: source.id,
+				name: source.source_name,
+				sourceType: source.source_type,
+				sourceCode: source.source_code,
+				providerSourceId: source.provider_source_id,
+				isActive: source.is_active,
+				organizationId: source.organization_id,
+				latitude: source.lat,
+				longitude: source.lng,
+				geometryKind: source.geom_type,
+				metadata: source.metadata,
+			})),
+	});
 
-	return { station: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { station: result.record, isReady: result.isReady, isError: result.isError };
 }

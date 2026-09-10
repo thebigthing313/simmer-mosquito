@@ -98,6 +98,18 @@ type RecordQuery<TRow extends SyncedRow, TContext extends Context> = (
  * The id is nullable so a form can ask before the user has chosen a record. A
  * hook cannot be called conditionally, so the absent case asks for an id no row
  * has rather than being skipped, which is an empty result instead of the table.
+ *
+ * ## The on-demand rule lives here now
+ *
+ * This reads through `useLiveQuery` and gates on status, never through
+ * `useLiveSuspenseQuery`. That is the rule for an on-demand collection: the
+ * suspense hook sticks after a navigation unmount over one, so a route that used
+ * it would hang on the way out. Eight hooks used to restate that in their own
+ * docblocks, which is eight places for it to go stale. A hook on this factory
+ * inherits it and says nothing.
+ *
+ * The consequence a caller has to handle is that a record and a pending read both
+ * read as `undefined`, which is what `isReady` separates.
  */
 export function useRecordById<TRow extends SyncedRow, TContext extends Context>(options: {
 	readonly collection: CollectionOf<TRow>;
@@ -134,5 +146,59 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 		record: result.data[0] as GetResult<TContext> | undefined,
 		isReady: result.isReady,
 		isError: result.isError,
+	};
+}
+
+/**
+ * The columns {@link addressSelect} reads, as a query namespace hands them over.
+ *
+ * `unknown` rather than the ref types, so the fragment stays out of
+ * `@tanstack/db`'s ref internals: the generic passes each column's ref straight
+ * through, which is what keeps the nullable brand a `left` join puts on it. Lose
+ * that and the projected fields stop being `| undefined` and `LinkedAddress` no
+ * longer describes what arrives.
+ */
+type AddressColumns = {
+	id: unknown;
+	display_name: unknown;
+	address_line_1: unknown;
+	address_line_2: unknown;
+	locality: unknown;
+	region: unknown;
+	postal_code: unknown;
+};
+
+/**
+ * The seven address columns every surface that names a place projects.
+ *
+ * Sixteen queries wrote the same seven lines out, and the block is the whole of
+ * what `lib/address-format.ts` reads. Spread it into a `select`, either as the
+ * nested `address` object a joined record carries or as the projection of a query
+ * over `addresses` itself.
+ *
+ * It is a plain function rather than anything the query builder knows about: a
+ * `select` object is built at query time, so a fragment of one is a function that
+ * returns the fields. Whether the result is `Address` or `LinkedAddress` is
+ * decided by the namespace it is handed, which is `address-view.ts`'s subject.
+ */
+export function addressSelect<TAddress extends AddressColumns>(
+	address: TAddress,
+): {
+	id: TAddress['id'];
+	displayName: TAddress['display_name'];
+	addressLine1: TAddress['address_line_1'];
+	addressLine2: TAddress['address_line_2'];
+	locality: TAddress['locality'];
+	region: TAddress['region'];
+	postalCode: TAddress['postal_code'];
+} {
+	return {
+		id: address.id,
+		displayName: address.display_name,
+		addressLine1: address.address_line_1,
+		addressLine2: address.address_line_2,
+		locality: address.locality,
+		region: address.region,
+		postalCode: address.postal_code,
 	};
 }

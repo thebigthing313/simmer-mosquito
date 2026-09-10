@@ -30,7 +30,7 @@ import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import type { InspectionCard } from './larval-activity-view';
-import { useRecordById } from './shared';
+import { addressSelect, useRecordById } from './shared';
 
 export function useInspection(inspectionId: string): {
 	readonly inspection: InspectionCard | undefined;
@@ -67,15 +67,7 @@ export function useInspection(inspectionId: string): {
 					'left',
 				)
 				.select(({ record: inspection, habitat, type, inspector, address }) => ({
-					address: {
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					},
+					address: addressSelect(address),
 					id: inspection.id,
 					inspectionDate: inspection.inspection_date,
 					inspectedByProfileId: inspection.inspected_by_profile_id,

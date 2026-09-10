@@ -17,7 +17,7 @@
 import { useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import type { Address } from './address-view';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, addressSelect } from './shared';
 
 /** An Address as the explorer lists it: what to show, and where it is. */
 export interface AddressListing extends Address {
@@ -44,13 +44,7 @@ export function useOrganizationAddresses(): {
 					.from({ address: addresses() })
 					.orderBy(({ address }) => address.display_name, 'asc')
 					.select(({ address }) => ({
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
+						...addressSelect(address),
 						country: address.country,
 						latitude: address.lat,
 						longitude: address.lng,

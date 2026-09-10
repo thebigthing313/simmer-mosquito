@@ -14,6 +14,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import type { Habitat } from './habitat-view';
+import { addressSelect } from './shared';
 
 export function useHabitatSuspense(habitatId: string): Habitat | undefined {
 	const result = useLiveSuspenseQuery(
@@ -33,15 +34,7 @@ export function useHabitatSuspense(habitatId: string): Habitat | undefined {
 				)
 				.select(({ habitat, type, address }) => ({
 					id: habitat.id,
-					address: {
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					},
+					address: addressSelect(address),
 					name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
 					description: habitat.description,
 					typeId: habitat.habitat_type_id,

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 /**
- * The single-record read: `useRecordById`.
+ * The single-record read: `useRecordById`, and the address fragment beside it.
  *
  * What it decides is the difference between a read that failed and a table that
  * holds no such row. A detail page draws "could not be found, or you do not have
@@ -12,12 +12,19 @@
  * The join and the projection are the caller's, and one case here goes through
  * them: the callback receives a query already filtered to the id, so anything it
  * builds on top has to survive that.
+ *
+ * `addressSelect` is the seven columns sixteen queries used to write out. What it
+ * has to keep is the `left` join's absent case: a record that names no Address
+ * projects an object whose `id` is `undefined`, which is the field
+ * `resolveLinkedAddress` discriminates on.
  */
 
 import { caseWhen, eq, isNull } from '@tanstack/react-db';
 import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useRecordById } from '../../../../hooks/queries/shared';
+import { addressSelect, useRecordById } from '../../../../hooks/queries/shared';
+import { addresses } from '../../../../lib/collections/addresses';
+import { habitats } from '../../../../lib/collections/habitats';
 import { region_folders } from '../../../../lib/collections/region_folders';
 import { regions } from '../../../../lib/collections/regions';
 import {
@@ -30,6 +37,8 @@ import { renderRead } from './read-harness';
 const REGION = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
 const FOLDER = '33333333-3333-4333-8333-333333333333';
+const HABITAT = '44444444-4444-4444-8444-444444444444';
+const ADDRESS = '55555555-5555-4555-8555-555555555555';
 
 function region(id: string, name: string, folderId: string | null = null) {
 	return { id, name, description: null, region_folder_id: folderId };
@@ -51,6 +60,25 @@ function useOneRegion(id: string | null) {
 					id: record.id,
 					name: record.name,
 					folderName: caseWhen(isNull(record.region_folder_id), null, folder.name),
+				})),
+	});
+}
+
+/** A Habitat read with its Address joined the way every card surface joins one. */
+function useHabitatAddress(id: string | null) {
+	return useRecordById({
+		collection: habitats(),
+		id,
+		query: (query) =>
+			query
+				.join(
+					{ address: addresses() },
+					({ record, address }) => eq(record.address_id, address.id),
+					'left',
+				)
+				.select(({ record, address }) => ({
+					id: record.id,
+					address: addressSelect(address),
 				})),
 	});
 }
@@ -101,5 +129,43 @@ describe('useRecordById', () => {
 
 		expect(result.current.record).toBeUndefined();
 		expect(result.current.isReady).toBe(true);
+	});
+});
+
+describe('addressSelect', () => {
+	it('projects the seven columns under the names a surface reads', async () => {
+		seedRows(addresses, [
+			{
+				id: ADDRESS,
+				display_name: 'Riverside clubhouse',
+				address_line_1: '12 River Road',
+				address_line_2: 'Unit B',
+				locality: 'Fresno',
+				region: 'CA',
+				postal_code: '93650',
+			},
+		]);
+		seedRows(habitats, [{ id: HABITAT, address_id: ADDRESS }]);
+
+		const { result } = await renderRead(() => useHabitatAddress(HABITAT));
+
+		expect(result.current.record?.address).toEqual({
+			id: ADDRESS,
+			displayName: 'Riverside clubhouse',
+			addressLine1: '12 River Road',
+			addressLine2: 'Unit B',
+			locality: 'Fresno',
+			region: 'CA',
+			postalCode: '93650',
+		});
+	});
+
+	it('leaves the id undefined when the record names no Address', async () => {
+		seedRows(habitats, [{ id: HABITAT, address_id: null }]);
+
+		const { result } = await renderRead(() => useHabitatAddress(HABITAT));
+
+		expect(result.current.record?.id).toBe(HABITAT);
+		expect(result.current.record?.address.id).toBeUndefined();
 	});
 });

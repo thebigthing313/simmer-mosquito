@@ -5,15 +5,17 @@
  * join would repeat the registration once per row. The detail page and the edit
  * form both want the pair, and both want the list separately from the record.
  *
- * `notification_registrations` is on-demand, so these use the status-gated
- * `useLiveQuery` rather than the suspense variant, which sticks after a
- * navigation unmount over an on-demand collection.
+ * The record reads through {@link useRecordById}, which holds the on-demand rule.
+ * The subscriptions do not: they are read by the registration's foreign key
+ * rather than by id, so that one states the rule itself — status-gated
+ * `useLiveQuery`, never the suspense variant, which sticks after a navigation
+ * unmount over an on-demand collection.
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { notification_registration_types } from '../../lib/collections/notification_registration_types';
 import { notification_registrations } from '../../lib/collections/notification_registrations';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { mapCardGcTimeMs, unmatchableId, useRecordById } from './shared';
 
 /** A registration as every surface reads one. */
 export interface RegistrationRecord {
@@ -43,35 +45,28 @@ export function useRegistration(registrationId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = registrationId ?? unmatchableId;
+	const result = useRecordById({
+		collection: notification_registrations(),
+		id: registrationId ?? null,
+		query: (query) =>
+			query.select(({ record: registration }) => ({
+				id: registration.id,
+				contactId: registration.contact_id,
+				addressId: registration.address_id,
+				lat: registration.lat,
+				lng: registration.lng,
+				geomType: registration.geom_type,
+				bufferDistance: registration.buffer_distance,
+				bufferUnitId: registration.buffer_unit_id,
+				hasBees: registration.has_bees,
+				isNoSpray: registration.is_no_spray,
+				isActive: registration.is_active,
+				createdAt: registration.created_at,
+				updatedAt: registration.updated_at,
+			})),
+	});
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ registration: notification_registrations() })
-					.where(({ registration }) => eq(registration.id, id))
-					.select(({ registration }) => ({
-						id: registration.id,
-						contactId: registration.contact_id,
-						addressId: registration.address_id,
-						lat: registration.lat,
-						lng: registration.lng,
-						geomType: registration.geom_type,
-						bufferDistance: registration.buffer_distance,
-						bufferUnitId: registration.buffer_unit_id,
-						hasBees: registration.has_bees,
-						isNoSpray: registration.is_no_spray,
-						isActive: registration.is_active,
-						createdAt: registration.created_at,
-						updatedAt: registration.updated_at,
-					})),
-		},
-		[id],
-	);
-
-	return { registration: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { registration: result.record, isReady: result.isReady, isError: result.isError };
 }
 
 export function useRegistrationSubscriptions(registrationId: string | null | undefined): {

@@ -25,7 +25,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { mission_items } from '../../lib/collections/mission_items';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import type { MissionStop } from './operations-view';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { addressSelect, mapCardGcTimeMs, unmatchableId } from './shared';
 
 export function useMissionStops(missionId: string | null): {
 	readonly stops: readonly MissionStop[];
@@ -73,15 +73,7 @@ export function useMissionStops(missionId: string | null): {
 							request.control_type,
 						),
 						addressId: item.address_id,
-						address: {
-							id: address.id,
-							displayName: address.display_name,
-							addressLine1: address.address_line_1,
-							addressLine2: address.address_line_2,
-							locality: address.locality,
-							region: address.region,
-							postalCode: address.postal_code,
-						},
+						address: addressSelect(address),
 						completedAt: item.completed_at,
 						skippedAt: item.skipped_at,
 						skipReason: item.skip_reason,

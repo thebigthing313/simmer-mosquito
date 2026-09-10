@@ -12,7 +12,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import type { Habitat } from './habitat-view';
-import { useRecordById } from './shared';
+import { addressSelect, useRecordById } from './shared';
 
 /**
  * Takes a nullable id so a form can ask before the user has chosen a Habitat,
@@ -42,15 +42,7 @@ export function useHabitat(
 				)
 				.select(({ record: habitat, type, address }) => ({
 					id: habitat.id,
-					address: {
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					},
+					address: addressSelect(address),
 					name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
 					description: habitat.description,
 					typeId: habitat.habitat_type_id,

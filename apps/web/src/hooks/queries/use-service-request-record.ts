@@ -7,16 +7,11 @@
  * consent, and the address in postal lines — so the join would be paid for
  * twice. It asks for the request; `useContact` and `useAddressRecord` ask for
  * the parties.
- *
- * `service_requests` is on-demand, so this uses the status-gated `useLiveQuery`
- * rather than the suspense variant, which sticks after a navigation unmount over
- * an on-demand collection.
  */
 
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { service_requests } from '../../lib/collections/service_requests';
 import type { RequestIntakeType } from './service-request-view';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { useRecordById } from './shared';
 
 /** A Service Request as its own surfaces hold one. */
 export interface ServiceRequestRecord {
@@ -42,32 +37,25 @@ export function useServiceRequestRecord(requestId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = requestId ?? unmatchableId;
+	const result = useRecordById({
+		collection: service_requests(),
+		id: requestId ?? null,
+		query: (query) =>
+			query.select(({ record: request }) => ({
+				id: request.id,
+				organizationId: request.organization_id,
+				displayName: request.display_name,
+				intakeType: request.intake_type,
+				requestDate: request.request_date,
+				details: request.details,
+				contactId: request.contact_id,
+				addressId: request.address_id,
+				receivedByProfileId: request.received_by_profile_id,
+				closedAt: request.closed_at,
+				latitude: request.lat,
+				longitude: request.lng,
+			})),
+	});
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: service_requests() })
-					.where(({ request }) => eq(request.id, id))
-					.select(({ request }) => ({
-						id: request.id,
-						organizationId: request.organization_id,
-						displayName: request.display_name,
-						intakeType: request.intake_type,
-						requestDate: request.request_date,
-						details: request.details,
-						contactId: request.contact_id,
-						addressId: request.address_id,
-						receivedByProfileId: request.received_by_profile_id,
-						closedAt: request.closed_at,
-						latitude: request.lat,
-						longitude: request.lng,
-					})),
-		},
-		[id],
-	);
-
-	return { request: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { request: result.record, isReady: result.isReady, isError: result.isError };
 }
