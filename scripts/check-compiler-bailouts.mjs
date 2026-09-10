@@ -302,8 +302,21 @@ const BAILING_FILES = [
  * same function at the same `fnLoc` now reports one `Todo` instead. A phase that
  * clears a bail-out can therefore uncover a `Todo` behind it, and the check is
  * that the new finding sits in a function the phase just fixed.
+ *
+ * **The two left are generated shadcn source and stay.** They are `String.raw`
+ * in `packages/ui-web/src/components/ui/calendar.tsx`, and regenerating the
+ * component puts them back, which is the regeneration hazard this gate was
+ * built with (#777). The other 41 were rewritten in #856: a `Todo` bails the
+ * whole enclosing component rather than the handler it sits in, so 43 findings
+ * were 30 components compiled by nothing, 17 of which had had their manual
+ * memoization stripped on the premise that the compiler would replace it.
+ *
+ * That is also why the run **names the files it counts**. This category is
+ * counted apart from both halves of the ratchet and was never listed, so 30
+ * uncompiled components sat under a green summary line for the length of the
+ * rollout, and reading them took patching this file.
  */
-const TODO_FINDINGS = 43;
+const TODO_FINDINGS = 2;
 
 /** The floor under the walk. See the header. */
 const MINIMUM_MODULES = 950;
@@ -578,12 +591,16 @@ const markerProblems = (modules) => [
 	),
 ];
 
+/** Each file holding a `Todo`, with how many, in corpus order. */
+const todoFilesOf = (modules) =>
+	modules.filter((module) => module.todos > 0).map((module) => `${module.file} (${module.todos})`);
+
 /** The `Todo` ratchet, which reads in one direction. See the header. */
-const todoProblems = (todos) =>
+const todoProblems = (todos, todoFiles) =>
 	todos <= TODO_FINDINGS
 		? []
 		: [
-				`${count(todos, 'Todo finding')} against \`TODO_FINDINGS\` of ${TODO_FINDINGS}. \`Todo\` is the compiler saying it has not implemented a case, so a rise means new source in a shape it cannot read yet. Read what arrived before raising the number.`,
+				`${count(todos, 'Todo finding')} against \`TODO_FINDINGS\` of ${TODO_FINDINGS}, in ${todoFiles.join(', ')}. \`Todo\` is the compiler saying it has not implemented a case, so a rise means new source in a shape it cannot read yet. A finding bails the whole component it sits in, not the handler, so read what arrived before raising the number.`,
 			];
 
 /**
@@ -673,12 +690,23 @@ const todoSlack = (todos) =>
 		? `, and \`TODO_FINDINGS\` is ${TODO_FINDINGS}, holding ${TODO_FINDINGS - todos} of slack: lower it, reading the diff`
 		: '';
 
-/** The one line a clean run prints. */
-function announce(modules, compiled, todos) {
+/**
+ * The line a clean run prints, and the `Todo` files under it.
+ *
+ * The files are named rather than only counted because this category is held
+ * apart from both halves of the ratchet: a component it bails is compiled by
+ * nothing, and a number alone never said which (#856).
+ */
+function announce(modules, compiled, todos, todoFiles) {
 	const skips = modules.reduce((total, module) => total + optOuts(module), 0);
 	console.log(
 		`${GATE}: ${count(modules.length, 'module')}, ${count(compiled, 'compiled function')}, ${count(BAILING_FILES.length, 'file')} on the ratchet, ${count(skips, 'opted-out function')}, ${count(todos, 'Todo finding')}${todoSlack(todos)}.`,
 	);
+	if (todoFiles.length > 0) {
+		console.log(
+			`${GATE}: Todo findings sit in ${todoFiles.join(', ')}, each bailing its component.`,
+		);
+	}
 }
 
 function main() {
@@ -690,6 +718,7 @@ function main() {
 	const modules = paths.map(readModule);
 	const compiled = modules.reduce((total, module) => total + module.compiled, 0);
 	const todos = modules.reduce((total, module) => total + module.todos, 0);
+	const todoFiles = todoFilesOf(modules);
 
 	const problems = [
 		...probeProblems(),
@@ -698,11 +727,11 @@ function main() {
 		...insideProblems(modules),
 		...outsideProblems(modules),
 		...markerProblems(modules),
-		...todoProblems(todos),
+		...todoProblems(todos, todoFiles),
 	];
 
 	if (problems.length === 0) {
-		announce(modules, compiled, todos);
+		announce(modules, compiled, todos, todoFiles);
 		return;
 	}
 

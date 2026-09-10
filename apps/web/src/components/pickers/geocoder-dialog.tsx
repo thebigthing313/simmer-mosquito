@@ -1,3 +1,4 @@
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form/required-mark';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -12,6 +13,7 @@ import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useId } from 'react';
+import { getServerUrl } from '../../auth';
 
 /**
  * The geocoder result picker, and the address field, shared by the two places
@@ -28,7 +30,7 @@ import { useId } from 'react';
  * broken until somebody reported it, and the fix landed on one file.
  */
 
-export interface GeocoderResponse {
+interface GeocoderResponse {
 	readonly results: readonly GeocoderResult[];
 }
 
@@ -45,6 +47,72 @@ export type GeocoderPoint = {
 	readonly type: 'Point';
 	readonly coordinates: readonly [number, number];
 };
+
+/**
+ * The geocoder lookup both forms run.
+ *
+ * It is one function here rather than a request written out in each form for
+ * the reason the rest of this file is shared, and because of where the request
+ * has to sit: the React Compiler cannot lower a branching expression inside a
+ * try block and bails the whole component when it meets one, so a form that
+ * validated the response inline compiled nothing at all (#856). The refusal is
+ * a `throw`, which the caller's try turns into the message on screen.
+ */
+export async function searchGeocoder(
+	query: string,
+	country: string,
+): Promise<readonly GeocoderResult[]> {
+	const url = new URL('/geocoder/search', getServerUrl());
+	url.searchParams.set('q', query);
+	url.searchParams.set('country', country);
+	url.searchParams.set('limit', '5');
+	const response = await sessionFetch(url);
+	const body = (await response.json().catch(() => null)) as
+		| GeocoderResponse
+		| { readonly error?: string }
+		| null;
+	if (!response.ok || body === null || !('results' in body)) {
+		throw new Error(geocoderErrorMessage(response.status, readErrorCode(body)));
+	}
+	return body.results;
+}
+
+function readErrorCode(body: unknown): string | undefined {
+	if (typeof body !== 'object' || body === null) {
+		return undefined;
+	}
+	const error = (body as { readonly error?: unknown }).error;
+	return typeof error === 'string' ? error : undefined;
+}
+
+/**
+ * Every geocoder failure used to read "Unable to geocode address." — equally
+ * true of an unset API key, a rate limit, an expired session, and an upstream
+ * outage, and equally useless for deciding whether to retry, place the point by
+ * hand, or tell someone the deployment is misconfigured. `/geocoder/search`
+ * already distinguishes them; this says which, and names the way out.
+ *
+ * Placing the point on the map is available in both forms, so it is the
+ * fallback every message points at.
+ */
+function geocoderErrorMessage(status: number, error: string | undefined): string {
+	if (status === 401) {
+		return 'Your session has expired. Sign in again to look up addresses.';
+	}
+	if (error === 'geocoder_not_configured') {
+		return 'Address lookup is not configured on this deployment. Place the point on the map instead.';
+	}
+	if (status === 429) {
+		return 'Address lookup is rate limited right now. Try again shortly, or place the point on the map.';
+	}
+	if (error === 'invalid_query') {
+		return 'Enter more of the address before looking it up.';
+	}
+	if (status >= 500) {
+		return 'The address lookup service is unavailable. Place the point on the map instead.';
+	}
+	return 'Unable to geocode address. Place the point on the map instead.';
+}
 
 export function GeocoderDialog({
 	open,

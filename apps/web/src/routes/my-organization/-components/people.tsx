@@ -394,20 +394,15 @@ function InviteProfileSheet({
 		event.preventDefault();
 		setError(null);
 		setIsSaving(true);
+		const linkedProfileId = profileId === 'new' ? null : profileId;
 		try {
-			await invite({
-				displayName,
-				email,
-				role,
-				profileId: profileId === 'new' ? null : profileId,
-			});
+			await invite({ displayName, email, role, profileId: linkedProfileId });
 			toast.success('Invitation sent.');
 			updateOpen(false);
 		} catch (saveError) {
 			setError(saveFailureMessage(saveError, 'The invitation was not sent.'));
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	}
 
 	return (
@@ -522,22 +517,24 @@ function EditProfileSheet({
 		event.preventDefault();
 		setError(null);
 		setIsSaving(true);
+		const membershipId = person.membershipId ?? null;
 		try {
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
 			const plan = profileSavePlan({ displayName: nextDisplayName, isActive, role }, person);
 			// The role first, and only if it moved: it is a different command with a
 			// different floor (owner, not admin), and a refusal there must not leave
 			// the profile half saved and the sheet closed.
-			if (plan.roleChange !== null && person.membershipId != null) {
-				await changeRole(person.membershipId, plan.roleChange);
+			if (plan.roleChange !== null) {
+				if (membershipId !== null) {
+					await changeRole(membershipId, plan.roleChange);
+				}
 			}
 			updateOpen(false);
 			watchWrite(save(person.profileId, plan.changes), 'Unable to save profile.');
 		} catch (saveError) {
 			setError(saveFailureMessage(saveError, 'The changes were not saved.'));
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	}
 
 	return (

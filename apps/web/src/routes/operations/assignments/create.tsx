@@ -81,6 +81,10 @@ function AssignmentCreateRoute() {
 		}
 		setSaving(true);
 		setError(null);
+		// Picked before the try rather than branched inside it: the React Compiler
+		// bails on a whole component when a try block holds a branching expression
+		// (#856), so the choice is made here and the try holds a plain test.
+		const copiedRouteId = mode === 'route' ? routeId : null;
 		try {
 			const details = {
 				assignmentDate: values.assignmentDate,
@@ -88,10 +92,10 @@ function AssignmentCreateRoute() {
 				assignedToProfileId: assigneeOrNull(values),
 				dueAt: toDueAt(values, timeZone),
 			};
-			if (mode === 'route' && routeId !== null) {
+			if (copiedRouteId !== null) {
 				await createFromRoute({
 					assignmentId,
-					routeId,
+					routeId: copiedRouteId,
 					details,
 					// The stop's own target rides along so the new worklist can be drawn
 					// before the server answers. Only the id pairing is sent — the server

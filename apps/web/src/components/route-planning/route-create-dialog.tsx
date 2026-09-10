@@ -57,9 +57,8 @@ export function RouteCreateDialog({
 			await navigate(surface.editLink(routeId));
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to create the route.');
-		} finally {
-			setPending(false);
 		}
+		setPending(false);
 	};
 
 	const handleOpenChange = (next: boolean) => {

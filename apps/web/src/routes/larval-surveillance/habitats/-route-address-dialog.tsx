@@ -63,9 +63,8 @@ export function RouteStopAddressDialog({
 			onOpenChange(false);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to update the linked address.');
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	};
 
 	return (

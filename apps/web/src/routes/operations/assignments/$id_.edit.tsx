@@ -184,23 +184,21 @@ function AssignmentPlanRoute() {
 			setDetailDraft(null);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save these details.');
-		} finally {
-			setSavingDetails(false);
 		}
+		setSavingDetails(false);
 	};
 
 	const addStop = async (selection: AssignmentTargetSelection) => {
 		setError(null);
+		// The picker speaks the page's vocabulary; the row speaks the column's.
+		// `serviceRequest` is the only member the two spell differently, which is
+		// why this conversion has to be explicit, and it sits above the try because
+		// the React Compiler bails on a component whose try block branches (#856).
+		const targetType = selection.type === 'serviceRequest' ? 'service_request' : selection.type;
 		try {
 			await items.addStop({
 				assignmentId: id,
-				// The picker speaks the page's vocabulary; the row speaks the
-				// column's. `serviceRequest` is the only member the two spell
-				// differently, which is why this conversion has to be explicit.
-				target: {
-					type: selection.type === 'serviceRequest' ? 'service_request' : selection.type,
-					id: selection.id,
-				},
+				target: { type: targetType, id: selection.id },
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 			});
 		} catch (cause) {

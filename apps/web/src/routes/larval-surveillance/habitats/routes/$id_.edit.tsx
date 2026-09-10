@@ -142,9 +142,8 @@ function RouteEditRoute() {
 			await rename(id, trimmed);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to rename the route.');
-		} finally {
-			setNameDraft(null);
 		}
+		setNameDraft(null);
 	};
 
 	const addStop = async (habitat: HabitatSite) => {

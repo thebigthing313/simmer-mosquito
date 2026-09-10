@@ -8,7 +8,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { iconRegistry, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
-import { useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue, useState } from 'react';
 import { OptionRow, PickerFallback } from '../../components/pickers/entity-picker';
 import { useRegionFolders } from '../../hooks/queries/use-region-folders';
@@ -71,25 +71,15 @@ export function RegionBoundaryPicker({
 	async function adoptRegion(region: RegionOption) {
 		setLoadingId(region.id);
 		setError(null);
-		try {
-			const geometry = await fetchRegionGeometryOnce(queryClient, region.id);
-			const boundary = boundaryFromGeoJson(geometry?.geojson ?? null, allowsParts);
-			if (boundary === null) {
-				setError(
-					geometry?.geojson == null
-						? `${region.name} has no boundary saved.`
-						: `${region.name} has separate pieces, and this record holds one area.`,
-				);
-				return;
-			}
-			onSelect(boundary);
+		const outcome = await readBoundary(queryClient, region, allowsParts);
+		if (outcome.boundary === null) {
+			setError(outcome.refusal);
+		} else {
+			onSelect(outcome.boundary);
 			setOpen(false);
 			setSearch('');
-		} catch {
-			setError('Unable to load that region boundary.');
-		} finally {
-			setLoadingId(null);
 		}
+		setLoadingId(null);
 	}
 
 	return (
@@ -230,6 +220,39 @@ function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, stri
 		return 'Unfiled';
 	}
 	return folderNames.get(region.folderId) ?? 'Unknown folder';
+}
+
+/**
+ * The Region's boundary as the adopting record can hold it, or the sentence
+ * saying why it cannot be adopted.
+ *
+ * The read, the interpretation and the refusal all sit here rather than in the
+ * picker, because the picker is a component and the React Compiler bails on a
+ * whole component when a try block holds a branching expression (#856). This
+ * body is nothing but branching expressions, so it is a module function and the
+ * picker holds one `await` and an `if`.
+ */
+async function readBoundary(
+	queryClient: QueryClient,
+	region: RegionOption,
+	allowsParts: boolean,
+): Promise<{ readonly boundary: RegionBoundaryGeometry | null; readonly refusal: string }> {
+	try {
+		const geometry = await fetchRegionGeometryOnce(queryClient, region.id);
+		const boundary = boundaryFromGeoJson(geometry?.geojson ?? null, allowsParts);
+		if (boundary !== null) {
+			return { boundary, refusal: '' };
+		}
+		return {
+			boundary: null,
+			refusal:
+				geometry?.geojson == null
+					? `${region.name} has no boundary saved.`
+					: `${region.name} has separate pieces, and this record holds one area.`,
+		};
+	} catch {
+		return { boundary: null, refusal: 'Unable to load that region boundary.' };
+	}
 }
 
 /**

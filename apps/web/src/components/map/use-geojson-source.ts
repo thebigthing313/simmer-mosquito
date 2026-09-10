@@ -35,6 +35,29 @@ import { isMapLive } from './use-mapbox-map';
  * imperatively and pass that same repaint as `onEnsure`, which is what puts a
  * half-drawn shape back after a restyle.
  */
+/**
+ * Takes this source's layers and then the source itself back off the map.
+ *
+ * Module level rather than inline in the cleanup, because that loop sits inside
+ * a try block and the React Compiler cannot lower a `for` there: one such loop
+ * bails the whole hook, which compiles nothing (#856). The try stays at the
+ * call site, since what it guards is a map that has already been removed.
+ */
+function removeAddedLayers(
+	activeMap: MapboxMap,
+	layerIds: readonly string[],
+	sourceId: string,
+): void {
+	for (const id of layerIds) {
+		if (activeMap.getLayer(id) !== undefined) {
+			activeMap.removeLayer(id);
+		}
+	}
+	if (activeMap.getSource(sourceId) !== undefined) {
+		activeMap.removeSource(sourceId);
+	}
+}
+
 export function useGeoJsonSource({
 	map,
 	isLoaded,
@@ -190,14 +213,7 @@ export function useGeoJsonSource({
 				if (isInteractive) {
 					activeMap.getCanvas().style.cursor = '';
 				}
-				for (const id of addedLayerIdsRef.current) {
-					if (activeMap.getLayer(id) !== undefined) {
-						activeMap.removeLayer(id);
-					}
-				}
-				if (activeMap.getSource(sourceId) !== undefined) {
-					activeMap.removeSource(sourceId);
-				}
+				removeAddedLayers(activeMap, addedLayerIdsRef.current, sourceId);
 			} catch {
 				// Map already removed; nothing left to clean up.
 			}
@@ -214,7 +230,9 @@ export function useGeoJsonSource({
 		}
 		try {
 			const source = map.getSource(sourceId) as GeoJSONSource | undefined;
-			source?.setData(toMapboxGeoJson(data));
+			if (source !== undefined) {
+				source.setData(toMapboxGeoJson(data));
+			}
 		} catch {
 			// Map style not available; nothing to update.
 		}

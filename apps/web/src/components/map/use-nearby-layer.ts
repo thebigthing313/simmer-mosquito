@@ -206,12 +206,10 @@ export function useNearbyLayer(
 		if (!isMapLive(map) || !isLoaded || !enabled) {
 			return;
 		}
+		const selectedKeys = selectionKey === '' ? [] : selectionKey.split(',');
 		try {
 			if (map.getLayer(SELECTED_LAYER_ID) !== undefined) {
-				map.setFilter(
-					SELECTED_LAYER_ID,
-					selectedFilter(selectionKey === '' ? [] : selectionKey.split(',')),
-				);
+				map.setFilter(SELECTED_LAYER_ID, selectedFilter(selectedKeys));
 			}
 		} catch {
 			// Map style not available; nothing to re-scope.
