@@ -42,14 +42,14 @@ function RouteComponent() {
 	const { id } = Route.useParams();
 	// The joined hook rather than `useRegionRecord`: this page names the folder,
 	// and the form is the one that needs its id.
-	const { region, isReady } = useRegion(id);
+	const { region, isReady, isError } = useRegion(id);
 
 	return (
 		<RecordDetailPage
 			back={{ label: 'Back to Regions', to: '/gis/regions' }}
 			layout={layout}
 			noun="region"
-			reading={{ isReady, record: region }}
+			reading={{ isError, isReady, record: region }}
 		>
 			{(record) => <RegionDetailContent region={record} />}
 		</RecordDetailPage>
