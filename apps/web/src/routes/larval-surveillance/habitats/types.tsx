@@ -45,7 +45,7 @@ export const Route = createFileRoute('/larval-surveillance/habitats/types')({
 
 const TaxonomyIcon = iconRegistry.entities.taxonomy.icon;
 const AddIcon = iconRegistry.actions.add.icon;
-const HabitatIcon = iconRegistry.domains.larvalSurveillance.icon;
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 
 type UsageById = ReadonlyMap<string, number>;
 const EMPTY_USAGE: UsageById = new Map();

@@ -8,7 +8,7 @@ import {
 import type { AssignmentTarget, ItemProgress, TargetType } from './-assignment-data';
 
 const TrapIcon = iconRegistry.entities.trap.icon;
-const HabitatIcon = iconRegistry.domains.larvalSurveillance.icon;
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 const ServiceRequestIcon = iconRegistry.entities.serviceRequest.icon;
 
 const targetLabels: Readonly<Record<TargetType, string>> = {

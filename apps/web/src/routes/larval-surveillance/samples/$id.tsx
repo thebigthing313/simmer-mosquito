@@ -104,7 +104,7 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 // names come from — the same mark heads the card on adult collections.
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
-const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 
 /**
  * One identification as this page holds it.

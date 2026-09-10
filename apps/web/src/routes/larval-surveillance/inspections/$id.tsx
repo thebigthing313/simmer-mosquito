@@ -99,7 +99,7 @@ function RouteComponent() {
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
-const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 

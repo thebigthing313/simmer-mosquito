@@ -88,7 +88,6 @@ import {
 	Upload,
 	User,
 	Users,
-	WavesHorizontal,
 	Worm,
 	Wrench,
 	X,
@@ -170,7 +169,9 @@ export const iconRegistry = {
 		contact: icon('contact', 'Contact', 'entities', User),
 		equipment: icon('equipment', 'Equipment', 'entities', Wrench),
 		formulation: icon('formulation', 'Formulation', 'entities', Beaker),
-		habitat: icon('habitat', 'Habitat', 'entities', WavesHorizontal),
+		// A Habitat is where larvae are found, and the worm is the mark the product
+		// already reads as larval, so it heads a Habitat everywhere one is named.
+		habitat: icon('habitat', 'Habitat', 'entities', Worm),
 		insecticide: icon('insecticide', 'Insecticide', 'entities', SprayCan),
 		inspection: icon('inspection', 'Inspection', 'entities', ClipboardCheck),
 		mission: icon('mission', 'Mission', 'entities', Target),
