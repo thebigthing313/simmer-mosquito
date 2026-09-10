@@ -1,7 +1,5 @@
-import { createMissionCommand } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
-import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
@@ -12,6 +10,7 @@ import {
 	MissionFormPage,
 	type MissionPlan,
 	missionFormValuesFrom,
+	validateMissionPlan,
 } from './-mission-form';
 
 export const Route = createFileRoute('/operations/missions/$id_/edit')({
@@ -70,24 +69,6 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 		await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
 	};
 
-	// The five update builders the server runs each validate a slice of these same
-	// fields; `createMissionCommand` covers all of them in one pass, which is what
-	// a form needs — it validates the whole thing at once rather than whichever
-	// slice happens to have changed. The server still runs the real builders.
-	const validate = (plan: MissionPlan) =>
-		createMissionCommand({
-			...FORM_VALIDATION_CONTEXT,
-			missionId: FORM_VALIDATION_CONTEXT.organizationId,
-			controlType: plan.controlType,
-			scheduledStartAt: plan.startAt as Date,
-			scheduledEndAt: plan.endAt,
-			rainDate: plan.rainDate,
-			missionName: plan.missionName,
-			plannedMethodId: plan.plannedMethodId,
-			assignedToProfileId: plan.assignedToProfileId,
-			notificationTypeId: plan.notificationTypeId,
-		});
-
 	return (
 		<MissionFormPage
 			canSubmit={actorProfileId !== null}
@@ -103,7 +84,7 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 			}}
 			onSave={onSave}
 			submitLabel="Save Changes"
-			validate={validate}
+			validate={validateMissionPlan}
 		/>
 	);
 }

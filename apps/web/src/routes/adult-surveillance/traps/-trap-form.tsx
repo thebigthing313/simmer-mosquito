@@ -4,7 +4,11 @@ import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
 import type {
@@ -26,6 +30,41 @@ const TRAP_FIELD_PATHS: Readonly<Record<string, string>> = {
 	trapCode: 'trapCode',
 	description: 'description',
 };
+
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * The builder is the only channel: it requires the collection method and holds
+ * the name-or-code rule, and every issue comes back attributed to the field that
+ * holds it. A second check on the method used to run in `onSubmit` and throw a
+ * bare string into the page alert, which told an operator a save had failed
+ * without saying where to look.
+ *
+ * The edit page does not require a redraw, so an untouched trap keeps its point
+ * and the builder is handed the stand-in rather than a null it would report
+ * against a map the operator was never asked to draw on.
+ */
+export function validateTrap(
+	value: TrapFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+) {
+	return domainValidator(
+		() =>
+			createTrapCommand({
+				...FORM_VALIDATION_CONTEXT,
+				trapId: FORM_VALIDATION_CONTEXT.organizationId,
+				locationSource: validationLocationSource(geometry, requireLocation),
+				collectionMethodId: value.collectionMethodId,
+				addressId: value.addressId,
+				collectionLureId: value.collectionLureId === noLureValue ? null : value.collectionLureId,
+				trapName: value.trapName,
+				trapCode: value.trapCode,
+				description: value.description,
+			}),
+		TRAP_FIELD_PATHS,
+	)({ value });
+}
 
 export interface TrapFormValues {
 	/**
@@ -119,28 +158,11 @@ export function TrapFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: TrapFormValues }) =>
-					createTrapCommand({
-						...FORM_VALIDATION_CONTEXT,
-						trapId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
-						collectionMethodId: value.collectionMethodId,
-						addressId: value.addressId,
-						collectionLureId:
-							value.collectionLureId === noLureValue ? null : value.collectionLureId,
-						trapName: value.trapName,
-						trapCode: value.trapCode,
-						description: value.description,
-					}),
-				TRAP_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: TrapFormValues }) =>
+				validateTrap(value, geometry, requireLocation),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			if (value.collectionMethodId === '') {
-				throw new Error('Select the collection method for this trap.');
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}

@@ -44,6 +44,39 @@ const SOURCE_REDUCTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	metadata: 'metadata',
 };
 
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * The builder is the only channel: it holds the method, the amount, the unit and
+ * the date, and every issue it raises comes back attributed to the field that
+ * holds it. A second hand-rolled pass over the same five rules used to run in
+ * `onSubmit` and throw a bare string into the page alert, which told an operator
+ * a save had failed without saying where to look.
+ */
+export function validateSourceReduction(
+	value: SourceReductionFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+) {
+	return domainValidator(
+		() =>
+			recordSourceReductionCommand({
+				...FORM_VALIDATION_CONTEXT,
+				sourceReductionId: FORM_VALIDATION_CONTEXT.organizationId,
+				locationSource: validationLocationSource(geometry, requireLocation),
+				sourceReductionMethodId: value.sourceReductionMethodId,
+				sourcesEliminatedAmount: value.sourcesEliminatedAmount as number,
+				sourcesEliminatedUnitId: value.sourcesEliminatedUnitId,
+				sourceReductionDate: value.sourceReductionDate,
+				technicianProfileId:
+					value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
+				addressId: value.addressId,
+				metadata: value.metadata,
+			}),
+		SOURCE_REDUCTION_FIELD_PATHS,
+	)({ value });
+}
+
 export interface SourceReductionFormValues {
 	/** A source reduction method id, or '' when unset (placeholder shown). */
 	readonly sourceReductionMethodId: string;
@@ -160,30 +193,11 @@ export function SourceReductionFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: SourceReductionFormValues }) =>
-					recordSourceReductionCommand({
-						...FORM_VALIDATION_CONTEXT,
-						sourceReductionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: validationLocationSource(geometry, requireLocation),
-						sourceReductionMethodId: value.sourceReductionMethodId,
-						sourcesEliminatedAmount: value.sourcesEliminatedAmount as number,
-						sourcesEliminatedUnitId: value.sourcesEliminatedUnitId,
-						sourceReductionDate: value.sourceReductionDate,
-						technicianProfileId:
-							value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
-						addressId: value.addressId,
-						metadata: value.metadata,
-					}),
-				SOURCE_REDUCTION_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: SourceReductionFormValues }) =>
+				validateSourceReduction(value, geometry, requireLocation),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const validationError = validate(value);
-			if (validationError !== null) {
-				throw new Error(validationError);
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -375,29 +389,6 @@ export function SourceReductionFormPage({
 // --- controls ---------------------------------------------------------------
 
 // --- validation + helpers ---------------------------------------------------
-
-/**
- * Context-free checks only — org ownership, referenced-row existence, and the
- * unit-type restriction are the server's call (docs/domain-command-contract.md).
- */
-function validate(values: SourceReductionFormValues): string | null {
-	if (values.sourceReductionMethodId === '') {
-		return 'Select the source reduction method used.';
-	}
-	if (values.sourcesEliminatedAmount === null) {
-		return 'Enter how many sources were eliminated.';
-	}
-	if (values.sourcesEliminatedAmount < 0) {
-		return 'Sources eliminated cannot be negative.';
-	}
-	if (values.sourcesEliminatedUnitId === '') {
-		return 'Select the unit the amount is measured in.';
-	}
-	if (values.sourceReductionDate === '') {
-		return 'Enter the date this work was performed.';
-	}
-	return null;
-}
 
 /**
  * What the form holds, as the write seam takes it.

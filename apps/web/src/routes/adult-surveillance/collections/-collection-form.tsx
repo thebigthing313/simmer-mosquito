@@ -83,6 +83,9 @@ const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	collectedByProfileId: 'collectedByProfileId',
 	'timing.collectedAt': 'collectedAt',
 	'timing.startedAt': 'startedAt',
+	// The two set commands take `startedAt` directly rather than a timing, so the
+	// same field is reported under a second path and needs both entries.
+	startedAt: 'startedAt',
 	'timing.collectionDate': 'collectionDate',
 	'timing.durationAmount': 'durationAmount',
 	'timing.durationUnitId': 'durationUnitId',
@@ -108,7 +111,7 @@ function isPendingCollection(value: CollectionFormValues): boolean {
  * the same one the save will, so the rules an operator is held to match what
  * actually runs.
  */
-function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
+export function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
 	const pending = isPendingCollection(value);
 	const timing =
 		value.timingMode === 'exact_timestamps'
@@ -312,10 +315,6 @@ export function CollectionFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const error = validate(value);
-			if (error !== null) {
-				throw new Error(error);
-			}
 			if (value.sourceMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
@@ -699,24 +698,6 @@ function TimingSection({
 // --- controls ---------------------------------------------------------------
 
 // --- validation + helpers ---------------------------------------------------
-
-function validate(values: CollectionFormValues): string | null {
-	if (values.sourceMode === 'trap' && values.trapId === null) {
-		return 'Select the trap this collection came from.';
-	}
-	if (values.collectionMethodId === '') {
-		return 'A collection method is required.';
-	}
-	// No collected date means the trap is still out, which is a state the record
-	// can legally be in — but only if it says when it was set.
-	if (isPendingCollection(values) && values.startedAt === null) {
-		return 'Enter the date this trap was set.';
-	}
-	if (values.timingMode === 'collection_date_duration' && values.collectionDate === null) {
-		return 'Enter the collection date.';
-	}
-	return null;
-}
 
 /**
  * What the form holds, as the write seam takes it.

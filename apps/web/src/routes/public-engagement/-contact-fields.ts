@@ -27,7 +27,15 @@ export interface ContactFormValues {
 	readonly wantsPhone: boolean;
 }
 
-/** Domain issue path → the form field holding it, relative to the contact block. */
+/**
+ * The contact fields a domain issue can name, in the order the block draws them.
+ *
+ * The builder reports each one under `contact.<field>`, since
+ * `normalizeCreateContactDetails` is handed that prefix, so both callers map the
+ * same names onto whatever they call the block's fields. The three preference switches are on the list because
+ * the builder refuses each of them without the channel it needs, and a caller
+ * whose map stopped at `email` sent those three to the page alert.
+ */
 export const CONTACT_FIELD_PATHS: readonly (keyof ContactFormValues & string)[] = [
 	'contactName',
 	'company',
@@ -36,6 +44,9 @@ export const CONTACT_FIELD_PATHS: readonly (keyof ContactFormValues & string)[] 
 	'preferredPhone',
 	'alternatePhone',
 	'email',
+	'wantsEmail',
+	'wantsSms',
+	'wantsPhone',
 ];
 
 export function defaultContactFormValues(): ContactFormValues {
@@ -82,33 +93,6 @@ export function contactFieldsFromValues(values: ContactFormValues): ContactField
 		wantsSms: values.wantsSms,
 		wantsPhone: values.wantsPhone,
 	};
-}
-
-/**
- * Client-side mirror of the domain's contact rules (`normalizeCreateContactDetails`):
- * at least one identifier, alternate phone needs a preferred phone, and each
- * "wants" preference needs its channel. The server re-validates authoritatively.
- */
-export function validateContactForm(values: ContactFormValues): string | null {
-	const hasName = values.contactName.trim().length > 0;
-	const hasCompany = values.company.trim().length > 0;
-	const hasPreferred = values.preferredPhone.trim().length > 0;
-	const hasAlternate = values.alternatePhone.trim().length > 0;
-	const hasEmail = values.email.trim().length > 0;
-
-	if (!hasName && !hasCompany && !hasPreferred && !hasAlternate && !hasEmail) {
-		return 'Enter at least one of a name, company, phone, or email.';
-	}
-	if (hasAlternate && !hasPreferred) {
-		return 'An alternate phone requires a preferred phone.';
-	}
-	if (values.wantsEmail && !hasEmail) {
-		return 'Wants email requires an email address.';
-	}
-	if ((values.wantsSms || values.wantsPhone) && !hasPreferred) {
-		return 'SMS and phone preferences require a preferred phone.';
-	}
-	return null;
 }
 
 function nullableText(value: string): string | null {
