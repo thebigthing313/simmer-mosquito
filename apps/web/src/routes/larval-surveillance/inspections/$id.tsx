@@ -2,6 +2,7 @@ import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -479,33 +480,22 @@ function InspectionSamplesCard({
 				</div>
 			</CardHeader>
 			<CardContent padding="compact">
-				{isError ? (
-					<SamplesEmpty
-						description="Sample records could not be loaded. Try again shortly."
-						title="Samples Unavailable"
-					/>
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-16 w-full" key={index} />
-						))}
-					</div>
-				) : samples.length === 0 ? (
-					<SamplesEmpty
-						description={
-							isWet
-								? 'No specimens were collected during this inspection.'
-								: 'Dry inspections collect no samples.'
-						}
-						title="No Samples Recorded"
-					/>
-				) : (
-					<ul className="grid gap-2">
-						{samples.map((sample) => (
-							<SampleItem key={sample.id} sample={sample} />
-						))}
-					</ul>
-				)}
+				<PanelRows
+					empty={{
+						description: isWet
+							? 'No specimens were collected during this inspection.'
+							: 'Dry inspections collect no samples.',
+						title: 'No Samples Recorded',
+					}}
+					icon={<SampleIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: samples }}
+					unavailable={{
+						description: 'Sample records could not be loaded. Try again shortly.',
+						title: 'Samples Unavailable',
+					}}
+				>
+					{(rows) => rows.map((sample) => <SampleItem key={sample.id} sample={sample} />)}
+				</PanelRows>
 			</CardContent>
 		</Card>
 	);
@@ -819,28 +809,6 @@ async function fetchInspectionDetail(
 	}
 	const body = (await response.json()) as { readonly inspection?: InspectionDetailRow };
 	return body.inspection ?? null;
-}
-
-// --- presentational states --------------------------------------------------
-
-function SamplesEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<SampleIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
 }
 
 // --- helpers ----------------------------------------------------------------
