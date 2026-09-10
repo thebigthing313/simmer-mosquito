@@ -7,6 +7,7 @@ import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { LocationBand } from '../../../forms/location-band';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
@@ -209,15 +210,11 @@ export function RegionFormPage({
 					)}
 				</form.AppField>
 
-				<form.AppField name="metadata">
-					{(field) => (
-						<field.MetadataField
-							description="Optional structured notes for region details of your own."
-							label="Metadata"
-							mode={{ kind: 'manual' }}
-						/>
-					)}
-				</form.AppField>
+				<CustomFieldsSection
+					description="Optional structured notes for region details of your own."
+					form={form}
+					framed={false}
+				/>
 			</RecordFormPage>
 		</form.AppForm>
 	);

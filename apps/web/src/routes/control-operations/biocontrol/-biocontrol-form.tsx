@@ -1,12 +1,9 @@
 import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
 import {
-	customFieldCount,
-	customSchemaFor,
 	FormSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
@@ -20,6 +17,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
@@ -353,31 +351,11 @@ export function BiocontrolFormPage({
 					</div>
 				</FormSection>
 
-				{/* Organizations attach their own fields to a method; render whichever
-							    the selected one declares, and nothing when it declares none. */}
-				<form.Subscribe selector={(state) => state.values.biocontrolMethodId}>
-					{(methodId) => {
-						const schema = customSchemaFor(biocontrolMethods, methodId);
-						if (customFieldCount(schema) === 0) {
-							return null;
-						}
-						return (
-							<FormSection title="Custom Fields">
-								<form.AppField
-									name="metadata"
-									validators={{ onSubmit: validateSchemaMetadata(schema) }}
-								>
-									{(field) => (
-										<field.MetadataField
-											description="Extra details you collect for this method."
-											mode={{ kind: 'schema', schema }}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-						);
-					}}
-				</form.Subscribe>
+				<CustomFieldsSection
+					catalog={biocontrolMethods}
+					form={form}
+					schemaField="biocontrolMethodId"
+				/>
 
 				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>

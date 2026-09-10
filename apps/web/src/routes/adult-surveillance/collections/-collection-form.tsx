@@ -9,14 +9,11 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
-	customFieldCount,
-	customSchemaFor,
 	FormSection,
 	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { useState } from 'react';
@@ -27,6 +24,7 @@ import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-c
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField } from '../../../forms/location-band';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
@@ -540,32 +538,12 @@ export function CollectionFormPage({
 					</form.AppField>
 				</FormSection>
 
-				{/* Organizations attach their own fields to a collection method;
-							    render whichever the method on this collection declares — whether
-							    it was picked directly or inherited from the trap. */}
-				<form.Subscribe selector={(state) => state.values.collectionMethodId}>
-					{(methodId) => {
-						const schema = customSchemaFor(collectionMethods, methodId);
-						if (customFieldCount(schema) === 0) {
-							return null;
-						}
-						return (
-							<FormSection title="Custom Fields">
-								<form.AppField
-									name="metadata"
-									validators={{ onSubmit: validateSchemaMetadata(schema) }}
-								>
-									{(field) => (
-										<field.MetadataField
-											description="Extra details you collect for this method."
-											mode={{ kind: 'schema', schema }}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-						);
-					}}
-				</form.Subscribe>
+				{/* The method here may have been picked directly or inherited from the trap. */}
+				<CustomFieldsSection
+					catalog={collectionMethods}
+					form={form}
+					schemaField="collectionMethodId"
+				/>
 
 				<FormSection title="Results">
 					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-muted-foreground text-sm">

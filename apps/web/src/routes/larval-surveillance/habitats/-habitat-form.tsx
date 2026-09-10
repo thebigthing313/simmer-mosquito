@@ -2,12 +2,9 @@ import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { createHabitatCommand } from '@simmer-mosquito/domain';
 import { centroidFromGeoJson } from '@simmer-mosquito/mapping';
 import {
-	customFieldCount,
-	customSchemaFor,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { getServerUrl } from '../../../auth';
 import { MapCanvas } from '../../../components/map';
@@ -17,6 +14,7 @@ import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { WriteOnly } from '../../../components/write-only';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -238,33 +236,18 @@ export function HabitatFormPage({
 					)}
 				</form.AppField>
 
-				{/* Habitat metadata is guided by the type's custom schema (see
-							    docs/larval-surveillance-domain.md), but stays open to ad-hoc keys
-							    so a habitat can carry notes its type never declared. */}
-				<form.Subscribe selector={(state) => state.values.habitatTypeId}>
-					{(habitatTypeId) => {
-						const schema = customSchemaFor(habitatTypes, habitatTypeId);
-						const hasTypeFields = customFieldCount(schema) > 0;
-						return (
-							<form.AppField
-								name="metadata"
-								validators={{ onSubmit: validateSchemaMetadata(schema) }}
-							>
-								{(field) => (
-									<field.MetadataField
-										label="Metadata"
-										description={
-											hasTypeFields
-												? 'Fields this habitat type collects, plus any notes of your own.'
-												: 'Optional structured notes for habitat details of your own.'
-										}
-										mode={{ kind: 'schema', schema, allowExtra: true }}
-									/>
-								)}
-							</form.AppField>
-						);
-					}}
-				</form.Subscribe>
+				{/* Guided by the type's custom schema (see docs/larval-surveillance-domain.md),
+							    and open to ad-hoc keys so a habitat can carry notes its type never
+							    declared. */}
+				<CustomFieldsSection
+					allowExtra
+					catalog={habitatTypes}
+					description="Fields this habitat type collects, plus any notes of your own."
+					emptyDescription="Optional structured notes for habitat details of your own."
+					form={form}
+					framed={false}
+					schemaField="habitatTypeId"
+				/>
 			</RecordFormPage>
 		</form.AppForm>
 	);
