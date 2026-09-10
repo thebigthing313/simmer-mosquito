@@ -12,6 +12,7 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
+import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import {
 	Field,
 	FieldDescription,
@@ -54,6 +55,7 @@ import {
 	TriangleAlertIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
 
 export const Route = createFileRoute('/kitchen-sink')({
 	component: KitchenSinkPage,
@@ -287,6 +289,26 @@ function KitchenSinkPage() {
 			<section className="preview-section">
 				<div className="preview-section-header">
 					<div>
+						<p className="preview-eyebrow">Forms</p>
+						<h2>Date Picker</h2>
+					</div>
+					<p>
+						Three screens in one popover. The month and the year in the caption are each a button
+						into a grid of their own, and a bound greys out the months and years it puts out of
+						reach.
+					</p>
+				</div>
+				<div className="component-grid dense">
+					<DatePickerSample label="Unbounded" />
+					<DatePickerSample label="No later than today" max={new Date()} />
+					<DatePickerSample label="This year only" max={endOfThisYear()} min={startOfThisYear()} />
+					<DatePickerSample disabled label="Disabled" />
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
 						<p className="preview-eyebrow">Records</p>
 						<h2>Panel Rows</h2>
 					</div>
@@ -330,4 +352,42 @@ function KitchenSinkPage() {
 			</section>
 		</div>
 	);
+}
+
+/**
+ * One picker holding its own selection, so the drill-down can actually be
+ * walked here rather than only looked at.
+ */
+function DatePickerSample({
+	label,
+	max,
+	min,
+	disabled = false,
+}: {
+	readonly label: string;
+	readonly max?: Date;
+	readonly min?: Date;
+	readonly disabled?: boolean;
+}) {
+	const [value, setValue] = useState<Date | undefined>(undefined);
+	return (
+		<DatePicker
+			ariaLabel={label}
+			className="w-56"
+			disabled={disabled}
+			max={max}
+			min={min}
+			onChange={setValue}
+			placeholder={label}
+			value={value}
+		/>
+	);
+}
+
+function startOfThisYear(): Date {
+	return new Date(new Date().getFullYear(), 0, 1);
+}
+
+function endOfThisYear(): Date {
+	return new Date(new Date().getFullYear(), 11, 31);
 }
