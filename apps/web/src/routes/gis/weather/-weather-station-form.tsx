@@ -11,6 +11,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	FORM_VALIDATION_GEOMETRY,
 } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { LocationBand } from '../../../forms/location-band';
 import type { WeatherStationFields } from '../../../hooks/mutations/use-weather-station-mutations';
 
@@ -209,15 +210,11 @@ export function WeatherStationFormPage({
 					title="Station location"
 				/>
 
-				<form.AppField name="metadata">
-					{(field) => (
-						<field.MetadataField
-							description="Optional structured notes, like the gauge model or who maintains it."
-							label="Metadata"
-							mode={{ kind: 'manual' }}
-						/>
-					)}
-				</form.AppField>
+				<CustomFieldsSection
+					description="Optional structured notes, like the gauge model or who maintains it."
+					form={form}
+					framed={false}
+				/>
 			</RecordFormPage>
 		</form.AppForm>
 	);
