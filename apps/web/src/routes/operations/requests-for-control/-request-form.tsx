@@ -11,12 +11,11 @@ import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
-import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
 import { ControlTypeToggle } from '../-control-type-toggle';
-import { LocationSection } from '../-location-section';
 import { useMethodsForControlType } from '../-operations-data';
 
 /**
@@ -174,7 +173,7 @@ export function RequestFormPage({
 			>
 				<form.FormErrorAlert title={errorTitle} />
 
-				<LocationSection
+				<LocationBand
 					geometryKind="requestedControlAction"
 					description="A point for a single spot, a line or area for a stretch. An address is optional reference."
 					location={location}
@@ -182,20 +181,15 @@ export function RequestFormPage({
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="What Is Being Requested">
 					<form.AppField name="controlType">

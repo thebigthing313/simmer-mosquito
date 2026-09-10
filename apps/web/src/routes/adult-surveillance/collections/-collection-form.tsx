@@ -28,6 +28,7 @@ import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField } from '../../../forms/location-band';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type {
 	CatalogListing,
@@ -39,7 +40,7 @@ import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
-import { AddressPicker, TrapPicker } from '../-adult-pickers';
+import { TrapPicker } from '../-adult-pickers';
 import { collectionTimingStamps } from './-collection-timing';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
@@ -475,14 +476,9 @@ export function CollectionFormPage({
 								<>
 									<form.AppField name="addressId">
 										{(field) => (
-											<AddressPicker
-												create={{ requestMapPoint: location.requestMapPoint }}
-												label="Address"
-												onSelect={(address) => {
-													field.handleChange(address?.id ?? null);
-													location.clearError();
-													location.selectAddress(address);
-												}}
+											<LocationAddressField
+												location={location}
+												onChange={field.handleChange}
 												organizationId={organizationId}
 												value={field.state.value}
 											/>

@@ -1,15 +1,11 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
-import {
-	FormSection,
-	LocationSection,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
 import type {
 	CatalogListing,
@@ -17,7 +13,6 @@ import type {
 } from '../../../hooks/queries/use-catalog-rosters';
 import type { TrapRecord } from '../../../hooks/queries/use-trap-record';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { AddressPicker } from '../-adult-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 const noLureValue = 'none';
@@ -113,7 +108,7 @@ export function TrapFormPage({
 		missingMessage: 'Place the trap point on the map.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType } = location;
+	const { draw, geometry, geometryType } = location;
 
 	const methodOptions = lifecycleOptions(
 		collectionMethods,
@@ -180,38 +175,25 @@ export function TrapFormPage({
 			>
 				<form.FormErrorAlert title="Unable to Save Trap" />
 
-				<LocationSection
+				<LocationBand
 					description="The point is the trap’s exact location. An address is optional reference. Refine the point off it to the precise spot."
-					error={location.locationError}
+					geometryKind="trap"
+					label="Point"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="trap"
-						label="Point"
-						required={requireLocation}
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Configuration">
 					<div className="grid gap-5 sm:grid-cols-2">

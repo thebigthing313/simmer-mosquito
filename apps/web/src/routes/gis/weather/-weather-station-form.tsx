@@ -1,25 +1,17 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createWeatherStationCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import {
-	LocationSection as LocationBand,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type {
-	DrawGeometry,
-	DrawGeometryFor,
-	DrawGeometryType,
-	MapDrawController,
-} from '../../../components/map/use-map-draw';
+import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
 	FORM_VALIDATION_GEOMETRY,
 } from '../../../forms/domain-validation';
+import { LocationBand } from '../../../forms/location-band';
 import type { WeatherStationFields } from '../../../hooks/mutations/use-weather-station-mutations';
 
 /**
@@ -204,13 +196,17 @@ export function WeatherStationFormPage({
 					</form.AppField>
 				</div>
 
-				<LocationSection
-					controller={draw}
-					error={location.locationError}
-					geometry={geometry}
-					geometryType={geometryType}
-					onClear={location.clear}
-					onDraw={location.startDraw}
+				{/*
+				 * Point-only, by the domain's rule, and stated on the map rather than
+				 * typed: a station is a thermometer on a post, and the coordinates it
+				 * stores are the ones somebody placed.
+				 */}
+				<LocationBand
+					description="Place the station where it stands."
+					geometryKind="weatherStation"
+					label="Location"
+					location={location}
+					title="Station location"
 				/>
 
 				<form.AppField name="metadata">
@@ -224,48 +220,6 @@ export function WeatherStationFormPage({
 				</form.AppField>
 			</RecordFormPage>
 		</form.AppForm>
-	);
-}
-
-/**
- * Where the station stands.
- *
- * Point-only, by the domain's rule, and stated on the map rather than typed:
- * a station is a thermometer on a post, and the coordinates it stores are the
- * ones somebody placed.
- */
-function LocationSection({
-	geometry,
-	geometryType,
-	controller,
-	error,
-	onDraw,
-	onClear,
-}: {
-	readonly geometry: DrawGeometry | null;
-	readonly geometryType: DrawGeometryType;
-	readonly controller: MapDrawController;
-	readonly error: string | null;
-	readonly onDraw: () => void;
-	readonly onClear: () => void;
-}) {
-	return (
-		<LocationBand
-			description="Place the station where it stands."
-			error={error}
-			title="Station location"
-		>
-			<GeometryControl
-				controller={controller}
-				geometry={geometry}
-				geometryType={geometryType}
-				geometryKind="weatherStation"
-				label="Location"
-				onClear={onClear}
-				onDraw={onDraw}
-				required
-			/>
-		</LocationBand>
 	);
 }
 

@@ -3,7 +3,6 @@ import {
 	customFieldCount,
 	customSchemaFor,
 	FormSection,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -12,7 +11,7 @@ import {
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
@@ -22,11 +21,11 @@ import {
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { AddressPicker } from '../../control-operations/-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noTechnicianValue = 'none';
@@ -133,7 +132,7 @@ export function OutreachFormPage({
 		missingMessage: 'Map where the outreach happened.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType } = location;
+	const { draw, geometry, geometryType } = location;
 
 	const methodOptions = lifecycleOptions(
 		outreachMethods,
@@ -254,43 +253,27 @@ export function OutreachFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection
+				<LocationBand
 					description={locationDescription({
 						geometryKind: 'controlAction',
 						subject: 'The geometry is where the outreach happened.',
 					})}
-					error={location.locationError}
+					geometryKind="controlAction"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="controlAction"
-						label="Geometry"
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						onTypeChange={location.changeType}
-						organizationId={organizationId}
-						required={requireLocation}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Outreach">
 					<form.AppField name="outreachMethodId">
