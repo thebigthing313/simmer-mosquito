@@ -5,6 +5,7 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -29,8 +30,6 @@ import {
 	type SourceReductionSaveInput,
 	sourceReductionFieldsFrom,
 } from './-source-reduction-form';
-
-const sourceReductionGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -57,7 +56,7 @@ function EditSourceReductionRoute() {
 		action: sourceReduction,
 		isReady,
 		isError,
-	} = useSourceReduction(id, { gcTime: sourceReductionGcTimeMs });
+	} = useSourceReduction(id, { gcTime: activityGcTimeMs });
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

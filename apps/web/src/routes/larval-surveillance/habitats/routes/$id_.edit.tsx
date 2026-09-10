@@ -63,7 +63,6 @@ import { StopStatus, StopTagChips, StopTypePill, useStopMeta } from '../-route-s
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
-const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 const NO_TAGS: readonly Tag[] = [];
 

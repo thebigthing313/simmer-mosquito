@@ -52,6 +52,7 @@ import {
 import { TagBadge } from '../../../components/tag-badge';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
+import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import {
 	type RequestListing,
@@ -85,9 +86,7 @@ const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: s
 	{ value: 'closed', label: 'Closed' },
 	{ value: 'all', label: 'All' },
 ];
-const requestsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const EMPTY_TAGS: readonly Tag[] = [];
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'open', 'closed'];
@@ -566,10 +565,10 @@ function useStableIds(ids: readonly string[]): readonly string[] {
 function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<string> {
 	const tagIds = [...selectedTagIds].sort();
 	const key = tagIds.join(',');
-	const queryIds = tagIds.length > 0 ? tagIds : [UNMATCHABLE_ID];
+	const queryIds = tagIds.length > 0 ? tagIds : [unmatchableId];
 	const result = useLiveQuery(
 		{
-			gcTime: requestsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: tag_items() })
@@ -758,14 +757,4 @@ function requestSwatch(request: RequestListing): {
 	return isServiceRequestOpen(request)
 		? { color: SERVICE_REQUEST_STATUS_COLORS.open, label: 'Open' }
 		: { color: SERVICE_REQUEST_STATUS_COLORS.closed, label: 'Closed' };
-}
-
-function _toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
-	const next = new Set(set);
-	if (next.has(id)) {
-		next.delete(id);
-	} else {
-		next.add(id);
-	}
-	return next;
 }

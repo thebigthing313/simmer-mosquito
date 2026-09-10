@@ -66,6 +66,7 @@ import {
 	useCollectionSpeciesMutations,
 } from '../../../hooks/mutations/use-collection-species-mutations';
 import type { AdultCollection } from '../../../hooks/queries/collection-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
 import { useCollectionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -108,8 +109,6 @@ const TrapIcon = iconRegistry.entities.trap.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
-const collectionGcTimeMs = 30_000;
-
 // Roles that get a read-only view of a collection — no flag toggles, species
 // edits, or additions (mirrors the comments thread's read-only gate).
 const READ_ONLY_ROLES = new Set(['viewer']);
@@ -126,7 +125,7 @@ function RouteComponent() {
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	const { collection, isReady } = useAdultCollection(id, { gcTime: collectionGcTimeMs });
+	const { collection, isReady } = useAdultCollection(id, { gcTime: activityGcTimeMs });
 
 	return (
 		<RecordDetailPage

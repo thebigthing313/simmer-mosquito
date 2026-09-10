@@ -847,13 +847,6 @@ function defaultBatchUnitId(units: readonly UnitLabel[]): string {
 	return (gallon ?? units.find((unit) => unit.unitType === 'volume'))?.id ?? '';
 }
 
-function _positiveNumberValue(value: number | null, label: string): number {
-	if (value === null || !Number.isFinite(value) || value <= 0) {
-		throw new Error(`${label} must be greater than zero.`);
-	}
-	return value;
-}
-
 function componentSummary(
 	components: readonly FormulationComponentRecord[],
 	insecticideById: ReadonlyMap<string, InsecticideRecord>,

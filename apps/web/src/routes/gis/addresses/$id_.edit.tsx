@@ -24,8 +24,6 @@ export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	component: EditAddressRoute,
 });
 
-const _addressGcTimeMs = 30_000;
-
 function EditAddressRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();

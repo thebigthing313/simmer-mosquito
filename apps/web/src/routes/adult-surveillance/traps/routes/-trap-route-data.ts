@@ -1,6 +1,7 @@
 import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import type { RouteStopFeature } from '../../../../components/map';
 import type { RouteSummary } from '../../../../components/route-planning/route-summary';
+import { activityGcTimeMs, unmatchableId } from '../../../../hooks/queries/shared';
 import { trapDisplayName } from '../../../../hooks/queries/trap-view';
 import { route_items } from '../../../../lib/collections/route_items';
 import { routes } from '../../../../lib/collections/routes';
@@ -8,13 +9,7 @@ import { traps } from '../../../../lib/collections/traps';
 
 // Trap routes reuse the shared `routes` / `route_items` tables — a route with
 // `route_type: 'trap'`, its stops `route_items` with `entity_type: 'trap'`.
-// `routes` is eager; `route_items` is on-demand (docs/sync.md), kept warm briefly
-// so index → detail → edit hops reuse the subset.
-const routeItemsGcTimeMs = 30_000;
-
-// A syntactically valid uuid that matches no row — keeps an `eq` subset predicate
-// live (and empty) while a route id is still unresolved.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+// `routes` is eager; `route_items` is on-demand (docs/sync.md).
 
 /** One resolved stop: a route item joined to its trap, in route order. */
 export interface RouteStopView {
@@ -85,7 +80,7 @@ export function useRouteStopCounts(): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -119,7 +114,7 @@ export function useRouteStops(routeId: string | null): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -127,7 +122,7 @@ export function useRouteStops(routeId: string | null): {
 						and(
 							// An unmatchable id keeps the hook order stable while no route is
 							// selected — a live query cannot be conditional.
-							eq(item.route_id, routeId ?? UNMATCHABLE_ID),
+							eq(item.route_id, routeId ?? unmatchableId),
 							// Pushed into the predicate rather than filtered afterwards: a
 							// habitat route's items are rows this subset should never load.
 							eq(item.entity_type, 'trap'),

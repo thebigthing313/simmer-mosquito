@@ -2,6 +2,7 @@ import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { unmatchableId } from '../hooks/queries/shared';
 import type { StopAcknowledgements } from '../lib/acknowledgements';
 import { mission_items } from '../lib/collections/mission_items';
 import { useAcknowledgedWrite } from './acknowledged-write';
@@ -18,9 +19,6 @@ import { toDrawGeometry } from './map/use-map-draw';
  * three commands that ship without a wire-body test cannot drift from the one
  * that has one.
  */
-
-/** A syntactically valid uuid no row matches — keeps a subset predicate live and empty. */
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 /** `mission_items` is an on-demand shape; hold it briefly so a retry reuses the stream. */
 const missionStopGcTimeMs = 30_000;
@@ -151,7 +149,7 @@ export function useMissionStopExecution(search: {
 			query: (query) =>
 				query
 					.from({ item: mission_items() })
-					.where(({ item }) => eq(item.id, missionItemId ?? UNMATCHABLE_ID))
+					.where(({ item }) => eq(item.id, missionItemId ?? unmatchableId))
 					.select(({ item }) => ({
 						lat: item.lat,
 						lng: item.lng,

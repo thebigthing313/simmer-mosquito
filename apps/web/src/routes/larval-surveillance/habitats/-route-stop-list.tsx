@@ -16,8 +16,6 @@ import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters
 import { hexWithAlpha } from '../../../lib/hex-color';
 import { type RouteStopCluster, type RouteStopView, stopTone } from './-route-data';
 
-// `tag_items` is on-demand; keep this route's habitat tags warm briefly on unmount.
-const _tagItemsGcTimeMs = 30_000;
 const NO_TAGS: readonly Tag[] = [];
 
 interface RouteStopListProps {

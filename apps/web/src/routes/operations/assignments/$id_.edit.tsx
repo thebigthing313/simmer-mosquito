@@ -13,11 +13,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
-import {
-	ArrowLeftIcon,
-	ChevronRightIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -71,8 +67,6 @@ import {
 	AssignmentTargetPicker,
 	type AssignmentTargetSelection,
 } from './-assignment-target-picker';
-
-const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 /** Module-level so the ordering hook's identity stays stable across renders. */
 const stopKey = (stop: AssignmentStopView) => stop.assignmentItemId;

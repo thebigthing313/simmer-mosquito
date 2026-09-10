@@ -32,6 +32,7 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitats } from '../../../lib/collections/habitats';
 import {
@@ -476,12 +477,6 @@ function habitatSwatch(habitat: HabitatListRow): {
 
 // --- data hooks -------------------------------------------------------------
 
-// `habitats` is on-demand; keep the selected-habitat subset warm briefly on unmount.
-const selectedHabitatGcTimeMs = 30_000;
-// A syntactically valid uuid that matches no row — keeps the single-id subset live
-// (and empty) when nothing needs the fallback fetch.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
 /**
  * Fallback for a selection outside the current bbox list.
  *
@@ -504,13 +499,13 @@ function useSelectedHabitat(
 	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
 	const result = useLiveQuery(
 		{
-			gcTime: selectedHabitatGcTimeMs,
+			gcTime: activityGcTimeMs,
 			// An unmatchable id keeps the subset live (and empty) when the selection is
 			// already in the visible list or nothing is selected.
 			query: (query) =>
 				query
 					.from({ habitat: habitats() })
-					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : UNMATCHABLE_ID))
+					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : unmatchableId))
 					.select(({ habitat }) => ({
 						id: habitat.id,
 						habitatName: habitat.habitat_name,

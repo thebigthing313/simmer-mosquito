@@ -57,10 +57,13 @@ export const unmatchableId = '00000000-0000-0000-0000-000000000000';
 export const mapCardGcTimeMs = 30_000;
 
 /**
- * How long an activity subset stays warm.
+ * How long an on-demand subset stays warm after the last thing watching it unmounts.
  *
  * The overview panels are browsed back and forth through — yesterday, then the day
  * before, then back to yesterday — so the day just left is worth keeping for the
- * moment it takes to return to it.
+ * moment it takes to return to it. Every route reading an on-demand shape wants that
+ * same window, and each one used to write the number out for itself: 26 private
+ * copies under `routes/`, 5 of them dead (#860). Import this rather than writing 30
+ * seconds out again.
  */
 export const activityGcTimeMs = 30_000;

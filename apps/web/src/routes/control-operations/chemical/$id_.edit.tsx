@@ -6,6 +6,7 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -52,8 +53,6 @@ export const Route = createFileRoute('/control-operations/chemical/$id_/edit')({
 	component: EditApplicationRoute,
 });
 
-const applicationGcTimeMs = 30_000;
-
 function EditApplicationRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
@@ -67,7 +66,7 @@ function EditApplicationRoute() {
 
 	// One query for the application and everything named on it. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id, { gcTime: applicationGcTimeMs });
+	const { application, isReady, isError } = useApplication(id, { gcTime: activityGcTimeMs });
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

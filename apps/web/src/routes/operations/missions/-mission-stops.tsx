@@ -1,7 +1,6 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
@@ -22,8 +21,6 @@ import {
 	missionItemActionsFor,
 } from '../-operations-data';
 import { MissionItemProgressBadge, missionStopTone } from '../-operations-display';
-
-const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
 	complete: 'Done',

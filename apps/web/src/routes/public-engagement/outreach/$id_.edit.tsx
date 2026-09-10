@@ -5,6 +5,7 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -24,8 +25,6 @@ import {
 	OutreachFormPage,
 	type OutreachFormValues,
 } from './-outreach-form';
-
-const outreachGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/public-engagement/outreach/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -47,7 +46,7 @@ function EditOutreachActionRoute() {
 	const methods = useOutreachMethodRoster();
 	const profiles = useProfileRoster();
 
-	const { action, isReady, isError } = useOutreachAction(id, { gcTime: outreachGcTimeMs });
+	const { action, isReady, isError } = useOutreachAction(id, { gcTime: activityGcTimeMs });
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

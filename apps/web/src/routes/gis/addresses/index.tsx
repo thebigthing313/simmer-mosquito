@@ -49,7 +49,6 @@ export const Route = createFileRoute('/gis/addresses/')({
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
 const RESULT_NOUN = { one: 'address', many: 'addresses' };
-const _addressesGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 
 function AddressesExplorerRoute() {

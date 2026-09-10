@@ -11,6 +11,7 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
@@ -51,8 +52,6 @@ export const Route = createFileRoute('/larval-surveillance/inspections/$id_/edit
 	component: EditInspectionRoute,
 });
 
-const inspectionGcTimeMs = 30_000;
-
 function EditInspectionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
@@ -70,7 +69,7 @@ function EditInspectionRoute() {
 	const personnel = useAdditionalPersonnel({ type: 'inspection', id });
 	useLiveQuery(
 		{
-			gcTime: inspectionGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
 		},
