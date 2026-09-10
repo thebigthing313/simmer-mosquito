@@ -20,8 +20,8 @@ import { getServerUrl } from '../../auth';
  * an address gets typed in.
  *
  * There are two address forms and there should be: the standalone GIS form is a
- * `MapSplitPage` with a live map and `useCenterOnPoint`, the inline subform is
- * a compact block inside somebody else's form. Their *bodies* legitimately
+ * `RecordFormPage` with a live map beside it, the inline subform is a compact
+ * block inside somebody else's form. Their *bodies* legitimately
  * differ. What did not need to differ was everything in this file, and the cost
  * of it differing is already recorded: #80 was a deadlock in the subform's
  * "Use Manual Coordinates" — it awaited the map click before closing the modal,
@@ -180,11 +180,12 @@ export function GeocoderDialog({
 /**
  * A labelled text input for the address fields.
  *
- * Neither address form goes through `useAppForm`, so `FormFieldFrame` — which
- * reads TanStack Form's field context — is not available to them, and the
- * `Field`/`FieldLabel` primitives underneath it do not wire `htmlFor`
- * themselves. This is that wiring, composed from those primitives rather than
- * a hand-rolled `div` + `label`, and existing once instead of twice.
+ * The inline subform is a block of state inside somebody else's form rather than
+ * a form of its own, so it has no `useAppForm` and `FormFieldFrame` — which
+ * reads TanStack Form's field context — is not available to it, while the
+ * `Field`/`FieldLabel` primitives underneath do not wire `htmlFor` themselves.
+ * This is that wiring, composed from those primitives rather than a hand-rolled
+ * `div` + `label`. The standalone GIS form is on the kit and uses `TextField`.
  */
 export function LabeledInput({
 	label,

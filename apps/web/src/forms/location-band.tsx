@@ -31,6 +31,7 @@ export function LocationBand({
 	title = 'Location',
 	label = 'Geometry',
 	required = true,
+	extraActions,
 	children,
 	below,
 }: {
@@ -49,6 +50,11 @@ export function LocationBand({
 	/** The geometry control's own label, which is not always the word Geometry. */
 	readonly label?: string;
 	readonly required?: boolean;
+	/**
+	 * A second way to a geometry, shown in the control's own button row. The
+	 * address book's geocoder is the one that exists.
+	 */
+	readonly extraActions?: ReactNode;
 	/** Form-bound pickers that belong above the geometry. */
 	readonly children?: ReactNode;
 	/** Form-bound fields that belong below the geometry. */
@@ -67,6 +73,7 @@ export function LocationBand({
 				onClear={location.clear}
 				onDraw={location.startDraw}
 				onTypeChange={location.changeType}
+				{...(extraActions === undefined ? {} : { extraActions })}
 				{...(organizationId === undefined ? {} : { organizationId })}
 				required={required}
 				{...(location.addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
