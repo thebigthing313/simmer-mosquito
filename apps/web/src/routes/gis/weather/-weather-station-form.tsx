@@ -1,11 +1,11 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import { createWeatherStationCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
+import { createWeatherStationCommand } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -24,26 +24,6 @@ const STATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	stationCode: 'code',
 	metadata: 'metadata',
 };
-
-/** What a weather station stores, read off the register rather than named here. */
-const STATION_LOCATION_SHAPES = getOwnedGeometryPolicy('weatherStation').allowedTypes;
-
-/**
- * Whether a placed shape is one a weather station stores.
- *
- * The draw control takes the same `weatherStation` policy and offers nothing
- * else, so this narrows what the routes hold to what the write seam takes rather
- * than gating a second time. Both halves read the register, for the same reason
- * the Region predicate does: the routes used to ask `type === 'Point'`, which is
- * a copy of the matrix that goes stale the day the policy widens, and on Regions
- * that copy refused a boundary the user could see on the map. `Point` written
- * into the assertion was the last of that copy left.
- */
-export function isStationLocation(
-	geometry: DrawGeometry,
-): geometry is DrawGeometryFor<'weatherStation'> {
-	return STATION_LOCATION_SHAPES.includes(geometry.type);
-}
 
 export interface WeatherStationFormValues {
 	readonly name: string;

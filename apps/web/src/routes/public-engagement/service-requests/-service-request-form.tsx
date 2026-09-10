@@ -1,6 +1,5 @@
 import {
 	createServiceRequestCommand,
-	getOwnedGeometryPolicy,
 	REQUEST_INTAKE_TYPES,
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
@@ -17,7 +16,6 @@ import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-c
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type {
 	DrawGeometry,
-	DrawGeometryFor,
 	DrawGeometryType,
 	MapDrawController,
 } from '../../../components/map/use-map-draw';
@@ -93,26 +91,6 @@ const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 		CONTACT_FIELD_PATHS.map((field) => [`contact.details.${field}`, `newContact.${field}`]),
 	),
 };
-
-/** What a Service Request stores, read off the register rather than named here. */
-const REQUEST_LOCATION_SHAPES = getOwnedGeometryPolicy('serviceRequest').allowedTypes;
-
-/**
- * Whether a placed shape is one a Service Request stores.
- *
- * The draw control takes the same `serviceRequest` policy and offers nothing
- * else, so this narrows what the create route holds to what the write seam takes
- * rather than gating a second time. Both halves read the register, for the same
- * reason the station and Region predicates do: the route used to ask
- * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
- * widens, and on Regions that copy refused a boundary the user could see on the
- * map. `Point` written into the assertion was the last of that copy left.
- */
-export function isRequestLocation(
-	geometry: DrawGeometry,
-): geometry is DrawGeometryFor<'serviceRequest'> {
-	return REQUEST_LOCATION_SHAPES.includes(geometry.type);
-}
 
 /**
  * The form's rules, straight from the domain builder: intake type, date,

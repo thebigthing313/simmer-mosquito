@@ -1,6 +1,5 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import {
-	getOwnedGeometryPolicy,
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
@@ -22,7 +21,7 @@ import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
@@ -46,26 +45,6 @@ export type CollectionSourceMode = 'trap' | 'adhoc';
 /** Non-empty sentinels: Radix Select forbids empty-string item values. */
 export const noLureValue = 'none';
 export const noUnitValue = 'none';
-
-/** What a collection stores, read off the register rather than named here. */
-const COLLECTION_LOCATION_SHAPES = getOwnedGeometryPolicy('collection').allowedTypes;
-
-/**
- * Whether a placed shape is one an ad hoc collection stores.
- *
- * `useDrawLocation` below takes the same `collection` policy and offers nothing
- * else, so this narrows what the two routes hold to what the optimistic centroid
- * takes rather than gating a second time. Both halves read the register, for the
- * same reason the station and Region predicates do: both routes used to ask
- * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
- * widens, and on Regions that copy refused a boundary the user could see on the
- * map. `Point` written into the assertion was the last of that copy left.
- */
-export function isCollectionLocation(
-	geometry: DrawGeometry,
-): geometry is DrawGeometryFor<'collection'> {
-	return COLLECTION_LOCATION_SHAPES.includes(geometry.type);
-}
 
 /**
  * Domain issue path → the form field holding it. Timing issues nest under the

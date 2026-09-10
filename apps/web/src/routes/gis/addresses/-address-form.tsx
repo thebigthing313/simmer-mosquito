@@ -1,4 +1,4 @@
-import { createAddressCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
+import { createAddressCommand, isOwnedGeometry } from '@simmer-mosquito/domain';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { LocationSection } from '@simmer-mosquito/ui-web/components/form';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -16,11 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import { GeometryControl } from '../../../components/map/geometry-control';
-import {
-	type DrawGeometry,
-	type DrawGeometryFor,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import {
 	GeocoderDialog,
 	type GeocoderPoint,
@@ -33,26 +29,6 @@ import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/
 
 /** The GIS form's public point type, and the one the geocoder helpers return. */
 export type AddressPointGeometry = GeocoderPoint;
-
-/** What an Address stores, read off the register rather than named here. */
-const ADDRESS_LOCATION_SHAPES = getOwnedGeometryPolicy('address').allowedTypes;
-
-/**
- * Whether a placed shape is one an Address stores.
- *
- * `GeometryControl` below takes the same `address` policy, so its draw toolbar
- * and its file import offer exactly the shapes this answers true for and the two
- * cannot come apart. That is the whole fix: the adopt path used to ask
- * `type !== 'Point'` and return, so a shape the control offered and the guard
- * had not heard of went in and never came out, with nothing on screen to say so.
- *
- * The type is read off the register too. `Point` written here would have made
- * the assertion the last copy of the matrix, and `setGeometry` below is what
- * would then have taken a shape it cannot hold without the compiler saying so.
- */
-export function isAddressLocation(geometry: DrawGeometry): geometry is DrawGeometryFor<'address'> {
-	return ADDRESS_LOCATION_SHAPES.includes(geometry.type);
-}
 
 export interface AddressFormValues {
 	readonly displayName: string;
@@ -129,7 +105,7 @@ export function AddressFormPage({
 	 * fresh draw rather than a clear, which is what `clearPoint` is for.
 	 */
 	const adoptDrawnPoint = (next: DrawGeometry | null) => {
-		if (next === null || !isAddressLocation(next)) {
+		if (next === null || !isOwnedGeometry('address', next)) {
 			return;
 		}
 		// The narrowed value, not a pair rebuilt from `coordinates[0]` and `[1]`.
