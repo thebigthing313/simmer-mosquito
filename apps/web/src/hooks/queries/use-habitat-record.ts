@@ -10,16 +10,13 @@
  * `updatedAt` rides along because the form keys its geometry fetch on it, so a
  * re-opened form loads the shape as it stands rather than a cached earlier one.
  *
- * `habitats` is on-demand, so this uses the status-gated `useLiveQuery` rather
- * than the suspense variant, which sticks after a navigation unmount over an
- * on-demand collection. `isReady` separates "no such habitat" from "it has not
- * arrived yet" — both read as `undefined`, and the difference decides between a
- * not-found page and a skeleton.
+ * `isReady` separates "no such habitat" from "it has not arrived yet": both read
+ * as `undefined`, and the difference decides between a not-found page and a
+ * skeleton.
  */
 
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { useRecordById } from './shared';
 
 /** A Habitat as its edit form holds one. */
 export interface HabitatRecord {
@@ -43,31 +40,24 @@ export function useHabitatRecord(habitatId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = habitatId ?? unmatchableId;
+	const result = useRecordById({
+		collection: habitats(),
+		id: habitatId ?? null,
+		query: (query) =>
+			query.select(({ record: habitat }) => ({
+				id: habitat.id,
+				habitatName: habitat.habitat_name,
+				description: habitat.description,
+				addressId: habitat.address_id,
+				habitatTypeId: habitat.habitat_type_id,
+				metadata: habitat.metadata,
+				isActive: habitat.is_active,
+				isInaccessible: habitat.is_inaccessible,
+				latitude: habitat.lat,
+				longitude: habitat.lng,
+				updatedAt: habitat.updated_at,
+			})),
+	});
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: habitats() })
-					.where(({ habitat }) => eq(habitat.id, id))
-					.select(({ habitat }) => ({
-						id: habitat.id,
-						habitatName: habitat.habitat_name,
-						description: habitat.description,
-						addressId: habitat.address_id,
-						habitatTypeId: habitat.habitat_type_id,
-						metadata: habitat.metadata,
-						isActive: habitat.is_active,
-						isInaccessible: habitat.is_inaccessible,
-						latitude: habitat.lat,
-						longitude: habitat.lng,
-						updatedAt: habitat.updated_at,
-					})),
-		},
-		[id],
-	);
-
-	return { habitat: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { habitat: result.record, isReady: result.isReady, isError: result.isError };
 }

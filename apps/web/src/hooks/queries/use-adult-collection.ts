@@ -19,7 +19,7 @@ import { collection_methods } from '../../lib/collections/collection_methods';
 import { collections } from '../../lib/collections/collections';
 import { traps } from '../../lib/collections/traps';
 import type { AdultCollection } from './collection-view';
-import { useRecordById } from './shared';
+import { addressSelect, useRecordById } from './shared';
 
 export function useAdultCollection(
 	collectionId: string | null,
@@ -60,15 +60,7 @@ export function useAdultCollection(
 				)
 				.select(({ record: collection, trap, method, lure, address }) => ({
 					id: collection.id,
-					address: {
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					},
+					address: addressSelect(address),
 					trapId: collection.trap_id,
 					// The discriminator: `undefined` while the trap is still streaming,
 					// which is the one state the name columns cannot tell apart from a

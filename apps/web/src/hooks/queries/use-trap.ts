@@ -17,7 +17,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { collection_lures } from '../../lib/collections/collection_lures';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { traps } from '../../lib/collections/traps';
-import { useRecordById } from './shared';
+import { addressSelect, useRecordById } from './shared';
 import type { Trap } from './trap-view';
 
 /**
@@ -54,15 +54,7 @@ export function useTrap(
 				)
 				.select(({ record: trap, method, lure, address }) => ({
 					id: trap.id,
-					address: {
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					},
+					address: addressSelect(address),
 					trapName: trap.trap_name,
 					trapCode: trap.trap_code,
 					description: trap.description,

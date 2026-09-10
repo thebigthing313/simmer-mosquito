@@ -6,17 +6,13 @@
  * address's own detail and edit pages, and for the party row on a service
  * request: the columns a form writes back, plus the centroid the map needs.
  *
- * `addresses` is on-demand, so this uses the status-gated `useLiveQuery` rather
- * than the suspense variant — the suspense hook sticks after a navigation unmount
- * over an on-demand collection. `isReady` is returned for the same reason it is
- * on `use-address.ts`: "no such address" and "it has not arrived yet" both read
- * as `undefined`, and the difference decides between a not-found page and a
- * skeleton.
+ * `isReady` is returned for the same reason it is on `use-address.ts`: "no such
+ * address" and "it has not arrived yet" both read as `undefined`, and the
+ * difference decides between a not-found page and a skeleton.
  */
 
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { addressSelect, useRecordById } from './shared';
 
 /** An Address as its own pages read one. */
 export interface AddressRecord {
@@ -38,31 +34,18 @@ export function useAddressRecord(addressId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = addressId ?? unmatchableId;
+	const result = useRecordById({
+		collection: addresses(),
+		id: addressId ?? null,
+		query: (query) =>
+			query.select(({ record: address }) => ({
+				...addressSelect(address),
+				country: address.country,
+				geocoderResponse: address.geocoder_response,
+				latitude: address.lat,
+				longitude: address.lng,
+			})),
+	});
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: addresses() })
-					.where(({ address }) => eq(address.id, id))
-					.select(({ address }) => ({
-						id: address.id,
-						displayName: address.display_name,
-						country: address.country,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-						geocoderResponse: address.geocoder_response,
-						latitude: address.lat,
-						longitude: address.lng,
-					})),
-		},
-		[id],
-	);
-
-	return { address: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { address: result.record, isReady: result.isReady, isError: result.isError };
 }

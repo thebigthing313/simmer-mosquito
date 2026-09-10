@@ -59,8 +59,15 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 5.5% is where the workspace sits, and 5.6 leaves a
+	// what makes it a gate: 5.4% is where the workspace sits, and 5.5 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// It was 5.6 against 5.4% when #863 moved the last of `apps/web`'s
+	// single-record read hooks onto `useRecordById` and replaced sixteen copies
+	// of the seven-line address projection with `addressSelect`. 17,254
+	// duplicated lines became 17,202, across 427 files rather than 429. The
+	// ratio does not move a tenth on 52 lines, so what comes down here is
+	// allowance nothing was using rather than a measurement of the branch.
 	//
 	// **Every number above this line was measured on a corpus with no test file
 	// in it, and every number below it was measured with the suites in.** #704
@@ -210,7 +217,7 @@
 			"**/out/**",
 			"**/storybook-static/**"
 		],
-		"threshold": 5.6
+		"threshold": 5.5
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and

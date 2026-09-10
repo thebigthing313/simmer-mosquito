@@ -21,7 +21,7 @@ import { addresses } from '../../lib/collections/addresses';
 import { contacts } from '../../lib/collections/contacts';
 import type { Address } from './address-view';
 import type { ContactSummary } from './contact-view';
-import { activityGcTimeMs, unmatchableId } from './shared';
+import { activityGcTimeMs, addressSelect, unmatchableId } from './shared';
 
 export interface RequestParties {
 	readonly contactById: ReadonlyMap<string, ContactSummary>;
@@ -66,15 +66,7 @@ export function useRequestParties(
 				query
 					.from({ address: addresses() })
 					.where(({ address }) => inArray(address.id, addressQueryIds))
-					.select(({ address }) => ({
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					})),
+					.select(({ address }) => addressSelect(address)),
 		},
 		[addressKey],
 	);

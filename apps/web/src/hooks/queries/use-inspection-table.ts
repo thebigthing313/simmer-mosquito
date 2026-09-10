@@ -58,6 +58,7 @@ import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import type { InspectionTableRow } from './larval-activity-view';
+import { addressSelect } from './shared';
 
 /**
  * What the table sorts by, and the whole of it.
@@ -328,15 +329,7 @@ export function useInspectionTable(
 						latitude: inspection.lat,
 						longitude: inspection.lng,
 
-						address: {
-							id: address.id,
-							displayName: address.display_name,
-							addressLine1: address.address_line_1,
-							addressLine2: address.address_line_2,
-							locality: address.locality,
-							region: address.region,
-							postalCode: address.postal_code,
-						},
+						address: addressSelect(address),
 
 						hasEggs: inspection.has_eggs,
 						hasFirstInstar: inspection.has_first_instar,

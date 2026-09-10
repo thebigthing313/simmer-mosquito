@@ -8,15 +8,10 @@
  * The boundary is not here and cannot be: a Region's polygon lives outside the
  * sync shape, so the form fetches it over HTTP through `use-region-geometry.ts`
  * and holds it beside these fields.
- *
- * `regions` is on-demand, so this uses the status-gated `useLiveQuery` rather
- * than the suspense variant, which sticks after a navigation unmount over an
- * on-demand collection.
  */
 
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { regions } from '../../lib/collections/regions';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { useRecordById } from './shared';
 
 /** A Region as its edit form holds one. */
 export interface RegionRecord {
@@ -33,25 +28,18 @@ export function useRegionRecord(regionId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = regionId ?? unmatchableId;
+	const result = useRecordById({
+		collection: regions(),
+		id: regionId ?? null,
+		query: (query) =>
+			query.select(({ record: region }) => ({
+				id: region.id,
+				name: region.name,
+				description: region.description,
+				folderId: region.region_folder_id,
+				metadata: region.metadata,
+			})),
+	});
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ region: regions() })
-					.where(({ region }) => eq(region.id, id))
-					.select(({ region }) => ({
-						id: region.id,
-						name: region.name,
-						description: region.description,
-						folderId: region.region_folder_id,
-						metadata: region.metadata,
-					})),
-		},
-		[id],
-	);
-
-	return { region: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { region: result.record, isReady: result.isReady, isError: result.isError };
 }
