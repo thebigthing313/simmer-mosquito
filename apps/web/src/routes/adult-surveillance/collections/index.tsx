@@ -42,8 +42,9 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
+import { RecordBadges } from '../../-record-badges';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { BycatchBadge, collectionEffectiveDate } from '../-adult-display';
+import { collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
 import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 import type { CollectionStatusValue } from './-legend';
@@ -313,7 +314,14 @@ function CollectionListItem({
 			 * collection's status, which the dot at the left of the row now draws in
 			 * the colour the map paints it and the key names.
 			 */
-			badges={<BycatchBadge hasBycatch={row.hasBycatch} />}
+			badges={
+				<RecordBadges
+					facts={{ category: 'collection', status: row.status, hasBycatch: row.hasBycatch }}
+					// Trap out, Problem reported and Zero result are the collection's
+					// status, which the dot draws in the colour the map paints it.
+					status="dot"
+				/>
+			}
 			date={effectiveDate === null ? null : formatListDate(effectiveDate)}
 			detailLabel={`View details for ${label}`}
 			detailLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}

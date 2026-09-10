@@ -43,9 +43,10 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
+import { RecordBadges } from '../../-record-badges';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';
-import { ContextBadge, formatAmount } from '../-control-display';
+import { controlContext, formatAmount } from '../-control-display';
 import { addDaysToDateString } from '../-overview-data';
 
 interface BiocontrolSite {
@@ -339,7 +340,12 @@ function BiocontrolListItem({
 }) {
 	return (
 		<ExplorerRow
-			badges={<ContextBadge habitatId={row.habitatId} inspectionId={row.inspectionId} />}
+			badges={
+				<RecordBadges
+					facts={{ category: 'biocontrol', context: controlContext(row) }}
+					status="dot"
+				/>
+			}
 			date={formatListDate(row.biocontrolDate)}
 			detailLabel={`View details for ${methodName}`}
 			detailLink={{ to: '/control-operations/biocontrol/$id', params: { id: row.id } }}

@@ -25,6 +25,10 @@ function entry(family: ActivityEntry['family']): ActivityEntry {
 		amount: null,
 		unitId: null,
 		detail: null,
+		stages: null,
+		context: null,
+		hasBycatch: null,
+		tagIds: null,
 	};
 }
 

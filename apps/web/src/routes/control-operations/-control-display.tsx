@@ -92,8 +92,17 @@ export function nameById<TRow extends { readonly id: string }>(
 	return new Map(rows.map((row) => [row.id, toName(row)] as const));
 }
 
-/** The larval/adult record a control action was performed against, if any. */
-export function ContextBadge({
+/** Which side of the program a control action was performed against. */
+export type ControlContext = 'larval' | 'adult' | 'standalone';
+
+/**
+ * The context a control action's own links put it in.
+ *
+ * Separated from the badge because the profile activity log resolves the same
+ * three arms in SQL, over a record it never loads: the log carries the answer
+ * rather than the ids, and both surfaces then draw it through one badge.
+ */
+export function controlContext({
 	habitatId,
 	inspectionId,
 	collectionId,
@@ -101,24 +110,27 @@ export function ContextBadge({
 	readonly habitatId?: string | null;
 	readonly inspectionId?: string | null;
 	readonly collectionId?: string | null;
-}) {
+}): ControlContext {
 	if (inspectionId != null || habitatId != null) {
-		return (
-			<Badge tone="info" variant="outline">
-				Larval
-			</Badge>
-		);
+		return 'larval';
 	}
-	if (collectionId != null) {
-		return (
-			<Badge tone="info" variant="outline">
-				Adult
-			</Badge>
-		);
-	}
+	return collectionId == null ? 'standalone' : 'adult';
+}
+
+const CONTROL_CONTEXT_BADGE: Readonly<
+	Record<ControlContext, { readonly label: string; readonly tone: 'info' | 'neutral' }>
+> = {
+	larval: { label: 'Larval', tone: 'info' },
+	adult: { label: 'Adult', tone: 'info' },
+	standalone: { label: 'Standalone', tone: 'neutral' },
+};
+
+/** The larval/adult record a control action was performed against, if any. */
+export function ContextBadge({ context }: { readonly context: ControlContext }) {
+	const { label, tone } = CONTROL_CONTEXT_BADGE[context];
 	return (
-		<Badge tone="neutral" variant="outline">
-			Standalone
+		<Badge tone={tone} variant="outline">
+			{label}
 		</Badge>
 	);
 }

@@ -65,7 +65,13 @@ import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
-import { ContextBadge, formatActionDate, formatMeasure, nameById } from '../-control-display';
+import {
+	ContextBadge,
+	controlContext,
+	formatActionDate,
+	formatMeasure,
+	nameById,
+} from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,
@@ -164,11 +170,7 @@ function ApplicationDetailContent({
 				<PageHeader
 					actions={
 						<>
-							<ContextBadge
-								collectionId={application.collectionId}
-								habitatId={application.habitatId}
-								inspectionId={application.inspectionId}
-							/>
+							<ContextBadge context={controlContext(application)} />
 							{canEdit ? (
 								<WriteOnly>
 									<Button asChild size="sm" variant="outline">

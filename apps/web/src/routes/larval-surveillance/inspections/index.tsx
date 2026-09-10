@@ -27,7 +27,7 @@ import {
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../../../components/larval-display';
+import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
@@ -39,6 +39,7 @@ import {
 } from '../../../components/map';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { RecordBadges } from '../../-record-badges';
 import {
 	DensityFilter,
 	type InspectionCatalogs,
@@ -493,9 +494,19 @@ function InspectionListItem({
 			 * rail keeps the same shape whether or not this one found anything.
 			 */
 			badges={
-				inspection.isWet && hasAnyLifeStage(inspection) ? (
-					<LifeStageStrip size="sm" stages={inspection} />
-				) : null
+				<RecordBadges
+					facts={{
+						category: 'inspection',
+						result: {
+							isWet: inspection.isWet,
+							density: inspection.density,
+							stages: hasAnyLifeStage(inspection) ? inspection : null,
+						},
+					}}
+					// The dot at the left of the row is already the density, and the key
+					// above the map names the colours it draws in.
+					status="dot"
+				/>
 			}
 			date={when}
 			detailLabel={`View details for the ${when} inspection of ${label}`}

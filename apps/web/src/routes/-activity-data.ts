@@ -3,11 +3,14 @@ import {
 	type ActivityFamily,
 	type ActivityInvolvement,
 	isLarvalDensity,
-	type LarvalDensity,
 } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
+import { useTagOptions } from '../components/explorer';
+import type { LifeStageFlags } from '../components/larval-display';
+import type { CollectionStatus } from '../components/map';
+import type { Tag } from '../hooks/queries/tag-view';
 import {
 	useApplicationMethodRoster,
 	useBiocontrolMethodRoster,
@@ -18,7 +21,12 @@ import {
 } from '../hooks/queries/use-catalog-rosters';
 import { useInsecticideRecords } from './../hooks/queries/use-insecticide-records';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
-import { formatAmount, insecticideDisplayName } from './control-operations/-control-display';
+import type { InspectionResult, RecordBadgeFacts, SiteStatus } from './-record-badges';
+import {
+	type ControlContext,
+	formatAmount,
+	insecticideDisplayName,
+} from './control-operations/-control-display';
 
 // Data + display helpers for one Profile's field work: the response shape, the
 // grouping, and the wording the page states around it. Daily Work reads it over
@@ -50,6 +58,14 @@ export interface ActivityEntry {
 	readonly unitId: string | null;
 	/** One short, category-specific extra — a density, a status, a reach description. */
 	readonly detail: string | null;
+	/** The life stages an inspection found, as the `E1234P` codes the strip draws. */
+	readonly stages: string | null;
+	/** What a control action was performed against: `larval` or `standalone`. */
+	readonly context: string | null;
+	/** Whether a collection caught something other than what it was set for. */
+	readonly hasBycatch: boolean | null;
+	/** The Tags on this record, resolved against the eagerly synced catalog. */
+	readonly tagIds: readonly string[] | null;
 }
 
 interface ActivityResponse {
@@ -216,6 +232,11 @@ export function buildActivityMapData(
 export interface ActivityLookups {
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly formatQuantity: (amount: number, unitId: string | null) => string;
+	/**
+	 * The Tag catalog, for the two categories that carry Tags. Retired Tags are
+	 * in it, because a record tagged in the past still wears the label.
+	 */
+	readonly tagById: ReadonlyMap<string, Tag>;
 }
 
 /**
@@ -229,6 +250,7 @@ function activityLookups(
 	rosters: readonly (readonly { readonly id: string; readonly name: string }[])[],
 	insecticides: readonly { readonly id: string; readonly tradeName: string }[],
 	units: readonly { readonly id: string; readonly abbreviation: string }[],
+	tagById: ReadonlyMap<string, Tag>,
 ): ActivityLookups {
 	const nameById = new Map<string, string>();
 	for (const rows of rosters) {
@@ -245,6 +267,7 @@ function activityLookups(
 		nameById,
 		formatQuantity: (amount: number, unitId: string | null) =>
 			formatAmount(amount, unitId === null ? undefined : unitById.get(unitId)),
+		tagById,
 	};
 }
 
@@ -257,6 +280,7 @@ export function useActivityLookups(): ActivityLookups {
 	const outreachMethods = useOutreachMethodRoster();
 	const insecticides = useInsecticideRecords();
 	const { all: units } = useUnitLabels();
+	const { byId: tagById } = useTagOptions();
 
 	return activityLookups(
 		[
@@ -269,6 +293,7 @@ export function useActivityLookups(): ActivityLookups {
 		],
 		insecticides,
 		units,
+		tagById,
 	);
 }
 
@@ -364,61 +389,151 @@ function isRefusal(error: Error): boolean {
 }
 
 /**
- * The one status pill an entry reads by, if it has one.
+ * One entry, as the shared badge register reads a record.
  *
- * The server sends a single short token per category rather than a column per
- * kind, so this is where it becomes a specific badge. It is a pure mapping
- * rather than a chain of conditions inside the component, because "which pill"
- * is the part with the wrong answers in it — an unknown density silently
- * rendering nothing, or a token from a build that predates this column.
+ * The server sends short tokens rather than a column per kind, so this is where
+ * they become the facts {@link RecordBadges} switches on. It is a pure
+ * resolution rather than a chain of conditions inside the row, because the
+ * wrong answers here are the silent ones: a density this build does not know
+ * rendering nothing, or a token from a server that predates a column.
+ *
+ * Every unreadable token falls back to the honest weaker statement rather than
+ * to an assertion. A wet site whose density will not resolve says "Wet"; a
+ * collection whose status will not resolve says it was collected, which is what
+ * the row's own verb already said.
  */
-export type ActivityStatus =
-	| { readonly kind: 'density'; readonly density: LarvalDensity }
-	| { readonly kind: 'wetness'; readonly isWet: boolean }
-	| { readonly kind: 'state'; readonly token: ActivityStateToken };
+export function activityBadgeFacts(entry: ActivityEntry): RecordBadgeFacts {
+	const detail = text(entry.detail);
+	switch (entry.category) {
+		case 'habitat':
+			return { category: 'habitat', status: siteStatus(detail) };
+		case 'trap':
+			return {
+				category: 'trap',
+				status: siteStatus(detail) === 'inactive' ? 'inactive' : 'active',
+			};
+		case 'inspection':
+			return { category: 'inspection', result: inspectionResult(entry) };
+		case 'collection':
+			return {
+				category: 'collection',
+				status: collectionStatus(detail),
+				hasBycatch: entry.hasBycatch === true,
+			};
+		case 'biocontrol':
+			return { category: 'biocontrol', context: controlContextOf(entry.context) };
+		case 'serviceRequest':
+			return { category: 'serviceRequest', status: detail === 'closed' ? 'closed' : 'open' };
+		// Spelled out rather than left to a `default`, so a tenth record kind
+		// fails `tsc` here instead of quietly drawing a row with no badges.
+		case 'application':
+			return { category: 'application' };
+		case 'sourceReduction':
+			return { category: 'sourceReduction' };
+		case 'outreach':
+			return { category: 'outreach' };
+	}
+}
 
-export type ActivityStateToken =
-	| 'active'
-	| 'inactive'
-	| 'inaccessible'
-	| 'problem'
-	| 'zero'
-	| 'open'
-	| 'closed';
+function siteStatus(detail: string | null): SiteStatus {
+	if (detail === 'inactive' || detail === 'inaccessible') {
+		return detail;
+	}
+	return 'active';
+}
 
-const ACTIVITY_STATE_TOKENS: readonly ActivityStateToken[] = [
-	'active',
-	'inactive',
-	'inaccessible',
+function collectionStatus(detail: string | null): CollectionStatus {
+	return COLLECTION_STATUSES.find((status) => status === detail) ?? 'collected';
+}
+
+const COLLECTION_STATUSES: readonly CollectionStatus[] = [
+	'pending',
 	'problem',
-	'zero',
-	'open',
-	'closed',
+	'zero_result',
+	'collected',
 ];
 
-export function activityStatus(entry: ActivityEntry): ActivityStatus | null {
-	const detail = text(entry.detail);
-	if (detail === null) {
-		return null;
-	}
-	if (entry.category === 'inspection') {
-		if (detail === 'dry') {
-			return { kind: 'wetness', isWet: false };
-		}
-		// Wet with nothing counted, or a density this build does not know: say wet
-		// rather than assert a value the badge table cannot render.
-		return isLarvalDensity(detail)
-			? { kind: 'density', density: detail }
-			: { kind: 'wetness', isWet: true };
-	}
-	// Outreach's extra is a description, not a state; it is already in the subtitle.
-	if (entry.category === 'outreach') {
-		return null;
-	}
-	return ACTIVITY_STATE_TOKENS.includes(detail as ActivityStateToken)
-		? { kind: 'state', token: detail as ActivityStateToken }
-		: null;
+function controlContextOf(context: string | null): ControlContext {
+	return context === 'larval' || context === 'adult' ? context : 'standalone';
 }
+
+/**
+ * What an inspection found, from the two fields the server sends for it.
+ *
+ * `dry` and a density are the same field, because a dry site has no density to
+ * report; the stages ride separately, and an inspection that found none sends
+ * nothing rather than six falses.
+ */
+function inspectionResult(entry: ActivityEntry): InspectionResult {
+	const detail = text(entry.detail);
+	if (detail === 'dry') {
+		return { isWet: false, density: null, stages: null };
+	}
+	return {
+		isWet: true,
+		density: detail !== null && isLarvalDensity(detail) ? detail : null,
+		stages: lifeStageFlags(entry.stages),
+	};
+}
+
+/**
+ * The `E1234P` codes back into the flags the strip draws.
+ *
+ * Read by code rather than by position, so a server that gains or loses a stage
+ * moves one entry in this table rather than shifting every flag after it.
+ */
+const LIFE_STAGE_CODES: readonly (readonly [string, keyof LifeStageFlags])[] = [
+	['E', 'hasEggs'],
+	['1', 'hasFirstInstar'],
+	['2', 'hasSecondInstar'],
+	['3', 'hasThirdInstar'],
+	['4', 'hasFourthInstar'],
+	['P', 'hasPupae'],
+];
+
+function lifeStageFlags(codes: string | null): LifeStageFlags | null {
+	const present = text(codes);
+	if (present === null) {
+		return null;
+	}
+	const flags = {
+		hasEggs: false,
+		hasFirstInstar: false,
+		hasSecondInstar: false,
+		hasThirdInstar: false,
+		hasFourthInstar: false,
+		hasPupae: false,
+	};
+	for (const [code, key] of LIFE_STAGE_CODES) {
+		flags[key] = present.includes(code);
+	}
+	// A string of codes this build knows none of is not "no stages found", it is
+	// a server this client cannot read. Say nothing rather than draw six empties.
+	return Object.values(flags).some(Boolean) ? flags : null;
+}
+
+/**
+ * The Tags on one entry, named and coloured from the synced catalog.
+ *
+ * Ordered by name, which is the order `useEntityTags` returns them in on the
+ * explorers, so one record's chips read the same on both surfaces. A tag id
+ * this client holds no catalog row for draws nothing: there is no chip to make
+ * out of an id.
+ */
+export function activityTags(
+	entry: ActivityEntry,
+	tagById: ReadonlyMap<string, Tag>,
+): readonly Tag[] {
+	if (entry.tagIds === null || entry.tagIds.length === 0) {
+		return NO_TAGS;
+	}
+	return entry.tagIds
+		.map((id) => tagById.get(id))
+		.filter((tag): tag is Tag => tag !== undefined)
+		.sort((first, second) => first.name.localeCompare(second.name));
+}
+
+const NO_TAGS: readonly Tag[] = [];
 
 /** What one entry reads as: the explorer row's title and subtitle, minus date and personnel. */
 export interface ActivityDescription {

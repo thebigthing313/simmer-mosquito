@@ -35,7 +35,7 @@ import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { ContextBadge, formatActionDate, formatMeasure } from '../-control-display';
+import { ContextBadge, controlContext, formatActionDate, formatMeasure } from '../-control-display';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -118,7 +118,7 @@ function BiocontrolDetailContent({
 				<PageHeader
 					actions={
 						<>
-							<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />
+							<ContextBadge context={controlContext(action)} />
 							<WriteOnly>
 								<Button asChild size="sm" variant="outline">
 									<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id/edit">
