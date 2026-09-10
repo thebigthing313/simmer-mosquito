@@ -1,5 +1,6 @@
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows, type PanelRowsReading } from '@simmer-mosquito/ui-web/components/panel-rows';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -63,6 +64,8 @@ export const Route = createFileRoute('/kitchen-sink')({
 
 const buttonVariants = ['default', 'secondary', 'outline', 'ghost', 'destructive'] as const;
 const badgeTones = ['success', 'warning', 'info', 'catalog', 'danger', 'neutral'] as const;
+/** Enough tabs to run past the column, which is the case the strip exists for. */
+const PREVIEW_SEASONS = ['2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'] as const;
 
 /** One reading per branch, so all four states of a child-record card sit side by side. */
 const panelRowsStates: readonly {
@@ -238,6 +241,26 @@ function KitchenSinkPage() {
 						<TabsContent value="map">
 							<div className="tab-panel">Spatial layer preview placeholder.</div>
 						</TabsContent>
+					</Tabs>
+					{/*
+					 * The product's own strip, drawn here at a length no card holds: it
+					 * runs off the side rather than wrapping, and it draws no vertical
+					 * scrollbar while doing it, which is what a strip built out of
+					 * `overflow-x-auto` alone gets wrong.
+					 */}
+					<Tabs defaultValue="2019">
+						<TabStrip>
+							{PREVIEW_SEASONS.map((season) => (
+								<TabStripTab key={season} value={season}>
+									{season}
+								</TabStripTab>
+							))}
+						</TabStrip>
+						{PREVIEW_SEASONS.map((season) => (
+							<TabsContent key={season} value={season}>
+								<div className="tab-panel">Collections recorded in {season}.</div>
+							</TabsContent>
+						))}
 					</Tabs>
 				</div>
 			</section>

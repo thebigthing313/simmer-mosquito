@@ -6,6 +6,7 @@ import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/com
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows, type PanelRowsMessage } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -25,12 +26,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import {
 	AlertTriangleIcon,
 	CheckCircle2Icon,
@@ -596,25 +592,16 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 					{() => (
 						<Tabs defaultValue="inspections">
 							{/* Five tabs no longer fit a narrow main column, and the strip's
-						    default is to overflow the card rather than shrink. So it
-						    scrolls sideways and each trigger keeps its own width. */}
-							<TabsList className="max-w-full justify-start overflow-x-auto">
-								<TabsTrigger className="shrink-0" value="inspections">
-									Inspections ({inspections.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="samples">
-									Samples ({samples.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="applications">
-									Applications ({applications.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="source-reductions">
+						    default is to overflow the card rather than shrink. */}
+							<TabStrip>
+								<TabStripTab value="inspections">Inspections ({inspections.length})</TabStripTab>
+								<TabStripTab value="samples">Samples ({samples.length})</TabStripTab>
+								<TabStripTab value="applications">Applications ({applications.length})</TabStripTab>
+								<TabStripTab value="source-reductions">
 									Source Reductions ({sourceReductions.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="requests">
-									Requests ({requests.length})
-								</TabsTrigger>
-							</TabsList>
+								</TabStripTab>
+								<TabStripTab value="requests">Requests ({requests.length})</TabStripTab>
+							</TabStrip>
 							<TabsContent value="inspections" className="pt-4">
 								<InspectionHistory habitatId={habitatId} inspections={inspections} />
 							</TabsContent>

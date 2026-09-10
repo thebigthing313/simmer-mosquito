@@ -2,6 +2,7 @@ import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -18,12 +19,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -214,16 +210,16 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 			<Tabs defaultValue="collections">
 				<CardHeader padding="compact">
 					<div className="flex flex-wrap items-center justify-between gap-3">
-						<TabsList>
-							<TabsTrigger value="collections">
+						<TabStrip>
+							<TabStripTab value="collections">
 								<CollectionIcon aria-hidden="true" />
 								Collections
-							</TabsTrigger>
-							<TabsTrigger value="species">
+							</TabStripTab>
+							<TabStripTab value="species">
 								<SpeciesIcon aria-hidden="true" />
 								Species
-							</TabsTrigger>
-						</TabsList>
+							</TabStripTab>
+						</TabStrip>
 						<WriteOnly>
 							<Button asChild size="sm" variant="outline">
 								<Link search={{ trapId }} to="/adult-surveillance/collections/create">
