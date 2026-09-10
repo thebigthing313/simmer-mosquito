@@ -26,8 +26,8 @@
  * and `form/field-components/custom-schema.ts`, which exports helper functions
  * and types. Still four after `components/` joined, because every file directly
  * under `components/` is a `.tsx`. The rule is worth those four: with the `.ts`
- * files counted, 81 modules would have no preview section rather than 77 and
- * `UNCOVERED_MODULES` would read 80 rather than 76. So it is written here
+ * files counted, 80 modules would have no preview section rather than 76 and
+ * `UNCOVERED_MODULES` would read 79 rather than 75. So it is written here
  * rather than left to a reader to work out.
  *
  * ## Which roots, and why those
@@ -89,7 +89,7 @@
  * shape as `UNCHECKED_ACKNOWLEDGEMENTS`, and the same caution. Lowering it is
  * normal. Raising it needs a reason in the commit message.
  *
- * It ships at 76 rather than at zero because that is the backlog: 77 modules
+ * It ships at 75 rather than at zero because that is the backlog: 76 modules
  * have no preview section and one of them can have none. A gate at zero would
  * fail every branch on history and be switched off within a day, which is the
  * same line the duplication threshold and the complexity baseline draw.
@@ -183,7 +183,7 @@ const IMPORT = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g;
  * How many modules have no preview section. Read the docblock before changing
  * it: down is the normal direction and up needs a reason in the commit message.
  */
-const UNCOVERED_MODULES = 76;
+const UNCOVERED_MODULES = 75;
 
 /**
  * The modules with no preview section anybody could write.

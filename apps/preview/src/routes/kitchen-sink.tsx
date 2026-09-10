@@ -1,3 +1,5 @@
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows, type PanelRowsReading } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -45,6 +47,7 @@ import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import {
 	CheckCircle2Icon,
 	DownloadIcon,
+	DropletIcon,
 	PlusIcon,
 	SaveIcon,
 	SearchIcon,
@@ -58,6 +61,17 @@ export const Route = createFileRoute('/kitchen-sink')({
 
 const buttonVariants = ['default', 'secondary', 'outline', 'ghost', 'destructive'] as const;
 const badgeTones = ['success', 'warning', 'info', 'catalog', 'danger', 'neutral'] as const;
+
+/** One reading per branch, so all four states of a child-record card sit side by side. */
+const panelRowsStates: readonly {
+	readonly label: string;
+	readonly reading: PanelRowsReading<string>;
+}[] = [
+	{ label: 'Rows', reading: { isReady: true, rows: ['Dip 1 of 5', 'Dip 2 of 5'] } },
+	{ label: 'Loading', reading: { isReady: false, rows: [] } },
+	{ label: 'Empty', reading: { isReady: true, rows: [] } },
+	{ label: 'Unavailable', reading: { isError: true, isReady: true, rows: [] } },
+];
 
 function KitchenSinkPage() {
 	return (
@@ -267,6 +281,51 @@ function KitchenSinkPage() {
 					<Skeleton className="h-10 w-10 rounded-md" />
 					<Skeleton className="h-4 w-48" />
 					<Skeleton className="h-4 w-28" />
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
+						<p className="preview-eyebrow">Records</p>
+						<h2>Panel Rows</h2>
+					</div>
+					<p>The four branches a child-record card draws, in the order it reads them.</p>
+				</div>
+				<div className="component-grid cards">
+					{panelRowsStates.map((state) => (
+						<Panel
+							icon={<DropletIcon aria-hidden="true" className="size-4" />}
+							key={state.label}
+							title={state.label}
+						>
+							<div className="p-4">
+								<PanelRows
+									empty={{
+										description: 'No specimens were collected during this inspection.',
+										title: 'No Samples Recorded',
+									}}
+									icon={<DropletIcon aria-hidden="true" />}
+									reading={state.reading}
+									unavailable={{
+										description: 'Sample records could not be loaded. Try again shortly.',
+										title: 'Samples Unavailable',
+									}}
+								>
+									{(rows) =>
+										rows.map((row) => (
+											<li
+												className="rounded-md border border-border/40 bg-background/60 px-3 py-2.5 text-sm"
+												key={row}
+											>
+												{row}
+											</li>
+										))
+									}
+								</PanelRows>
+							</div>
+						</Panel>
+					))}
 				</div>
 			</section>
 		</div>
