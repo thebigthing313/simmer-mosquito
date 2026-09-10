@@ -1,5 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -9,7 +10,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
@@ -41,6 +41,7 @@ export const Route = createFileRoute('/public-engagement/contacts/$id')({
 const ContactIcon = iconRegistry.entities.organization.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const CoverageIcon = iconRegistry.generic.map.icon;
+const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
@@ -171,19 +172,20 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 				<CardTitle>Service Requests</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
-				{isError ? (
-					<CardMessage>Service requests could not be loaded.</CardMessage>
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-12 w-full" key={index} />
-						))}
-					</div>
-				) : requests.length === 0 ? (
-					<CardMessage>No service requests are linked to this contact.</CardMessage>
-				) : (
-					<ul className="grid gap-1">
-						{requests.map((request) => (
+				<PanelRows
+					empty={{
+						description: 'No service requests are linked to this contact.',
+						title: 'No Service Requests',
+					}}
+					icon={<RequestIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: requests }}
+					unavailable={{
+						description: 'Service request records could not be loaded. Try again shortly.',
+						title: 'Service Requests Unavailable',
+					}}
+				>
+					{(rows) =>
+						rows.map((request) => (
 							<li key={request.id}>
 								<Link
 									className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -201,9 +203,9 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 									<RequestStatusBadge open={isServiceRequestOpen(request)} />
 								</Link>
 							</li>
-						))}
-					</ul>
-				)}
+						))
+					}
+				</PanelRows>
 			</CardContent>
 		</Card>
 	);
@@ -219,10 +221,6 @@ function PreferenceBadge({ active, label }: { readonly active: boolean; readonly
 			{`No ${label}`}
 		</Badge>
 	);
-}
-
-function CardMessage({ children }: { readonly children: ReactNode }) {
-	return <p className="m-0 px-1 py-4 text-center text-muted-foreground text-sm">{children}</p>;
 }
 
 /** The address as a link that opens a mail client, or nothing for the row to report. */

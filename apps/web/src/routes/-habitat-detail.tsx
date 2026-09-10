@@ -4,6 +4,7 @@ import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { PanelRows, type PanelRowsMessage } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -14,12 +15,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
@@ -43,7 +38,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { type CSSProperties, Suspense, useEffect, useState } from 'react';
+import { type CSSProperties, type ReactNode, Suspense } from 'react';
 import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
@@ -92,8 +87,9 @@ import { useSpeciesNames } from '../hooks/queries/use-species-names';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
+import { usePagedRows } from '../hooks/use-paged-rows';
 import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
-import { formatAmount } from '../lib/format-count';
+import { type CountNoun, formatAmount } from '../lib/format-count';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { calendarDateParts, utcCalendarDay } from '../lib/local-date';
 import { unreadable } from '../lib/unreadable-input';
@@ -123,6 +119,33 @@ interface HabitatDetailProps {
 }
 
 const MergeIcon = iconRegistry.actions.merge.icon;
+const InspectionIcon = iconRegistry.entities.inspection.icon;
+const SampleIcon = iconRegistry.entities.sample.icon;
+const ApplicationIcon = iconRegistry.entities.application.icon;
+const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
+const RequestIcon = iconRegistry.entities.requestedControlAction.icon;
+
+/**
+ * The failure the card draws for all five tabs.
+ *
+ * `useHabitatHistory` calls the inspections half the whole card, because the
+ * samples tab is built from it too and the tab counts on the strip would read
+ * zero rather than unknown. The three side subsets each fail into their own tab.
+ *
+ * So this is drawn around the tabs rather than inside one, and the inspections
+ * and samples tabs name it as the failure of rows they never get to report.
+ */
+const HISTORY_UNAVAILABLE = {
+	description: 'Inspection and sample history could not be loaded.',
+	title: 'History Unavailable',
+};
+
+/**
+ * The card's own read has no rows: each tab counts its own, and the strip is
+ * what an operator picks between. So the `PanelRows` around the tabs is the
+ * failure and the placeholder, and everything past those is `children`.
+ */
+const NO_CARD_ROWS: readonly never[] = [];
 
 /**
  * The habitat's readiness is a Suspense boundary rather than a flag, so this
@@ -564,312 +587,345 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 				</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
-				{isError ? (
-					<HistoryEmpty
-						title="History Unavailable"
-						description="Inspection and sample history could not be loaded."
-					/>
-				) : isReady ? (
-					<Tabs defaultValue="inspections">
-						{/* Five tabs no longer fit a narrow main column, and the strip's
+				<PanelRows
+					icon={<InspectionIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: NO_CARD_ROWS }}
+					unavailable={HISTORY_UNAVAILABLE}
+					wrap="none"
+				>
+					{() => (
+						<Tabs defaultValue="inspections">
+							{/* Five tabs no longer fit a narrow main column, and the strip's
 						    default is to overflow the card rather than shrink. So it
 						    scrolls sideways and each trigger keeps its own width. */}
-						<TabsList className="max-w-full justify-start overflow-x-auto">
-							<TabsTrigger className="shrink-0" value="inspections">
-								Inspections ({inspections.length})
-							</TabsTrigger>
-							<TabsTrigger className="shrink-0" value="samples">
-								Samples ({samples.length})
-							</TabsTrigger>
-							<TabsTrigger className="shrink-0" value="applications">
-								Applications ({applications.length})
-							</TabsTrigger>
-							<TabsTrigger className="shrink-0" value="source-reductions">
-								Source Reductions ({sourceReductions.length})
-							</TabsTrigger>
-							<TabsTrigger className="shrink-0" value="requests">
-								Requests ({requests.length})
-							</TabsTrigger>
-						</TabsList>
-						<TabsContent value="inspections" className="pt-4">
-							<InspectionHistory inspections={inspections} />
-						</TabsContent>
-						<TabsContent value="samples" className="pt-4">
-							<SampleHistory samples={samples} />
-						</TabsContent>
-						<TabsContent value="applications" className="pt-4">
-							{isApplicationsError ? (
-								<HistoryEmpty
-									title="Applications Unavailable"
-									description="Application history could not be loaded."
+							<TabsList className="max-w-full justify-start overflow-x-auto">
+								<TabsTrigger className="shrink-0" value="inspections">
+									Inspections ({inspections.length})
+								</TabsTrigger>
+								<TabsTrigger className="shrink-0" value="samples">
+									Samples ({samples.length})
+								</TabsTrigger>
+								<TabsTrigger className="shrink-0" value="applications">
+									Applications ({applications.length})
+								</TabsTrigger>
+								<TabsTrigger className="shrink-0" value="source-reductions">
+									Source Reductions ({sourceReductions.length})
+								</TabsTrigger>
+								<TabsTrigger className="shrink-0" value="requests">
+									Requests ({requests.length})
+								</TabsTrigger>
+							</TabsList>
+							<TabsContent value="inspections" className="pt-4">
+								<InspectionHistory habitatId={habitatId} inspections={inspections} />
+							</TabsContent>
+							<TabsContent value="samples" className="pt-4">
+								<SampleHistory habitatId={habitatId} samples={samples} />
+							</TabsContent>
+							<TabsContent value="applications" className="pt-4">
+								<ApplicationHistory
+									applications={applications}
+									habitatId={habitatId}
+									isError={isApplicationsError}
 								/>
-							) : (
-								<ApplicationHistory applications={applications} />
-							)}
-						</TabsContent>
-						<TabsContent value="source-reductions" className="pt-4">
-							{isSourceReductionsError ? (
-								<HistoryEmpty
-									title="Source Reductions Unavailable"
-									description="Source reduction history could not be loaded."
+							</TabsContent>
+							<TabsContent value="source-reductions" className="pt-4">
+								<SourceReductionHistory
+									habitatId={habitatId}
+									isError={isSourceReductionsError}
+									sourceReductions={sourceReductions}
 								/>
-							) : (
-								<SourceReductionHistory sourceReductions={sourceReductions} />
-							)}
-						</TabsContent>
-						<TabsContent value="requests" className="pt-4">
-							{isRequestsError ? (
-								<HistoryEmpty
-									title="Requests Unavailable"
-									description="Request history could not be loaded."
+							</TabsContent>
+							<TabsContent value="requests" className="pt-4">
+								<RequestHistory
+									habitatId={habitatId}
+									isError={isRequestsError}
+									requests={requests}
 								/>
-							) : (
-								<RequestHistory requests={requests} />
-							)}
-						</TabsContent>
-					</Tabs>
-				) : (
-					<TableSkeleton rows={5} />
-				)}
+							</TabsContent>
+						</Tabs>
+					)}
+				</PanelRows>
 			</CardContent>
 		</Card>
 	);
 }
 
+/**
+ * One tab of the history card: the ladder, the scrolling table and the pager.
+ *
+ * The five tabs differ in their columns and their rows and in nothing else, and
+ * before #865 each wrote the chrome around those out again. What is left per tab
+ * is the head cells, the row, and the words for a tab with nothing in it.
+ *
+ * `isReady` is true by construction: the card above draws the tabs only once
+ * `useHabitatHistory` has answered, so a tab is never rendered mid-read. What a
+ * tab can still carry is its own failure, which the three side subsets have.
+ */
+function HistoryTab<Row extends { readonly id: string }>({
+	rows,
+	habitatId,
+	isError = false,
+	icon,
+	empty,
+	unavailable,
+	noun,
+	head,
+	children,
+}: {
+	readonly rows: readonly Row[];
+	readonly habitatId: string;
+	readonly isError?: boolean;
+	readonly icon: ReactNode;
+	readonly empty: PanelRowsMessage;
+	readonly unavailable: PanelRowsMessage;
+	readonly noun: CountNoun;
+	readonly head: ReactNode;
+	readonly children: (row: Row) => ReactNode;
+}) {
+	const { page, pageCount, pageRows, setPage } = usePagedRows(rows, {
+		pageSize: historyPageSize,
+		resetKey: habitatId,
+	});
+
+	return (
+		<PanelRows
+			empty={empty}
+			icon={icon}
+			reading={{ isError, isReady: true, rows }}
+			unavailable={unavailable}
+			wrap="none"
+		>
+			{() => (
+				<div className="grid gap-2">
+					<ScrollArea className="max-h-[420px]">
+						<Table>
+							<TableHeader>
+								<TableRow>{head}</TableRow>
+							</TableHeader>
+							<TableBody>{pageRows.map(children)}</TableBody>
+						</Table>
+					</ScrollArea>
+					<ExplorerPagination
+						noun={noun}
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={rows.length}
+					/>
+				</div>
+			)}
+		</PanelRows>
+	);
+}
+
 function InspectionHistory({
 	inspections,
+	habitatId,
 }: {
 	readonly inspections: readonly HabitatHistoryInspection[];
+	readonly habitatId: string;
 }) {
-	const { page, pageCount, pageRows, setPage } = usePagedRows(inspections, historyPageSize);
 	// The organization's larval data mode decides which abundance columns are
 	// meaningful: density-only entry hides larvae, count-and-dips entry hides the
 	// derived density, and hybrid shows all three.
 	const columns = inspectionColumnsForMode(useLarvalEntryMode());
 
-	if (inspections.length === 0) {
-		return (
-			<HistoryEmpty
-				title="No Inspections Yet"
-				description="Larval inspections recorded for this habitat will show here."
-			/>
-		);
-	}
-
 	return (
-		<div className="grid gap-2">
-			<ScrollArea className="max-h-[420px]">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Date</TableHead>
-							<TableHead>Inspector</TableHead>
-							<TableHead>Wet</TableHead>
-							{columns.dips ? <TableHead className="text-right">Dips</TableHead> : null}
-							{columns.density ? <TableHead>Density</TableHead> : null}
-							{columns.larvae ? <TableHead className="text-right">Larvae</TableHead> : null}
-							<TableHead>Stages</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{pageRows.map((inspection) => (
-							<TableRow key={inspection.id}>
-								<TableCell className="whitespace-nowrap">
-									<Link
-										className={historyLinkClassName}
-										params={{ id: inspection.id }}
-										to="/larval-surveillance/inspections/$id"
-									>
-										{formatDate(inspection.inspectionDate)}
-									</Link>
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{inspection.inspectedByProfileId === null ? (
-										<AbsentValue />
-									) : (
-										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-											<ProfileName profileId={inspection.inspectedByProfileId} />
-										</Suspense>
-									)}
-								</TableCell>
-								<TableCell>{inspection.isWet ? 'Yes' : 'No'}</TableCell>
-								{columns.dips ? (
-									<TableCell className="text-right tabular-nums">
-										{inspection.dipCount ?? <AbsentValue />}
-									</TableCell>
-								) : null}
-								{columns.density ? (
-									<TableCell>
-										<DensityBadge density={inspection.density} />
-									</TableCell>
-								) : null}
-								{columns.larvae ? (
-									<TableCell className="text-right tabular-nums">
-										{inspection.larvaeCount ?? <AbsentValue />}
-									</TableCell>
-								) : null}
-								<TableCell>
-									<LifeStageStrip stages={inspection} />
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</ScrollArea>
-			<ExplorerPagination
-				noun={{ one: 'inspection', many: 'inspections' }}
-				onPageChange={setPage}
-				page={page}
-				pageCount={pageCount}
-				total={inspections.length}
-			/>
-		</div>
+		<HistoryTab
+			empty={{
+				description: 'Larval inspections recorded for this habitat will show here.',
+				title: 'No Inspections Yet',
+			}}
+			habitatId={habitatId}
+			head={
+				<>
+					<TableHead>Date</TableHead>
+					<TableHead>Inspector</TableHead>
+					<TableHead>Wet</TableHead>
+					{columns.dips ? <TableHead className="text-right">Dips</TableHead> : null}
+					{columns.density ? <TableHead>Density</TableHead> : null}
+					{columns.larvae ? <TableHead className="text-right">Larvae</TableHead> : null}
+					<TableHead>Stages</TableHead>
+				</>
+			}
+			icon={<InspectionIcon aria-hidden="true" />}
+			noun={{ one: 'inspection', many: 'inspections' }}
+			rows={inspections}
+			unavailable={HISTORY_UNAVAILABLE}
+		>
+			{(inspection) => (
+				<TableRow key={inspection.id}>
+					<TableCell className="whitespace-nowrap">
+						<Link
+							className={historyLinkClassName}
+							params={{ id: inspection.id }}
+							to="/larval-surveillance/inspections/$id"
+						>
+							{formatDate(inspection.inspectionDate)}
+						</Link>
+					</TableCell>
+					<TableCell className="whitespace-nowrap">
+						{inspection.inspectedByProfileId === null ? (
+							<AbsentValue />
+						) : (
+							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+								<ProfileName profileId={inspection.inspectedByProfileId} />
+							</Suspense>
+						)}
+					</TableCell>
+					<TableCell>{inspection.isWet ? 'Yes' : 'No'}</TableCell>
+					{columns.dips ? (
+						<TableCell className="text-right tabular-nums">
+							{inspection.dipCount ?? <AbsentValue />}
+						</TableCell>
+					) : null}
+					{columns.density ? (
+						<TableCell>
+							<DensityBadge density={inspection.density} />
+						</TableCell>
+					) : null}
+					{columns.larvae ? (
+						<TableCell className="text-right tabular-nums">
+							{inspection.larvaeCount ?? <AbsentValue />}
+						</TableCell>
+					) : null}
+					<TableCell>
+						<LifeStageStrip stages={inspection} />
+					</TableCell>
+				</TableRow>
+			)}
+		</HistoryTab>
 	);
 }
 
-function SampleHistory({ samples }: { readonly samples: readonly HabitatHistorySampleRow[] }) {
+function SampleHistory({
+	samples,
+	habitatId,
+}: {
+	readonly samples: readonly HabitatHistorySampleRow[];
+	readonly habitatId: string;
+}) {
 	const sortedSamples = [...samples].sort((a, b) =>
 		b.inspectionDate.localeCompare(a.inspectionDate),
 	);
-	const { page, pageCount, pageRows, setPage } = usePagedRows(sortedSamples, historyPageSize);
-
-	if (samples.length === 0) {
-		return (
-			<HistoryEmpty
-				title="No Samples Yet"
-				description="Samples appear once an inspection on this habitat records them."
-			/>
-		);
-	}
 
 	return (
-		<div className="grid gap-2">
-			<ScrollArea className="max-h-[420px]">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Sample</TableHead>
-							<TableHead>Inspection Date</TableHead>
-							<TableHead>Result</TableHead>
-							<TableHead>Species</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{pageRows.map((sample) => (
-							<TableRow key={sample.id}>
-								<TableCell className="whitespace-nowrap">
-									<Link
-										className={historyLinkClassName}
-										params={{ id: sample.id }}
-										to="/larval-surveillance/samples/$id"
-									>
-										{sampleName(sample)}
-									</Link>
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{formatDate(sample.inspectionDate)}
-								</TableCell>
-								<TableCell>{formatSampleResult(sample)}</TableCell>
-								<TableCell>
-									<SampleSpeciesSummary species={sample.species} />
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</ScrollArea>
-			<ExplorerPagination
-				noun={{ one: 'sample', many: 'samples' }}
-				onPageChange={setPage}
-				page={page}
-				pageCount={pageCount}
-				total={samples.length}
-			/>
-		</div>
+		<HistoryTab
+			empty={{
+				description: 'Samples appear once an inspection on this habitat records them.',
+				title: 'No Samples Yet',
+			}}
+			habitatId={habitatId}
+			head={
+				<>
+					<TableHead>Sample</TableHead>
+					<TableHead>Inspection Date</TableHead>
+					<TableHead>Result</TableHead>
+					<TableHead>Species</TableHead>
+				</>
+			}
+			icon={<SampleIcon aria-hidden="true" />}
+			noun={{ one: 'sample', many: 'samples' }}
+			rows={sortedSamples}
+			unavailable={HISTORY_UNAVAILABLE}
+		>
+			{(sample) => (
+				<TableRow key={sample.id}>
+					<TableCell className="whitespace-nowrap">
+						<Link
+							className={historyLinkClassName}
+							params={{ id: sample.id }}
+							to="/larval-surveillance/samples/$id"
+						>
+							{sampleName(sample)}
+						</Link>
+					</TableCell>
+					<TableCell className="whitespace-nowrap">{formatDate(sample.inspectionDate)}</TableCell>
+					<TableCell>{formatSampleResult(sample)}</TableCell>
+					<TableCell>
+						<SampleSpeciesSummary species={sample.species} />
+					</TableCell>
+				</TableRow>
+			)}
+		</HistoryTab>
 	);
 }
 
 function ApplicationHistory({
 	applications,
+	habitatId,
+	isError,
 }: {
 	readonly applications: readonly HabitatHistoryApplication[];
+	readonly habitatId: string;
+	readonly isError: boolean;
 }) {
-	const { page, pageCount, pageRows, setPage } = usePagedRows(applications, historyPageSize);
-
-	if (applications.length === 0) {
-		return (
-			<HistoryEmpty
-				title="No Applications Yet"
-				description="Control applications recorded on this habitat will show here."
-			/>
-		);
-	}
-
 	return (
-		<div className="grid gap-2">
-			<ScrollArea className="max-h-[420px]">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Date</TableHead>
-							<TableHead>Applicator</TableHead>
-							<TableHead>Insecticide</TableHead>
-							<TableHead>Method</TableHead>
-							<TableHead className="text-right">Amount</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{pageRows.map((application) => (
-							<TableRow key={application.id}>
-								<TableCell className="whitespace-nowrap">
-									<Link
-										className={historyLinkClassName}
-										params={{ id: application.id }}
-										to="/control-operations/chemical/$id"
-									>
-										{formatDate(application.applicationDate)}
-									</Link>
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{application.applicatorProfileId === null ? (
-										<AbsentValue />
-									) : (
-										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-											<ProfileName profileId={application.applicatorProfileId} />
-										</Suspense>
-									)}
-								</TableCell>
-								<TableCell>
-									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-										<InsecticideName insecticideId={application.insecticideId} />
-									</Suspense>
-								</TableCell>
-								<TableCell>
-									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-										<ApplicationMethodName applicationMethodId={application.applicationMethodId} />
-									</Suspense>
-								</TableCell>
-								<TableCell className="text-right tabular-nums">
-									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-										<AmountWithUnit
-											amount={application.amountApplied}
-											unitId={application.applicationUnitId}
-										/>
-									</Suspense>
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</ScrollArea>
-			<ExplorerPagination
-				noun={{ one: 'application', many: 'applications' }}
-				onPageChange={setPage}
-				page={page}
-				pageCount={pageCount}
-				total={applications.length}
-			/>
-		</div>
+		<HistoryTab
+			empty={{
+				description: 'Control applications recorded on this habitat will show here.',
+				title: 'No Applications Yet',
+			}}
+			habitatId={habitatId}
+			head={
+				<>
+					<TableHead>Date</TableHead>
+					<TableHead>Applicator</TableHead>
+					<TableHead>Insecticide</TableHead>
+					<TableHead>Method</TableHead>
+					<TableHead className="text-right">Amount</TableHead>
+				</>
+			}
+			icon={<ApplicationIcon aria-hidden="true" />}
+			isError={isError}
+			noun={{ one: 'application', many: 'applications' }}
+			rows={applications}
+			unavailable={{
+				description: 'Application history could not be loaded.',
+				title: 'Applications Unavailable',
+			}}
+		>
+			{(application) => (
+				<TableRow key={application.id}>
+					<TableCell className="whitespace-nowrap">
+						<Link
+							className={historyLinkClassName}
+							params={{ id: application.id }}
+							to="/control-operations/chemical/$id"
+						>
+							{formatDate(application.applicationDate)}
+						</Link>
+					</TableCell>
+					<TableCell className="whitespace-nowrap">
+						{application.applicatorProfileId === null ? (
+							<AbsentValue />
+						) : (
+							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+								<ProfileName profileId={application.applicatorProfileId} />
+							</Suspense>
+						)}
+					</TableCell>
+					<TableCell>
+						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+							<InsecticideName insecticideId={application.insecticideId} />
+						</Suspense>
+					</TableCell>
+					<TableCell>
+						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+							<ApplicationMethodName applicationMethodId={application.applicationMethodId} />
+						</Suspense>
+					</TableCell>
+					<TableCell className="text-right tabular-nums">
+						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+							<AmountWithUnit
+								amount={application.amountApplied}
+								unitId={application.applicationUnitId}
+							/>
+						</Suspense>
+					</TableCell>
+				</TableRow>
+			)}
+		</HistoryTab>
 	);
 }
 
@@ -882,81 +938,75 @@ function ApplicationHistory({
  */
 function SourceReductionHistory({
 	sourceReductions,
+	habitatId,
+	isError,
 }: {
 	readonly sourceReductions: readonly HabitatHistorySourceReduction[];
+	readonly habitatId: string;
+	readonly isError: boolean;
 }) {
-	const { page, pageCount, pageRows, setPage } = usePagedRows(sourceReductions, historyPageSize);
-
-	if (sourceReductions.length === 0) {
-		return (
-			<HistoryEmpty
-				title="No Source Reductions Yet"
-				description="Source reductions recorded at this habitat will show here."
-			/>
-		);
-	}
-
 	return (
-		<div className="grid gap-2">
-			<ScrollArea className="max-h-[420px]">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Date</TableHead>
-							<TableHead>Technician</TableHead>
-							<TableHead>Method</TableHead>
-							<TableHead className="text-right">Eliminated</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{pageRows.map((reduction) => (
-							<TableRow key={reduction.id}>
-								<TableCell className="whitespace-nowrap">
-									<Link
-										className={historyLinkClassName}
-										params={{ id: reduction.id }}
-										to="/control-operations/source-reduction/$id"
-									>
-										{formatDate(reduction.sourceReductionDate)}
-									</Link>
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{reduction.technicianProfileId === null ? (
-										<AbsentValue />
-									) : (
-										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-											<ProfileName profileId={reduction.technicianProfileId} />
-										</Suspense>
-									)}
-								</TableCell>
-								<TableCell>
-									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-										<SourceReductionMethodName
-											sourceReductionMethodId={reduction.sourceReductionMethodId}
-										/>
-									</Suspense>
-								</TableCell>
-								<TableCell className="text-right tabular-nums">
-									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-										<AmountWithUnit
-											amount={reduction.sourcesEliminatedAmount}
-											unitId={reduction.sourcesEliminatedUnitId}
-										/>
-									</Suspense>
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</ScrollArea>
-			<ExplorerPagination
-				noun={{ one: 'source reduction', many: 'source reductions' }}
-				onPageChange={setPage}
-				page={page}
-				pageCount={pageCount}
-				total={sourceReductions.length}
-			/>
-		</div>
+		<HistoryTab
+			empty={{
+				description: 'Source reductions recorded at this habitat will show here.',
+				title: 'No Source Reductions Yet',
+			}}
+			habitatId={habitatId}
+			head={
+				<>
+					<TableHead>Date</TableHead>
+					<TableHead>Technician</TableHead>
+					<TableHead>Method</TableHead>
+					<TableHead className="text-right">Eliminated</TableHead>
+				</>
+			}
+			icon={<SourceReductionIcon aria-hidden="true" />}
+			isError={isError}
+			noun={{ one: 'source reduction', many: 'source reductions' }}
+			rows={sourceReductions}
+			unavailable={{
+				description: 'Source reduction history could not be loaded.',
+				title: 'Source Reductions Unavailable',
+			}}
+		>
+			{(reduction) => (
+				<TableRow key={reduction.id}>
+					<TableCell className="whitespace-nowrap">
+						<Link
+							className={historyLinkClassName}
+							params={{ id: reduction.id }}
+							to="/control-operations/source-reduction/$id"
+						>
+							{formatDate(reduction.sourceReductionDate)}
+						</Link>
+					</TableCell>
+					<TableCell className="whitespace-nowrap">
+						{reduction.technicianProfileId === null ? (
+							<AbsentValue />
+						) : (
+							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+								<ProfileName profileId={reduction.technicianProfileId} />
+							</Suspense>
+						)}
+					</TableCell>
+					<TableCell>
+						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+							<SourceReductionMethodName
+								sourceReductionMethodId={reduction.sourceReductionMethodId}
+							/>
+						</Suspense>
+					</TableCell>
+					<TableCell className="text-right tabular-nums">
+						<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+							<AmountWithUnit
+								amount={reduction.sourcesEliminatedAmount}
+								unitId={reduction.sourcesEliminatedUnitId}
+							/>
+						</Suspense>
+					</TableCell>
+				</TableRow>
+			)}
+		</HistoryTab>
 	);
 }
 
@@ -967,73 +1017,72 @@ function SourceReductionHistory({
  * request that was dealt with last week is part of that answer. The status
  * column is what separates the two.
  */
-function RequestHistory({ requests }: { readonly requests: readonly HabitatHistoryRequest[] }) {
-	const { page, pageCount, pageRows, setPage } = usePagedRows(requests, historyPageSize);
+function RequestHistory({
+	requests,
+	habitatId,
+	isError,
+}: {
+	readonly requests: readonly HabitatHistoryRequest[];
+	readonly habitatId: string;
+	readonly isError: boolean;
+}) {
 	const timeZone = useOrganizationTimeZone();
 
-	if (requests.length === 0) {
-		return (
-			<HistoryEmpty
-				title="No Requests Yet"
-				description="Requests for control raised against this habitat will show here."
-			/>
-		);
-	}
-
 	return (
-		<div className="grid gap-2">
-			<ScrollArea className="max-h-[420px]">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Raised</TableHead>
-							<TableHead>Requested by</TableHead>
-							<TableHead>Type</TableHead>
-							<TableHead>Summary</TableHead>
-							<TableHead>Status</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{pageRows.map((request) => (
-							<TableRow key={request.id}>
-								<TableCell className="whitespace-nowrap">
-									<Link
-										className={historyLinkClassName}
-										params={{ id: request.id }}
-										to="/operations/requests-for-control/$id"
-									>
-										{formatDateTime(request.requestedAt, timeZone)}
-									</Link>
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{request.requestedByProfileId === null ? (
-										<AbsentValue />
-									) : (
-										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-											<ProfileName profileId={request.requestedByProfileId} />
-										</Suspense>
-									)}
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{controlTypeLabel(request.controlType)}
-								</TableCell>
-								<TableCell>{requestSummary(request) ?? <AbsentValue />}</TableCell>
-								<TableCell>
-									<RequestStatusBadge status={requestStatus(request)} />
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</ScrollArea>
-			<ExplorerPagination
-				noun={{ one: 'request', many: 'requests' }}
-				onPageChange={setPage}
-				page={page}
-				pageCount={pageCount}
-				total={requests.length}
-			/>
-		</div>
+		<HistoryTab
+			empty={{
+				description: 'Requests for control raised against this habitat will show here.',
+				title: 'No Requests Yet',
+			}}
+			habitatId={habitatId}
+			head={
+				<>
+					<TableHead>Raised</TableHead>
+					<TableHead>Requested by</TableHead>
+					<TableHead>Type</TableHead>
+					<TableHead>Summary</TableHead>
+					<TableHead>Status</TableHead>
+				</>
+			}
+			icon={<RequestIcon aria-hidden="true" />}
+			isError={isError}
+			noun={{ one: 'request', many: 'requests' }}
+			rows={requests}
+			unavailable={{
+				description: 'Request history could not be loaded.',
+				title: 'Requests Unavailable',
+			}}
+		>
+			{(request) => (
+				<TableRow key={request.id}>
+					<TableCell className="whitespace-nowrap">
+						<Link
+							className={historyLinkClassName}
+							params={{ id: request.id }}
+							to="/operations/requests-for-control/$id"
+						>
+							{formatDateTime(request.requestedAt, timeZone)}
+						</Link>
+					</TableCell>
+					<TableCell className="whitespace-nowrap">
+						{request.requestedByProfileId === null ? (
+							<AbsentValue />
+						) : (
+							<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+								<ProfileName profileId={request.requestedByProfileId} />
+							</Suspense>
+						)}
+					</TableCell>
+					<TableCell className="whitespace-nowrap">
+						{controlTypeLabel(request.controlType)}
+					</TableCell>
+					<TableCell>{requestSummary(request) ?? <AbsentValue />}</TableCell>
+					<TableCell>
+						<RequestStatusBadge status={requestStatus(request)} />
+					</TableCell>
+				</TableRow>
+			)}
+		</HistoryTab>
 	);
 }
 
@@ -1153,44 +1202,6 @@ function useLarvalEntryMode(): LarvalInspectionEntryMode {
 /** One id through the shared taxonomy read — the catalog is eager and small. */
 function useSpeciesName(speciesId: string): string {
 	return useSpeciesNames().get(speciesId) ?? 'Unknown species';
-}
-
-function HistoryEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[180px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
-
-// Client-side paging over an already-loaded history slice. The current page is
-// clamped when live sync shrinks the underlying data beneath it.
-function usePagedRows<T>(rows: readonly T[], pageSize: number) {
-	const [page, setPage] = useState(0);
-	const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
-	const safePage = Math.min(page, pageCount - 1);
-	useEffect(() => {
-		if (page !== safePage) {
-			setPage(safePage);
-		}
-	}, [page, safePage]);
-
-	const start = safePage * pageSize;
-	return {
-		page: safePage,
-		pageCount,
-		pageRows: rows.slice(start, start + pageSize),
-		setPage,
-	};
 }
 
 function HistorySkeleton() {

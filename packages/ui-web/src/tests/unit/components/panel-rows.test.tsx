@@ -16,13 +16,16 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PanelRows, type PanelRowsReading } from '../../../components/panel-rows';
 
+const EMPTY = { description: 'No specimens were collected.', title: 'No Samples Recorded' };
+const UNAVAILABLE = { description: 'Try again shortly.', title: 'Samples Unavailable' };
+
 const markup = (reading: PanelRowsReading<string>): string =>
 	renderToStaticMarkup(
 		<PanelRows
-			empty={{ description: 'No specimens were collected.', title: 'No Samples Recorded' }}
+			empty={EMPTY}
 			icon={<svg aria-hidden="true" />}
 			reading={reading}
-			unavailable={{ description: 'Try again shortly.', title: 'Samples Unavailable' }}
+			unavailable={UNAVAILABLE}
 		>
 			{(rows) => rows.map((row) => <li key={row}>{row}</li>)}
 		</PanelRows>,
@@ -76,5 +79,92 @@ describe('PanelRows', () => {
 
 	it('wraps the rows in the list, so a card supplies items and nothing else', () => {
 		expect(markup({ isReady: true, rows: ROWS })).toContain('<ul');
+	});
+
+	it('leaves the rows unwrapped when the card brings its own table', () => {
+		const html = renderToStaticMarkup(
+			<PanelRows
+				empty={EMPTY}
+				icon={<svg aria-hidden="true" />}
+				reading={{ isReady: true, rows: ROWS }}
+				unavailable={UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					<table>
+						{rows.map((row) => (
+							<caption key={row}>{row}</caption>
+						))}
+					</table>
+				)}
+			</PanelRows>,
+		);
+
+		expect(html).toContain('<table');
+		expect(html).not.toContain('<ul');
+	});
+});
+
+/**
+ * The fifth branch, for the card whose record answers for its own children.
+ *
+ * Ranked below the failure and the placeholder and above the count, which is
+ * the pair of cases below: a zero-result collection still holding a species row
+ * that has not synced away reads as a zero result and not as a list of one.
+ */
+describe('PanelRows with a message standing in for the rows', () => {
+	const stood = (reading: PanelRowsReading<string>): string =>
+		renderToStaticMarkup(
+			<PanelRows
+				empty={EMPTY}
+				icon={<svg aria-hidden="true" />}
+				instead={{ description: 'Turn off zero result to record species.', title: 'Zero Result' }}
+				reading={reading}
+				unavailable={UNAVAILABLE}
+			>
+				{(rows) => rows.map((row) => <li key={row}>{row}</li>)}
+			</PanelRows>,
+		);
+
+	it('outranks the rows', () => {
+		const html = stood({ isReady: true, rows: ROWS });
+
+		expect(html).toContain('Zero Result');
+		expect(html).not.toContain('Sample 1');
+	});
+
+	it('outranks the empty state, which says something else', () => {
+		const html = stood({ isReady: true, rows: [] });
+
+		expect(html).toContain('Zero Result');
+		expect(html).not.toContain('No Samples Recorded');
+	});
+
+	it('waits for the read, so a card does not answer before its record has', () => {
+		expect(stood({ isReady: false, rows: [] })).toContain('data-slot="skeleton"');
+	});
+
+	it('gives way to a failed read', () => {
+		expect(stood({ isError: true, isReady: true, rows: [] })).toContain('Samples Unavailable');
+	});
+});
+
+/**
+ * `IdentificationCard` draws its add row and disposition controls for a sample
+ * nobody has keyed out, so its zero-row state is not a card-level empty.
+ */
+describe('PanelRows with no empty state', () => {
+	it('hands zero rows to the card, which owns what they say', () => {
+		const html = renderToStaticMarkup(
+			<PanelRows
+				icon={<svg aria-hidden="true" />}
+				reading={{ isReady: true, rows: [] }}
+				unavailable={UNAVAILABLE}
+			>
+				{(rows) => <p>{rows.length === 0 ? 'No species identified yet.' : 'Some'}</p>}
+			</PanelRows>,
+		);
+
+		expect(html).toContain('No species identified yet.');
 	});
 });

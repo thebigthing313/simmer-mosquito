@@ -1,5 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -9,21 +10,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import {
-	Pagination,
-	PaginationContent,
-	PaginationItem,
-	PaginationNext,
-	PaginationPrevious,
-} from '@simmer-mosquito/ui-web/components/ui/pagination';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	Table,
 	TableBody,
@@ -51,6 +37,7 @@ import {
 	DateRangeFilter,
 	datePresetRange,
 } from '../../../components/date-range-filter';
+import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -70,6 +57,7 @@ import {
 	useTrapCollections,
 } from '../../../hooks/queries/use-trap-collections';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { usePagedRows } from '../../../hooks/use-paged-rows';
 import { TRAP_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import {
 	aggregateSpeciesDistribution,
@@ -279,97 +267,77 @@ function TrapCollectionsList({
 	readonly trapId: string;
 }) {
 	const timeZone = useOrganizationTimeZone();
-	const pageCount = Math.max(1, Math.ceil(collections.length / collectionsPageSize));
-	const [page, setPage] = useState(0);
-	// Reset to the first page when navigating to a different trap — this card's
-	// instance is reused across param changes. (React's adjust-state-in-render pattern.)
-	const [pageTrapId, setPageTrapId] = useState(trapId);
-	if (pageTrapId !== trapId) {
-		setPageTrapId(trapId);
-		setPage(0);
-	}
-	// Clamp back into range when the underlying set shrinks (e.g. a deletion syncs
-	// in while sitting on the last page).
-	const clampedPage = Math.min(page, pageCount - 1);
-	const pageStart = clampedPage * collectionsPageSize;
-	const visibleCollections = collections.slice(pageStart, pageStart + collectionsPageSize);
+	const { page, pageCount, pageRows, setPage } = usePagedRows(collections, {
+		pageSize: collectionsPageSize,
+		resetKey: trapId,
+	});
 
-	if (isError) {
-		return (
-			<CollectionsEmpty
-				description="Collection records could not be loaded. Try again shortly."
-				title="Collections Unavailable"
-			/>
-		);
-	}
-	if (!isReady) {
-		return (
-			<div className="grid gap-2">
-				{[0, 1].map((index) => (
-					<Skeleton className="h-14 w-full" key={index} />
-				))}
-			</div>
-		);
-	}
-	if (collections.length === 0) {
-		return (
-			<CollectionsEmpty
-				description="No collections have been recorded for this trap yet."
-				title="No Collections"
-			/>
-		);
-	}
 	return (
-		<div className="grid gap-3">
-			<p className="text-muted-foreground text-xs">Mosquito count only reflects females.</p>
-			<div className="overflow-hidden rounded-md border border-border/40">
-				<Table>
-					<TableHeader>
-						<TableRow className="hover:bg-transparent">
-							<TableHead>Date</TableHead>
-							<TableHead>Flags</TableHead>
-							<TableHead className="text-right">Species</TableHead>
-							<TableHead className="text-right">Mosquitoes</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{visibleCollections.map((collection) => (
-							<TableRow key={collection.id}>
-								<TableCell>
-									<Link
-										className={recordLink()}
-										params={{ id: collection.id }}
-										to="/adult-surveillance/collections/$id"
-									>
-										{collectionRowDate(collection, timeZone)}
-									</Link>
-								</TableCell>
-								<TableCell>
-									<CollectionFlagBadges
-										className="flex flex-wrap items-center gap-1.5"
-										collection={collection}
-									/>
-								</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
-									{speciesCount(collection)}
-								</TableCell>
-								<TableCell className="text-right tabular-nums">
-									{femaleCount(collection).toLocaleString('en-US')}
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</div>
-			{pageCount > 1 ? (
-				<CollectionsPagination
-					onPageChange={setPage}
-					page={clampedPage}
-					pageCount={pageCount}
-					total={collections.length}
-				/>
-			) : null}
-		</div>
+		<PanelRows
+			empty={{
+				description: 'No collections have been recorded for this trap yet.',
+				title: 'No Collections',
+			}}
+			icon={<CollectionIcon aria-hidden="true" />}
+			reading={{ isError, isReady, rows: collections }}
+			unavailable={{
+				description: 'Collection records could not be loaded. Try again shortly.',
+				title: 'Collections Unavailable',
+			}}
+			wrap="none"
+		>
+			{() => (
+				<div className="grid gap-3">
+					<p className="text-muted-foreground text-xs">Mosquito count only reflects females.</p>
+					<div className="overflow-hidden rounded-md border border-border/40">
+						<Table>
+							<TableHeader>
+								<TableRow className="hover:bg-transparent">
+									<TableHead>Date</TableHead>
+									<TableHead>Flags</TableHead>
+									<TableHead className="text-right">Species</TableHead>
+									<TableHead className="text-right">Mosquitoes</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{pageRows.map((collection) => (
+									<TableRow key={collection.id}>
+										<TableCell>
+											<Link
+												className={recordLink()}
+												params={{ id: collection.id }}
+												to="/adult-surveillance/collections/$id"
+											>
+												{collectionRowDate(collection, timeZone)}
+											</Link>
+										</TableCell>
+										<TableCell>
+											<CollectionFlagBadges
+												className="flex flex-wrap items-center gap-1.5"
+												collection={collection}
+											/>
+										</TableCell>
+										<TableCell className="text-right text-muted-foreground tabular-nums">
+											{speciesCount(collection)}
+										</TableCell>
+										<TableCell className="text-right tabular-nums">
+											{femaleCount(collection).toLocaleString('en-US')}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</div>
+					<ExplorerPagination
+						noun={{ one: 'collection', many: 'collections' }}
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={collections.length}
+					/>
+				</div>
+			)}
+		</PanelRows>
 	);
 }
 
@@ -463,101 +431,44 @@ function TrapSpeciesDistribution({
 				today={today}
 			/>
 
-			{isError ? (
-				<CollectionsEmpty
-					description="Collection records could not be loaded. Try again shortly."
-					title="Species Data Unavailable"
-				/>
-			) : !isReady ? (
-				<div className="grid gap-2.5">
-					{[0, 1, 2, 3].map((index) => (
-						<Skeleton className="h-6 w-full" key={index} />
-					))}
-				</div>
-			) : distribution.grandTotal === 0 ? (
-				<CollectionsEmpty
-					description={
-						hasRange
-							? 'No specimens were identified in the selected date range.'
-							: 'No specimens have been identified for this trap yet.'
-					}
-					title="No Specimens"
-				/>
-			) : (
-				<>
-					<p className="text-muted-foreground text-xs">
-						<span className="font-medium text-foreground tabular-nums">
-							{distribution.grandTotal.toLocaleString('en-US')}
-						</span>{' '}
-						female specimens across{' '}
-						<span className="font-medium text-foreground tabular-nums">
-							{distribution.speciesCount}
-						</span>{' '}
-						species · <span className="tabular-nums">{matchedCollections}</span>{' '}
-						{matchedCollections === 1 ? 'collection' : 'collections'}
-					</p>
-					<SpeciesDistributionBars
-						className="grid gap-2.5"
-						grandTotal={distribution.grandTotal}
-						totals={distribution.totals}
-					/>
-				</>
-			)}
-		</div>
-	);
-}
-
-function CollectionsPagination({
-	page,
-	pageCount,
-	total,
-	onPageChange,
-}: {
-	readonly page: number;
-	readonly pageCount: number;
-	readonly total: number;
-	readonly onPageChange: (page: number) => void;
-}) {
-	const hasPrevious = page > 0;
-	const hasNext = page < pageCount - 1;
-	const rangeStart = page * collectionsPageSize + 1;
-	const rangeEnd = Math.min((page + 1) * collectionsPageSize, total);
-
-	return (
-		<div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-			<span className="text-muted-foreground text-xs tabular-nums">
-				{rangeStart}–{rangeEnd} of {total}
-			</span>
-			<Pagination className="mx-0 w-auto justify-end">
-				<PaginationContent>
-					<PaginationItem>
-						<PaginationPrevious
-							aria-disabled={!hasPrevious}
-							className={hasPrevious ? undefined : 'pointer-events-none opacity-50'}
-							onClick={(event) => {
-								event.preventDefault();
-								if (hasPrevious) {
-									onPageChange(page - 1);
-								}
-							}}
-							tabIndex={hasPrevious ? undefined : -1}
+			{/* One row per species with at least one specimen, so an empty list and a
+			    grand total of zero are the same state read two ways. */}
+			<PanelRows
+				empty={{
+					description: hasRange
+						? 'No specimens were identified in the selected date range.'
+						: 'No specimens have been identified for this trap yet.',
+					title: 'No Specimens',
+				}}
+				icon={<SpeciesIcon aria-hidden="true" />}
+				reading={{ isError, isReady, rows: distribution.totals }}
+				unavailable={{
+					description: 'Collection records could not be loaded. Try again shortly.',
+					title: 'Species Data Unavailable',
+				}}
+				wrap="none"
+			>
+				{() => (
+					<>
+						<p className="text-muted-foreground text-xs">
+							<span className="font-medium text-foreground tabular-nums">
+								{distribution.grandTotal.toLocaleString('en-US')}
+							</span>{' '}
+							female specimens across{' '}
+							<span className="font-medium text-foreground tabular-nums">
+								{distribution.speciesCount}
+							</span>{' '}
+							species · <span className="tabular-nums">{matchedCollections}</span>{' '}
+							{matchedCollections === 1 ? 'collection' : 'collections'}
+						</p>
+						<SpeciesDistributionBars
+							className="grid gap-2.5"
+							grandTotal={distribution.grandTotal}
+							totals={distribution.totals}
 						/>
-					</PaginationItem>
-					<PaginationItem>
-						<PaginationNext
-							aria-disabled={!hasNext}
-							className={hasNext ? undefined : 'pointer-events-none opacity-50'}
-							onClick={(event) => {
-								event.preventDefault();
-								if (hasNext) {
-									onPageChange(page + 1);
-								}
-							}}
-							tabIndex={hasNext ? undefined : -1}
-						/>
-					</PaginationItem>
-				</PaginationContent>
-			</Pagination>
+					</>
+				)}
+			</PanelRows>
 		</div>
 	);
 }
@@ -612,26 +523,6 @@ function StatusBadge({ isActive }: { readonly isActive: boolean }) {
 			<CircleIcon aria-hidden="true" />
 			Inactive
 		</Badge>
-	);
-}
-
-function CollectionsEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<CollectionIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }
 

@@ -17,7 +17,7 @@ export interface PanelRowsReading<Row> {
 	readonly rows: readonly Row[];
 }
 
-/** The words on one of the two states that draw no rows. */
+/** The words on one of the three states that draw no rows. */
 export interface PanelRowsMessage {
 	/** Title case, the way the other titles in a card header read. */
 	readonly title: string;
@@ -40,6 +40,11 @@ export interface PanelRowsMessage {
  * `isError` is read before readiness and before the count. A read that has not
  * answered yet is not empty either, which is why the count is last.
  *
+ * `instead` is a fifth branch and sits between the placeholder and the count.
+ * It is for the card whose record answers for its own children, and the one
+ * that has it is `ResultsCard`: a collection marked zero result is not a
+ * collection nobody has keyed out yet, and the two read differently.
+ *
  * One skeleton height, `h-16`. The seven copies wrote three, `h-12`, `h-14` and
  * `h-16`, with nothing anywhere saying why they differed. 16 is what these rows
  * measure: a link and a badge on one line, a detail line under it, and the
@@ -54,17 +59,46 @@ export function PanelRows<Row>({
 	reading,
 	icon,
 	unavailable,
+	instead,
 	empty,
+	wrap = 'list',
 	children,
 }: {
 	readonly reading: PanelRowsReading<Row>;
-	/** Drawn in both message states. Pass it `aria-hidden`, the title carries the meaning. */
+	/** Drawn in every message state. Pass it `aria-hidden`, the title carries the meaning. */
 	readonly icon: ReactNode;
 	/** Shown when the read failed. Say what could not be loaded, not why. */
 	readonly unavailable: PanelRowsMessage;
-	/** Shown when the read answered with nothing. */
-	readonly empty: PanelRowsMessage;
-	/** The rows, as list items. The list element around them is this component's. */
+	/**
+	 * Shown when the record itself has already answered for its children, in
+	 * place of both the rows and the empty state.
+	 *
+	 * It sits under the failure and the placeholder and over the count, because
+	 * it is true whatever the read holds: a collection marked zero result has no
+	 * species, and one whose last species row has not finished syncing away is
+	 * still a zero result rather than a list of one.
+	 */
+	readonly instead?: PanelRowsMessage | undefined;
+	/**
+	 * Shown when the read answered with nothing.
+	 *
+	 * Optional, because one card's zero-row state is not a card-level empty:
+	 * `IdentificationCard` still draws its add row and its disposition controls
+	 * for a sample nobody has keyed out, so the words about there being no
+	 * species sit beside those rather than replacing them. Left out, a read that
+	 * answered with nothing goes to `children`, which then owns that state.
+	 */
+	readonly empty?: PanelRowsMessage | undefined;
+	/**
+	 * What goes around the rows.
+	 *
+	 * `list` is the default and is what a row-per-record card wants: `children`
+	 * returns the items and the `<ul>` is this component's. `none` is for the
+	 * cards whose rows are `<tr>`s, where a list element between the `<table>`
+	 * and its rows is markup the browser throws away.
+	 */
+	readonly wrap?: 'list' | 'none';
+	/** The rows. What sits around them is `wrap`'s. */
 	readonly children: (rows: readonly Row[]) => ReactNode;
 }) {
 	if (reading.isError === true) {
@@ -79,8 +113,14 @@ export function PanelRows<Row>({
 			</div>
 		);
 	}
-	if (reading.rows.length === 0) {
+	if (instead !== undefined) {
+		return <PanelRowsEmpty icon={icon} message={instead} />;
+	}
+	if (empty !== undefined && reading.rows.length === 0) {
 		return <PanelRowsEmpty icon={icon} message={empty} />;
+	}
+	if (wrap === 'none') {
+		return children(reading.rows);
 	}
 	return <ul className="grid gap-2">{children(reading.rows)}</ul>;
 }

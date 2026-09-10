@@ -13,14 +13,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -587,29 +579,25 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 				</div>
 			</CardHeader>
 			<CardContent padding="compact">
-				{isError ? (
-					<LinkedActionsEmpty
-						description="Linked control actions could not be loaded. Try again shortly."
-						title="Control Actions Unavailable"
-					/>
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-16 w-full" key={index} />
-						))}
-					</div>
-				) : actions.length === 0 ? (
-					<LinkedActionsEmpty
-						description="No applications, source reductions, or other control actions reference this inspection yet."
-						title="No Control Actions"
-					/>
-				) : (
-					<ul className="grid gap-2">
-						{actions.map((action) => (
+				<PanelRows
+					empty={{
+						description:
+							'No applications, source reductions, or other control actions reference this inspection yet.',
+						title: 'No Control Actions',
+					}}
+					icon={<ControlIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: actions }}
+					unavailable={{
+						description: 'Linked control actions could not be loaded. Try again shortly.',
+						title: 'Control Actions Unavailable',
+					}}
+				>
+					{(rows) =>
+						rows.map((action) => (
 							<LinkedActionRow action={action} key={`${action.kind}-${action.id}`} />
-						))}
-					</ul>
-				)}
+						))
+					}
+				</PanelRows>
 			</CardContent>
 		</Card>
 	);
@@ -748,26 +736,6 @@ function UnitAmount({ amount, unitId }: { readonly amount: number; readonly unit
 /** See the twin in `-habitat-detail.tsx`: one roster read, not one per name. */
 function ProfileName({ profileId }: { readonly profileId: string }) {
 	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
-}
-
-function LinkedActionsEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<ControlIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
 }
 
 function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {

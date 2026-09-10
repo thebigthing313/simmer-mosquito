@@ -3,6 +3,7 @@ import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -14,13 +15,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input';
 import {
 	Select,
@@ -29,7 +23,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@simmer-mosquito/ui-web/components/ui/select';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import {
 	Table,
@@ -408,65 +401,69 @@ function ResultsCard({
 					<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
 						Species
 					</span>
-					{isError ? (
-						<SpeciesEmpty
-							description="Species records could not be loaded."
-							title="Species Unavailable"
-						/>
-					) : !isReady ? (
-						<div className="grid gap-2">
-							{[0, 1].map((index) => (
-								<Skeleton className="h-12 w-full" key={index} />
-							))}
-						</div>
-					) : collection.isZeroResult ? (
-						<SpeciesEmpty
-							description="This collection is marked as a zero result. Turn off “Zero result” to record species."
-							title="Zero Result"
-						/>
-					) : entries.length === 0 ? (
-						<SpeciesEmpty
-							description={
-								canEdit
-									? 'No species recorded yet. Add the specimens identified below.'
-									: 'No species have been recorded for this collection.'
-							}
-							title="No Species Recorded"
-						/>
-					) : (
-						<div className="overflow-hidden rounded-md border border-border/40">
-							<Table>
-								<TableHeader>
-									<TableRow className="hover:bg-transparent">
-										<TableHead className="min-w-[12rem]">Species</TableHead>
-										<TableHead className="w-[8.5rem]">Sex</TableHead>
-										<TableHead className="w-[9.5rem]">Status</TableHead>
-										<TableHead className="w-[9.5rem] text-right">Count</TableHead>
-										{canEdit ? <TableHead className="w-10" /> : null}
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{entries.map((entry) =>
-										canEdit ? (
-											<EditableSpeciesRow
-												entry={entry}
-												key={entry.id}
-												onChange={speciesMutations.save}
-												onRemove={speciesMutations.remove}
-												speciesOptions={speciesOptions}
-											/>
-										) : (
-											<ReadOnlySpeciesRow
-												entry={entry}
-												key={entry.id}
-												speciesName={speciesNameById.get(entry.speciesId) ?? 'Unknown species'}
-											/>
-										),
-									)}
-								</TableBody>
-							</Table>
-						</div>
-					)}
+					{/* Zero result goes through `instead` rather than through `empty`: it is
+					    the record answering for its own species, so it outranks the count
+					    and stands even while a species row that is on its way out is still
+					    in hand. */}
+					<PanelRows
+						empty={{
+							description: canEdit
+								? 'No species recorded yet. Add the specimens identified below.'
+								: 'No species have been recorded for this collection.',
+							title: 'No Species Recorded',
+						}}
+						icon={<SpeciesIcon aria-hidden="true" />}
+						instead={
+							collection.isZeroResult
+								? {
+										description:
+											'This collection is marked as a zero result. Turn off “Zero result” to record species.',
+										title: 'Zero Result',
+									}
+								: undefined
+						}
+						reading={{ isError, isReady, rows: entries }}
+						unavailable={{
+							description: 'Species records could not be loaded.',
+							title: 'Species Unavailable',
+						}}
+						wrap="none"
+					>
+						{(rows) => (
+							<div className="overflow-hidden rounded-md border border-border/40">
+								<Table>
+									<TableHeader>
+										<TableRow className="hover:bg-transparent">
+											<TableHead className="min-w-[12rem]">Species</TableHead>
+											<TableHead className="w-[8.5rem]">Sex</TableHead>
+											<TableHead className="w-[9.5rem]">Status</TableHead>
+											<TableHead className="w-[9.5rem] text-right">Count</TableHead>
+											{canEdit ? <TableHead className="w-10" /> : null}
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{rows.map((entry) =>
+											canEdit ? (
+												<EditableSpeciesRow
+													entry={entry}
+													key={entry.id}
+													onChange={speciesMutations.save}
+													onRemove={speciesMutations.remove}
+													speciesOptions={speciesOptions}
+												/>
+											) : (
+												<ReadOnlySpeciesRow
+													entry={entry}
+													key={entry.id}
+													speciesName={speciesNameById.get(entry.speciesId) ?? 'Unknown species'}
+												/>
+											),
+										)}
+									</TableBody>
+								</Table>
+							</div>
+						)}
+					</PanelRows>
 
 					{canEdit && !collection.isZeroResult ? (
 						<AddSpeciesForm collectionId={collection.id} speciesOptions={speciesOptions} />
@@ -752,26 +749,6 @@ const STATUS_FIELD_OPTIONS = [
 		(a, b) => a.label.localeCompare(b.label),
 	),
 ];
-
-function SpeciesEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[120px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<SpeciesIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
 
 // --- result flags ------------------------------------------------------------
 
