@@ -1,6 +1,7 @@
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -183,12 +184,13 @@ function InspectionDetailContent({
 					to: '/larval-surveillance/inspections/$id/edit',
 				},
 				/*
-				 * What the inspection found belongs to the record's identity, so it
-				 * reads at the end of the header bar rather than in a band of its own.
-				 * A full-page strip carrying six cells and a short sentence was the
-				 * same complaint turned sideways.
+				 * The verdict only. Wet or dry, and larvae or none, are two derived
+				 * flags that say what kind of record this is, which is what a header
+				 * is for. What was measured, meaning the density band, the stages, the
+				 * larvae and the dips, reads in the Details card, where a reader
+				 * looking for a number goes to look for it.
 				 */
-				flags: <FindingsLine inspection={inspection} />,
+				flags: <FindingsFlags inspection={inspection} />,
 				icon: InspectionIcon,
 				recordType: 'Larval inspection',
 				remove: {
@@ -278,27 +280,22 @@ function InspectionLocationCard({
 }
 
 /**
- * What the inspection found, in one line.
+ * Whether the inspection found anything, as one or two badges.
  *
- * This was a card beside the location map: four stat tiles over a life-stage
- * section, stretched to a map's height. Two of those tiles said what the badges
- * a few pixels above it already said — the density and whether larvae were
- * present — so the card spent a column and 280 pixels carrying three facts, and
- * the two it repeated were the two an operator had just read.
+ * Both are derived rather than measured. Wet or dry decides whether the rest of
+ * the record means anything, and larvae or none is read off the six life-stage
+ * flags, so neither is a number a reader would go looking for. They name the
+ * kind of record, which is the header's job.
  *
- * What is left is what nothing else on the page says: which stages were there,
- * how many larvae, and out of how much dipping. The rate closes the loop back
- * to the badge in the header — an organization configures its density bands as
- * ranges of larvae per dip, so printing the rate is what makes "Heavy"
- * checkable instead of asserted.
- *
- * A dry inspection renders nothing. Its Dry badge is already in the header, and
- * the sentence that used to fill this card — that larvae need standing water —
- * explained the job back to the person doing it.
+ * The measurements used to sit here beside them: the density band, the stage
+ * strip, the larvae count and the dipping. A header bar is where a record says
+ * what it is, and an operator reading for a number was reading the wrong part
+ * of the page, so those moved into the Details card as ordinary rows. See
+ * {@link FindingsList}.
  */
-function FindingsLine({ inspection }: { readonly inspection: InspectionDetailRow }) {
-	// A dry inspection is one badge and nothing else. There is no density to band,
-	// no stages to strip, and no dipping to have done.
+function FindingsFlags({ inspection }: { readonly inspection: InspectionDetailRow }) {
+	// A dry inspection is one badge and nothing else. There was no dipping to
+	// have done, so there is no positivity to report either.
 	if (!inspection.isWet) {
 		return (
 			<div className={findingsRow}>
@@ -307,27 +304,9 @@ function FindingsLine({ inspection }: { readonly inspection: InspectionDetailRow
 		);
 	}
 
-	const rate = larvaePerDip(inspection.larvaeCount, inspection.dipCount);
-
 	return (
 		<div className={findingsRow}>
-			{/*
-			 * Verdict, then the evidence for it — and in that order because it is the
-			 * order the explorer list already reads in, where a row is a density badge
-			 * followed by its life-stage strip. Same two objects, same sequence, so the
-			 * row an operator clicked and the record they land on read alike.
-			 */}
-			<DensityBadge density={inspection.density} />
 			<PositivityBadge inspection={inspection} />
-			<LifeStageStrip size="sm" stages={inspection} />
-			<p className="m-0 flex flex-wrap items-baseline gap-x-2 text-sm">
-				<span className="font-medium text-foreground tabular-nums">
-					{effortLabel(inspection.larvaeCount, inspection.dipCount)}
-				</span>
-				{rate === null ? null : (
-					<span className="text-muted-foreground tabular-nums">· {formatRate(rate)} per dip</span>
-				)}
-			</p>
 		</div>
 	);
 }
@@ -335,30 +314,62 @@ function FindingsLine({ inspection }: { readonly inspection: InspectionDetailRow
 const findingsRow = 'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-2';
 
 /**
- * `34 larvae in 12 dips`, degrading to whichever half was recorded.
+ * What the inspection measured, as label-and-value rows.
  *
- * Zero is a finding, not a blank: twelve dips that turned up nothing is the
- * negative result surveillance is largely made of, and it has to read as
- * deliberate rather than as a field nobody filled in.
+ * Density first, then the evidence for it, which is the order the explorer list
+ * already reads in: a row there is a density badge followed by its life-stage
+ * strip. Same two objects, same sequence, so the row an operator clicked and
+ * the record they land on read alike.
+ *
+ * The rate closes the loop back to the band. An organization configures its
+ * density bands as ranges of larvae per dip, so printing the rate is what makes
+ * "Heavy" checkable instead of asserted.
+ *
+ * A dry inspection renders nothing. Its Dry badge is in the header, and there
+ * is no density to band, no stages to strip and no dipping to divide by.
  */
-function effortLabel(larvaeCount: number | null, dipCount: number | null): string {
-	const larvae =
-		larvaeCount === null
-			? null
-			: `${larvaeCount.toLocaleString('en-US')} ${plural(larvaeCount, 'larva', 'larvae')}`;
-	const dips =
-		dipCount === null
-			? null
-			: `${dipCount.toLocaleString('en-US')} ${plural(dipCount, 'dip', 'dips')}`;
-
-	if (larvae !== null && dips !== null) {
-		return `${larvae} in ${dips}`;
+function FindingsList({ inspection }: { readonly inspection: InspectionDetailRow }) {
+	if (!inspection.isWet) {
+		return null;
 	}
-	return larvae ?? dips ?? 'Counts not recorded';
-}
 
-function plural(count: number, one: string, many: string): string {
-	return count === 1 ? one : many;
+	const rate = larvaePerDip(inspection.larvaeCount, inspection.dipCount);
+
+	return (
+		<DetailList>
+			<DetailRow label="Density">
+				<DensityBadge density={inspection.density} />
+			</DetailRow>
+			<DetailRow label="Life stages">
+				<LifeStageStrip size="sm" stages={inspection} />
+			</DetailRow>
+			{/*
+			 * Zero is a finding, not a blank: twelve dips that turned up nothing is
+			 * the negative result surveillance is largely made of, so a recorded zero
+			 * has to read as deliberate rather than as a field nobody filled in. That
+			 * is what passing the count through rather than testing it for truth
+			 * does, and why `DetailRow` is handed `null` and left to say the row was
+			 * not recorded.
+			 */}
+			<DetailRow label="Larvae">
+				{inspection.larvaeCount === null ? null : (
+					<span className="tabular-nums">{inspection.larvaeCount.toLocaleString('en-US')}</span>
+				)}
+			</DetailRow>
+			<DetailRow label="Dips">
+				{inspection.dipCount === null ? null : (
+					<span className="flex flex-wrap items-baseline gap-x-2">
+						<span className="tabular-nums">{inspection.dipCount.toLocaleString('en-US')}</span>
+						{rate === null ? null : (
+							<span className="text-muted-foreground tabular-nums">
+								· {formatRate(rate)} per dip
+							</span>
+						)}
+					</span>
+				)}
+			</DetailRow>
+		</DetailList>
+	);
 }
 
 /** One decimal at most: `2.8`, `3`, `0.5`. */
@@ -366,6 +377,14 @@ function formatRate(rate: number): string {
 	return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(rate);
 }
 
+/**
+ * The Details card: what was found, then where and by whom.
+ *
+ * The two groups are separated by a rule rather than by a second card, because
+ * a reader wanting the larvae count and a reader wanting the inspector are the
+ * same reader scanning one column of labels. A dry inspection has no findings
+ * group, so it takes no rule either.
+ */
 function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
@@ -374,10 +393,20 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<DetailList>
+				<FindingsList inspection={inspection} />
+				<DetailList className={cn(inspection.isWet && 'border-border/50 border-t pt-4')}>
+					{/*
+					 * An ad-hoc inspection names no habitat, and this row says so rather
+					 * than printing the coordinates: it is the Habitat row, and filling it
+					 * with a place reads as a habitat whose name is a pair of numbers. The
+					 * coordinates are already in the subtitle and on the Location card
+					 * beside it. `AbsentValue` rather than the row's own "Not recorded",
+					 * so the two empty rows in this card, Habitat and Address, draw the
+					 * same mark.
+					 */}
 					<DetailRow label="Habitat">
 						{inspection.habitatId === null ? (
-							<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
+							<AbsentValue />
 						) : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
