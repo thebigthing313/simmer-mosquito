@@ -23,6 +23,7 @@ import {
 	Copy,
 	Download,
 	Droplet,
+	DropletOff,
 	Edit,
 	Eye,
 	EyeOff,
@@ -190,11 +191,16 @@ export const iconRegistry = {
 		route: icon('route', 'Route', 'entities', Route),
 		sample: icon('sample', 'Sample', 'entities', FlaskConical),
 		serviceRequest: icon('serviceRequest', 'Service request', 'entities', PhoneCall),
+		// Not the bin: `actions.delete` is `Trash2`, and the two sit in the same
+		// menu on a Habitat, where "Record source reduction" and "Delete habitat"
+		// showed one glyph for two different things. Source reduction removes the
+		// standing water a Habitat holds, so the struck-through droplet says what
+		// the action does rather than borrowing the mark for discarding a record.
 		sourceReductionAction: icon(
 			'sourceReductionAction',
 			'Source reduction action',
 			'entities',
-			Trash2,
+			DropletOff,
 		),
 		tag: icon('tag', 'Tag', 'entities', Tag),
 		taxonomy: icon('taxonomy', 'Taxonomy', 'entities', Network),

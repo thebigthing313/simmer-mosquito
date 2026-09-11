@@ -1,5 +1,5 @@
 import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
-import { countGeoJsonVertices, formatGeometryTypeLabel } from '@simmer-mosquito/mapping';
+import { formatGeometryTypeLabel } from '@simmer-mosquito/mapping';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
@@ -217,13 +217,7 @@ function HabitatDetailContent({
 					/>
 				</>
 			}
-			facts={
-				<HabitatDetailsCard
-					geometry={resolvedGeometry}
-					habitat={habitat}
-					isGeometryPending={isGeometryPending}
-				/>
-			}
+			facts={<HabitatDetailsCard habitat={habitat} />}
 			header={{
 				actions: [
 					...createItems('habitatId', habitat.id, [
@@ -332,15 +326,7 @@ function HabitatLocationCard({
 	);
 }
 
-function HabitatDetailsCard({
-	geometry,
-	habitat,
-	isGeometryPending,
-}: {
-	readonly geometry: HabitatGeometry | null;
-	readonly habitat: Habitat;
-	readonly isGeometryPending: boolean;
-}) {
+function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
@@ -369,10 +355,6 @@ function HabitatDetailsCard({
 						<Suspense fallback={<span className="text-muted-foreground">Loading routes…</span>}>
 							<HabitatRoutes habitatId={habitat.id} />
 						</Suspense>
-					</DetailRow>
-					<DetailRow label="Geometry">{geometrySummary(geometry, isGeometryPending)}</DetailRow>
-					<DetailRow label="Coordinates">
-						{isGeometryPending ? 'Loading…' : coordinateLabel(geometry)}
 					</DetailRow>
 					<DetailRow label="Created">
 						<AuditValue at={habitat.createdAt} profileId={habitat.createdByProfileId} />
@@ -1224,16 +1206,6 @@ function locationSummary(geometry: HabitatGeometry | null, isPending: boolean): 
 		return 'No geometry recorded';
 	}
 	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${coordinateLabel(geometry)}`;
-}
-
-function geometrySummary(geometry: HabitatGeometry | null, isPending: boolean): string {
-	if (isPending) {
-		return 'Loading…';
-	}
-	if (geometry == null || geometry.geojson == null) {
-		return 'No geometry recorded';
-	}
-	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${countGeoJsonVertices(geometry.geojson)} vertices`;
 }
 
 function coordinateLabel(geometry: HabitatGeometry | null): string {

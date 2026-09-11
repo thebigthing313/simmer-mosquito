@@ -401,7 +401,6 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 						{inspection.inspectedByName}
 					</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
-					<DetailRow label="Coordinates">{coordinateLabel(inspection)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
 				</DetailList>
@@ -804,11 +803,4 @@ function controlTypeLabel(controlType: ControlType): string {
 		default:
 			return 'Outreach';
 	}
-}
-
-function coordinateLabel(inspection: InspectionDetailRow): string {
-	if (inspection.lat == null || inspection.lng == null) {
-		return 'Unknown coordinates';
-	}
-	return `${inspection.lat.toFixed(5)}, ${inspection.lng.toFixed(5)}`;
 }

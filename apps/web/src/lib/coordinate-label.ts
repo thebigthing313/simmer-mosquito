@@ -7,8 +7,14 @@
  * label wherever a habitat name would have gone.
  */
 
-/** `34.05213, -118.24368`, or null when the row carries no centroid yet. */
-export function formatCoordinates(
+/**
+ * `34.05213, -118.24368`, or null when the row carries no centroid yet.
+ *
+ * Module-private: `adhocLabel` is the whole public surface. It was exported for
+ * the Coordinates row on the inspection and sample detail pages, and that row is
+ * gone, because the Location card beside it already draws the spot.
+ */
+function formatCoordinates(
 	lat: number | null | undefined,
 	lng: number | null | undefined,
 ): string | null {

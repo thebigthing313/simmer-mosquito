@@ -53,7 +53,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
-import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
+import { adhocLabel } from '../../../lib/coordinate-label';
 import { todayInTimeZone } from '../-overview-data';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
@@ -966,7 +966,6 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 						)}
 					</DetailRow>
 					<DetailRow label="Collected">{formatFullDate(geo.inspectionDate)}</DetailRow>
-					<DetailRow label="Coordinates">{coordinateLabel(geo)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(geo.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(geo.updatedAt, timeZone)}</DetailRow>
 				</DetailList>
@@ -1067,10 +1066,6 @@ function habitatLabel(geo: SampleGeoRow): string {
 
 function breadcrumbLabel(geo: SampleGeoRow): string {
 	return `Sample · ${formatMonthDayYear(geo.inspectionDate)}`;
-}
-
-function coordinateLabel(geo: SampleGeoRow): string {
-	return formatCoordinates(geo.lat, geo.lng) ?? 'Unknown coordinates';
 }
 
 function messageOf(cause: unknown, fallback: string): string {
