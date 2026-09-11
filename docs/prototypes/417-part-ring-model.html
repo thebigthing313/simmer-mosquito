@@ -1,0 +1,744 @@
+<title>Part and ring model</title>
+<style>
+	:root {
+		--bg: #fbfaf8;
+		--panel: #ffffff;
+		--ink: #1c1a17;
+		--muted: #6b6560;
+		--line: #e4e0da;
+		--accent: #b45309;
+		--accent-soft: #fef3c7;
+		--danger: #b91c1c;
+		color-scheme: light;
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--ink);
+		font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	}
+	.wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+	h1 { font-size: 24px; margin: 0 0 6px; font-weight: 650; letter-spacing: -0.01em; }
+	h2 { font-size: 13px; margin: 0 0 10px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+	p { margin: 0 0 10px; }
+	.lede { color: var(--muted); max-width: 74ch; margin-bottom: 22px; }
+	.lede strong { color: var(--ink); font-weight: 600; }
+	.cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+	@media (max-width: 940px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+	.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+	svg.plane { width: 100%; height: auto; display: block; border-radius: 8px; background: #f4f1ec; cursor: crosshair; touch-action: none; }
+	svg.plane.idle { cursor: default; }
+	button {
+		font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 7px;
+		border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+	}
+	button:hover:not(:disabled) { border-color: #cfc9c1; background: #fdfcfa; }
+	button:disabled { opacity: 0.4; cursor: not-allowed; }
+	button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+	button.primary:hover:not(:disabled) { background: #92400e; border-color: #92400e; }
+	button.danger { color: var(--danger); }
+	button.tiny { font-size: 12px; padding: 3px 7px; }
+	.row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+	.row + .row { margin-top: 9px; }
+	select { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: #fff; }
+	label.field { display: flex; gap: 7px; align-items: center; font-size: 12px; color: var(--muted); }
+	.prompt { margin-top: 10px; padding: 9px 11px; border-radius: 8px; background: var(--accent-soft); border: 1px solid #fcd34d; font-size: 13px; }
+	.prompt.bad { background: #fee2e2; border-color: #fca5a5; color: #7f1d1d; }
+	dl.state { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; margin: 0; font-size: 13px; }
+	dl.state dt { color: var(--muted); }
+	dl.state dd { margin: 0; font-variant-numeric: tabular-nums; }
+	.changed { background: var(--accent-soft); border-radius: 4px; padding: 0 4px; margin: 0 -4px; }
+	ul.parts { list-style: none; margin: 0; padding: 0; }
+	ul.parts li { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; margin-bottom: 6px; }
+	ul.parts li.hot { border-color: var(--accent); background: #fffbeb; }
+	ul.parts li .head { display: flex; align-items: center; gap: 8px; }
+	ul.parts li .name { flex: 1; min-width: 0; }
+	ul.holes { list-style: none; margin: 6px 0 0 14px; padding: 0 0 0 10px; border-left: 2px solid var(--line); }
+	ul.holes li { border: 0; padding: 2px 0; margin: 0; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+	.summary { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+	.badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid; }
+	.badge.ok { color: #166534; border-color: #86efac; background: #f0fdf4; }
+	.badge.no { color: var(--danger); border-color: #fca5a5; background: #fef2f2; }
+	.tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+	.tabs button[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+	ol.steps { margin: 10px 0 0; padding-left: 0; list-style: none; counter-reset: step; }
+	ol.steps li { counter-increment: step; display: flex; gap: 9px; align-items: baseline; padding: 3px 0; }
+	ol.steps li::before { content: counter(step); color: var(--muted); font-size: 12px; min-width: 14px; font-variant-numeric: tabular-nums; }
+	ol.steps li.done { opacity: 0.45; }
+	ol.steps li.now button { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+	pre { margin: 0; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; color: var(--muted); max-height: 190px; overflow: auto; }
+	.note { font-size: 12.5px; color: var(--muted); }
+	.proto { display: inline-block; font-size: 11px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); border: 1px solid #fcd34d; background: var(--accent-soft); border-radius: 999px; padding: 2px 9px; margin-bottom: 10px; }
+</style>
+
+<div class="wrap">
+	<span class="proto">Throwaway prototype &middot; issue 417</span>
+	<h1>Draw control: parts and rings</h1>
+	<p class="lede">
+		A record's shape can be made of several separated pieces, and an area piece can have a hole
+		punched out of it. This demo runs the model we settled on, so you can feel it before it is
+		built. Watch three things: a shape <strong>promotes</strong> to its multi form the moment it
+		gets a second piece and <strong>demotes</strong> back the moment it loses one; a hole is cut
+		into a piece you <strong>name first</strong>, never into whichever one you happened to click;
+		and a hole that wanders outside its piece <strong>cannot be finished</strong>.
+	</p>
+
+	<div class="cols">
+		<div>
+			<div class="card">
+				<h2>The map</h2>
+				<svg class="plane" id="plane" viewBox="0 0 640 420" aria-label="Drawing surface"></svg>
+				<div id="prompt"></div>
+				<div class="row" style="margin-top: 12px">
+					<button id="btn-draw" class="primary"></button>
+					<button id="btn-addpart">Add piece</button>
+					<button id="btn-hole">Cut hole</button>
+					<button id="btn-undo">Undo</button>
+					<button id="btn-finish">Finish</button>
+					<button id="btn-cancel">Cancel</button>
+					<button id="btn-clear" class="danger">Clear</button>
+				</div>
+				<div class="row">
+					<label class="field">Shape
+						<select id="sel-type"></select>
+					</label>
+					<label class="field">Record
+						<select id="sel-policy">
+							<option value="locatable">Habitat (every shape allowed)</option>
+							<option value="region">Region (areas only)</option>
+							<option value="notification">Notification registration (no multi-piece areas)</option>
+							<option value="point">Trap (single point only)</option>
+						</select>
+					</label>
+					<button class="tiny" id="btn-load40">Load a 40-piece file</button>
+				</div>
+			</div>
+
+			<div class="card">
+				<h2>Walkthroughs</h2>
+				<div class="tabs" id="tabs"></div>
+				<p id="scenario-text" class="note"></p>
+				<ol class="steps" id="steps"></ol>
+			</div>
+		</div>
+
+		<div>
+			<div class="card">
+				<h2>What the form panel shows</h2>
+				<div id="control"></div>
+			</div>
+			<div class="card">
+				<h2>Current state</h2>
+				<dl class="state" id="state"></dl>
+			</div>
+			<div class="card">
+				<h2>What gets stored</h2>
+				<pre id="geojson"></pre>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// The portable bit. A pure state machine over the part-and-ring model, with no
+// DOM in it, so it lifts into use-map-draw.ts once the model is agreed.
+//
+// A part is stored the same way for every shape:
+//   Point      part = [x, y]
+//   LineString part = [[x, y], ...]
+//   Polygon    part = [outerRing, hole, hole, ...]   ring = [[x, y], ...] closed
+// ---------------------------------------------------------------------------
+
+const POLICIES = {
+	locatable: ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon'],
+	region: ['Polygon', 'MultiPolygon'],
+	notification: ['Point', 'Polygon'],
+	point: ['Point'],
+};
+
+const MULTI_OF = { Point: 'MultiPoint', LineString: 'MultiLineString', Polygon: 'MultiPolygon' };
+const BASE_LABEL = { Point: 'Point', LineString: 'Line', Polygon: 'Polygon' };
+
+function initialState(policy = 'locatable') {
+	const allowed = POLICIES[policy];
+	const bases = ['Point', 'LineString', 'Polygon'].filter((t) => allowed.includes(t));
+	return {
+		policy,
+		// Areas are what parts and holes are about, so open on one where allowed.
+		baseType: bases.includes('Polygon') ? 'Polygon' : bases[0],
+		parts: [],
+		mode: { kind: 'idle' },
+		vertices: [],
+		cursor: null,
+		showAllParts: false,
+		lastAction: null,
+	};
+}
+
+const isAreal = (s) => s.baseType === 'Polygon';
+const allowedTypes = (s) => POLICIES[s.policy];
+const baseTypes = (s) => ['Point', 'LineString', 'Polygon'].filter((t) => allowedTypes(s).includes(t));
+
+// Promote in place: a second piece makes it multi, losing one demotes it back.
+// A one-piece MultiPolygon never exists.
+function storedType(s) {
+	return s.parts.length > 1 ? MULTI_OF[s.baseType] : s.baseType;
+}
+
+// Add piece is offered only where the record could store the result.
+const canAddPart = (s) => allowedTypes(s).includes(MULTI_OF[s.baseType]);
+const canCutHole = (s) => isAreal(s) && s.parts.length > 0;
+
+function minVertices(s) {
+	return s.baseType === 'Point' ? 1 : s.baseType === 'LineString' ? 2 : 3;
+}
+
+function closeRing(v) {
+	if (v.length === 0) return v;
+	const a = v[0], b = v[v.length - 1];
+	return a[0] === b[0] && a[1] === b[1] ? v : [...v, a];
+}
+
+function partFromVertices(s, vertices) {
+	if (s.baseType === 'Point') return vertices[0];
+	if (s.baseType === 'LineString') return vertices;
+	return [closeRing(vertices)];
+}
+
+// Ray casting, the same even-odd test geometryContainsLngLat already ships.
+function insideRing(ring, p) {
+	let inside = false;
+	for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+		const [xi, yi] = ring[i], [xj, yj] = ring[j];
+		if ((yi > p[1]) !== (yj > p[1])) {
+			const x = ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi;
+			if (p[0] < x) inside = !inside;
+		}
+	}
+	return inside;
+}
+
+/** Every vertex of a hole must sit inside its part's outer ring and outside its other holes. */
+function holeEscapes(part, vertices, skipRing) {
+	const outer = part[0];
+	return vertices.some((v) => {
+		if (!insideRing(outer, v)) return true;
+		return part.some((ring, i) => i > 0 && i !== skipRing && insideRing(ring, v));
+	});
+}
+
+function finishBlockedBecause(s) {
+	if (s.mode.kind !== 'draw') return null;
+	if (s.vertices.length < minVertices(s)) {
+		return 'Place at least ' + minVertices(s) + ' point' + (minVertices(s) > 1 ? 's' : '') + '.';
+	}
+	if (s.mode.target.kind === 'hole') {
+		const part = s.parts[s.mode.target.partIndex];
+		if (part && holeEscapes(part, s.vertices)) {
+			return 'The hole must stay inside piece ' + (s.mode.target.partIndex + 1) + '.';
+		}
+	}
+	return null;
+}
+
+const canFinish = (s) => s.mode.kind === 'draw' && finishBlockedBecause(s) === null;
+
+function reduce(state, action) {
+	const s = { ...state, lastAction: action.type };
+	switch (action.type) {
+		case 'SET_POLICY':
+			return { ...initialState(action.policy), lastAction: 'SET_POLICY' };
+
+		case 'SET_BASE_TYPE':
+			// Switching what kind of thing this is throws the pieces away; they are
+			// not translatable between a line and an area.
+			return { ...s, baseType: action.baseType, parts: [], vertices: [], mode: { kind: 'idle' } };
+
+		// Redraw replaces the whole geometry, every piece, and says so.
+		case 'START_REPLACE':
+			return { ...s, parts: [], vertices: [], cursor: null, mode: { kind: 'draw', target: { kind: 'replace' } } };
+
+		case 'START_ADD_PART':
+			return { ...s, vertices: [], cursor: null, mode: { kind: 'draw', target: { kind: 'part' } } };
+
+		// The piece is named before the drawing starts, so nothing is hit-tested to
+		// decide which piece a hole lands in.
+		case 'START_HOLE': {
+			const part = s.parts[action.partIndex];
+			if (!isAreal(s) || part === undefined) return state;
+			return { ...s, vertices: [], cursor: null, mode: { kind: 'draw', target: { kind: 'hole', partIndex: action.partIndex } } };
+		}
+
+		case 'CLICK': {
+			if (s.mode.kind !== 'draw') return state;
+			const next = [...s.vertices, action.position];
+			// A point finishes on its first click, exactly as it does today.
+			if (s.baseType === 'Point' && s.mode.target.kind !== 'hole') {
+				return commit({ ...s, vertices: next });
+			}
+			return { ...s, vertices: next };
+		}
+
+		case 'MOVE':
+			return { ...s, cursor: action.position };
+
+		// Undo pops inside the piece being drawn and never reaches a finished one.
+		case 'UNDO':
+			return { ...s, vertices: s.vertices.slice(0, -1) };
+
+		case 'FINISH':
+			return canFinish(s) ? commit(s) : state;
+
+		case 'CANCEL':
+			return { ...s, vertices: [], cursor: null, mode: { kind: 'idle' } };
+
+		case 'DELETE_PART':
+			return { ...s, parts: s.parts.filter((_, i) => i !== action.partIndex) };
+
+		case 'DELETE_HOLE':
+			return {
+				...s,
+				parts: s.parts.map((part, i) =>
+					i === action.partIndex ? part.filter((_, r) => r !== action.ringIndex) : part,
+				),
+			};
+
+		case 'CLEAR':
+			return { ...s, parts: [], vertices: [], cursor: null, mode: { kind: 'idle' } };
+
+		case 'TOGGLE_SHOW_ALL':
+			return { ...s, showAllParts: !s.showAllParts };
+
+		case 'LOAD':
+			return { ...s, baseType: action.baseType, parts: action.parts, vertices: [], mode: { kind: 'idle' } };
+
+		default:
+			return state;
+	}
+}
+
+function commit(s) {
+	const target = s.mode.target;
+	const vertices = s.vertices;
+	let parts = s.parts;
+	if (target.kind === 'replace') {
+		parts = [partFromVertices(s, vertices)];
+	} else if (target.kind === 'part') {
+		parts = [...s.parts, partFromVertices(s, vertices)];
+	} else {
+		parts = s.parts.map((part, i) => (i === target.partIndex ? [...part, closeRing(vertices)] : part));
+	}
+	return { ...s, parts, vertices: [], cursor: null, mode: { kind: 'idle' } };
+}
+
+/** What the command would actually carry. */
+function toGeoJson(s) {
+	if (s.parts.length === 0) return null;
+	const type = storedType(s);
+	if (s.parts.length === 1) return { type, coordinates: s.parts[0] };
+	return { type, coordinates: s.parts };
+}
+
+/** The one line the control shows at a single piece, replaced by the list at two. */
+function summaryLine(s) {
+	if (s.parts.length === 0) return 'No geometry drawn yet.';
+	const label = BASE_LABEL[s.baseType];
+	if (s.parts.length > 1) return label + ' · ' + s.parts.length + ' pieces';
+	if (s.baseType === 'Point') return 'Point · ' + s.parts[0].map((n) => n.toFixed(0)).join(', ');
+	if (s.baseType === 'LineString') return 'Line · ' + s.parts[0].length + ' vertices';
+	const part = s.parts[0];
+	const holes = part.length - 1;
+	return 'Polygon · ' + Math.max(part[0].length - 1, 0) + ' vertices' +
+		(holes > 0 ? ', ' + holes + ' hole' + (holes > 1 ? 's' : '') : '');
+}
+
+function partLabel(s, part, index) {
+	const name = 'Piece ' + (index + 1);
+	if (s.baseType === 'Point') return name + ' · ' + part.map((n) => n.toFixed(0)).join(', ');
+	if (s.baseType === 'LineString') return name + ' · ' + part.length + ' vertices';
+	return name + ' · ' + Math.max(part[0].length - 1, 0) + ' vertices';
+}
+
+// ---------------------------------------------------------------------------
+// Throwaway page below. Nothing here is meant to survive.
+// ---------------------------------------------------------------------------
+
+const VISIBLE_PARTS = 8;
+let state = initialState('locatable');
+let hot = null;
+let changedKeys = new Set();
+
+function dispatch(action) {
+	const before = snapshot(state);
+	state = reduce(state, action);
+	const after = snapshot(state);
+	changedKeys = new Set(Object.keys(after).filter((k) => before[k] !== after[k]));
+	render();
+}
+
+function snapshot(s) {
+	return {
+		'Shape chosen': BASE_LABEL[s.baseType],
+		'Stored as': s.parts.length === 0 ? 'nothing yet' : storedType(s),
+		'Pieces': String(s.parts.length),
+		'Holes': String(s.parts.reduce((n, p) => n + (isAreal(s) ? p.length - 1 : 0), 0)),
+		'Doing': describeMode(s),
+		'Points placed': s.mode.kind === 'draw' ? String(s.vertices.length) : '—',
+		'Can finish': s.mode.kind === 'draw'
+			? (canFinish(s) ? 'yes' : 'no, ' + finishBlockedBecause(s))
+			: '—',
+		'Add piece offered': canAddPart(s) ? 'yes' : 'no, this record cannot store ' + MULTI_OF[s.baseType],
+	};
+}
+
+function describeMode(s) {
+	if (s.mode.kind !== 'draw') return 'nothing, idle';
+	const t = s.mode.target;
+	if (t.kind === 'replace') return 'redrawing the whole shape';
+	if (t.kind === 'part') return 'drawing a new piece';
+	return 'cutting a hole in piece ' + (t.partIndex + 1);
+}
+
+// ---- the map -------------------------------------------------------------
+const plane = document.getElementById('plane');
+
+plane.addEventListener('click', (event) => {
+	if (state.mode.kind !== 'draw') return;
+	dispatch({ type: 'CLICK', position: planePoint(event) });
+});
+plane.addEventListener('mousemove', (event) => {
+	if (state.mode.kind !== 'draw' || state.baseType === 'Point') return;
+	state = reduce(state, { type: 'MOVE', position: planePoint(event) });
+	drawPlane();
+});
+plane.addEventListener('dblclick', (event) => {
+	event.preventDefault();
+	if (canFinish(state)) dispatch({ type: 'FINISH' });
+});
+
+function planePoint(event) {
+	const box = plane.getBoundingClientRect();
+	return [
+		Math.round(((event.clientX - box.left) / box.width) * 640),
+		Math.round(((event.clientY - box.top) / box.height) * 420),
+	];
+}
+
+function ringPath(ring) {
+	return ring.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ' ' + p[1]).join(' ');
+}
+
+function drawPlane() {
+	const s = state;
+	const bits = [];
+	for (let i = 0; i < 640; i += 40) bits.push('<line x1="' + i + '" y1="0" x2="' + i + '" y2="420" stroke="#e8e3db" />');
+	for (let i = 0; i < 420; i += 40) bits.push('<line x1="0" y1="' + i + '" x2="640" y2="' + i + '" stroke="#e8e3db" />');
+
+	s.parts.forEach((part, index) => {
+		const lit = hot === index;
+		const stroke = lit ? '#b45309' : '#78716c';
+		const fill = lit ? '#fbbf24' : '#a8a29e';
+		if (s.baseType === 'Point') {
+			bits.push('<circle cx="' + part[0] + '" cy="' + part[1] + '" r="6" fill="' + fill + '" stroke="#fff" stroke-width="2" />');
+		} else if (s.baseType === 'LineString') {
+			bits.push('<path d="' + ringPath(part) + '" fill="none" stroke="' + stroke + '" stroke-width="3" />');
+		} else {
+			// evenodd is what makes the hole read as a hole.
+			bits.push('<path d="' + part.map(ringPath).join(' ') + '" fill="' + fill + '" fill-opacity="0.32" fill-rule="evenodd" stroke="' + stroke + '" stroke-width="2.5" />');
+		}
+		if (s.parts.length > 1) {
+			const anchor = s.baseType === 'Point' ? part : s.baseType === 'LineString' ? part[0] : part[0][0];
+			bits.push('<text x="' + (anchor[0] + 9) + '" y="' + (anchor[1] - 8) + '" font-size="11" fill="#57534e">' + (index + 1) + '</text>');
+		}
+	});
+
+	if (s.mode.kind === 'draw' && s.vertices.length > 0) {
+		const preview = s.cursor && s.baseType !== 'Point' ? [...s.vertices, s.cursor] : s.vertices;
+		const closing = s.baseType === 'Polygon' && preview.length >= 3;
+		const target = s.mode.target;
+		const bad = target.kind === 'hole' && s.parts[target.partIndex] &&
+			holeEscapes(s.parts[target.partIndex], s.vertices);
+		const colour = bad ? '#b91c1c' : '#b45309';
+		bits.push('<path d="' + ringPath(preview) + (closing ? ' Z' : '') + '" fill="' + (closing ? colour : 'none') + '" fill-opacity="0.16" stroke="' + colour + '" stroke-width="2.5" stroke-dasharray="6 3" />');
+		s.vertices.forEach((v) => bits.push('<circle cx="' + v[0] + '" cy="' + v[1] + '" r="4.5" fill="' + colour + '" stroke="#fff" stroke-width="2" />'));
+	}
+
+	plane.innerHTML = bits.join('');
+	plane.classList.toggle('idle', s.mode.kind !== 'draw');
+}
+
+// ---- the form panel ------------------------------------------------------
+function renderControl() {
+	const s = state;
+	const host = document.getElementById('control');
+	const set = s.parts.length > 0;
+	let html = '<div class="row" style="justify-content: space-between; margin-bottom: 10px">';
+	html += '<strong style="font-size:13px">Geometry</strong>';
+	html += set ? '<span class="badge ok">Captured</span>' : '<span class="badge no">Not set</span>';
+	html += '</div>';
+
+	if (s.parts.length > 1) {
+		const shown = s.showAllParts ? s.parts.length : Math.min(VISIBLE_PARTS, s.parts.length);
+		html += '<ul class="parts">';
+		for (let i = 0; i < shown; i++) {
+			const part = s.parts[i];
+			html += '<li class="' + (hot === i ? 'hot' : '') + '" data-hover="' + i + '">';
+			html += '<div class="head"><span class="name">' + partLabel(s, part, i) + '</span>';
+			if (canCutHole(s)) html += '<button class="tiny" data-hole="' + i + '">Cut hole</button>';
+			html += '<button class="tiny danger" data-delpart="' + i + '">Remove</button></div>';
+			if (isAreal(s) && part.length > 1) {
+				html += '<ul class="holes">';
+				for (let r = 1; r < part.length; r++) {
+					html += '<li><span style="flex:1">Hole ' + r + ' · ' + Math.max(part[r].length - 1, 0) + ' vertices</span>';
+					html += '<button class="tiny danger" data-delhole="' + i + ',' + r + '">Remove</button></li>';
+				}
+				html += '</ul>';
+			}
+			html += '</li>';
+		}
+		html += '</ul>';
+		if (s.parts.length > VISIBLE_PARTS) {
+			html += '<button class="tiny" id="btn-showall">' +
+				(s.showAllParts ? 'Show fewer' : 'Show all ' + s.parts.length + ' pieces') + '</button>';
+		}
+	} else {
+		html += '<div class="summary"><span style="flex:1">' + summaryLine(s) + '</span></div>';
+		if (s.parts.length === 1 && isAreal(s) && s.parts[0].length > 1) {
+			html += '<ul class="holes" style="margin-top:8px">';
+			for (let r = 1; r < s.parts[0].length; r++) {
+				html += '<li><span style="flex:1">Hole ' + r + ' · ' + Math.max(s.parts[0][r].length - 1, 0) + ' vertices</span>';
+				html += '<button class="tiny danger" data-delhole="0,' + r + '">Remove</button></li>';
+			}
+			html += '</ul>';
+		}
+	}
+
+	html += '<p class="note" style="margin-top:10px">' +
+		(s.parts.length > 1
+			? 'Two or more pieces, so the summary line is replaced by the list, and Cut hole moves onto each row. The piece is named before the drawing starts.'
+			: 'One piece, so the control looks exactly as it does today. Cut hole sits on the control itself.') +
+		'</p>';
+	host.innerHTML = html;
+
+	host.querySelectorAll('[data-hover]').forEach((el) => {
+		el.addEventListener('mouseenter', () => { hot = Number(el.dataset.hover); drawPlane(); renderControl(); });
+		el.addEventListener('mouseleave', () => { hot = null; drawPlane(); renderControl(); });
+	});
+	host.querySelectorAll('[data-hole]').forEach((el) =>
+		el.addEventListener('click', () => dispatch({ type: 'START_HOLE', partIndex: Number(el.dataset.hole) })));
+	host.querySelectorAll('[data-delpart]').forEach((el) =>
+		el.addEventListener('click', () => dispatch({ type: 'DELETE_PART', partIndex: Number(el.dataset.delpart) })));
+	host.querySelectorAll('[data-delhole]').forEach((el) =>
+		el.addEventListener('click', () => {
+			const [p, r] = el.dataset.delhole.split(',').map(Number);
+			dispatch({ type: 'DELETE_HOLE', partIndex: p, ringIndex: r });
+		}));
+	const showAll = document.getElementById('btn-showall');
+	if (showAll) showAll.addEventListener('click', () => dispatch({ type: 'TOGGLE_SHOW_ALL' }));
+}
+
+// ---- chrome --------------------------------------------------------------
+function renderButtons() {
+	const s = state;
+	const drawing = s.mode.kind === 'draw';
+	const draw = document.getElementById('btn-draw');
+	draw.textContent = drawing ? 'Drawing on the map…' : s.parts.length > 0 ? 'Redraw geometry' : 'Draw geometry';
+	draw.disabled = drawing;
+	const addPart = document.getElementById('btn-addpart');
+	// Hidden, not disabled, where the record could never store the result.
+	addPart.style.display = canAddPart(s) ? '' : 'none';
+	addPart.disabled = drawing || s.parts.length === 0;
+	const hole = document.getElementById('btn-hole');
+	// At two or more pieces the action lives on each row instead.
+	hole.style.display = canCutHole(s) && s.parts.length === 1 ? '' : 'none';
+	hole.disabled = drawing;
+	document.getElementById('btn-undo').disabled = !drawing || s.vertices.length === 0;
+	document.getElementById('btn-finish').disabled = !canFinish(s);
+	document.getElementById('btn-cancel').disabled = !drawing;
+	document.getElementById('btn-clear').disabled = drawing || s.parts.length === 0;
+
+	const type = document.getElementById('sel-type');
+	const options = baseTypes(s);
+	type.innerHTML = options
+		.map((t) => '<option value="' + t + '"' + (t === s.baseType ? ' selected' : '') + '>' + BASE_LABEL[t] + '</option>')
+		.join('');
+	type.disabled = drawing || options.length === 1;
+	document.getElementById('sel-policy').value = s.policy;
+}
+
+function renderPrompt() {
+	const host = document.getElementById('prompt');
+	if (state.mode.kind !== 'draw') { host.innerHTML = ''; return; }
+	const blocked = finishBlockedBecause(state);
+	const bad = blocked !== null && state.vertices.length >= minVertices(state);
+	let text = describeMode(state);
+	text = text.charAt(0).toUpperCase() + text.slice(1) +
+		'. Click the map to place points, double-click or Finish to close it.';
+	host.innerHTML = '<div class="prompt' + (bad ? ' bad' : '') + '">' + (bad ? blocked : text) + '</div>';
+}
+
+function renderState() {
+	const s = snapshot(state);
+	document.getElementById('state').innerHTML = Object.entries(s)
+		.map(([k, v]) => '<dt>' + k + '</dt><dd' + (changedKeys.has(k) ? ' class="changed"' : '') + '>' + v + '</dd>')
+		.join('');
+	const geojson = toGeoJson(state);
+	document.getElementById('geojson').textContent = geojson === null ? 'null' : JSON.stringify(geojson, null, 1);
+}
+
+function render() {
+	drawPlane();
+	renderButtons();
+	renderPrompt();
+	renderControl();
+	renderState();
+	renderSteps();
+}
+
+document.getElementById('btn-draw').addEventListener('click', () => dispatch({ type: 'START_REPLACE' }));
+document.getElementById('btn-addpart').addEventListener('click', () => dispatch({ type: 'START_ADD_PART' }));
+document.getElementById('btn-hole').addEventListener('click', () => dispatch({ type: 'START_HOLE', partIndex: 0 }));
+document.getElementById('btn-undo').addEventListener('click', () => dispatch({ type: 'UNDO' }));
+document.getElementById('btn-finish').addEventListener('click', () => dispatch({ type: 'FINISH' }));
+document.getElementById('btn-cancel').addEventListener('click', () => dispatch({ type: 'CANCEL' }));
+document.getElementById('btn-clear').addEventListener('click', () => dispatch({ type: 'CLEAR' }));
+document.getElementById('sel-type').addEventListener('change', (e) => dispatch({ type: 'SET_BASE_TYPE', baseType: e.target.value }));
+document.getElementById('sel-policy').addEventListener('change', (e) => dispatch({ type: 'SET_POLICY', policy: e.target.value }));
+document.getElementById('btn-load40').addEventListener('click', () => dispatch({ type: 'LOAD', baseType: 'Polygon', parts: fortyParts() }));
+window.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && state.mode.kind === 'draw') dispatch({ type: 'CANCEL' });
+	if (e.key === 'Enter' && canFinish(state)) dispatch({ type: 'FINISH' });
+});
+
+function box(x, y, w, h) {
+	return [[[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]];
+}
+function fortyParts() {
+	const parts = [];
+	for (let i = 0; i < 40; i++) parts.push(box(24 + (i % 10) * 60, 30 + Math.floor(i / 10) * 90, 44, 60));
+	return parts;
+}
+
+// ---- walkthroughs --------------------------------------------------------
+function place(positions) {
+	for (const p of positions) state = reduce(state, { type: 'CLICK', position: p });
+	render();
+}
+
+const SCENARIOS = [
+	{
+		name: 'Promote and demote',
+		text: 'A crew treated one block, then a second block across the road. One record, two pieces. Watch "Stored as" flip to MultiPolygon on the second piece, and flip back the moment you remove it. The list appears and disappears with it.',
+		steps: [
+			['Start over as a Habitat area', () => dispatch({ type: 'SET_POLICY', policy: 'locatable' })],
+			['Draw the first block', () => { dispatch({ type: 'START_REPLACE' }); place([[70, 70], [230, 70], [230, 190], [70, 190]]); }],
+			['Finish it', () => dispatch({ type: 'FINISH' })],
+			['Add a second piece', () => { dispatch({ type: 'START_ADD_PART' }); place([[330, 90], [500, 90], [500, 210], [330, 210]]); }],
+			['Finish it, and watch the type promote', () => dispatch({ type: 'FINISH' })],
+			['Remove piece 2, and watch it demote', () => dispatch({ type: 'DELETE_PART', partIndex: 1 })],
+		],
+	},
+	{
+		name: 'A hole in the right piece',
+		text: 'Two pieces on screen. Cut hole is not a mode you enter and then aim: it is an action on the row for piece 2, so the hole can only belong to piece 2. Nothing is hit-tested to guess which piece you meant.',
+		steps: [
+			['Start over as a Habitat area', () => dispatch({ type: 'SET_POLICY', policy: 'locatable' })],
+			['Draw piece 1', () => { dispatch({ type: 'START_REPLACE' }); place([[60, 60], [250, 60], [250, 250], [60, 250]]); dispatch({ type: 'FINISH' }); }],
+			['Draw piece 2', () => { dispatch({ type: 'START_ADD_PART' }); place([[330, 60], [560, 60], [560, 280], [330, 280]]); dispatch({ type: 'FINISH' }); }],
+			['Cut a hole in piece 2', () => dispatch({ type: 'START_HOLE', partIndex: 1 })],
+			['Draw the hole inside it', () => place([[400, 120], [500, 120], [500, 220], [400, 220]])],
+			['Finish the hole', () => dispatch({ type: 'FINISH' })],
+		],
+	},
+	{
+		name: 'A hole that escapes',
+		text: 'The pond you are cutting out runs off the edge of the block. Finish refuses while any point of the hole sits outside its piece, and the draft turns red. This is the one validity check we buy, because the point-in-polygon test already ships.',
+		steps: [
+			['Start over as a Habitat area', () => dispatch({ type: 'SET_POLICY', policy: 'locatable' })],
+			['Draw one block', () => { dispatch({ type: 'START_REPLACE' }); place([[120, 90], [380, 90], [380, 300], [120, 300]]); dispatch({ type: 'FINISH' }); }],
+			['Cut a hole', () => dispatch({ type: 'START_HOLE', partIndex: 0 })],
+			['Draw it running off the edge', () => place([[300, 150], [470, 150], [470, 250], [300, 250]])],
+			['Try to finish, and watch it refuse', () => dispatch({ type: 'FINISH' })],
+			['Undo the two escaping points', () => { dispatch({ type: 'UNDO' }); dispatch({ type: 'UNDO' }); }],
+			['Bring it back inside', () => place([[350, 150], [350, 250]])],
+			['Finish, now allowed', () => dispatch({ type: 'FINISH' })],
+		],
+	},
+	{
+		name: 'A record that forbids pieces',
+		text: 'A notification registration stores a Point or a Polygon and nothing multi-piece. Add piece is not rendered at all rather than rendered greyed out, because a button that can never be pressed on this form is a permanent question mark.',
+		steps: [
+			['Switch to a notification registration', () => dispatch({ type: 'SET_POLICY', policy: 'notification' })],
+			['Choose the area shape', () => dispatch({ type: 'SET_BASE_TYPE', baseType: 'Polygon' })],
+			['Draw the notified area', () => { dispatch({ type: 'START_REPLACE' }); place([[150, 100], [430, 100], [430, 290], [150, 290]]); dispatch({ type: 'FINISH' }); }],
+			['Look for Add piece, it is gone', () => render()],
+			['Cut hole is still offered', () => dispatch({ type: 'START_HOLE', partIndex: 0 })],
+			['Draw the hole and finish', () => { place([[230, 150], [350, 150], [350, 240], [230, 240]]); dispatch({ type: 'FINISH' }); }],
+		],
+	},
+	{
+		name: 'Forty pieces from a file',
+		text: 'A county parks file gives one park on forty separated lots. Per Feature, that is one record with forty pieces. The list shows the first eight and offers the rest, and nothing caps the count: the number of pieces belongs to the data.',
+		steps: [
+			['Start over as a Habitat area', () => dispatch({ type: 'SET_POLICY', policy: 'locatable' })],
+			['Load the file', () => dispatch({ type: 'LOAD', baseType: 'Polygon', parts: fortyParts() })],
+			['Show all forty', () => dispatch({ type: 'TOGGLE_SHOW_ALL' })],
+			['Prune one that does not belong', () => dispatch({ type: 'DELETE_PART', partIndex: 3 })],
+			['Collapse the list again', () => dispatch({ type: 'TOGGLE_SHOW_ALL' })],
+		],
+	},
+	{
+		name: 'Redraw throws it all away',
+		text: 'Redraw means the whole geometry, not piece 1. Three pieces go in one press. The list sits directly above the button, so what is about to go is on screen when you press it, and removing a single piece is the job of the list instead.',
+		steps: [
+			['Start over as a Habitat area', () => dispatch({ type: 'SET_POLICY', policy: 'locatable' })],
+			['Draw three pieces', () => {
+				dispatch({ type: 'START_REPLACE' }); place([[50, 70], [170, 70], [170, 190], [50, 190]]); dispatch({ type: 'FINISH' });
+				dispatch({ type: 'START_ADD_PART' }); place([[250, 70], [370, 70], [370, 190], [250, 190]]); dispatch({ type: 'FINISH' });
+				dispatch({ type: 'START_ADD_PART' }); place([[450, 70], [570, 70], [570, 190], [450, 190]]); dispatch({ type: 'FINISH' });
+			}],
+			['Press Redraw', () => dispatch({ type: 'START_REPLACE' })],
+			['Everything is gone', () => render()],
+			['Cancel, and it stays gone', () => dispatch({ type: 'CANCEL' })],
+		],
+	},
+];
+
+let scenario = 0;
+let step = 0;
+
+function renderTabs() {
+	document.getElementById('tabs').innerHTML = SCENARIOS
+		.map((s, i) => '<button data-tab="' + i + '" aria-selected="' + (i === scenario) + '">' + s.name + '</button>')
+		.join('');
+	document.querySelectorAll('[data-tab]').forEach((el) =>
+		el.addEventListener('click', () => {
+			scenario = Number(el.dataset.tab);
+			step = 0;
+			state = initialState('locatable');
+			changedKeys = new Set();
+			render();
+			renderTabs();
+		}));
+}
+
+function renderSteps() {
+	document.getElementById('scenario-text').textContent = SCENARIOS[scenario].text;
+	const host = document.getElementById('steps');
+	host.innerHTML = SCENARIOS[scenario].steps
+		.map((s, i) => '<li class="' + (i < step ? 'done' : i === step ? 'now' : '') + '"><button data-step="' + i + '"' + (i === step ? '' : ' disabled') + '>' + s[0] + '</button></li>')
+		.join('');
+	host.querySelectorAll('[data-step]').forEach((el) =>
+		el.addEventListener('click', () => {
+			const index = Number(el.dataset.step);
+			SCENARIOS[scenario].steps[index][1]();
+			step = index + 1;
+			render();
+		}));
+}
+
+renderTabs();
+render();
+</script>
