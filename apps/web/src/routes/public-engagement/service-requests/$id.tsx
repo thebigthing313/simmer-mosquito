@@ -320,9 +320,7 @@ function RequestDetailsCard({
 				<DetailList className="border-border/50 border-t pt-4">
 					<DetailRow label="Intake">{intakeTypeLabel(request.intakeType)}</DetailRow>
 					<DetailRow label="Date">{formatRequestDate(request.requestDate)}</DetailRow>
-					<DetailRow empty="Unknown" label="Received by">
-						{receivedByName}
-					</DetailRow>
+					<DetailRow label="Received by">{receivedByName}</DetailRow>
 				</DetailList>
 			</CardContent>
 		</Card>

@@ -476,9 +476,7 @@ function TrapDetailsCard({
 			<CardContent className="grid gap-4" padding="compact">
 				<DetailList>
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow empty="None" label="Lure">
-						{lureName}
-					</DetailRow>
+					<DetailRow label="Lure">{lureName}</DetailRow>
 					<DetailRow label="Code">{trap.trapCode}</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={trap.addressId} />

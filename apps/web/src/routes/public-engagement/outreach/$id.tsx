@@ -181,9 +181,7 @@ function OutreachDetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Date">{formatActionDate(action.outreachDate)}</DetailRow>
-					<DetailRow empty="Unassigned" label="Technician">
-						{technicianName}
-					</DetailRow>
+					<DetailRow label="Technician">{technicianName}</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={action.addressId} />
 					</DetailRow>

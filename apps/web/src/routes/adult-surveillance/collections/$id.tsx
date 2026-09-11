@@ -816,7 +816,7 @@ function DetailsCard({
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<DetailList>
-					<DetailRow empty="Ad-hoc, no trap" label="Trap">
+					<DetailRow label="Trap">
 						{collection.trapId === null ? null : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
@@ -829,21 +829,19 @@ function DetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow empty="None" label="Lure">
-						{lureName}
-					</DetailRow>
-					<DetailRow empty="Pending" label="Collected">
+					<DetailRow label="Lure">{lureName}</DetailRow>
+					<DetailRow label="Collected">
 						{collectedDate === null ? null : formatWeekdayMonthDay(collectedDate)}
 					</DetailRow>
 					<DetailRow label="Set">
 						{startedDay === null ? null : formatWeekdayMonthDay(startedDay)}
 					</DetailRow>
-					<DetailRow empty="Unassigned" label="Collected by">
+					<DetailRow label="Collected by">
 						{collection.collectedByProfileId === null
 							? null
 							: (profileNameById.get(collection.collectedByProfileId) ?? 'Unknown')}
 					</DetailRow>
-					<DetailRow empty="Unassigned" label="Set by">
+					<DetailRow label="Set by">
 						{collection.setByProfileId === null
 							? null
 							: (profileNameById.get(collection.setByProfileId) ?? 'Unknown')}

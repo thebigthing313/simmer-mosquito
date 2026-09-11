@@ -123,9 +123,7 @@ function RegionDetailsCard({
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<DetailList>
-					<DetailRow empty="Unfiled" label="Folder">
-						{folderName}
-					</DetailRow>
+					<DetailRow label="Folder">{folderName}</DetailRow>
 				</DetailList>
 				{description !== null && description.trim().length > 0 ? (
 					<div className="grid gap-1">

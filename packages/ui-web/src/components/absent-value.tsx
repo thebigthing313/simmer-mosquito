@@ -13,13 +13,16 @@
  * nothing announces the character. Four of the five other `role="img"` elements
  * in the workspace name themselves that way; the copy this replaced used
  * `title`, which paints a hover tooltip and is a weak source for an accessible
- * name. The label is "Not recorded", the same words {@link DetailRow} shows, so
- * one absence has one phrasing across both apps.
+ * name. The label is "Not recorded", so the mark is silent on screen and says
+ * the words aloud.
  *
- * This is for a column and a list, where there is room for a mark and not for
- * words. A row with room for words is a {@link DetailRow}, and an absence that
- * means something more specific than "nothing" is that row's `empty` prop:
- * "Unassigned", "None", "Pending", "Unfiled".
+ * A column, a list and a {@link DetailRow} all draw this. The row used to spell
+ * its absence out instead, and each card picked its own wording: "Unassigned",
+ * "None", "Pending", "Unfiled", "Unknown", "No method named", "Ad-hoc, no
+ * trap". Twenty-two rows, thirteen spellings, and a reader scanning a card for
+ * what is missing had to read each one to find out that the answer was nothing.
+ * One mark is scannable down a column of labels in a way thirteen sentences are
+ * not, so the row draws the mark now and the `empty` prop is gone.
  */
 export function AbsentValue() {
 	return (

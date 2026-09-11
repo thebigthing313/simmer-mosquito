@@ -223,9 +223,7 @@ function SourceReductionDetailsCard({
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Eliminated">{amountLabel}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(sourceReduction.actionDate)}</DetailRow>
-					<DetailRow empty="Unassigned" label="Technician">
-						{technicianName}
-					</DetailRow>
+					<DetailRow label="Technician">{technicianName}</DetailRow>
 					<DetailRow label="Habitat">
 						{habitatId === null ? null : (
 							<Link

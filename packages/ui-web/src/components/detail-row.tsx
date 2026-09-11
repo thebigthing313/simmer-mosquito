@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 
@@ -25,16 +26,16 @@ import type { ReactNode } from 'react';
  * is now {@link AbsentValue}. Same absence, four spellings, two of them from
  * functions named the same thing.
  *
- * A row with no value now says so here, once, and says "Not recorded" in words
- * where a column shows a dash. The difference is room, not a rule about the
- * glyph: a detail row is one label beside one value and a sentence fits, while
- * a table column repeats down a long list and words there are noise. So a
- * column draws {@link AbsentValue} and a row reads this. Both say "Not
- * recorded", one aloud and one to assistive technology.
- *
- * `empty` is for the rows that mean something more specific than "nothing":
- * "Unassigned", "None", "Pending", "Unfiled". Those say why the value is
- * missing, which is worth more than the default, so they stay.
+ * A row with no value draws {@link AbsentValue}, the same mark a column and a
+ * list draw. It had its own words for a while, and an `empty` prop on top of
+ * them for a row whose absence meant something more particular: "Unassigned",
+ * "None", "Pending", "Unfiled", "Unknown", "No method named", "Standalone, no
+ * habitat". Twenty-two rows had picked thirteen spellings of nothing, several
+ * of them on one card, and the reason the prop was worth its cost never
+ * survived contact with a card: a reader scanning a column of labels for what
+ * is missing reads one mark at a glance and has to read thirteen sentences one
+ * at a time. Where a row genuinely has more to say than "nothing", it says it
+ * as an ordinary value rather than as a variant of the absence.
  *
  * `CustomFieldsList` in `apps/web` is the one list that keeps its own row and
  * still belongs in a {@link DetailList}. Its labels are written by the
@@ -43,19 +44,16 @@ import type { ReactNode } from 'react';
  */
 export function DetailRow({
 	label,
-	empty = 'Not recorded',
 	children,
 }: {
 	readonly label: string;
-	/** What the row reads when it has no value. */
-	readonly empty?: string;
 	readonly children?: ReactNode;
 }) {
 	return (
 		<div className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] items-baseline gap-3 text-sm">
 			<dt className="truncate text-muted-foreground">{label}</dt>
 			<dd className="m-0 min-w-0 text-foreground">
-				{isAbsent(children) ? <span className="text-muted-foreground">{empty}</span> : children}
+				{isAbsent(children) ? <AbsentValue /> : children}
 			</dd>
 		</div>
 	);

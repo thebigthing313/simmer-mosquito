@@ -319,10 +319,8 @@ function RequestFactRows({ request }: { readonly request: RequestRecord }) {
 	return (
 		<>
 			<DetailRow label="Control type">{controlTypeLabel(request.controlType)}</DetailRow>
-			<DetailRow empty="No method named" label="Method">
-				{methodName}
-			</DetailRow>
-			<DetailRow empty="No summary" label="Summary">
+			<DetailRow label="Method">{methodName}</DetailRow>
+			<DetailRow label="Summary">
 				{request.summary?.trim() ? (
 					<span className="whitespace-pre-wrap">{request.summary}</span>
 				) : null}
@@ -352,7 +350,7 @@ function RequestLinkRows({
 			<DetailRow label="Address">
 				<LinkedAddressValueById addressId={request.addressId} />
 			</DetailRow>
-			<DetailRow empty="None" label="Habitat">
+			<DetailRow label="Habitat">
 				{request.habitatId === null ? null : (
 					<Link
 						className={recordLink()}
@@ -363,7 +361,7 @@ function RequestLinkRows({
 					</Link>
 				)}
 			</DetailRow>
-			<DetailRow empty="None" label="Inspection">
+			<DetailRow label="Inspection">
 				{request.inspectionId === null ? null : (
 					<Link
 						className={recordLink()}
@@ -374,7 +372,7 @@ function RequestLinkRows({
 					</Link>
 				)}
 			</DetailRow>
-			<DetailRow empty="None" label="Collection">
+			<DetailRow label="Collection">
 				{request.collectionId === null ? null : (
 					<Link
 						className={recordLink()}

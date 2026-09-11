@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList } from '@simmer-mosquito/ui-web/components/detail-row';
 import {
 	customFieldEntries,
@@ -69,7 +70,7 @@ export function CustomFieldsList({
 							)}
 						</dt>
 						<dd className="m-0 min-w-0 wrap-anywhere text-foreground">
-							{value ?? <span className="text-muted-foreground">Not recorded</span>}
+							{value ?? <AbsentValue />}
 						</dd>
 					</div>
 				);
@@ -84,8 +85,9 @@ export function CustomFieldsList({
  * record carries no values, so records without custom fields are not given an
  * empty card.
  *
- * Declared-but-blank fields still show as "Not recorded" — a crew reading the
- * record should see what the method asks for, not just what was filled in.
+ * A declared-but-blank field still gets a row, drawing the absent mark a
+ * `DetailRow` draws: a crew reading the record should see what the method asks
+ * for, rather than only what was filled in.
  */
 export function CustomFieldsCard({
 	schema,

@@ -481,19 +481,11 @@ function ApplicationDetailsCard({
 					<DetailRow label="Product">{productName}</DetailRow>
 					<DetailRow label="Amount">{amount}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(application.actionDate)}</DetailRow>
-					<DetailRow empty="No method" label="Method">
-						{application.methodName}
-					</DetailRow>
-					<DetailRow empty="Unassigned" label="Applicator">
-						{application.applicatorName}
-					</DetailRow>
-					<DetailRow empty="None" label="Vehicle">
-						{application.vehicleName}
-					</DetailRow>
-					<DetailRow empty="None" label="Equipment">
-						{application.equipmentName}
-					</DetailRow>
-					<DetailRow empty="Standalone, no habitat" label="Habitat">
+					<DetailRow label="Method">{application.methodName}</DetailRow>
+					<DetailRow label="Applicator">{application.applicatorName}</DetailRow>
+					<DetailRow label="Vehicle">{application.vehicleName}</DetailRow>
+					<DetailRow label="Equipment">{application.equipmentName}</DetailRow>
+					<DetailRow label="Habitat">
 						{application.habitatId === null ? null : (
 							<Link
 								className={recordLink()}

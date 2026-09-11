@@ -258,7 +258,7 @@ function HabitatDetailContent({
 				},
 				subtitle: (
 					<Suspense fallback={<span>Loading type…</span>}>
-						<HabitatTypeLabel habitatTypeId={habitat.typeId} />
+						<HabitatTypeSubtitle habitatTypeId={habitat.typeId} />
 					</Suspense>
 				),
 				tags: { recordId: habitat.id },
@@ -278,9 +278,23 @@ function HabitatDetailContent({
 	);
 }
 
+/**
+ * The habitat's type in a fact row, which is nothing at all when it has none.
+ *
+ * `null` rather than a sentence, because a `DetailRow` handed nothing draws the
+ * absent mark, and one mark down a column of labels is what makes the missing
+ * values findable. The subtitle needs words instead: it is the only line under
+ * the title, and a lone dash there reads as a glyph nobody placed. See
+ * {@link HabitatTypeSubtitle}.
+ */
 function HabitatTypeLabel({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
 	const typeName = useHabitatTypeName(habitatTypeId);
-	return <span>{typeName}</span>;
+	return typeName === null ? null : <span>{typeName}</span>;
+}
+
+/** The same name, in the header, where an unassigned type is said in words. */
+function HabitatTypeSubtitle({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
+	return <span>{useHabitatTypeName(habitatTypeId) ?? 'Unassigned type'}</span>;
 }
 
 function HabitatStateBadges({ habitat }: { readonly habitat: Habitat }) {
@@ -1121,11 +1135,12 @@ function useHabitatTypeSchema(habitatTypeId: string | null): unknown {
 	return customSchemaFor(useHabitatTypeRoster(), habitatTypeId);
 }
 
-function useHabitatTypeName(habitatTypeId: string | null): string {
+/** The type's name, or `null` when the habitat names no type. */
+function useHabitatTypeName(habitatTypeId: string | null): string | null {
 	const habitatTypes = useHabitatTypeRoster();
 
 	if (habitatTypeId === null) {
-		return 'Unassigned type';
+		return null;
 	}
 
 	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);

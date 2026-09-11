@@ -200,9 +200,7 @@ function BiocontrolDetailsCard({
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Released">{amountLabel}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(action.actionDate)}</DetailRow>
-					<DetailRow empty="Unassigned" label="Technician">
-						{technicianName}
-					</DetailRow>
+					<DetailRow label="Technician">{technicianName}</DetailRow>
 					<DetailRow label="Habitat">
 						{action.habitatId === null || habitatName === null ? null : (
 							<Link

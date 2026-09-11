@@ -1,7 +1,6 @@
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -241,7 +240,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 			</Link>
 			<span aria-hidden="true">·</span>
 			<Suspense fallback={<span>Loading type…</span>}>
-				<HabitatTypeName habitatTypeId={inspection.habitatTypeId} />
+				<HabitatTypeSubtitle habitatTypeId={inspection.habitatTypeId} />
 			</Suspense>
 		</p>
 	);
@@ -400,14 +399,10 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 					 * than printing the coordinates: it is the Habitat row, and filling it
 					 * with a place reads as a habitat whose name is a pair of numbers. The
 					 * coordinates are already in the subtitle and on the Location card
-					 * beside it. `AbsentValue` rather than the row's own "Not recorded",
-					 * so the two empty rows in this card, Habitat and Address, draw the
-					 * same mark.
+					 * beside it.
 					 */}
 					<DetailRow label="Habitat">
-						{inspection.habitatId === null ? (
-							<AbsentValue />
-						) : (
+						{inspection.habitatId === null ? null : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: inspection.habitatId }}
@@ -426,9 +421,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={inspection.addressId} />
 					</DetailRow>
-					<DetailRow empty="Unassigned" label="Inspector">
-						{inspection.inspectedByName}
-					</DetailRow>
+					<DetailRow label="Inspector">{inspection.inspectedByName}</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
@@ -735,13 +728,29 @@ function ProfileName({ profileId }: { readonly profileId: string }) {
 	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
 }
 
+/**
+ * The habitat's type in a fact row, which is nothing at all when it has none.
+ *
+ * A `DetailRow` handed nothing draws the absent mark, so the row says the same
+ * thing the Address row beside it says. The subtitle is where an unassigned
+ * type is spelled out, because a lone dash after the habitat's name would read
+ * as a glyph nobody placed. See {@link HabitatTypeSubtitle}.
+ */
 function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
 	const habitatTypes = useHabitatTypeRoster();
 	if (habitatTypeId === null) {
-		return <span className="text-muted-foreground">Unassigned type</span>;
+		return null;
 	}
 	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
 	return <>{match?.name ?? 'Unknown type'}</>;
+}
+
+/** The same name, in the header, where an unassigned type is said in words. */
+function HabitatTypeSubtitle({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
+	if (habitatTypeId === null) {
+		return <span>Unassigned type</span>;
+	}
+	return <HabitatTypeName habitatTypeId={habitatTypeId} />;
 }
 
 /** One id through the shared taxonomy read — the catalog is eager and small. */
