@@ -13,7 +13,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	DetailPageShell,
 	type RecordDetailLayout,
@@ -114,6 +113,14 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					to: '/public-engagement/contacts/$id/edit',
 				},
 				icon: ContactIcon,
+				remove: {
+					name: name,
+					noun: 'contact',
+					onDelete: () => mutations.remove(contact.id),
+					recordId: contact.id,
+					recordType: 'contact',
+					returnTo: '/public-engagement/contacts',
+				},
 				subtitle:
 					contact.title === null && contact.company === null
 						? undefined
@@ -140,15 +147,6 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 			}
 		>
 			<ContactServiceRequestsCard contactId={contact.id} />
-
-			<DangerZoneCard
-				name={name}
-				noun="contact"
-				onDelete={() => mutations.remove(contact.id)}
-				recordId={contact.id}
-				recordType="contact"
-				returnTo="/public-engagement/contacts"
-			/>
 		</DetailPageShell>
 	);
 }

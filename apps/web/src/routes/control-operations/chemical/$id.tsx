@@ -43,7 +43,6 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -176,6 +175,15 @@ function ApplicationDetailContent({
 				flags: <ContextBadge context={controlContext(application)} />,
 				icon: ApplicationIcon,
 				recordType: 'Application',
+				remove: {
+					ask: askDelete,
+					name: productName,
+					noun: 'chemical application',
+					onDelete: (acknowledgements) => remove(application.id, acknowledgements),
+					recordId: application.id,
+					recordType: 'application',
+					returnTo: '/control-operations/chemical',
+				},
 				subtitle: `${amount} · ${formatActionDate(application.actionDate)}`,
 				title: productName,
 			}}
@@ -195,15 +203,6 @@ function ApplicationDetailContent({
 				application={application}
 				canEdit={canEdit}
 				productName={productName}
-			/>
-			<DangerZoneCard
-				ask={askDelete}
-				name={productName}
-				noun="chemical application"
-				onDelete={(acknowledgements) => remove(application.id, acknowledgements)}
-				recordId={application.id}
-				recordType="application"
-				returnTo="/control-operations/chemical"
 			/>
 		</DetailPageShell>
 	);

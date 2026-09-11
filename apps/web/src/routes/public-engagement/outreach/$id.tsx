@@ -13,7 +13,6 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -105,6 +104,15 @@ function OutreachDetailContent({
 				edit: { params: { id: action.id }, to: '/public-engagement/outreach/$id/edit' },
 				icon: OutreachIcon,
 				recordType: 'Outreach',
+				remove: {
+					ask: askDelete,
+					name: methodName,
+					noun: 'outreach action',
+					onDelete: (acknowledgements) => remove(action.id, acknowledgements),
+					recordId: action.id,
+					recordType: 'outreachAction',
+					returnTo: '/public-engagement/outreach',
+				},
 				subtitle: `${formatReach(action.reach)} reached on ${formatActionDate(action.outreachDate)}`,
 				title: methodName,
 			}}
@@ -119,17 +127,7 @@ function OutreachDetailContent({
 					/>
 				</div>
 			}
-		>
-			<DangerZoneCard
-				ask={askDelete}
-				name={methodName}
-				noun="outreach action"
-				onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
-				recordId={action.id}
-				recordType="outreachAction"
-				returnTo="/public-engagement/outreach"
-			/>
-		</DetailPageShell>
+		></DetailPageShell>
 	);
 }
 

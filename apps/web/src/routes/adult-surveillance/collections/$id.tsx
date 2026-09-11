@@ -41,7 +41,6 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -211,6 +210,15 @@ function CollectionDetailContent({
 				),
 				icon: CollectionIcon,
 				recordType: 'Collection',
+				remove: {
+					ask: askDelete,
+					name: title,
+					noun: 'collection',
+					onDelete: (acknowledgements) => mutations.remove(collection.id, acknowledgements),
+					recordId: collection.id,
+					recordType: 'collection',
+					returnTo: '/adult-surveillance/collections',
+				},
 				subtitle: `${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`,
 				title,
 			}}
@@ -223,15 +231,6 @@ function CollectionDetailContent({
 			}
 		>
 			<ResultsCard canEdit={canEdit} collection={collection} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={title}
-				noun="collection"
-				onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
-				recordId={collection.id}
-				recordType="collection"
-				returnTo="/adult-surveillance/collections"
-			/>
 			<CollectCollectionDialogHost
 				collection={collection}
 				onOpenChange={setCollectOpen}

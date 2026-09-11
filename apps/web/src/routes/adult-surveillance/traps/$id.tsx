@@ -25,7 +25,6 @@ import { useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -130,6 +129,15 @@ function TrapDetailContent({
 				flags: <StatusBadge isActive={trap.isActive} />,
 				icon: TrapIcon,
 				recordType: 'Trap',
+				remove: {
+					ask: askDelete,
+					name: trapDisplayName(trap),
+					noun: 'trap',
+					onDelete: (acknowledgements) => mutations.remove(trap.id, acknowledgements),
+					recordId: trap.id,
+					recordType: 'trap',
+					returnTo: '/adult-surveillance/traps',
+				},
 				subtitle: methodName,
 				tags: { recordId: trap.id },
 				title: trapDisplayName(trap),
@@ -143,15 +151,6 @@ function TrapDetailContent({
 			}
 		>
 			<TrapCollectionsCard trapId={trap.id} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={trapDisplayName(trap)}
-				noun="trap"
-				onDelete={(acknowledgements) => mutations.remove(trap.id, acknowledgements)}
-				recordId={trap.id}
-				recordType="trap"
-				returnTo="/adult-surveillance/traps"
-			/>
 		</DetailPageShell>
 	);
 }

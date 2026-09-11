@@ -14,7 +14,6 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -116,6 +115,15 @@ function BiocontrolDetailContent({
 				flags: <ContextBadge context={controlContext(action)} />,
 				icon: BiocontrolIcon,
 				recordType: 'Biocontrol',
+				remove: {
+					ask: askDelete,
+					name: methodName,
+					noun: 'biocontrol action',
+					onDelete: (acknowledgements) => remove(action.id, acknowledgements),
+					recordId: action.id,
+					recordType: 'biocontrolAction',
+					returnTo: '/control-operations/biocontrol',
+				},
 				subtitle: `${amountLabel} released on ${formatActionDate(action.actionDate)}`,
 				title: methodName,
 			}}
@@ -130,17 +138,7 @@ function BiocontrolDetailContent({
 					/>
 				</div>
 			}
-		>
-			<DangerZoneCard
-				ask={askDelete}
-				name={methodName}
-				noun="biocontrol action"
-				onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
-				recordId={action.id}
-				recordType="biocontrolAction"
-				returnTo="/control-operations/biocontrol"
-			/>
-		</DetailPageShell>
+		></DetailPageShell>
 	);
 }
 

@@ -15,7 +15,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useControlMethodNames } from '../../../components/explorer';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -151,6 +150,15 @@ function RequestDetailContent({
 				flags: <RequestStatusBadge status={request.status} />,
 				icon: RequestIcon,
 				recordType: 'Request for control',
+				remove: {
+					ask: askDelete,
+					name: subject,
+					noun: 'request for control',
+					onDelete: (acknowledgements) => requestWrites.remove(request.id, acknowledgements),
+					recordId: request.id,
+					recordType: 'requestedControlAction',
+					returnTo: '/operations/requests-for-control',
+				},
 				subtitle: `${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`,
 				title: subject,
 			}}
@@ -172,15 +180,6 @@ function RequestDetailContent({
 				</Alert>
 			)}
 			<RequestMissionsCard requestId={request.id} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={subject}
-				noun="request for control"
-				onDelete={(acknowledgements) => requestWrites.remove(request.id, acknowledgements)}
-				recordId={request.id}
-				recordType="requestedControlAction"
-				returnTo="/operations/requests-for-control"
-			/>
 		</DetailPageShell>
 	);
 }

@@ -9,7 +9,6 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { AddressSurveillanceCard } from '../../../components/address-surveillance';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
@@ -66,6 +65,14 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 				/* Postal lines, as an envelope carries them: the header has the width,
 				   and a comma-run makes the reader find where the street ends before
 				   they can copy it. */
+				remove: {
+					name: address.displayName,
+					noun: 'address',
+					onDelete: () => mutations.remove(address.id),
+					recordId: address.id,
+					recordType: 'address',
+					returnTo: '/gis/addresses',
+				},
 				subtitle:
 					addressLines.length === 0 ? (
 						<p className="m-0">No street address</p>
@@ -89,14 +96,6 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 		>
 			<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
-			<DangerZoneCard
-				name={address.displayName}
-				noun="address"
-				onDelete={() => mutations.remove(address.id)}
-				recordId={address.id}
-				recordType="address"
-				returnTo="/gis/addresses"
-			/>
 		</DetailPageShell>
 	);
 }

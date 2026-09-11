@@ -9,7 +9,6 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
@@ -60,6 +59,14 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 				edit: { minimum: 'manager', params: { id: region.id }, to: '/gis/regions/$id/edit' },
 				icon: RegionIcon,
 				recordType: 'Region',
+				remove: {
+					name: region.name,
+					noun: 'region',
+					onDelete: () => mutations.remove(region.id),
+					recordId: region.id,
+					recordType: 'region',
+					returnTo: '/gis/regions',
+				},
 				subtitle: folderName ?? 'Unfiled',
 				tags: { recordId: region.id },
 				title: region.name,
@@ -74,14 +81,6 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 			}
 		>
 			<RecordRegionsBand noun="region" recordId={region.id} recordType="regions" />
-			<DangerZoneCard
-				name={region.name}
-				noun="region"
-				onDelete={() => mutations.remove(region.id)}
-				recordId={region.id}
-				recordType="region"
-				returnTo="/gis/regions"
-			/>
 		</DetailPageShell>
 	);
 }

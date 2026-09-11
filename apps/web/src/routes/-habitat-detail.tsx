@@ -37,7 +37,6 @@ import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { CustomFieldsList } from '../components/custom-fields-card';
-import { DangerZoneCard } from '../components/danger-zone-card';
 import { ExplorerPagination } from '../components/explorer-pagination';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValueById } from '../components/linked-address';
@@ -246,6 +245,15 @@ function HabitatDetailContent({
 				flags: <HabitatStateBadges habitat={habitat} />,
 				icon: HabitatIcon,
 				recordType: 'Habitat',
+				remove: {
+					ask: askDelete,
+					name: habitat.name,
+					noun: 'habitat',
+					onDelete: (acknowledgements) => mutations.remove(habitat.id, acknowledgements),
+					recordId: habitat.id,
+					recordType: 'habitat',
+					returnTo: '/larval-surveillance/habitats',
+				},
 				subtitle: (
 					<Suspense fallback={<span>Loading type…</span>}>
 						<HabitatTypeLabel habitatTypeId={habitat.typeId} />
@@ -264,15 +272,6 @@ function HabitatDetailContent({
 			<Suspense fallback={<HistorySkeleton />}>
 				<HabitatHistoryCard habitatId={habitat.id} />
 			</Suspense>
-			<DangerZoneCard
-				ask={askDelete}
-				name={habitat.name}
-				noun="habitat"
-				onDelete={(acknowledgements) => mutations.remove(habitat.id, acknowledgements)}
-				recordId={habitat.id}
-				recordType="habitat"
-				returnTo="/larval-surveillance/habitats"
-			/>
 		</DetailPageShell>
 	);
 }

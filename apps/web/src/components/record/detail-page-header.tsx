@@ -4,6 +4,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -18,10 +19,11 @@ import {
 	type RegistryIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
 import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
+import { DELETE_FLOOR, RecordDeleteDialog, type RecordDeleteProps } from '../record-delete-dialog';
 import { TagBadge } from '../tag-badge';
 
 /**
@@ -72,6 +74,7 @@ export function DetailPageHeader({
 	subtitle,
 	edit,
 	actions,
+	remove,
 	flags,
 	tags,
 }: DetailPageHeaderProps) {
@@ -87,7 +90,7 @@ export function DetailPageHeader({
 						{title}
 					</h1>
 					{edit === undefined ? null : <EditControl edit={edit} />}
-					<ActionsMenu actions={actions ?? NO_ACTIONS} />
+					<ActionsMenu actions={actions ?? NO_ACTIONS} remove={remove} />
 				</div>
 				{subtitle === undefined ? null : (
 					<div className="max-w-[68ch] text-pretty text-muted-foreground text-sm leading-snug">
@@ -116,6 +119,11 @@ export interface DetailPageHeaderProps {
 	readonly edit?: DetailEditLink;
 	/** Everything else the page can do, behind the `...`. */
 	readonly actions?: readonly DetailAction[];
+	/**
+	 * Deleting the record, which is the last item in the `...` and the dialog it
+	 * opens. Omit for a record with no delete, which is none of them today.
+	 */
+	readonly remove?: RecordDeleteProps;
 	/** The record's state badges, drawn at the right end of the bar. */
 	readonly flags?: ReactNode;
 	/** The record's id, for the six record kinds `TAG_TARGET_TYPES` allows. */
@@ -170,6 +178,7 @@ export type DetailAction = DetailActionLink | DetailActionCommand;
 const NO_ACTIONS: readonly DetailAction[] = [];
 
 const EditIcon = iconRegistry.actions.edit.icon;
+const DeleteIcon = iconRegistry.actions.delete.icon;
 
 /**
  * The bar's chrome and measure, shared with {@link DetailPageHeaderSkeleton} so
@@ -233,33 +242,64 @@ function EditControl({ edit }: { readonly edit: DetailEditLink }) {
  * item in `WriteOnly`. Both hide the same items, but only this one can tell
  * that every item is hidden, and a `...` that opens on an empty menu is worse
  * than no `...` at all.
+ *
+ * Delete is always last, under a rule, and it is the only item that is not in
+ * `actions`: it needs a dialog, and a dialog rendered inside a menu item is
+ * unmounted by the click that opens it. So the dialog is a sibling of the menu
+ * and the item only sets the flag.
  */
-function ActionsMenu({ actions }: { readonly actions: readonly DetailAction[] }) {
+function ActionsMenu({
+	actions,
+	remove,
+}: {
+	readonly actions: readonly DetailAction[];
+	readonly remove: RecordDeleteProps | undefined;
+}) {
 	const auth = useAuthSnapshot();
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const visible = actions.filter(
 		(action) => action.hidden !== true && hasAtLeastRole(auth, action.minimum ?? 'collector'),
 	);
-	if (visible.length === 0) {
+	const canDelete = remove !== undefined && hasAtLeastRole(auth, DELETE_FLOOR[remove.recordType]);
+	if (visible.length === 0 && !canDelete) {
 		return null;
 	}
 	return (
-		<DropdownMenu>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<DropdownMenuTrigger asChild>
-						<Button aria-label="More actions" size="icon-sm" variant="ghost">
-							<MoreHorizontalIcon aria-hidden="true" />
-						</Button>
-					</DropdownMenuTrigger>
-				</TooltipTrigger>
-				<TooltipContent>More actions</TooltipContent>
-			</Tooltip>
-			<DropdownMenuContent align="start" className="min-w-52">
-				{visible.map((action) => (
-					<ActionItem action={action} key={action.id} />
-				))}
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<>
+			<DropdownMenu>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<DropdownMenuTrigger asChild>
+							<Button aria-label="More actions" size="icon-sm" variant="ghost">
+								<MoreHorizontalIcon aria-hidden="true" />
+							</Button>
+						</DropdownMenuTrigger>
+					</TooltipTrigger>
+					<TooltipContent>More actions</TooltipContent>
+				</Tooltip>
+				<DropdownMenuContent align="start" className="min-w-52">
+					{visible.map((action) => (
+						<ActionItem action={action} key={action.id} />
+					))}
+					{canDelete && remove !== undefined ? (
+						<>
+							{visible.length === 0 ? null : <DropdownMenuSeparator />}
+							<DropdownMenuItem onSelect={() => setConfirmingDelete(true)} variant="destructive">
+								<DeleteIcon aria-hidden="true" />
+								Delete {remove.noun}
+							</DropdownMenuItem>
+						</>
+					) : null}
+				</DropdownMenuContent>
+			</DropdownMenu>
+			{remove === undefined ? null : (
+				<RecordDeleteDialog
+					{...remove}
+					onOpenChange={setConfirmingDelete}
+					open={confirmingDelete}
+				/>
+			)}
+		</>
 	);
 }
 

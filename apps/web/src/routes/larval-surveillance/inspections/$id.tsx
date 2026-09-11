@@ -22,7 +22,6 @@ import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	DensityBadge,
 	hasAnyLifeStage,
@@ -181,6 +180,15 @@ function InspectionDetailContent({
 				flags: <FindingsLine inspection={inspection} />,
 				icon: InspectionIcon,
 				recordType: 'Larval inspection',
+				remove: {
+					ask: askDelete,
+					name: breadcrumbLabel(inspection),
+					noun: 'inspection',
+					onDelete: (acknowledgements) => mutations.remove(inspection.id, acknowledgements),
+					recordId: inspection.id,
+					recordType: 'inspection',
+					returnTo: '/larval-surveillance/inspections',
+				},
 				subtitle: <InspectionSubtitle inspection={inspection} />,
 				title: formatFullDate(inspection.inspectionDate),
 			}}
@@ -194,15 +202,6 @@ function InspectionDetailContent({
 		>
 			<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 			<LinkedControlActionsCard inspectionId={inspection.id} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={breadcrumbLabel(inspection)}
-				noun="inspection"
-				onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
-				recordId={inspection.id}
-				recordType="inspection"
-				returnTo="/larval-surveillance/inspections"
-			/>
 		</DetailPageShell>
 	);
 }

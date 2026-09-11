@@ -35,7 +35,6 @@ import { getServerUrl } from '../../../auth';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import {
@@ -213,6 +212,15 @@ function SampleDetailContent({
 				flags: <AccessBadge canManage={canManage} />,
 				icon: SampleIcon,
 				recordType: 'Larval sample',
+				remove: {
+					ask: askDelete,
+					name: breadcrumbLabel(geo),
+					noun: 'sample',
+					onDelete: (acknowledgements) => sampleMutations.remove(geo.id, acknowledgements),
+					recordId: geo.id,
+					recordType: 'sample',
+					returnTo: '/larval-surveillance/samples',
+				},
 				subtitle: <SampleSubtitle geo={geo} />,
 				title: sampleName(geo),
 			}}
@@ -220,15 +228,6 @@ function SampleDetailContent({
 			lead={<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />}
 		>
 			<IdentificationCard canManage={canManage} identity={identity} sampleId={geo.id} seed={geo} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={breadcrumbLabel(geo)}
-				noun="sample"
-				onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
-				recordId={geo.id}
-				recordType="sample"
-				returnTo="/larval-surveillance/samples"
-			/>
 		</DetailPageShell>
 	);
 }

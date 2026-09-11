@@ -14,7 +14,6 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -132,6 +131,15 @@ function SourceReductionDetailContent({
 				},
 				icon: SourceReductionIcon,
 				recordType: 'Source reduction',
+				remove: {
+					ask: askDelete,
+					name: methodName,
+					noun: 'source reduction',
+					onDelete: (acknowledgements) => remove(sourceReduction.id, acknowledgements),
+					recordId: sourceReduction.id,
+					recordType: 'sourceReduction',
+					returnTo: '/control-operations/source-reduction',
+				},
 				subtitle: `${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`,
 				title: methodName,
 			}}
@@ -149,17 +157,7 @@ function SourceReductionDetailContent({
 					/>
 				</div>
 			}
-		>
-			<DangerZoneCard
-				ask={askDelete}
-				name={methodName}
-				noun="source reduction"
-				onDelete={(acknowledgements) => remove(sourceReduction.id, acknowledgements)}
-				recordId={sourceReduction.id}
-				recordType="sourceReduction"
-				returnTo="/control-operations/source-reduction"
-			/>
-		</DetailPageShell>
+		></DetailPageShell>
 	);
 }
 

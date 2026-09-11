@@ -130,8 +130,12 @@ export function DetailPageShell({
 	readonly facts?: ReactNode;
 	/** The side column. Omit on a page whose layout declares no `aside`. */
 	readonly aside?: ReactNode;
-	/** The primary column, under the lead row. */
-	readonly children: ReactNode;
+	/**
+	 * The primary column, under the lead row. Optional: three records are their
+	 * lead row and their comments and nothing else, which is what a control
+	 * action is.
+	 */
+	readonly children?: ReactNode;
 }) {
 	return (
 		<>
