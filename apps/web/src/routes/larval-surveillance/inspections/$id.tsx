@@ -58,7 +58,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { formatAmount } from '../../../lib/format-count';
-import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 	component: RouteComponent,

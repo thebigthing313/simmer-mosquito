@@ -1,6 +1,5 @@
 /**
- * The three date labels an Inspection detail page and a Sample detail page both
- * draw.
+ * The three date labels a record detail page draws.
  *
  * They were one file's worth of code written twice. `formatFullDate`,
  * `formatMonthDayYear` and `formatDateTime` were byte-identical in
@@ -10,7 +9,10 @@
  * date; both copies are this one now, and this one is testable without loading a
  * route.
  *
- * Dash-prefixed so TanStack Router ignores it as a route.
+ * It sat in `routes/larval-surveillance/` while those two pages were its only
+ * callers. The collection detail page titles itself by a date too, so the rule
+ * that a record's own date reads as `August 12, 2026` is a rule about detail
+ * pages rather than about larval ones, and the module moved here to say so.
  *
  * The two date labels render on the UTC clock because an inspection date and a
  * sample date are calendar days: read as instants they land on the previous day
@@ -19,8 +21,8 @@
  * what the clock read where the work happened.
  */
 
-import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
-import { unreadable } from '../../lib/unreadable-input';
+import { calendarDateParts, utcCalendarDay } from './local-date';
+import { unreadable } from './unreadable-input';
 
 /** Long-form date from a `YYYY-MM-DD` string: `August 12, 2026`. */
 export function formatFullDate(date: string): string {

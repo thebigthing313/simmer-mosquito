@@ -15,7 +15,6 @@
 // adult panels build day strips and windows from one implementation.
 export {
 	addDaysToDateString,
-	formatDate,
 	formatMonthDay,
 	formatWeekdayDate,
 	formatWeekdayMonthDay,

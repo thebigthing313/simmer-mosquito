@@ -74,6 +74,7 @@ import {
 import { operationalDayAsTimestamp } from '../../../lib/local-date';
 import {
 	CollectionFlagBadges,
+	collectionCrumb,
 	collectionEffectiveDate,
 	collectionTitle,
 	isPendingCollection,
@@ -142,7 +143,7 @@ function CollectionDetailContent({
 }) {
 	const titleTimeZone = useOrganizationTimeZone();
 	const title = collectionTitle(collection, titleTimeZone);
-	useBreadcrumbLabel(collection.id, title);
+	useBreadcrumbLabel(collection.id, collectionCrumb(collection, titleTimeZone));
 
 	// The method roster is still read, because the custom-field schema hangs off
 	// the collection method and a schema is not something a `select` can join. The
