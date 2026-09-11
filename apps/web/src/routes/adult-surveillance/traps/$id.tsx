@@ -36,6 +36,7 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
+	createItems,
 	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
@@ -121,6 +122,7 @@ function TrapDetailContent({
 			}
 			facts={<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />}
 			header={{
+				actions: createItems('trapId', trap.id, ['/adult-surveillance/collections/create']),
 				edit: {
 					minimum: 'manager',
 					params: { id: trap.id },

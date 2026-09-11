@@ -43,6 +43,7 @@ import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordRegionsBand } from '../components/map/record-regions-band';
 import {
+	createItems,
 	DetailPageShell,
 	detailBodyClass,
 	type RecordDetailLayout,
@@ -225,6 +226,12 @@ function HabitatDetailContent({
 			}
 			header={{
 				actions: [
+					...createItems('habitatId', habitat.id, [
+						'/larval-surveillance/inspections/create',
+						'/control-operations/chemical/create',
+						'/control-operations/source-reduction/create',
+						'/control-operations/biocontrol/create',
+					]),
 					{
 						/*
 						 * Merging is reached from a habitat rather than from a list of
@@ -238,6 +245,7 @@ function HabitatDetailContent({
 						label: 'Merge duplicates',
 						minimum: WRITE_SURFACE_FLOORS['/larval-surveillance/habitats/$id/merge'],
 						params: { id: habitat.id },
+						separatorBefore: true,
 						to: '/larval-surveillance/habitats/$id/merge',
 					},
 				],

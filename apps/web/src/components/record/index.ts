@@ -14,6 +14,7 @@
  * second detail page needs belongs here.
  */
 
+export { createItems } from './detail-create-actions';
 export { DetailPageShell, detailBodyClass } from './detail-page-shell';
 export { EditFormSkeleton } from './edit-form-skeleton';
 export type { RecordDetailLayout } from './record-detail-layout';

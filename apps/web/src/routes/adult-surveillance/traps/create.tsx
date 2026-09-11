@@ -9,6 +9,7 @@ import {
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -22,7 +23,10 @@ export const Route = createFileRoute('/adult-surveillance/traps/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...addressSeedSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/adult-surveillance/traps/create')) {
 			throw redirect({ replace: true, to: '/adult-surveillance/traps' });
@@ -33,7 +37,8 @@ export const Route = createFileRoute('/adult-surveillance/traps/create')({
 
 function CreateTrapRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useCollectionMethodRoster();
@@ -86,7 +91,10 @@ function CreateTrapRoute() {
 				canSubmit={mutations.canWrite}
 				collectionLures={lures}
 				collectionMethods={methods}
-				defaultValues={defaultTrapFormValues()}
+				defaultValues={{
+					...defaultTrapFormValues(),
+					...seededValues({ addressId: search.addressId }),
+				}}
 				header={{
 					title: 'Add Trap',
 					description:

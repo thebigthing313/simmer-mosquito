@@ -12,6 +12,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
+	createItems,
 	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
@@ -59,6 +60,11 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 		<DetailPageShell
 			facts={<AddressDetailsCard address={address} />}
 			header={{
+				actions: createItems('addressId', address.id, [
+					'/larval-surveillance/habitats/create',
+					'/adult-surveillance/traps/create',
+					'/public-engagement/service-requests/create',
+				]),
 				edit: { minimum: 'manager', params: { id: address.id }, to: '/gis/addresses/$id/edit' },
 				icon: AddressIcon,
 				recordType: 'Address',

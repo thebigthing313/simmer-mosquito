@@ -19,7 +19,7 @@ import {
 	type RegistryIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
-import { type ReactNode, useState } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
 import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
@@ -147,15 +147,32 @@ interface DetailActionBase {
 	readonly minimum?: MinimumRole;
 	/**
 	 * Leave the item out entirely. For an action the record's own state rules
-	 * out, such as collecting a Collection that has already been collected.
+	 * out, such as collecting a Collection that has already been collected, or a
+	 * child a record has nothing to seed: an ad-hoc inspection names no habitat,
+	 * so a control action opened from one would have nothing to file against.
 	 */
 	readonly hidden?: boolean;
+	/**
+	 * Draw a rule above this item. For the break between what a record can
+	 * create and what can be done to the record itself.
+	 */
+	readonly separatorBefore?: boolean;
 }
 
-/** An action that goes somewhere: a merge page, a registrations page. */
+/** An action that goes somewhere: a create form, a merge page. */
 interface DetailActionLink extends DetailActionBase {
 	readonly to: NonNullable<LinkProps['to']>;
 	readonly params?: Readonly<Record<string, string>>;
+	/**
+	 * The seed a create form opens on, such as `{ habitatId }`.
+	 *
+	 * Typed loosely rather than against the route, the same trade `to` and
+	 * `params` make: a component cannot know each domain's search schemas, so the
+	 * route's own `validateSearch` is what refuses a key it does not take, and it
+	 * refuses by dropping the value rather than by failing. See
+	 * `lib/record-seed-search.ts`.
+	 */
+	readonly search?: Readonly<Record<string, string>>;
 	readonly onSelect?: undefined;
 }
 
@@ -278,8 +295,11 @@ function ActionsMenu({
 					<TooltipContent>More actions</TooltipContent>
 				</Tooltip>
 				<DropdownMenuContent align="start" className="min-w-52">
-					{visible.map((action) => (
-						<ActionItem action={action} key={action.id} />
+					{visible.map((action, index) => (
+						<Fragment key={action.id}>
+							{action.separatorBefore === true && index > 0 ? <DropdownMenuSeparator /> : null}
+							<ActionItem action={action} />
+						</Fragment>
 					))}
 					{canDelete && remove !== undefined ? (
 						<>
@@ -315,7 +335,7 @@ function ActionItem({ action }: { readonly action: DetailAction }) {
 	}
 	return (
 		<DropdownMenuItem asChild>
-			<Link {...{ to: action.to, params: action.params ?? {} }}>
+			<Link {...{ to: action.to, params: action.params ?? {}, search: action.search ?? {} }}>
 				<ActionIcon aria-hidden="true" />
 				{action.label}
 			</Link>

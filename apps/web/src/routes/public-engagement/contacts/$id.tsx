@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import {
+	createItems,
 	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
@@ -99,11 +100,13 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 				 * create page had to ask first.
 				 */
 				actions: [
+					...createItems('contactId', contact.id, ['/public-engagement/service-requests/create']),
 					{
 						icon: CoverageIcon,
 						id: 'registrations',
 						label: 'Manage registrations',
 						params: { id: contact.id },
+						separatorBefore: true,
 						to: '/public-engagement/contacts/$id/registrations',
 					},
 				],

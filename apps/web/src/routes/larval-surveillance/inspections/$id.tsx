@@ -33,6 +33,7 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
+	createItems,
 	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
@@ -167,6 +168,16 @@ function InspectionDetailContent({
 			}
 			facts={<ContextCard inspection={inspection} />}
 			header={{
+				/*
+				 * Filed against the inspection's habitat, which is what a control action
+				 * can hold: the three forms have a habitat picker and no inspection one.
+				 * An ad-hoc inspection names no habitat, so `createItems` hides them.
+				 */
+				actions: createItems('habitatId', inspection.habitatId, [
+					'/control-operations/chemical/create',
+					'/control-operations/source-reduction/create',
+					'/control-operations/biocontrol/create',
+				]),
 				edit: {
 					params: { id: inspection.id },
 					to: '/larval-surveillance/inspections/$id/edit',

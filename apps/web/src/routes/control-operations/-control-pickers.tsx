@@ -1,6 +1,7 @@
 import { useDeferredValue, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers/entity-picker';
 import type { HabitatMatch } from '../../hooks/queries/habitat-view';
+import { useHabitatNames } from '../../hooks/queries/use-habitat-names';
 import { useHabitatSearch } from '../../hooks/queries/use-habitat-search';
 
 // A control action picks a habitat when the work was done against a known larval
@@ -22,16 +23,27 @@ export function HabitatPicker({
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
-	const [selectedLabel, setSelectedLabel] = useState('');
+	const [pickedLabel, setPickedLabel] = useState('');
 	const deferredSearch = useDeferredValue(search);
 	const anchorRef = useRef<HTMLDivElement>(null);
+
+	/*
+	 * A habitat this picker did not pick still has to say its name: a form opened
+	 * on a record already holding one, or a create form seeded from the habitat's
+	 * own page. Without this the field drew its placeholder over a value that was
+	 * set, so the operator read an empty picker and picked the habitat they had
+	 * just come from. Habitats sync on demand, so the name is a subset read
+	 * rather than a lookup in a set this client holds.
+	 */
+	const names = useHabitatNames(value === null || pickedLabel !== '' ? [] : [value]);
+	const selectedLabel = pickedLabel !== '' ? pickedLabel : (names.get(value ?? '') ?? '');
 
 	return (
 		<PickerFrame
 			anchorRef={anchorRef}
 			label={label}
 			onClear={() => {
-				setSelectedLabel('');
+				setPickedLabel('');
 				setSearch('');
 				onSelect(null);
 			}}
@@ -49,7 +61,7 @@ export function HabitatPicker({
 		>
 			<HabitatResults
 				onSelect={(habitat) => {
-					setSelectedLabel(habitat.name);
+					setPickedLabel(habitat.name);
 					setSearch(habitat.name);
 					onSelect(habitat);
 					setOpen(false);

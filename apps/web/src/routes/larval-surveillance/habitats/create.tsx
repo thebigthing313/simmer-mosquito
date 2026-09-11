@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
@@ -18,7 +19,10 @@ export const Route = createFileRoute('/larval-surveillance/habitats/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...addressSeedSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/larval-surveillance/habitats/create')) {
 			throw redirect({ replace: true, to: '/larval-surveillance/habitats' });
@@ -29,7 +33,8 @@ export const Route = createFileRoute('/larval-surveillance/habitats/create')({
 
 function CreateHabitatRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const habitatTypes = useHabitatTypeRoster();
@@ -74,7 +79,10 @@ function CreateHabitatRoute() {
 			organizationId={organizationId}
 			canSubmit={mutations.canWrite}
 			habitatTypes={habitatTypes}
-			defaultValues={defaultHabitatFormValues()}
+			defaultValues={{
+				...defaultHabitatFormValues(),
+				...seededValues({ addressId: search.addressId }),
+			}}
 			initialGeometry={initialGeometry}
 			header={{
 				title: 'Create Habitat',

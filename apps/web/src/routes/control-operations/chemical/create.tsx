@@ -26,6 +26,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	ApplicationFormPage,
@@ -42,6 +43,7 @@ export const Route = createFileRoute('/control-operations/chemical/create')({
 	validateSearch: (search) => ({
 		...mapPointSearchSchema.parse(search),
 		...missionStopSearchSchema.parse(search),
+		...habitatSeedSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/control-operations/chemical/create')) {
@@ -212,7 +214,10 @@ function CreateApplicationRoute() {
 				applicationMethods={methods}
 				canSubmit={canSubmit}
 				mode="create"
-				defaultValues={defaultApplicationFormValues(timeZone)}
+				defaultValues={{
+					...defaultApplicationFormValues(timeZone),
+					...seededValues({ habitatId: search.habitatId }),
+				}}
 				equipment={equipment}
 				formulationComponents={formulationComponents}
 				formulations={formulations}
