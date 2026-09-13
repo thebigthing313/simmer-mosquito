@@ -245,44 +245,60 @@ function readRegister() {
 /** What is wrong with the register itself, as sentences. */
 function* registerProblems(register) {
 	const seen = new Map();
+	for (const entry of register) {
+		yield* entryProblems(entry);
+		yield* collisionProblems(entry, seen);
+	}
+}
 
-	for (const { recordType, forms } of register) {
-		const missing = FORM_NAMES.filter((name) => (forms[name] ?? '') === '');
-		if (missing.length > 0) {
-			yield `${recordType} has no ${missing.join(' and no ')}. Every record type carries all three forms, because a component asking for one it has not got renders "undefined" on a heading.`;
-			continue;
+/** What is wrong with one entry on its own: a missing form, or no plural in it. */
+function* entryProblems({ recordType, forms }) {
+	const missing = FORM_NAMES.filter((name) => (forms[name] ?? '') === '');
+	if (missing.length > 0) {
+		yield `${recordType} has no ${missing.join(' and no ')}. Every record type carries all three forms, because a component asking for one it has not got renders "undefined" on a heading.`;
+		return;
+	}
+	if (forms.one === forms.many) {
+		yield `${recordType} spells its singular and its plural the same way, "${forms.one}". A count then reads "3 ${forms.many}" with no plural in it.`;
+	}
+}
+
+/**
+ * A form this entry shares with one already read, recording each as it goes.
+ *
+ * The collision is the finding rather than a tidiness rule: `request` was the
+ * count noun for both a service request and a request for control, and a person
+ * moving between those two surfaces read one word for two records.
+ */
+function* collisionProblems({ recordType, forms }, seen) {
+	for (const name of FORM_NAMES) {
+		const first = seen.get(forms[name]);
+		if (first !== undefined && first !== recordType) {
+			yield `${recordType} and ${first} both say "${forms[name]}". One word for two records is what #894 found in the count nouns, where a service request and a request for control both counted "requests", and a person moving between the two surfaces cannot tell them apart.`;
 		}
-		if (forms.one === forms.many) {
-			yield `${recordType} spells its singular and its plural the same way, "${forms.one}". A count then reads "3 ${forms.many}" with no plural in it.`;
-		}
-		for (const name of FORM_NAMES) {
-			const first = seen.get(forms[name]);
-			if (first !== undefined && first !== recordType) {
-				yield `${recordType} and ${first} both say "${forms[name]}". One word for two records is what #894 found in the count nouns, where a service request and a request for control both counted "requests", and a person moving between the two surfaces cannot tell them apart.`;
-			}
-			seen.set(forms[name], recordType);
-		}
+		seen.set(forms[name], recordType);
 	}
 }
 
 /** What is wrong with the six components, as sentences. */
 function* componentProblems() {
-	const files = [...typeScriptFilesUnder(WEB_ROOT)].filter((file) => file.endsWith('.tsx'));
-
 	for (const component of NOUN_COMPONENTS) {
-		const module = join(WEB_ROOT, ...component.module.split('/'));
-		const source = readSource(module);
-		if (source === null) {
-			yield `${component.name} is listed here as reading the register and ${component.module} does not exist. Point NOUN_COMPONENTS at where it moved, or drop the entry if the component is gone.`;
-			continue;
-		}
-		if (!source.includes(`${component.prop}`)) {
-			yield `${component.module} no longer declares a ${component.prop} prop, so nothing says where its copy comes from. A component naming a record takes the register's key and looks the noun up.`;
-		}
+		yield* listedComponentProblems(component);
 	}
+	for (const file of [...typeScriptFilesUnder(WEB_ROOT)].filter((file) => file.endsWith('.tsx'))) {
+		yield* nounPropsAt(file, readSource(file) ?? '');
+	}
+}
 
-	for (const file of files) {
-		yield* nounPropsAt(file, readFileSync(file, 'utf8').replaceAll('\r\n', '\n'));
+/** Whether one listed component is still there and still declares its prop. */
+function* listedComponentProblems(component) {
+	const source = readSource(join(WEB_ROOT, ...component.module.split('/')));
+	if (source === null) {
+		yield `${component.name} is listed here as reading the register and ${component.module} does not exist. Point NOUN_COMPONENTS at where it moved, or drop the entry if the component is gone.`;
+		return;
+	}
+	if (!source.includes(component.prop)) {
+		yield `${component.module} no longer declares a ${component.prop} prop, so nothing says where its copy comes from. A component naming a record takes the register's key and looks the noun up.`;
 	}
 }
 
