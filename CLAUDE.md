@@ -201,6 +201,26 @@ seconds, and vitest isolates modules per file, so **a new link case goes in the
 existing file** rather than opening a second suite that pays it again. A case
 asserting only the `to` prop is not worth writing; assert the href.
 
+**A route component has to be preloaded before a suite can render it.**
+`apps/web/vite.config.ts` runs the TanStack Router plugin with
+`autoCodeSplitting: true` and `vitest.config.ts` merges that config, so a suite
+gets the split build the app ships. Splitting rewrites a route's
+`component` option into a lazy stand-in, so `Route.options.component` is that
+stand-in and not the component: rendering it suspends until the module arrives,
+and under vite-node that first import pulls the route's whole dependency tree,
+forms and Mapbox included, which is seconds rather than milliseconds. It
+overruns vitest's five-second default `testTimeout`, and the failure never says
+so, because what a case sees is a component that drew nothing: a suite over
+fourteen routes reports fourteen routes with no submit control rather than one
+import that did not finish. So call the stand-in's `preload()` in `beforeAll`
+under a hook timeout that fits, and let every case render a component already in
+hand. `apps/web/src/tests/unit/routes/write-attribution.test.tsx` is the file
+that does it, fourteen routes under a 300 second `beforeAll`, and its docblock
+carries the same explanation. **Do not switch code splitting off under
+`VITEST`.** #908 tried that in `vite.config.ts` and backed it out: no config
+change is needed once the components are preloaded, and a suite running on an
+unsplit build stops exercising the build the app ships.
+
 **`scripts/` is a project too, and it has no `src` tree to mirror.** The static
 gates and the modules they share are `.mjs` at `scripts/` and `scripts/lib/`,
 and converting them to TypeScript is not on the table, so the vitest project
