@@ -90,7 +90,7 @@ function RequestDetailRoute() {
 			back={{ label: 'Back to requests for control', to: '/operations/requests-for-control' }}
 			deleteRefusals={CONTROL_REQUEST_DELETE_REFUSALS}
 			layout={layout}
-			noun="request"
+			noun="request for control"
 			reading={{ isError, isReady, record: request }}
 		>
 			{(record, askDelete) => (
@@ -154,7 +154,7 @@ function RequestDetailContent({
 			<div className="grid content-start gap-3">
 				<RequestLocationCard habitatName={habitatName} request={request} />
 				<RecordRegionsBand
-					noun="request"
+					noun="request for control"
 					recordId={request.id}
 					recordType="requested_control_actions"
 				/>

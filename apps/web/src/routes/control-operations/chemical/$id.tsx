@@ -102,7 +102,7 @@ function RouteComponent() {
 			back={{ label: 'Back to applications', to: '/control-operations/chemical' }}
 			deleteRefusals={APPLICATION_DELETE_REFUSALS}
 			layout={layout}
-			noun="application"
+			noun="chemical application"
 			reading={{ isError, isReady, record: application }}
 		>
 			{(record, askDelete) => (
@@ -194,7 +194,11 @@ function ApplicationDetailContent({
 		>
 			<div className="grid content-start gap-3">
 				<ApplicationLocationCard application={application} habitatName={habitatName} />
-				<RecordRegionsBand noun="application" recordId={application.id} recordType="applications" />
+				<RecordRegionsBand
+					noun="chemical application"
+					recordId={application.id}
+					recordType="applications"
+				/>
 			</div>
 			<ApplicationBatchesCard
 				application={application}

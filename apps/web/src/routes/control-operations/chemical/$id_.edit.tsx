@@ -74,7 +74,7 @@ function EditApplicationRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="application"
+			noun="chemical application"
 			reading={{ isError, isReady, record: application }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -216,9 +216,9 @@ function EditApplicationLoader({
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
-				description="This application's geometry could not be loaded."
+				description="This chemical application's geometry could not be loaded."
 				layout="centered"
-				noun="application"
+				noun="chemical application"
 				reason="error"
 			/>
 		);
@@ -226,9 +226,9 @@ function EditApplicationLoader({
 	if (personnel.isError || batches.isError) {
 		return (
 			<RecordUnavailable
-				description="This application's personnel and batches could not be loaded."
+				description="This chemical application's personnel and batches could not be loaded."
 				layout="centered"
-				noun="application"
+				noun="chemical application"
 				reason="error"
 			/>
 		);
