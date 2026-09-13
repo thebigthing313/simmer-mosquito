@@ -587,7 +587,7 @@ export function dateRangeLabel(from: string, to: string): string {
 }
 
 /**
- * `Mar 4, 26`, the explorer list date.
+ * `Mar 4, 2026`, the explorer list date.
  *
  * The year is not optional here. An explorer's window is whatever the operator
  * set it to, so a bare "Mar 4" in a list spanning two seasons names two
