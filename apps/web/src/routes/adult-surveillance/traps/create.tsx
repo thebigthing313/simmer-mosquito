@@ -101,7 +101,7 @@ function CreateTrapRoute() {
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				submitLabel="Add Trap"
 			/>
 			{dialog}

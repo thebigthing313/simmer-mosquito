@@ -62,7 +62,7 @@ function EditOutreachActionRoute() {
 				<EditOutreachActionLoader
 					action={record}
 					canSubmit={canAttributeWrite({ organization, actorProfileId })}
-					organizationId={organization?.id ?? ''}
+					organizationId={organization.id}
 					outreachMethods={methods}
 					profiles={profiles}
 				/>

@@ -190,7 +190,7 @@ function CreateCollectionRoute() {
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				profiles={profiles}
 				submitLabel="Record Collection"
 				traps={traps}

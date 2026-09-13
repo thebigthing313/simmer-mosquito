@@ -85,7 +85,7 @@ function EditApplicationRoute() {
 					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					equipment={equipment}
 					insecticides={insecticides}
-					organizationId={organization?.id ?? ''}
+					organizationId={organization.id}
 					profiles={profiles}
 					units={units}
 					vehicles={vehicles}
