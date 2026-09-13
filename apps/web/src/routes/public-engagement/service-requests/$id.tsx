@@ -122,7 +122,7 @@ function ServiceRequestDetailRoute() {
 	if (isError) {
 		return (
 			<ServiceRequestStatePage>
-				<RecordUnavailable noun="request" reason="error" title="Service Request Unavailable" />
+				<RecordUnavailable noun="service request" reason="error" />
 			</ServiceRequestStatePage>
 		);
 	}
@@ -137,11 +137,7 @@ function ServiceRequestDetailRoute() {
 		return (
 			<>
 				<ServiceRequestStatePage>
-					<RecordUnavailable
-						noun="request"
-						reason="not-found"
-						title="Service Request Unavailable"
-					/>
+					<RecordUnavailable noun="service request" reason="not-found" />
 				</ServiceRequestStatePage>
 				{dialog}
 			</>
