@@ -1,25 +1,23 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
 import {
+	createActingOrganization,
 	createAddress,
 	createAssignment,
 	createAssignmentItem,
 	createCollection,
-	createCollectionMethod,
 	createCollectionSpecies,
 	createContact,
 	createFormulation,
 	createHabitat,
 	createInsecticide,
 	createInsecticideBatch,
-	createOrganization,
-	createProfile,
 	createRegion,
 	createRegionFolder,
 	createRoute,
 	createRouteItem,
 	createServiceRequest,
 	createSpecies,
-	createTrap,
+	createTrapSurface,
 	createUnit,
 	describeDbIntegration,
 	createFormulationInsecticide as insertFormulationInsecticide,
@@ -50,10 +48,12 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses a zero-result mark that would drop species counts, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
-			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, methodId);
+			const {
+				organizationId: org,
+				actorProfileId: actor,
+				collectionMethodId: methodId,
+				trapId,
+			} = await createTrapSurface(db);
 			const collectionId = await createCollection(
 				db,
 				org,
@@ -97,10 +97,12 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('marks zero result and clears the counts once the clearance is confirmed', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
-			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, methodId);
+			const {
+				organizationId: org,
+				actorProfileId: actor,
+				collectionMethodId: methodId,
+				trapId,
+			} = await createTrapSurface(db);
 			const collectionId = await createCollection(
 				db,
 				org,
@@ -129,8 +131,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses a habitat retire that would take it off a route, and leaves it active', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const habitatId = await createHabitat(db, org);
 			const routeId = await createRoute(db, org);
 			const routeItemId = await createRouteItem(db, org, {
@@ -171,8 +172,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('retires the habitat and takes it off the route once confirmed', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const habitatId = await createHabitat(db, org);
 			const routeId = await createRoute(db, org);
 			const routeItemId = await createRouteItem(db, org, {
@@ -202,8 +202,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses deleting a closed request, with an empty consequences list', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const serviceRequestId = await createClosedServiceRequest(db, org, actor);
 
 			const response = await commandApp(db, org, actor).request(
@@ -239,8 +238,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('does not ask about an open request', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const serviceRequestId = await createOpenServiceRequest(db, org);
 
 			const response = await commandApp(db, org, actor).request(
@@ -260,8 +258,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses a second inspection on a completed stop, counting the first, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const habitatId = await createHabitat(db, org);
 			const assignmentId = await createAssignment(db, org);
 			const stopId = await createAssignmentItem(db, org, {
@@ -313,8 +310,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('records the second inspection once the double submit is confirmed', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const habitatId = await createHabitat(db, org);
 			const assignmentId = await createAssignment(db, org);
 			const stopId = await createAssignmentItem(db, org, {
@@ -351,8 +347,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses an inspection of another habitat, with an empty consequences list', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const stopHabitatId = await createHabitat(db, org);
 			const otherHabitatId = await createHabitat(db, org);
 			const assignmentId = await createAssignment(db, org);
@@ -409,8 +404,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('records against the other habitat once the mismatch is confirmed', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const stopHabitatId = await createHabitat(db, org);
 			const otherHabitatId = await createHabitat(db, org);
 			const assignmentId = await createAssignment(db, org);
@@ -443,8 +437,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('does not ask about the habitat the stop itself names', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const habitatId = await createHabitat(db, org);
 			const assignmentId = await createAssignment(db, org);
 			const stopId = await createAssignmentItem(db, org, {
@@ -475,8 +468,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses deleting a region folder that still holds regions, and unfiles none', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const folderId = await createRegionFolder(db, org);
 			const regionId = await createRegion(db, org, { region_folder_id: folderId });
 
@@ -512,8 +504,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('unfiles the regions once the detach is confirmed', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const folderId = await createRegionFolder(db, org);
 			const regionId = await createRegion(db, org, { region_folder_id: folderId });
 
@@ -541,8 +532,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses retiring a product other records still use, counting both kinds, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const unitId = await createUnit(db, {
 				unit_name: 'gallon',
 				abbreviation: 'gal',
@@ -584,8 +574,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('refuses removing the last ingredient of a formulation, with an empty consequences list', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const unitId = await createUnit(db, {
 				unit_name: 'gallon',
 				abbreviation: 'gal',
@@ -627,8 +616,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('deactivates the formulation once the organization confirms the recipe goes empty', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const unitId = await createUnit(db, {
 				unit_name: 'gallon',
 				abbreviation: 'gal',
@@ -666,8 +654,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('takes the last ingredient out of a draft formulation without asking', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const unitId = await createUnit(db, {
 				unit_name: 'gallon',
 				abbreviation: 'gal',
@@ -702,8 +689,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('asks when the only other ingredient names a retired product', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const unitId = await createUnit(db, {
 				unit_name: 'gallon',
 				abbreviation: 'gal',
@@ -744,8 +730,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 
 	it('removes an ingredient the formulation is not down to, without asking', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const unitId = await createUnit(db, {
 				unit_name: 'gallon',
 				abbreviation: 'gal',

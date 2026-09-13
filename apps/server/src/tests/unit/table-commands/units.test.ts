@@ -11,37 +11,15 @@
 import type { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import { CommandError } from '../../../command-endpoint.js';
-import type { CommandTable } from '../../../command-payload.js';
 import type { CommandTransaction, WritableCommand } from '../../../command-write.js';
-import type {
-	OperatorIntentRequest,
-	OperatorTableCommands,
-} from '../../../table-commands/dispatch.js';
 import { unitTableCommands } from '../../../table-commands/units.js';
+import { OPERATOR_USER, operatorHarness, OPERATOR_ROW as ROW } from './command-harness.js';
 
-const OPERATOR_USER = '11111111-1111-4111-8111-111111111111';
-const ROW = '22222222-2222-4222-8222-222222222222';
+const { request, build } = operatorHarness();
+
 const ORG = '33333333-3333-4333-8333-333333333333';
 
 const units = unitTableCommands(undefined as never);
-
-function request(payload: Record<string, unknown>): OperatorIntentRequest<CommandTable, string> {
-	return { payload, operatorUserId: OPERATOR_USER, operatorContext: {} as never, id: ROW };
-}
-
-function build<TCommand extends WritableCommand>(
-	spec: OperatorTableCommands<CommandTable, TCommand, unknown, string>,
-	intent: string,
-	intentRequest: OperatorIntentRequest<CommandTable, string>,
-): TCommand {
-	const builder = spec.intents[intent as never] as
-		| ((r: OperatorIntentRequest<CommandTable, string>) => TCommand)
-		| undefined;
-	if (builder === undefined) {
-		throw new Error(`${spec.table} does not accept ${intent}.`);
-	}
-	return builder(intentRequest);
-}
 
 describe('units intent map', () => {
 	it('reads a unit off column names, with no organization anywhere', () => {

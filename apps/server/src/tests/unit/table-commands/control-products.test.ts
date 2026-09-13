@@ -9,21 +9,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { AuthContext } from '../../../auth-context.js';
-import type { CommandTable } from '../../../command-payload.js';
-import type { OrganizationCommandType } from '../../../command-permissions.js';
-import type { WritableCommand } from '../../../command-write.js';
 import {
 	formulationInsecticideTableCommands,
 	formulationTableCommands,
 	insecticideBatchTableCommands,
 	insecticideTableCommands,
 } from '../../../table-commands/control-products.js';
-import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
+import { organizationHarness, ROW } from './command-harness.js';
 
-const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
-const ACTOR = '22222222-2222-4222-8222-222222222222';
-const ROW = '33333333-3333-4333-8333-333333333333';
+const { request, build } = organizationHarness({ role: 'admin' });
+
 const INSECTICIDE = '44444444-4444-4444-8444-444444444444';
 const UNIT = '55555555-5555-4555-8555-555555555555';
 const FORMULATION = '66666666-6666-4666-8666-666666666666';
@@ -32,31 +27,6 @@ const insecticides = insecticideTableCommands(undefined as never);
 const insecticideBatches = insecticideBatchTableCommands(undefined as never);
 const formulations = formulationTableCommands(undefined as never);
 const formulationInsecticides = formulationInsecticideTableCommands(undefined as never);
-
-function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
-	return {
-		payload,
-		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
-		authContext: {
-			organization: { id: ORGANIZATION, settings: null },
-			profile: { id: ACTOR },
-			role: 'admin',
-		} as unknown as AuthContext,
-		id: ROW,
-	};
-}
-
-function build<TCommand extends WritableCommand>(
-	spec: TableCommands<CommandTable, TCommand, unknown, string>,
-	intent: OrganizationCommandType,
-	intentRequest: IntentRequest<CommandTable, string>,
-): TCommand {
-	const builder = spec.intents[intent];
-	if (builder === undefined) {
-		throw new Error(`${spec.table} does not accept ${intent}.`);
-	}
-	return builder(intentRequest);
-}
 
 describe('insecticides intent map', () => {
 	it('reads a product off column names', () => {
