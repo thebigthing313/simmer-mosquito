@@ -19,13 +19,9 @@ import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { noTechnicianValue } from '../../../lib/no-technician';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	noTechnicianValue,
-	OutreachFormPage,
-	type OutreachFormValues,
-} from './-outreach-form';
+import { type DrawGeometry, OutreachFormPage, type OutreachFormValues } from './-outreach-form';
 
 export const Route = createFileRoute('/public-engagement/outreach/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

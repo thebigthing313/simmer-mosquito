@@ -10,8 +10,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { noTechnicianValue } from '../../../../../lib/no-technician';
 import {
-	noTechnicianValue,
 	type OutreachFormValues,
 	validateOutreach,
 } from '../../../../../routes/public-engagement/outreach/-outreach-form';

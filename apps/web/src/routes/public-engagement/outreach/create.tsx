@@ -11,11 +11,11 @@ import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { noTechnicianValue } from '../../../lib/no-technician';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultOutreachFormValues,
-	noTechnicianValue,
 	OutreachFormPage,
 	type OutreachFormValues,
 } from './-outreach-form';
