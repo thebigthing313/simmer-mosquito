@@ -45,7 +45,7 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { service_requests } from '../../lib/collections/service_requests';
 import type { RequestIntakeType } from '../queries/service-request-view';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { lifecycleStamp, newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, newRecordId, optimisticStamp } from './shared';
 
 /** A Service Request as its form holds one, before the parties and the point. */
 export interface ServiceRequestFields {
@@ -338,6 +338,6 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 		close,
 		reopen,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

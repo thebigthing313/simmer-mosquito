@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { newRecordId } from '../../../hooks/mutations/shared';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -59,7 +59,7 @@ function CreateRequestForControlRoute() {
 
 	return (
 		<RequestFormPage
-			canSubmit={organizationId !== null && actorProfileId !== null}
+			canSubmit={canAttributeWrite({ organization: organizationId, actorProfileId })}
 			defaultValues={defaultRequestFormValues()}
 			errorTitle="Unable to Raise Request"
 			header={{

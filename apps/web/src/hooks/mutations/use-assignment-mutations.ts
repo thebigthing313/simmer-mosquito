@@ -40,7 +40,7 @@ import { assignments } from '../../lib/collections/assignments';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { lifecycleStamp, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, optimisticStamp } from './shared';
 
 /** The planning fields, as a form holds them. */
 export interface AssignmentDetails {
@@ -347,6 +347,6 @@ export function useAssignmentMutations(): AssignmentMutations {
 		reopen,
 		remove,
 		moveStops,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

@@ -47,7 +47,7 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { regions } from '../../lib/collections/regions';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { invalidateAllRecordRegions } from '../use-record-regions';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** A Region as its form holds one, before the boundary. */
 export interface RegionFields {
@@ -285,6 +285,6 @@ export function useRegionMutations(): RegionMutations {
 		rename,
 		move,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

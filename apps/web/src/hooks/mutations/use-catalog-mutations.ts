@@ -53,7 +53,7 @@ import {
 	saveCatalogRow,
 	setCatalogRowActive,
 } from './catalog-writes';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /**
  * The questions a catalog's writes can be refused over, keyed and valued by the
@@ -232,7 +232,7 @@ export function useCollectionMethodMutations(): CatalogMutations {
 	return catalogMutations(collection_methods(), collectionMethodCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	});
 }
 
@@ -288,7 +288,7 @@ export function useCollectionLureMutations(): CatalogMutations {
 	return catalogMutations(collection_lures(), collectionLureCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	});
 }
 
@@ -348,7 +348,7 @@ export function useHabitatTypeMutations(): CatalogMutations {
 	return catalogMutations(habitat_types(), habitatTypeCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	});
 }
 
@@ -408,7 +408,7 @@ export function useNotificationTypeMutations(): CatalogMutations {
 		{
 			create,
 			save,
-			canWrite: organizationId !== null && actorProfileId !== null,
+			canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 		},
 	);
 }
@@ -509,7 +509,7 @@ function useControlMethodMutations(
 	return catalogMutations(collection, names, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	});
 }
 

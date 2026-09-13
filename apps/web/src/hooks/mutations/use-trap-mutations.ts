@@ -73,7 +73,7 @@ import { settleWrite, type Trap } from '@simmer-mosquito/sync';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { traps } from '../../lib/collections/traps';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** Where a trap sits, as the form holds it before the row is built. */
 export interface TrapCentroid {
@@ -433,6 +433,6 @@ export function useTrapMutations(): TrapMutations {
 		save,
 		setActive,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

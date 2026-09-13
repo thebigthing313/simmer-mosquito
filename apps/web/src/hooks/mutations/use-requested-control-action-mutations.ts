@@ -45,7 +45,7 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { contextFor } from './performed-action-writes';
-import { lifecycleStamp, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, optimisticStamp } from './shared';
 
 /** What a request is raised or edited with, as the form holds it. */
 export interface RequestFields {
@@ -275,6 +275,6 @@ export function useRequestedControlActionMutations(): RequestMutations {
 		resolve,
 		reopen,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

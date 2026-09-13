@@ -72,7 +72,7 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { metadataChanged } from './performed-action-writes';
-import { lifecycleStamp, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, optimisticStamp } from './shared';
 
 /** How long the trap was out, in whichever of the two shapes the organization records. */
 export interface CollectionTiming {
@@ -507,7 +507,7 @@ export function useCollectionMutations(): CollectionMutations {
 		setBycatch,
 		setProblem,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }
 

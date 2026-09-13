@@ -30,7 +30,7 @@ import {
 	contextFor,
 	metadataChanged,
 } from './performed-action-writes';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** What an outreach form collects, in the vocabulary the page speaks. */
 export interface OutreachActionValues {
@@ -222,5 +222,10 @@ export function useOutreachActionMutations(): OutreachActionMutations {
 		);
 	};
 
-	return { record, update, remove, canWrite: organizationId !== null && actorProfileId !== null };
+	return {
+		record,
+		update,
+		remove,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
+	};
 }

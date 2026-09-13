@@ -8,6 +8,7 @@ import { getServerUrl } from '../../../auth';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
@@ -89,7 +90,7 @@ function EditInspectionRoute() {
 			{(record) =>
 				personnel.isReady ? (
 					<EditInspectionLoader
-						canSubmit={organization !== null && actorProfileId !== null}
+						canSubmit={canAttributeWrite({ organization, actorProfileId })}
 						existingPersonnel={personnel.rows}
 						habitatTypes={habitatTypes}
 						inspection={record}

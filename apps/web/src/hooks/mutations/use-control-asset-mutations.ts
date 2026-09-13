@@ -26,7 +26,7 @@ import {
 	saveCatalogRow,
 	setCatalogRowActive,
 } from './catalog-writes';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** A vehicle or a piece of equipment as its drawer holds one. */
 export interface ControlAssetFields {
@@ -127,7 +127,7 @@ export function useVehicleMutations(): ControlAssetMutations {
 		save,
 		setActive: (id, isActive) => setCatalogRowActive(vehicles(), vehicleCommands, id, isActive),
 		remove: (id) => deleteCatalogRow(vehicles(), vehicleCommands, id),
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }
 
@@ -201,7 +201,7 @@ export function useEquipmentMutations(): ControlAssetMutations {
 		save,
 		setActive: (id, isActive) => setCatalogRowActive(equipment(), equipmentCommands, id, isActive),
 		remove: (id) => deleteCatalogRow(equipment(), equipmentCommands, id),
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }
 

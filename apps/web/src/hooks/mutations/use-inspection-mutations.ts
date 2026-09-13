@@ -55,7 +55,7 @@ import { inspections } from '../../lib/collections/inspections';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { lifecycleStamp, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, optimisticStamp } from './shared';
 
 /** Where an inspection sits, once its shape has been reduced to a point. */
 export interface InspectionCentroid {
@@ -322,7 +322,7 @@ export function useInspectionMutations(): InspectionMutations {
 		record,
 		save,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }
 

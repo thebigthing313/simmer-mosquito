@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useRecordExtras } from '../../../forms/record-extras';
-import { newRecordId } from '../../../hooks/mutations/shared';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -51,7 +51,7 @@ function CreateOutreachActionRoute() {
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
 	// Minted up front so the crew rows can be written the moment the action lands
 	// — and so their on-demand stream is already warm when the save fires.

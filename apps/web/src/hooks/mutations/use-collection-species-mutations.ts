@@ -19,7 +19,7 @@ import { type CollectionSpecies, settleWrite } from '@simmer-mosquito/sync';
 import { collection_species } from '../../lib/collections/collection_species';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** The physiological state a female was in — adult identification only. */
 export type SpeciesStatus = CollectionSpecies['status'];
@@ -147,5 +147,10 @@ export function useCollectionSpeciesMutations(): CollectionSpeciesMutations {
 		);
 	};
 
-	return { add, save, remove, canWrite: organizationId !== null && actorProfileId !== null };
+	return {
+		add,
+		save,
+		remove,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
+	};
 }

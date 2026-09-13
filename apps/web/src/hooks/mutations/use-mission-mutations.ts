@@ -37,7 +37,7 @@ import { missions } from '../../lib/collections/missions';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { lifecycleStamp, newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, newRecordId, optimisticStamp } from './shared';
 
 /**
  * The planning fields a write takes.
@@ -382,6 +382,6 @@ export function useMissionMutations(): MissionMutations {
 		reopen,
 		remove,
 		moveStops,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

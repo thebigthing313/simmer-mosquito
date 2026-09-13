@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { newRecordId } from '../../../hooks/mutations/shared';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -59,7 +59,7 @@ function CreateMissionRoute() {
 
 	return (
 		<MissionFormPage
-			canSubmit={organizationId !== null && actorProfileId !== null}
+			canSubmit={canAttributeWrite({ organization: organizationId, actorProfileId })}
 			defaultValues={defaultMissionFormValues(timeZone)}
 			errorTitle="Unable to Create Mission"
 			fieldPaths={MISSION_FIELD_PATHS}

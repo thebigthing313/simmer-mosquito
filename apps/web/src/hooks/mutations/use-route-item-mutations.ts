@@ -22,7 +22,7 @@ import { type RouteItem as RouteItemRow, settleWrite } from '@simmer-mosquito/sy
 import { mutateCollection } from '../../lib/collections/mutate';
 import { route_items } from '../../lib/collections/route_items';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** The record a stop sends a crew to. */
 export interface RouteStopTarget {
@@ -115,6 +115,6 @@ export function useRouteItemMutations(): RouteItemMutations {
 		addStop,
 		setDirections,
 		removeStop,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

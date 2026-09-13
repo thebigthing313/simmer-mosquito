@@ -29,7 +29,7 @@ import { type Sample, settleWrite } from '@simmer-mosquito/sync';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { samples } from '../../lib/collections/samples';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 export interface SampleMutations {
 	/**
@@ -200,6 +200,6 @@ export function useSampleMutations(): SampleMutations {
 		setNonMosquito,
 		setUnidentifiableReason,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

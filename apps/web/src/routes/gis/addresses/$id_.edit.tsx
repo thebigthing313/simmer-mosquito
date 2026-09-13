@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import {
 	type AddressFields,
 	useAddressMutations,
@@ -57,7 +58,7 @@ function EditAddressRoute() {
 				) : (
 					<EditAddressLoader
 						address={record}
-						canSubmit={organization !== null && actorProfileId !== null}
+						canSubmit={canAttributeWrite({ organization, actorProfileId })}
 						initialGeometry={initialGeometry}
 					/>
 				)

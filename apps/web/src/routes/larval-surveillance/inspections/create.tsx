@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../forms/record-extras';
-import { newRecordId } from '../../../hooks/mutations/shared';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -124,7 +124,7 @@ function CreateInspectionRoute() {
 	const today = todayInTimeZone(timeZone);
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 	const policy = settings.larvalSurveillance.inspectionEntryPolicy;
 
 	const inspectionId = useNewInspectionDraft();

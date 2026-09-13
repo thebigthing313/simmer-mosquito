@@ -26,7 +26,7 @@ import {
 	saveCatalogRow,
 	setCatalogRowActive,
 } from './catalog-writes';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** A product as its drawer holds one. */
 export interface InsecticideFields {
@@ -194,7 +194,7 @@ export function useInsecticideMutations(): InsecticideMutations {
 		setActive: (id, isActive) =>
 			setCatalogRowActive(insecticides(), insecticideCommands, id, isActive),
 		remove: (id) => deleteCatalogRow(insecticides(), insecticideCommands, id),
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }
 
@@ -291,7 +291,7 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 		setActive: (id, isActive) =>
 			setCatalogRowActive(insecticide_batches(), batchCommands, id, isActive),
 		remove: (id) => deleteCatalogRow(insecticide_batches(), batchCommands, id),
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }
 

@@ -39,7 +39,7 @@ import { type Address, settleWrite } from '@simmer-mosquito/sync';
 import { addresses } from '../../lib/collections/addresses';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** An address as its form holds one, before the point. */
 export interface AddressFields {
@@ -230,6 +230,6 @@ export function useAddressMutations(): AddressMutations {
 		create,
 		save,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

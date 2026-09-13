@@ -50,7 +50,7 @@ import { notification_registration_types } from '../../lib/collections/notificat
 import { notification_registrations } from '../../lib/collections/notification_registrations';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** Where a registration sits. `null` means no address, which is allowed. */
 export interface RegistrationLocation {
@@ -500,6 +500,6 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 		remove,
 		subscribe,
 		unsubscribe,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

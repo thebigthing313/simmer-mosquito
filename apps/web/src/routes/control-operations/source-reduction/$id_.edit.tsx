@@ -2,6 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
@@ -69,7 +70,7 @@ function EditSourceReductionRoute() {
 		>
 			{(record) => (
 				<EditSourceReductionLoader
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					methods={methods}
 					organizationId={organization?.id ?? ''}
 					profiles={profiles}

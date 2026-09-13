@@ -2,6 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
@@ -60,7 +61,7 @@ function EditOutreachActionRoute() {
 			{(record) => (
 				<EditOutreachActionLoader
 					action={record}
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					organizationId={organization?.id ?? ''}
 					outreachMethods={methods}
 					profiles={profiles}
