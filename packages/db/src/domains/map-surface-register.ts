@@ -43,7 +43,7 @@ import type { MapSurfaceReaders } from './map-surface.js';
  * `never` for the filters because this constraint says only "these are surfaces
  * on eleven layers": the precise filter and row types of each entry are what
  * `satisfies`-style inference keeps, through {@link MapSurfaceOf} below, and are
- * what a caller reading `MAP_SURFACES.collections.listPage` gets.
+ * what a caller reading `MAP_SURFACES.collections.listByBounds` gets.
  */
 type MapSurfaceFactory = (layer: MapTilesetLayer) => MapSurfaceReaders<never>;
 

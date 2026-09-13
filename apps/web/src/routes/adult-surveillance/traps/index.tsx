@@ -139,7 +139,6 @@ function TrapsExplorerRoute() {
 				search: filters.search,
 				regionId: filters.regionIds,
 			},
-			viewport: false,
 			map,
 			selectedId,
 		});
@@ -246,7 +245,6 @@ function TrapsExplorerRoute() {
 				icon: TrapEntityIcon,
 				total,
 				isLoading,
-				counts: RECORD_TYPE,
 				create: {
 					to: '/adult-surveillance/traps/create',
 					label: 'Add Trap',
@@ -276,8 +274,8 @@ function TrapsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No traps match',
-				emptyDescription: 'Loosen the filters, or add a trap to start collecting.',
+				emptyTitle: 'No traps in view',
+				emptyDescription: 'Pan or zoom the map, or loosen the filters to bring traps into range.',
 				renderRow: (trap) => (
 					<TrapListItem
 						isSelected={trap.id === selectedId}

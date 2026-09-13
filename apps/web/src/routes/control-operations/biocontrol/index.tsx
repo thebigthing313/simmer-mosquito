@@ -153,7 +153,6 @@ function BiocontrolExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
-			viewport: false,
 			map,
 			selectedId,
 		});
@@ -256,7 +255,6 @@ function BiocontrolExplorerRoute() {
 				icon: BiocontrolEntityIcon,
 				total,
 				isLoading,
-				counts: RECORD_TYPE,
 				create: { to: '/control-operations/biocontrol/create', label: 'Record Biocontrol Action' },
 			}}
 			onResetFilters={clearAll}
@@ -285,9 +283,9 @@ function BiocontrolExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No releases in range',
+				emptyTitle: 'No releases in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring biocontrol releases into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring biocontrol releases into range.',
 				renderRow: (row) => (
 					<BiocontrolListItem
 						amount={formatAmount(row.amountReleased, unitById.get(row.releaseUnitId))}

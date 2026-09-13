@@ -164,7 +164,6 @@ function HabitatsExplorerRoute() {
 			regionId: filters.regionIds,
 			search: filters.search,
 		},
-		viewport: true,
 		map,
 		selectedId,
 	});

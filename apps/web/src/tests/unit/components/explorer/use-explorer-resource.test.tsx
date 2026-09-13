@@ -4,13 +4,12 @@
  * The one read behind every paged explorer: a page of a `/map/*` list, the
  * record the map has selected, and the camera move that follows it.
  *
- * The nine query strings below are the load-bearing part. Before this hook each
- * route built its own params literal and handed it to `usePagedMapResource`, and
- * the three larval routes put `bbox` at the front of theirs. Composing that in
- * one place is only safe if what goes on the wire is unchanged, so each string
- * here was captured off the routes as they stood on `develop` and is asserted
- * whole rather than key by key: a param renamed, dropped, reordered or newly
- * blank all fail the same way.
+ * The nine query strings below are the load-bearing part. Each was captured off
+ * the routes as they stood on `develop` when the hook was written, and is
+ * asserted whole rather than key by key: a param renamed, dropped, reordered or
+ * newly blank all fail the same way. Six of them gained `bbox` at the front when
+ * their server readers landed, which is the one deliberate move these strings
+ * have made since (#920).
  *
  * The filter values are fabricated, but every filter each surface has is set, so
  * no key can go missing without a string moving.
@@ -77,7 +76,6 @@ interface SurfaceCase {
 	readonly rowsKey: string;
 	readonly rowKey: string;
 	readonly label: string;
-	readonly viewport: boolean;
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	readonly search: string;
 }
@@ -89,7 +87,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'habitats',
 		rowKey: 'habitat',
 		label: 'Habitats',
-		viewport: true,
 		params: {
 			isActive: true,
 			isInaccessible: false,
@@ -107,7 +104,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'inspections',
 		rowKey: 'inspection',
 		label: 'Inspections',
-		viewport: true,
 		params: {
 			isWet: false,
 			density: ['low', 'high'],
@@ -127,7 +123,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'samples',
 		rowKey: 'sample',
 		label: 'Samples',
-		viewport: true,
 		params: {
 			species: ids('species'),
 			status: 'identified',
@@ -145,7 +140,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'collections',
 		rowKey: 'collection',
 		label: 'Collections',
-		viewport: false,
 		params: {
 			collectionMethodId: ids('method'),
 			problem: true,
@@ -154,7 +148,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&collectionMethodId=method-1%2Cmethod-2&problem=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&problem=true&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'traps',
@@ -162,7 +156,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'traps',
 		rowKey: 'trap',
 		label: 'Traps',
-		viewport: false,
 		params: {
 			collectionMethodId: ids('method'),
 			status: 'active',
@@ -170,7 +163,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			regionId: ids('region'),
 		},
 		search:
-			'?limit=50&offset=0&collectionMethodId=method-1%2Cmethod-2&status=active&search=gravid&regionId=region-1%2Cregion-2',
+			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&collectionMethodId=method-1%2Cmethod-2&status=active&search=gravid&regionId=region-1%2Cregion-2',
 	},
 	{
 		name: 'biocontrol',
@@ -178,7 +171,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'biocontrolActions',
 		rowKey: 'biocontrolAction',
 		label: 'Biocontrol',
-		viewport: false,
 		params: {
 			biocontrolMethodId: ids('method'),
 			technician: ids('person'),
@@ -188,7 +180,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&biocontrolMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&habitatLinked=true&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&biocontrolMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&habitatLinked=true&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'chemical',
@@ -196,7 +188,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'applications',
 		rowKey: 'application',
 		label: 'Applications',
-		viewport: false,
 		params: {
 			insecticideId: ids('product'),
 			applicationMethodId: ids('method'),
@@ -206,7 +197,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&insecticideId=product-1%2Cproduct-2&applicationMethodId=method-1%2Cmethod-2&applicator=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&insecticideId=product-1%2Cproduct-2&applicationMethodId=method-1%2Cmethod-2&applicator=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'source reduction',
@@ -214,7 +205,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'sourceReductions',
 		rowKey: 'sourceReduction',
 		label: 'Source reductions',
-		viewport: false,
 		params: {
 			sourceReductionMethodId: ids('method'),
 			technician: ids('person'),
@@ -223,7 +213,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&sourceReductionMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&sourceReductionMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 	{
 		name: 'outreach',
@@ -231,7 +221,6 @@ const SURFACES: readonly SurfaceCase[] = [
 		rowsKey: 'outreachActions',
 		rowKey: 'outreachAction',
 		label: 'Outreach',
-		viewport: false,
 		params: {
 			outreachMethodId: ids('method'),
 			technician: ids('person'),
@@ -240,7 +229,7 @@ const SURFACES: readonly SurfaceCase[] = [
 			dateTo: DATE_TO,
 		},
 		search:
-			'?limit=50&offset=0&outreachMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
+			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&outreachMethodId=method-1%2Cmethod-2&technician=person-1%2Cperson-2&regionId=region-1%2Cregion-2&dateFrom=2026-01-01&dateTo=2026-01-31',
 	},
 ];
 
@@ -258,7 +247,6 @@ describe('useExplorerResource: what each surface sends', () => {
 						rowKey: surface.rowKey,
 						label: surface.label,
 						params: surface.params,
-						viewport: surface.viewport,
 						map: fake.map,
 						selectedId: null,
 					}),
@@ -271,19 +259,19 @@ describe('useExplorerResource: what each surface sends', () => {
 		});
 	}
 
-	it('sends bbox on the three viewport surfaces and on no other', () => {
-		const viewportBound = SURFACES.filter((surface) => surface.viewport).map(
-			(surface) => surface.name,
-		);
-		expect(viewportBound).toEqual(['habitats', 'inspections', 'samples']);
+	// The rail is the map's list on every one of them, so the box is not a
+	// per-surface fact any more. Asserted over the table rather than inside each
+	// case, because what this is about is that no surface is missing one (#920).
+	it('sends bbox on all nine', () => {
+		expect(SURFACES).toHaveLength(9);
 		for (const surface of SURFACES) {
-			expect(surface.search.includes('bbox=')).toBe(surface.viewport);
+			expect(surface.search.includes(`bbox=`)).toBe(true);
 		}
 	});
 });
 
-describe('useExplorerResource: the viewport flag', () => {
-	it('asks for nothing until a viewport-bound surface has a map', async () => {
+describe('useExplorerResource: the viewport', () => {
+	it('asks for nothing until the map has one', async () => {
 		answer = () => ({ rows: [], total: 0 });
 		const fake = createFakeMap();
 		// Declared rather than written inline, so the rerender below is typed as a
@@ -298,7 +286,6 @@ describe('useExplorerResource: the viewport flag', () => {
 					rowKey: 'row',
 					label: 'Habitats',
 					params: { search: 'pond' },
-					viewport: true,
 					map,
 					selectedId: null,
 				}),
@@ -315,8 +302,9 @@ describe('useExplorerResource: the viewport flag', () => {
 		expect(sent[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
 	});
 
-	it('asks straight away with no map when the surface does not follow the viewport', async () => {
+	it('listens to the camera on the surfaces that used to page without one', async () => {
 		answer = () => ({ rows: [], total: 0 });
+		const fake = createFakeMap();
 
 		renderHook(
 			() =>
@@ -326,40 +314,17 @@ describe('useExplorerResource: the viewport flag', () => {
 					rowKey: 'row',
 					label: 'Outreach',
 					params: { technician: ['p-1'] },
-					viewport: false,
-					map: null,
+					map: fake.map,
 					selectedId: null,
 				}),
 			{ wrapper },
 		);
 
+		// One listener, and one request carrying what it read. Outreach put no
+		// listener on the camera at all until its server reader landed (#920).
+		expect(fake.listenerCount('moveend')).toBe(1);
 		await waitFor(() => expect(sent).toHaveLength(1));
-		expect(sent[0]?.searchParams.has('bbox')).toBe(false);
-	});
-
-	it('listens to the camera only where the list follows it', async () => {
-		answer = () => ({ rows: [], total: 0 });
-		const bound = createFakeMap();
-		const unbound = createFakeMap();
-
-		const options = {
-			path: '/map/outreach',
-			rowsKey: 'rows',
-			rowKey: 'row',
-			label: 'Outreach',
-			params: {},
-			selectedId: null,
-		} as const;
-		renderHook(() => useExplorerResource<Site>({ ...options, viewport: true, map: bound.map }), {
-			wrapper,
-		});
-		renderHook(() => useExplorerResource<Site>({ ...options, viewport: false, map: unbound.map }), {
-			wrapper,
-		});
-
-		expect(bound.listenerCount('moveend')).toBe(1);
-		// A pan on a surface that pages by its own filters must re-render nothing.
-		expect(unbound.listenerCount('moveend')).toBe(0);
+		expect(sent[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
 	});
 });
 
@@ -384,7 +349,6 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					label: 'Outreach',
 					params: {},
-					viewport: false,
 					map: fake.map,
 					selectedId: 'row-1',
 				}),
@@ -414,7 +378,6 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					label: 'Outreach',
 					params: {},
-					viewport: false,
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -441,7 +404,6 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					label: 'Applications',
 					params: {},
-					viewport: false,
 					map: fake.map,
 					selectedId: 'off-page',
 					// What a deployed server that predates the column leaves out.

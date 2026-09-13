@@ -262,14 +262,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'trap page',
+		name: 'trap bbox list',
 		organizationAlias: 't',
 		geomAlias: 't',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.traps.listPage(db, {
+			MAP_SURFACES.traps.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
 			}),
@@ -309,14 +310,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'collection page',
+		name: 'collection bbox list',
 		organizationAlias: 'c',
 		geomAlias: 'c',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.collections.listPage(db, {
+			MAP_SURFACES.collections.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
 			}),
@@ -362,14 +364,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'application page',
+		name: 'application bbox list',
 		organizationAlias: 'a',
 		geomAlias: 'a',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.chemical.listPage(db, {
+			MAP_SURFACES.chemical.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: {
 					insecticideIds: ids,
@@ -426,14 +429,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'source reduction page',
+		name: 'source reduction bbox list',
 		organizationAlias: 'sr',
 		geomAlias: 'sr',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES['source-reduction'].listPage(db, {
+			MAP_SURFACES['source-reduction'].listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: {
 					sourceReductionMethodIds: ids,
@@ -489,14 +493,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'biocontrol page',
+		name: 'biocontrol bbox list',
 		organizationAlias: 'ba',
 		geomAlias: 'ba',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.biocontrol.listPage(db, {
+			MAP_SURFACES.biocontrol.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: {
 					biocontrolMethodIds: ids,
@@ -548,14 +553,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'outreach page',
+		name: 'outreach bbox list',
 		organizationAlias: 'oa',
 		geomAlias: 'oa',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.outreach.listPage(db, {
+			MAP_SURFACES.outreach.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: { outreachMethodIds: ids, technicianProfileIds: ids, regionIds, ...dates },
 			}),

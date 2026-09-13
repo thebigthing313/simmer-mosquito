@@ -99,8 +99,8 @@ export function ExplorerHeader({
 	 * counting something that is not a record: the daily-work map counts
 	 * `entries`, which span four record types and are none of them.
 	 *
-	 * Omitted on the viewport-driven explorers, which count what the map is
-	 * showing rather than a set of records and read "n in view".
+	 * Omitted on all nine paged explorers, which count what the map is showing
+	 * rather than a set of records and read "n in view" (#920).
 	 */
 	readonly counts?: RecordType | CountNoun | undefined;
 	readonly create?: ExplorerCreateAction | undefined;

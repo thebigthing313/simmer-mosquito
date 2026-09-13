@@ -153,7 +153,6 @@ function CollectionsExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
-			viewport: false,
 			map,
 			selectedId,
 		});
@@ -233,7 +232,6 @@ function CollectionsExplorerRoute() {
 				icon: CollectionEntityIcon,
 				total,
 				isLoading,
-				counts: RECORD_TYPE,
 				create: { to: '/adult-surveillance/collections/create', label: 'Record Collection' },
 			}}
 			onResetFilters={clearAll}
@@ -263,9 +261,9 @@ function CollectionsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No collections in range',
+				emptyTitle: 'No collections in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring collections into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring collections into range.',
 				renderRow: (row) => (
 					<CollectionListItem
 						isSelected={row.id === selectedId}

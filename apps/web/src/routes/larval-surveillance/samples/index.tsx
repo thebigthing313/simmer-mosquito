@@ -179,7 +179,6 @@ function SamplesExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
-			viewport: true,
 			map,
 			selectedId,
 		});

@@ -143,7 +143,6 @@ function SourceReductionExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
-			viewport: false,
 			map,
 			selectedId,
 		});
@@ -238,7 +237,6 @@ function SourceReductionExplorerRoute() {
 				icon: SourceReductionEntityIcon,
 				total,
 				isLoading,
-				counts: RECORD_TYPE,
 				create: {
 					to: '/control-operations/source-reduction/create',
 					label: 'Record Source Reduction',
@@ -270,9 +268,9 @@ function SourceReductionExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No source reduction in range',
+				emptyTitle: 'No source reduction in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring actions into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring actions into range.',
 				renderRow: (row) => (
 					<SourceReductionListItem
 						amountLabel={formatAmount(

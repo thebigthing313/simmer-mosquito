@@ -119,7 +119,6 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 		icon: InspectionEntityIcon,
 		total,
 		isLoading,
-		counts: RECORD_TYPE,
 		create: { to: '/larval-surveillance/inspections/create', label: 'Create Inspection' },
 	} as const;
 }
@@ -188,7 +187,6 @@ function InspectionsExplorerRoute() {
 			rowKey: 'inspection',
 			label: 'Inspections',
 			params: inspectionQueryParams(filters),
-			viewport: true,
 			map,
 			selectedId,
 		});
