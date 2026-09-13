@@ -9,10 +9,10 @@ import {
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../../components/linked-address';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	mapCardCoordinates,
 } from '../../components/map/map-card';
 import type { MapInset } from '../../components/map/map-inset';
 import { TagBadge } from '../../components/tag-badge';
@@ -81,7 +81,7 @@ export function TrapMapCard({
 				</MapCardDetail>
 				<MapCardAddress address={trap.address} addressId={trap.addressId} />
 				<MapCardDetail icon={LocateFixedIcon} mono>
-					{coordinateLabel({ lat: trap.latitude, lng: trap.longitude })}
+					{mapCardCoordinates({ lat: trap.latitude, lng: trap.longitude })}
 				</MapCardDetail>
 			</div>
 		</MapCard>

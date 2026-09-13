@@ -168,8 +168,16 @@ export function MapCardText({
 	);
 }
 
-/** The shared "lat, lng" label (4dp) used by the map cards. */
-export function coordinateLabel(point: { readonly lat: number; readonly lng: number }): string {
+/**
+ * The shared "lat, lng" label (4dp) used by the map cards.
+ *
+ * Not `coordinateLabel` in `lib/coordinate-label`, which is the detail pages'
+ * label: that one takes a nullable pair and has a word for a record with no
+ * centroid, because the Coordinates row of a detail page always draws. A card
+ * renders this only once it has both numbers, and it rounds to four places
+ * rather than five, so the two are different contracts and the names say so.
+ */
+export function mapCardCoordinates(point: { readonly lat: number; readonly lng: number }): string {
 	return `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
 }
 
@@ -200,7 +208,7 @@ export function MapCardLocation({
 		return <MapCardDetail icon={LocateFixedIcon}>Unknown coordinates</MapCardDetail>;
 	}
 
-	const coordinates = coordinateLabel({ lat, lng });
+	const coordinates = mapCardCoordinates({ lat, lng });
 	if (isPointGeomType(geomType)) {
 		return (
 			<MapCardDetail icon={LocateFixedIcon} mono>
