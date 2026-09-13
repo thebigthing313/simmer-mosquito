@@ -104,14 +104,17 @@ export function mergeRefusalReason(error: unknown): MergeRefusalReason | null {
 	if (!(error instanceof CommandError) || typeof error.body !== 'object' || error.body === null) {
 		return null;
 	}
-	const body = error.body as { readonly error?: unknown; readonly reason?: unknown };
+	const body = error.body as { readonly error?: unknown; readonly code?: unknown };
 	if (body.error !== 'merge_refused') {
 		return null;
 	}
-	return body.reason === 'target_not_found' ||
-		body.reason === 'source_not_found' ||
-		body.reason === 'target_inactive'
-		? body.reason
+	// `code` and not `reason`: since #795 a refusal body's `reason` is the
+	// sentence the dialog falls back to, and the discriminator has a field of
+	// its own.
+	return body.code === 'target_not_found' ||
+		body.code === 'source_not_found' ||
+		body.code === 'target_inactive'
+		? body.code
 		: null;
 }
 

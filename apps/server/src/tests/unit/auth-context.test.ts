@@ -307,6 +307,12 @@ describe('the /auth/me body', () => {
 	 * `authenticated` and `reason`, and a rename on either side compiled on both
 	 * (#698). The client declaration now carries it, so this reads the category
 	 * back off a parsed body rather than off the object the server built.
+	 *
+	 * Each arm's `reason` is a sentence, one per arm, since #795. Two of them
+	 * used to be `error` spelled twice and the third forwarded WorkOS's own
+	 * `no_session_cookie_provided`, so a client rendering `reason` showed a
+	 * person a token. The expectations below are the sentences, and asserting
+	 * the whole string is what would catch one arm being given another's.
 	 */
 	it.each([
 		{
@@ -316,7 +322,11 @@ describe('the /auth/me body', () => {
 				status: 401,
 				error: { type: 'unauthenticated', reason: 'no_session_cookie_provided' },
 			},
-			expected: { error: 'unauthenticated', reason: 'no_session_cookie_provided' },
+			expected: {
+				error: 'unauthenticated',
+				reason: 'Your session has ended. Sign in again to continue.',
+				detail: 'no_session_cookie_provided',
+			},
 		},
 		{
 			label: 'no selected Organization',
@@ -328,7 +338,10 @@ describe('the /auth/me body', () => {
 					reason: 'WorkOS session has no selected organization.',
 				},
 			},
-			expected: { error: 'organization_required', reason: 'organization_required' },
+			expected: {
+				error: 'organization_required',
+				reason: 'This session has no Organization selected. Choose one to continue.',
+			},
 		},
 		{
 			label: 'no active Membership',
@@ -341,12 +354,20 @@ describe('the /auth/me body', () => {
 					workosOrganizationId: 'workos_org_123',
 				},
 			},
-			expected: { error: 'membership_required', reason: 'membership_required' },
+			expected: {
+				error: 'membership_required',
+				reason:
+					'This Account holds no active Membership in the selected Organization. Ask an Organization owner for access.',
+			},
 		},
 	] as const satisfies readonly {
 		readonly label: string;
 		readonly result: Extract<AuthContextResult, { ok: false }>;
-		readonly expected: { readonly error: ServerAuthRefusal; readonly reason: string };
+		readonly expected: {
+			readonly error: ServerAuthRefusal;
+			readonly reason: string;
+			readonly detail?: string;
+		};
 	}[])('is read back by the auth client as a refusal: $label', async ({ result, expected }) => {
 		const served = toAuthFailureBody(result);
 
@@ -368,6 +389,9 @@ describe('the /auth/me body', () => {
 
 		expect(me.error).toBe(expected.error);
 		expect(me.reason).toBe(expected.reason);
+		// The session layer's own machine string, for a log rather than a screen,
+		// and present only on the arm that has one.
+		expect(served.detail).toBe(expected.detail);
 	});
 
 	/*
@@ -375,6 +399,11 @@ describe('the /auth/me body', () => {
 	 * SIMMER's own tables and says nothing the client can act on that the category
 	 * does not already say. This pins the withholding rather than leaving it to
 	 * the reader of `toAuthFailureBody`.
+	 *
+	 * No `detail` either, which is the half #795 adds: that field is the session
+	 * layer's own string and only the `unauthenticated` arm has one, so a 403
+	 * carrying it would be this same internal sentence going out under another
+	 * key.
 	 */
 	it('does not put the internal reason for a 403 on the wire', () => {
 		const body = toAuthFailureBody({

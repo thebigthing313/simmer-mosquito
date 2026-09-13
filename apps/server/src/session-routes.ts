@@ -140,8 +140,12 @@ export function registerSessionRoutes(
 			// What #304 needed was the other kind: a session that was presented and
 			// could not be renewed, which until now was named only in a response body
 			// nobody kept.
-			if (body.reason !== NO_SESSION_REASON) {
-				console.warn(`[auth] /auth/me refused: ${body.error} (${body.reason})`);
+			//
+			// Read off `detail` rather than `reason`, which carries the sentence a
+			// person is shown since #795. `detail` is the session layer's own machine
+			// string and is what this line has always been comparing.
+			if (body.detail !== NO_SESSION_REASON) {
+				console.warn(`[auth] /auth/me refused: ${body.error} (${body.detail ?? body.reason})`);
 			}
 
 			return context.json(body, result.status);

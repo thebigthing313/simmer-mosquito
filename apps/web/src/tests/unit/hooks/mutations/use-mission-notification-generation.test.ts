@@ -25,14 +25,14 @@ describe('generationRefusalOf', () => {
 		// codes leaves the operator with a refusal and nowhere to go.
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon', 'acre'],
 		});
 
 		expect(generationRefusalOf(error)).toEqual({
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon', 'acre'],
 			registrations: [],
 			registrationsNotShown: 0,
@@ -44,8 +44,8 @@ describe('generationRefusalOf', () => {
 		// organization, so without these the operator has a unit name and no row.
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon'],
 			registrations: [
 				{
@@ -72,8 +72,8 @@ describe('generationRefusalOf', () => {
 	it('keeps an unnamed contact and drops a row with no contact to link to', () => {
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon'],
 			registrations: [
 				{
@@ -100,8 +100,8 @@ describe('generationRefusalOf', () => {
 	it('gives an empty code and registration list for the refusals that carry none', () => {
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'mission_has_no_items',
-			message: 'This mission has no stops.',
+			code: 'mission_has_no_items',
+			reason: 'This mission has no stops.',
 		});
 
 		// Not undefined: the card renders both lists without first asking which
@@ -114,8 +114,8 @@ describe('generationRefusalOf', () => {
 	it('drops non-strings out of the code list rather than rendering them', () => {
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon', 7, null],
 		});
 
