@@ -125,6 +125,8 @@ export function GeometryImportDialog({
 			// can't show, so those shapes are withheld and called out instead.
 			const shapes = result.candidates
 				.filter((candidate) => isWgs84Geometry(candidate.geometry))
+				// A picker list key, not a record id: the dialog hands back the chosen
+				// shape's geometry, and the form that saves it mints the row's own id.
 				.map((candidate) => ({ ...candidate, id: crypto.randomUUID() }));
 			setParsed({
 				fileName: file.name,

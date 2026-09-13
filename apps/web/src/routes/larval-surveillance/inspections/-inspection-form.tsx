@@ -49,6 +49,7 @@ import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField } from '../../../forms/location-band';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
@@ -769,7 +770,7 @@ function SamplesSection({
 				)}
 				<Button
 					className="w-fit"
-					onClick={() => onChange([...value, { id: crypto.randomUUID(), label: '' }])}
+					onClick={() => onChange([...value, { id: newRecordId(), label: '' }])}
 					size="sm"
 					type="button"
 					variant="outline"
