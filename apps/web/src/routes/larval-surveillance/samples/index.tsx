@@ -54,6 +54,7 @@ import {
 	formatListDate,
 	todayInTimeZone,
 } from '../../../lib/local-date';
+import { sampleName } from '../../../lib/sample-name';
 import {
 	DATE_RANGE_COUNTING,
 	searchValidator,
@@ -642,7 +643,3 @@ function SpeciesResults({
 // --- data hooks -------------------------------------------------------------
 
 // --- helpers ----------------------------------------------------------------
-
-function sampleName(sample: SampleFeature): string {
-	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}

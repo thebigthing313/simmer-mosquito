@@ -89,9 +89,11 @@ import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { usePagedRows } from '../hooks/use-paged-rows';
 import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
+import { coordinateLabel } from '../lib/coordinate-label';
 import { type CountNoun, formatAmount } from '../lib/format-count';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { calendarDateParts, utcCalendarDay } from '../lib/local-date';
+import { sampleName } from '../lib/sample-name';
 import { unreadable } from '../lib/unreadable-input';
 import { WRITE_SURFACE_FLOORS } from '../lib/write-surfaces';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
@@ -391,7 +393,7 @@ function HabitatDetailsCard({
 					</DetailRow>
 					<DetailRow label="Geometry">{geometrySummary(geometry, isGeometryPending)}</DetailRow>
 					<DetailRow label="Coordinates">
-						{isGeometryPending ? 'Loading…' : coordinateLabel(geometry)}
+						{isGeometryPending ? 'Loading…' : coordinateLabel(geometry?.lat, geometry?.lng)}
 					</DetailRow>
 					<DetailRow label="Created">
 						<AuditValue at={habitat.createdAt} profileId={habitat.createdByProfileId} />
@@ -1229,10 +1231,6 @@ function habitatDescription(habitat: Habitat): string {
 	return habitat.description.trim() || 'No description recorded.';
 }
 
-function sampleName(sample: HabitatHistorySample): string {
-	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}
-
 /**
  * A request's summary, or nothing.
  *
@@ -1251,7 +1249,7 @@ function locationSummary(geometry: HabitatGeometry | null, isPending: boolean): 
 	if (geometry == null || geometry.geojson == null) {
 		return 'No geometry recorded';
 	}
-	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${coordinateLabel(geometry)}`;
+	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${coordinateLabel(geometry.lat, geometry.lng)}`;
 }
 
 function geometrySummary(geometry: HabitatGeometry | null, isPending: boolean): string {
@@ -1262,14 +1260,6 @@ function geometrySummary(geometry: HabitatGeometry | null, isPending: boolean): 
 		return 'No geometry recorded';
 	}
 	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${countGeoJsonVertices(geometry.geojson)} vertices`;
-}
-
-function coordinateLabel(geometry: HabitatGeometry | null): string {
-	if (geometry == null || typeof geometry.lat !== 'number' || typeof geometry.lng !== 'number') {
-		return 'Unknown coordinates';
-	}
-
-	return `${geometry.lat.toFixed(5)}, ${geometry.lng.toFixed(5)}`;
 }
 
 function formatSampleResult(sample: HabitatHistorySample): string {

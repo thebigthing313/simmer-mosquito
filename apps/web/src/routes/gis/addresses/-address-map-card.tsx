@@ -4,10 +4,10 @@ import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	mapCardCoordinates,
 } from '../../../components/map/map-card';
 import type { MapInset } from '../../../components/map/map-inset';
 import { TagBadge } from '../../../components/tag-badge';
@@ -81,7 +81,7 @@ export function AddressMapCard({
 				{line.length === 0 ? null : <MapCardDetail icon={MapPinnedIcon}>{line}</MapCardDetail>}
 				{lat === null || lng === null ? null : (
 					<MapCardDetail icon={LocateFixedIcon} mono>
-						{coordinateLabel({ lat, lng })}
+						{mapCardCoordinates({ lat, lng })}
 					</MapCardDetail>
 				)}
 			</div>

@@ -3,10 +3,10 @@ import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/reg
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../../components/linked-address';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	mapCardCoordinates,
 } from '../../components/map/map-card';
 import type { MapInset } from '../../components/map/map-inset';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
@@ -69,7 +69,7 @@ export function CollectionMapCard({
 					<MapCardDetail icon={CollectionEntityIcon}>{collection.methodName}</MapCardDetail>
 					<MapCardAddress address={collection.address} addressId={collection.addressId} />
 					<MapCardDetail icon={LocateFixedIcon} mono>
-						{coordinateLabel({ lat: collection.latitude, lng: collection.longitude })}
+						{mapCardCoordinates({ lat: collection.latitude, lng: collection.longitude })}
 					</MapCardDetail>
 				</div>
 			</div>

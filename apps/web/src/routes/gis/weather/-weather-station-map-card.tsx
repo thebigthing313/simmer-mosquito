@@ -2,10 +2,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	mapCardCoordinates,
 } from '../../../components/map/map-card';
 import type { MapInset } from '../../../components/map/map-inset';
 import { useWeatherStation } from '../../../hooks/queries/use-weather-station';
@@ -65,7 +65,7 @@ export function WeatherStationMapCard({
 				</MapCardDetail>
 				{typeof lat !== 'number' || typeof lng !== 'number' ? null : (
 					<MapCardDetail icon={LocateFixedIcon} mono>
-						{coordinateLabel({ lat, lng })}
+						{mapCardCoordinates({ lat, lng })}
 					</MapCardDetail>
 				)}
 			</div>

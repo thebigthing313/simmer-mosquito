@@ -58,8 +58,9 @@ import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { adhocLabel } from '../../../lib/coordinate-label';
+import { adhocLabel, coordinateLabel } from '../../../lib/coordinate-label';
 import { formatAmount } from '../../../lib/format-count';
+import { sampleName } from '../../../lib/sample-name';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
@@ -432,7 +433,9 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 						{inspection.inspectedByName}
 					</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
-					<DetailRow label="Coordinates">{coordinateLabel(inspection)}</DetailRow>
+					<DetailRow label="Coordinates">
+						{coordinateLabel(inspection.lat, inspection.lng)}
+					</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
 				</DetailList>
@@ -806,10 +809,6 @@ function sampleResult(
 	return sampleResultTones.larvae;
 }
 
-function sampleName(sample: SampleEntry): string {
-	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}
-
 function siteLabel(inspection: InspectionDetailRow): string {
 	return (
 		inspection.habitatName?.trim() ||
@@ -835,11 +834,4 @@ function controlTypeLabel(controlType: ControlType): string {
 		default:
 			return 'Outreach';
 	}
-}
-
-function coordinateLabel(inspection: InspectionDetailRow): string {
-	if (inspection.lat == null || inspection.lng == null) {
-		return 'Unknown coordinates';
-	}
-	return `${inspection.lat.toFixed(5)}, ${inspection.lng.toFixed(5)}`;
 }
