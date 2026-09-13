@@ -3,6 +3,7 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import type { RecordType } from '../../lib/record-nouns';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../acknowledged-write';
 import type { RecordDetailLayout } from './record-detail-layout';
 import { RecordDetailSkeleton } from './record-detail-skeleton';
@@ -43,8 +44,8 @@ export interface RecordReading<TRecord> {
 interface RecordDetailBase {
 	readonly layout: RecordDetailLayout;
 	readonly back: RecordDetailBack;
-	/** Lowercase, as it reads mid-sentence: `collection`, `weather station`. */
-	readonly noun: string;
+	/** Which record this page is about. Its noun comes from `lib/record-nouns.ts`. */
+	readonly recordType: RecordType;
 	/** Controls that belong beside the back link rather than in the header. */
 	readonly actions?: ReactNode;
 	/**
@@ -97,7 +98,8 @@ interface RecordDetailBodyProps extends RecordDetailBase {
  *
  * It owns the scroll container, the measure, the back link, the fork between
  * placeholder, unavailable and content, and the acknowledgement dialog a delete
- * may raise. A page supplies its record, its noun, its cards and its writes.
+ * may raise. A page supplies its record, its record type, its cards and its
+ * writes.
  *
  * Fourteen pages assembled this by hand and answered its questions
  * independently. Seven of them had `isError` to hand and drew the missing-record
@@ -109,7 +111,7 @@ interface RecordDetailBodyProps extends RecordDetailBase {
 export function RecordDetailPage<TRecord>(
 	props: RecordDetailReadingProps<TRecord> | RecordDetailBodyProps,
 ) {
-	const { layout, back, noun, actions, deleteRefusals } = props;
+	const { layout, back, recordType, actions, deleteRefusals } = props;
 	// With nothing askable every refusal is rethrown, so a page that declares no
 	// refusals gets exactly the behaviour it had before it had a runner at all.
 	const { run, dialog } = useAcknowledgedWrite(
@@ -130,7 +132,7 @@ export function RecordDetailPage<TRecord>(
 					</div>
 				)}
 				{props.body === undefined ? (
-					<Fork askDelete={run} layout={layout} noun={noun} reading={props.reading}>
+					<Fork askDelete={run} layout={layout} reading={props.reading} recordType={recordType}>
 						{props.children}
 					</Fork>
 				) : (
@@ -155,17 +157,17 @@ function Fork<TRecord>({
 	askDelete,
 	children,
 	layout,
-	noun,
 	reading,
+	recordType,
 }: {
 	readonly askDelete: AskAcknowledged;
 	readonly children: (record: TRecord, askDelete: AskAcknowledged) => ReactNode;
 	readonly layout: RecordDetailLayout;
-	readonly noun: string;
 	readonly reading: RecordReading<TRecord>;
+	readonly recordType: RecordType;
 }) {
 	if (reading.isError === true) {
-		return <RecordUnavailable noun={noun} reason="error" />;
+		return <RecordUnavailable reason="error" recordType={recordType} />;
 	}
 	if (reading.record !== null && reading.record !== undefined) {
 		return children(reading.record, askDelete);
@@ -173,7 +175,7 @@ function Fork<TRecord>({
 	if (!reading.isReady) {
 		return <RecordDetailSkeleton layout={layout} />;
 	}
-	return <RecordUnavailable noun={noun} reason="not-found" />;
+	return <RecordUnavailable reason="not-found" recordType={recordType} />;
 }
 
 function BackTo({ back }: { readonly back: RecordDetailBack }) {

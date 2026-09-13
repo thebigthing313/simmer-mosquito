@@ -35,6 +35,7 @@ import {
 import { useRequestedControlActions } from '../../../hooks/queries/use-requested-control-actions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
+import type { RecordType } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -46,7 +47,7 @@ import {
 } from '../../../lib/search-filters';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
-const RESULT_NOUN = { one: 'request', many: 'requests' };
+const RECORD_TYPE: RecordType = 'requestedControlAction';
 
 type StatusFilter = 'all' | 'open' | 'resolved';
 
@@ -150,7 +151,7 @@ function RequestsForControlRoute() {
 				icon: RequestIcon,
 				total: visible.length,
 				isLoading,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: { to: '/operations/requests-for-control/create', label: 'New Request for Control' },
 			}}
 			onResetFilters={reset}

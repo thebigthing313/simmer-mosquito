@@ -89,7 +89,7 @@ function RouteComponent() {
 			back={{ label: 'Back to inspections', to: '/larval-surveillance/inspections' }}
 			deleteRefusals={INSPECTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="inspection"
+			recordType="inspection"
 			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
 		>
 			{(record, askDelete) => <InspectionDetailContent askDelete={askDelete} inspection={record} />}
@@ -198,14 +198,13 @@ function InspectionDetailContent({
 		>
 			<div className="grid content-start gap-3">
 				<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
-				<RecordRegionsBand noun="inspection" recordId={inspection.id} recordType="inspections" />
+				<RecordRegionsBand recordId={inspection.id} recordType="inspections" />
 			</div>
 			<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 			<LinkedControlActionsCard inspectionId={inspection.id} />
 			<DangerZoneCard
 				ask={askDelete}
 				name={breadcrumbLabel(inspection)}
-				noun="inspection"
 				onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
 				recordId={inspection.id}
 				recordType="inspection"

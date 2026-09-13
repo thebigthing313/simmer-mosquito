@@ -30,6 +30,7 @@ import {
 	impactCountLabel,
 	useDeleteImpact,
 } from '../hooks/use-delete-impact';
+import { type RecordType, recordNoun } from '../lib/record-nouns';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
 import type { Acknowledgements, AskAcknowledged } from './acknowledged-write';
@@ -38,11 +39,20 @@ import { WriteOnly } from './write-only';
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 interface DangerZoneCardRecord {
-	/** The server-side record kind, which decides the delete policy. */
-	readonly recordType: DeletableRecordType;
+	/**
+	 * The server-side record kind, which decides the delete policy, and the key
+	 * the card's copy reads its noun under.
+	 *
+	 * Narrowed to the record types that are in both unions rather than to either
+	 * one. The endpoint's union carries the catalogs, which delete inline and
+	 * never draw this card, and the noun register carries a weather station,
+	 * which has no delete policy. What is left is the eighteen records with a
+	 * page and a danger zone, and a card that could be drawn for neither half
+	 * fails `tsc` rather than asking the endpoint about a record kind it has
+	 * never heard of.
+	 */
+	readonly recordType: Extract<DeletableRecordType, RecordType>;
 	readonly recordId: string;
-	/** Domain noun for the record, lower case: `habitat`, `service request`. */
-	readonly noun: string;
 	/** What to call this particular record in the confirmation. */
 	readonly name: string;
 	/**
@@ -181,13 +191,13 @@ const DELETE_FLOOR: Record<DeletableRecordType, MinimumRole> = {
 function DangerZone({
 	recordType,
 	recordId,
-	noun,
 	name,
 	onDelete,
 	onDeleted,
 	returnTo,
 	ask,
 }: DangerZoneCardProps) {
+	const { one, title } = recordNoun(recordType);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const impactQuery = useDeleteImpact(recordType, recordId);
@@ -231,10 +241,10 @@ function DangerZone({
 			const blocked = readBlockers(cause);
 			const message =
 				blocked.length > 0
-					? `Deleting this ${noun} is blocked by ${impactCountLabel(blocked[0] as DeleteImpactEntry)}.`
+					? `Deleting this ${one} is blocked by ${impactCountLabel(blocked[0] as DeleteImpactEntry)}.`
 					: cause instanceof Error
 						? cause.message
-						: `Unable to delete the ${noun}.`;
+						: `Unable to delete the ${one}.`;
 
 			// The delete is optimistic, so the row leaves the collection the moment
 			// the button is pressed and this card unmounts with the record it was
@@ -269,7 +279,7 @@ function DangerZone({
 		<Card className="border-destructive/20" variant="panel">
 			<CardHeader className="gap-1 px-3 pt-3 pb-0">
 				<CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Delete This {titleCase(noun)}
+					Delete This {title}
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-2 px-3 pt-2 pb-3">
@@ -280,9 +290,9 @@ function DangerZone({
 						Could not check what deleting this would affect.
 					</p>
 				) : isBlocked ? (
-					<BlockedReasons blockers={blockers} noun={noun} />
+					<BlockedReasons blockers={blockers} noun={one} />
 				) : (
-					<DeleteEffects impact={impact} noun={noun} />
+					<DeleteEffects impact={impact} noun={one} />
 				)}
 
 				{deleteError === null ? null : (
@@ -297,7 +307,7 @@ function DangerZone({
 						variant="destructive"
 					>
 						<DeleteIcon aria-hidden="true" />
-						Delete {titleCase(noun)}
+						Delete {title}
 					</Button>
 				</div>
 			</CardContent>
@@ -308,14 +318,14 @@ function DangerZone({
 						<AlertDialogTitle>Delete {name}?</AlertDialogTitle>
 						<AlertDialogDescription>
 							{impact === undefined || !hasEffects(impact)
-								? `This ${noun} will be removed. This can't be undone.`
+								? `This ${one} will be removed. This can't be undone.`
 								: `This can't be undone.`}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					{impact === undefined || !hasEffects(impact) ? null : <EffectLists impact={impact} />}
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete}>Delete {titleCase(noun)}</AlertDialogAction>
+						<AlertDialogAction onClick={confirmDelete}>Delete {title}</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
@@ -428,8 +438,4 @@ function ImpactSkeleton(): ReactNode {
 			<Skeleton className="h-3 w-48" />
 		</div>
 	);
-}
-
-function titleCase(noun: string): string {
-	return noun.replace(/\b[a-z]/g, (char) => char.toUpperCase());
 }

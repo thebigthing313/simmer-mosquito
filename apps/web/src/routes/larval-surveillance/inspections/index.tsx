@@ -35,6 +35,7 @@ import {
 } from '../../../components/map';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 import {
 	DensityFilter,
@@ -101,7 +102,7 @@ function useInspectionFilterOptions(): InspectionFilterOptions {
 	return { catalogs, regions };
 }
 
-const RESULT_NOUN = { one: 'inspection', many: 'inspections' };
+const RECORD_TYPE: RecordType = 'inspection';
 
 /** What an empty or loading rail draws, which is the same whatever is filtered. */
 const INSPECTION_RESULTS_COPY = {
@@ -118,7 +119,7 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 		icon: InspectionEntityIcon,
 		total,
 		isLoading,
-		noun: RESULT_NOUN,
+		counts: RECORD_TYPE,
 		create: { to: '/larval-surveillance/inspections/create', label: 'Create Inspection' },
 	} as const;
 }
@@ -224,7 +225,7 @@ function InspectionsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={RESULT_NOUN}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

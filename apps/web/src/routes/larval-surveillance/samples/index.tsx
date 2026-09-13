@@ -53,6 +53,7 @@ import {
 	formatListDate,
 	todayInTimeZone,
 } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
 import {
 	DATE_RANGE_COUNTING,
@@ -248,7 +249,7 @@ function SamplesExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'sample', many: 'samples' }}
+					noun={recordNoun('sample')}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

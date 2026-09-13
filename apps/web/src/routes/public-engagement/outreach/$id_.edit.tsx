@@ -54,7 +54,7 @@ function EditOutreachActionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="outreach action"
+			recordType="outreachAction"
 			reading={{ isError, isReady, record: action }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -157,7 +157,7 @@ function EditOutreachActionLoader({
 			<RecordUnavailable
 				description="This outreach action's geometry could not be loaded."
 				layout="centered"
-				noun="outreach action"
+				recordType="outreachAction"
 				reason="error"
 			/>
 		);
@@ -167,7 +167,7 @@ function EditOutreachActionLoader({
 			<RecordUnavailable
 				description="This outreach action's personnel could not be loaded."
 				layout="centered"
-				noun="outreach action"
+				recordType="outreachAction"
 				reason="error"
 			/>
 		);

@@ -60,7 +60,7 @@ function RouteComponent() {
 			back={{ label: 'Back to outreach', to: '/public-engagement/outreach' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="outreach action"
+			recordType="outreachAction"
 			reading={{ isError, isReady, record: action }}
 		>
 			{(record, askDelete) => <OutreachDetailContent action={record} askDelete={askDelete} />}
@@ -126,16 +126,11 @@ function OutreachDetailContent({
 		>
 			<div className="grid content-start gap-3">
 				<OutreachLocationCard action={action} />
-				<RecordRegionsBand
-					noun="outreach action"
-					recordId={action.id}
-					recordType="outreach_actions"
-				/>
+				<RecordRegionsBand recordId={action.id} recordType="outreach_actions" />
 			</div>
 			<DangerZoneCard
 				ask={askDelete}
 				name={methodName}
-				noun="outreach action"
 				onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
 				recordId={action.id}
 				recordType="outreachAction"

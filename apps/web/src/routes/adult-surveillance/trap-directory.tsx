@@ -13,6 +13,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { ExplorerHeader, ExplorerRow } from '../../components/explorer';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
+import type { RecordType } from '../../lib/record-nouns';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -44,7 +45,7 @@ export const Route = createFileRoute('/adult-surveillance/trap-directory')({
 	validateSearch: searchValidator(DIRECTORY_CODECS),
 });
 
-const RESULT_NOUN = { one: 'trap', many: 'traps' };
+const RECORD_TYPE: RecordType = 'trap';
 
 /**
  * Every trap the organization is currently running, and what each one has
@@ -86,7 +87,7 @@ function TrapDirectoryRoute() {
 				<ExplorerHeader
 					icon={TrapIcon}
 					isLoading={false}
-					noun={RESULT_NOUN}
+					counts={RECORD_TYPE}
 					title="Trap Directory"
 					total={visibleTraps.length}
 				>

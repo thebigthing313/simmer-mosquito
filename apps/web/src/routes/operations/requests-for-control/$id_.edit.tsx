@@ -40,7 +40,7 @@ function EditRequestRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="request for control"
+			recordType="requestedControlAction"
 			reading={{ isError, isReady, record: request }}
 			skeleton={<EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />}
 		>
@@ -99,7 +99,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 			<RecordUnavailable
 				description="The geometry for this request for control could not be loaded."
 				layout="centered"
-				noun="request for control"
+				recordType="requestedControlAction"
 				reason="error"
 			/>
 		);

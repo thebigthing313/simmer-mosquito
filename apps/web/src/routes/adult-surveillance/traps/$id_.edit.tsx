@@ -41,7 +41,7 @@ function EditTrapRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="trap"
+			recordType="trap"
 			reading={{ isError, isReady, record: trap }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>

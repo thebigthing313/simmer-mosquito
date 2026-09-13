@@ -31,7 +31,7 @@ function EditMissionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="mission"
+			recordType="mission"
 			reading={{ isError, isReady, record: mission }}
 			skeleton={<EditFormSkeleton frame="pane" rows={['h-24', ['h-9', 'h-9'], 'h-24']} />}
 		>

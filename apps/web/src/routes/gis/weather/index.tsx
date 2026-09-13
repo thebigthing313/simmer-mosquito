@@ -19,6 +19,7 @@ import {
 } from '../../../components/map';
 import type { WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useWeatherStations } from '../../../hooks/queries/use-weather-stations';
+import type { RecordType } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -62,7 +63,7 @@ export const Route = createFileRoute('/gis/weather/')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
-const RESULT_NOUN = { one: 'station', many: 'stations' };
+const RECORD_TYPE: RecordType = 'weatherStation';
 
 /** A station whose synced centroid is usable as a map coordinate. */
 interface PlottedStation {
@@ -106,7 +107,7 @@ function WeatherStationsRoute() {
 				icon: WeatherIcon,
 				total: stations.length,
 				isLoading: false,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: { to: '/gis/weather/create', label: 'Add Station', minimum: 'manager' },
 			}}
 			onResetFilters={filters.onClearAll}

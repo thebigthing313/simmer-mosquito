@@ -8,9 +8,11 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type CSSProperties, type ReactNode, type RefObject, useRef } from 'react';
+import type { CountNoun } from '../../lib/format-count';
+import type { RecordType } from '../../lib/record-nouns';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
 import { MAP_CHROME_SURFACE } from '../map/chrome';
-import { type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
+import { countNoun, type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
 import { ResultBody, ResultList, ResultRows } from './result-list';
 import { ResultMeta } from './result-meta';
 import type { ExplorerPanel } from './use-explorer-panel';
@@ -33,7 +35,8 @@ export interface ExplorerHeading {
 	readonly icon?: RegistryIcon | undefined;
 	readonly total: number;
 	readonly isLoading: boolean;
-	readonly noun?: { readonly one: string; readonly many: string } | undefined;
+	/** What the panel counts. `ExplorerHeader`'s `counts` carries the rule. */
+	readonly counts?: RecordType | CountNoun | undefined;
 	/** The create control, hidden below the role floor its command needs. */
 	readonly create?: ExplorerCreateAction | undefined;
 }
@@ -296,7 +299,7 @@ function ResultsPanel<TRow>({
 				icon={heading.icon}
 				isLoading={heading.isLoading}
 				menuItems={menuItems}
-				noun={heading.noun}
+				counts={heading.counts}
 				onResetFilters={onResetFilters}
 				// The count lives in the pager when there is one. Without a pager the
 				// header is the only place left for it, and a rail that never states its
@@ -460,7 +463,11 @@ function CollapsedPanel({
 				<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
 			)}
 			<span className="font-medium text-foreground text-sm">{heading.title}</span>
-			<ResultMeta isLoading={heading.isLoading} noun={heading.noun} total={heading.total} />
+			<ResultMeta
+				isLoading={heading.isLoading}
+				noun={countNoun(heading.counts)}
+				total={heading.total}
+			/>
 			{activeFilterCount > 0 ? (
 				<Badge tone="neutral" variant="outline">
 					{activeFilterCount === 1 ? '1 filter' : `${activeFilterCount} filters`}

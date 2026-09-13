@@ -216,6 +216,20 @@ jobs:
       - name: Image names
         run: pnpm check:image-names
 
+      # Six components used to take a free-text noun for the record they were
+      # about, and every route spelled it at each call site, so one record type
+      # carried as many spellings as it had call sites. Seven disagreed with
+      # themselves: a chemical application counted `applications` under a
+      # heading saying chemical application, a biocontrol action counted
+      # `releases`, and a request for control and a service request both counted
+      # plain `requests`. `RECORD_NOUNS` in `apps/web/src/lib/record-nouns.ts`
+      # is the register now and the components take a record type, so the
+      # compiler holds membership. This holds the register whole, refuses a
+      # `noun` prop on any of the six, and refuses a register noun written as a
+      # noun literal anywhere under `apps/web/src`, at zero with no allowance.
+      - name: Record nouns
+        run: pnpm check:record-nouns
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads

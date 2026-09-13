@@ -165,7 +165,6 @@ export function RouteDetailPage({
 							<DangerZoneCard
 								ask={askDelete}
 								name={route.routeName}
-								noun="route"
 								onDelete={(acknowledgements) => removeRoute(route.id, acknowledgements)}
 								recordId={route.id}
 								recordType="route"

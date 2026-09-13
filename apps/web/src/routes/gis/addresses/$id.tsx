@@ -48,7 +48,7 @@ function RouteComponent() {
 		<RecordDetailPage
 			back={{ label: 'Back to Address Book', to: '/gis/addresses' }}
 			layout={layout}
-			noun="address"
+			recordType="address"
 			reading={{ isError: result.isError, isReady: result.isReady, record: result.address }}
 		>
 			{(record) => <AddressDetailContent address={record} />}
@@ -69,7 +69,6 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 					<AddressDetailsCard address={address} />
 					<DangerZoneCard
 						name={address.displayName}
-						noun="address"
 						onDelete={() => mutations.remove(address.id)}
 						recordId={address.id}
 						recordType="address"
@@ -114,7 +113,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 				geometry={geometryQuery.data ?? null}
 				isLoading={geometryQuery.isLoading}
 			/>
-			<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
+			<RecordRegionsBand recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
 		</RecordDetailColumns>
 	);

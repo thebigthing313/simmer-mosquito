@@ -57,7 +57,7 @@ function EditBiocontrolActionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="biocontrol action"
+			recordType="biocontrolAction"
 			reading={{ isError, isReady, record: action }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -153,7 +153,7 @@ function EditBiocontrolActionLoader({
 			<RecordUnavailable
 				description="This biocontrol action's geometry could not be loaded."
 				layout="centered"
-				noun="biocontrol action"
+				recordType="biocontrolAction"
 				reason="error"
 			/>
 		);
@@ -163,7 +163,7 @@ function EditBiocontrolActionLoader({
 			<RecordUnavailable
 				description="This biocontrol action's personnel could not be loaded."
 				layout="centered"
-				noun="biocontrol action"
+				recordType="biocontrolAction"
 				reason="error"
 			/>
 		);

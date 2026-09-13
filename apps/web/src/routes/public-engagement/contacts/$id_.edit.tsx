@@ -31,7 +31,7 @@ function EditContactRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="contact"
+			recordType="contact"
 			reading={{ isError, isReady, record: contact }}
 			skeleton={
 				<OutletSimpleLayout>

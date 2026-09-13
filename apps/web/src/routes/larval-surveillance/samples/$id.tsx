@@ -93,7 +93,7 @@ function RouteComponent() {
 			back={{ label: 'Back to samples', to: '/larval-surveillance/samples' }}
 			deleteRefusals={SAMPLE_DELETE_REFUSALS}
 			layout={layout}
-			noun="sample"
+			recordType="sample"
 			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
 		>
 			{(record, askDelete) => <SampleDetailContent askDelete={askDelete} geo={record} />}
@@ -262,7 +262,6 @@ function SampleDetailContent({
 			<DangerZoneCard
 				ask={askDelete}
 				name={breadcrumbLabel(geo)}
-				noun="sample"
 				onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
 				recordId={geo.id}
 				recordType="sample"

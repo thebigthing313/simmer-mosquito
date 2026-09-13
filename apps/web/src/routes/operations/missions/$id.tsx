@@ -91,7 +91,7 @@ function MissionDetailRoute() {
 						features={run.features}
 						fitKey={id}
 						highlightId={run.highlightId}
-						noun="mission"
+						recordType="mission"
 						onHoverStop={run.setHighlightId}
 						onSelectStop={run.setSelectedStopId}
 						selectedId={run.selectedStopId}
@@ -184,7 +184,6 @@ function MissionPanel({
 					<DangerZoneCard
 						ask={askDelete}
 						name={run.displayName ?? 'this mission'}
-						noun="mission"
 						onDelete={(acknowledgements) => missionWrites.remove(missionId, acknowledgements)}
 						recordId={missionId}
 						recordType="mission"

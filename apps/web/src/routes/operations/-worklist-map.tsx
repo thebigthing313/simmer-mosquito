@@ -9,6 +9,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { MapCanvas, type RouteStopFeature } from '../../components/map';
 import { MapControlButton, MapControlGroup } from '../../components/map/map-control';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
 /**
  * The worklist map: numbered stops in sequence, auto-framed when the worklist
@@ -18,8 +19,9 @@ import { MapControlButton, MapControlGroup } from '../../components/map/map-cont
  * Both ordered worklists in this section render through it. An assignment's
  * stops are typed entity targets and a mission's are owned geometry, but by the
  * time either reaches a map it is the same thing: a place in the order, a
- * progress tone, and — where the stop owns one — a shape. `noun` is the only
- * thing that differs, and it only ever reaches the operator-facing strings.
+ * progress tone, and, where the stop owns one, a shape. The record type is the
+ * only thing that differs, and it only ever reaches the operator-facing
+ * strings, through the noun register.
  *
  * Bounds come straight off the features rather than a domain view model, because
  * everything the frame needs is already on them.
@@ -27,7 +29,7 @@ import { MapControlButton, MapControlGroup } from '../../components/map/map-cont
 export function WorklistMap({
 	features,
 	stopCount,
-	noun,
+	recordType,
 	selectedId,
 	highlightId,
 	onSelectStop,
@@ -38,8 +40,8 @@ export function WorklistMap({
 	readonly features: readonly RouteStopFeature[];
 	/** Total stops including unmapped ones, so "none mapped" can be told apart from "none". */
 	readonly stopCount: number;
-	/** What the worklist is called, lowercase — "assignment", "mission". */
-	readonly noun: string;
+	/** Which worklist this is. Its noun comes from `lib/record-nouns.ts`. */
+	readonly recordType: RecordType;
 	readonly selectedId?: string | null | undefined;
 	readonly highlightId?: string | null | undefined;
 	readonly onSelectStop?: ((id: string | null) => void) | undefined;
@@ -92,7 +94,11 @@ export function WorklistMap({
 			{hasMappedStops ? (
 				<div className="absolute bottom-4 left-4">
 					<MapControlGroup>
-						<MapControlButton label={`Zoom to ${noun}`} onClick={handleZoom} side="right">
+						<MapControlButton
+							label={`Zoom to ${recordNoun(recordType).one}`}
+							onClick={handleZoom}
+							side="right"
+						>
 							<LocateFixedIcon aria-hidden="true" className="size-4" />
 						</MapControlButton>
 					</MapControlGroup>
@@ -102,7 +108,7 @@ export function WorklistMap({
 			{!hasMappedStops && stopCount > 0 ? (
 				<div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
 					<span className="rounded-full border border-border/70 bg-background/85 px-3 py-1 text-muted-foreground text-xs shadow-sm backdrop-blur-sm">
-						No mapped stops on this {noun} yet
+						No mapped stops on this {recordNoun(recordType).one} yet
 					</span>
 				</div>
 			) : null}

@@ -60,6 +60,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { usePagedRows } from '../../../hooks/use-paged-rows';
 import { TRAP_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	aggregateSpeciesDistribution,
 	CollectionFlagBadges,
@@ -93,7 +94,7 @@ function RouteComponent() {
 			back={{ label: 'Back to traps', to: '/adult-surveillance/traps' }}
 			deleteRefusals={TRAP_DELETE_REFUSALS}
 			layout={layout}
-			noun="trap"
+			recordType="trap"
 			reading={{ isError, isReady, record: trap }}
 		>
 			{(record, askDelete) => <TrapDetailContent askDelete={askDelete} trap={record} />}
@@ -155,13 +156,12 @@ function TrapDetailContent({
 		>
 			<div className="grid content-start gap-3">
 				<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
-				<RecordRegionsBand noun="trap" recordId={trap.id} recordType="traps" />
+				<RecordRegionsBand recordId={trap.id} recordType="traps" />
 			</div>
 			<TrapCollectionsCard trapId={trap.id} />
 			<DangerZoneCard
 				ask={askDelete}
 				name={trapDisplayName(trap)}
-				noun="trap"
 				onDelete={(acknowledgements) => mutations.remove(trap.id, acknowledgements)}
 				recordId={trap.id}
 				recordType="trap"
@@ -329,7 +329,7 @@ function TrapCollectionsList({
 						</Table>
 					</div>
 					<ExplorerPagination
-						noun={{ one: 'collection', many: 'collections' }}
+						noun={recordNoun('collection')}
 						onPageChange={setPage}
 						page={page}
 						pageCount={pageCount}

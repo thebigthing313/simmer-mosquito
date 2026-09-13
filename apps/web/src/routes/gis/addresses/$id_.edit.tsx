@@ -44,7 +44,7 @@ function EditAddressRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="address"
+			recordType="address"
 			reading={{
 				isError: addressResult.isError,
 				isReady: addressResult.isReady,

@@ -17,7 +17,7 @@ interface Station {
 function frame(reading: RecordReading<Station>) {
 	return (
 		<RecordEditFrame
-			noun="weather station"
+			recordType="weatherStation"
 			reading={reading}
 			skeleton={<EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -65,9 +65,9 @@ describe('RecordEditFrame', () => {
 		expect(screen.getByText('Cannery Row')).toBeTruthy();
 	});
 
-	// The heading is derived rather than passed, so the noun a route already
-	// declares is the only thing that decides it.
-	it('heads both unavailable states with the noun it was given', () => {
+	// The heading is derived rather than passed, so the record type a route
+	// already declares is the only thing that decides it.
+	it('heads both unavailable states from the register', () => {
 		const { rerender } = render(frame({ isReady: true, record: null }));
 		expect(screen.getByText('Weather Station Unavailable')).toBeTruthy();
 

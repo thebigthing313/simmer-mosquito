@@ -38,7 +38,7 @@ function page(reading: RecordReading<Region>) {
 		<RecordDetailPage
 			back={{ label: 'Back to Regions', to: '/gis/regions' }}
 			layout={layout}
-			noun="region"
+			recordType="region"
 			reading={reading}
 		>
 			{(region) => <p>{region.name}</p>}
@@ -130,7 +130,7 @@ describe('RecordDetailPage', () => {
 				back={{ label: 'Back to Regions', to: '/gis/regions' }}
 				deleteRefusals={{ region_in_use: 'acknowledgeUnlink' }}
 				layout={layout}
-				noun="region"
+				recordType="region"
 				reading={{ isReady: true, record: { id: 'r1', name: 'North District' } }}
 			>
 				{(region, askDelete) => {
@@ -159,7 +159,7 @@ describe('RecordDetailPage', () => {
 			<RecordDetailPage
 				back={{ label: 'Back to Regions', to: '/gis/regions' }}
 				layout={layout}
-				noun="region"
+				recordType="region"
 				reading={{ isReady: true, record: { id: 'r1', name: 'North District' } }}
 			>
 				{(region, askDelete) => {
@@ -186,7 +186,7 @@ describe('RecordDetailPage', () => {
 				back={{ label: 'Back to Habitats', to: '/larval-surveillance/habitats' }}
 				body={() => <p>the habitat</p>}
 				layout={layout}
-				noun="habitat"
+				recordType="habitat"
 			/>,
 		);
 
