@@ -32,7 +32,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { type CSSProperties, type ReactNode, Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
@@ -55,7 +55,6 @@ import { RequestStatusBadge } from '../components/request-status-badge';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { controlTypeLabel, requestStatus } from '../hooks/queries/operations-view';
-import type { Tag } from '../hooks/queries/tag-view';
 import {
 	useApplicationMethodRoster,
 	useHabitatTypeRoster,
@@ -76,7 +75,6 @@ import { useInsecticideRecords } from '../hooks/queries/use-insecticide-records'
 import { useOrganizationSettings } from '../hooks/queries/use-organization-settings';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useRecordRoutes } from '../hooks/queries/use-record-routes';
-import { useRecordTags } from '../hooks/queries/use-record-tags';
 import { useSpeciesNames } from '../hooks/queries/use-species-names';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
@@ -84,7 +82,6 @@ import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { usePagedRows } from '../hooks/use-paged-rows';
 import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
 import { type CountNoun, formatAmount } from '../lib/format-count';
-import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { calendarDateParts, utcCalendarDay } from '../lib/local-date';
 import { unreadable } from '../lib/unreadable-input';
 import { WRITE_SURFACE_FLOORS } from '../lib/write-surfaces';
@@ -360,11 +357,6 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={habitat.addressId} />
 					</DetailRow>
-					<DetailRow label="Tags">
-						<Suspense fallback={<span className="text-muted-foreground">Loading tags…</span>}>
-							<HabitatTags habitatId={habitat.id} />
-						</Suspense>
-					</DetailRow>
 					<DetailRow label="Routes">
 						<Suspense fallback={<span className="text-muted-foreground">Loading routes…</span>}>
 							<HabitatRoutes habitatId={habitat.id} />
@@ -442,25 +434,6 @@ function AuditValue({
 	);
 }
 
-function HabitatTags({ habitatId }: { readonly habitatId: string }) {
-	// One query, joined to the catalog, so a tag arrives named and coloured — and
-	// `tag_items.entity_id` is globally unique, so no entity type is needed. See
-	// `use-record-tags.ts`.
-	const tags = useRecordTags(habitatId);
-
-	if (tags.length === 0) {
-		return <span className="text-muted-foreground">No tags</span>;
-	}
-
-	return (
-		<div className="flex flex-wrap gap-1.5">
-			{tags.map((tag) => (
-				<TagBadge key={tag.id} tag={tag} />
-			))}
-		</div>
-	);
-}
-
 /**
  * The routes this habitat is a stop on.
  *
@@ -469,10 +442,10 @@ function HabitatTags({ habitatId }: { readonly habitatId: string }) {
  * site needs to know whose run it is already on before adding it to another,
  * and until now the only way to find out was to open every route.
  *
- * Same shape as `HabitatTags` and for the same reason: `route_items` is
- * on-demand, so this is a non-suspense `useLiveQuery` gated on status rather
- * than `useLiveSuspenseQuery`, which hangs permanently after unmount over an
- * on-demand collection. `routes` is eager, so suspense is safe there.
+ * `route_items` is on-demand, so this reads through a non-suspense
+ * `useLiveQuery` gated on status rather than `useLiveSuspenseQuery`, which
+ * hangs permanently after unmount over an on-demand collection. `routes` is
+ * eager, so suspense is safe there.
  */
 function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 	const { routes, isReady, isError } = useRecordRoutes({ type: 'habitat', id: habitatId });
@@ -504,31 +477,6 @@ function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 				</li>
 			))}
 		</ul>
-	);
-}
-
-function TagBadge({ tag }: { readonly tag: Tag }) {
-	const color = validHexColor(tag.color);
-	const style =
-		color === null
-			? undefined
-			: ({
-					'--tag-bg': hexWithAlpha(color, 0.14),
-					'--tag-border': hexWithAlpha(color, 0.36),
-					'--tag-color': color,
-				} as CSSProperties);
-
-	return (
-		<Badge
-			variant={color === null ? 'secondary' : 'outline'}
-			className={
-				color === null ? undefined : 'border-(--tag-border) bg-(--tag-bg) text-(--tag-color)'
-			}
-			style={style}
-			title={tag.description ?? undefined}
-		>
-			{tag.name}
-		</Badge>
 	);
 }
 
