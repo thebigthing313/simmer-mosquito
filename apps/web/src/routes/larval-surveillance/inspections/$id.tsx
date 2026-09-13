@@ -58,7 +58,7 @@ import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { adhocLabel, coordinateLabel } from '../../../lib/coordinate-label';
+import { adhocLabel, coordinateLabel, habitatLabel } from '../../../lib/coordinate-label';
 import { formatAmount } from '../../../lib/format-count';
 import { sampleName } from '../../../lib/sample-name';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
@@ -266,7 +266,10 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 				params={{ id: inspection.habitatId }}
 				to="/larval-surveillance/habitats/$id"
 			>
-				{siteLabel(inspection)}
+				{habitatLabel(inspection, {
+					addressName: inspection.addressDisplayName,
+					fallback: 'Ad-hoc inspection',
+				})}
 			</Link>
 			<span aria-hidden="true">·</span>
 			<Suspense fallback={<span>Loading type…</span>}>
@@ -416,7 +419,10 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 								to="/larval-surveillance/habitats/$id"
 							>
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{siteLabel(inspection)}
+								{habitatLabel(inspection, {
+									addressName: inspection.addressDisplayName,
+									fallback: 'Ad-hoc inspection',
+								})}
 							</Link>
 						)}
 					</DetailRow>
@@ -806,16 +812,6 @@ function sampleResult(
 		return sampleResultTones.nonMosquito;
 	}
 	return sampleResultTones.larvae;
-}
-
-function siteLabel(inspection: InspectionDetailRow): string {
-	return (
-		inspection.habitatName?.trim() ||
-		inspection.addressDisplayName?.trim() ||
-		(inspection.habitatId === null
-			? adhocLabel(inspection.lat, inspection.lng)
-			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
-	);
 }
 
 function breadcrumbLabel(inspection: InspectionDetailRow): string {

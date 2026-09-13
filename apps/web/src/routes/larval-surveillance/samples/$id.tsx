@@ -56,7 +56,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
-import { adhocLabel, coordinateLabel } from '../../../lib/coordinate-label';
+import { coordinateLabel, habitatLabel } from '../../../lib/coordinate-label';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { sampleName } from '../../../lib/sample-name';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
@@ -77,6 +77,15 @@ const layout: RecordDetailLayout = {
 		aside: ['h-96'],
 	},
 };
+
+/**
+ * What this page calls the habitat a sample was taken at.
+ *
+ * The fallback is the sample's own category, not the inspection's: this page
+ * reached `adhocLabel` on its default and a sample carrying no centroid read
+ * `Ad-hoc inspection`.
+ */
+const SAMPLE_LABEL = { fallback: 'Ad-hoc sample' } as const;
 
 function RouteComponent() {
 	const { id } = Route.useParams();
@@ -288,7 +297,7 @@ function SampleHeader({
 					{geo.habitatId === null ? (
 						<>
 							<span aria-hidden="true">·</span>
-							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
+							<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
 						</>
 					) : (
 						<>
@@ -299,7 +308,7 @@ function SampleHeader({
 								params={{ id: geo.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
-								{habitatLabel(geo)}
+								{habitatLabel(geo, SAMPLE_LABEL)}
 							</Link>
 						</>
 					)}
@@ -1005,7 +1014,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					</DetailRow>
 					<DetailRow label="Habitat">
 						{geo.habitatId === null ? (
-							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
+							<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
 						) : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
@@ -1013,7 +1022,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 								to="/larval-surveillance/habitats/$id"
 							>
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{habitatLabel(geo)}
+								{habitatLabel(geo, SAMPLE_LABEL)}
 							</Link>
 						)}
 					</DetailRow>
@@ -1104,13 +1113,6 @@ function resolveStatus(input: {
 		return 'unidentifiable';
 	}
 	return 'awaiting';
-}
-
-function habitatLabel(geo: SampleGeoRow): string {
-	return (
-		geo.habitatName?.trim() ||
-		(geo.habitatId === null ? 'Ad-hoc' : `Habitat ${geo.habitatId.slice(0, 8)}`)
-	);
 }
 
 function breadcrumbLabel(geo: SampleGeoRow): string {
