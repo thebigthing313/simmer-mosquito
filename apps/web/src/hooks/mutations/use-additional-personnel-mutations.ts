@@ -26,7 +26,7 @@ import type {
 	AdditionalPersonnelTarget,
 } from '../queries/use-additional-personnel';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 export interface SetAdditionalPersonnelInput {
 	readonly target: AdditionalPersonnelTarget;
@@ -106,6 +106,6 @@ export function useAdditionalPersonnelMutations(): AdditionalPersonnelMutations 
 		attach,
 		detach,
 		setPersonnel,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

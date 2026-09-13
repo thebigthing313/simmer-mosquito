@@ -2,6 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
@@ -64,7 +65,7 @@ function EditBiocontrolActionRoute() {
 				<EditBiocontrolActionLoader
 					action={record}
 					biocontrolMethods={methods}
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					organizationId={organization?.id ?? ''}
 					profiles={profiles}
 					units={units}

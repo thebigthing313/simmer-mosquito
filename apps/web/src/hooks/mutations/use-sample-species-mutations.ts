@@ -26,7 +26,7 @@ import { type SampleSpecies, settleWrite } from '@simmer-mosquito/sync';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { sample_species } from '../../lib/collections/sample_species';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** One identification, as a key-entry grid or a detail page holds it. */
 export interface SampleSpeciesFields {
@@ -156,6 +156,6 @@ export function useSampleSpeciesMutations(): SampleSpeciesMutations {
 		add,
 		save,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

@@ -25,7 +25,7 @@ import { type AssignmentItem as AssignmentItemRow, settleWrite } from '@simmer-m
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { lifecycleStamp, newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, newRecordId, optimisticStamp } from './shared';
 
 /**
  * What a stop sends a crew to.
@@ -213,6 +213,6 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 		reopen,
 		skip,
 		unskip,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

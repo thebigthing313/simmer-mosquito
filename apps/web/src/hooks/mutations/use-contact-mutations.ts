@@ -26,7 +26,7 @@ import { type Contact, settleWrite } from '@simmer-mosquito/sync';
 import { contacts } from '../../lib/collections/contacts';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** A Contact as its forms hold one: every field the two update commands take. */
 export interface ContactFields {
@@ -193,6 +193,6 @@ export function useContactMutations(): ContactMutations {
 		create,
 		save,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

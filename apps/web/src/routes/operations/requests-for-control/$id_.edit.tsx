@@ -5,7 +5,6 @@ import {
 	type RequestRecord,
 	useRequestedControlAction,
 } from '../../../hooks/queries/use-requested-control-action';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
@@ -60,8 +59,6 @@ function EditRequestRoute() {
  */
 function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 	const navigate = useNavigate();
-	const auth = useAuthSnapshot();
-	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const requestWrites = useRequestedControlActionMutations();
 
 	const geometryQuery = useOwnedGeometry(
@@ -113,7 +110,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 
 	return (
 		<RequestFormPage
-			canSubmit={actorProfileId !== null}
+			canSubmit={requestWrites.canWrite}
 			defaultValues={defaultsFromRequest(request)}
 			errorTitle="Unable to Save Request"
 			header={{

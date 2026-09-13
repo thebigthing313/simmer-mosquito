@@ -34,7 +34,7 @@ import { settleWrite, type WeatherSource } from '@simmer-mosquito/sync';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { weather_sources } from '../../lib/collections/weather_sources';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** A weather station as its form holds one, before the point. */
 export interface WeatherStationFields {
@@ -262,6 +262,6 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 		save,
 		setActive,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

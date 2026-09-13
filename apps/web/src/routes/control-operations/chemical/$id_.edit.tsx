@@ -3,6 +3,7 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
@@ -81,7 +82,7 @@ function EditApplicationRoute() {
 				<EditApplicationLoader
 					application={record}
 					applicationMethods={methods}
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					equipment={equipment}
 					insecticides={insecticides}
 					organizationId={organization?.id ?? ''}

@@ -32,7 +32,7 @@ import { formulation_insecticides } from '../../lib/collections/formulation_inse
 import { formulations } from '../../lib/collections/formulations';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** A recipe as its drawer holds one. */
 export interface FormulationFields {
@@ -243,6 +243,6 @@ export function useFormulationMutations(): FormulationMutations {
 		addComponent,
 		saveComponent,
 		removeComponent,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

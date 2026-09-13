@@ -23,7 +23,7 @@ import {
 	contextFor,
 	metadataChanged,
 } from './performed-action-writes';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** What a biocontrol form collects, in the vocabulary the page speaks. */
 export interface BiocontrolActionValues {
@@ -215,5 +215,10 @@ export function useBiocontrolActionMutations(): BiocontrolActionMutations {
 		);
 	};
 
-	return { record, update, remove, canWrite: organizationId !== null && actorProfileId !== null };
+	return {
+		record,
+		update,
+		remove,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
+	};
 }

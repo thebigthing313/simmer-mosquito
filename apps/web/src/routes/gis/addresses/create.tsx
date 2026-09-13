@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -29,7 +30,7 @@ function CreateAddressRoute() {
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 	const mutations = useAddressMutations();
 
 	const onSave = async ({ values, geometry, geocoderResponse }: AddressFormSave) => {
