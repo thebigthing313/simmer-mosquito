@@ -33,7 +33,7 @@ import {
 	type MapLegendEntry,
 	type MapTileLayer,
 } from '../../../components/map';
-import { adhocLabel } from '../../../lib/coordinate-label';
+import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
@@ -449,7 +449,10 @@ function InspectionListItem({
 }) {
 	const isSelected = inspection.id === selectedId;
 	const typeName = resolveTypeName(inspection, typeNameById);
-	const label = siteLabel(inspection);
+	const label = habitatLabel(inspection, {
+		addressName: inspection.addressDisplayName,
+		fallback: 'Ad-hoc inspection',
+	});
 	const when = formatListDate(inspection.inspectionDate);
 	return (
 		<ExplorerRow
@@ -515,14 +518,4 @@ function resolveTypeName(
 		return 'Unassigned type';
 	}
 	return typeNameById.get(inspection.habitatTypeId) ?? 'Unknown type';
-}
-
-function siteLabel(inspection: InspectionSite): string {
-	return (
-		inspection.habitatName?.trim() ||
-		inspection.addressDisplayName?.trim() ||
-		(inspection.habitatId === null
-			? adhocLabel(inspection.lat, inspection.lng)
-			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
-	);
 }
