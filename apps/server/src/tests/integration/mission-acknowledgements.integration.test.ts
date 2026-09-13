@@ -1,10 +1,10 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
 import {
+	createActingOrganization,
 	createAddress,
 	createContact,
 	createNotificationRegistration,
 	createNotificationType,
-	createOrganization,
 	createProfile,
 	createSourceReductionMethod,
 	createUnit,
@@ -39,8 +39,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses adding a stop to a mission in progress, and adds none', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 
 			const response = await commandApp(db, org, actor).request(
@@ -60,8 +59,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('adds the stop when the mission has not been started', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 
 			const response = await commandApp(db, org, actor).request(
@@ -81,8 +79,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses reassigning a mission in progress, and leaves the assignee', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const crew = await createProfile(db, org);
 			const missionId = await createMission(db, org, {
 				startedAt: '2026-08-10 08:00:00+00',
@@ -109,8 +106,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the schedule of a mission that has been worked, and moves nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
@@ -131,8 +127,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('moves the schedule of a mission nobody has recorded work against', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
@@ -152,8 +147,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses changing the plan of a mission that has been worked', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
@@ -179,8 +173,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses cancelling a mission whose stops have been handled', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			await createStop(db, org, missionId, 0, { completedAt: '2026-08-10 09:00:00+00' });
 
@@ -207,8 +200,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses cancelling a mission that has work recorded on it', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
@@ -231,8 +223,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('cancels a mission nobody has started work on, both flags withheld', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
@@ -259,8 +250,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses deleting a completed mission, and deletes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {
 				startedAt: '2026-08-10 08:00:00+00',
 				completedAt: '2026-08-10 17:00:00+00',
@@ -286,8 +276,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('deletes a mission that never ran', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 
 			const response = await commandApp(db, org, actor).request(
@@ -309,8 +298,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the link under a stop that was already handled', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0, {
 				completedAt: '2026-08-10 09:00:00+00',
@@ -333,8 +321,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses reordering stops a crew has already got through', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const first = await createStop(db, org, missionId, 1);
 			const second = await createStop(db, org, missionId, 2, {
@@ -362,8 +349,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses removing a stop that carries progress, and removes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0, {
 				skippedAt: '2026-08-10 09:00:00+00',
@@ -388,8 +374,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses removing a stop that records already cite', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
@@ -409,8 +394,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the address of a stop that records already cite', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
@@ -432,8 +416,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('removes a stop nobody has reached', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
 
@@ -456,8 +439,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses a stop whose request recommends a method the mission is not planned for', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const planned = await createSourceReductionMethod(db, org, { name: 'Ditch clearing' });
 			const recommended = await createSourceReductionMethod(db, org, { name: 'Culvert clearing' });
 			const missionId = await createMission(db, org, { plannedMethodId: planned });
@@ -480,8 +462,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('says nothing about a method the mission and the request agree on', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const methodId = await createSourceReductionMethod(db, org, { name: 'Ditch clearing' });
 			const missionId = await createMission(db, org, { plannedMethodId: methodId });
 			const requestId = await createRequestedControlAction(db, org, methodId);
@@ -504,8 +485,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses scheduling a request that is already a stop somewhere', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const firstMission = await createMission(db, org, {});
 			const secondMission = await createMission(db, org, {});
 			const requestId = await createRequestedControlAction(db, org, null);
@@ -536,8 +516,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses starting a mission more than twelve hours early, and starts nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
@@ -558,8 +537,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('starts a mission inside the twelve-hour window', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
@@ -579,8 +557,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses completing a stop more than twelve hours before the mission was due', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-08 19:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
 
@@ -607,8 +584,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the schedule of a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createNotifiedMission(db, org);
 
 			const response = await commandApp(db, org, actor).request(
@@ -627,8 +603,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses changing the plan of a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createNotifiedMission(db, org);
 			const methodId = await createSourceReductionMethod(db, org, { name: 'Culvert clearing' });
 
@@ -648,8 +623,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses clearing the notification type of a mission that has notifications', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createNotifiedMission(db, org);
 
 			const response = await commandApp(db, org, actor).request(
@@ -668,8 +642,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses adding a stop to a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createNotifiedMission(db, org);
 
 			const response = await commandApp(db, org, actor).request(
@@ -689,8 +662,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses removing a stop from a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createNotifiedMission(db, org);
 			const stopId = await onlyStop(db, missionId);
 
@@ -709,8 +681,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('says nothing about geometry on a mission nobody has been told about', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
 

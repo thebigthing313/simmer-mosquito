@@ -1,8 +1,7 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
 import {
+	createActingOrganization,
 	createInspection,
-	createOrganization,
-	createProfile,
 	describeDbIntegration,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
@@ -29,8 +28,7 @@ import { habitatTableCommands } from '../../table-commands/habitats.js';
 describeDbIntegration('a geometry that covers no ground', () => {
 	it('refuses a drawn polygon with no area, and writes no habitat', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 
 			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
 				method: 'POST',
@@ -64,8 +62,7 @@ describeDbIntegration('a geometry that covers no ground', () => {
 	 */
 	it('refuses an inherited geometry with no area, and names the row it came from', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const inspectionId = await createDegenerateInspection(db, org);
 
 			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
@@ -90,8 +87,7 @@ describeDbIntegration('a geometry that covers no ground', () => {
 
 	it('takes the same shape once it has area', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 
 			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
 				method: 'POST',

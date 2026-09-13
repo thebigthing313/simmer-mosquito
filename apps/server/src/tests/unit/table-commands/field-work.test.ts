@@ -17,18 +17,15 @@
 
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthContext } from '../../../auth-context.js';
-import type { CommandTable } from '../../../command-payload.js';
-import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import { assignmentItemTableCommands } from '../../../table-commands/assignment-items.js';
 import { assignmentTableCommands } from '../../../table-commands/assignments.js';
-import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { routeItemTableCommands } from '../../../table-commands/route-items.js';
 import { routeTableCommands } from '../../../table-commands/routes.js';
+import { ACTOR, ORGANIZATION, organizationHarness } from './command-harness.js';
 
-const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
-const ACTOR = '22222222-2222-4222-8222-222222222222';
+const { buildFor } = organizationHarness({ role: 'manager' });
+
 const ROUTE = '33333333-3333-4333-8333-333333333333';
 const ROUTE_ITEM = '44444444-4444-4444-8444-444444444444';
 const OTHER_ROUTE_ITEM = '55555555-5555-4555-8555-555555555555';
@@ -45,42 +42,13 @@ const routeItems = routeItemTableCommands(undefined as never);
 const assignments = assignmentTableCommands(undefined as never);
 const assignmentItems = assignmentItemTableCommands(undefined as never);
 
-function request(
-	id: string,
-	payload: Record<string, unknown>,
-): IntentRequest<CommandTable, string> {
-	return {
-		payload,
-		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
-		authContext: {
-			organization: { id: ORGANIZATION, settings: null },
-			profile: { id: ACTOR },
-			role: 'manager',
-		} as unknown as AuthContext,
-		id,
-	};
-}
-
-function build<TCommand extends WritableCommand>(
-	spec: TableCommands<CommandTable, TCommand, unknown, string>,
-	intent: OrganizationCommandType,
-	id: string,
-	payload: Record<string, unknown>,
-): TCommand {
-	const builder = spec.intents[intent];
-	if (builder === undefined) {
-		throw new Error(`${spec.table} does not accept ${intent}.`);
-	}
-	return builder(request(id, payload));
-}
-
 function changesOf(command: WritableCommand): Record<string, unknown> {
 	return (command.payload as { readonly changes: Record<string, unknown> }).changes;
 }
 
 describe('routes intent map', () => {
 	it('reads a new route off column names', () => {
-		const command = build(routes, 'fieldWork.createRoute', ROUTE, {
+		const command = buildFor(routes, 'fieldWork.createRoute', ROUTE, {
 			route_name: 'Tuesday north',
 			route_type: 'habitat',
 		});
@@ -99,7 +67,7 @@ describe('routes intent map', () => {
 		// Both fields would read as absent, and the refusal would name a missing
 		// name on a request that carried one.
 		expect(() =>
-			build(routes, 'fieldWork.createRoute', ROUTE, {
+			buildFor(routes, 'fieldWork.createRoute', ROUTE, {
 				routeName: 'Tuesday north',
 				routeType: 'habitat',
 			}),
@@ -110,7 +78,7 @@ describe('routes intent map', () => {
 		// The kind of stop a route takes is fixed at creation. A body restating it,
 		// which is what a full-row PATCH from a sync collection sends, must not
 		// reach the command.
-		const command = build(routes, 'fieldWork.updateRouteDetails', ROUTE, {
+		const command = buildFor(routes, 'fieldWork.updateRouteDetails', ROUTE, {
 			route_name: 'Tuesday north, revised',
 			route_type: 'trap',
 		});
@@ -122,17 +90,17 @@ describe('routes intent map', () => {
 		// Deleting a route deletes its stops. `false` is the client saying it has
 		// not told the user yet; absent is the reading the existing endpoints
 		// already use, which is that it has.
-		const withheld = build(routes, 'fieldWork.deleteRoute', ROUTE, {
+		const withheld = buildFor(routes, 'fieldWork.deleteRoute', ROUTE, {
 			acknowledgedRouteItemDeletion: false,
 		});
-		const given = build(routes, 'fieldWork.deleteRoute', ROUTE, {});
+		const given = buildFor(routes, 'fieldWork.deleteRoute', ROUTE, {});
 
 		expect(withheld.payload).toMatchObject({ acknowledgedRouteItemDeletion: false });
 		expect(given.payload).toMatchObject({ acknowledgedRouteItemDeletion: true });
 	});
 
 	it('carries a move as a sequence stated on the route', () => {
-		const command = build(routes, 'fieldWork.moveRouteItems', ROUTE, {
+		const command = buildFor(routes, 'fieldWork.moveRouteItems', ROUTE, {
 			route_item_ids: [ROUTE_ITEM, OTHER_ROUTE_ITEM],
 			placement: { kind: 'start' },
 		});
@@ -148,7 +116,7 @@ describe('routes intent map', () => {
 		// The silent version of this failure is a move of nothing that answers with
 		// the route as though it had reordered it.
 		expect(() =>
-			build(routes, 'fieldWork.moveRouteItems', ROUTE, {
+			buildFor(routes, 'fieldWork.moveRouteItems', ROUTE, {
 				routeItemIds: [ROUTE_ITEM],
 				placement: { kind: 'end' },
 			}),
@@ -157,7 +125,7 @@ describe('routes intent map', () => {
 
 	it('leaves which placements are legal to the domain', () => {
 		expect(() =>
-			build(routes, 'fieldWork.moveRouteItems', ROUTE, {
+			buildFor(routes, 'fieldWork.moveRouteItems', ROUTE, {
 				route_item_ids: [ROUTE_ITEM],
 				placement: { kind: 'somewhere' },
 			}),
@@ -176,7 +144,7 @@ describe('routes intent map', () => {
 
 describe('route items intent map', () => {
 	it('reads the stop out of the polymorphic pair', () => {
-		const command = build(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
+		const command = buildFor(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
 			route_id: ROUTE,
 			entity_type: 'habitat',
 			entity_id: HABITAT,
@@ -196,7 +164,7 @@ describe('route items intent map', () => {
 		// leaves the key out rather than sending it as undefined, and the two are the
 		// same to `input.placement ?? { kind: 'end' }`, so what this pins is the
 		// answer and not which of the two the reader sent.
-		const command = build(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
+		const command = buildFor(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
 			route_id: ROUTE,
 			entity_type: 'trap',
 			entity_id: HABITAT,
@@ -208,7 +176,7 @@ describe('route items intent map', () => {
 	it('ignores the position a client drew', () => {
 		// A client holds a `position` for the row it drew optimistically. The server
 		// derives the stored one from `placement`, so the column is not read.
-		const command = build(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
+		const command = buildFor(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
 			route_id: ROUTE,
 			entity_type: 'trap',
 			entity_id: HABITAT,
@@ -223,7 +191,7 @@ describe('route items intent map', () => {
 		// A Service Request is a stop an Assignment takes and a Route does not. The
 		// list is the domain's, which is why the reader casts rather than narrows.
 		expect(() =>
-			build(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
+			buildFor(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
 				route_id: ROUTE,
 				entity_type: 'service_request',
 				entity_id: SERVICE_REQUEST,
@@ -234,13 +202,13 @@ describe('route items intent map', () => {
 	it('clears directions when an update sends none', () => {
 		// Directions are the only column an update touches, so a save that omits
 		// them is a save that cleared them.
-		const cleared = build(routeItems, 'fieldWork.updateRouteItem', ROUTE_ITEM, {});
+		const cleared = buildFor(routeItems, 'fieldWork.updateRouteItem', ROUTE_ITEM, {});
 
 		expect(changesOf(cleared)).toEqual({ directionsToNextItem: null });
 	});
 
 	it('removes a stop by id alone', () => {
-		const command = build(routeItems, 'fieldWork.removeRouteItem', ROUTE_ITEM, {
+		const command = buildFor(routeItems, 'fieldWork.removeRouteItem', ROUTE_ITEM, {
 			route_id: ROUTE,
 		});
 
@@ -259,7 +227,7 @@ describe('route items intent map', () => {
 
 describe('assignments intent map', () => {
 	it('reads a new assignment off column names', () => {
-		const command = build(assignments, 'fieldWork.createAssignment', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.createAssignment', ASSIGNMENT, {
 			assignment_date: '2026-08-10',
 			assignment_name: 'North loop',
 			assigned_to_profile_id: PROFILE,
@@ -277,7 +245,7 @@ describe('assignments intent map', () => {
 
 	it('refuses the same body keyed camelCase', () => {
 		expect(() =>
-			build(assignments, 'fieldWork.createAssignment', ASSIGNMENT, {
+			buildFor(assignments, 'fieldWork.createAssignment', ASSIGNMENT, {
 				assignmentDate: '2026-08-10',
 				assignedToProfileId: PROFILE,
 			}),
@@ -285,7 +253,7 @@ describe('assignments intent map', () => {
 	});
 
 	it('pairs each new stop with the route stop it copies', () => {
-		const command = build(assignments, 'fieldWork.createAssignmentFromRoute', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.createAssignmentFromRoute', ASSIGNMENT, {
 			route_id: ROUTE,
 			assignment_date: '2026-08-10',
 			assignment_items: [
@@ -308,7 +276,7 @@ describe('assignments intent map', () => {
 		// Read wrong, every entry is a pair of empty strings, and the domain refuses
 		// them rather than the server copying a route as an empty worklist.
 		expect(() =>
-			build(assignments, 'fieldWork.createAssignmentFromRoute', ASSIGNMENT, {
+			buildFor(assignments, 'fieldWork.createAssignmentFromRoute', ASSIGNMENT, {
 				route_id: ROUTE,
 				assignment_date: '2026-08-10',
 				assignment_items: [{ assignmentItemId: ASSIGNMENT_ITEM, routeItemId: ROUTE_ITEM }],
@@ -317,7 +285,7 @@ describe('assignments intent map', () => {
 	});
 
 	it('takes no date, name or assignee when a technician picks a route up', () => {
-		const command = build(assignments, 'fieldWork.selfAssignRoute', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.selfAssignRoute', ASSIGNMENT, {
 			route_id: ROUTE,
 			assignment_date: '2026-08-10',
 			assigned_to_profile_id: PROFILE,
@@ -333,7 +301,7 @@ describe('assignments intent map', () => {
 		// A rename must not unassign the crew or clear the due time. The domain
 		// reads `changes` by key, so absent and present-and-undefined are the same
 		// to it, which is why this asserts on the key set.
-		const command = build(assignments, 'fieldWork.updateAssignmentDetails', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.updateAssignmentDetails', ASSIGNMENT, {
 			assignment_name: 'North loop, revised',
 		});
 
@@ -341,7 +309,7 @@ describe('assignments intent map', () => {
 	});
 
 	it('unassigns only when the body sent the column as null', () => {
-		const command = build(assignments, 'fieldWork.updateAssignmentDetails', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.updateAssignmentDetails', ASSIGNMENT, {
 			assigned_to_profile_id: null,
 		});
 
@@ -351,7 +319,7 @@ describe('assignments intent map', () => {
 	it('dates a lifecycle move from its own column and nothing else', () => {
 		// Each of the four reads one column, and only for when the work happened,
 		// which is what a device that was offline has to be able to state.
-		const started = build(assignments, 'fieldWork.startAssignment', ASSIGNMENT, {
+		const started = buildFor(assignments, 'fieldWork.startAssignment', ASSIGNMENT, {
 			started_at: '2026-08-10T13:00:00.000Z',
 			completed_at: '2026-08-10T18:00:00.000Z',
 		});
@@ -365,13 +333,13 @@ describe('assignments intent map', () => {
 		// Null rather than a timestamp: an online client sends nothing and the
 		// writer stamps the row. Only a device that recorded the work offline states
 		// the moment itself.
-		const completed = build(assignments, 'fieldWork.completeAssignment', ASSIGNMENT, {});
+		const completed = buildFor(assignments, 'fieldWork.completeAssignment', ASSIGNMENT, {});
 
 		expect(completed.payload).toMatchObject({ completedAt: null });
 	});
 
 	it('cancels with the reason the body carried', () => {
-		const command = build(assignments, 'fieldWork.cancelAssignment', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.cancelAssignment', ASSIGNMENT, {
 			cancelled_at: '2026-08-10T13:00:00.000Z',
 			cancellation_reason: 'Truck down',
 		});
@@ -387,7 +355,7 @@ describe('assignments intent map', () => {
 		// carries the row as it stands, including a `started_at` the crew set this
 		// morning, and reading either closing column here is how a reopen becomes a
 		// day that never started.
-		const command = build(assignments, 'fieldWork.reopenAssignment', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.reopenAssignment', ASSIGNMENT, {
 			started_at: null,
 			completed_at: null,
 			cancelled_at: null,
@@ -405,17 +373,17 @@ describe('assignments intent map', () => {
 		// Deleting an assignment deletes its stops. `false` is the client saying it
 		// has not told the user yet, and anything else is consent, so a wrong key
 		// here reads as consent nobody gave and the day's stops go with the row.
-		const withheld = build(assignments, 'fieldWork.deleteAssignment', ASSIGNMENT, {
+		const withheld = buildFor(assignments, 'fieldWork.deleteAssignment', ASSIGNMENT, {
 			acknowledgedAssignmentItemDeletion: false,
 		});
-		const given = build(assignments, 'fieldWork.deleteAssignment', ASSIGNMENT, {});
+		const given = buildFor(assignments, 'fieldWork.deleteAssignment', ASSIGNMENT, {});
 
 		expect(withheld.payload).toMatchObject({ acknowledgedAssignmentItemDeletion: false });
 		expect(given.payload).toMatchObject({ acknowledgedAssignmentItemDeletion: true });
 	});
 
 	it('carries a move as a sequence stated on the assignment', () => {
-		const command = build(assignments, 'fieldWork.moveAssignmentItems', ASSIGNMENT, {
+		const command = buildFor(assignments, 'fieldWork.moveAssignmentItems', ASSIGNMENT, {
 			assignment_item_ids: [ASSIGNMENT_ITEM, OTHER_ASSIGNMENT_ITEM],
 			placement: { kind: 'after', assignmentItemId: ASSIGNMENT_ITEM },
 		});
@@ -448,7 +416,7 @@ describe('assignment items intent map', () => {
 		// `serviceRequest`. A client writing through a sync collection sends the
 		// column, so the bridge is what stands between a stop on a Service Request
 		// and a refusal naming a type nobody typed.
-		const command = build(assignmentItems, 'fieldWork.addAssignmentItem', ASSIGNMENT_ITEM, {
+		const command = buildFor(assignmentItems, 'fieldWork.addAssignmentItem', ASSIGNMENT_ITEM, {
 			assignment_id: ASSIGNMENT,
 			entity_type: 'service_request',
 			entity_id: SERVICE_REQUEST,
@@ -464,7 +432,7 @@ describe('assignment items intent map', () => {
 	it('honours a caller that already speaks the domain', () => {
 		// Converting a value with no underscores changes nothing, so a caller
 		// sending the camelCase form is read the same way.
-		const command = build(assignmentItems, 'fieldWork.addAssignmentItem', ASSIGNMENT_ITEM, {
+		const command = buildFor(assignmentItems, 'fieldWork.addAssignmentItem', ASSIGNMENT_ITEM, {
 			assignment_id: ASSIGNMENT,
 			entity_type: 'serviceRequest',
 			entity_id: SERVICE_REQUEST,
@@ -476,7 +444,7 @@ describe('assignment items intent map', () => {
 	it('never stamps the crew from the body', () => {
 		// The `*_by_profile_id` columns are the server's, off the authenticated
 		// actor. A body naming someone else is not read.
-		const command = build(assignmentItems, 'fieldWork.completeAssignmentItem', ASSIGNMENT_ITEM, {
+		const command = buildFor(assignmentItems, 'fieldWork.completeAssignmentItem', ASSIGNMENT_ITEM, {
 			completed_at: '2026-08-10T14:00:00.000Z',
 			completed_by_profile_id: PROFILE,
 		});
@@ -493,19 +461,19 @@ describe('assignment items intent map', () => {
 		// completed was read as skip-then-complete and stayed skipped. All three
 		// bodies here carry both columns, and only the name decides.
 		const body = { completed_at: '2026-08-10T14:00:00.000Z', skipped_at: null };
-		const completed = build(
+		const completed = buildFor(
 			assignmentItems,
 			'fieldWork.completeAssignmentItem',
 			ASSIGNMENT_ITEM,
 			body,
 		);
-		const reopened = build(
+		const reopened = buildFor(
 			assignmentItems,
 			'fieldWork.reopenAssignmentItem',
 			ASSIGNMENT_ITEM,
 			body,
 		);
-		const unskipped = build(
+		const unskipped = buildFor(
 			assignmentItems,
 			'fieldWork.unskipAssignmentItem',
 			ASSIGNMENT_ITEM,
@@ -523,7 +491,7 @@ describe('assignment items intent map', () => {
 		// A stop passed over without a reason is a hole in the day nobody can
 		// account for later, and a wrong key here is exactly that hole.
 		expect(() =>
-			build(assignmentItems, 'fieldWork.skipAssignmentItem', ASSIGNMENT_ITEM, {
+			buildFor(assignmentItems, 'fieldWork.skipAssignmentItem', ASSIGNMENT_ITEM, {
 				skipped_at: '2026-08-10T14:00:00.000Z',
 				skipReason: 'Gate locked',
 			}),
@@ -531,7 +499,7 @@ describe('assignment items intent map', () => {
 	});
 
 	it('skips with the reason the body carried', () => {
-		const command = build(assignmentItems, 'fieldWork.skipAssignmentItem', ASSIGNMENT_ITEM, {
+		const command = buildFor(assignmentItems, 'fieldWork.skipAssignmentItem', ASSIGNMENT_ITEM, {
 			skipped_at: '2026-08-10T14:00:00.000Z',
 			skip_reason: 'Gate locked',
 		});
@@ -545,13 +513,18 @@ describe('assignment items intent map', () => {
 	it('clears directions when an update sends none', () => {
 		// Directions are the only column an update touches, the same as on a route
 		// stop, so a save that omits them is a save that cleared them.
-		const cleared = build(assignmentItems, 'fieldWork.updateAssignmentItem', ASSIGNMENT_ITEM, {});
+		const cleared = buildFor(
+			assignmentItems,
+			'fieldWork.updateAssignmentItem',
+			ASSIGNMENT_ITEM,
+			{},
+		);
 
 		expect(changesOf(cleared)).toEqual({ directionsToNextItem: null });
 	});
 
 	it('keeps the directions the body carried', () => {
-		const command = build(assignmentItems, 'fieldWork.updateAssignmentItem', ASSIGNMENT_ITEM, {
+		const command = buildFor(assignmentItems, 'fieldWork.updateAssignmentItem', ASSIGNMENT_ITEM, {
 			directions_to_next_item: 'Park on the gravel apron',
 		});
 
@@ -559,7 +532,7 @@ describe('assignment items intent map', () => {
 	});
 
 	it('removes a stop by id alone', () => {
-		const command = build(assignmentItems, 'fieldWork.removeAssignmentItem', ASSIGNMENT_ITEM, {
+		const command = buildFor(assignmentItems, 'fieldWork.removeAssignmentItem', ASSIGNMENT_ITEM, {
 			assignment_id: ASSIGNMENT,
 		});
 
