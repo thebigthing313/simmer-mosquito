@@ -92,9 +92,8 @@ import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
 import { coordinateLabel } from '../lib/coordinate-label';
 import { type CountNoun, formatAmount } from '../lib/format-count';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
-import { calendarDateParts, utcCalendarDay } from '../lib/local-date';
+import { formatListDate } from '../lib/local-date';
 import { sampleName } from '../lib/sample-name';
-import { unreadable } from '../lib/unreadable-input';
 import { WRITE_SURFACE_FLOORS } from '../lib/write-surfaces';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
@@ -763,7 +762,7 @@ function InspectionHistory({
 							params={{ id: inspection.id }}
 							to="/larval-surveillance/inspections/$id"
 						>
-							{formatDate(inspection.inspectionDate)}
+							{formatListDate(inspection.inspectionDate)}
 						</Link>
 					</TableCell>
 					<TableCell className="whitespace-nowrap">
@@ -842,7 +841,9 @@ function SampleHistory({
 							{sampleName(sample)}
 						</Link>
 					</TableCell>
-					<TableCell className="whitespace-nowrap">{formatDate(sample.inspectionDate)}</TableCell>
+					<TableCell className="whitespace-nowrap">
+						{formatListDate(sample.inspectionDate)}
+					</TableCell>
 					<TableCell>{formatSampleResult(sample)}</TableCell>
 					<TableCell>
 						<SampleSpeciesSummary species={sample.species} />
@@ -895,7 +896,7 @@ function ApplicationHistory({
 							params={{ id: application.id }}
 							to="/control-operations/chemical/$id"
 						>
-							{formatDate(application.applicationDate)}
+							{formatListDate(application.applicationDate)}
 						</Link>
 					</TableCell>
 					<TableCell className="whitespace-nowrap">
@@ -979,7 +980,7 @@ function SourceReductionHistory({
 							params={{ id: reduction.id }}
 							to="/control-operations/source-reduction/$id"
 						>
-							{formatDate(reduction.sourceReductionDate)}
+							{formatListDate(reduction.sourceReductionDate)}
 						</Link>
 					</TableCell>
 					<TableCell className="whitespace-nowrap">
@@ -1273,32 +1274,6 @@ function formatSampleResult(sample: HabitatHistorySample): string {
 		return 'Non-mosquito present';
 	}
 	return 'Larvae present';
-}
-
-/**
- * A calendar-date column — an inspection date, an application date — as itself.
- *
- * These are days, not instants, and reading one with `new Date` made it one: a
- * bare `YYYY-MM-DD` parses as UTC midnight, which renders as the *previous* day
- * everywhere west of Greenwich. So the parts are read out and put back together
- * in UTC, where the day cannot move.
- *
- * It answered `Unknown` for a date it could not read, which named the reader's
- * problem and not the record's. The value goes back on screen instead, and the
- * warning is what a developer reads.
- */
-export function formatDate(value: string): string {
-	const parts = calendarDateParts(value);
-	if (parts === undefined) {
-		return unreadable('formatDate (habitat detail)', value);
-	}
-
-	return new Intl.DateTimeFormat('en-US', {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		timeZone: 'UTC',
-	}).format(utcCalendarDay(parts));
 }
 
 /**

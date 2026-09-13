@@ -326,6 +326,21 @@ describe('the five date formatters', () => {
 		expect(formatNumericDate(WEDNESDAY)).toBe('8/12/2026');
 	});
 
+	/**
+	 * The Habitat detail page's four date columns read `formatListDate` since
+	 * #916, where they read a copy of it that lived in the route module. These
+	 * are the days the two had to agree on before that copy could go: either end
+	 * of a month, the turn of a year, and a leap day, none of which the one value
+	 * above covers.
+	 */
+	it('render either end of a month, the turn of a year, and a leap day', () => {
+		expect(formatListDate('2026-08-01')).toBe('Aug 1, 2026');
+		expect(formatListDate('2026-08-31')).toBe('Aug 31, 2026');
+		expect(formatListDate('2026-12-31')).toBe('Dec 31, 2026');
+		expect(formatListDate('2027-01-01')).toBe('Jan 1, 2027');
+		expect(formatListDate('2024-02-29')).toBe('Feb 29, 2024');
+	});
+
 	it('read the day a timestamp begins on, not the day its zone lands in', () => {
 		expect(formatMonthDay('2026-08-12T23:30:00Z')).toBe('Aug 12');
 	});
