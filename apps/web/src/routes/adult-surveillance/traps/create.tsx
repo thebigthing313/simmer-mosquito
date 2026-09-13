@@ -69,6 +69,11 @@ function CreateTrapRoute() {
 		// refusal as well as on a success, because a refusal is a question rather
 		// than a failure. Leaving here on the way past would abandon the page
 		// before the question could be asked, and read as a save that worked.
+		//
+		// The id comes back from the write rather than being minted here, and
+		// neither reason `newRecordId` gives for minting up front applies. Nothing
+		// on this page writes a child row against the new trap, and `traps` is
+		// eager, so there is no on-demand subset to warm.
 		await run(async (acknowledgements) => {
 			const trapId = await mutations.create(
 				trapFieldsFrom(values),
