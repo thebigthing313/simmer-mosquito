@@ -111,7 +111,7 @@ function CreateServiceRequestRoute() {
 			onSave={onSave}
 			organizationId={organization.id}
 			profiles={profiles}
-			submitLabel="Create Request"
+			submitLabel="Create Service Request"
 		/>
 	);
 }
