@@ -246,11 +246,11 @@ function EditApplicationLoader({
 				defaultValues={defaultsFromApplication(application, personnel, batches)}
 				equipment={equipment}
 				header={{
-					title: 'Edit Application',
+					title: 'Edit Chemical Application',
 					description: 'Update this application’s product, amount, work details, or location.',
 					backTo: '/control-operations/chemical/$id',
 					backParams: { id: application.id },
-					backLabel: 'Back to application',
+					backLabel: 'Back to chemical application',
 				}}
 				initialGeometry={geometryQuery.geometry}
 				insecticides={insecticides}

@@ -423,7 +423,7 @@ export function ApplicationFormPage({
 					void form.handleSubmit();
 				}}
 			>
-				<form.FormErrorAlert title="Unable to Save Application" />
+				<form.FormErrorAlert title="Unable to Save Chemical Application" />
 
 				<form.AppField name="applicationDate">
 					{(field) => (
@@ -723,7 +723,7 @@ export function ApplicationFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<FormSection title="Application">
+				<FormSection title="Work Performed">
 					<div className="grid gap-5 sm:grid-cols-2">
 						<form.AppField name="applicationMethodId">
 							{(field) => (

@@ -37,7 +37,7 @@ export function ApplicationMapCard({
 
 	if (application === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Application">
+			<MapCard inset={inset} onClose={onClose} title="Chemical Application">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -51,7 +51,7 @@ export function ApplicationMapCard({
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={application.actionDate} type="Application" />}
+			eyebrow={<MapCardEyebrow date={application.actionDate} type="Chemical application" />}
 			inset={inset}
 			onClose={onClose}
 			title={application.productName}
