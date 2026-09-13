@@ -608,9 +608,10 @@ export function formatListDate(date: string): string {
  *
  * It was `formatDate` under `routes/larval-surveillance`, and the name came with
  * it as far as `fallow dead-code`, which refused it: a habitat detail page and a
- * weather summary each export one too, and the name is generic enough that a
+ * weather summary each exported one too, and the name is generic enough that a
  * shared module claiming it is what `lib/unreadable-input` already warns about
- * from the other side. So the shape is in the name here, which is also what
+ * from the other side. The habitat one has since folded into
+ * {@link formatListDate} (#916), which leaves the weather summary's. So the shape is in the name here, which is also what
  * tells it apart from {@link formatListDate} and {@link formatMonthDay} beside
  * it, and the warning needs no parenthesis saying which screen it belongs to.
  */
