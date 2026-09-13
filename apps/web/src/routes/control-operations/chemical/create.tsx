@@ -217,11 +217,11 @@ function CreateApplicationRoute() {
 				formulationComponents={formulationComponents}
 				formulations={formulations}
 				header={{
-					title: 'Record Application',
+					title: 'Record Chemical Application',
 					description:
 						'Place the treated point, pick the product and amount, and note who applied it.',
 					backTo: '/control-operations/chemical',
-					backLabel: 'Applications',
+					backLabel: 'Chemical Applications',
 				}}
 				insecticides={insecticides}
 				initialGeometry={initialGeometry}
@@ -229,7 +229,7 @@ function CreateApplicationRoute() {
 				onSave={onSave}
 				organizationId={organization?.id ?? ''}
 				profiles={profiles}
-				submitLabel="Record Application"
+				submitLabel="Record Chemical Application"
 				units={units}
 				vehicles={vehicles}
 			/>

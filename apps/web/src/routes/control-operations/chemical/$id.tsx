@@ -99,7 +99,7 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to applications', to: '/control-operations/chemical' }}
+			back={{ label: 'Back to chemical applications', to: '/control-operations/chemical' }}
 			deleteRefusals={APPLICATION_DELETE_REFUSALS}
 			layout={layout}
 			noun="chemical application"
@@ -184,7 +184,7 @@ function ApplicationDetailContent({
 							) : null}
 						</>
 					}
-					eyebrow="Application"
+					eyebrow="Chemical application"
 					icon={ApplicationIcon}
 					description={`${amount} · ${formatActionDate(application.actionDate)}`}
 					title={productName}

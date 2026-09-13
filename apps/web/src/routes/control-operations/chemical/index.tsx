@@ -262,12 +262,12 @@ function ApplicationsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Applications',
+				title: 'Chemical Applications',
 				icon: ApplicationEntityIcon,
 				total,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/control-operations/chemical/create', label: 'Record Application' },
+				create: { to: '/control-operations/chemical/create', label: 'Record Chemical Application' },
 			}}
 			onResetFilters={clearAll}
 			map={
@@ -295,7 +295,7 @@ function ApplicationsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No applications in range',
+				emptyTitle: 'No chemical applications in range',
 				emptyDescription:
 					'Widen the time window or loosen the filters to bring treatments into range.',
 				renderRow: (row) => (
