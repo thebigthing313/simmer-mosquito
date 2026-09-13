@@ -752,9 +752,6 @@ export function collectionSurface(
 		async getExtent(db, input) {
 			return forZone(input.timeZone).getExtent(db, input);
 		},
-		async listPage(db, input) {
-			return forZone(input.timeZone).listPage(db, input);
-		},
 		async listByBounds(db, input) {
 			return forZone(input.timeZone).listByBounds(db, input);
 		},

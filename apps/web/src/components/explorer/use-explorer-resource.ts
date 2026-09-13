@@ -31,8 +31,13 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
  *
  * Nine explorer routes each ran the same four hooks in the same order and spent
  * eighty lines doing it. What actually varies between them is the endpoint, the
- * two keys its body answers under, the noun a failure reads by, the filters, and
- * whether the list follows the viewport.
+ * two keys its body answers under, the noun a failure reads by, and the filters.
+ *
+ * Every one of them lists what the map is looking at. The rail is the map's
+ * list, so the box goes on the wire ahead of the surface's own filters and
+ * nothing is asked for until the camera has said where it is; six surfaces used
+ * to page the whole Organization behind a map drawing one viewport, and the
+ * `viewport` flag that told them apart went with the last of the six (#920).
  */
 export function useExplorerResource<TRow extends ExplorerRowShape>({
 	path,
@@ -40,7 +45,6 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	rowKey,
 	label,
 	params,
-	viewport,
 	map,
 	selectedId,
 	normalizeRow,
@@ -55,37 +59,27 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	readonly label: string;
 	/** The surface's own filters, before the empties are dropped. */
 	readonly params: Readonly<Record<string, MapQueryValue>>;
-	/**
-	 * Bind the list to what the map is looking at.
-	 *
-	 * Temporary, and a parameter rather than a constant because the flip is one
-	 * surface at a time: only `listByBounds` reads `bbox`, so a surface joins when
-	 * its server reader does (#920). The flag goes with the last one.
-	 */
-	readonly viewport: boolean;
 	readonly map: MapboxMap | null;
 	readonly selectedId: string | null;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
 	readonly normalizeRow?: (row: TRow) => TRow;
 }): ExplorerResource<TRow> {
-	// Handing the bounds hook a null map on a surface that does not follow the
-	// viewport leaves no camera listener on it at all, so panning re-renders
-	// nothing there.
-	const bbox = useMapBoundsParam(viewport ? map : null);
+	const bbox = useMapBoundsParam(map);
 	// Spread rather than passed, because the workspace is on
 	// `exactOptionalPropertyTypes` and an explicit `undefined` is not an absent key.
 	const shaping = normalizeRow === undefined ? {} : { normalizeRow };
-	// `bbox` first, so a viewport-bound surface puts it on the query string ahead
-	// of its own filters, which is where the three larval routes have always had it.
-	const query = mapQueryParams(viewport ? { bbox, ...params } : params);
+	// `bbox` first, so it sits on the query string ahead of the surface's own
+	// filters, which is where the three larval routes have always had it.
+	const query = mapQueryParams({ bbox, ...params });
 
 	const paged = usePagedMapResource<TRow>({
 		path,
 		rowsKey,
 		label,
 		params: query,
-		// Nothing to ask for until the map has said what is in view.
-		enabled: !viewport || bbox !== null,
+		// Nothing to ask for until the map has said what is in view. A first page
+		// against the whole Organization is the answer no explorer may give.
+		enabled: bbox !== null,
 		...shaping,
 	});
 	const selected = useSelectedMapRecord<TRow>({

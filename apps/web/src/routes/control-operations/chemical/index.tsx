@@ -153,7 +153,6 @@ function ApplicationsExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
-			viewport: false,
 			map,
 			selectedId,
 			normalizeRow: normalizeApplication,
@@ -258,7 +257,6 @@ function ApplicationsExplorerRoute() {
 				icon: ApplicationEntityIcon,
 				total,
 				isLoading,
-				counts: RECORD_TYPE,
 				create: { to: '/control-operations/chemical/create', label: 'Record Chemical Application' },
 			}}
 			onResetFilters={clearAll}
@@ -287,9 +285,9 @@ function ApplicationsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No chemical applications in range',
+				emptyTitle: 'No chemical applications in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring treatments into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring treatments into range.',
 				renderRow: (row) => (
 					<ApplicationListItem
 						amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}

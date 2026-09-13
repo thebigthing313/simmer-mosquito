@@ -65,12 +65,7 @@ interface SurfaceUnderTest {
 		db: Kysely<SimmerDatabase>,
 		input: { organizationId: string; timeZone: string },
 	) => Promise<MapExtent | null>;
-	/** The unbounded paged list, however the surface spells it. */
-	readonly page?: (
-		db: Kysely<SimmerDatabase>,
-		input: { organizationId: string; timeZone: string; limit: number; offset: number },
-	) => Promise<{ total: number; rows: ReadonlyArray<{ id: string }> }>;
-	/** The paged list inside an explicit bounding box. */
+	/** The paged list, which every surface with a result rail reads by box. */
 	readonly boundsPage?: (
 		db: Kysely<SimmerDatabase>,
 		input: {
@@ -129,7 +124,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'traps',
 		tile: MAP_SURFACES.traps.getTile,
 		extent: MAP_SURFACES.traps.getExtent,
-		page: MAP_SURFACES.traps.listPage,
+		boundsPage: MAP_SURFACES.traps.listByBounds,
 		byId: MAP_SURFACES.traps.getById,
 	},
 	{
@@ -137,7 +132,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'collections',
 		tile: MAP_SURFACES.collections.getTile,
 		extent: MAP_SURFACES.collections.getExtent,
-		page: MAP_SURFACES.collections.listPage,
+		boundsPage: MAP_SURFACES.collections.listByBounds,
 		byId: MAP_SURFACES.collections.getById,
 	},
 	{
@@ -145,7 +140,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'chemical',
 		tile: MAP_SURFACES.chemical.getTile,
 		extent: MAP_SURFACES.chemical.getExtent,
-		page: MAP_SURFACES.chemical.listPage,
+		boundsPage: MAP_SURFACES.chemical.listByBounds,
 		byId: MAP_SURFACES.chemical.getById,
 	},
 	{
@@ -153,7 +148,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'source-reduction',
 		tile: MAP_SURFACES['source-reduction'].getTile,
 		extent: MAP_SURFACES['source-reduction'].getExtent,
-		page: MAP_SURFACES['source-reduction'].listPage,
+		boundsPage: MAP_SURFACES['source-reduction'].listByBounds,
 		byId: MAP_SURFACES['source-reduction'].getById,
 	},
 	{
@@ -161,7 +156,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'biocontrol',
 		tile: MAP_SURFACES.biocontrol.getTile,
 		extent: MAP_SURFACES.biocontrol.getExtent,
-		page: MAP_SURFACES.biocontrol.listPage,
+		boundsPage: MAP_SURFACES.biocontrol.listByBounds,
 		byId: MAP_SURFACES.biocontrol.getById,
 	},
 	{
@@ -169,7 +164,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'outreach',
 		tile: MAP_SURFACES.outreach.getTile,
 		extent: MAP_SURFACES.outreach.getExtent,
-		page: MAP_SURFACES.outreach.listPage,
+		boundsPage: MAP_SURFACES.outreach.listByBounds,
 		byId: MAP_SURFACES.outreach.getById,
 	},
 	// No explorer, no tile, no list — the queue is read from the Electric shape
@@ -360,30 +355,9 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
-	it('lists this organization’s live records, viewport-bounded or not', async () => {
+	it('lists this organization’s live records inside the box, and no others', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
-
-			const paged = await mapSurfaces(
-				(surface) => surface.page !== undefined,
-				async (surface) => {
-					const result = await surface.page?.(db, {
-						organizationId: mapSurfaceOrganizationIds.own,
-						timeZone: mapSurfaceTimeZone,
-						...page,
-					});
-					return { ids: sortedIds(result?.rows), total: result?.total };
-				},
-			);
-
-			// Unbounded: `outside` belongs in the result rail even though it is off
-			// screen. Deleted and the other organization's never do.
-			expect(paged).toEqual(
-				expectedPerSurface(
-					(ids) => ({ ids: [ids.inside, ids.outside].sort(), total: 2 }),
-					(surface) => surface.page !== undefined,
-				),
-			);
 
 			const bounded = await mapSurfaces(
 				(surface) => surface.boundsPage !== undefined,
@@ -398,6 +372,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				},
 			);
 
+			// `inside` and nothing else: `outside` is this organization's live record
+			// off screen, which is the half the six control and adult surfaces used
+			// to list behind a map that could not draw it (#920). Deleted and the
+			// other organization's sit on top of `inside` and never come back.
 			expect(bounded).toEqual(
 				expectedPerSurface(
 					(ids) => ({ ids: [ids.inside], total: 1 }),
@@ -460,9 +438,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// A one-day window on the day New York says the collection happened.
 			const onTheOrganizationsDay = async (timeZone: string): Promise<readonly string[]> => {
 				const day = mapSurfaceLateCollectionDates['America/New_York'];
-				const result = await MAP_SURFACES.collections.listPage(db, {
+				const result = await MAP_SURFACES.collections.listByBounds(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
 					timeZone,
+					bounds: mapSurfacePlace.bounds,
 					limit: 50,
 					offset: 0,
 					filters: { dateFrom: day, dateTo: day },
@@ -486,9 +465,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			await seedMapSurfaces(db);
 			await seedStampedCollections(db);
 
-			const onTheTypedDay = await MAP_SURFACES.collections.listPage(db, {
+			const onTheTypedDay = await MAP_SURFACES.collections.listByBounds(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceStampedTimeZone,
+				bounds: mapSurfacePlace.bounds,
 				limit: 50,
 				offset: 0,
 				filters: { dateFrom: mapSurfaceStampedTypedDay, dateTo: mapSurfaceStampedTypedDay },
@@ -508,9 +488,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// The zone is spliced into the SQL rather than bound, so the only thing
 			// standing between a bad value and the query is this check.
 			await expect(
-				MAP_SURFACES.collections.listPage(db, {
+				MAP_SURFACES.collections.listByBounds(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
 					timeZone: "UTC'; drop table collections --",
+					bounds: mapSurfacePlace.bounds,
 					limit: 1,
 					offset: 0,
 					filters: {},
@@ -534,9 +515,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceTimeZone,
 			});
-			const listed = await MAP_SURFACES.collections.listPage(db, {
+			const listed = await MAP_SURFACES.collections.listByBounds(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceTimeZone,
+				bounds: mapSurfacePlace.bounds,
 				...page,
 				filters: {},
 			});

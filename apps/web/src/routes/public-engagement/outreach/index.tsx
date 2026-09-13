@@ -139,7 +139,6 @@ function OutreachExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
-			viewport: false,
 			map,
 			selectedId,
 		});
@@ -227,7 +226,6 @@ function OutreachExplorerRoute() {
 				icon: OutreachEntityIcon,
 				total,
 				isLoading,
-				counts: RECORD_TYPE,
 				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach Action' },
 			}}
 			onResetFilters={reset}
@@ -258,9 +256,9 @@ function OutreachExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No outreach in range',
+				emptyTitle: 'No outreach in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring outreach actions into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring outreach actions into range.',
 				renderRow: (row) => (
 					<OutreachListItem
 						isSelected={row.id === selectedId}

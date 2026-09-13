@@ -91,32 +91,32 @@ const defaultMapReaders = {
 
 	getTrapTile: MAP_SURFACES.traps.getTile,
 	getTrapExtent: MAP_SURFACES.traps.getExtent,
-	listTrapDisplayRows: MAP_SURFACES.traps.listPage,
+	listTrapDisplayRows: MAP_SURFACES.traps.listByBounds,
 	getTrapDisplayRow: MAP_SURFACES.traps.getById,
 
 	getCollectionTile: MAP_SURFACES.collections.getTile,
 	getCollectionExtent: MAP_SURFACES.collections.getExtent,
-	listCollectionDisplayRows: MAP_SURFACES.collections.listPage,
+	listCollectionDisplayRows: MAP_SURFACES.collections.listByBounds,
 	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
 
 	getApplicationTile: MAP_SURFACES.chemical.getTile,
 	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
-	listApplicationDisplayRows: MAP_SURFACES.chemical.listPage,
+	listApplicationDisplayRows: MAP_SURFACES.chemical.listByBounds,
 	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
 
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
 	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
-	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listPage,
+	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listByBounds,
 	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
 
 	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
 	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
-	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listPage,
+	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listByBounds,
 	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
 
 	getOutreachTile: MAP_SURFACES.outreach.getTile,
 	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
-	listOutreachDisplayRows: MAP_SURFACES.outreach.listPage,
+	listOutreachDisplayRows: MAP_SURFACES.outreach.listByBounds,
 	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
 
 	// Addresses and regions are drawn from their surface and read as rows through
@@ -321,7 +321,7 @@ export function registerMapTileRoutes(
 		path: '/map/chemical',
 		key: 'applications',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseApplicationMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseApplicationMapFilters),
 		list: readers.listApplicationDisplayRows,
 	});
 
@@ -336,7 +336,7 @@ export function registerMapTileRoutes(
 		path: '/map/source-reduction',
 		key: 'sourceReductions',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseSourceReductionMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseSourceReductionMapFilters),
 		list: readers.listSourceReductionDisplayRows,
 	});
 
@@ -351,7 +351,7 @@ export function registerMapTileRoutes(
 		path: '/map/biocontrol',
 		key: 'biocontrolActions',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseBiocontrolMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseBiocontrolMapFilters),
 		list: readers.listBiocontrolDisplayRows,
 	});
 
@@ -367,7 +367,7 @@ export function registerMapTileRoutes(
 		path: '/map/outreach',
 		key: 'outreachActions',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseOutreachMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseOutreachMapFilters),
 		list: readers.listOutreachDisplayRows,
 	});
 
@@ -469,7 +469,7 @@ export function registerMapTileRoutes(
 		path: '/map/traps',
 		key: 'traps',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseTrapMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseTrapMapFilters),
 		list: readers.listTrapDisplayRows,
 	});
 
@@ -484,7 +484,7 @@ export function registerMapTileRoutes(
 		path: '/map/collections',
 		key: 'collections',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseCollectionMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseCollectionMapFilters),
 		list: readers.listCollectionDisplayRows,
 	});
 
@@ -772,6 +772,11 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
  * convention: every filter parser refuses a param it does not recognise, so
  * forgetting to strip `limit` from what it is handed turns a paging request
  * into a 400.
+ *
+ * Reached only through {@link parseBboxPageQuery} now that all nine paged
+ * surfaces page inside the viewport (#920). It stays a function of its own
+ * because the paging half and the box half refuse different things, and a
+ * caller reading a 400 wants to know which.
  */
 function parsePageQuery<TFilters>(
 	searchParams: URLSearchParams,
@@ -806,7 +811,14 @@ function parsePageQuery<TFilters>(
 	};
 }
 
-/** The same, for the surfaces that page within a viewport. */
+/**
+ * The same, plus the box.
+ *
+ * Every paged map surface reads one: the explorer rail is the map's list, so a
+ * request with no viewport is one the client cannot mean (#920). `bbox` is
+ * refused rather than defaulted, because a missing box would otherwise page the
+ * whole Organization behind a map showing a street corner.
+ */
 function parseBboxPageQuery<TFilters>(
 	searchParams: URLSearchParams,
 	organizationId: string,
@@ -1115,9 +1127,10 @@ function parseSampleDisplayQuery(
 
 // --- control-operations map queries -----------------------------------------
 //
-// These domains render their maps from unbounded MVT tiles, and their list from
-// a filtered, offset-paged window (no bbox). Filters fold identically into the
-// tile URL and the list query so the map and the paged rail stay in lockstep.
+// These domains render their maps from MVT tiles and their rail from a paged
+// window inside the same viewport. Filters fold identically into the tile URL
+// and the list query, so the map and the paged rail stay in lockstep on both
+// counts: the same filters, and the same box.
 
 function parseOptionalTrapStatusFilter(
 	searchParams: URLSearchParams,

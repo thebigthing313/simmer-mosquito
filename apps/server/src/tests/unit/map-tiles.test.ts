@@ -1272,17 +1272,18 @@ describe('map read route registration', () => {
  * decides what comes back.
  */
 describe('paged map surfaces', () => {
-	// Samples page *within a viewport*, so a bbox is required there and refused
-	// as an unknown filter everywhere else — the control-operations surfaces draw
-	// unbounded tiles and page the rail separately.
+	// Every paged surface pages *within a viewport*, so a bbox is required on all
+	// of them: the rail is the map's list, and a request with no box is one the
+	// client cannot mean (#920).
+	const bbox = 'bbox=-91,35,-90,36&';
 	const pagedSurfaces = [
-		['/map/samples', 'listSampleDisplayRows', 'bbox=-91,35,-90,36&'],
-		['/map/chemical', 'listApplicationDisplayRows', ''],
-		['/map/source-reduction', 'listSourceReductionDisplayRows', ''],
-		['/map/biocontrol', 'listBiocontrolDisplayRows', ''],
-		['/map/outreach', 'listOutreachDisplayRows', ''],
-		['/map/traps', 'listTrapDisplayRows', ''],
-		['/map/collections', 'listCollectionDisplayRows', ''],
+		['/map/samples', 'listSampleDisplayRows', bbox],
+		['/map/chemical', 'listApplicationDisplayRows', bbox],
+		['/map/source-reduction', 'listSourceReductionDisplayRows', bbox],
+		['/map/biocontrol', 'listBiocontrolDisplayRows', bbox],
+		['/map/outreach', 'listOutreachDisplayRows', bbox],
+		['/map/traps', 'listTrapDisplayRows', bbox],
+		['/map/collections', 'listCollectionDisplayRows', bbox],
 	] as const;
 
 	function pagedApp(reader: (typeof pagedSurfaces)[number][1]) {
@@ -1290,7 +1291,9 @@ describe('paged map surfaces', () => {
 		return { app: createApp({ [reader]: list } as never), list };
 	}
 
-	it.each(pagedSurfaces)('carries limit and offset through %s', async (path, reader, prefix) => {
+	it.each(
+		pagedSurfaces,
+	)('carries limit, offset and the box through %s', async (path, reader, prefix) => {
 		const { app, list } = pagedApp(reader);
 
 		const response = await app.request(`${path}?${prefix}limit=5&offset=10`);
@@ -1298,8 +1301,25 @@ describe('paged map surfaces', () => {
 		expect(response.status).toBe(200);
 		expect(list).toHaveBeenCalledWith(
 			expect.anything(),
-			expect.objectContaining({ organizationId, limit: 5, offset: 10 }),
+			expect.objectContaining({
+				organizationId,
+				limit: 5,
+				offset: 10,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+			}),
 		);
+	});
+
+	// The other direction, and the one that decides what a rail lists: a request
+	// with no box is refused rather than answered with the whole Organization.
+	it.each(pagedSurfaces)('refuses %s with no bbox', async (path, reader) => {
+		const { app, list } = pagedApp(reader);
+
+		const response = await app.request(`${path}?limit=5`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ reason: 'bbox is required.' });
+		expect(list).not.toHaveBeenCalled();
 	});
 
 	it.each(pagedSurfaces)('refuses an oversized limit on %s', async (path, reader, prefix) => {
@@ -1346,7 +1366,7 @@ describe('enum map filters', () => {
 	it('refuses a trap status that is not active or retired', async () => {
 		const app = createApp({ listTrapDisplayRows: async () => ({ rows: [], total: 0 }) });
 
-		const response = await app.request('/map/traps?status=broken');
+		const response = await app.request('/map/traps?bbox=-91,35,-90,36&status=broken');
 
 		expect(response.status).toBe(400);
 		const body = (await response.json()) as { readonly reason: string };
@@ -1356,7 +1376,7 @@ describe('enum map filters', () => {
 	it('refuses an id that is not a UUID inside a list filter', async () => {
 		const app = createApp({ listApplicationDisplayRows: async () => ({ rows: [], total: 0 }) });
 
-		const response = await app.request('/map/chemical?insecticideId=not-a-uuid');
+		const response = await app.request('/map/chemical?bbox=-91,35,-90,36&insecticideId=not-a-uuid');
 
 		expect(response.status).toBe(400);
 		const body = (await response.json()) as { readonly reason: string };
