@@ -25,11 +25,9 @@ import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { noTechnicianValue } from '../../../lib/no-technician';
 import { unitOptions } from '../../../lib/unit-options';
 import { HabitatPicker } from '../-control-pickers';
-
-/** Non-empty sentinel: Radix Select forbids empty-string item values. */
-export const noTechnicianValue = 'none';
 
 /** Domain issue path → the form field holding it. */
 const SOURCE_REDUCTION_FIELD_PATHS: Readonly<Record<string, string>> = {

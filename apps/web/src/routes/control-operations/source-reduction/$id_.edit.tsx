@@ -23,9 +23,9 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { noTechnicianValue } from '../../../lib/no-technician';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
-	noTechnicianValue,
 	SourceReductionFormPage,
 	type SourceReductionFormValues,
 	type SourceReductionSaveInput,
