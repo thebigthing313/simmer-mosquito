@@ -30,6 +30,7 @@ import {
 } from '../../../components/map';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -77,7 +78,7 @@ export const Route = createFileRoute('/public-engagement/outreach/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'action', many: 'actions' };
+const RECORD_TYPE: RecordType = 'outreachAction';
 const PATH = '/map/outreach';
 
 function OutreachExplorerRoute() {
@@ -214,7 +215,7 @@ function OutreachExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'action', many: 'actions' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -226,7 +227,7 @@ function OutreachExplorerRoute() {
 				icon: OutreachEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach' },
 			}}
 			onResetFilters={reset}

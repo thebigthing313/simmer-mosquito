@@ -60,6 +60,7 @@ import {
 } from '../../../hooks/queries/use-organization-service-requests';
 import { useRequestParties } from '../../../hooks/queries/use-request-parties';
 import { tag_items } from '../../../lib/collections/tag_items';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -80,7 +81,7 @@ import type { StatusFilter } from './-legend';
 import { serviceRequestLegend } from './-legend';
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
-const RESULT_NOUN = { one: 'request', many: 'requests' };
+const RECORD_TYPE: RecordType = 'serviceRequest';
 const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
 	{ value: 'open', label: 'Open' },
 	{ value: 'closed', label: 'Closed' },
@@ -252,7 +253,7 @@ function ServiceRequestsExplorerRoute() {
 			footer={
 				pageCount > 1 ? (
 					<ExplorerPagination
-						noun={{ one: 'request', many: 'requests' }}
+						noun={recordNoun(RECORD_TYPE)}
 						onPageChange={setPage}
 						page={page}
 						pageCount={pageCount}
@@ -265,7 +266,7 @@ function ServiceRequestsExplorerRoute() {
 				icon: RequestIcon,
 				total: filtered.length,
 				isLoading: !isReady || !regionMembership.isReady,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: {
 					to: '/public-engagement/service-requests/create',
 					label: 'New Request',

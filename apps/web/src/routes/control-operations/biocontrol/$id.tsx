@@ -62,7 +62,7 @@ function RouteComponent() {
 			back={{ label: 'Back to biocontrol', to: '/control-operations/biocontrol' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="biocontrol action"
+			recordType="biocontrolAction"
 			reading={{ isError, isReady, record: action }}
 		>
 			{(record, askDelete) => <BiocontrolDetailContent action={record} askDelete={askDelete} />}
@@ -139,16 +139,11 @@ function BiocontrolDetailContent({
 		>
 			<div className="grid content-start gap-3">
 				<ReleaseLocationCard action={action} habitatName={habitatName} />
-				<RecordRegionsBand
-					noun="biocontrol action"
-					recordId={action.id}
-					recordType="biocontrol_actions"
-				/>
+				<RecordRegionsBand recordId={action.id} recordType="biocontrol_actions" />
 			</div>
 			<DangerZoneCard
 				ask={askDelete}
 				name={methodName}
-				noun="biocontrol action"
 				onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
 				recordId={action.id}
 				recordType="biocontrolAction"

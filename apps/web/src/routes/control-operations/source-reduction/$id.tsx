@@ -69,7 +69,7 @@ function RouteComponent() {
 			back={{ label: 'Back to source reduction', to: '/control-operations/source-reduction' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="source reduction"
+			recordType="sourceReduction"
 			reading={{ isError, isReady, record: sourceReduction }}
 		>
 			{(record, askDelete) => (
@@ -152,16 +152,11 @@ function SourceReductionDetailContent({
 		>
 			<div className="grid content-start gap-3">
 				<SourceReductionLocationCard habitatName={habitatName} sourceReduction={sourceReduction} />
-				<RecordRegionsBand
-					noun="source reduction"
-					recordId={sourceReduction.id}
-					recordType="source_reductions"
-				/>
+				<RecordRegionsBand recordId={sourceReduction.id} recordType="source_reductions" />
 			</div>
 			<DangerZoneCard
 				ask={askDelete}
 				name={methodName}
-				noun="source reduction"
 				onDelete={(acknowledgements) => remove(sourceReduction.id, acknowledgements)}
 				recordId={sourceReduction.id}
 				recordType="sourceReduction"

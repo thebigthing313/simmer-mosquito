@@ -175,7 +175,7 @@ function Page({
 				title: 'Habitats',
 				total: rows.length,
 				isLoading,
-				noun: { one: 'habitat', many: 'habitats' },
+				counts: 'habitat',
 				create: (hasCreate ? create : undefined) as never,
 			}}
 			map={<p>map surface</p>}

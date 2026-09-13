@@ -64,7 +64,7 @@ function ImportWeatherRoute() {
 		return null;
 	}
 	if (station === undefined) {
-		return <RecordUnavailable layout="centered" noun="weather station" reason="not-found" />;
+		return <RecordUnavailable layout="centered" recordType="weatherStation" reason="not-found" />;
 	}
 	return <ImportWeatherPage station={station} />;
 }

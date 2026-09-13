@@ -19,6 +19,7 @@ import {
 	type ContactListing,
 	useContactDirectory,
 } from '../../../hooks/queries/use-contact-directory';
+import { recordNoun } from '../../../lib/record-nouns';
 import { contactDisplayName, contactSecondaryLine } from '../-public-engagement-display';
 
 export const Route = createFileRoute('/public-engagement/contacts/')({
@@ -117,7 +118,7 @@ function ContactsExplorerRoute() {
 						</ul>
 						{pageCount > 1 ? (
 							<ExplorerPagination
-								noun={{ one: 'contact', many: 'contacts' }}
+								noun={recordNoun('contact')}
 								onPageChange={setPage}
 								page={page}
 								pageCount={pageCount}

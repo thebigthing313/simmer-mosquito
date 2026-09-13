@@ -48,7 +48,7 @@ function RouteComponent() {
 		<RecordDetailPage
 			back={{ label: 'Back to Regions', to: '/gis/regions' }}
 			layout={layout}
-			noun="region"
+			recordType="region"
 			reading={{ isError, isReady, record: region }}
 		>
 			{(record) => <RegionDetailContent region={record} />}
@@ -70,7 +70,6 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 					<RegionDetailsCard description={region.description} folderName={folderName} />
 					<DangerZoneCard
 						name={region.name}
-						noun="region"
 						onDelete={() => mutations.remove(region.id)}
 						recordId={region.id}
 						recordType="region"
@@ -103,7 +102,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 				isLoading={geometryQuery.isLoading}
 				unsupportedShape={geometryQuery.data?.unsupportedShape ?? null}
 			/>
-			<RecordRegionsBand noun="region" recordId={region.id} recordType="regions" />
+			<RecordRegionsBand recordId={region.id} recordType="regions" />
 		</RecordDetailColumns>
 	);
 }

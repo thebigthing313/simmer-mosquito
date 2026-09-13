@@ -113,7 +113,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 				icon: iconRegistry.simmer.fieldWork.icon,
 				total: view.items.length,
 				isLoading: activity.isLoading,
-				noun: { one: 'entry', many: 'entries' },
+				counts: { one: 'entry', many: 'entries' },
 			}}
 			map={
 				<>

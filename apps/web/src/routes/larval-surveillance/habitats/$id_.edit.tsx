@@ -47,7 +47,7 @@ function EditHabitatRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="habitat"
+			recordType="habitat"
 			reading={{ isError, isReady, record: habitat }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-32', 'h-24']} />}
 		>
@@ -150,7 +150,7 @@ function EditHabitatLoader({
 			<RecordUnavailable
 				description="This habitat's geometry could not be loaded."
 				layout="centered"
-				noun="habitat"
+				recordType="habitat"
 				reason="error"
 			/>
 		);

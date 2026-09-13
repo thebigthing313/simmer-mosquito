@@ -31,6 +31,7 @@ import {
 	type MapTileLayer,
 } from '../../../components/map';
 import type { Tag } from '../../../hooks/queries/tag-view';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -270,7 +271,7 @@ function HabitatsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'habitat', many: 'habitats' }}
+					noun={recordNoun('habitat')}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

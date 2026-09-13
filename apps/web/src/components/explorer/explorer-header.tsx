@@ -17,6 +17,8 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import type { CountNoun } from '../../lib/format-count';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import type { MinimumRole } from '../../lib/write-access';
 import { WriteOnly } from '../write-only';
 import { ResultMeta } from './result-meta';
@@ -68,7 +70,7 @@ export function ExplorerHeader({
 	icon: Icon,
 	total,
 	isLoading,
-	noun,
+	counts,
 	create,
 	collapse,
 	filterToggle,
@@ -88,7 +90,19 @@ export function ExplorerHeader({
 	readonly icon?: RegistryIcon | undefined;
 	readonly total: number;
 	readonly isLoading: boolean;
-	readonly noun?: { readonly one: string; readonly many: string } | undefined;
+	/**
+	 * What the count is counting.
+	 *
+	 * A record type reads its noun out of `lib/record-nouns.ts`, which is what
+	 * every explorer over a record passes and what keeps the count and the
+	 * record's own headings on one spelling. A pair is the escape for a surface
+	 * counting something that is not a record: the daily-work map counts
+	 * `entries`, which span four record types and are none of them.
+	 *
+	 * Omitted on the viewport-driven explorers, which count what the map is
+	 * showing rather than a set of records and read "n in view".
+	 */
+	readonly counts?: RecordType | CountNoun | undefined;
 	readonly create?: ExplorerCreateAction | undefined;
 	/** The control that shows and hides the filter card. Only the map frame has one. */
 	readonly filterToggle?: ExplorerFilterToggle | undefined;
@@ -151,7 +165,7 @@ export function ExplorerHeader({
 					<HeaderCount
 						isChrome={isChrome}
 						isLoading={isLoading}
-						noun={noun}
+						counts={counts}
 						showTotal={showTotal}
 						total={total}
 					/>
@@ -183,21 +197,29 @@ export function ExplorerHeader({
  */
 function HeaderCount({
 	isChrome,
+	counts,
 	isLoading,
-	noun,
 	showTotal,
 	total,
 }: {
+	readonly counts: RecordType | CountNoun | undefined;
 	readonly isChrome: boolean;
 	readonly isLoading: boolean;
-	readonly noun: { readonly one: string; readonly many: string } | undefined;
 	readonly showTotal: boolean;
 	readonly total: number;
 }) {
 	if (isChrome && !showTotal) {
 		return null;
 	}
-	return <ResultMeta isLoading={isLoading} noun={noun} total={total} />;
+	return <ResultMeta isLoading={isLoading} noun={countNoun(counts)} total={total} />;
+}
+
+/** A record type names its noun; a pair is already one; nothing counts in view. */
+export function countNoun(counts: RecordType | CountNoun | undefined): CountNoun | undefined {
+	if (counts === undefined) {
+		return undefined;
+	}
+	return typeof counts === 'string' ? recordNoun(counts) : counts;
 }
 
 /**

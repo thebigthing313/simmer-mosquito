@@ -93,6 +93,7 @@ import { coordinateLabel } from '../lib/coordinate-label';
 import { type CountNoun, formatAmount } from '../lib/format-count';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { formatListDate } from '../lib/local-date';
+import { recordNoun } from '../lib/record-nouns';
 import { sampleName } from '../lib/sample-name';
 import { WRITE_SURFACE_FLOORS } from '../lib/write-surfaces';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
@@ -207,7 +208,7 @@ export function HabitatDetail({
 			)}
 			deleteRefusals={HABITAT_DELETE_REFUSALS}
 			layout={layout}
-			noun="habitat"
+			recordType="habitat"
 		/>
 	);
 }
@@ -224,7 +225,7 @@ function HabitatDetailLoader({
 	const habitat = useHabitatSuspense(habitatId);
 
 	if (habitat === undefined) {
-		return <RecordUnavailable noun="habitat" reason="not-found" />;
+		return <RecordUnavailable recordType="habitat" reason="not-found" />;
 	}
 
 	return <HabitatDetailContent askDelete={askDelete} habitat={habitat} />;
@@ -273,14 +274,13 @@ function HabitatDetailContent({
 					isGeometryPending={isGeometryPending}
 				/>
 			</div>
-			<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
+			<RecordRegionsBand recordId={habitat.id} recordType="habitats" />
 			<Suspense fallback={<HistorySkeleton />}>
 				<HabitatHistoryCard habitatId={habitat.id} />
 			</Suspense>
 			<DangerZoneCard
 				ask={askDelete}
 				name={habitat.name}
-				noun="habitat"
 				onDelete={(acknowledgements) => mutations.remove(habitat.id, acknowledgements)}
 				recordId={habitat.id}
 				recordType="habitat"
@@ -750,7 +750,7 @@ function InspectionHistory({
 				</>
 			}
 			icon={<InspectionIcon aria-hidden="true" />}
-			noun={{ one: 'inspection', many: 'inspections' }}
+			noun={recordNoun('inspection')}
 			rows={inspections}
 			unavailable={HISTORY_UNAVAILABLE}
 		>
@@ -826,7 +826,7 @@ function SampleHistory({
 				</>
 			}
 			icon={<SampleIcon aria-hidden="true" />}
-			noun={{ one: 'sample', many: 'samples' }}
+			noun={recordNoun('sample')}
 			rows={sortedSamples}
 			unavailable={HISTORY_UNAVAILABLE}
 		>
@@ -881,7 +881,7 @@ function ApplicationHistory({
 			}
 			icon={<ApplicationIcon aria-hidden="true" />}
 			isError={isError}
-			noun={{ one: 'application', many: 'applications' }}
+			noun={recordNoun('application')}
 			rows={applications}
 			unavailable={{
 				description: 'Application history could not be loaded.',
@@ -965,7 +965,7 @@ function SourceReductionHistory({
 			}
 			icon={<SourceReductionIcon aria-hidden="true" />}
 			isError={isError}
-			noun={{ one: 'source reduction', many: 'source reductions' }}
+			noun={recordNoun('sourceReduction')}
 			rows={sourceReductions}
 			unavailable={{
 				description: 'Source reduction history could not be loaded.',
@@ -1049,7 +1049,7 @@ function RequestHistory({
 			}
 			icon={<RequestIcon aria-hidden="true" />}
 			isError={isError}
-			noun={{ one: 'request', many: 'requests' }}
+			noun={recordNoun('requestedControlAction')}
 			rows={requests}
 			unavailable={{
 				description: 'Request history could not be loaded.',

@@ -38,6 +38,7 @@ import {
 	type RegionFolderListing,
 	useRegionFolders,
 } from '../../../hooks/queries/use-region-folders';
+import type { RecordType } from '../../../lib/record-nouns';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -70,7 +71,7 @@ export const Route = createFileRoute('/gis/regions/')({
 });
 
 const RegionIcon = iconRegistry.entities.region.icon;
-const RESULT_NOUN = { one: 'region', many: 'regions' };
+const RECORD_TYPE: RecordType = 'region';
 const ImportIcon = iconRegistry.actions.upload.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
@@ -477,7 +478,7 @@ function RegionsExplorerRoute() {
 					icon: RegionIcon,
 					total: regions.length,
 					isLoading: !isReady,
-					noun: RESULT_NOUN,
+					counts: RECORD_TYPE,
 					create: { to: '/gis/regions/create', label: 'Create Region', minimum: 'manager' },
 				}}
 				onResetFilters={() => commitSearch('')}

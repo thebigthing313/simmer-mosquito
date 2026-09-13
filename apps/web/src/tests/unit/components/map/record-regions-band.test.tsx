@@ -3,7 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RecordRegions } from '../../../../hooks/use-record-regions';
+import type {
+	RecordRegions,
+	RegionMembershipRecordType,
+} from '../../../../hooks/use-record-regions';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -28,13 +31,15 @@ describe('RecordRegionsBand', () => {
 	});
 
 	it('names the record when it is inside no region', async () => {
-		const { findByText } = renderBand({ found: true, groups: [] }, 'habitat');
+		const { findByText } = renderBand({ found: true, groups: [] });
 
 		expect(await findByText('This habitat is inside none of your regions.')).toBeDefined();
 	});
 
-	it('takes the noun it was given', async () => {
-		const { findByText } = renderBand({ found: true, groups: [] }, 'weather station');
+	// The table name the endpoint speaks is the only thing a caller passes, and
+	// the band reads the noun for it out of the register.
+	it('names a record whose table and noun are spelled differently', async () => {
+		const { findByText } = renderBand({ found: true, groups: [] }, 'weather_sources');
 
 		expect(await findByText('This weather station is inside none of your regions.')).toBeDefined();
 	});
@@ -45,7 +50,7 @@ describe('RecordRegionsBand', () => {
 		// saying so underneath contradicts the page it sits in.
 		// The shell with its heading is on screen while the read is in flight, so
 		// this waits for the answer before asserting that nothing survived it.
-		const { container } = renderBand({ found: false, groups: [] }, 'habitat');
+		const { container } = renderBand({ found: false, groups: [] });
 
 		await waitFor(() => {
 			expect(container.textContent).toBe('');
@@ -53,16 +58,13 @@ describe('RecordRegionsBand', () => {
 	});
 
 	it('groups regions by folder and labels the unfiled group', async () => {
-		const { findByText } = renderBand(
-			{
-				found: true,
-				groups: [
-					{ folderId: 'f1', folderName: 'Districts', regions: [{ id: 'r1', name: 'North' }] },
-					{ folderId: null, folderName: null, regions: [{ id: 'r2', name: 'Pilot area' }] },
-				],
-			},
-			'habitat',
-		);
+		const { findByText } = renderBand({
+			found: true,
+			groups: [
+				{ folderId: 'f1', folderName: 'Districts', regions: [{ id: 'r1', name: 'North' }] },
+				{ folderId: null, folderName: null, regions: [{ id: 'r2', name: 'Pilot area' }] },
+			],
+		});
 
 		expect(await findByText('Districts')).toBeDefined();
 		expect(screen.getByText('No folder')).toBeDefined();
@@ -87,7 +89,7 @@ describe('RecordRegionsBand', () => {
 					},
 				],
 			},
-			'region',
+			'regions',
 		);
 
 		fireEvent.click(await findByText('and 3 more'));
@@ -102,7 +104,7 @@ describe('RecordRegionsBand', () => {
 			'fetch',
 			vi.fn(() => Promise.resolve(new Response('', { status: 500 }))),
 		);
-		const { findByText } = renderBand(null, 'habitat');
+		const { findByText } = renderBand(null);
 
 		expect(await findByText('Regions could not be read.')).toBeDefined();
 	});
@@ -111,7 +113,7 @@ describe('RecordRegionsBand', () => {
 /** Render the band over one canned answer. `null` leaves the stubbed fetch alone. */
 function renderBand(
 	answer: Pick<RecordRegions, 'found' | 'groups'> | null,
-	noun: string,
+	recordType: RegionMembershipRecordType = 'habitats',
 ): ReturnType<typeof render> {
 	if (answer !== null) {
 		vi.stubGlobal(
@@ -130,7 +132,7 @@ function renderBand(
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={queryClient}>
-			<RecordRegionsBand noun={noun} recordId="record-1" recordType="habitats" />
+			<RecordRegionsBand recordId="record-1" recordType={recordType} />
 		</QueryClientProvider>,
 	);
 }

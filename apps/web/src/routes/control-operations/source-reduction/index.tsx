@@ -32,6 +32,7 @@ import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -80,7 +81,7 @@ export const Route = createFileRoute('/control-operations/source-reduction/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'source reduction', many: 'source reductions' };
+const RECORD_TYPE: RecordType = 'sourceReduction';
 const PATH = '/map/source-reduction';
 
 function SourceReductionExplorerRoute() {
@@ -225,7 +226,7 @@ function SourceReductionExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'source reduction', many: 'source reductions' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -237,7 +238,7 @@ function SourceReductionExplorerRoute() {
 				icon: SourceReductionEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: {
 					to: '/control-operations/source-reduction/create',
 					label: 'Record Source Reduction',

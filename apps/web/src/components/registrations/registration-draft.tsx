@@ -252,7 +252,6 @@ function EditDraftLoader({
 			 */}
 			<DangerZoneCard
 				name="this registration"
-				noun="registration"
 				onDelete={() => mutations.remove(registration.id)}
 				onDeleted={() => onSaved('Registration removed.')}
 				recordId={registration.id}

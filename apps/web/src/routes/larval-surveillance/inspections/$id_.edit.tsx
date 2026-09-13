@@ -83,7 +83,7 @@ function EditInspectionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="inspection"
+			recordType="inspection"
 			reading={{ isError, isReady, record: inspection }}
 			skeleton={skeleton}
 		>
@@ -238,7 +238,7 @@ function EditInspectionLoader({
 			<RecordUnavailable
 				description="This inspection's location could not be loaded."
 				layout="centered"
-				noun="inspection"
+				recordType="inspection"
 				reason="error"
 			/>
 		);

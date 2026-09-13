@@ -240,7 +240,7 @@ function AssignmentPlanRoute() {
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
-						noun="assignment"
+						recordType="assignment"
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
 						selectedId={selectedStopId}
@@ -341,7 +341,6 @@ function AssignmentPlanRoute() {
 							<DangerZoneCard
 								ask={askDelete}
 								name={displayName ?? 'this assignment'}
-								noun="assignment"
 								onDelete={(acknowledgements) => removeAssignment(assignment.id, acknowledgements)}
 								recordId={assignment.id}
 								recordType="assignment"
@@ -381,7 +380,7 @@ function AssignmentPlanRoute() {
 	return (
 		<>
 			<RecordEditFrame
-				noun="assignment"
+				recordType="assignment"
 				reading={{ isError, isReady, record: assignment }}
 				skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
 			>

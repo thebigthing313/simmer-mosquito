@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { RecordType } from '../../lib/record-nouns';
 import type { RecordReading } from './record-detail-page';
 import { RecordUnavailable } from './record-unavailable';
 
@@ -18,15 +19,15 @@ import { RecordUnavailable } from './record-unavailable';
  */
 export function RecordEditFrame<TRecord>({
 	children,
-	noun,
 	reading,
+	recordType,
 	skeleton,
 }: {
 	/** Drawn once the record is in hand, and not before. */
 	readonly children: (record: TRecord) => ReactNode;
-	/** Lowercase, as it reads mid-sentence: `habitat`, `weather station`. */
-	readonly noun: string;
 	readonly reading: RecordReading<TRecord>;
+	/** Which record this route edits. Its noun comes from `lib/record-nouns.ts`. */
+	readonly recordType: RecordType;
 	/**
 	 * What stands in while the collection is still answering, usually an
 	 * `EditFormSkeleton`. The page owns its rows and its frame, because a
@@ -35,7 +36,7 @@ export function RecordEditFrame<TRecord>({
 	readonly skeleton: ReactNode;
 }): ReactNode {
 	if (reading.isError === true) {
-		return <RecordUnavailable layout="centered" noun={noun} reason="error" />;
+		return <RecordUnavailable layout="centered" reason="error" recordType={recordType} />;
 	}
 	if (reading.record !== null && reading.record !== undefined) {
 		return children(reading.record);
@@ -43,5 +44,5 @@ export function RecordEditFrame<TRecord>({
 	if (!reading.isReady) {
 		return skeleton;
 	}
-	return <RecordUnavailable layout="centered" noun={noun} reason="not-found" />;
+	return <RecordUnavailable layout="centered" reason="not-found" recordType={recordType} />;
 }

@@ -43,7 +43,7 @@ function EditRegionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="region"
+			recordType="region"
 			reading={{ isError, isReady, record: region }}
 			skeleton={skeleton}
 		>

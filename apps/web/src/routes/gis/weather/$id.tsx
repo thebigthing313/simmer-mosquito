@@ -61,7 +61,7 @@ function RouteComponent() {
 			back={{ label: 'Back to Weather Stations', to: '/gis/weather' }}
 			deleteRefusals={STATION_DELETE_REFUSALS}
 			layout={layout}
-			noun="weather station"
+			recordType="weatherStation"
 			reading={{ isReady, record: station }}
 		>
 			{(record, askDelete) => <WeatherStationContent askDelete={askDelete} station={record} />}
@@ -100,11 +100,7 @@ function WeatherStationContent({
 		>
 			<div className="grid content-start gap-3">
 				<StationLocationCard station={station} />
-				<RecordRegionsBand
-					noun="weather station"
-					recordId={station.id}
-					recordType="weather_sources"
-				/>
+				<RecordRegionsBand recordId={station.id} recordType="weather_sources" />
 			</div>
 			<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
 		</RecordDetailColumns>

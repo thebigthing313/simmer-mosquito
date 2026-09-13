@@ -34,6 +34,7 @@ import {
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -89,7 +90,7 @@ export const Route = createFileRoute('/adult-surveillance/collections/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'collection', many: 'collections' };
+const RECORD_TYPE: RecordType = 'collection';
 const PATH = '/map/collections';
 
 function CollectionsExplorerRoute() {
@@ -220,7 +221,7 @@ function CollectionsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'collection', many: 'collections' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -232,7 +233,7 @@ function CollectionsExplorerRoute() {
 				icon: CollectionEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: { to: '/adult-surveillance/collections/create', label: 'Record Collection' },
 			}}
 			onResetFilters={clearAll}

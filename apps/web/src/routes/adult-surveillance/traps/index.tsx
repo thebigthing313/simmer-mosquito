@@ -29,6 +29,7 @@ import {
 	type TrapTileFilters,
 } from '../../../components/map';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -83,7 +84,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 	validateSearch: searchValidator(TRAP_FILTER_CODECS),
 });
 
-const RESULT_NOUN = { one: 'trap', many: 'traps' };
+const RECORD_TYPE: RecordType = 'trap';
 const PATH = '/map/traps';
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
@@ -233,7 +234,7 @@ function TrapsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'trap', many: 'traps' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -245,7 +246,7 @@ function TrapsExplorerRoute() {
 				icon: TrapEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: {
 					to: '/adult-surveillance/traps/create',
 					label: 'Add Trap',

@@ -57,7 +57,7 @@ function ContactDetailRoute() {
 		<RecordDetailPage
 			back={{ label: 'Back to Contacts', to: '/public-engagement/contacts' }}
 			layout={layout}
-			noun="contact"
+			recordType="contact"
 			reading={{ isError, isReady, record: contact }}
 		>
 			{(record) => <ContactDetailContent contact={record} />}
@@ -153,7 +153,6 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 
 			<DangerZoneCard
 				name={name}
-				noun="contact"
 				onDelete={() => mutations.remove(contact.id)}
 				recordId={contact.id}
 				recordType="contact"

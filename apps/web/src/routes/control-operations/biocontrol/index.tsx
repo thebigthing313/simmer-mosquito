@@ -34,6 +34,7 @@ import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -85,7 +86,7 @@ export const Route = createFileRoute('/control-operations/biocontrol/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'release', many: 'releases' };
+const RECORD_TYPE: RecordType = 'biocontrolAction';
 const PATH = '/map/biocontrol';
 
 function BiocontrolExplorerRoute() {
@@ -243,7 +244,7 @@ function BiocontrolExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'release', many: 'releases' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -255,7 +256,7 @@ function BiocontrolExplorerRoute() {
 				icon: BiocontrolEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: { to: '/control-operations/biocontrol/create', label: 'Record Release' },
 			}}
 			onResetFilters={clearAll}

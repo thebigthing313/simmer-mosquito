@@ -64,7 +64,7 @@ function EditSourceReductionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="source reduction"
+			recordType="sourceReduction"
 			reading={{ isError, isReady, record: sourceReduction }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -154,7 +154,7 @@ function EditSourceReductionLoader({
 			<RecordUnavailable
 				description="This source reduction's geometry could not be loaded."
 				layout="centered"
-				noun="source reduction"
+				recordType="sourceReduction"
 				reason="error"
 			/>
 		);
@@ -164,7 +164,7 @@ function EditSourceReductionLoader({
 			<RecordUnavailable
 				description="This source reduction's personnel could not be loaded."
 				layout="centered"
-				noun="source reduction"
+				recordType="sourceReduction"
 				reason="error"
 			/>
 		);

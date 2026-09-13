@@ -128,7 +128,7 @@ function RouteComponent() {
 			back={{ label: 'Back to collections', to: '/adult-surveillance/collections' }}
 			deleteRefusals={COLLECTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="collection"
+			recordType="collection"
 			reading={{ isError, isReady, record: collection }}
 		>
 			{(record, askDelete) => (
@@ -226,13 +226,12 @@ function CollectionDetailContent({
 		>
 			<div className="grid content-start gap-3">
 				<CollectionLocationCard collection={collection} />
-				<RecordRegionsBand noun="collection" recordId={collection.id} recordType="collections" />
+				<RecordRegionsBand recordId={collection.id} recordType="collections" />
 			</div>
 			<ResultsCard canEdit={canEdit} collection={collection} />
 			<DangerZoneCard
 				ask={askDelete}
 				name={title}
-				noun="collection"
 				onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
 				recordId={collection.id}
 				recordType="collection"
