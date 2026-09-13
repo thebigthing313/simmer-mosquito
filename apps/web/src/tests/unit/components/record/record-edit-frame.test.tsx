@@ -65,18 +65,13 @@ describe('RecordEditFrame', () => {
 		expect(screen.getByText('Cannery Row')).toBeTruthy();
 	});
 
-	it('titles both unavailable states where the noun makes the wrong heading', () => {
-		render(
-			<RecordEditFrame
-				noun="source reduction action"
-				reading={{ isReady: true, record: undefined }}
-				skeleton={null}
-				unavailableTitle="Source Reduction Unavailable"
-			>
-				{() => <p>never</p>}
-			</RecordEditFrame>,
-		);
+	// The heading is derived rather than passed, so the noun a route already
+	// declares is the only thing that decides it.
+	it('heads both unavailable states with the noun it was given', () => {
+		const { rerender } = render(frame({ isReady: true, record: null }));
+		expect(screen.getByText('Weather Station Unavailable')).toBeTruthy();
 
-		expect(screen.getByText('Source Reduction Unavailable')).toBeTruthy();
+		rerender(frame({ isError: true, isReady: true, record: null }));
+		expect(screen.getByText('Weather Station Unavailable')).toBeTruthy();
 	});
 });
