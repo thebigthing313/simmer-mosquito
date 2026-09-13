@@ -228,7 +228,7 @@ function OutreachExplorerRoute() {
 				total,
 				isLoading,
 				counts: RECORD_TYPE,
-				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach' },
+				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach Action' },
 			}}
 			onResetFilters={reset}
 			map={

@@ -131,7 +131,7 @@ function CreateOutreachActionRoute() {
 				mode="create"
 				defaultValues={defaultOutreachFormValues(timeZone)}
 				header={{
-					title: 'Record Outreach',
+					title: 'Record Outreach Action',
 					description:
 						'Place where the outreach happened, then record the method, how many were reached, and the date.',
 					backTo: '/public-engagement/outreach',
@@ -143,7 +143,7 @@ function CreateOutreachActionRoute() {
 				organizationId={organization.id}
 				outreachMethods={methods}
 				profiles={profiles}
-				submitLabel="Record Outreach"
+				submitLabel="Record Outreach Action"
 			/>
 			{mission.dialog}
 		</>

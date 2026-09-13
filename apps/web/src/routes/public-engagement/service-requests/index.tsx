@@ -269,7 +269,7 @@ function ServiceRequestsExplorerRoute() {
 				counts: RECORD_TYPE,
 				create: {
 					to: '/public-engagement/service-requests/create',
-					label: 'New Request',
+					label: 'New Service Request',
 					minimum: 'manager',
 				},
 			}}

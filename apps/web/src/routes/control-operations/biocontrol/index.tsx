@@ -257,7 +257,7 @@ function BiocontrolExplorerRoute() {
 				total,
 				isLoading,
 				counts: RECORD_TYPE,
-				create: { to: '/control-operations/biocontrol/create', label: 'Record Release' },
+				create: { to: '/control-operations/biocontrol/create', label: 'Record Biocontrol Action' },
 			}}
 			onResetFilters={clearAll}
 			map={
