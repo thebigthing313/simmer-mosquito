@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -33,7 +34,7 @@ function CreateMissionRoute() {
 	// Minted up front so the on-demand stream is warm when the save fires — a
 	// write to a cold collection waits out its txid confirmation, which reads as a
 	// frozen save.
-	const [missionId] = useState(() => crypto.randomUUID());
+	const [missionId] = useState(() => newRecordId());
 	useMission(missionId);
 
 	const organizationId = organization?.id ?? null;

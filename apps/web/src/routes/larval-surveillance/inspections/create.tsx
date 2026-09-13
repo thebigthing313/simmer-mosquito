@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../forms/record-extras';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -87,7 +88,7 @@ function seededDefaults(
  * write against a cold stream times out waiting for its txid confirmation.
  */
 function useNewInspectionDraft(): string {
-	const [inspectionId] = useState(() => crypto.randomUUID());
+	const [inspectionId] = useState(() => newRecordId());
 	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
 	useLiveQuery(
 		{

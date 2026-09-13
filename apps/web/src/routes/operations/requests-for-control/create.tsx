@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -30,7 +31,7 @@ function CreateRequestForControlRoute() {
 	// Minted up front so the on-demand stream is already warm when the save fires
 	// — a write to a cold collection waits out its txid confirmation, which reads
 	// as a frozen save.
-	const [requestId] = useState(() => crypto.randomUUID());
+	const [requestId] = useState(() => newRecordId());
 	useRequestedControlAction(requestId);
 
 	const organizationId = organization?.id ?? null;

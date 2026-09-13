@@ -40,6 +40,12 @@ function CreateAddressRoute() {
 			throw new Error('Place the address point before saving.');
 		}
 
+		// The id comes back from the write rather than being minted here, and
+		// neither reason `newRecordId` gives for minting up front applies. Nothing
+		// on this page writes a child row against the new address, and although
+		// `addresses` is on-demand, nothing here subscribes to it, so the insert
+		// returns no txid to wait on and the write settles on the server's answer.
+		// The geometry cache below is seeded after that answer, not before it.
 		const addressId = await mutations.create(
 			{
 				displayName: values.displayName.trim(),
