@@ -17,6 +17,7 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { gte, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../auth';
+import type { SpeciesTotal } from '../../components/species-composition-panel';
 import { activityGcTimeMs } from '../../hooks/queries/shared';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { sample_species } from '../../lib/collections/sample_species';
@@ -33,12 +34,6 @@ export interface AwaitingSample {
 	/** The parent inspection's centroid — what titles a sample with no habitat. */
 	readonly lat: number | null;
 	readonly lng: number | null;
-}
-
-export interface SpeciesTotal {
-	readonly speciesId: string;
-	readonly name: string;
-	readonly total: number;
 }
 
 interface LoadState {
