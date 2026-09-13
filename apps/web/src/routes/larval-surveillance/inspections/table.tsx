@@ -45,6 +45,7 @@ import {
 	type SortDirection,
 	useInspectionTable,
 } from '../../../hooks/queries/use-inspection-table';
+import { formatListDate } from '../../../lib/local-date';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -64,7 +65,6 @@ import {
 } from '../-inspection-filters';
 import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
 import { inspectionFilterCodecs, sharedInspectionSearch } from '../-inspections-search';
-import { formatListDate } from '../-overview-data';
 
 /**
  * The sort lives in the URL, so a sorted table is a link somebody can send.

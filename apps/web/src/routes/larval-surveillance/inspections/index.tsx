@@ -38,6 +38,7 @@ import {
 	type MapTileLayer,
 } from '../../../components/map';
 import { adhocLabel } from '../../../lib/coordinate-label';
+import { formatListDate } from '../../../lib/local-date';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 import {
 	DensityFilter,
@@ -56,7 +57,6 @@ import {
 	inspectionFilterCodecs,
 	sharedInspectionSearch,
 } from '../-inspections-search';
-import { formatListDate } from '../-overview-data';
 import { inspectionLegend } from './-legend';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;

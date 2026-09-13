@@ -19,7 +19,7 @@ import {
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
 import { sample_species } from '../../lib/collections/sample_species';
-import { todayInTimeZone } from './-overview-data';
+import { todayInTimeZone } from '../../lib/local-date';
 
 /** One identification row, as the tally grid reads and writes it. */
 interface KeyEntryRow extends SampleSpeciesFields {

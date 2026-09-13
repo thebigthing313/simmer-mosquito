@@ -1,13 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	addCalendarDays,
+	addDaysToDateString,
+	buildWeek,
 	calendarDateParts,
+	dayOfMonth,
+	formatListDate,
 	formatLocalDate,
+	formatMonthDay,
+	formatNumericDate,
+	formatWeekdayDate,
+	formatWeekdayMonthDay,
 	localDayStartAsTimestamp,
 	localTimeAsInstant,
 	localTimeOfDay,
 	operationalDayAsInstant,
 	parseLocalDate,
+	startOfWeek,
+	weekdayLabel,
 } from '../../../lib/local-date';
 
 describe('calendarDateParts', () => {
@@ -280,5 +290,142 @@ describe('localTimeOfDay', () => {
 	it('has no time to offer for an absent or unreadable instant', () => {
 		expect(localTimeOfDay(null, 'America/New_York')).toBe('');
 		expect(localTimeOfDay('not-an-instant', 'America/New_York')).toBe('');
+	});
+});
+
+// --- the calendar-date labels and day arithmetic ---------------------------
+
+// These cases were `tests/unit/routes/larval-surveillance/-overview-data.test.ts`
+// until the helpers they cover moved here (#906). They are one block rather than
+// a second suite beside this file because `lib/unreadable-input` reports a
+// formatter and value pair once per module instance, so the warning counts below
+// only hold while nothing else in the run has already asked for the same pair.
+
+/** A Wednesday, so the weekday in each label is checkable rather than incidental. */
+const WEDNESDAY = '2026-08-12';
+
+/** Not a date, and not a shape any date column or date input can hold. */
+const NOT_A_DATE = 'the twelfth';
+
+let warn: ReturnType<typeof vi.spyOn>;
+
+beforeEach(() => {
+	warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
+afterEach(() => {
+	warn.mockRestore();
+});
+
+describe('the five date formatters', () => {
+	it('render a calendar date the way every screen already shows it', () => {
+		expect(formatWeekdayMonthDay(WEDNESDAY)).toBe('Wed, Aug 12');
+		expect(formatWeekdayDate(WEDNESDAY)).toBe('Wed, Aug 12, 2026');
+		expect(formatMonthDay(WEDNESDAY)).toBe('Aug 12');
+		expect(formatListDate(WEDNESDAY)).toBe('Aug 12, 2026');
+		expect(formatNumericDate(WEDNESDAY)).toBe('8/12/2026');
+	});
+
+	it('read the day a timestamp begins on, not the day its zone lands in', () => {
+		expect(formatMonthDay('2026-08-12T23:30:00Z')).toBe('Aug 12');
+	});
+
+	/**
+	 * The em dash announces absence and reads as "Not recorded" (#584). These
+	 * five take a non-nullable string, so a hit means the value arrived and would
+	 * not render, which is a different fact and used to look identical.
+	 */
+	it('write an unreadable date back out rather than drawing it as absent', () => {
+		expect(formatWeekdayMonthDay(NOT_A_DATE)).toBe(NOT_A_DATE);
+		expect(formatWeekdayDate(NOT_A_DATE)).toBe(NOT_A_DATE);
+		expect(formatMonthDay(NOT_A_DATE)).toBe(NOT_A_DATE);
+		expect(formatListDate(NOT_A_DATE)).toBe(NOT_A_DATE);
+		expect(formatNumericDate(NOT_A_DATE)).toBe(NOT_A_DATE);
+	});
+
+	it('warn, so a column failing on every row is not silent', () => {
+		formatMonthDay('nothing here');
+
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toContain('formatMonthDay');
+	});
+});
+
+describe('addDaysToDateString', () => {
+	it('moves a calendar date by whole days', () => {
+		expect(addDaysToDateString(WEDNESDAY, 3)).toBe('2026-08-15');
+		expect(addDaysToDateString(WEDNESDAY, -12)).toBe('2026-07-31');
+	});
+
+	// It reached `toISOString` on an Invalid Date and threw into the render tree.
+	it('hands an unreadable date back rather than throwing', () => {
+		expect(() => addDaysToDateString(NOT_A_DATE, 1)).not.toThrow();
+		expect(addDaysToDateString(NOT_A_DATE, 1)).toBe(NOT_A_DATE);
+	});
+
+	// The arithmetic it delegates to echoes in silence, because a sync bound built
+	// from one is refused again downstream. A day strip is read off the screen.
+	it('says so, where the arithmetic underneath it would not', () => {
+		addDaysToDateString('no day in this', 1);
+
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toContain('addDaysToDateString');
+	});
+});
+
+describe('startOfWeek', () => {
+	it('finds the Sunday the week began on', () => {
+		expect(startOfWeek(WEDNESDAY)).toBe('2026-08-09');
+	});
+
+	it('leaves a Sunday where it is', () => {
+		expect(startOfWeek('2026-08-09')).toBe('2026-08-09');
+	});
+
+	it('hands an unreadable date back rather than throwing', () => {
+		expect(() => startOfWeek(NOT_A_DATE)).not.toThrow();
+		expect(startOfWeek(NOT_A_DATE)).toBe(NOT_A_DATE);
+	});
+});
+
+describe('buildWeek', () => {
+	it('lays out the seven days from Sunday', () => {
+		expect(buildWeek('2026-08-09')).toEqual([
+			'2026-08-09',
+			'2026-08-10',
+			'2026-08-11',
+			'2026-08-12',
+			'2026-08-13',
+			'2026-08-14',
+			'2026-08-15',
+		]);
+	});
+});
+
+describe('weekdayLabel', () => {
+	it('names the weekday a date fell on', () => {
+		expect(weekdayLabel(WEDNESDAY)).toBe('Wed');
+	});
+
+	// `Intl.DateTimeFormat` throws `RangeError: Invalid time value` on one.
+	it('writes an unreadable date back rather than throwing', () => {
+		expect(() => weekdayLabel(NOT_A_DATE)).not.toThrow();
+		expect(weekdayLabel(NOT_A_DATE)).toBe(NOT_A_DATE);
+	});
+});
+
+describe('dayOfMonth', () => {
+	it('reads the day number', () => {
+		expect(dayOfMonth(WEDNESDAY)).toBe(12);
+	});
+
+	/**
+	 * Zero rather than `NaN`, and rather than 1. No month has a day zero, so a
+	 * week strip showing it is visibly not showing a date, where a 1 reads as the
+	 * first of the month and cannot be told from a real day.
+	 */
+	it('answers a number no month has rather than NaN', () => {
+		expect(dayOfMonth(NOT_A_DATE)).toBe(0);
+		expect(warn).toHaveBeenCalledTimes(1);
 	});
 });

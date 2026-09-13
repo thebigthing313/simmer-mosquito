@@ -40,6 +40,7 @@ import type { TrapListing } from '../../hooks/queries/use-active-traps';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { useTrapCollections } from '../../hooks/queries/use-trap-collections';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { formatWeekdayMonthDay } from '../../lib/local-date';
 import {
 	CollectionFlagBadges,
 	collectionEffectiveDate,
@@ -47,7 +48,6 @@ import {
 	SpeciesSexBadge,
 	SpeciesStatusBadge,
 } from './-adult-display';
-import { formatWeekdayMonthDay } from './-overview-data';
 import {
 	type CollectionYear,
 	type DirectoryCollection,

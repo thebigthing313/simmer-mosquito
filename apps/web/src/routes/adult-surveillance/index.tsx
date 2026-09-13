@@ -20,14 +20,16 @@ import {
 	useRecentCollections,
 } from '../../hooks/queries/use-recent-collections';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
 import {
-	ADULT_ACTIVITY_WINDOW_DAYS,
 	addDaysToDateString,
 	formatMonthDay,
 	formatWeekdayMonthDay,
 	todayInTimeZone,
-} from './-overview-data';
+} from '../../lib/local-date';
+import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
+
+/** How far back the recent-window queries reach. */
+const ADULT_ACTIVITY_WINDOW_DAYS = 14;
 
 const AdultIcon = iconRegistry.domains.adultSurveillance.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;

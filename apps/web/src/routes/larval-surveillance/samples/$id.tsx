@@ -57,7 +57,7 @@ import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
-import { todayInTimeZone } from '../-overview-data';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
