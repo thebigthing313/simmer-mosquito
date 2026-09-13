@@ -26,17 +26,16 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	useMapBoundsParam,
-	usePagedMapResource,
+	useExplorerResource,
 	useRegionOptions,
-	useSelectedMapRecord,
 	useSpeciesOptions,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -157,41 +156,32 @@ function SamplesExplorerRoute() {
 	const regions = useRegionOptions();
 
 	const filters: SampleTileFilters = {
-		...(speciesIds.size > 0 ? { speciesIds: [...speciesIds] } : {}),
+		...whenAny('speciesIds', speciesIds),
 		...(status === 'all' ? {} : { status }),
-		...(nonMosquito ? { nonMosquitoOnly: true } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenOn('nonMosquitoOnly', nonMosquito),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
 
-	const bbox = useMapBoundsParam(map);
-	const params = mapQueryParams({
-		bbox,
-		species: filters.speciesIds,
-		status: filters.status,
-		nonMosquito: filters.nonMosquitoOnly,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<SampleFeature>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<SampleFeature>({
 			path: PATH,
 			rowsKey: 'samples',
+			rowKey: 'sample',
 			label: 'Samples',
-			params,
-			enabled: bbox !== null,
+			params: {
+				species: filters.speciesIds,
+				status: filters.status,
+				nonMosquito: filters.nonMosquitoOnly,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			viewport: true,
+			map,
+			selectedId,
 		});
-
-	const selected = useSelectedMapRecord<SampleFeature>({
-		path: PATH,
-		rowKey: 'sample',
-		rows,
-		selectedId,
-	});
-
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [

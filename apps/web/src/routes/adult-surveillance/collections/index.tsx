@@ -11,17 +11,17 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useCollectionMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -132,36 +132,30 @@ function CollectionsExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: CollectionTileFilters = {
-		...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
-		...(problemOnly ? { problemOnly: true } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('collectionMethodIds', methodIds),
+		...whenOn('problemOnly', problemOnly),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
 	const legend = collectionLegend(problemOnly);
-	const params = mapQueryParams({
-		collectionMethodId: filters.collectionMethodIds,
-		problem: filters.problemOnly,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<CollectionSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<CollectionSite>({
 			path: PATH,
 			rowsKey: 'collections',
+			rowKey: 'collection',
 			label: 'Collections',
-			params,
+			params: {
+				collectionMethodId: filters.collectionMethodIds,
+				problem: filters.problemOnly,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			viewport: false,
+			map,
+			selectedId,
 		});
-
-	const selected = useSelectedMapRecord<CollectionSite>({
-		path: PATH,
-		rowKey: 'collection',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [

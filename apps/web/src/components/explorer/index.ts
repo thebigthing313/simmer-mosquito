@@ -31,14 +31,9 @@ export {
 export { useDateRangeFilters } from './use-date-range-filters';
 export { useEntityTags } from './use-entity-tags';
 export { useExplorerPanel } from './use-explorer-panel';
+export { useExplorerResource } from './use-explorer-resource';
 export { useFlyToSelection } from './use-fly-to-selection';
 export { useHabitatTypeOptions } from './use-habitat-type-options';
-export { useMapBoundsParam } from './use-map-bounds';
-export {
-	mapQueryParams,
-	usePagedMapResource,
-	useSelectedMapRecord,
-} from './use-paged-map-resource';
 export { usePersonnelOptions } from './use-personnel-options';
 export { useRegionMembership } from './use-region-membership';
 export { useRegionOptions } from './use-region-options';
