@@ -66,7 +66,6 @@ function EditSourceReductionRoute() {
 			noun="source reduction action"
 			reading={{ isError, isReady, record: sourceReduction }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
-			unavailableTitle="Source Reduction Unavailable"
 		>
 			{(record) => (
 				<EditSourceReductionLoader
@@ -156,7 +155,6 @@ function EditSourceReductionLoader({
 				layout="centered"
 				noun="source reduction action"
 				reason="error"
-				title="Source Reduction Unavailable"
 			/>
 		);
 	}
@@ -167,7 +165,6 @@ function EditSourceReductionLoader({
 				layout="centered"
 				noun="source reduction action"
 				reason="error"
-				title="Source Reduction Unavailable"
 			/>
 		);
 	}
