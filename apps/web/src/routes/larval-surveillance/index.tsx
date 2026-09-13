@@ -4,20 +4,8 @@ import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/compon
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import {
-	AlertTriangleIcon,
-	ChevronDownIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Suspense, useState } from 'react';
@@ -27,6 +15,14 @@ import {
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../components/larval-display';
+import { PersonGroupBlock } from '../../components/person-group-block';
+import {
+	SPECIES_WINDOWS,
+	SpeciesCompositionPanel,
+	type SpeciesWindow,
+	speciesWindowSince,
+} from '../../components/species-composition-panel';
+import { WeekDayStrip } from '../../components/week-day-strip';
 import {
 	inspectionSiteLabel,
 	inspectionTypeLabel,
@@ -36,17 +32,10 @@ import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-act
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../lib/coordinate-label';
-import {
-	addDaysToDateString,
-	buildWeek,
-	dayOfMonth,
-	formatMonthDay,
-	startOfWeek,
-	todayInTimeZone,
-	weekdayLabel,
-} from '../../lib/local-date';
+import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
+import { groupRows, type RowGroup } from '../../lib/row-groups';
 import type { InspectionsSearch } from './-inspections-search';
-import { type SpeciesTotal, useSamplesAwaiting, useSpeciesComposition } from './-overview-data';
+import { useSamplesAwaiting, useSpeciesComposition } from './-overview-data';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 const ACTIVITY_WINDOW_DAYS = 14;
@@ -54,7 +43,6 @@ const ACTIVITY_WINDOW_DAYS = 14;
 const LarvalIcon = iconRegistry.domains.larvalSurveillance.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
-const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const MapViewIcon = iconRegistry.generic.map.icon;
 
 /**
@@ -114,7 +102,7 @@ function OverviewBody() {
 			</div>
 
 			<div className="grid content-start gap-5 xl:col-span-5">
-				<SpeciesCompositionPanel today={today} />
+				<LarvalSpeciesComposition today={today} />
 				<OpenSamplesPanel since={since} />
 			</div>
 
@@ -146,41 +134,13 @@ function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
 
 // --- daily inspections ------------------------------------------------------
 
-interface InspectorGroup {
-	readonly key: string;
-	readonly name: string;
-	readonly rows: readonly LarvalActivityRow[];
-}
-
-const UNASSIGNED_KEY = '__unassigned__';
-
-function groupByInspector(inspections: readonly LarvalActivityRow[]): readonly InspectorGroup[] {
-	const groups = new Map<string, LarvalActivityRow[]>();
-	for (const inspection of inspections) {
-		const key = inspection.inspectedByProfileId ?? UNASSIGNED_KEY;
-		const existing = groups.get(key);
-		if (existing) {
-			existing.push(inspection);
-		} else {
-			groups.set(key, [inspection]);
-		}
-	}
-	return [...groups.entries()]
-		.map(([key, rows]) => ({
-			key,
-			name:
-				key === UNASSIGNED_KEY ? 'Unassigned' : (rows[0]?.inspectedByName ?? 'Unknown inspector'),
-			rows,
-		}))
-		.sort((first, second) => {
-			if (first.key === UNASSIGNED_KEY) {
-				return 1;
-			}
-			if (second.key === UNASSIGNED_KEY) {
-				return -1;
-			}
-			return first.name.localeCompare(second.name);
-		});
+/** A day's inspections by the person who made them, the unassigned ones last. */
+function groupByInspector(inspections: readonly LarvalActivityRow[]) {
+	return groupRows(inspections, {
+		key: (inspection) => inspection.inspectedByProfileId,
+		name: (inspection) => inspection.inspectedByName,
+		unknownName: 'Unknown inspector',
+	});
 }
 
 function DailyInspectionsPanel({ today }: { readonly today: string }) {
@@ -190,16 +150,6 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 	const { rows: inspections, isReady, isError } = useLarvalActivityForDate(selectedDate);
 
 	const groups = groupByInspector(inspections);
-
-	const weekStart = startOfWeek(selectedDate);
-	const days = buildWeek(weekStart);
-	// The current week is the latest browsable one; there is no future data.
-	const canGoNextWeek = weekStart < startOfWeek(today);
-
-	const goToWeek = (deltaDays: number) => {
-		const shifted = addDaysToDateString(selectedDate, deltaDays);
-		setSelectedDate(shifted > today ? today : shifted);
-	};
 
 	return (
 		<Panel
@@ -213,55 +163,7 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 			icon={<InspectionIcon className="size-4" />}
 			title="Daily Inspections"
 		>
-			<div className="flex items-stretch gap-1 border-border/60 border-b p-3">
-				<Button
-					aria-label="Previous week"
-					className="size-auto shrink-0 px-1.5"
-					onClick={() => goToWeek(-7)}
-					size="icon"
-					variant="outline"
-				>
-					<ChevronLeftIcon aria-hidden="true" className="size-4" />
-				</Button>
-				<div className="grid flex-1 grid-cols-7 gap-1">
-					{days.map((day) => {
-						const isSelected = day === selectedDate;
-						const isToday = day === today;
-						const isFuture = day > today;
-						return (
-							<button
-								className={cn(
-									'flex flex-col items-center gap-0.5 rounded-md border px-1 py-1.5 text-xs transition-colors',
-									isSelected
-										? 'border-primary bg-primary text-primary-foreground'
-										: isFuture
-											? 'cursor-not-allowed border-border/40 text-muted-foreground/40'
-											: 'border-border hover:bg-accent',
-								)}
-								disabled={isFuture}
-								key={day}
-								onClick={() => setSelectedDate(day)}
-								type="button"
-							>
-								<span className="text-[0.62rem] uppercase tracking-wide opacity-70">
-									{isToday ? 'Today' : weekdayLabel(day)}
-								</span>
-								<span className="font-semibold tabular-nums">{dayOfMonth(day)}</span>
-							</button>
-						);
-					})}
-				</div>
-				<Button
-					aria-label="Next week"
-					className="size-auto shrink-0 px-1.5"
-					disabled={!canGoNextWeek}
-					onClick={() => goToWeek(7)}
-					size="icon"
-					variant="outline"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Button>
-			</div>
+			<WeekDayStrip onSelect={setSelectedDate} selectedDate={selectedDate} today={today} />
 
 			{isError ? (
 				<PanelMessage>Inspection activity is unavailable right now.</PanelMessage>
@@ -284,59 +186,34 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 }
 
 /**
- * One inspector's day, collapsed to a single summary row until opened.
+ * One inspector's day, with how much of it came back breeding-positive.
  *
- * A crew of six working a heavy day puts several hundred rows in this panel, and
- * every one of them had to be scrolled past to reach the next inspector. Closed,
- * the row answers the question the panel is usually asked — how much each person
- * got through, and how much of it came back breeding-positive.
+ * That count is the only thing this adds to the shared block: the question the
+ * panel is usually asked is how much each person got through, and how much of
+ * it was wet and holding larvae.
  */
-function InspectorGroupBlock({ group }: { readonly group: InspectorGroup }) {
-	const [open, setOpen] = useState(false);
-	const PersonnelIcon = iconRegistry.entities.organization.icon;
+function InspectorGroupBlock({ group }: { readonly group: RowGroup<LarvalActivityRow> }) {
 	const positiveCount = group.rows.filter(
 		(inspection) => inspection.isWet && hasAnyLifeStage(inspection),
 	).length;
 
 	return (
-		<Collapsible asChild onOpenChange={setOpen} open={open}>
-			<section>
-				<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-					{open ? (
-						<ChevronDownIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-					) : (
-						<ChevronRightIcon
-							aria-hidden="true"
-							className="size-4 shrink-0 text-muted-foreground"
-						/>
-					)}
-					<PersonnelIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-					<span
-						className={cn(
-							'min-w-0 flex-1 truncate font-medium text-sm',
-							group.key === UNASSIGNED_KEY && 'text-muted-foreground italic',
-						)}
-					>
-						{group.name}
-					</span>
-					{positiveCount > 0 ? (
-						<Badge tone="danger" variant="outline">
-							{positiveCount} positive
-						</Badge>
-					) : null}
-					<span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-						{group.rows.length}
-					</span>
-				</CollapsibleTrigger>
-				<CollapsibleContent>
-					<ul className="grid px-3 pb-3">
-						{group.rows.map((inspection) => (
-							<InspectionRow key={inspection.id} row={inspection} />
-						))}
-					</ul>
-				</CollapsibleContent>
-			</section>
-		</Collapsible>
+		<PersonGroupBlock
+			aside={
+				positiveCount > 0 ? (
+					<Badge tone="danger" variant="outline">
+						{positiveCount} positive
+					</Badge>
+				) : null
+			}
+			count={group.rows.length}
+			groupKey={group.key}
+			name={group.name}
+		>
+			{group.rows.map((inspection) => (
+				<InspectionRow key={inspection.id} row={inspection} />
+			))}
+		</PersonGroupBlock>
 	);
 }
 
@@ -361,113 +238,23 @@ function InspectionRow({ row }: { readonly row: LarvalActivityRow }) {
 
 // --- species composition ----------------------------------------------------
 
-const SPECIES_PREVIEW_COUNT = 6;
-type SpeciesWindow = '7d' | '30d';
-
-/** The six species the panel draws, and the tail it sums into one "other" row. */
-function speciesPreview<TRow extends { readonly total: number }>(totals: readonly TRow[]) {
-	const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
-	const rest = totals.slice(SPECIES_PREVIEW_COUNT);
-	return {
-		top: previewed,
-		otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
-		otherCount: rest.length,
-		maxBar: previewed[0]?.total ?? 1,
-	};
-}
-
-function SpeciesCompositionPanel({ today }: { readonly today: string }) {
+function LarvalSpeciesComposition({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
-	const since = addDaysToDateString(today, window === '7d' ? -6 : -29);
-	const { totals, grandTotal, isReady, isError } = useSpeciesComposition(since);
-
-	const { top, otherTotal, otherCount, maxBar } = speciesPreview(totals);
-
-	return (
-		<Panel
-			actions={
-				<ToggleGroup
-					aria-label="Species window"
-					className="h-8"
-					onValueChange={(next) => next && setWindow(next as SpeciesWindow)}
-					size="sm"
-					type="single"
-					value={window}
-					variant="outline"
-				>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="7d">
-						7d
-					</ToggleGroupItem>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="30d">
-						30d
-					</ToggleGroupItem>
-				</ToggleGroup>
-			}
-			icon={<SpeciesIcon className="size-4" />}
-			title="Species Composition"
-		>
-			{isError ? (
-				<PanelMessage>Species data is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={5} />
-			) : top.length === 0 ? (
-				<PanelMessage>
-					No larvae identified in the last {window === '7d' ? '7' : '30'} days.
-				</PanelMessage>
-			) : (
-				<div className="grid gap-2.5 p-4">
-					{top.map((entry) => (
-						<SpeciesBar
-							barWidth={(entry.total / maxBar) * 100}
-							entry={entry}
-							key={entry.speciesId}
-							percent={grandTotal === 0 ? 0 : (entry.total / grandTotal) * 100}
-						/>
-					))}
-					{otherTotal > 0 ? (
-						<SpeciesBar
-							barWidth={(otherTotal / maxBar) * 100}
-							entry={{ speciesId: '__other__', name: `Other (${otherCount})`, total: otherTotal }}
-							muted
-							percent={grandTotal === 0 ? 0 : (otherTotal / grandTotal) * 100}
-						/>
-					) : null}
-				</div>
-			)}
-		</Panel>
+	const { totals, grandTotal, isReady, isError } = useSpeciesComposition(
+		speciesWindowSince(today, window),
 	);
-}
 
-function SpeciesBar({
-	entry,
-	percent,
-	barWidth,
-	muted = false,
-}: {
-	readonly entry: SpeciesTotal;
-	readonly percent: number;
-	readonly barWidth: number;
-	readonly muted?: boolean;
-}) {
 	return (
-		<div className="grid gap-1">
-			<div className="flex items-baseline justify-between gap-2 text-sm">
-				<span
-					className={cn('truncate', muted ? 'text-muted-foreground' : 'text-foreground italic')}
-				>
-					{entry.name}
-				</span>
-				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
-				</span>
-			</div>
-			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-				<div
-					className={cn('h-full rounded-full', muted ? 'bg-muted-foreground/40' : 'bg-primary')}
-					style={{ width: `${Math.max(barWidth, 2)}%` }}
-				/>
-			</div>
-		</div>
+		<SpeciesCompositionPanel
+			emptySubject="larvae"
+			grandTotal={grandTotal}
+			isError={isError}
+			isReady={isReady}
+			onWindowChange={setWindow}
+			totals={totals}
+			window={window}
+			windows={SPECIES_WINDOWS}
+		/>
 	);
 }
 
