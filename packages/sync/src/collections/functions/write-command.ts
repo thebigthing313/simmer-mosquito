@@ -2,7 +2,7 @@
  * The HTTP half of a collection write.
  *
  * Every organization command endpoint answers the same way — a JSON body
- * carrying a `txid` on success, a `reason`/`message` on refusal — so the
+ * carrying a `txid` on success, a `reason` on refusal — so the
  * request, the refusal, and the txid read are the same three lines for every
  * table. What differs per table is the URL and the body, and both are
  * arguments.
@@ -18,10 +18,31 @@ import { sessionFetch } from './session-fetch.js';
 /**
  * What a refusal body may carry. Every field optional because the shape is the
  * server's to choose, and a caller reading one has to cope with any of them.
+ *
+ * The three fields say three different things and #795 is where that was
+ * settled:
+ *
+ * - `error` is the category a caller branches on, `merge_refused` and
+ *   `reference_refused` among them. It never changes for a refusal that
+ *   already has one.
+ * - `reason` is **a sentence**, and it is what {@link writeCommand} puts in
+ *   `CommandError.message`, which is the form kit's save-failure text. Every
+ *   server producer writes prose here. Seven of them used to write a
+ *   snake_case token instead, and a caller had no way to tell which it got, so
+ *   `apps/admin` kept a register of sentences of its own (#689).
+ * - `code` is a per-refusal discriminator, present only where one refusal has
+ *   several shapes a client acts on differently: `target_inactive` against
+ *   `source_not_found` on a merge, `inactive` against `missing` on a
+ *   reference. Branch on `error` first, then on `code`.
+ *
+ * `message` is the fallback for a body no server wrote: {@link readBody} puts
+ * an unparseable response's text there, so a proxy's HTML reaches a caller as
+ * something rather than as nothing. No command endpoint sets it.
  */
 export interface CommandRefusal {
 	readonly error?: string;
 	readonly reason?: string;
+	readonly code?: string;
 	readonly message?: string;
 	readonly blockers?: readonly unknown[];
 }

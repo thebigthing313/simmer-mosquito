@@ -74,8 +74,13 @@ export interface RefusedRegistration {
  * `registrationsNotShown` counts the ones past the server's cap.
  */
 export interface GenerationRefusal {
-	readonly reason: GenerationRefusalReason;
-	readonly message: string;
+	/**
+	 * The discriminator, which the wire carries as `code` since #795. The card
+	 * picks its heading and its shape off this.
+	 */
+	readonly code: GenerationRefusalReason;
+	/** The server's own sentence, which the wire carries as `reason`. */
+	readonly reason: string;
 	readonly unitCodes: readonly string[];
 	readonly registrations: readonly RefusedRegistration[];
 	readonly registrationsNotShown: number;
@@ -88,18 +93,18 @@ export function generationRefusalOf(error: unknown): GenerationRefusal | null {
 	}
 	const record = body as {
 		readonly error?: unknown;
+		readonly code?: unknown;
 		readonly reason?: unknown;
-		readonly message?: unknown;
 		readonly unitCodes?: unknown;
 		readonly registrations?: unknown;
 		readonly registrationsNotShown?: unknown;
 	};
-	if (record.error !== 'mission_notifications_refused' || typeof record.reason !== 'string') {
+	if (record.error !== 'mission_notifications_refused' || typeof record.code !== 'string') {
 		return null;
 	}
 	return {
-		reason: record.reason as GenerationRefusalReason,
-		message: typeof record.message === 'string' ? record.message : 'Generation was refused.',
+		code: record.code as GenerationRefusalReason,
+		reason: typeof record.reason === 'string' ? record.reason : 'Generation was refused.',
 		unitCodes: Array.isArray(record.unitCodes)
 			? record.unitCodes.filter((code): code is string => typeof code === 'string')
 			: [],

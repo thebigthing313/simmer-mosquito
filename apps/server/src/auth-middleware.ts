@@ -4,6 +4,7 @@ import type { ActiveLocalAuthIdentity } from '@simmer-mosquito/db';
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import {
+	AUTH_REFUSAL_SENTENCES,
 	type AuthContext,
 	type AuthSessionProvider,
 	type LocalAuthIdentityResolver,
@@ -154,11 +155,16 @@ export function createOperatorAuthContextMiddleware(options: {
 			// The same refusal body `toAuthFailureBody` builds, written out because
 			// there is no `AuthContextResult` here to pass it. `satisfies` is what
 			// keeps the two spellings from drifting.
+			//
+			// The sentence is the one that function writes for this arm, and the
+			// session layer's own machine string goes on `detail` rather than in
+			// `reason`, which is #795's rule for every refusal body.
 			return context.json(
 				{
 					authenticated: false,
 					error: 'unauthenticated',
-					reason: session.reason,
+					reason: AUTH_REFUSAL_SENTENCES.unauthenticated,
+					detail: session.reason,
 				} satisfies RefusedMeBody,
 				401,
 			);

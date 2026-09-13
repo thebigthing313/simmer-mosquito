@@ -111,8 +111,8 @@ describe('StandingAlert', () => {
 				message={{
 					kind: 'refused',
 					refusal: refusal({
-						reason: 'mission_has_no_items',
-						message: 'The mission has no stops.',
+						code: 'mission_has_no_items',
+						reason: 'The mission has no stops.',
 					}),
 				}}
 			/>,
@@ -127,8 +127,8 @@ describe('StandingAlert', () => {
 
 function refusal(overrides: Partial<GenerationRefusal>): GenerationRefusal {
 	return {
-		reason: 'buffer_unit_not_convertible',
-		message: 'A buffer unit could not be converted.',
+		code: 'buffer_unit_not_convertible',
+		reason: 'A buffer unit could not be converted.',
 		unitCodes: [],
 		registrations: [],
 		registrationsNotShown: 0,

@@ -459,9 +459,10 @@ refer to one. `packages/db/src/domains/write-references.ts` answers the second
 and shares the first's registry, so a catalog gets both directions or neither.
 
 `assertWriteReferences` refuses a write naming a row it may not use. The body is
-`{ error: 'reference_refused', reason, reference, message }`, where `reason` is
-`missing` or `inactive` and `reference` names the catalog record type or the
-table. Missing answers 404 and inactive 409; missing does not distinguish
+`{ error: 'reference_refused', code, reference, reason }`, where `code` is
+`missing` or `inactive`, `reference` names the catalog record type or the table,
+and `reason` is the sentence a person is shown. Missing answers 404 and inactive
+409; missing does not distinguish
 "another organization's" from "no such row", because telling them apart would
 make the refusal a way to probe for ids.
 
