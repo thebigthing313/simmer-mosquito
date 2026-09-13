@@ -45,15 +45,6 @@ interface RecordDetailBase {
 	readonly back: RecordDetailBack;
 	/** Lowercase, as it reads mid-sentence: `collection`, `weather station`. */
 	readonly noun: string;
-	/**
-	 * Heads the unavailable state where the noun does not make the right title:
-	 * a source reduction action is filed under "Source Reduction".
-	 *
-	 * The title alone, because the same override has to hold for both the failed
-	 * read and the missing record. A description would not: it says which of the
-	 * two happened, which is exactly what the frame decides.
-	 */
-	readonly unavailableTitle?: string;
 	/** Controls that belong beside the back link rather than in the header. */
 	readonly actions?: ReactNode;
 	/**
@@ -118,7 +109,7 @@ interface RecordDetailBodyProps extends RecordDetailBase {
 export function RecordDetailPage<TRecord>(
 	props: RecordDetailReadingProps<TRecord> | RecordDetailBodyProps,
 ) {
-	const { layout, back, noun, unavailableTitle, actions, deleteRefusals } = props;
+	const { layout, back, noun, actions, deleteRefusals } = props;
 	// With nothing askable every refusal is rethrown, so a page that declares no
 	// refusals gets exactly the behaviour it had before it had a runner at all.
 	const { run, dialog } = useAcknowledgedWrite(
@@ -139,13 +130,7 @@ export function RecordDetailPage<TRecord>(
 					</div>
 				)}
 				{props.body === undefined ? (
-					<Fork
-						askDelete={run}
-						layout={layout}
-						noun={noun}
-						reading={props.reading}
-						unavailableTitle={unavailableTitle}
-					>
+					<Fork askDelete={run} layout={layout} noun={noun} reading={props.reading}>
 						{props.children}
 					</Fork>
 				) : (
@@ -172,18 +157,15 @@ function Fork<TRecord>({
 	layout,
 	noun,
 	reading,
-	unavailableTitle,
 }: {
 	readonly askDelete: AskAcknowledged;
 	readonly children: (record: TRecord, askDelete: AskAcknowledged) => ReactNode;
 	readonly layout: RecordDetailLayout;
 	readonly noun: string;
 	readonly reading: RecordReading<TRecord>;
-	readonly unavailableTitle: string | undefined;
 }) {
-	const title = unavailableTitle === undefined ? {} : { title: unavailableTitle };
 	if (reading.isError === true) {
-		return <RecordUnavailable noun={noun} reason="error" {...title} />;
+		return <RecordUnavailable noun={noun} reason="error" />;
 	}
 	if (reading.record !== null && reading.record !== undefined) {
 		return children(reading.record, askDelete);
@@ -191,7 +173,7 @@ function Fork<TRecord>({
 	if (!reading.isReady) {
 		return <RecordDetailSkeleton layout={layout} />;
 	}
-	return <RecordUnavailable noun={noun} reason="not-found" {...title} />;
+	return <RecordUnavailable noun={noun} reason="not-found" />;
 }
 
 function BackTo({ back }: { readonly back: RecordDetailBack }) {

@@ -21,7 +21,6 @@ export function RecordEditFrame<TRecord>({
 	noun,
 	reading,
 	skeleton,
-	unavailableTitle,
 }: {
 	/** Drawn once the record is in hand, and not before. */
 	readonly children: (record: TRecord) => ReactNode;
@@ -34,12 +33,9 @@ export function RecordEditFrame<TRecord>({
 	 * placeholder reserving four fields for a form of two is a layout shift.
 	 */
 	readonly skeleton: ReactNode;
-	/** Heads both unavailable states where the noun makes the wrong title. */
-	readonly unavailableTitle?: string;
 }): ReactNode {
-	const title = unavailableTitle === undefined ? {} : { title: unavailableTitle };
 	if (reading.isError === true) {
-		return <RecordUnavailable layout="centered" noun={noun} reason="error" {...title} />;
+		return <RecordUnavailable layout="centered" noun={noun} reason="error" />;
 	}
 	if (reading.record !== null && reading.record !== undefined) {
 		return children(reading.record);
@@ -47,5 +43,5 @@ export function RecordEditFrame<TRecord>({
 	if (!reading.isReady) {
 		return skeleton;
 	}
-	return <RecordUnavailable layout="centered" noun={noun} reason="not-found" {...title} />;
+	return <RecordUnavailable layout="centered" noun={noun} reason="not-found" />;
 }

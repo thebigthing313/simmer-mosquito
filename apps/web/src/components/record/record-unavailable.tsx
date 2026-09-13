@@ -27,19 +27,20 @@ export type RecordUnavailableReason = 'error' | 'not-found';
  * per route, and the choice between them was made per route too — the same
  * state was vertically centred on some and top-aligned on others with nothing
  * deciding which. Now the layout follows from what kind of route it is.
+ *
+ * The heading is always derived from `noun`, title-cased. There is no override,
+ * because every route reads right from the noun it already passes and a second
+ * way to say the same heading is a second place for it to drift.
  */
 export function RecordUnavailable({
 	noun,
 	reason,
-	title,
 	description,
 	layout = 'inline',
 }: {
 	/** Lowercase, as it appears mid-sentence: "collection", "service request". */
 	readonly noun: string;
 	readonly reason: RecordUnavailableReason;
-	/** Overrides the derived "<Noun> Unavailable". */
-	readonly title?: string;
 	/** Overrides the derived copy, for the states that are more specific. */
 	readonly description?: ReactNode;
 	readonly layout?: 'inline' | 'centered';
@@ -53,7 +54,7 @@ export function RecordUnavailable({
 			}
 		>
 			<EmptyHeader>
-				<EmptyTitle>{title ?? `${titleCase(noun)} Unavailable`}</EmptyTitle>
+				<EmptyTitle>{`${titleCase(noun)} Unavailable`}</EmptyTitle>
 				<EmptyDescription>{description ?? defaultDescription(noun, reason)}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
