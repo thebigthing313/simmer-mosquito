@@ -298,6 +298,11 @@
         "count": 1
       }
     },
+    "apps/web/src/components/species-composition-panel.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
     "apps/web/src/hooks/mutations/use-application-mutations.ts": {
       "complexity_critical": {
         "count": 1
@@ -367,11 +372,6 @@
         "count": 1
       },
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/adult-surveillance/index.tsx": {
-      "complexity_moderate": {
         "count": 1
       }
     },
@@ -456,11 +456,6 @@
         "count": 1
       },
       "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/larval-surveillance/index.tsx": {
-      "complexity_moderate": {
         "count": 1
       }
     },
