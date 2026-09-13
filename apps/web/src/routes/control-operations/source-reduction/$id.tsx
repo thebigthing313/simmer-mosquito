@@ -69,7 +69,7 @@ function RouteComponent() {
 			back={{ label: 'Back to source reduction', to: '/control-operations/source-reduction' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="source reduction action"
+			noun="source reduction"
 			reading={{ isError, isReady, record: sourceReduction }}
 		>
 			{(record, askDelete) => (
@@ -153,7 +153,7 @@ function SourceReductionDetailContent({
 			<div className="grid content-start gap-3">
 				<SourceReductionLocationCard habitatName={habitatName} sourceReduction={sourceReduction} />
 				<RecordRegionsBand
-					noun="source reduction action"
+					noun="source reduction"
 					recordId={sourceReduction.id}
 					recordType="source_reductions"
 				/>
@@ -198,7 +198,7 @@ function SourceReductionLocationCard({
 	return (
 		<RecordLocationCard
 			context={habitatContext}
-			emptyDescription="This source reduction action has no location to display."
+			emptyDescription="This source reduction has no location to display."
 			geojson={geometry.geojson}
 			geomType={geometry.geomType ?? sourceReduction.geometryKind}
 			isError={geometry.isError}
