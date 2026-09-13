@@ -11,16 +11,15 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
+	useExplorerResource,
 	useOutreachMethodOptions,
-	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -120,35 +119,29 @@ function OutreachExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: OutreachTileFilters = {
-		...(methodIds.size > 0 ? { outreachMethodIds: [...methodIds] } : {}),
-		...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('outreachMethodIds', methodIds),
+		...whenAny('technicianProfileIds', personIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
-	const params = mapQueryParams({
-		outreachMethodId: filters.outreachMethodIds,
-		technician: filters.technicianProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<OutreachSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<OutreachSite>({
 			path: PATH,
 			rowsKey: 'outreachActions',
+			rowKey: 'outreachAction',
 			label: 'Outreach',
-			params,
+			params: {
+				outreachMethodId: filters.outreachMethodIds,
+				technician: filters.technicianProfileIds,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			viewport: false,
+			map,
+			selectedId,
 		});
-
-	const selected = useSelectedMapRecord<OutreachSite>({
-		path: PATH,
-		rowKey: 'outreachAction',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [

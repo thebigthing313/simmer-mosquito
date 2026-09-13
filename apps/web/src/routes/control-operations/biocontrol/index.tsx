@@ -11,17 +11,17 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useBiocontrolMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -131,42 +131,36 @@ function BiocontrolExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: BiocontrolTileFilters = {
-		...(methodIds.size > 0 ? { biocontrolMethodIds: [...methodIds] } : {}),
-		...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
-		...(habitatOnly ? { habitatLinkedOnly: true } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('biocontrolMethodIds', methodIds),
+		...whenAny('technicianProfileIds', personIds),
+		...whenOn('habitatLinkedOnly', habitatOnly),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
-	const params = mapQueryParams({
-		biocontrolMethodId: filters.biocontrolMethodIds,
-		technician: filters.technicianProfileIds,
-		regionId: filters.regionIds,
-		habitatLinked: filters.habitatLinkedOnly,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<BiocontrolSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<BiocontrolSite>({
 			path: PATH,
 			rowsKey: 'biocontrolActions',
+			rowKey: 'biocontrolAction',
 			label: 'Biocontrol',
-			params,
+			params: {
+				biocontrolMethodId: filters.biocontrolMethodIds,
+				technician: filters.technicianProfileIds,
+				regionId: filters.regionIds,
+				habitatLinked: filters.habitatLinkedOnly,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			viewport: false,
+			map,
+			selectedId,
 		});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
 	const habitatIds = rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId]));
 	const habitatNameById = useHabitatNames(habitatIds);
-
-	const selected = useSelectedMapRecord<BiocontrolSite>({
-		path: PATH,
-		rowKey: 'biocontrolAction',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [

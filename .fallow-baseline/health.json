@@ -370,29 +370,18 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/adult-surveillance/collections/index.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/adult-surveillance/index.tsx": {
       "complexity_moderate": {
         "count": 1
       }
     },
     "apps/web/src/routes/adult-surveillance/traps/index.tsx": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
+      "complexity_moderate": {
         "count": 1
       }
     },
     "apps/web/src/routes/control-operations/biocontrol/index.tsx": {
       "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -414,7 +403,7 @@
         "count": 1
       },
       "crap_moderate": {
-        "count": 2
+        "count": 1
       }
     },
     "apps/web/src/routes/control-operations/chemical/create.tsx": {
@@ -430,21 +419,6 @@
         "count": 1
       },
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/control-operations/chemical/index.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/control-operations/source-reduction/index.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/gis/addresses/-address-form.tsx": {
-      "complexity_moderate": {
         "count": 1
       }
     },
@@ -471,9 +445,6 @@
     },
     "apps/web/src/routes/larval-surveillance/habitats/index.tsx": {
       "complexity_moderate": {
-        "count": 2
-      },
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -499,9 +470,6 @@
       }
     },
     "apps/web/src/routes/larval-surveillance/inspections/create.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      },
       "crap_moderate": {
         "count": 1
       }
@@ -511,14 +479,6 @@
         "count": 1
       },
       "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/larval-surveillance/samples/index.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -599,11 +559,6 @@
     },
     "apps/web/src/routes/profile.tsx": {
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/public-engagement/outreach/index.tsx": {
-      "complexity_moderate": {
         "count": 1
       }
     },

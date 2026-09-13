@@ -11,17 +11,16 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	toggle,
 	useApplicationMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
+	useExplorerResource,
 	useInsecticideOptions,
-	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -132,39 +131,32 @@ function ApplicationsExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: ChemicalTileFilters = {
-		...(insecticideIds.size > 0 ? { insecticideIds: [...insecticideIds] } : {}),
-		...(methodIds.size > 0 ? { applicationMethodIds: [...methodIds] } : {}),
-		...(personIds.size > 0 ? { applicatorProfileIds: [...personIds] } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('insecticideIds', insecticideIds),
+		...whenAny('applicationMethodIds', methodIds),
+		...whenAny('applicatorProfileIds', personIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
-	const params = mapQueryParams({
-		insecticideId: filters.insecticideIds,
-		applicationMethodId: filters.applicationMethodIds,
-		applicator: filters.applicatorProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<ApplicationSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<ApplicationSite>({
 			path: PATH,
 			rowsKey: 'applications',
+			rowKey: 'application',
 			label: 'Applications',
-			params,
+			params: {
+				insecticideId: filters.insecticideIds,
+				applicationMethodId: filters.applicationMethodIds,
+				applicator: filters.applicatorProfileIds,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			viewport: false,
+			map,
+			selectedId,
 			normalizeRow: normalizeApplication,
 		});
-
-	const selected = useSelectedMapRecord<ApplicationSite>({
-		path: PATH,
-		rowKey: 'application',
-		rows,
-		selectedId,
-		normalizeRow: normalizeApplication,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [

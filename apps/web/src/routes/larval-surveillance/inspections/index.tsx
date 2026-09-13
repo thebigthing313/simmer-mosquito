@@ -11,17 +11,13 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	useMapBoundsParam,
-	usePagedMapResource,
+	useExplorerResource,
 	useRegionOptions,
-	useSelectedMapRecord,
 	whenAny,
 	whenOn,
 	whenText,
@@ -105,41 +101,6 @@ function useInspectionFilterOptions(): InspectionFilterOptions {
 	return { catalogs, regions };
 }
 
-/**
- * The page of inspections in view, and whichever one is selected.
- *
- * The selected record is fetched on its own when it is not on the page in hand,
- * so a deep link to a record outside the current window still opens with the map
- * flown to it.
- */
-function useInspectionResults({
-	filters,
-	map,
-	selectedId,
-}: {
-	readonly filters: InspectionTileFilters;
-	readonly map: MapboxMap | null;
-	readonly selectedId: string | null;
-}) {
-	const bbox = useMapBoundsParam(map);
-	const params = inspectionQueryParams(bbox, filters);
-	const paged = usePagedMapResource<InspectionSite>({
-		path: PATH,
-		rowsKey: 'inspections',
-		label: 'Inspections',
-		params,
-		enabled: bbox !== null,
-	});
-	const selected = useSelectedMapRecord<InspectionSite>({
-		path: PATH,
-		rowKey: 'inspection',
-		rows: paged.rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
-	return { paged, selected };
-}
-
 const RESULT_NOUN = { one: 'inspection', many: 'inspections' };
 
 /** What an empty or loading rail draws, which is the same whatever is filtered. */
@@ -177,9 +138,8 @@ function inspectionTileFilters(set: InspectionFilterState): InspectionTileFilter
 }
 
 /** The same filters as the list endpoint's query string. */
-function inspectionQueryParams(bbox: string | null, filters: InspectionTileFilters) {
-	return mapQueryParams({
-		bbox,
+function inspectionQueryParams(filters: InspectionTileFilters) {
+	return {
 		isWet: filters.isWet,
 		density: filters.densities,
 		positive: filters.positiveOnly,
@@ -188,7 +148,7 @@ function inspectionQueryParams(bbox: string | null, filters: InspectionTileFilte
 		regionId: filters.regionIds,
 		dateFrom: filters.dateFrom,
 		dateTo: filters.dateTo,
-	});
+	};
 }
 
 /** The catalogs the filter controls offer, and the names their chips read by. */
@@ -220,8 +180,17 @@ function InspectionsExplorerRoute() {
 	const filterOptions = useInspectionFilterOptions();
 	const filters = inspectionTileFilters(state);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
-	const { paged, selected } = useInspectionResults({ filters, map, selectedId });
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } = paged;
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<InspectionSite>({
+			path: PATH,
+			rowsKey: 'inspections',
+			rowKey: 'inspection',
+			label: 'Inspections',
+			params: inspectionQueryParams(filters),
+			viewport: true,
+			map,
+			selectedId,
+		});
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
 		{
