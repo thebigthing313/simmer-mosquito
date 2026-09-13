@@ -448,26 +448,22 @@ export interface NearbyHabitatsResult {
  * page that built the target's half from a synced row instead would be a second
  * spelling of the same thing, free to drift.
  *
- * The organization scope here is written twice, and neither copy is covered on
- * its own, because each is sufficient without the other. `readHabitatCandidate`
- * runs first and answers undefined for a target this Organization does not own,
- * and `id` is the habitats primary key, so `home` is that same row and carries
- * the caller's organization. From there the join's
- * `home.organization_id = near.organization_id` pins `near` to the caller, and
- * so does the `where` clause, separately. Change either one to `true` and the
- * other still answers correctly.
+ * The organization scope is written once, in the `where` clause, which names
+ * the caller's input the way the package's other organization-scoped readers
+ * do. `readHabitatCandidate` runs first and answers undefined for a target this
+ * Organization does not own, and `id` is the habitats primary key, so `home` is
+ * that same row and is already in scope before the join is written. The case
+ * `never answers with another organization habitat or one already deleted` is
+ * what pins the predicate: change it to `true` and that case fails.
  *
- * #616 found the join predicate survives being changed to `and true`. #701
- * measured all three mutations against the suite: the join predicate alone, 16
- * passed with the case that issue proposed and 16 without it; the `where`
- * clause's copy alone, 15 passed; both together, `never answers with another
- * organization habitat or one already deleted` fails. So the scope is covered
- * and no single-copy mutation can be, which is what redundancy means rather
- * than a hole in the suite. A case pinning one copy would have to reach a row
- * the other copy has already excluded, and there is no such row.
- *
- * Both copies stay. The join reads as scoped where it is written, and the
- * `where` clause is what an index uses.
+ * It used to be written twice, with `home.organization_id = near.organization_id`
+ * on the join as well. #616 found the join copy survives being changed to
+ * `and true`, and #701 measured all three mutations: either copy alone left the
+ * suite green, and only removing both failed a case. Redundant scope is scope
+ * no test can pin, so the join copy is gone and the one that is left is
+ * covered. An `explain` against the local prod clone gave the same plan all
+ * three ways, `organization_id` a post-filter behind `habitats_geom_gist_idx`
+ * and never an index condition, so the second copy bought nothing there either.
  */
 export async function readNearbyHabitats(
 	db: DbExecutor,
@@ -494,7 +490,6 @@ export async function readNearbyHabitats(
 		from habitats as near
 		join habitats as home
 			on home.id = ${input.habitatId}
-			and home.organization_id = near.organization_id
 		where near.organization_id = ${input.organizationId}
 			and near.deleted_at is null
 			and near.id <> home.id
