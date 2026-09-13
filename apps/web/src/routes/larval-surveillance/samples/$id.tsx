@@ -44,6 +44,7 @@ import {
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
 	type SampleSpeciesFields,
@@ -440,7 +441,7 @@ function IdentificationCard({
 		const identifiedByProfileId = identity?.profileId ?? null;
 		try {
 			await speciesMutations.add({
-				sampleSpeciesId: crypto.randomUUID(),
+				sampleSpeciesId: newRecordId(),
 				sampleId,
 				fields: {
 					speciesId,

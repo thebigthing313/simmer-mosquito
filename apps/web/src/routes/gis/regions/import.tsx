@@ -141,6 +141,8 @@ function ImportRegionsRoute() {
 				return;
 			}
 			const parsed = result.regions.map((region) => ({
+				// A preview list key, not a record id: the import mints each Region's own
+				// id with newRecordId() where it writes the row.
 				id: crypto.randomUUID(),
 				name: region.name,
 				geometry: region.geometry,
