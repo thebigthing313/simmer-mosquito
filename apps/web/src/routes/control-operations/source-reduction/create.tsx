@@ -64,9 +64,6 @@ function CreateSourceReductionRoute() {
 	const onSave = async (input: SourceReductionSaveInput) =>
 		mission.run(async (acknowledgements) => {
 			const { values, geometry } = input;
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
 			if (actorProfileId === null) {
 				throw new Error('Your profile is still loading.');
 			}
@@ -129,7 +126,7 @@ function CreateSourceReductionRoute() {
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				profiles={profiles}
 				submitLabel="Record Source Reduction"
 				units={units}

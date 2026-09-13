@@ -234,7 +234,7 @@ function CreateInspectionRoute() {
 				}}
 				initialAdhocGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				policy={policy}
 				profiles={profiles}
 				submitLabel="Record Inspection"

@@ -72,7 +72,7 @@ function EditSourceReductionRoute() {
 				<EditSourceReductionLoader
 					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					methods={methods}
-					organizationId={organization?.id ?? ''}
+					organizationId={organization.id}
 					profiles={profiles}
 					sourceReduction={record}
 					units={units}

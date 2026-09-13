@@ -94,7 +94,7 @@ function EditInspectionRoute() {
 						existingPersonnel={personnel.rows}
 						habitatTypes={habitatTypes}
 						inspection={record}
-						organizationId={organization?.id ?? ''}
+						organizationId={organization.id}
 						personnelProfileIds={personnel.profileIds}
 						policy={settings.larvalSurveillance.inspectionEntryPolicy}
 						profiles={profiles}

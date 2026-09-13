@@ -140,7 +140,7 @@ export function GeneralOrganizationSection({
 						type="button"
 						variant="outline"
 						size="sm"
-						disabled={organization === null || isCreatingTag}
+						disabled={isCreatingTag}
 						onClick={() => setIsCreatingTag(true)}
 					>
 						<AddIcon aria-hidden="true" />

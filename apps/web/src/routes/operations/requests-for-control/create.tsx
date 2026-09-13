@@ -34,12 +34,11 @@ function CreateRequestForControlRoute() {
 	const [requestId] = useState(() => newRecordId());
 	useRequestedControlAction(requestId);
 
-	const organizationId = organization?.id ?? null;
 	const requestWrites = useRequestedControlActionMutations();
 
 	const onSave = async ({ values, geometry }: RequestSaveInput) => {
-		if (organizationId === null || actorProfileId === null) {
-			throw new Error('Your organization and profile are still loading.');
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
 		}
 		if (geometry === null) {
 			throw new Error('Map where the control work is needed.');
@@ -59,7 +58,7 @@ function CreateRequestForControlRoute() {
 
 	return (
 		<RequestFormPage
-			canSubmit={canAttributeWrite({ organization: organizationId, actorProfileId })}
+			canSubmit={canAttributeWrite({ organization, actorProfileId })}
 			defaultValues={defaultRequestFormValues()}
 			errorTitle="Unable to Raise Request"
 			header={{
@@ -70,7 +69,7 @@ function CreateRequestForControlRoute() {
 				backLabel: 'Requests for Control',
 			}}
 			onSave={onSave}
-			organizationId={organizationId ?? ''}
+			organizationId={organization.id}
 			submitLabel="Raise Request"
 		/>
 	);

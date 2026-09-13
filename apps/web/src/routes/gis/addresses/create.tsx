@@ -34,9 +34,6 @@ function CreateAddressRoute() {
 	const mutations = useAddressMutations();
 
 	const onSave = async ({ values, geometry, geocoderResponse }: AddressFormSave) => {
-		if (organization === null) {
-			throw new Error('Organization details are still loading.');
-		}
 		if (geometry === null) {
 			throw new Error('Place the address point before saving.');
 		}

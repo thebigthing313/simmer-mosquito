@@ -67,9 +67,6 @@ function CreateOutreachActionRoute() {
 	}) =>
 		mission.run(async (acknowledgements) => {
 			const { values, geometry } = input;
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
 			if (actorProfileId === null) {
 				throw new Error('Your profile is still loading.');
 			}
@@ -143,7 +140,7 @@ function CreateOutreachActionRoute() {
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				outreachMethods={methods}
 				profiles={profiles}
 				submitLabel="Record Outreach"
