@@ -49,16 +49,16 @@ import {
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import {
-	DATE_RANGE_COUNTING,
-	searchValidator,
-	useSearchFilters,
-} from '../../../lib/search-filters';
-import {
 	addDaysToDateString,
 	dateRangeLabel,
 	formatListDate,
 	todayInTimeZone,
-} from '../-overview-data';
+} from '../../../lib/local-date';
+import {
+	DATE_RANGE_COUNTING,
+	searchValidator,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { SampleMapCard } from '../-sample-map-card';
 import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
 import type { SampleStatus } from './-legend';

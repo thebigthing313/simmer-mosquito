@@ -24,13 +24,7 @@ import {
 	useServiceRequestFeed,
 } from '../../hooks/queries/use-service-request-feed';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import {
-	addDaysToDateString,
-	formatMonthDay,
-	OUTREACH_ACTIVITY_WINDOW_DAYS,
-	SERVICE_REQUEST_FEED_WINDOW_DAYS,
-	todayInTimeZone,
-} from './-overview-data';
+import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
 import {
 	contactDisplayName,
 	formatAddressLine,
@@ -41,6 +35,12 @@ import {
 export const Route = createFileRoute('/public-engagement/')({
 	component: PublicEngagementOverviewRoute,
 });
+
+/** How far back the recent outreach panel reaches. */
+const OUTREACH_ACTIVITY_WINDOW_DAYS = 14;
+
+/** How far back the service request activity feed reaches. */
+const SERVICE_REQUEST_FEED_WINDOW_DAYS = 7;
 
 const PublicIcon = iconRegistry.domains.publicEngagement.icon;
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;

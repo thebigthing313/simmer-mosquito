@@ -5,8 +5,7 @@ import {
 	type SpeciesStatus,
 } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { todayInTimeZone } from '../../lib/local-date';
-import { formatDate, formatWeekdayDate } from './-overview-data';
+import { formatNumericDate, formatWeekdayDate, todayInTimeZone } from '../../lib/local-date';
 
 // --- shared labels ----------------------------------------------------------
 
@@ -62,7 +61,7 @@ export function collectionTitle(
 	timeZone: string,
 ): string {
 	const date = collectionEffectiveDate(collection, timeZone);
-	return date === null ? 'Pending collection' : formatDate(date);
+	return date === null ? 'Pending collection' : formatNumericDate(date);
 }
 
 /**

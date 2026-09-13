@@ -36,20 +36,20 @@ import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-act
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../lib/coordinate-label';
-import type { InspectionsSearch } from './-inspections-search';
 import {
-	ACTIVITY_WINDOW_DAYS,
 	addDaysToDateString,
 	buildWeek,
 	dayOfMonth,
 	formatMonthDay,
-	type SpeciesTotal,
 	startOfWeek,
 	todayInTimeZone,
-	useSamplesAwaiting,
-	useSpeciesComposition,
 	weekdayLabel,
-} from './-overview-data';
+} from '../../lib/local-date';
+import type { InspectionsSearch } from './-inspections-search';
+import { type SpeciesTotal, useSamplesAwaiting, useSpeciesComposition } from './-overview-data';
+
+/** How far back the recent-window queries (heavy list, open samples) reach. */
+const ACTIVITY_WINDOW_DAYS = 14;
 
 const LarvalIcon = iconRegistry.domains.larvalSurveillance.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;

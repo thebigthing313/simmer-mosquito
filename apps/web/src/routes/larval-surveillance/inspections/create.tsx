@@ -19,8 +19,8 @@ import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { todayInTimeZone } from '../-overview-data';
 import {
 	type DrawGeometry,
 	defaultInspectionFormValues,

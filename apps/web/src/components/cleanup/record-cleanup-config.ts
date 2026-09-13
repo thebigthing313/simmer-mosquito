@@ -6,8 +6,7 @@ import type {
 	DuplicateRecordType,
 	MergeableRecordType,
 } from '../../hooks/use-merge-candidates';
-import { todayInTimeZone } from '../../lib/local-date';
-import { formatListDate } from '../../routes/larval-surveillance/-overview-data';
+import { formatListDate, todayInTimeZone } from '../../lib/local-date';
 
 type RegistryIcon = typeof iconRegistry.entities.address.icon;
 

@@ -58,8 +58,7 @@ import { useHabitatSearch } from '../../../hooks/queries/use-habitat-search';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
-import { todayInTimeZone } from '../-overview-data';
+import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../../lib/local-date';
 
 export type InspectionLocationMode = 'habitat' | 'adhoc';
 

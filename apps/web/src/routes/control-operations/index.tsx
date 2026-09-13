@@ -34,18 +34,22 @@ import {
 } from '../../hooks/queries/use-recent-control-actions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { formatActionDate, formatMeasure, usageTotal } from './-control-display';
 import {
 	addDaysToDateString,
 	buildWeek,
-	CONTROL_ACTIVITY_WINDOW_DAYS,
 	dayOfMonth,
 	startOfWeek,
 	todayInTimeZone,
-	USAGE_WINDOW_DAYS,
-	type UsageWindowDays,
 	weekdayLabel,
-} from './-overview-data';
+} from '../../lib/local-date';
+import { formatActionDate, formatMeasure, usageTotal } from './-control-display';
+
+/** How far back the recent-activity panels reach. */
+const CONTROL_ACTIVITY_WINDOW_DAYS = 14;
+
+/** The windows the insecticide usage summary offers, shortest first. */
+const USAGE_WINDOW_DAYS = [7, 30] as const;
+type UsageWindowDays = (typeof USAGE_WINDOW_DAYS)[number];
 
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
 const ApplicationIcon = iconRegistry.entities.application.icon;

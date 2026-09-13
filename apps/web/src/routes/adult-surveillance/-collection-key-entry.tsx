@@ -19,13 +19,13 @@ import {
 } from '../../hooks/queries/use-collection-identifications';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
+import { todayInTimeZone } from '../../lib/local-date';
 import {
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
 	speciesSexLabel,
 	speciesStatusLabel,
 } from './-adult-display';
-import { todayInTimeZone } from './-overview-data';
 
 /**
  * Adult identification defaults to females with no status recorded — the counts a

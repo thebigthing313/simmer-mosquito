@@ -59,6 +59,7 @@ import {
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { usePagedRows } from '../../../hooks/use-paged-rows';
 import { TRAP_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { todayInTimeZone } from '../../../lib/local-date';
 import {
 	aggregateSpeciesDistribution,
 	CollectionFlagBadges,
@@ -66,7 +67,6 @@ import {
 	collectionRowDate,
 	SpeciesDistributionBars,
 } from '../-adult-display';
-import { todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id')({
 	component: RouteComponent,

@@ -28,13 +28,13 @@ import { densityLabel } from '../../components/larval-display';
 import { INSPECTION_DENSITY_COLORS } from '../../components/map';
 import type { InspectionTableFilters } from '../../hooks/queries/use-inspection-table';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { addDaysToDateString, dateRangeLabel, todayInTimeZone } from '../../lib/local-date';
 import { type FilterCounting, useSearchFilters } from '../../lib/search-filters';
 import {
 	type InspectionFilters,
 	inspectionFilterCodecs,
 	type WaterFilterValue,
 } from './-inspections-search';
-import { addDaysToDateString, dateRangeLabel, todayInTimeZone } from './-overview-data';
 
 /** How far back the map opens, and what Clear all returns it to. */
 const DEFAULT_WINDOW_DAYS = 30;
