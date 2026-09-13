@@ -1,5 +1,6 @@
 /**
- * The three values every mutation hook mints for itself.
+ * What every mutation hook takes from `hooks/mutations/shared`: the three values
+ * it mints for itself, and the predicate it publishes as `canWrite`.
  *
  * `optimisticStamp` and `lifecycleStamp` are both "now" and are not
  * interchangeable. An `updated_at` built from the first is stripped out of the
@@ -15,7 +16,12 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { lifecycleStamp, newRecordId, optimisticStamp } from '../../../../hooks/mutations/shared';
+import {
+	canAttributeWrite,
+	lifecycleStamp,
+	newRecordId,
+	optimisticStamp,
+} from '../../../../hooks/mutations/shared';
 
 /** The margin `shared.ts` backdates by, restated so a change to it fails here. */
 const SKEW_MARGIN_MS = 2_000;
@@ -52,5 +58,46 @@ describe('a new record id', () => {
 
 	it('is a uuid, because the column it lands in is one', () => {
 		expect(newRecordId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+	});
+});
+
+/**
+ * The attribution predicate, which 33 hooks publish as `canWrite` (#888).
+ *
+ * It answers whether there is an Organization and an actor Profile to record the
+ * write against, and a form reads it to decide whether Save is pressable. Each
+ * half is asserted on its own, because a predicate that dropped one would still
+ * be true whenever the other was there, and a person signed in to a screen has
+ * both.
+ */
+describe('the attribution predicate', () => {
+	const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
+	const PROFILE = '22222222-2222-4222-8222-222222222222';
+
+	it('is false with no Organization to write the row into', () => {
+		expect(canAttributeWrite({ organization: null, actorProfileId: PROFILE })).toBe(false);
+	});
+
+	it('is false with no actor Profile to record the write on behalf of', () => {
+		expect(canAttributeWrite({ organization: ORGANIZATION, actorProfileId: null })).toBe(false);
+	});
+
+	it('is false with neither', () => {
+		expect(canAttributeWrite({ organization: null, actorProfileId: null })).toBe(false);
+	});
+
+	it('is true with both', () => {
+		expect(canAttributeWrite({ organization: ORGANIZATION, actorProfileId: PROFILE })).toBe(true);
+	});
+
+	/**
+	 * A hook holds the id off the auth snapshot and a route component usually
+	 * holds the record it loaded, so both spellings reach the same call and
+	 * neither is read.
+	 */
+	it('takes the Organization itself, where a route holds the record rather than the id', () => {
+		expect(canAttributeWrite({ organization: { id: ORGANIZATION }, actorProfileId: PROFILE })).toBe(
+			true,
+		);
 	});
 });

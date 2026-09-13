@@ -31,11 +31,21 @@ vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
 });
+/**
+ * Who the snapshot says is signed in, which `canWrite` is read off.
+ *
+ * A hook takes the Organization and the acting Profile from the snapshot and
+ * nothing else, so this is the whole of what a test has to move to render one
+ * with the attribution incomplete. It is restored in `beforeEach`, since every
+ * other test in the file writes as a signed-in person.
+ */
+let signedIn: { organizationId: string | null; profileId: string | null } = {
+	organizationId: ORGANIZATION,
+	profileId: PROFILE,
+};
+
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
-	useAuthSnapshot: () => ({
-		authenticated: true,
-		localIdentity: { organizationId: ORGANIZATION, profileId: PROFILE },
-	}),
+	useAuthSnapshot: () => ({ authenticated: true, localIdentity: signedIn }),
 }));
 
 const {
@@ -79,6 +89,7 @@ const AREA: DrawGeometry = {
 };
 
 beforeEach(() => {
+	signedIn = { organizationId: ORGANIZATION, profileId: PROFILE };
 	installMemoryCollections();
 	resetDispatches();
 	stubApi();
@@ -510,5 +521,39 @@ describe('a species count write', () => {
 		await result.current.remove(RECORD);
 
 		expect(lastIntents()).toEqual(['larvalSurveillance.deleteSampleSpeciesCount']);
+	});
+});
+
+/**
+ * What a hook publishes as `canWrite`, read back off a render.
+ *
+ * `canAttributeWrite` is asserted on its own in `shared.test.ts`, taking plain
+ * arguments. What that cannot say is whether a hook reads the right two values
+ * off the auth snapshot and hands them over, and the answer is the same for the
+ * 33 hooks that share the predicate, so one render covers the wiring once (#899).
+ * A hook reading, say, the Organization twice would be true exactly when it
+ * should be, in every test that signs a person in.
+ */
+describe('what a habitat write publishes as canWrite', () => {
+	it('is false with no actor Profile to record the write on behalf of', () => {
+		signedIn = { organizationId: ORGANIZATION, profileId: null };
+
+		const { result } = renderHook(() => useHabitatMutations());
+
+		expect(result.current.canWrite).toBe(false);
+	});
+
+	it('is false with no Organization to write the row into', () => {
+		signedIn = { organizationId: null, profileId: PROFILE };
+
+		const { result } = renderHook(() => useHabitatMutations());
+
+		expect(result.current.canWrite).toBe(false);
+	});
+
+	it('is true with both, which is what a signed-in form renders against', () => {
+		const { result } = renderHook(() => useHabitatMutations());
+
+		expect(result.current.canWrite).toBe(true);
 	});
 });
