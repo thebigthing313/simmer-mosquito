@@ -41,6 +41,21 @@
 // after real complexity comes out, so anything chaining off it stops on a
 // successful save. A save run's exit code is decided below instead.
 //
+// The verdict half is #941. fallow's last line on a `health` run is `✗ n above
+// threshold`, which is its own count of findings over its threshold and is the
+// same line on a run that passes the baseline comparison and one that fails it:
+// the two runs behind that issue printed `✗ 187 above threshold` and exited 0
+// and 1. A reader sees the glyph at the bottom of 3000 lines and reads it as the
+// gate's answer, and the issue it produced was a disagreement between local and
+// CI that did not exist. So a run that compares prints its own verdict under
+// fallow's, naming the regressions and this run's exit code. The regression
+// count is measured here rather than read off fallow, which prints no regression
+// detail at all, only the exit code; the measurement is fallow's own `count`
+// mode, a comparison per file and finding category, against the fresh baseline
+// the freshness check below already saves. Refactoring targets are left out of
+// it, being recommendations rather than findings. The verdict reports and never
+// decides: every exit code here is what it was before.
+//
 // The freshness half is #669, and it is the gate under fallow's quarter. Below
 // that line fallow says nothing, so a baseline could carry any number of
 // entries matching nothing and every one of them was headroom a new finding
@@ -67,6 +82,11 @@ const STALE_ENTRY_LIMIT = 5;
 // baseline that has gone this far wrong is re-saved wholesale, and the diff is
 // where the rest are read.
 const STALE_ENTRIES_SHOWN = 20;
+
+// How many regressions the verdict names before it stops listing them. The
+// report above already holds every one of them; this is the list a person reads
+// first.
+const REGRESSIONS_SHOWN = 20;
 
 // The path `--save-baseline` was given, in either spelling fallow accepts, or
 // null when this run saves nothing.
@@ -200,12 +220,46 @@ const describeRun = (run) => {
 };
 
 /**
- * The saved entries that no current finding matches, or null when the second
- * run could not be read. Its exit code is ignored on purpose: a save run exits
- * non-zero over findings above the threshold, which is #668, and the file on
- * disk is the whole answer.
+ * How many findings each file and category carries, keyed the way
+ * `baselineEntries` names them. This is the pair `--baseline-mode count`
+ * matches on, and the count is what the verdict compares: a key whose fresh
+ * count is above its saved one is the regression fallow failed the run over.
  */
-const staleEntries = () => {
+const findingCounts = (baseline) =>
+	new Map(
+		Object.entries(baseline.finding_counts ?? {}).flatMap(([file, categories]) =>
+			Object.entries(categories).map(([category, finding]) => [
+				`${file} (${category})`,
+				finding.count,
+			]),
+		),
+	);
+
+/**
+ * The findings that have gone up between two baselines, one line each. A key
+ * the saved baseline does not carry counts from zero, which is how a file that
+ * was clean when the baseline was written reports its first finding.
+ */
+const regressionsBetween = (saved, fresh) => {
+	const before = findingCounts(saved);
+	const countBefore = (entry) => before.get(entry) ?? 0;
+	return [...findingCounts(fresh)]
+		.filter(([entry, count]) => count > countBefore(entry))
+		.map(([entry, count]) => `${entry} ${countBefore(entry)} to ${count}`);
+};
+
+/**
+ * The saved entries that no current finding matches, and the findings that have
+ * gone up since the baseline was saved. Null when the second run could not be
+ * read. Its exit code is ignored on purpose: a save run exits non-zero over
+ * findings above the threshold, which is #668, and the file on disk is the
+ * whole answer.
+ *
+ * One run answers both questions, so the verdict costs nothing on top of the
+ * freshness gate: both are a comparison between the checked-in baseline and one
+ * saved off the same tree.
+ */
+const measureBaseline = () => {
 	const directory = mkdtempSync(join(tmpdir(), 'fallow-freshness-'));
 	const destination = join(directory, 'health.json');
 	try {
@@ -219,9 +273,15 @@ const staleEntries = () => {
 			env,
 		});
 		freshnessDetail = describeRun(run);
-		const fresh = new Set(baselineEntries(JSON.parse(readFileSync(destination, 'utf8'))));
-		const saved = baselineEntries(JSON.parse(readFileSync(baselinePath, 'utf8')));
-		return saved.filter((entry) => !fresh.has(entry));
+		const freshBaseline = JSON.parse(readFileSync(destination, 'utf8'));
+		const savedBaseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
+
+		const fresh = new Set(baselineEntries(freshBaseline));
+
+		return {
+			stale: baselineEntries(savedBaseline).filter((entry) => !fresh.has(entry)),
+			regressions: regressionsBetween(savedBaseline, freshBaseline),
+		};
 	} catch {
 		return null;
 	} finally {
@@ -256,14 +316,49 @@ const reportStale = (stale) => {
 	process.exitCode = 1;
 };
 
-/** The #669 gate: five stale entries pass, more than five fail. */
-const reportFreshness = () => {
-	const stale = staleEntries();
-	if (stale === null) {
+/** The code this run is leaving with, read after every other check has spoken. */
+const exitCode = () => process.exitCode ?? 0;
+
+/**
+ * What the comparison found, as the clause the verdict opens with. Null is the
+ * run whose fresh baseline could not be read, which has already failed above.
+ */
+const verdictOutcome = (regressions) => {
+	if (regressions === null)
+		return `the comparison against ${baselinePath} could not be counted here, for the reason above`;
+	if (regressions.length === 0) return `no regression against ${baselinePath}`;
+	const plural = regressions.length === 1 ? 'regression' : 'regressions';
+	return `${regressions.length} ${plural} against ${baselinePath}`;
+};
+
+/**
+ * The gate's own answer, read last. The first line names the comparison's
+ * outcome and this run's exit code, and the last says whose the `✗` count above
+ * it is, which is the whole of #941: that count is fallow's and it prints the
+ * same either way. This reports and never decides, so nothing here touches the
+ * exit code.
+ */
+const reportVerdict = (regressions) => {
+	const named = regressions ?? [];
+	console.error(`\nfallow:health: ${verdictOutcome(regressions)}. This run exits ${exitCode()}.`);
+	for (const regression of named.slice(0, REGRESSIONS_SHOWN)) console.error(`  ${regression}`);
+	if (named.length > REGRESSIONS_SHOWN)
+		console.error(`  and ${named.length - REGRESSIONS_SHOWN} more`);
+	console.error(
+		"The ✗ line above is fallow's own count of findings above its threshold. It prints the same on a run that passes this comparison and one that fails it, so it is not this gate's answer.",
+	);
+};
+
+/** The #669 gate and #941's verdict, in that order: the verdict reads last. */
+const reportComparison = () => {
+	const measured = measureBaseline();
+	if (measured === null) {
 		reportUnmeasurable();
+		reportVerdict(null);
 		return;
 	}
-	if (stale.length > STALE_ENTRY_LIMIT) reportStale(stale);
+	if (measured.stale.length > STALE_ENTRY_LIMIT) reportStale(measured.stale);
+	reportVerdict(measured.regressions);
 };
 
 const child = spawn('fallow', args, {
@@ -310,5 +405,5 @@ child.on('close', (code) => {
 
 	// A child killed by a signal analyzed nothing, so there is nothing to measure
 	// freshness against and the run is already failing.
-	if (code !== null && gatesOnBaseline) reportFreshness();
+	if (code !== null && gatesOnBaseline) reportComparison();
 });
