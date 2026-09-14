@@ -39,7 +39,8 @@
  * on the list that no longer exists fails, so the list cannot go stale past a
  * rename.
  *
- * No `.tsx` under `apps/web/src` writes a register form as a noun literal.
+ * No `.tsx` under `apps/web/src` writes a register form again, as a string
+ * literal under a key or as a run of JSX text between two tags.
  *
  * ## What a noun literal is, and what it deliberately is not
  *
@@ -84,6 +85,28 @@
  * 'Contact'` and `label: 'Address'` about its own foundations screens, and
  * those are its copy rather than this register's.
  *
+ * ## The other half of the corpus: a run of JSX text
+ *
+ * `copyStrings` has read the text between two tags since `check:vocabulary`
+ * needed it, and this gate was throwing it away: every run came back under no
+ * key, `NOUN_KEYS` answered no, and a record's name written between two tags
+ * was invisible. Two `Import Regions` labels sat that way while the sidebar
+ * entry beside them read `titleMany` out of the register (#966), and a fix to
+ * those two would have left the next copy exactly as invisible.
+ *
+ * So a run joins the corpus and is asked the whole-and-exact question the
+ * literals are asked, against `JSX_FORM_NAMES` rather than against all four.
+ * That is the departure worth reading: `NOUN_KEYS` decides what a keyed literal
+ * is, and a run has no key, so the decision moves onto the forms. The parse is
+ * shared and not copied. #588 is why: a bare `>` opens a run and `=>` is one,
+ * which cost `check:vocabulary` two false readings when it widened, and a
+ * second parse of JSX text here would have to get that right again.
+ *
+ * `JSX_NOUN_BACKLOG` is the price. Eleven runs already name a record, none of
+ * them this issue's, and a rule at zero would fail every branch on history, so
+ * the JSX half ships keyed by module and failing in both directions while the
+ * literal half stays at zero with no allowance.
+ *
  * ## The floors, and the guard that is not one
  *
  * #591's rule twice. `MINIMUM_RECORD_TYPES` against a parse that has stopped
@@ -91,14 +114,17 @@
  * copy under the same summary line a clean run prints. `MINIMUM_FILES` against
  * a walk that has stopped finding the app.
  *
- * `PROBES` is the third guard and cannot be a floor. This gate is at zero, so
- * no count over the tree can say whether the detector still reads a noun: a
- * `NOUN_KEYS` that matched nothing at all would print the same clean line.
- * Seven sources with known answers go through the same scan the files do, four
- * holding a finding and three holding none, and the three noes are the shapes a
- * rule one notch wider reads wrong: a discriminator, a longer sentence, and a
- * plural heading, which is the one that stays a no now that the register
- * carries the plural title under its own key.
+ * `PROBES` is the third guard and cannot be a floor. The literal half is at
+ * zero, so no count over the tree can say whether the detector still reads a
+ * noun: a `NOUN_KEYS` that matched nothing at all would print the same clean
+ * line. Nine sources with known answers go through the same scan the files do,
+ * five holding a finding and four holding none, and the noes are the shapes a
+ * rule one notch wider reads wrong: a discriminator, a longer sentence, a
+ * plural under `title`, and a title-cased singular between two tags.
+ *
+ * `JSX_NOUN_BACKLOG` is a floor of its own kind and needs no number beside it.
+ * A run scan that breaks reads eleven modules as swept and fails on all eleven,
+ * which is the failure a count would have been written to produce.
  */
 
 import { readFileSync } from 'node:fs';
@@ -140,6 +166,59 @@ const ENTRY_FORM = /\b(one|many|title|titleMany): '([^']*)'/g;
  * else. The gate's header carries why this is five names and not a denylist.
  */
 const NOUN_KEYS = new Set(['noun', 'one', 'many', 'titleMany', 'unavailableTitle']);
+
+/**
+ * The forms a run of JSX text is read against, out of the four.
+ *
+ * A run sits under no key, so `NOUN_KEYS` cannot answer for it, and the answer
+ * is the one that list already carries: `title` is out because a title-cased
+ * singular is what a label above a link writes, and it names a *linked* record
+ * rather than the surface's own. Between two tags that is the same shape, a
+ * `<TableHead>Habitat</TableHead>` over a column of links and a
+ * `<CardTitle>Contact</CardTitle>` over one, and four of the app's runs are
+ * exactly that. So a JSX run is compared against `one`, `many` and `titleMany`,
+ * which is `NOUN_KEYS` read as a rule about forms rather than about keys.
+ *
+ * Whole and exact stays the rule, so `Import Regions` between two tags is not a
+ * finding. The verb is the call site's own word and no register carries it,
+ * which is what `createLabel` in the sidebar already says; what the register
+ * owns is the name after it, and interpolating the name ends the run.
+ */
+const JSX_FORM_NAMES = ['one', 'many', 'titleMany'];
+
+/**
+ * The runs of JSX text that already write a record's name, by module.
+ *
+ * The JSX half ships at the backlog rather than at zero, which is this
+ * workspace's rule for a gate that would otherwise fail every branch on
+ * history: 11 runs name a record between two tags today, and none of them is
+ * this issue's. Six are an explorer heading or a back link, which is #965's
+ * whole subject, and five are a plural heading over a list of *linked* records,
+ * a `<CardTitle>Samples</CardTitle>` on an inspection page among them, which is
+ * the singular-label question one number up and has no issue of its own yet.
+ * Neither is fixed here, because widening a corpus and sweeping what it finds
+ * are two branches.
+ *
+ * Keyed by module and **failing in both directions**, the way
+ * `REACT_RULE_BACKLOG` does. One total is what a swap holds, and at one run per
+ * module a swap inside a module cannot happen. It is also the floor under the
+ * JSX scan, and there is no separate count beside it: a parse that stops
+ * reading runs empties every entry at once and fails on all eleven rather than
+ * printing the clean summary line a swept branch prints.
+ */
+const JSX_NOUN_BACKLOG = {
+	'apps/web/src/components/map/record-regions-band.tsx': 1,
+	'apps/web/src/routes/adult-surveillance/traps/$id.tsx': 1,
+	'apps/web/src/routes/gis/regions/import.tsx': 1,
+	'apps/web/src/routes/larval-surveillance/inspections/$id.tsx': 1,
+	'apps/web/src/routes/operations/assignments/$id.tsx': 1,
+	'apps/web/src/routes/operations/assignments/index.tsx': 1,
+	'apps/web/src/routes/operations/missions/$id.tsx': 1,
+	'apps/web/src/routes/operations/missions/index.tsx': 1,
+	'apps/web/src/routes/operations/requests-for-control/$id.tsx': 1,
+	'apps/web/src/routes/public-engagement/contacts/$id.tsx': 1,
+	'apps/web/src/routes/public-engagement/service-requests/$id.tsx': 1,
+};
 
 /**
  * The components whose copy comes from the register, and the prop each takes
@@ -189,14 +268,21 @@ const MINIMUM_RECORD_TYPES = 15;
 const MINIMUM_FILES = 250;
 
 /**
- * Seven sources with known answers, handed to the same scan the app goes
+ * Nine sources with known answers, handed to the same scan the app goes
  * through.
  *
- * The three that hold nothing are the shapes a wider rule reads wrong: a
+ * The four that hold nothing are the shapes a wider rule reads wrong: a
  * discriminator under a key that is not copy, a register form inside a longer
- * sentence, and a plural heading in the case an explorer writes it, which is
- * the same string as the `titleMany` probe above it under a key that is not
- * this register's.
+ * sentence, a plural under `title`, which is a key this register does not own,
+ * and a title-cased singular between two tags, which is the one the JSX half
+ * turns on. A rule one notch wider reads that last as a heading naming this
+ * surface's record when it is a label above a link naming another's, and four
+ * of the app's runs are it.
+ *
+ * The `titleMany` literal and the `<h1>Traps</h1>` beside it are the same
+ * string read under the two halves, which is the pair to keep: the first says
+ * the key rule still reads a literal and the second says the whole-run rule
+ * still reads a run, and neither can stand in for the other.
  */
 const PROBES = [
 	{ source: 'const a = <Thing noun="habitat" />;', finds: 'habitat' },
@@ -209,14 +295,19 @@ const PROBES = [
 		finds: 'Request for Control',
 	},
 	{ source: "const a = { titleMany: 'Traps' };", finds: 'Traps' },
+	{ source: 'const a = <h1>Traps</h1>;', finds: 'Traps' },
 	{ source: 'const a = <Thing recordType="habitat" kind="trap" />;', finds: null },
 	{ source: 'const a = <p>No batches have been linked to this application.</p>;', finds: null },
-	{ source: 'const a = <h1 title="Traps">Traps</h1>;', finds: null },
+	{ source: 'const a = <h1 title="Traps">{heading}</h1>;', finds: null },
+	{ source: 'const a = <CardTitle>Habitat</CardTitle>;', finds: null },
 ];
 
 function main() {
 	const register = readRegister();
-	const forms = new Set(register.flatMap((entry) => FORM_NAMES.map((name) => entry.forms[name])));
+	const forms = {
+		all: new Set(register.flatMap((entry) => FORM_NAMES.map((name) => entry.forms[name]))),
+		jsx: new Set(register.flatMap((entry) => JSX_FORM_NAMES.map((name) => entry.forms[name]))),
+	};
 	const problems = [...registerProblems(register), ...componentProblems()];
 
 	const files = [...typeScriptFilesUnder(WEB_ROOT)].filter((file) => file.endsWith('.tsx'));
@@ -232,15 +323,18 @@ function main() {
 			nounLiteralsIn(file, readFileSync(file, 'utf8').replaceAll('\r\n', '\n'), forms),
 		);
 
-	if (problems.length > 0 || findings.length > 0) {
-		report(problems, findings);
+	const backlog = againstBacklog(findings.filter((finding) => finding.kind === 'jsx'));
+	const reported = [...findings.filter((finding) => finding.kind === 'literal'), ...backlog.over];
+
+	if (problems.length + backlog.problems.length > 0 || reported.length > 0) {
+		report([...problems, ...backlog.problems], reported);
 		return;
 	}
 
 	checkProbes(forms);
 
 	console.log(
-		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_COMPONENTS.length} components reading it, no noun written again across ${files.length} modules.`,
+		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_COMPONENTS.length} components reading it, no noun written again across ${files.length} modules beyond the ${count(Object.keys(JSX_NOUN_BACKLOG).length, 'module')} JSX_NOUN_BACKLOG still holds.`,
 	);
 }
 
@@ -333,20 +427,65 @@ function* nounPropsAt(file, source) {
 	}
 }
 
-/** Every register form written as a noun literal in one file. */
+/** Every register form written out again in one file, as a literal or as JSX text. */
 function nounLiteralsIn(file, source, forms) {
 	return copyStrings(source)
-		.filter((literal) => forms.has(literal.text) && NOUN_KEYS.has(keyBefore(source, literal.index)))
-		.map((literal) => ({
-			at: `${pathFrom(workspaceRoot, file)}:${lineOf(source, literal.index)}`,
+		.filter((copy) => isNoun(copy, source, forms))
+		.map((copy) => ({
+			kind: copy.kind,
+			where: pathFrom(workspaceRoot, file).split(sep).join('/'),
+			at: `${pathFrom(workspaceRoot, file)}:${lineOf(source, copy.index)}`,
 			line: trim(
 				source
-					.slice(source.lastIndexOf('\n', literal.index) + 1)
+					.slice(source.lastIndexOf('\n', copy.index) + 1)
 					.split('\n')[0]
 					.trim(),
 			),
-			text: literal.text,
+			text: textOf(copy),
 		}));
+}
+
+/**
+ * Whether one piece of copy writes a record's name.
+ *
+ * Whole and exact either way. What differs is which forms are in scope and what
+ * "whole" means: a literal is its own text under one of `NOUN_KEYS`, and a run
+ * of JSX text is the run with its indentation off, against `JSX_FORM_NAMES`.
+ */
+function isNoun(copy, source, forms) {
+	return copy.kind === 'jsx'
+		? forms.jsx.has(textOf(copy))
+		: forms.all.has(copy.text) && NOUN_KEYS.has(keyBefore(source, copy.index));
+}
+
+/** What a piece of copy says, with a run's surrounding indentation taken off. */
+const textOf = (copy) => (copy.kind === 'jsx' ? copy.text.replace(/\s+/g, ' ').trim() : copy.text);
+
+/**
+ * The JSX findings a module is allowed, and the entries that no longer match.
+ *
+ * Both directions, which is what makes a swept module a branch that edits this
+ * file rather than one that quietly leaves headroom behind.
+ */
+function againstBacklog(findings) {
+	const byModule = new Map();
+	for (const finding of findings) {
+		byModule.set(finding.where, [...(byModule.get(finding.where) ?? []), finding]);
+	}
+
+	const problems = Object.entries(JSX_NOUN_BACKLOG).flatMap(([where, allowed]) =>
+		(byModule.get(where) ?? []).length < allowed
+			? [
+					`${where} is down to ${count((byModule.get(where) ?? []).length, 'record name')} written as JSX text and JSX_NOUN_BACKLOG allows ${allowed}. The work is done and the allowance is headroom the next copy would land inside: take the entry down in scripts/check-record-nouns.mjs, or off it when the number is zero.`,
+				]
+			: [],
+	);
+
+	const over = [...byModule].flatMap(([where, found]) =>
+		found.length > (JSX_NOUN_BACKLOG[where] ?? 0) ? found : [],
+	);
+
+	return { problems, over };
 }
 
 /**
@@ -360,7 +499,7 @@ function keyBefore(source, index) {
 	return before.match(/([A-Za-z][\w-]*)\s*[=:]\s*['"`]?$/)?.[1] ?? '-';
 }
 
-/** Refuse a run whose scan reads any of the six known-answer sources wrong. */
+/** Refuse a run whose scan reads any of the nine known-answer sources wrong. */
 function checkProbes(forms) {
 	const wrong = PROBES.filter((probe) => {
 		const found = nounLiteralsIn('probe.tsx', probe.source, forms);

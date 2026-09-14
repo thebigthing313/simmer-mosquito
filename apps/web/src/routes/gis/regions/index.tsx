@@ -38,7 +38,7 @@ import {
 	type RegionFolderListing,
 	useRegionFolders,
 } from '../../../hooks/queries/use-region-folders';
-import type { RecordType } from '../../../lib/record-nouns';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -468,7 +468,7 @@ function RegionsExplorerRoute() {
 						<DropdownMenuItem asChild>
 							<Link to="/gis/regions/import">
 								<ImportIcon aria-hidden="true" />
-								Import Regions
+								{`Import ${recordNoun(RECORD_TYPE).titleMany}`}
 							</Link>
 						</DropdownMenuItem>
 					</WriteOnly>

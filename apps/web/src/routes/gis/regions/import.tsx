@@ -39,6 +39,7 @@ import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { regions } from '../../../lib/collections/regions';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { RegionFolderDialog } from './-folder-dialog';
 import { MAX_REGIONS, parseRegionsFromFile, type RegionBoundary } from './-import-parse';
@@ -56,6 +57,7 @@ const UploadIcon = iconRegistry.actions.upload.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const ShowOnMapIcon = iconRegistry.actions.locate.icon;
 const UNFILED = 'unfiled';
+const RECORD_TYPE: RecordType = 'region';
 
 /** How many region writes to keep in flight at once during an import. */
 const IMPORT_CONCURRENCY = 6;
@@ -288,7 +290,7 @@ function ImportRegionsRoute() {
 					</Link>
 					<div className="grid gap-1">
 						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							Import Regions
+							{`Import ${recordNoun(RECORD_TYPE).titleMany}`}
 						</h1>
 						<p className="m-0 text-muted-foreground text-sm">
 							Upload a KML, KMZ, or GeoJSON file. Each feature in it becomes one region you can
