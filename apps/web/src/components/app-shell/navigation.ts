@@ -108,13 +108,16 @@ export interface WebShellDomain extends ShellDomain {
  * word and no register carries it: the same record type is created, recorded
  * or added depending on what the work is called in the field.
  *
- * `Import Regions` is the one create-shaped entry this cannot serve, and it is
- * still a literal: its noun is a title-cased plural, which the register does
- * not carry, and building one by appending an `s` would be the pluralization
- * rule `record-nouns.ts` refuses on the way in.
+ * `Import Regions` is the one create-shaped entry whose noun is a plural, so
+ * it reads `titleMany` through {@link createPluralLabel} rather than `title`.
  */
 function createLabel(verb: string, recordType: RecordType): string {
 	return `${verb} ${recordNoun(recordType).title}`;
+}
+
+/** The same label over a record type's title-cased plural: `Import Regions`. */
+function createPluralLabel(verb: string, recordType: RecordType): string {
+	return `${verb} ${recordNoun(recordType).titleMany}`;
 }
 
 /**
@@ -651,7 +654,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'regions-import',
-						label: 'Import Regions',
+						label: createPluralLabel('Import', 'region'),
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
 						action: { keywords: ['upload', 'load', 'shapefile', 'geojson', 'boundaries'] },

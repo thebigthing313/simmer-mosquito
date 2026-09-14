@@ -14,6 +14,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/item';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
+import { recordNoun } from '../../lib/record-nouns';
 
 type RegistryIcon = typeof iconRegistry.generic.component.icon;
 
@@ -53,7 +54,7 @@ const controlOverview: Elsewhere = {
 	icon: iconRegistry.domains.controlOperations.icon,
 };
 const serviceRequests: Elsewhere = {
-	label: 'Service Requests',
+	label: recordNoun('serviceRequest').titleMany,
 	description: 'Requests from the public, on the map',
 	to: '/public-engagement/service-requests',
 	icon: iconRegistry.entities.serviceRequest.icon,
@@ -71,7 +72,7 @@ const operations: Elsewhere = {
 	icon: iconRegistry.entities.vehicle.icon,
 };
 const collections: Elsewhere = {
-	label: 'Collections',
+	label: recordNoun('collection').titleMany,
 	description: 'What your traps caught, by species and trap night',
 	to: '/adult-surveillance/collections',
 	icon: iconRegistry.domains.adultSurveillance.icon,
@@ -83,43 +84,43 @@ const insecticides: Elsewhere = {
 	icon: iconRegistry.entities.insecticide.icon,
 };
 const regions: Elsewhere = {
-	label: 'Regions',
+	label: recordNoun('region').titleMany,
 	description: 'The boundaries you work and report by',
 	to: '/gis/regions',
 	icon: iconRegistry.entities.region.icon,
 };
 const weatherStations: Elsewhere = {
-	label: 'Weather Stations',
+	label: recordNoun('weatherStation').titleMany,
 	description: 'Stations on the map, with the summaries recorded against each',
 	to: '/gis/weather',
 	icon: iconRegistry.domains.weather.icon,
 };
 const habitats: Elsewhere = {
-	label: 'Habitats',
+	label: recordNoun('habitat').titleMany,
 	description: 'The habitats you inspect, on the map',
 	to: '/larval-surveillance/habitats',
 	icon: iconRegistry.generic.droplet.icon,
 };
 const inspections: Elsewhere = {
-	label: 'Inspections',
+	label: recordNoun('inspection').titleMany,
 	description: 'What crews found at a habitat, by date and density',
 	to: '/larval-surveillance/inspections',
 	icon: iconRegistry.entities.inspection.icon,
 };
 const samples: Elsewhere = {
-	label: 'Samples',
+	label: recordNoun('sample').titleMany,
 	description: 'Larvae taken for identification, and what came back',
 	to: '/larval-surveillance/samples',
 	icon: iconRegistry.entities.sample.icon,
 };
 const traps: Elsewhere = {
-	label: 'Traps',
+	label: recordNoun('trap').titleMany,
 	description: 'Traps and their collection methods, on the map',
 	to: '/adult-surveillance/traps',
 	icon: iconRegistry.entities.trap.icon,
 };
 const applications: Elsewhere = {
-	label: 'Chemical Applications',
+	label: recordNoun('application').titleMany,
 	description: 'Product, amount, and method for every treatment logged',
 	to: '/control-operations/chemical',
 	icon: iconRegistry.entities.application.icon,
