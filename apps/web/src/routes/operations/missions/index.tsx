@@ -45,6 +45,7 @@ import { useMissionItemCounts } from '../../../hooks/queries/use-mission-item-co
 import { useMissions } from '../../../hooks/queries/use-missions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceSetParam,
 	dateParam,
@@ -206,7 +207,9 @@ function MissionsRoute() {
 				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 					<div className="flex items-center justify-between gap-3">
 						<div className="flex items-baseline gap-2">
-							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Missions</h1>
+							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
+								{recordNoun('mission').titleMany}
+							</h1>
 							<span className="text-muted-foreground text-sm">
 								{visible.length === 1 ? '1 mission' : `${visible.length} missions`}
 							</span>

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useContact } from '../../../hooks/queries/use-contact-record';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type ContactFormValues,
@@ -43,7 +44,7 @@ function CreateContactRoute() {
 				title: 'Create Contact',
 				description: 'Add a person to the contact list.',
 				backTo: '/public-engagement/contacts',
-				backLabel: 'Contacts',
+				backLabel: recordNoun('contact').titleMany,
 			}}
 			onSave={onSave}
 			submitLabel="Create Contact"

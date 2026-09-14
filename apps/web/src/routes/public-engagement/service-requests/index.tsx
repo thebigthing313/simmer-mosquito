@@ -262,7 +262,7 @@ function ServiceRequestsExplorerRoute() {
 				) : undefined
 			}
 			heading={{
-				title: 'Service Requests',
+				title: recordNoun('serviceRequest').titleMany,
 				icon: RequestIcon,
 				total: filtered.length,
 				isLoading: !isReady || !regionMembership.isReady,

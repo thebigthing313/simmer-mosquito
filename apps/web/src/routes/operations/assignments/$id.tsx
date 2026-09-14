@@ -38,6 +38,7 @@ import {
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
@@ -167,7 +168,7 @@ function AssignmentRunRoute() {
 							to="/operations/assignments"
 						>
 							<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-							Assignments
+							{recordNoun('assignment').titleMany}
 						</Link>
 
 						{assignment === null ? (

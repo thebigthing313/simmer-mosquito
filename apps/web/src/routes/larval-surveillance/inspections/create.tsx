@@ -20,6 +20,7 @@ import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search'
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -230,7 +231,7 @@ function CreateInspectionRoute() {
 					title: 'Record Inspection',
 					description: 'Log a larval inspection against a habitat or an ad-hoc field location.',
 					backTo: '/larval-surveillance/inspections',
-					backLabel: 'Inspections',
+					backLabel: recordNoun('inspection').titleMany,
 				}}
 				initialAdhocGeometry={initialGeometry}
 				onSave={onSave}

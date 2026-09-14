@@ -20,6 +20,7 @@ import {
 import type { WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useWeatherStations } from '../../../hooks/queries/use-weather-stations';
 import type { RecordType } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -103,7 +104,7 @@ function WeatherStationsRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={<StationFilters {...filters} />}
 			heading={{
-				title: 'Weather Stations',
+				title: recordNoun('weatherStation').titleMany,
 				icon: WeatherIcon,
 				total: stations.length,
 				isLoading: false,

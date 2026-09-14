@@ -50,6 +50,7 @@ import {
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
 import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
 import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
@@ -170,7 +171,7 @@ function BackLink() {
 			to="/public-engagement/service-requests"
 		>
 			<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-			Service Requests
+			{recordNoun('serviceRequest').titleMany}
 		</Link>
 	);
 }

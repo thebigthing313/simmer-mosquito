@@ -286,7 +286,7 @@ function ImportRegionsRoute() {
 				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
 					<Link className={backLink()} to="/gis/regions">
 						<ArrowLeftIcon aria-hidden="true" />
-						Regions
+						{recordNoun('region').titleMany}
 					</Link>
 					<div className="grid gap-1">
 						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">

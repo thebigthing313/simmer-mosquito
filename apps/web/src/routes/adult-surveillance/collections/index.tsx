@@ -146,7 +146,7 @@ function CollectionsExplorerRoute() {
 			path: PATH,
 			rowsKey: 'collections',
 			rowKey: 'collection',
-			label: 'Collections',
+			label: recordNoun('collection').titleMany,
 			params: {
 				collectionMethodId: filters.collectionMethodIds,
 				problem: filters.problemOnly,
@@ -229,7 +229,7 @@ function CollectionsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Collections',
+				title: recordNoun('collection').titleMany,
 				icon: CollectionEntityIcon,
 				total,
 				isLoading,

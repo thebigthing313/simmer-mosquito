@@ -157,7 +157,7 @@ function HabitatsExplorerRoute() {
 		path: PATH,
 		rowsKey: 'habitats',
 		rowKey: 'habitat',
-		label: 'Habitats',
+		label: recordNoun('habitat').titleMany,
 		params: {
 			isActive: filters.isActive,
 			isInaccessible: filters.isInaccessible,
@@ -280,7 +280,7 @@ function HabitatsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Habitats',
+				title: recordNoun('habitat').titleMany,
 				icon: HabitatIcon,
 				total,
 				isLoading,

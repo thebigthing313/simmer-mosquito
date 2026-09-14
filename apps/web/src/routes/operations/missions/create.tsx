@@ -5,6 +5,7 @@ import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutati
 import { useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	defaultMissionFormValues,
@@ -67,7 +68,7 @@ function CreateMissionRoute() {
 				description:
 					'Schedule the work and say what kind. Stops are added to the mission afterwards.',
 				backTo: '/operations/missions',
-				backLabel: 'Missions',
+				backLabel: recordNoun('mission').titleMany,
 			}}
 			onSave={onSave}
 			submitLabel="Create Mission"

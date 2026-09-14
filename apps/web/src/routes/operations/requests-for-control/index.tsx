@@ -36,6 +36,7 @@ import { useRequestedControlActions } from '../../../hooks/queries/use-requested
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import type { RecordType } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
@@ -147,7 +148,7 @@ function RequestsForControlRoute() {
 				/>
 			}
 			heading={{
-				title: 'Requests for Control',
+				title: recordNoun('requestedControlAction').titleMany,
 				icon: RequestIcon,
 				total: visible.length,
 				isLoading,

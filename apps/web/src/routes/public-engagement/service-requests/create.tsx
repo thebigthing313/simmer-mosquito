@@ -11,6 +11,7 @@ import { useServiceRequestRecord } from '../../../hooks/queries/use-service-requ
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	addressSeedSearchSchema,
 	contactSeedSearchSchema,
@@ -118,7 +119,7 @@ function CreateServiceRequestRoute() {
 				description:
 					'Log a request from the public. Link or create a contact and address, then place its location.',
 				backTo: '/public-engagement/service-requests',
-				backLabel: 'Service Requests',
+				backLabel: recordNoun('serviceRequest').titleMany,
 			}}
 			initialGeometry={initialGeometry}
 			onSave={onSave}

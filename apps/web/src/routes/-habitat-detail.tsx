@@ -358,7 +358,7 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={habitat.addressId} />
 					</DetailRow>
-					<DetailRow label="Routes">
+					<DetailRow label={recordNoun('route').titleMany}>
 						<Suspense fallback={<span className="text-muted-foreground">Loading routes…</span>}>
 							<HabitatRoutes habitatId={habitat.id} />
 						</Suspense>

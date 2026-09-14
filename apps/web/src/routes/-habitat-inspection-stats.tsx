@@ -17,6 +17,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Cell, Pie, PieChart } from 'recharts';
 import { activityGcTimeMs } from '../hooks/queries/shared';
 import { inspections } from '../lib/collections/inspections';
+import { recordNoun } from '../lib/record-nouns';
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 
@@ -69,7 +70,7 @@ function isBreeding(row: InspectionStatsRow): boolean {
 }
 
 const chartConfig = {
-	count: { label: 'Inspections' },
+	count: { label: recordNoun('inspection').titleMany },
 	dry: { label: 'Dry', color: 'var(--muted-foreground)' },
 	wetNegative: { label: 'Wet, no breeding', color: 'var(--chart-2)' },
 	wetPositive: { label: 'Wet, breeding', color: 'var(--chart-5)' },

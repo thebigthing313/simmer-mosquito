@@ -9,6 +9,7 @@ import {
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
@@ -105,7 +106,7 @@ function CreateTrapRoute() {
 					description:
 						'Place the trap point, optionally reference an address, and set its method and lure.',
 					backTo: '/adult-surveillance/traps',
-					backLabel: 'Traps',
+					backLabel: recordNoun('trap').titleMany,
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}

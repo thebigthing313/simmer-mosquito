@@ -20,6 +20,7 @@ import type { Contact } from '../../hooks/queries/contact-view';
 import { useContact } from '../../hooks/queries/use-contact-record';
 import type { RegistrationListing } from '../../hooks/queries/use-registration-directory';
 import { REGISTRATION_SAVE_REFUSALS } from '../../lib/acknowledgement-copy';
+import { recordNoun } from '../../lib/record-nouns';
 import { useAcknowledgedWrite } from '../acknowledged-write';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
@@ -111,7 +112,9 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 						<h1 className="flex items-center gap-2 font-semibold text-foreground text-lg leading-tight">
 							<RegistrationIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
 							<span className="min-w-0 truncate">
-								{draft === null ? 'Registrations' : draftTitle(draft)}
+								{draft === null
+									? recordNoun('notificationRegistration').titleMany
+									: draftTitle(draft)}
 							</span>
 						</h1>
 						{draft === null ? (

@@ -26,6 +26,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
@@ -223,7 +224,7 @@ function CreateApplicationRoute() {
 					description:
 						'Place the treated point, pick the product and amount, and note who applied it.',
 					backTo: '/control-operations/chemical',
-					backLabel: 'Chemical Applications',
+					backLabel: recordNoun('application').titleMany,
 				}}
 				insecticides={insecticides}
 				initialGeometry={initialGeometry}

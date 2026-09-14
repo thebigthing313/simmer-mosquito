@@ -124,6 +124,19 @@ function createPluralLabel(verb: string, recordType: RecordType): string {
 }
 
 /**
+ * An entry that names a list of records and nothing else: `Habitats`.
+ *
+ * The verb helpers above put the call site's own word in front of a register
+ * form. This is the same read with no word in front, for the group headings and
+ * the list entries under them, which name the records themselves. It is a
+ * function rather than a bare `recordNoun(...).titleMany` at each of the twelve
+ * so that the three shapes a sidebar label takes read as three named ideas.
+ */
+function listLabel(recordType: RecordType): string {
+	return recordNoun(recordType).titleMany;
+}
+
+/**
  * The product's operational domains, expressed fresh from the SIMMER domain
  * vocabulary. Each domain is one icon in the primary rail; its groups populate
  * the secondary sidebar. Paths point at the live route table.
@@ -180,7 +193,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'larval-habitats',
-				label: 'Habitats',
+				label: listLabel('habitat'),
 				items: [
 					{
 						id: 'habitats-explorer',
@@ -219,7 +232,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'larval-inspections',
-				label: 'Inspections',
+				label: listLabel('inspection'),
 				items: [
 					{
 						id: 'inspections-explorer',
@@ -254,7 +267,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'larval-samples',
-				label: 'Samples',
+				label: listLabel('sample'),
 				items: [
 					{
 						id: 'samples-explorer',
@@ -298,7 +311,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'adult-traps',
-				label: 'Traps',
+				label: listLabel('trap'),
 				items: [
 					{
 						id: 'traps-explorer',
@@ -336,7 +349,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'adult-collections',
-				label: 'Collections',
+				label: listLabel('collection'),
 				items: [
 					{
 						id: 'collections-explorer',
@@ -539,7 +552,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'public-service-requests',
-				label: 'Service Requests',
+				label: listLabel('serviceRequest'),
 				items: [
 					{
 						id: 'service-requests-explorer',
@@ -558,7 +571,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'public-outreach',
-				label: 'Outreach Actions',
+				label: listLabel('outreachAction'),
 				items: [
 					{
 						id: 'outreach-explorer',
@@ -590,7 +603,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'public-contacts',
-				label: 'Contacts',
+				label: listLabel('contact'),
 				items: [
 					{
 						id: 'contacts-explorer',
@@ -640,11 +653,11 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'gis-regions',
-				label: 'Regions',
+				label: listLabel('region'),
 				items: [
 					{
 						id: 'regions',
-						label: 'Regions',
+						label: listLabel('region'),
 						to: '/gis/regions',
 						icon: iconRegistry.entities.region.icon,
 					},
@@ -666,7 +679,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'gis-addresses',
-				label: 'Addresses',
+				label: listLabel('address'),
 				items: [
 					{
 						id: 'addresses',
@@ -748,7 +761,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			// to look, a mission sends them to treat.
 			{
 				id: 'operations-requests',
-				label: 'Requests for Control',
+				label: listLabel('requestedControlAction'),
 				items: [
 					{
 						id: 'requests-for-control-explorer',

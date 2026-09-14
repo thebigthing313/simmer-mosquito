@@ -59,6 +59,7 @@ import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 
 export type InspectionLocationMode = 'habitat' | 'adhoc';
 
@@ -729,7 +730,7 @@ function SamplesSection({
 					? 'Samples already on this inspection are managed from its record; these are added to them.'
 					: null
 			}
-			title={isEditing ? 'Add Samples' : 'Samples'}
+			title={isEditing ? 'Add Samples' : recordNoun('sample').titleMany}
 		>
 			<div className="grid gap-3">
 				{value.length === 0 ? (

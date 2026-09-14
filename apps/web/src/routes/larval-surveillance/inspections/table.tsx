@@ -46,6 +46,7 @@ import {
 	useInspectionTable,
 } from '../../../hooks/queries/use-inspection-table';
 import { formatListDate } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -189,7 +190,7 @@ function InspectionsTableRoute() {
 				actions={<InspectionSurfaceSwitch current="table" search={carried} />}
 				description="Every inspection your crews have recorded."
 				icon={InspectionIcon}
-				title="Inspections"
+				title={recordNoun('inspection').titleMany}
 			/>
 			<InspectionsFilterBar binding={binding} catalogs={catalogs} />
 			{shown.length === 0 ? (

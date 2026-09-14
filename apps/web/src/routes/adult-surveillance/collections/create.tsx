@@ -24,6 +24,7 @@ import { useOrganizationWorkspace } from '../../../hooks/use-organization-worksp
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	CollectionFormPage,
@@ -186,7 +187,7 @@ function CreateCollectionRoute() {
 					title: 'Record Collection',
 					description: 'Log a collection from a trap or a one-off field location.',
 					backTo: '/adult-surveillance/collections',
-					backLabel: 'Collections',
+					backLabel: recordNoun('collection').titleMany,
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}

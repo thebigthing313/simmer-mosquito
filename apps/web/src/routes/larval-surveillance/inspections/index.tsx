@@ -116,7 +116,7 @@ const INSPECTION_RESULTS_COPY = {
 /** The panel's title row: what the surface is, and how much of it matched. */
 function inspectionsHeading(total: number, isLoading: boolean) {
 	return {
-		title: 'Inspections',
+		title: recordNoun('inspection').titleMany,
 		icon: InspectionEntityIcon,
 		total,
 		isLoading,
@@ -186,7 +186,7 @@ function InspectionsExplorerRoute() {
 			path: PATH,
 			rowsKey: 'inspections',
 			rowKey: 'inspection',
-			label: 'Inspections',
+			label: recordNoun('inspection').titleMany,
 			params: inspectionQueryParams(filters),
 			map,
 			selectedId,
