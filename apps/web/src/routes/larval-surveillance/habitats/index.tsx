@@ -1,6 +1,5 @@
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
@@ -12,17 +11,16 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	SegmentedFilter,
 	toggle,
 	useEntityTags,
 	useExplorerPanel,
-	useFlyToSelection,
+	useExplorerResource,
 	useHabitatTypeOptions,
-	useMapBoundsParam,
-	usePagedMapResource,
 	useRegionOptions,
 	useTagOptions,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -32,9 +30,8 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
-import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { habitats } from '../../../lib/collections/habitats';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -93,10 +90,10 @@ const HabitatIcon = iconRegistry.entities.habitat.icon;
  * A Habitat as this list shows one.
  *
  * Named here rather than reused from the row types, because the rows arrive from
- * `/map/habitats` — a REST read that aliases its columns to camelCase — and this
- * is exactly the six fields the list, the badges and the map fly-to need. The
- * collection projects into the same shape (see {@link useSelectedHabitat}), so
- * both sources satisfy one type and the page never asks which it is holding.
+ * `/map/habitats`, a REST read that aliases its columns to camelCase, and this is
+ * exactly the six fields the list, the badges and the map fly-to need. A selection
+ * the page is not holding is read back from `/map/habitats/{id}`, which answers in
+ * the same shape, so the page never asks where a row came from.
  */
 interface HabitatListRow {
 	readonly id: string;
@@ -138,41 +135,43 @@ function HabitatsExplorerRoute() {
 	const filters: HabitatTileFilters = {
 		...(status === 'all' ? {} : { isActive: status === 'active' }),
 		...(access === 'all' ? {} : { isInaccessible: access === 'inaccessible' }),
-		...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
-		...(tagIds.size > 0 ? { tagIds: [...tagIds] } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(search.length > 0 ? { search } : {}),
+		...whenAny('habitatTypeIds', typeIds),
+		...whenAny('tagIds', tagIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('search', search),
 	};
 
 	const legend = habitatLegend(status, access);
 
-	const bbox = useMapBoundsParam(map);
-	const params = mapQueryParams({
-		bbox,
-		isActive: filters.isActive,
-		isInaccessible: filters.isInaccessible,
-		habitatTypeId: filters.habitatTypeIds,
-		tagId: filters.tagIds,
-		regionId: filters.regionIds,
-		search: filters.search,
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected: selectedHabitat,
+	} = useExplorerResource<HabitatListRow>({
+		path: PATH,
+		rowsKey: 'habitats',
+		rowKey: 'habitat',
+		label: 'Habitats',
+		params: {
+			isActive: filters.isActive,
+			isInaccessible: filters.isInaccessible,
+			habitatTypeId: filters.habitatTypeIds,
+			tagId: filters.tagIds,
+			regionId: filters.regionIds,
+			search: filters.search,
+		},
+		map,
+		selectedId,
 	});
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<HabitatListRow>({
-			path: PATH,
-			rowsKey: 'habitats',
-			label: 'Habitats',
-			params,
-			enabled: bbox !== null,
-		});
 	// Tags for the rows actually on screen, so the subset request stays small.
 	const pageHabitatIds = rows.map((habitat) => habitat.id);
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
-
-	const visibleById = new Map(rows.map((row) => [row.id, row]));
-	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
-	const selectedHabitat =
-		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-	useFlyToSelection(map, selectedHabitat);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
@@ -273,7 +272,7 @@ function HabitatsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'habitat', many: 'habitats' }}
+					noun={recordNoun('habitat')}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -475,56 +474,6 @@ function habitatSwatch(habitat: HabitatListRow): {
 	return habitat.isActive
 		? { color: HABITAT_STATUS_COLORS.active, label: 'Active' }
 		: { color: HABITAT_STATUS_COLORS.inactive, label: 'Inactive' };
-}
-
-// --- data hooks -------------------------------------------------------------
-
-/**
- * Fallback for a selection outside the current bbox list.
- *
- * Every field this page shows lives on the synced `habitats` row, so a selection
- * the list does not hold is resolved from a single-id on-demand subset rather than
- * a `/map/habitats/{id}` fetch. Geometry is not needed — only the centroid, which
- * syncs on the row.
- *
- * This is where the two read paths meet, and the projection below is the seam. The
- * list rows come from `/map/habitats`, which aliases every column to camelCase
- * server-side; the collection speaks Postgres. Naming {@link HabitatListRow} is
- * what lets one page hold both: the REST rows satisfy it structurally, and the
- * query is projected into it. When `/map/*` is settled one of the two sides goes
- * away, and this projection is the thing to delete.
- */
-function useSelectedHabitat(
-	selectedId: string | null,
-	visibleById: ReadonlyMap<string, HabitatListRow>,
-): HabitatListRow | null {
-	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			// An unmatchable id keeps the subset live (and empty) when the selection is
-			// already in the visible list or nothing is selected.
-			query: (query) =>
-				query
-					.from({ habitat: habitats() })
-					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : unmatchableId))
-					.select(({ habitat }) => ({
-						id: habitat.id,
-						habitatName: habitat.habitat_name,
-						habitatTypeId: habitat.habitat_type_id,
-						isActive: habitat.is_active,
-						isInaccessible: habitat.is_inaccessible,
-						lat: habitat.lat,
-						lng: habitat.lng,
-					})),
-		},
-		[needsFetch ? selectedId : null],
-	);
-
-	if (!needsFetch) {
-		return null;
-	}
-	return result.data[0] ?? null;
 }
 
 // --- helpers ----------------------------------------------------------------

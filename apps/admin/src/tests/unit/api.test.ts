@@ -197,10 +197,26 @@ describe('what a refusal reads as', () => {
 		return caught instanceof Error ? caught.message : null;
 	}
 
-	it('prefers a mapped code over the code and over a reason that repeats it', async () => {
+	it("prefers the server's sentence over the register", async () => {
+		// #795 put the plain order back. `organization_required` used to send a
+		// `reason` that was the code again, which is why the register was read
+		// first (#689); that arm writes a sentence now and it is what a person
+		// reads.
 		expect(
-			await readMessage({ error: 'organization_required', reason: 'organization_required' }, 403),
-		).toBe('This session has no organization selected. Enter the organization again.');
+			await readMessage(
+				{
+					error: 'organization_required',
+					reason: 'This session has no Organization selected. Choose one to continue.',
+				},
+				403,
+			),
+		).toBe('This session has no Organization selected. Choose one to continue.');
+	});
+
+	it('falls back to the register for a code that sends no sentence', async () => {
+		expect(await readMessage({ error: 'operator_not_configured' }, 403)).toBe(
+			'This server has no SIMMER organization set, so it can admit no operators. Set SIMMER_OPERATOR_ORG_ID on the server and restart it.',
+		);
 	});
 
 	it("keeps the server's own sentence for a code the register does not carry", async () => {
@@ -233,20 +249,21 @@ describe('what a refusal reads as', () => {
 	 * read out of the register, because a test that imports the map asserts only
 	 * that a map is a map: this is the second copy on purpose, and a code
 	 * dropped from the register fails on the line that names it.
+	 *
+	 * Three shorter than it was. `membership_required`, `organization_required`
+	 * and `unauthenticated` each write their own sentence since #795, so their
+	 * entries were dead and are gone.
 	 */
 	const COVERED = [
 		'already_a_member',
 		'invalid_command',
 		'invited_email_already_used',
-		'membership_required',
 		'operator_not_configured',
 		'operator_required',
 		'organization_not_found',
-		'organization_required',
 		'profile_already_linked',
 		'profile_deleted',
 		'profile_not_found',
-		'unauthenticated',
 		'workos_organization_required',
 	];
 

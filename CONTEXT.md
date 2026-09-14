@@ -111,6 +111,13 @@ Common source terms:
   Where a **Contact** works is text, labelled **Company**. The rule binds on
   labels, filters, headings, and columns; lowercase "organization" in a sentence
   is not a term.
+- "Requested Control Action" is the term; **request for control** is its display
+  form. The route, the sidebar entry, the index title and every heading on the
+  record already read that way, because the record is a request rather than a
+  performed action, and the term reads as though the control work happened. The
+  term stays as the name of the record across the domain docs, the commands and
+  the tables; the display form is what a person sees, and it is written once, in
+  `apps/web/src/lib/record-nouns.ts`.
 - "District" can mean the **Organization** itself, since an abatement district is
   one, or a piece of its geography, which is a **Region**. Not a term: write
   Organization or Region.

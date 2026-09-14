@@ -57,7 +57,7 @@ function RouteComponent() {
 		<RecordDetailPage
 			deleteRefusals={STATION_DELETE_REFUSALS}
 			layout={layout}
-			noun="weather station"
+			recordType="weatherStation"
 			reading={{ isReady, record: station }}
 		>
 			{(record, askDelete) => <WeatherStationContent askDelete={askDelete} station={record} />}
@@ -102,11 +102,7 @@ function WeatherStationContent({
 			lead={
 				<div className="grid content-start gap-3">
 					<StationLocationCard station={station} />
-					<RecordRegionsBand
-						noun="weather station"
-						recordId={station.id}
-						recordType="weather_sources"
-					/>
+					<RecordRegionsBand recordId={station.id} recordType="weather_sources" />
 				</div>
 			}
 		>

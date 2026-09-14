@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../forms/record-extras';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -18,8 +19,8 @@ import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { todayInTimeZone } from '../-overview-data';
 import {
 	type DrawGeometry,
 	defaultInspectionFormValues,
@@ -87,7 +88,7 @@ function seededDefaults(
  * write against a cold stream times out waiting for its txid confirmation.
  */
 function useNewInspectionDraft(): string {
-	const [inspectionId] = useState(() => crypto.randomUUID());
+	const [inspectionId] = useState(() => newRecordId());
 	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
 	useLiveQuery(
 		{
@@ -123,7 +124,7 @@ function CreateInspectionRoute() {
 	const today = todayInTimeZone(timeZone);
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 	const policy = settings.larvalSurveillance.inspectionEntryPolicy;
 
 	const inspectionId = useNewInspectionDraft();
@@ -233,7 +234,7 @@ function CreateInspectionRoute() {
 				}}
 				initialAdhocGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				policy={policy}
 				profiles={profiles}
 				submitLabel="Record Inspection"

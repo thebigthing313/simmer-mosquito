@@ -44,7 +44,7 @@ import { type MissionItem as MissionItemRow, settleWrite } from '@simmer-mosquit
 import { mission_items } from '../../lib/collections/mission_items';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { lifecycleStamp, newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, lifecycleStamp, newRecordId, optimisticStamp } from './shared';
 
 /** What a request contributes to the stop drawn off it, before the server answers. */
 export interface RequestStopSeed {
@@ -281,6 +281,6 @@ export function useMissionItemMutations(): MissionItemMutations {
 		reopen,
 		skip,
 		unskip,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

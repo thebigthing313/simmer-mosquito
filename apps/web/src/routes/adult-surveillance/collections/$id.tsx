@@ -71,7 +71,11 @@ import {
 	COLLECTION_DELETE_REFUSALS,
 	COLLECTION_ZERO_RESULT_REFUSALS,
 } from '../../../lib/acknowledgement-copy';
-import { operationalDayAsTimestamp } from '../../../lib/local-date';
+import {
+	formatWeekdayMonthDay,
+	operationalDayAsTimestamp,
+	todayInTimeZone,
+} from '../../../lib/local-date';
 import {
 	CollectionFlagBadges,
 	collectionCrumb,
@@ -86,7 +90,6 @@ import {
 	speciesStatusLabel,
 } from '../-adult-display';
 import { CollectionKeyEntryDialog } from '../-collection-key-entry';
-import { formatWeekdayMonthDay, todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 	component: RouteComponent,
@@ -122,7 +125,7 @@ function RouteComponent() {
 		<RecordDetailPage
 			deleteRefusals={COLLECTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="collection"
+			recordType="collection"
 			reading={{ isError, isReady, record: collection }}
 		>
 			{(record, askDelete) => (
@@ -214,7 +217,6 @@ function CollectionDetailContent({
 				remove: {
 					ask: askDelete,
 					name: title,
-					noun: 'collection',
 					onDelete: (acknowledgements) => mutations.remove(collection.id, acknowledgements),
 					recordId: collection.id,
 					recordType: 'collection',
@@ -227,7 +229,7 @@ function CollectionDetailContent({
 			lead={
 				<div className="grid content-start gap-3">
 					<CollectionLocationCard collection={collection} />
-					<RecordRegionsBand noun="collection" recordId={collection.id} recordType="collections" />
+					<RecordRegionsBand recordId={collection.id} recordType="collections" />
 				</div>
 			}
 		>

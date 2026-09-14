@@ -11,16 +11,15 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
+	useExplorerResource,
 	useOutreachMethodOptions,
-	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -30,7 +29,8 @@ import {
 	type OutreachTileFilters,
 } from '../../../components/map';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
+import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -39,8 +39,6 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { addDaysToDateString } from '../../control-operations/-overview-data';
-import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { OutreachMapCard } from '../-outreach-map-card';
 import { formatReach } from '../-public-engagement-display';
 
@@ -80,7 +78,7 @@ export const Route = createFileRoute('/public-engagement/outreach/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'action', many: 'actions' };
+const RECORD_TYPE: RecordType = 'outreachAction';
 const PATH = '/map/outreach';
 
 function OutreachExplorerRoute() {
@@ -122,35 +120,28 @@ function OutreachExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: OutreachTileFilters = {
-		...(methodIds.size > 0 ? { outreachMethodIds: [...methodIds] } : {}),
-		...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('outreachMethodIds', methodIds),
+		...whenAny('technicianProfileIds', personIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
-	const params = mapQueryParams({
-		outreachMethodId: filters.outreachMethodIds,
-		technician: filters.technicianProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<OutreachSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<OutreachSite>({
 			path: PATH,
 			rowsKey: 'outreachActions',
+			rowKey: 'outreachAction',
 			label: 'Outreach',
-			params,
+			params: {
+				outreachMethodId: filters.outreachMethodIds,
+				technician: filters.technicianProfileIds,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			map,
+			selectedId,
 		});
-
-	const selected = useSelectedMapRecord<OutreachSite>({
-		path: PATH,
-		rowKey: 'outreachAction',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
@@ -223,7 +214,7 @@ function OutreachExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'action', many: 'actions' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -235,8 +226,7 @@ function OutreachExplorerRoute() {
 				icon: OutreachEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
-				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach' },
+				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach Action' },
 			}}
 			onResetFilters={reset}
 			map={
@@ -266,9 +256,9 @@ function OutreachExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No outreach in range',
+				emptyTitle: 'No outreach in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring outreach actions into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring outreach actions into range.',
 				renderRow: (row) => (
 					<OutreachListItem
 						isSelected={row.id === selectedId}

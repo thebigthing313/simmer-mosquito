@@ -4,21 +4,13 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import {
-	ChevronDownIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
+import { PersonGroupBlock } from '../../components/person-group-block';
+import { WeekDayStrip } from '../../components/week-day-strip';
 import {
 	type ControlActionKind,
 	type DailyControlAction,
@@ -34,18 +26,16 @@ import {
 } from '../../hooks/queries/use-recent-control-actions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';
+import { groupRows, type RowGroup } from '../../lib/row-groups';
 import { formatActionDate, formatMeasure, usageTotal } from './-control-display';
-import {
-	addDaysToDateString,
-	buildWeek,
-	CONTROL_ACTIVITY_WINDOW_DAYS,
-	dayOfMonth,
-	startOfWeek,
-	todayInTimeZone,
-	USAGE_WINDOW_DAYS,
-	type UsageWindowDays,
-	weekdayLabel,
-} from './-overview-data';
+
+/** How far back the recent-activity panels reach. */
+const CONTROL_ACTIVITY_WINDOW_DAYS = 14;
+
+/** The windows the insecticide usage summary offers, shortest first. */
+const USAGE_WINDOW_DAYS = [7, 30] as const;
+type UsageWindowDays = (typeof USAGE_WINDOW_DAYS)[number];
 
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
 const ApplicationIcon = iconRegistry.entities.application.icon;
@@ -159,42 +149,13 @@ function ActionRow({
 
 // --- a crew's day of control work -------------------------------------------
 
-const UNASSIGNED_KEY = '__unassigned__';
-
-interface CrewGroup {
-	readonly key: string;
-	readonly name: string;
-	readonly actions: readonly DailyControlAction[];
-}
-
-function groupByCrewMember(actions: readonly DailyControlAction[]): readonly CrewGroup[] {
-	const groups = new Map<string, DailyControlAction[]>();
-	for (const action of actions) {
-		const key = action.performedByProfileId ?? UNASSIGNED_KEY;
-		const existing = groups.get(key);
-		if (existing) {
-			existing.push(action);
-		} else {
-			groups.set(key, [action]);
-		}
-	}
-	return [...groups.entries()]
-		.map(([key, rows]) => ({
-			key,
-			// The name rides on the rows, so a group takes it from its first one —
-			// they all name the same person, that being what grouped them.
-			name: key === UNASSIGNED_KEY ? 'Unassigned' : (rows[0]?.performedByName ?? 'Unknown'),
-			actions: rows,
-		}))
-		.sort((first, second) => {
-			if (first.key === UNASSIGNED_KEY) {
-				return 1;
-			}
-			if (second.key === UNASSIGNED_KEY) {
-				return -1;
-			}
-			return first.name.localeCompare(second.name);
-		});
+/** A day's control work by whoever performed it, the unassigned actions last. */
+function groupByCrewMember(actions: readonly DailyControlAction[]) {
+	return groupRows(actions, {
+		key: (action) => action.performedByProfileId,
+		name: (action) => action.performedByName,
+		unknownName: 'Unknown',
+	});
 }
 
 /**
@@ -209,71 +170,13 @@ function DailyControlActionsPanel({ today }: { readonly today: string }) {
 	const { actions, isReady, isError } = useControlActionsForDay(selectedDate);
 	const groups = groupByCrewMember(actions);
 
-	const weekStart = startOfWeek(selectedDate);
-	const days = buildWeek(weekStart);
-	// The current week is the latest browsable one; there is no future data.
-	const canGoNextWeek = weekStart < startOfWeek(today);
-
-	const goToWeek = (deltaDays: number) => {
-		const shifted = addDaysToDateString(selectedDate, deltaDays);
-		setSelectedDate(shifted > today ? today : shifted);
-	};
-
 	return (
 		<Panel
 			count={isReady ? actions.length : undefined}
 			icon={<ControlIcon className="size-4" />}
 			title="Daily Control Actions"
 		>
-			<div className="flex items-stretch gap-1 border-border/60 border-b p-3">
-				<Button
-					aria-label="Previous week"
-					className="size-auto shrink-0 px-1.5"
-					onClick={() => goToWeek(-7)}
-					size="icon"
-					variant="outline"
-				>
-					<ChevronLeftIcon aria-hidden="true" className="size-4" />
-				</Button>
-				<div className="grid flex-1 grid-cols-7 gap-1">
-					{days.map((day) => {
-						const isSelected = day === selectedDate;
-						const isToday = day === today;
-						const isFuture = day > today;
-						return (
-							<button
-								className={cn(
-									'flex flex-col items-center gap-0.5 rounded-md border px-1 py-1.5 text-xs transition-colors',
-									isSelected
-										? 'border-primary bg-primary text-primary-foreground'
-										: isFuture
-											? 'cursor-not-allowed border-border/40 text-muted-foreground/40'
-											: 'border-border hover:bg-accent',
-								)}
-								disabled={isFuture}
-								key={day}
-								onClick={() => setSelectedDate(day)}
-								type="button"
-							>
-								<span className="text-[0.62rem] uppercase tracking-wide opacity-70">
-									{isToday ? 'Today' : weekdayLabel(day)}
-								</span>
-								<span className="font-semibold tabular-nums">{dayOfMonth(day)}</span>
-							</button>
-						);
-					})}
-				</div>
-				<Button
-					aria-label="Next week"
-					className="size-auto shrink-0 px-1.5"
-					disabled={!canGoNextWeek}
-					onClick={() => goToWeek(7)}
-					size="icon"
-					variant="outline"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Button>
-			</div>
+			<WeekDayStrip onSelect={setSelectedDate} selectedDate={selectedDate} today={today} />
 
 			{isError ? (
 				<PanelMessage>Control activity is unavailable right now.</PanelMessage>
@@ -295,48 +198,29 @@ function DailyControlActionsPanel({ today }: { readonly today: string }) {
 	);
 }
 
-/** One person's day, collapsed to a summary row until opened. */
-function CrewGroupBlock({ group }: { readonly group: CrewGroup }) {
-	const [open, setOpen] = useState(false);
-	const PersonnelIcon = iconRegistry.entities.organization.icon;
-
+/**
+ * One person's day of control work, with the mix of kinds it held.
+ *
+ * That breakdown is the only thing this adds to the shared block: a crew's day
+ * is spraying, dipping out a source and dropping fish, and reading one kind
+ * understates what the person got through.
+ */
+function CrewGroupBlock({ group }: { readonly group: RowGroup<DailyControlAction> }) {
 	return (
-		<Collapsible asChild onOpenChange={setOpen} open={open}>
-			<section>
-				<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-					{open ? (
-						<ChevronDownIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-					) : (
-						<ChevronRightIcon
-							aria-hidden="true"
-							className="size-4 shrink-0 text-muted-foreground"
-						/>
-					)}
-					<PersonnelIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-					<span
-						className={cn(
-							'min-w-0 flex-1 truncate font-medium text-sm',
-							group.key === UNASSIGNED_KEY && 'text-muted-foreground italic',
-						)}
-					>
-						{group.name}
-					</span>
-					<span className="hidden shrink-0 truncate text-muted-foreground text-xs sm:inline">
-						{kindBreakdown(group.actions)}
-					</span>
-					<span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-						{group.actions.length}
-					</span>
-				</CollapsibleTrigger>
-				<CollapsibleContent>
-					<ul className="grid px-3 pb-3">
-						{group.actions.map((action) => (
-							<ControlActionRow action={action} key={`${action.kind}:${action.id}`} />
-						))}
-					</ul>
-				</CollapsibleContent>
-			</section>
-		</Collapsible>
+		<PersonGroupBlock
+			aside={
+				<span className="hidden shrink-0 truncate text-muted-foreground text-xs sm:inline">
+					{kindBreakdown(group.rows)}
+				</span>
+			}
+			count={group.rows.length}
+			groupKey={group.key}
+			name={group.name}
+		>
+			{group.rows.map((action) => (
+				<ControlActionRow action={action} key={`${action.kind}:${action.id}`} />
+			))}
+		</PersonGroupBlock>
 	);
 }
 

@@ -57,7 +57,7 @@ function EditCollectionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="collection"
+			recordType="collection"
 			reading={{ isError, isReady, record: collection }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -143,7 +143,7 @@ function EditCollectionLoader({
 			<RecordUnavailable
 				description="This collection's personnel could not be loaded."
 				layout="centered"
-				noun="collection"
+				recordType="collection"
 				reason="error"
 			/>
 		);

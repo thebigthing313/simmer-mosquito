@@ -11,17 +11,16 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	toggle,
 	useApplicationMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
+	useExplorerResource,
 	useInsecticideOptions,
-	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -32,6 +31,8 @@ import {
 } from '../../../components/map';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -40,10 +41,8 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { ApplicationMapCard } from '../-application-map-card';
 import { formatAmount } from '../-control-display';
-import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 
 interface ApplicationSite {
 	readonly id: string;
@@ -86,7 +85,7 @@ export const Route = createFileRoute('/control-operations/chemical/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'application', many: 'applications' };
+const RECORD_TYPE: RecordType = 'application';
 const PATH = '/map/chemical';
 
 function ApplicationsExplorerRoute() {
@@ -133,39 +132,31 @@ function ApplicationsExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: ChemicalTileFilters = {
-		...(insecticideIds.size > 0 ? { insecticideIds: [...insecticideIds] } : {}),
-		...(methodIds.size > 0 ? { applicationMethodIds: [...methodIds] } : {}),
-		...(personIds.size > 0 ? { applicatorProfileIds: [...personIds] } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('insecticideIds', insecticideIds),
+		...whenAny('applicationMethodIds', methodIds),
+		...whenAny('applicatorProfileIds', personIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
-	const params = mapQueryParams({
-		insecticideId: filters.insecticideIds,
-		applicationMethodId: filters.applicationMethodIds,
-		applicator: filters.applicatorProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<ApplicationSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<ApplicationSite>({
 			path: PATH,
 			rowsKey: 'applications',
+			rowKey: 'application',
 			label: 'Applications',
-			params,
+			params: {
+				insecticideId: filters.insecticideIds,
+				applicationMethodId: filters.applicationMethodIds,
+				applicator: filters.applicatorProfileIds,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			map,
+			selectedId,
 			normalizeRow: normalizeApplication,
 		});
-
-	const selected = useSelectedMapRecord<ApplicationSite>({
-		path: PATH,
-		rowKey: 'application',
-		rows,
-		selectedId,
-		normalizeRow: normalizeApplication,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
@@ -254,7 +245,7 @@ function ApplicationsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'application', many: 'applications' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -262,12 +253,11 @@ function ApplicationsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Applications',
+				title: 'Chemical Applications',
 				icon: ApplicationEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
-				create: { to: '/control-operations/chemical/create', label: 'Record Application' },
+				create: { to: '/control-operations/chemical/create', label: 'Record Chemical Application' },
 			}}
 			onResetFilters={clearAll}
 			map={
@@ -295,9 +285,9 @@ function ApplicationsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No applications in range',
+				emptyTitle: 'No chemical applications in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring treatments into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring treatments into range.',
 				renderRow: (row) => (
 					<ApplicationListItem
 						amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}

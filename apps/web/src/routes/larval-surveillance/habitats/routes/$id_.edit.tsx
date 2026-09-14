@@ -351,7 +351,7 @@ function RouteEditRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="route"
+			recordType="route"
 			reading={{ isError, isReady, record: route }}
 			skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
 		>

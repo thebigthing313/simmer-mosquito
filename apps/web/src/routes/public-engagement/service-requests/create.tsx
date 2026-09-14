@@ -48,7 +48,6 @@ function CreateServiceRequestRoute() {
 	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
 	const profiles = useProfileRoster();
 	const contactWrites = useContactMutations();
 	const requestWrites = useServiceRequestMutations();
@@ -123,9 +122,9 @@ function CreateServiceRequestRoute() {
 			}}
 			initialGeometry={initialGeometry}
 			onSave={onSave}
-			organizationId={organizationId}
+			organizationId={organization.id}
 			profiles={profiles}
-			submitLabel="Create Request"
+			submitLabel="Create Service Request"
 		/>
 	);
 }

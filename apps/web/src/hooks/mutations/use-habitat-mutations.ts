@@ -62,7 +62,7 @@ import { habitats } from '../../lib/collections/habitats';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { metadataChanged } from './performed-action-writes';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** Where a habitat sits, as the form holds it before the row is built. */
 export interface HabitatCentroid {
@@ -331,6 +331,6 @@ export function useHabitatMutations(): HabitatMutations {
 		setInaccessible,
 		setActive,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

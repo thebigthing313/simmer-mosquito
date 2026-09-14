@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -29,17 +30,20 @@ function CreateAddressRoute() {
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 	const mutations = useAddressMutations();
 
 	const onSave = async ({ values, geometry, geocoderResponse }: AddressFormSave) => {
-		if (organization === null) {
-			throw new Error('Organization details are still loading.');
-		}
 		if (geometry === null) {
 			throw new Error('Place the address point before saving.');
 		}
 
+		// The id comes back from the write rather than being minted here, and
+		// neither reason `newRecordId` gives for minting up front applies. Nothing
+		// on this page writes a child row against the new address, and although
+		// `addresses` is on-demand, nothing here subscribes to it, so the insert
+		// returns no txid to wait on and the write settles on the server's answer.
+		// The geometry cache below is seeded after that answer, not before it.
 		const addressId = await mutations.create(
 			{
 				displayName: values.displayName.trim(),

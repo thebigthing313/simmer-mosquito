@@ -37,7 +37,7 @@ function EditWeatherStationRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="weather station"
+			recordType="weatherStation"
 			reading={{ isError, isReady, record: station }}
 			skeleton={<EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />}
 		>

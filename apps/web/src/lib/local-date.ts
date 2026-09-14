@@ -10,6 +10,7 @@
  */
 
 import { getToday } from './get-today';
+import { unreadable, warnUnreadable } from './unreadable-input';
 
 /**
  * Today's date in the org's timezone as a `YYYY-MM-DD` string.
@@ -17,7 +18,8 @@ import { getToday } from './get-today';
  * Here rather than in a domain's `-overview-data` module because "what is today"
  * is not a fact about larval surveillance: every section's forms default a date
  * with it, and reaching across route trees for one is how a private route module
- * becomes a shared library nobody named.
+ * becomes a shared library nobody named. The day-string helpers at the foot of
+ * this file followed it for that reason, three re-export shims later (#906).
  *
  * `instant` names a moment other than now — which calendar day some *other*
  * instant falls on in the zone, the same question with a different subject.
@@ -449,4 +451,198 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
 		read('second'),
 	);
 	return Number.isNaN(wallClock) ? 0 : wallClock - instant.getTime();
+}
+
+// --- calendar-date labels and day arithmetic --------------------------------
+
+// The helpers below read and render a `YYYY-MM-DD` string. They lived in
+// `routes/larval-surveillance/-overview-data.ts` and were re-exported from three
+// more route-private modules, so four domains reached one implementation through
+// four doors and two files imported it through both of theirs (#906). They are
+// here for the reason `todayInTimeZone` is: a week strip, a list date and a day
+// shift are not facts about larval surveillance, and a private route module that
+// three other route trees import is a shared library nobody named.
+
+/** Days in a calendar week (the daily-inspections strip). */
+const WEEK_LENGTH = 7;
+
+/**
+ * Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift.
+ *
+ * The arithmetic is {@link addCalendarDays}, which has been guarded all along;
+ * this had its own copy, which reached `toISOString` on an Invalid Date and threw
+ * `RangeError: Invalid time value` into the render tree (#609). The name stays
+ * because twenty-five call sites across seventeen files read it.
+ *
+ * What is added on top is the report. `addCalendarDays` echoes an unreadable
+ * date in silence, deliberately, because a sync bound built from one has a reader
+ * below it that refuses the value again. A day strip has no such reader: the
+ * string goes on screen, so somebody has to be told.
+ */
+export function addDaysToDateString(date: string, days: number): string {
+	if (calendarDateParts(date) === undefined) {
+		return unreadable('addDaysToDateString', date);
+	}
+	return addCalendarDays(date, days);
+}
+
+/**
+ * The Sunday that starts the calendar week containing `date`.
+ *
+ * An unreadable date comes back untouched, so the week strip built from it draws
+ * seven copies of what arrived rather than throwing the page away.
+ */
+export function startOfWeek(date: string): string {
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return unreadable('startOfWeek', date);
+	}
+	return addCalendarDays(date, -utcCalendarDay(parts).getUTCDay());
+}
+
+/** The seven dates of the calendar week beginning at `weekStart`, Sunday first. */
+export function buildWeek(weekStart: string): readonly string[] {
+	return Array.from({ length: WEEK_LENGTH }, (_, index) => addDaysToDateString(weekStart, index));
+}
+
+/** `Wed`, the weekday cell above a day in the week strip. */
+export function weekdayLabel(date: string): string {
+	return utcLabel('weekdayLabel', date, { weekday: 'short' });
+}
+
+/**
+ * The day number under that weekday.
+ *
+ * Zero for a date this cannot read, because the answer has to be a number and
+ * `NaN` was being handed downstream. No month has a day zero, so a strip showing
+ * one is visibly not showing a date; a 1 would read as the first of the month
+ * and could not be told from a real day.
+ */
+export function dayOfMonth(date: string): number {
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		warnUnreadable('dayOfMonth', date);
+		return NO_DAY;
+	}
+	return utcCalendarDay(parts).getUTCDate();
+}
+
+/** The day number no month has, which is how an unreadable date reads on a strip. */
+const NO_DAY = 0;
+
+/**
+ * A record's own date, with the weekday it fell on: `Wed, Aug 12`.
+ *
+ * Field work runs on a weekly rhythm: a trap set Monday and collected Wednesday,
+ * a route walked every Thursday. So the weekday is what tells an operator
+ * whether a gap in a run is a missed visit or just the weekend. It belongs on
+ * dates that ARE the record; {@link formatMonthDay} stays the plain form for the
+ * places a date is a bound or a heading rather than a fact about one record.
+ */
+export function formatWeekdayMonthDay(date: string): string {
+	return utcLabel('formatWeekdayMonthDay', date, {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric',
+	});
+}
+
+/**
+ * The same, carrying the year: `Wed, Aug 12, 2026`.
+ *
+ * For a list that spans seasons, a trap's whole run of collections, where
+ * {@link formatWeekdayMonthDay} alone would make two Augusts look like one.
+ */
+export function formatWeekdayDate(date: string): string {
+	return utcLabel('formatWeekdayDate', date, {
+		weekday: 'short',
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+	});
+}
+
+export function formatMonthDay(date: string): string {
+	return utcLabel('formatMonthDay', date, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * The active date-range chip's words, with either bound possibly open.
+ *
+ * Beside {@link formatMonthDay} because that is what it reads. The inspections
+ * filter bar and the samples explorer each held a copy, character for
+ * character, down to the unspaced en dash between the two bounds.
+ */
+export function dateRangeLabel(from: string, to: string): string {
+	if (from === '' && to === '') {
+		return 'All dates';
+	}
+	if (from === '') {
+		return `Until ${formatMonthDay(to)}`;
+	}
+	if (to === '') {
+		return `From ${formatMonthDay(from)}`;
+	}
+	return `${formatMonthDay(from)}–${formatMonthDay(to)}`;
+}
+
+/**
+ * `Mar 4, 2026`, the explorer list date.
+ *
+ * The year is not optional here. An explorer's window is whatever the operator
+ * set it to, so a bare "Mar 4" in a list spanning two seasons names two
+ * different days. It is written in full: "May 27, 26" reads as a day-month-year
+ * in the parts of the world that write dates that way, and surveillance records
+ * are dated evidence, so the year should not need decoding.
+ */
+export function formatListDate(date: string): string {
+	return utcLabel('formatListDate', date, {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric',
+	});
+}
+
+/**
+ * Full numeric date, `M/D/YYYY` (e.g. `7/10/2026`).
+ *
+ * It was `formatDate` under `routes/larval-surveillance`, and the name came with
+ * it as far as `fallow dead-code`, which refused it: a habitat detail page and a
+ * weather summary each exported one too, and the name is generic enough that a
+ * shared module claiming it is what `lib/unreadable-input` already warns about
+ * from the other side. The habitat one has since folded into
+ * {@link formatListDate} (#916), which leaves the weather summary's. So the shape is in the name here, which is also what
+ * tells it apart from {@link formatListDate} and {@link formatMonthDay} beside
+ * it, and the warning needs no parenthesis saying which screen it belongs to.
+ */
+export function formatNumericDate(date: string): string {
+	return utcLabel('formatNumericDate', date, {
+		year: 'numeric',
+		month: 'numeric',
+		day: 'numeric',
+	});
+}
+
+/**
+ * The shape all six labels above share: read the calendar date, render it on the
+ * UTC clock, and hand it back untouched when it will not read.
+ *
+ * `en-US` and `timeZone: 'UTC'` are the parts that are not the caller's, and
+ * they are why this is one function. The zone is the whole point: a calendar
+ * date is a day, and naming any other zone is what makes `Aug 12` render as the
+ * 11th west of Greenwich. The options each caller passes are the whole of what
+ * differs, so nothing here decides how a date looks.
+ *
+ * `formatter` is the name in the warning, so it is the caller's own rather than
+ * this one's. A console line saying `utcLabel` would name the shape and not the
+ * screen.
+ */
+function utcLabel(formatter: string, date: string, options: Intl.DateTimeFormatOptions): string {
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return unreadable(formatter, date);
+	}
+	return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(
+		utcCalendarDay(parts),
+	);
 }

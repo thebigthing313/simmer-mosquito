@@ -59,8 +59,28 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 5.4% is where the workspace sits, and 5.5 leaves a
+	// what makes it a gate: 4.91% is where the workspace sits, and 5.0 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// It was 5.5 against 5.20% when #786 took the mechanical copies out of the
+	// suites #704 had just started counting. Three of them: the `request` and
+	// `build` helpers seventeen `table-commands` unit suites each wrote over a
+	// mock `AuthContext`, now `command-harness.ts` beside those suites; the Hono
+	// app with an inline auth stub and a captured-requests array that
+	// `sync-shapes.test.ts` built ten times, now one `shapeApp` in that file; and
+	// the Organization-and-Profile prologue 82 integration cases opened with,
+	// now `createActingOrganization` and its trap and station variants in
+	// `packages/db/src/test-support/row-fixtures.ts`. 16,702 duplicated lines
+	// became 15,763, in 573 clone groups rather than 612. Both halves agree here,
+	// because what came out was copies rather than denominator.
+	//
+	// **The gesture scripts in `use-map-draw.test.tsx` and
+	// `use-map-measure.test.tsx` are accepted duplication and were deliberately
+	// left alone**, 1,922 of the lines above. Each duplicated block there is one
+	// case's own sequence of pointer events, and a case that reached for a shared
+	// gesture would no longer say which gesture it ran. They are the largest two
+	// entries in any per-file count of this report, so read them as measured and
+	// declined rather than as work nobody has got to.
 	//
 	// It was 5.6 against 5.4% when #863 moved the last of `apps/web`'s
 	// single-record read hooks onto `useRecordById` and replaced sixteen copies
@@ -217,7 +237,7 @@
 			"**/out/**",
 			"**/storybook-static/**"
 		],
-		"threshold": 5.5
+		"threshold": 5.0
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and

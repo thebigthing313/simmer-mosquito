@@ -182,7 +182,7 @@ function MissionsRoute() {
 					features={features}
 					fitKey={effectiveId ?? undefined}
 					highlightId={highlightId}
-					noun="mission"
+					recordType="mission"
 					onHoverStop={setHighlightId}
 					onSelectStop={setSelectedStopId}
 					selectedId={selectedStopId}

@@ -11,17 +11,17 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useCollectionMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -33,6 +33,8 @@ import {
 } from '../../../components/map';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -43,10 +45,8 @@ import {
 	useSearchFilters,
 } from '../../../lib/search-filters';
 import { RecordBadges } from '../../-record-badges';
-import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
-import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 import type { CollectionStatusValue } from './-legend';
 import { collectionLegend, collectionStatusLabel } from './-legend';
 
@@ -91,7 +91,7 @@ export const Route = createFileRoute('/adult-surveillance/collections/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'collection', many: 'collections' };
+const RECORD_TYPE: RecordType = 'collection';
 const PATH = '/map/collections';
 
 function CollectionsExplorerRoute() {
@@ -134,36 +134,29 @@ function CollectionsExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: CollectionTileFilters = {
-		...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
-		...(problemOnly ? { problemOnly: true } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('collectionMethodIds', methodIds),
+		...whenOn('problemOnly', problemOnly),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
 	const legend = collectionLegend(problemOnly);
-	const params = mapQueryParams({
-		collectionMethodId: filters.collectionMethodIds,
-		problem: filters.problemOnly,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<CollectionSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<CollectionSite>({
 			path: PATH,
 			rowsKey: 'collections',
+			rowKey: 'collection',
 			label: 'Collections',
-			params,
+			params: {
+				collectionMethodId: filters.collectionMethodIds,
+				problem: filters.problemOnly,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			map,
+			selectedId,
 		});
-
-	const selected = useSelectedMapRecord<CollectionSite>({
-		path: PATH,
-		rowKey: 'collection',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
@@ -228,7 +221,7 @@ function CollectionsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'collection', many: 'collections' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -240,7 +233,6 @@ function CollectionsExplorerRoute() {
 				icon: CollectionEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
 				create: { to: '/adult-surveillance/collections/create', label: 'Record Collection' },
 			}}
 			onResetFilters={clearAll}
@@ -270,9 +262,9 @@ function CollectionsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No collections in range',
+				emptyTitle: 'No collections in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring collections into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring collections into range.',
 				renderRow: (row) => (
 					<CollectionListItem
 						isSelected={row.id === selectedId}

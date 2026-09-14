@@ -1,17 +1,26 @@
+/**
+ * What the larval overview reads that is larval surveillance's own.
+ *
+ * The date helpers this module used to define, and re-export to the adult,
+ * control-operations and public-engagement overviews through a shim apiece, are
+ * in `lib/local-date` beside `todayInTimeZone` (#906). A week strip and a list
+ * date are not facts about this domain, and three route trees importing a
+ * route-private module is how one becomes a shared library nobody named.
+ *
+ * What is left is the two live-data reads no other domain has: larvae totals by
+ * species off the on-demand `sample_species` shape, and the samples awaiting
+ * identification, which come from a server endpoint rather than a client-side
+ * join. The window each panel reads by is in `index.tsx` beside the panels.
+ */
+
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { gte, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../auth';
+import type { SpeciesTotal } from '../../components/species-composition-panel';
 import { activityGcTimeMs } from '../../hooks/queries/shared';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { sample_species } from '../../lib/collections/sample_species';
-import { addCalendarDays, calendarDateParts, utcCalendarDay } from '../../lib/local-date';
-import { unreadable, warnUnreadable } from '../../lib/unreadable-input';
-
-/** How far back the recent-window queries (heavy list, open samples) reach. */
-export const ACTIVITY_WINDOW_DAYS = 14;
-/** Days in a calendar week (the daily-inspections strip). */
-const WEEK_LENGTH = 7;
 
 // --- projected query shapes -------------------------------------------------
 
@@ -25,12 +34,6 @@ export interface AwaitingSample {
 	/** The parent inspection's centroid — what titles a sample with no habitat. */
 	readonly lat: number | null;
 	readonly lng: number | null;
-}
-
-export interface SpeciesTotal {
-	readonly speciesId: string;
-	readonly name: string;
-	readonly total: number;
 }
 
 interface LoadState {
@@ -155,183 +158,4 @@ async function fetchSamplesAwaiting(
 		throw new Error(`Awaiting samples request failed (${response.status}).`);
 	}
 	return (await response.json()) as { readonly total: number; readonly samples: AwaitingSample[] };
-}
-
-// --- pure date helpers (operate on `YYYY-MM-DD` strings) --------------------
-
-// `todayInTimeZone` lives in `lib/local-date` — every section defaults a date
-// with it, so it is not a larval-surveillance fact. Re-exported here because the
-// other three overview modules already re-export it from this one.
-export { todayInTimeZone } from '../../lib/local-date';
-
-/**
- * Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift.
- *
- * The arithmetic is `addCalendarDays`, which has been guarded all along; this had
- * its own copy, which reached `toISOString` on an Invalid Date and threw
- * `RangeError: Invalid time value` into the render tree (#609). The name stays
- * because twenty-five call sites across seventeen files read it from here, three
- * of them the other overview modules re-exporting it.
- *
- * What is added on top is the report. `addCalendarDays` echoes an unreadable
- * date in silence, deliberately, because a sync bound built from one has a reader
- * below it that refuses the value again. A day strip has no such reader: the
- * string goes on screen, so somebody has to be told.
- */
-export function addDaysToDateString(date: string, days: number): string {
-	if (calendarDateParts(date) === undefined) {
-		return unreadable('addDaysToDateString', date);
-	}
-	return addCalendarDays(date, days);
-}
-
-/**
- * The Sunday that starts the calendar week containing `date`.
- *
- * An unreadable date comes back untouched, so the week strip built from it draws
- * seven copies of what arrived rather than throwing the page away.
- */
-export function startOfWeek(date: string): string {
-	const parts = calendarDateParts(date);
-	if (parts === undefined) {
-		return unreadable('startOfWeek', date);
-	}
-	return addCalendarDays(date, -utcCalendarDay(parts).getUTCDay());
-}
-
-/** The seven dates of the calendar week beginning at `weekStart`, Sunday first. */
-export function buildWeek(weekStart: string): readonly string[] {
-	return Array.from({ length: WEEK_LENGTH }, (_, index) => addDaysToDateString(weekStart, index));
-}
-
-/** `Wed` — the weekday cell above a day in the week strip. */
-export function weekdayLabel(date: string): string {
-	return utcLabel('weekdayLabel', date, { weekday: 'short' });
-}
-
-/**
- * The day number under that weekday.
- *
- * Zero for a date this cannot read, because the answer has to be a number and
- * `NaN` was being handed downstream. No month has a day zero, so a strip showing
- * one is visibly not showing a date; a 1 would read as the first of the month
- * and could not be told from a real day.
- */
-export function dayOfMonth(date: string): number {
-	const parts = calendarDateParts(date);
-	if (parts === undefined) {
-		warnUnreadable('dayOfMonth', date);
-		return NO_DAY;
-	}
-	return utcCalendarDay(parts).getUTCDate();
-}
-
-/** The day number no month has, which is how an unreadable date reads on a strip. */
-const NO_DAY = 0;
-
-/**
- * A record's own date, with the weekday it fell on: `Wed, Aug 12`.
- *
- * Field work runs on a weekly rhythm — a trap set Monday and collected
- * Wednesday, a route walked every Thursday — so the weekday is what tells an
- * operator whether a gap in a run is a missed visit or just the weekend. It
- * belongs on dates that ARE the record; {@link formatMonthDay} stays the plain
- * form for the places a date is a bound or a heading rather than a fact about
- * one record.
- */
-export function formatWeekdayMonthDay(date: string): string {
-	return utcLabel('formatWeekdayMonthDay', date, {
-		weekday: 'short',
-		month: 'short',
-		day: 'numeric',
-	});
-}
-
-/**
- * The same, carrying the year: `Wed, Aug 12, 2026`.
- *
- * For a list that spans seasons — a trap's whole run of collections — where
- * {@link formatWeekdayMonthDay} alone would make two Augusts look like one.
- */
-export function formatWeekdayDate(date: string): string {
-	return utcLabel('formatWeekdayDate', date, {
-		weekday: 'short',
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-	});
-}
-
-export function formatMonthDay(date: string): string {
-	return utcLabel('formatMonthDay', date, { month: 'short', day: 'numeric' });
-}
-
-/**
- * The active date-range chip's words, with either bound possibly open.
- *
- * Beside {@link formatMonthDay} because that is what it reads. The inspections
- * filter bar and the samples explorer each held a copy, character for
- * character, down to the unspaced en dash between the two bounds.
- */
-export function dateRangeLabel(from: string, to: string): string {
-	if (from === '' && to === '') {
-		return 'All dates';
-	}
-	if (from === '') {
-		return `Until ${formatMonthDay(to)}`;
-	}
-	if (to === '') {
-		return `From ${formatMonthDay(from)}`;
-	}
-	return `${formatMonthDay(from)}–${formatMonthDay(to)}`;
-}
-
-/**
- * `Mar 4, 26` — the explorer list date.
- *
- * The year is not optional here. An explorer's window is whatever the operator
- * set it to, so a bare "Mar 4" in a list spanning two seasons names two
- * different days. It is written in full: "May 27, 26" reads as a day-month-year
- * in the parts of the world that write dates that way, and surveillance records
- * are dated evidence — the year should not need decoding.
- */
-export function formatListDate(date: string): string {
-	return utcLabel('formatListDate', date, {
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-	});
-}
-
-/** Full numeric date, `M/D/YYYY` (e.g. `7/10/2026`). */
-export function formatDate(date: string): string {
-	return utcLabel('formatDate (larval overview)', date, {
-		year: 'numeric',
-		month: 'numeric',
-		day: 'numeric',
-	});
-}
-
-/**
- * The shape all six labels above share: read the calendar date, render it on the
- * UTC clock, and hand it back untouched when it will not read.
- *
- * `en-US` and `timeZone: 'UTC'` are the parts that are not the caller's, and
- * they are why this is one function. The zone is the whole point of the module:
- * a calendar date is a day, and naming any other zone is what makes `Aug 12`
- * render as the 11th west of Greenwich. The options each caller passes are the
- * whole of what differs, so nothing here decides how a date looks.
- *
- * `formatter` is the name in the warning, so it is the caller's own rather than
- * this one's. A console line saying `utcLabel` would name the shape and not the
- * screen.
- */
-function utcLabel(formatter: string, date: string, options: Intl.DateTimeFormatOptions): string {
-	const parts = calendarDateParts(date);
-	if (parts === undefined) {
-		return unreadable(formatter, date);
-	}
-	return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(
-		utcCalendarDay(parts),
-	);
 }

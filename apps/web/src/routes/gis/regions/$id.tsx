@@ -39,7 +39,11 @@ function RouteComponent() {
 	const { region, isReady, isError } = useRegion(id);
 
 	return (
-		<RecordDetailPage layout={layout} noun="region" reading={{ isError, isReady, record: region }}>
+		<RecordDetailPage
+			layout={layout}
+			reading={{ isError, isReady, record: region }}
+			recordType="region"
+		>
 			{(record) => <RegionDetailContent region={record} />}
 		</RecordDetailPage>
 	);
@@ -61,7 +65,6 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 				recordType: 'Region',
 				remove: {
 					name: region.name,
-					noun: 'region',
 					onDelete: () => mutations.remove(region.id),
 					recordId: region.id,
 					recordType: 'region',
@@ -80,7 +83,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 				/>
 			}
 		>
-			<RecordRegionsBand noun="region" recordId={region.id} recordType="regions" />
+			<RecordRegionsBand recordId={region.id} recordType="regions" />
 		</DetailPageShell>
 	);
 }

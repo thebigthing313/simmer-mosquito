@@ -11,6 +11,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type ComponentType, type ReactNode, useState } from 'react';
 import { ExplorerRow } from '../components/explorer';
 import type { MapInset } from '../components/map/map-inset';
+import { formatListDate } from '../lib/local-date';
 import {
 	ACTIVITY_CATEGORY_LABEL,
 	ACTIVITY_FAMILY_LABELS,
@@ -33,7 +34,6 @@ import { ApplicationMapCard } from './control-operations/-application-map-card';
 import { BiocontrolMapCard } from './control-operations/-biocontrol-map-card';
 import { SourceReductionMapCard } from './control-operations/-source-reduction-map-card';
 import { InspectionMapCard } from './larval-surveillance/-inspection-map-card';
-import { formatListDate } from './larval-surveillance/-overview-data';
 import { OutreachMapCard } from './public-engagement/-outreach-map-card';
 import { ServiceRequestMapCard } from './public-engagement/-service-request-map-card';
 

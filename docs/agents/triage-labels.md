@@ -62,3 +62,39 @@ edge.
 #449 is the worked example: the draw control cannot change a shape it has
 placed, the answer is three tools rather than one, and #495, #496 and #497
 carry them as sub-issues in a real chain.
+
+## `deferred`
+
+Not a triage state, and the third carve-out for the reason `external` is the
+first. `deferred` marks an issue whose finding is real and whose approach is
+agreed, but which waits on a precondition the issue does not control.
+
+The category still reads, so `deferred` sits beside `bug` or `enhancement`
+rather than replacing it. What it replaces is the state role, because all five
+say something untrue of a deferral. `ready-for-agent` and `ready-for-human` both
+say somebody should start. `needs-info` says a reporter owes an answer, when the
+answer is a change in the codebase rather than a reply. `wontfix` says the work
+will not happen. `needs-triage` says the evaluation is unfinished, when it is
+finished and its conclusion is "not yet".
+
+Leave `deferred` out of the "what needs attention" sweep and out of the frontier
+query, for the reason `tracking` is left out of both. An issue nobody can start
+surfaces nothing to pick up, and surfacing it every pass trains the sweep to be
+ignored.
+
+**The body must name the re-entry condition, and it has to be checkable.** A
+deferral with no condition is a parking space, and the label rots into one the
+first time somebody writes "revisit later". "When the record forms stop gaining
+fields" is a condition. "When we have time" is not.
+
+Prefer a GitHub dependency edge where the precondition is itself an issue,
+because an open blocker already gates the frontier query and needs no label. Use
+`deferred` for the case a dependency edge cannot state: the precondition is a
+property of the codebase rather than a ticket somebody filed.
+
+#871 is the worked example. Sixteen record forms carry 2,666 lines of assembly
+between them, an owner for it is worth building, and the measurement supporting
+that is on the issue. It waits because design work on the forms is unfinished,
+and an interface fitted to fifteen forms is the wrong interface for eighteen.
+Its re-entry condition is that no record form has open design work, and the
+first step on re-entry is to re-run the measurement.

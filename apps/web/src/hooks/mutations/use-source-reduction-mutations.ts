@@ -48,7 +48,7 @@ import {
 	contextFor,
 	metadataChanged,
 } from './performed-action-writes';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** What a source reduction form collects, in the vocabulary the page speaks. */
 export interface SourceReductionValues {
@@ -247,5 +247,10 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 		);
 	};
 
-	return { record, update, remove, canWrite: organizationId !== null && actorProfileId !== null };
+	return {
+		record,
+		update,
+		remove,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
+	};
 }

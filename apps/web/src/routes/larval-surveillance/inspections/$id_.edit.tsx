@@ -8,6 +8,7 @@ import { getServerUrl } from '../../../auth';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
@@ -82,18 +83,18 @@ function EditInspectionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="inspection"
+			recordType="inspection"
 			reading={{ isError, isReady, record: inspection }}
 			skeleton={skeleton}
 		>
 			{(record) =>
 				personnel.isReady ? (
 					<EditInspectionLoader
-						canSubmit={organization !== null && actorProfileId !== null}
+						canSubmit={canAttributeWrite({ organization, actorProfileId })}
 						existingPersonnel={personnel.rows}
 						habitatTypes={habitatTypes}
 						inspection={record}
-						organizationId={organization?.id ?? ''}
+						organizationId={organization.id}
 						personnelProfileIds={personnel.profileIds}
 						policy={settings.larvalSurveillance.inspectionEntryPolicy}
 						profiles={profiles}
@@ -237,7 +238,7 @@ function EditInspectionLoader({
 			<RecordUnavailable
 				description="This inspection's location could not be loaded."
 				layout="centered"
-				noun="inspection"
+				recordType="inspection"
 				reason="error"
 			/>
 		);

@@ -28,7 +28,7 @@ import { comments } from '../../lib/collections/comments';
 import { mutateCollection } from '../../lib/collections/mutate';
 import type { CommentTarget } from '../queries/use-comments';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 export interface CommentMutations {
 	/** Returns the new comment's id, so a caller can single it out for an entrance. */
@@ -134,6 +134,6 @@ export function useCommentMutations(): CommentMutations {
 		edit,
 		setPinned,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

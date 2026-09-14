@@ -36,7 +36,7 @@ import {
 	saveCatalogRow,
 	setCatalogRowActive,
 } from './catalog-writes';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** A Tag as its dialog holds one. */
 export interface TagFields {
@@ -139,6 +139,6 @@ export function useTagMutations(): TagMutations {
 		save,
 		setActive,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

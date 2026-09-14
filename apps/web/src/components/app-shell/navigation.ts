@@ -7,6 +7,7 @@ import type {
 } from '@simmer-mosquito/ui-web/components/app-shell';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { AuthMe } from '../../auth';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { hasAtLeastRole } from '../../lib/write-access';
 import { writeSurfaceFloor } from '../../lib/write-surfaces';
 import type { SeedableTable } from '../search/search-seeds';
@@ -89,6 +90,34 @@ export interface WebShellDomain extends ShellDomain {
 }
 
 /**
+ * The label of an entry that opens a create form: the verb, then the record
+ * type's full noun.
+ *
+ * The noun comes from `RECORD_NOUNS` rather than being written here, so the
+ * sidebar cannot spell a record type a second way. Four of these labels leaned
+ * on the group heading above them instead of carrying the noun, and every one
+ * of the four was a record type whose `CONTEXT.md` term is two words: `Record
+ * Application` under `Chemical`, `Record Release` under `Biocontrol`, `Record
+ * Outreach` under `Outreach Actions` and `New Request` under `Service
+ * Requests`. Read on its own, in the palette or on a narrow rail where the
+ * heading is not beside it, each named nothing in particular, and `Record
+ * Application` was landing on a page headed `Record Chemical Application`
+ * (#910).
+ *
+ * The verb stays a literal at the call site, because it is the entry's own
+ * word and no register carries it: the same record type is created, recorded
+ * or added depending on what the work is called in the field.
+ *
+ * `Import Regions` is the one create-shaped entry this cannot serve, and it is
+ * still a literal: its noun is a title-cased plural, which the register does
+ * not carry, and building one by appending an `s` would be the pluralization
+ * rule `record-nouns.ts` refuses on the way in.
+ */
+function createLabel(verb: string, recordType: RecordType): string {
+	return `${verb} ${recordNoun(recordType).title}`;
+}
+
+/**
  * The product's operational domains, expressed fresh from the SIMMER domain
  * vocabulary. Each domain is one icon in the primary rail; its groups populate
  * the secondary sidebar. Paths point at the live route table.
@@ -155,7 +184,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'habitats-create',
-						label: 'Create Habitat',
+						label: createLabel('Create', 'habitat'),
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
 						// vocabulary-ignore site: a search keyword matches what a person types, not what SIMMER calls the record.
@@ -200,7 +229,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'inspections-create',
-						label: 'Create Inspection',
+						label: createLabel('Create', 'inspection'),
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -279,7 +308,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'traps-create',
-						label: 'Add Trap',
+						label: createLabel('Add', 'trap'),
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'station', 'adult'] },
@@ -311,7 +340,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'collections-create',
-						label: 'Record Collection',
+						label: createLabel('Record', 'collection'),
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -372,7 +401,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'chemical-create',
-						label: 'Record Application',
+						label: createLabel('Record', 'application'),
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -418,7 +447,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'source-reduction-create',
-						label: 'Record Source Reduction',
+						label: createLabel('Record', 'sourceReduction'),
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'habitat', 'removal', 'drainage'] },
@@ -450,7 +479,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'biocontrol-create',
-						label: 'Record Release',
+						label: createLabel('Record', 'biocontrolAction'),
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'fish', 'gambusia', 'stocking'] },
@@ -514,7 +543,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'service-requests-create',
-						label: 'New Request',
+						label: createLabel('New', 'serviceRequest'),
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'complaint', 'call', 'resident', 'public'] },
@@ -533,7 +562,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'outreach-create',
-						label: 'Record Outreach',
+						label: createLabel('Record', 'outreachAction'),
 						to: '/public-engagement/outreach/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'education', 'event', 'public'] },
@@ -565,7 +594,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'contacts-create',
-						label: 'New Contact',
+						label: createLabel('New', 'contact'),
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'person', 'resident', 'caller'] },
@@ -615,7 +644,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'regions-create',
-						label: 'Create Region',
+						label: createLabel('Create', 'region'),
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'zone', 'boundary', 'district'] },
@@ -641,7 +670,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'addresses-create',
-						label: 'Create Address',
+						label: createLabel('Create', 'address'),
 						to: '/gis/addresses/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'street', 'parcel', 'property', 'location'] },
@@ -670,7 +699,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'weather-create',
-						label: 'Add Weather Station',
+						label: createLabel('Add', 'weatherStation'),
 						to: '/gis/weather/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'sensor', 'gauge', 'met', 'station'] },
@@ -723,7 +752,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'requests-for-control-create',
-						label: 'New Request for Control',
+						label: createLabel('New', 'requestedControlAction'),
 						to: '/operations/requests-for-control/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'treatment', 'work', 'ask'] },
@@ -742,7 +771,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'assignments-create',
-						label: 'New Assignment',
+						label: createLabel('New', 'assignment'),
 						to: '/operations/assignments/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'route', 'surveillance'] },
@@ -761,7 +790,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'missions-create',
-						label: 'New Mission',
+						label: createLabel('New', 'mission'),
 						to: '/operations/missions/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'treatment', 'control'] },

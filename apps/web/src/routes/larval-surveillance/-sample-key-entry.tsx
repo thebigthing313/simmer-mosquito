@@ -11,6 +11,7 @@ import {
 	NO_VARIANT,
 	type TallyEntry,
 } from '../../components/key-entry/use-key-entry-tally';
+import { newRecordId } from '../../hooks/mutations/shared';
 import {
 	type SampleSpeciesFields,
 	useSampleSpeciesMutations,
@@ -18,7 +19,7 @@ import {
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
 import { sample_species } from '../../lib/collections/sample_species';
-import { todayInTimeZone } from './-overview-data';
+import { todayInTimeZone } from '../../lib/local-date';
 
 /** One identification row, as the tally grid reads and writes it. */
 interface KeyEntryRow extends SampleSpeciesFields {
@@ -112,7 +113,7 @@ export function SampleKeyEntryDialog({
 				return mutations.remove(step.rowId);
 			}
 
-			const id = crypto.randomUUID();
+			const id = newRecordId();
 			// Remember the id only once the insert sticks. A rejected insert is rolled
 			// back out of the collection, so recording it up front would leave the next
 			// flush trying to update a row that no longer exists.

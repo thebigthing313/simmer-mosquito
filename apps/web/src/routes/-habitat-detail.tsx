@@ -81,9 +81,11 @@ import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { usePagedRows } from '../hooks/use-paged-rows';
 import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
+import { coordinateLabel } from '../lib/coordinate-label';
 import { type CountNoun, formatAmount } from '../lib/format-count';
-import { calendarDateParts, utcCalendarDay } from '../lib/local-date';
-import { unreadable } from '../lib/unreadable-input';
+import { formatListDate } from '../lib/local-date';
+import { recordNoun } from '../lib/record-nouns';
+import { sampleName } from '../lib/sample-name';
 import { WRITE_SURFACE_FLOORS } from '../lib/write-surfaces';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
@@ -159,7 +161,7 @@ export function HabitatDetail({ habitatId }: HabitatDetailProps) {
 			)}
 			deleteRefusals={HABITAT_DELETE_REFUSALS}
 			layout={layout}
-			noun="habitat"
+			recordType="habitat"
 		/>
 	);
 }
@@ -178,7 +180,7 @@ function HabitatDetailLoader({
 	if (habitat === undefined) {
 		return (
 			<div className={detailBodyClass()}>
-				<RecordUnavailable noun="habitat" reason="not-found" />
+				<RecordUnavailable reason="not-found" recordType="habitat" />
 			</div>
 		);
 	}
@@ -247,7 +249,6 @@ function HabitatDetailContent({
 				remove: {
 					ask: askDelete,
 					name: habitat.name,
-					noun: 'habitat',
 					onDelete: (acknowledgements) => mutations.remove(habitat.id, acknowledgements),
 					recordId: habitat.id,
 					recordType: 'habitat',
@@ -267,7 +268,7 @@ function HabitatDetailContent({
 			{/* The band goes under the lead row rather than inside its left half:
 			    the spec puts it at the full width of the main column, and at 328px
 			    a folder row wraps where six chips are meant to fit on one line. */}
-			<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
+			<RecordRegionsBand recordId={habitat.id} recordType="habitats" />
 			<Suspense fallback={<HistorySkeleton />}>
 				<HabitatHistoryCard habitatId={habitat.id} />
 			</Suspense>
@@ -665,7 +666,7 @@ function InspectionHistory({
 				</>
 			}
 			icon={<InspectionIcon aria-hidden="true" />}
-			noun={{ one: 'inspection', many: 'inspections' }}
+			noun={recordNoun('inspection')}
 			rows={inspections}
 			unavailable={HISTORY_UNAVAILABLE}
 		>
@@ -677,7 +678,7 @@ function InspectionHistory({
 							params={{ id: inspection.id }}
 							to="/larval-surveillance/inspections/$id"
 						>
-							{formatDate(inspection.inspectionDate)}
+							{formatListDate(inspection.inspectionDate)}
 						</Link>
 					</TableCell>
 					<TableCell className="whitespace-nowrap">
@@ -741,7 +742,7 @@ function SampleHistory({
 				</>
 			}
 			icon={<SampleIcon aria-hidden="true" />}
-			noun={{ one: 'sample', many: 'samples' }}
+			noun={recordNoun('sample')}
 			rows={sortedSamples}
 			unavailable={HISTORY_UNAVAILABLE}
 		>
@@ -756,7 +757,9 @@ function SampleHistory({
 							{sampleName(sample)}
 						</Link>
 					</TableCell>
-					<TableCell className="whitespace-nowrap">{formatDate(sample.inspectionDate)}</TableCell>
+					<TableCell className="whitespace-nowrap">
+						{formatListDate(sample.inspectionDate)}
+					</TableCell>
 					<TableCell>{formatSampleResult(sample)}</TableCell>
 					<TableCell>
 						<SampleSpeciesSummary species={sample.species} />
@@ -794,7 +797,7 @@ function ApplicationHistory({
 			}
 			icon={<ApplicationIcon aria-hidden="true" />}
 			isError={isError}
-			noun={{ one: 'application', many: 'applications' }}
+			noun={recordNoun('application')}
 			rows={applications}
 			unavailable={{
 				description: 'Application history could not be loaded.',
@@ -809,7 +812,7 @@ function ApplicationHistory({
 							params={{ id: application.id }}
 							to="/control-operations/chemical/$id"
 						>
-							{formatDate(application.applicationDate)}
+							{formatListDate(application.applicationDate)}
 						</Link>
 					</TableCell>
 					<TableCell className="whitespace-nowrap">
@@ -878,7 +881,7 @@ function SourceReductionHistory({
 			}
 			icon={<SourceReductionIcon aria-hidden="true" />}
 			isError={isError}
-			noun={{ one: 'source reduction', many: 'source reductions' }}
+			noun={recordNoun('sourceReduction')}
 			rows={sourceReductions}
 			unavailable={{
 				description: 'Source reduction history could not be loaded.',
@@ -893,7 +896,7 @@ function SourceReductionHistory({
 							params={{ id: reduction.id }}
 							to="/control-operations/source-reduction/$id"
 						>
-							{formatDate(reduction.sourceReductionDate)}
+							{formatListDate(reduction.sourceReductionDate)}
 						</Link>
 					</TableCell>
 					<TableCell className="whitespace-nowrap">
@@ -962,7 +965,7 @@ function RequestHistory({
 			}
 			icon={<RequestIcon aria-hidden="true" />}
 			isError={isError}
-			noun={{ one: 'request', many: 'requests' }}
+			noun={recordNoun('requestedControlAction')}
 			rows={requests}
 			unavailable={{
 				description: 'Request history could not be loaded.',
@@ -1146,10 +1149,6 @@ function habitatDescription(habitat: Habitat): string {
 	return habitat.description.trim() || 'No description recorded.';
 }
 
-function sampleName(sample: HabitatHistorySample): string {
-	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}
-
 /**
  * A request's summary, or nothing.
  *
@@ -1168,15 +1167,7 @@ function locationSummary(geometry: HabitatGeometry | null, isPending: boolean): 
 	if (geometry == null || geometry.geojson == null) {
 		return 'No geometry recorded';
 	}
-	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${coordinateLabel(geometry)}`;
-}
-
-function coordinateLabel(geometry: HabitatGeometry | null): string {
-	if (geometry == null || typeof geometry.lat !== 'number' || typeof geometry.lng !== 'number') {
-		return 'Unknown coordinates';
-	}
-
-	return `${geometry.lat.toFixed(5)}, ${geometry.lng.toFixed(5)}`;
+	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${coordinateLabel(geometry.lat, geometry.lng)}`;
 }
 
 function formatSampleResult(sample: HabitatHistorySample): string {
@@ -1190,32 +1181,6 @@ function formatSampleResult(sample: HabitatHistorySample): string {
 		return 'Non-mosquito present';
 	}
 	return 'Larvae present';
-}
-
-/**
- * A calendar-date column — an inspection date, an application date — as itself.
- *
- * These are days, not instants, and reading one with `new Date` made it one: a
- * bare `YYYY-MM-DD` parses as UTC midnight, which renders as the *previous* day
- * everywhere west of Greenwich. So the parts are read out and put back together
- * in UTC, where the day cannot move.
- *
- * It answered `Unknown` for a date it could not read, which named the reader's
- * problem and not the record's. The value goes back on screen instead, and the
- * warning is what a developer reads.
- */
-export function formatDate(value: string): string {
-	const parts = calendarDateParts(value);
-	if (parts === undefined) {
-		return unreadable('formatDate (habitat detail)', value);
-	}
-
-	return new Intl.DateTimeFormat('en-US', {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		timeZone: 'UTC',
-	}).format(utcCalendarDay(parts));
 }
 
 /**

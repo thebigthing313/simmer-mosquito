@@ -2,7 +2,6 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
@@ -32,7 +31,7 @@ function EditMissionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="mission"
+			recordType="mission"
 			reading={{ isError, isReady, record: mission }}
 			skeleton={<EditFormSkeleton frame="pane" rows={['h-24', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -44,8 +43,6 @@ function EditMissionRoute() {
 function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
-	const auth = useAuthSnapshot();
-	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const missionWrites = useMissionMutations();
 
 	const onSave = async (plan: MissionPlan) => {
@@ -71,7 +68,7 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 
 	return (
 		<MissionFormPage
-			canSubmit={actorProfileId !== null}
+			canSubmit={missionWrites.canWrite}
 			defaultValues={missionFormValuesFrom(mission, timeZone)}
 			errorTitle="Unable to Save Mission"
 			fieldPaths={MISSION_FIELD_PATHS}

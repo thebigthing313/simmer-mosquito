@@ -17,7 +17,7 @@ interface Station {
 function frame(reading: RecordReading<Station>) {
 	return (
 		<RecordEditFrame
-			noun="weather station"
+			recordType="weatherStation"
 			reading={reading}
 			skeleton={<EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -65,18 +65,13 @@ describe('RecordEditFrame', () => {
 		expect(screen.getByText('Cannery Row')).toBeTruthy();
 	});
 
-	it('titles both unavailable states where the noun makes the wrong heading', () => {
-		render(
-			<RecordEditFrame
-				noun="source reduction action"
-				reading={{ isReady: true, record: undefined }}
-				skeleton={null}
-				unavailableTitle="Source Reduction Unavailable"
-			>
-				{() => <p>never</p>}
-			</RecordEditFrame>,
-		);
+	// The heading is derived rather than passed, so the record type a route
+	// already declares is the only thing that decides it.
+	it('heads both unavailable states from the register', () => {
+		const { rerender } = render(frame({ isReady: true, record: null }));
+		expect(screen.getByText('Weather Station Unavailable')).toBeTruthy();
 
-		expect(screen.getByText('Source Reduction Unavailable')).toBeTruthy();
+		rerender(frame({ isError: true, isReady: true, record: null }));
+		expect(screen.getByText('Weather Station Unavailable')).toBeTruthy();
 	});
 });

@@ -42,6 +42,7 @@ import {
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
 	type SampleSpeciesFields,
@@ -53,9 +54,10 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
-import { adhocLabel } from '../../../lib/coordinate-label';
+import { habitatLabel } from '../../../lib/coordinate-label';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
-import { todayInTimeZone } from '../-overview-data';
+import { sampleName } from '../../../lib/sample-name';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
@@ -71,6 +73,15 @@ const layout: RecordDetailLayout = {
 	},
 };
 
+/**
+ * What this page calls the habitat a sample was taken at.
+ *
+ * The fallback is the sample's own category, not the inspection's: this page
+ * reached `adhocLabel` on its default and a sample carrying no centroid read
+ * `Ad-hoc inspection`.
+ */
+const SAMPLE_LABEL = { fallback: 'Ad-hoc sample' } as const;
+
 function RouteComponent() {
 	const { id } = Route.useParams();
 	const query = useSampleGeoContext(id);
@@ -79,7 +90,7 @@ function RouteComponent() {
 		<RecordDetailPage
 			deleteRefusals={SAMPLE_DELETE_REFUSALS}
 			layout={layout}
-			noun="sample"
+			recordType="sample"
 			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
 		>
 			{(record, askDelete) => <SampleDetailContent askDelete={askDelete} geo={record} />}
@@ -215,7 +226,6 @@ function SampleDetailContent({
 				remove: {
 					ask: askDelete,
 					name: breadcrumbLabel(geo),
-					noun: 'sample',
 					onDelete: (acknowledgements) => sampleMutations.remove(geo.id, acknowledgements),
 					recordId: geo.id,
 					recordType: 'sample',
@@ -241,7 +251,7 @@ function SampleSubtitle({ geo }: { readonly geo: SampleGeoRow }) {
 			{geo.habitatId === null ? (
 				<>
 					<span aria-hidden="true">·</span>
-					<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
+					<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
 				</>
 			) : (
 				<>
@@ -252,7 +262,7 @@ function SampleSubtitle({ geo }: { readonly geo: SampleGeoRow }) {
 						params={{ id: geo.habitatId }}
 						to="/larval-surveillance/habitats/$id"
 					>
-						{habitatLabel(geo)}
+						{habitatLabel(geo, SAMPLE_LABEL)}
 					</Link>
 				</>
 			)}
@@ -389,7 +399,7 @@ function IdentificationCard({
 		const identifiedByProfileId = identity?.profileId ?? null;
 		try {
 			await speciesMutations.add({
-				sampleSpeciesId: crypto.randomUUID(),
+				sampleSpeciesId: newRecordId(),
 				sampleId,
 				fields: {
 					speciesId,
@@ -953,7 +963,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					</DetailRow>
 					<DetailRow label="Habitat">
 						{geo.habitatId === null ? (
-							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
+							<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
 						) : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
@@ -961,7 +971,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 								to="/larval-surveillance/habitats/$id"
 							>
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{habitatLabel(geo)}
+								{habitatLabel(geo, SAMPLE_LABEL)}
 							</Link>
 						)}
 					</DetailRow>
@@ -1051,17 +1061,6 @@ function resolveStatus(input: {
 		return 'unidentifiable';
 	}
 	return 'awaiting';
-}
-
-function sampleName(geo: SampleGeoRow): string {
-	return geo.displayName?.trim() || `Sample ${geo.id.slice(0, 8)}`;
-}
-
-function habitatLabel(geo: SampleGeoRow): string {
-	return (
-		geo.habitatName?.trim() ||
-		(geo.habitatId === null ? 'Ad-hoc' : `Habitat ${geo.habitatId.slice(0, 8)}`)
-	);
 }
 
 function breadcrumbLabel(geo: SampleGeoRow): string {

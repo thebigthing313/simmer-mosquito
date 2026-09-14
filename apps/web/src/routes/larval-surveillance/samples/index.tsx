@@ -26,17 +26,16 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	useMapBoundsParam,
-	usePagedMapResource,
+	useExplorerResource,
 	useRegionOptions,
-	useSelectedMapRecord,
 	useSpeciesOptions,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -49,16 +48,18 @@ import {
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import {
-	DATE_RANGE_COUNTING,
-	searchValidator,
-	useSearchFilters,
-} from '../../../lib/search-filters';
-import {
 	addDaysToDateString,
 	dateRangeLabel,
 	formatListDate,
 	todayInTimeZone,
-} from '../-overview-data';
+} from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
+import { sampleName } from '../../../lib/sample-name';
+import {
+	DATE_RANGE_COUNTING,
+	searchValidator,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { SampleMapCard } from '../-sample-map-card';
 import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
 import type { SampleStatus } from './-legend';
@@ -156,41 +157,31 @@ function SamplesExplorerRoute() {
 	const regions = useRegionOptions();
 
 	const filters: SampleTileFilters = {
-		...(speciesIds.size > 0 ? { speciesIds: [...speciesIds] } : {}),
+		...whenAny('speciesIds', speciesIds),
 		...(status === 'all' ? {} : { status }),
-		...(nonMosquito ? { nonMosquitoOnly: true } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenOn('nonMosquitoOnly', nonMosquito),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
 
-	const bbox = useMapBoundsParam(map);
-	const params = mapQueryParams({
-		bbox,
-		species: filters.speciesIds,
-		status: filters.status,
-		nonMosquito: filters.nonMosquitoOnly,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<SampleFeature>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<SampleFeature>({
 			path: PATH,
 			rowsKey: 'samples',
+			rowKey: 'sample',
 			label: 'Samples',
-			params,
-			enabled: bbox !== null,
+			params: {
+				species: filters.speciesIds,
+				status: filters.status,
+				nonMosquito: filters.nonMosquitoOnly,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			map,
+			selectedId,
 		});
-
-	const selected = useSelectedMapRecord<SampleFeature>({
-		path: PATH,
-		rowKey: 'sample',
-		rows,
-		selectedId,
-	});
-
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
@@ -257,7 +248,7 @@ function SamplesExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'sample', many: 'samples' }}
+					noun={recordNoun('sample')}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -642,7 +633,3 @@ function SpeciesResults({
 // --- data hooks -------------------------------------------------------------
 
 // --- helpers ----------------------------------------------------------------
-
-function sampleName(sample: SampleFeature): string {
-	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}

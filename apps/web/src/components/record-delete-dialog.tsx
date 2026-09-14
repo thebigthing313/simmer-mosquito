@@ -22,6 +22,7 @@ import {
 	impactCountLabel,
 	useDeleteImpact,
 } from '../hooks/use-delete-impact';
+import { type RecordType, recordNoun } from '../lib/record-nouns';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
 import type { Acknowledgements, AskAcknowledged } from './acknowledged-write';
@@ -77,11 +78,19 @@ export const DELETE_FLOOR: Record<DeletableRecordType, MinimumRole> = {
 };
 
 export interface RecordDeleteTarget {
-	/** The server-side record kind, which decides the delete policy. */
-	readonly recordType: DeletableRecordType;
+	/**
+	 * The server-side record kind, which decides the delete policy, and the key
+	 * this dialog's copy reads its noun under.
+	 *
+	 * Narrowed to the record types that are in both unions rather than to either
+	 * one. The endpoint's union carries the catalogs, which delete inline and
+	 * never open this dialog, and the noun register carries a weather station,
+	 * which has no delete policy. What is left is the records with a page and a
+	 * delete, and a dialog that could be drawn for neither half fails `tsc`
+	 * rather than asking the endpoint about a record kind it has never heard of.
+	 */
+	readonly recordType: Extract<DeletableRecordType, RecordType>;
 	readonly recordId: string;
-	/** Domain noun for the record, lower case: `habitat`, `service request`. */
-	readonly noun: string;
 	/** What to call this particular record in the confirmation. */
 	readonly name: string;
 	/**
@@ -175,7 +184,6 @@ function settleDeletion(
 export function RecordDeleteDialog({
 	recordType,
 	recordId,
-	noun,
 	name,
 	onDelete,
 	onDeleted,
@@ -187,6 +195,7 @@ export function RecordDeleteDialog({
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
 }) {
+	const { one, title } = recordNoun(recordType);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const impactQuery = useDeleteImpact(recordType, recordId, open);
@@ -227,10 +236,10 @@ export function RecordDeleteDialog({
 			const blocked = readBlockers(cause);
 			const message =
 				blocked.length > 0
-					? `Deleting this ${noun} is blocked by ${impactCountLabel(blocked[0] as DeleteImpactEntry)}.`
+					? `Deleting this ${one} is blocked by ${impactCountLabel(blocked[0] as DeleteImpactEntry)}.`
 					: cause instanceof Error
 						? cause.message
-						: `Unable to delete the ${noun}.`;
+						: `Unable to delete the ${one}.`;
 
 			// The delete is optimistic, so the row leaves the collection the moment
 			// the button is pressed and this unmounts with the record it was
@@ -269,7 +278,7 @@ export function RecordDeleteDialog({
 					<AlertDialogTitle>
 						{isBlocked ? `Can't delete ${name}` : `Delete ${name}?`}
 					</AlertDialogTitle>
-					<AlertDialogDescription>{describeDelete(reading, noun)}</AlertDialogDescription>
+					<AlertDialogDescription>{describeDelete(reading, one)}</AlertDialogDescription>
 				</AlertDialogHeader>
 				<ImpactBody reading={reading} />
 				<AlertDialogFooter>
@@ -279,7 +288,7 @@ export function RecordDeleteDialog({
 						onClick={confirmDelete}
 						variant="destructive"
 					>
-						Delete {titleCase(noun)}
+						Delete {title}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -377,8 +386,4 @@ function ImpactSkeleton() {
 			<Skeleton className="h-3 w-48" />
 		</div>
 	);
-}
-
-function titleCase(noun: string): string {
-	return noun.replace(/\b[a-z]/g, (char) => char.toUpperCase());
 }

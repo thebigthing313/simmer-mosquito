@@ -146,7 +146,7 @@ export function StandingAlert({ message }: { readonly message: StandingMessage }
 	}
 
 	const { refusal } = message;
-	if (refusal.reason === 'buffer_unit_not_convertible') {
+	if (refusal.code === 'buffer_unit_not_convertible') {
 		return (
 			<Alert variant="destructive">
 				<AlertTitle>A buffer unit cannot be measured in metres</AlertTitle>
@@ -160,7 +160,7 @@ export function StandingAlert({ message }: { readonly message: StandingMessage }
 					 */}
 					<span>
 						{refusal.unitCodes.length === 0
-							? refusal.message
+							? refusal.reason
 							: `Registrations are using ${refusal.unitCodes.join(', ')} as a buffer unit, which cannot be converted to metres. Generation is blocked for every mission until those buffers use a distance unit.`}
 					</span>
 					{refusal.registrations.length === 0 ? null : (
@@ -194,14 +194,14 @@ export function StandingAlert({ message }: { readonly message: StandingMessage }
 
 	return (
 		<Alert variant="destructive">
-			<AlertTitle>{refusalTitle(refusal.reason)}</AlertTitle>
-			<AlertDescription>{refusal.message}</AlertDescription>
+			<AlertTitle>{refusalTitle(refusal.code)}</AlertTitle>
+			<AlertDescription>{refusal.reason}</AlertDescription>
 		</Alert>
 	);
 }
 
-function refusalTitle(reason: GenerationRefusal['reason']): string {
-	switch (reason) {
+function refusalTitle(code: GenerationRefusal['code']): string {
+	switch (code) {
 		case 'mission_completed':
 			return 'This mission is already complete';
 		case 'mission_cancelled':

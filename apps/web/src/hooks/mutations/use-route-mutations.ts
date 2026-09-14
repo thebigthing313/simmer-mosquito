@@ -34,7 +34,7 @@ import { route_items } from '../../lib/collections/route_items';
 import { routes } from '../../lib/collections/routes';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 export type RouteType = RouteRow['route_type'];
 
@@ -180,6 +180,6 @@ export function useRouteMutations(): RouteMutations {
 		rename,
 		remove,
 		moveStops,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

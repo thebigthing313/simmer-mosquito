@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
+import type { RecordType } from '../../lib/record-nouns';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../acknowledged-write';
 import { detailBodyClass } from './detail-page-shell';
 import type { RecordDetailLayout } from './record-detail-layout';
@@ -24,17 +25,8 @@ export interface RecordReading<TRecord> {
 
 interface RecordDetailBase {
 	readonly layout: RecordDetailLayout;
-	/** Lowercase, as it reads mid-sentence: `collection`, `weather station`. */
-	readonly noun: string;
-	/**
-	 * Heads the unavailable state where the noun does not make the right title:
-	 * a source reduction action is filed under "Source Reduction".
-	 *
-	 * The title alone, because the same override has to hold for both the failed
-	 * read and the missing record. A description would not: it says which of the
-	 * two happened, which is exactly what the frame decides.
-	 */
-	readonly unavailableTitle?: string;
+	/** Which record this page is about. Its noun comes from `lib/record-nouns.ts`. */
+	readonly recordType: RecordType;
 	/**
 	 * The refusals this record's delete may answer, from
 	 * `lib/acknowledgement-copy.ts`.
@@ -85,7 +77,7 @@ interface RecordDetailBodyProps extends RecordDetailBase {
  *
  * It owns the scroll container, the fork between placeholder, unavailable and
  * content, and the acknowledgement dialog a delete may raise. A page supplies
- * its record, its noun, its cards and its writes, and draws them in
+ * its record, its record type, its cards and its writes, and draws them in
  * {@link DetailPageShell}, which owns the header bar and the measure.
  *
  * That measure is `record` rather than the 1200px `page` one, so a detail page
@@ -104,7 +96,7 @@ interface RecordDetailBodyProps extends RecordDetailBase {
 export function RecordDetailPage<TRecord>(
 	props: RecordDetailReadingProps<TRecord> | RecordDetailBodyProps,
 ) {
-	const { layout, noun, unavailableTitle, deleteRefusals } = props;
+	const { layout, recordType, deleteRefusals } = props;
 	// With nothing askable every refusal is rethrown, so a page that declares no
 	// refusals gets exactly the behaviour it had before it had a runner at all.
 	const { run, dialog } = useAcknowledgedWrite(
@@ -126,13 +118,7 @@ export function RecordDetailPage<TRecord>(
 		 */
 		<div className="@container/record h-full min-h-0 overflow-y-auto">
 			{props.body === undefined ? (
-				<Fork
-					askDelete={run}
-					layout={layout}
-					noun={noun}
-					reading={props.reading}
-					unavailableTitle={unavailableTitle}
-				>
+				<Fork askDelete={run} layout={layout} reading={props.reading} recordType={recordType}>
 					{props.children}
 				</Fork>
 			) : (
@@ -156,20 +142,17 @@ function Fork<TRecord>({
 	askDelete,
 	children,
 	layout,
-	noun,
 	reading,
-	unavailableTitle,
+	recordType,
 }: {
 	readonly askDelete: AskAcknowledged;
 	readonly children: (record: TRecord, askDelete: AskAcknowledged) => ReactNode;
 	readonly layout: RecordDetailLayout;
-	readonly noun: string;
 	readonly reading: RecordReading<TRecord>;
-	readonly unavailableTitle: string | undefined;
+	readonly recordType: RecordType;
 }) {
-	const title = unavailableTitle === undefined ? {} : { title: unavailableTitle };
 	if (reading.isError === true) {
-		return <Unavailable noun={noun} reason="error" {...title} />;
+		return <Unavailable reason="error" recordType={recordType} />;
 	}
 	if (reading.record !== null && reading.record !== undefined) {
 		return children(reading.record, askDelete);
@@ -177,7 +160,7 @@ function Fork<TRecord>({
 	if (!reading.isReady) {
 		return <RecordDetailSkeleton layout={layout} />;
 	}
-	return <Unavailable noun={noun} reason="not-found" {...title} />;
+	return <Unavailable reason="not-found" recordType={recordType} />;
 }
 
 /**

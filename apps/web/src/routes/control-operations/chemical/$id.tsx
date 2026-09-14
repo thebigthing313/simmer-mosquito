@@ -103,7 +103,7 @@ function RouteComponent() {
 		<RecordDetailPage
 			deleteRefusals={APPLICATION_DELETE_REFUSALS}
 			layout={layout}
-			noun="application"
+			recordType="application"
 			reading={{ isError, isReady, record: application }}
 		>
 			{(record, askDelete) => (
@@ -178,7 +178,6 @@ function ApplicationDetailContent({
 				remove: {
 					ask: askDelete,
 					name: productName,
-					noun: 'chemical application',
 					onDelete: (acknowledgements) => remove(application.id, acknowledgements),
 					recordId: application.id,
 					recordType: 'application',
@@ -191,11 +190,7 @@ function ApplicationDetailContent({
 			lead={
 				<div className="grid content-start gap-3">
 					<ApplicationLocationCard application={application} habitatName={habitatName} />
-					<RecordRegionsBand
-						noun="application"
-						recordId={application.id}
-						recordType="applications"
-					/>
+					<RecordRegionsBand recordId={application.id} recordType="applications" />
 				</div>
 			}
 		>

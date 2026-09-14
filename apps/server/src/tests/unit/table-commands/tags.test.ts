@@ -11,47 +11,18 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { AuthContext } from '../../../auth-context.js';
-import type { CommandTable } from '../../../command-payload.js';
-import type { OrganizationCommandType } from '../../../command-permissions.js';
-import type { WritableCommand } from '../../../command-write.js';
-import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { tagTableCommands } from '../../../table-commands/tags.js';
+import { ORGANIZATION, organizationHarness } from './command-harness.js';
 
-const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
-const ACTOR = '22222222-2222-4222-8222-222222222222';
+const { buildFor } = organizationHarness({ role: 'manager' });
+
 const TAG = '33333333-3333-4333-8333-333333333333';
-
-function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
-	return {
-		payload,
-		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
-		authContext: {
-			organization: { id: ORGANIZATION, settings: null },
-			profile: { id: ACTOR },
-			role: 'manager',
-		} as unknown as AuthContext,
-		id: TAG,
-	};
-}
 
 const tags = tagTableCommands(undefined as never);
 
-function build<TCommand extends WritableCommand>(
-	spec: TableCommands<CommandTable, TCommand, unknown, string>,
-	intent: OrganizationCommandType,
-	payload: Record<string, unknown>,
-): TCommand {
-	const builder = spec.intents[intent];
-	if (builder === undefined) {
-		throw new Error(`${spec.table} does not accept ${intent}.`);
-	}
-	return builder(request(payload));
-}
-
 describe('tag table commands', () => {
 	it('creates from the table’s own column names', () => {
-		const command = build(tags, 'fieldWork.createTag', {
+		const command = buildFor(tags, 'fieldWork.createTag', TAG, {
 			tag_name: 'Needs access code',
 			description: 'Gate code required before entry',
 			color: '#2563EB',
@@ -74,7 +45,7 @@ describe('tag table commands', () => {
 		// A rename must not claim to have cleared the colour. The domain reads
 		// `changes` by key, so a field present-and-undefined and a field absent are
 		// the same to it — which is why this asserts on the key set.
-		const command = build(tags, 'fieldWork.updateTag', { tag_name: 'Priority' });
+		const command = buildFor(tags, 'fieldWork.updateTag', TAG, { tag_name: 'Priority' });
 
 		expect(command.payload).toMatchObject({ tagId: TAG, changes: { tagName: 'Priority' } });
 		expect(Object.keys((command.payload as { readonly changes: object }).changes)).toEqual([
@@ -83,7 +54,7 @@ describe('tag table commands', () => {
 	});
 
 	it('clears a colour only when the caller sent one to clear', () => {
-		const cleared = build(tags, 'fieldWork.updateTag', { color: null });
+		const cleared = buildFor(tags, 'fieldWork.updateTag', TAG, { color: null });
 
 		expect((cleared.payload as { readonly changes: { readonly color?: unknown } }).changes).toEqual(
 			{ color: null },
@@ -93,8 +64,8 @@ describe('tag table commands', () => {
 	it('names the lifecycle direction rather than reading is_active', () => {
 		// Both directions are their own command, and neither takes the column: a
 		// payload carrying `is_active` the other way must not change the answer.
-		const retired = build(tags, 'fieldWork.deactivateTag', { is_active: true });
-		const restored = build(tags, 'fieldWork.activateTag', { is_active: false });
+		const retired = buildFor(tags, 'fieldWork.deactivateTag', TAG, { is_active: true });
+		const restored = buildFor(tags, 'fieldWork.activateTag', TAG, { is_active: false });
 
 		expect(retired.type).toBe('fieldWork.deactivateTag');
 		expect(restored.type).toBe('fieldWork.activateTag');
@@ -103,7 +74,7 @@ describe('tag table commands', () => {
 	});
 
 	it('deletes by id alone', () => {
-		const command = build(tags, 'fieldWork.deleteTag', {});
+		const command = buildFor(tags, 'fieldWork.deleteTag', TAG, {});
 
 		expect(command.type).toBe('fieldWork.deleteTag');
 		expect(command.payload).toMatchObject({ tagId: TAG, organizationId: ORGANIZATION });

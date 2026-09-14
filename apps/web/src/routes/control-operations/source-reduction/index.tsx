@@ -11,16 +11,15 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
 	useSourceReductionMethodOptions,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -32,7 +31,8 @@ import {
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
+import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -41,9 +41,7 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { formatAmount } from '../-control-display';
-import { addDaysToDateString } from '../-overview-data';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';
 
 interface SourceReductionSite {
@@ -83,7 +81,7 @@ export const Route = createFileRoute('/control-operations/source-reduction/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'source reduction', many: 'source reductions' };
+const RECORD_TYPE: RecordType = 'sourceReduction';
 const PATH = '/map/source-reduction';
 
 function SourceReductionExplorerRoute() {
@@ -126,40 +124,33 @@ function SourceReductionExplorerRoute() {
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
 	const filters: SourceReductionTileFilters = {
-		...(methodIds.size > 0 ? { sourceReductionMethodIds: [...methodIds] } : {}),
-		...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(dateFrom === '' ? {} : { dateFrom }),
-		...(dateTo === '' ? {} : { dateTo }),
+		...whenAny('sourceReductionMethodIds', methodIds),
+		...whenAny('technicianProfileIds', personIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
 	};
-	const params = mapQueryParams({
-		sourceReductionMethodId: filters.sourceReductionMethodIds,
-		technician: filters.technicianProfileIds,
-		regionId: filters.regionIds,
-		dateFrom: filters.dateFrom,
-		dateTo: filters.dateTo,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<SourceReductionSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<SourceReductionSite>({
 			path: PATH,
 			rowsKey: 'sourceReductions',
+			rowKey: 'sourceReduction',
 			label: 'Source reductions',
-			params,
+			params: {
+				sourceReductionMethodId: filters.sourceReductionMethodIds,
+				technician: filters.technicianProfileIds,
+				regionId: filters.regionIds,
+				dateFrom: filters.dateFrom,
+				dateTo: filters.dateTo,
+			},
+			map,
+			selectedId,
 		});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
 	const habitatIds = rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId]));
 	const habitatNameById = useHabitatNames(habitatIds);
-
-	const selected = useSelectedMapRecord<SourceReductionSite>({
-		path: PATH,
-		rowKey: 'sourceReduction',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
@@ -234,7 +225,7 @@ function SourceReductionExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'source reduction', many: 'source reductions' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -246,7 +237,6 @@ function SourceReductionExplorerRoute() {
 				icon: SourceReductionEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
 				create: {
 					to: '/control-operations/source-reduction/create',
 					label: 'Record Source Reduction',
@@ -278,9 +268,9 @@ function SourceReductionExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No source reduction in range',
+				emptyTitle: 'No source reduction in view',
 				emptyDescription:
-					'Widen the time window or loosen the filters to bring actions into range.',
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring actions into range.',
 				renderRow: (row) => (
 					<SourceReductionListItem
 						amountLabel={formatAmount(

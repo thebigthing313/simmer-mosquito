@@ -3,6 +3,7 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
@@ -73,7 +74,7 @@ function EditApplicationRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="application"
+			recordType="application"
 			reading={{ isError, isReady, record: application }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -81,10 +82,10 @@ function EditApplicationRoute() {
 				<EditApplicationLoader
 					application={record}
 					applicationMethods={methods}
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					equipment={equipment}
 					insecticides={insecticides}
-					organizationId={organization?.id ?? ''}
+					organizationId={organization.id}
 					profiles={profiles}
 					units={units}
 					vehicles={vehicles}
@@ -215,9 +216,9 @@ function EditApplicationLoader({
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
-				description="This application's geometry could not be loaded."
+				description="This chemical application's geometry could not be loaded."
 				layout="centered"
-				noun="application"
+				recordType="application"
 				reason="error"
 			/>
 		);
@@ -225,9 +226,9 @@ function EditApplicationLoader({
 	if (personnel.isError || batches.isError) {
 		return (
 			<RecordUnavailable
-				description="This application's personnel and batches could not be loaded."
+				description="This chemical application's personnel and batches could not be loaded."
 				layout="centered"
-				noun="application"
+				recordType="application"
 				reason="error"
 			/>
 		);
@@ -245,11 +246,11 @@ function EditApplicationLoader({
 				defaultValues={defaultsFromApplication(application, personnel, batches)}
 				equipment={equipment}
 				header={{
-					title: 'Edit Application',
+					title: 'Edit Chemical Application',
 					description: 'Update this application’s product, amount, work details, or location.',
 					backTo: '/control-operations/chemical/$id',
 					backParams: { id: application.id },
-					backLabel: 'Back to application',
+					backLabel: 'Back to chemical application',
 				}}
 				initialGeometry={geometryQuery.geometry}
 				insecticides={insecticides}

@@ -22,6 +22,7 @@ import { Link, type LinkProps } from '@tanstack/react-router';
 import { Fragment, type ReactNode, useState } from 'react';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
+import { recordNoun } from '../../lib/record-nouns';
 import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
 import { DELETE_FLOOR, RecordDeleteDialog, type RecordDeleteProps } from '../record-delete-dialog';
 import { TagBadge } from '../tag-badge';
@@ -306,7 +307,7 @@ function ActionsMenu({
 							{visible.length === 0 ? null : <DropdownMenuSeparator />}
 							<DropdownMenuItem onSelect={() => setConfirmingDelete(true)} variant="destructive">
 								<DeleteIcon aria-hidden="true" />
-								Delete {remove.noun}
+								Delete {recordNoun(remove.recordType).one}
 							</DropdownMenuItem>
 						</>
 					) : null}

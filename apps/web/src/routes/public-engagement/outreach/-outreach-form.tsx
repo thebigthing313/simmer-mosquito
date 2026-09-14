@@ -24,9 +24,7 @@ import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-ro
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
-
-/** Non-empty sentinel: Radix Select forbids empty-string item values. */
-export const noTechnicianValue = 'none';
+import { noTechnicianValue } from '../../../lib/no-technician';
 
 /** Domain issue path → the form field holding it. */
 const OUTREACH_FIELD_PATHS: Readonly<Record<string, string>> = {

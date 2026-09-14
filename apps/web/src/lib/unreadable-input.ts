@@ -45,9 +45,13 @@
  *
  * The name is a string the caller writes rather than `fn.name`, because a
  * formatter reached through a shared helper would report the helper. That makes
- * it the caller's job to be unambiguous: three separate functions here are named
- * `formatDate`, so each says which screen it belongs to. A line naming a
- * function three modules answer to is a line that has not said anything.
+ * it the caller's job to be unambiguous, and the parenthesis in
+ * `formatDate (weather summary)` is what that looks like. Three modules exported
+ * a `formatDate` when this was written; one is `formatNumericDate` now (#906)
+ * and one folded into `formatListDate` (#916), so the ambiguity the parenthesis
+ * answers is gone for the moment rather than settled, `formatDate` being a name
+ * any screen can take back. A line naming a function three modules answer to is
+ * a line that has not said anything.
  */
 
 /** Every formatter and value pair already reported, so each is reported once. */

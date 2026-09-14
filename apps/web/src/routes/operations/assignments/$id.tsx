@@ -152,7 +152,7 @@ function AssignmentRunRoute() {
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
-						noun="assignment"
+						recordType="assignment"
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
 						selectedId={selectedStopId}

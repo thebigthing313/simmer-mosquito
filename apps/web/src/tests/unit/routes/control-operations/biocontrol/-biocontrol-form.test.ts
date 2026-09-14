@@ -10,9 +10,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { noTechnicianValue } from '../../../../../lib/no-technician';
 import {
 	type BiocontrolFormValues,
-	noTechnicianValue,
 	validateBiocontrol,
 } from '../../../../../routes/control-operations/biocontrol/-biocontrol-form';
 

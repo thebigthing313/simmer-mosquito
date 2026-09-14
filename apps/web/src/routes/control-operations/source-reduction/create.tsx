@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useRecordExtras } from '../../../forms/record-extras';
-import { newRecordId } from '../../../hooks/mutations/shared';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -54,7 +54,7 @@ function CreateSourceReductionRoute() {
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
 	// Minted up front so the crew rows can be written the moment the action lands
 	// — and so their on-demand stream is already warm when the save fires.
@@ -66,9 +66,6 @@ function CreateSourceReductionRoute() {
 	const onSave = async (input: SourceReductionSaveInput) =>
 		mission.run(async (acknowledgements) => {
 			const { values, geometry } = input;
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
 			if (actorProfileId === null) {
 				throw new Error('Your profile is still loading.');
 			}
@@ -134,7 +131,7 @@ function CreateSourceReductionRoute() {
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				profiles={profiles}
 				submitLabel="Record Source Reduction"
 				units={units}

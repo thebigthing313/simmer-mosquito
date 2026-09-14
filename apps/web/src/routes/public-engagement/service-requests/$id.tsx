@@ -122,7 +122,7 @@ function ServiceRequestDetailRoute() {
 	if (isError) {
 		return (
 			<ServiceRequestStatePage>
-				<RecordUnavailable noun="request" reason="error" title="Service Request Unavailable" />
+				<RecordUnavailable recordType="serviceRequest" reason="error" />
 			</ServiceRequestStatePage>
 		);
 	}
@@ -137,11 +137,7 @@ function ServiceRequestDetailRoute() {
 		return (
 			<>
 				<ServiceRequestStatePage>
-					<RecordUnavailable
-						noun="request"
-						reason="not-found"
-						title="Service Request Unavailable"
-					/>
+					<RecordUnavailable recordType="serviceRequest" reason="not-found" />
 				</ServiceRequestStatePage>
 				{dialog}
 			</>
@@ -266,11 +262,7 @@ function ServiceRequestDetailContent({
 						    beside NearbyPanel, which would read as a subsection of
 						    nearby-context. Regions are a fixed boundary the record falls
 						    inside, and nearby is a live proximity query. */}
-						<RecordRegionsBand
-							noun="service request"
-							recordId={request.id}
-							recordType="service_requests"
-						/>
+						<RecordRegionsBand recordId={request.id} recordType="service_requests" />
 						<RequestDetailsCard receivedByName={receivedByName} request={request} />
 						<RequestPartiesCard addressId={request.addressId} contactId={request.contactId} />
 						<NearbyPanel
@@ -290,7 +282,6 @@ function ServiceRequestDetailContent({
 						<DangerZoneCard
 							ask={askDelete}
 							name={title}
-							noun="service request"
 							onDelete={(acknowledgements) => mutations.remove(request.id, acknowledgements)}
 							recordId={request.id}
 							recordType="serviceRequest"

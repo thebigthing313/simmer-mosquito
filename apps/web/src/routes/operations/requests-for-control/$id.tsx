@@ -85,7 +85,7 @@ function RequestDetailRoute() {
 		<RecordDetailPage
 			deleteRefusals={CONTROL_REQUEST_DELETE_REFUSALS}
 			layout={layout}
-			noun="request"
+			recordType="requestedControlAction"
 			reading={{ isError, isReady, record: request }}
 		>
 			{(record, askDelete) => (
@@ -153,7 +153,6 @@ function RequestDetailContent({
 				remove: {
 					ask: askDelete,
 					name: subject,
-					noun: 'request for control',
 					onDelete: (acknowledgements) => requestWrites.remove(request.id, acknowledgements),
 					recordId: request.id,
 					recordType: 'requestedControlAction',
@@ -166,11 +165,7 @@ function RequestDetailContent({
 			lead={
 				<div className="grid content-start gap-3">
 					<RequestLocationCard habitatName={habitatName} request={request} />
-					<RecordRegionsBand
-						noun="request"
-						recordId={request.id}
-						recordType="requested_control_actions"
-					/>
+					<RecordRegionsBand recordId={request.id} recordType="requested_control_actions" />
 				</div>
 			}
 		>

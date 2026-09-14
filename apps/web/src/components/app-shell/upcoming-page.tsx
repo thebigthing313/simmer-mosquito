@@ -119,7 +119,7 @@ const traps: Elsewhere = {
 	icon: iconRegistry.entities.trap.icon,
 };
 const applications: Elsewhere = {
-	label: 'Applications',
+	label: 'Chemical Applications',
 	description: 'Product, amount, and method for every treatment logged',
 	to: '/control-operations/chemical',
 	icon: iconRegistry.entities.application.icon,

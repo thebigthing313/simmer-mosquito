@@ -85,11 +85,20 @@ export type AuthRefusal = ServerAuthRefusal | 'unavailable';
  *
  * Narrower than {@link UnauthenticatedMe}: this is what goes on the wire, and
  * `unavailable` never does.
+ *
+ * `error` is the code a caller branches on and `reason` is a sentence it may
+ * render. They used to be the same string on two of the three arms, so nothing
+ * reading `reason` could tell a sentence from a token (#795).
+ *
+ * `detail` is the session layer's own machine string, present only on the
+ * `unauthenticated` arm and only for a log. Nothing on a screen reads it, and
+ * a client that wants to say why should render `reason`.
  */
 export interface RefusedMeBody {
 	readonly authenticated: false;
 	readonly error: ServerAuthRefusal;
 	readonly reason: string;
+	readonly detail?: string;
 }
 
 export interface UnauthenticatedMe {

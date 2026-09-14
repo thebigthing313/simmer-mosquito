@@ -55,6 +55,12 @@ function CreateHabitatRoute() {
 			throw new Error('Unable to determine the habitat location from the drawn geometry.');
 		}
 
+		// The id comes back from the write rather than being minted here, and
+		// neither reason `newRecordId` gives for minting up front applies. Nothing
+		// on this page writes a child row against the new habitat, and although
+		// `habitats` is on-demand, nothing here subscribes to it, so the insert
+		// returns no txid to wait on and the write settles on the server's answer.
+		// The geometry cache below is seeded after that answer, not before it.
 		const habitatId = await mutations.create(
 			{
 				habitatName: nullableText(values.habitatName),

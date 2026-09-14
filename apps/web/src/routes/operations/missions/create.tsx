@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -33,15 +34,14 @@ function CreateMissionRoute() {
 	// Minted up front so the on-demand stream is warm when the save fires — a
 	// write to a cold collection waits out its txid confirmation, which reads as a
 	// frozen save.
-	const [missionId] = useState(() => crypto.randomUUID());
+	const [missionId] = useState(() => newRecordId());
 	useMission(missionId);
 
-	const organizationId = organization?.id ?? null;
 	const missionWrites = useMissionMutations();
 
 	const onSave = async (plan: MissionPlan) => {
-		if (organizationId === null || actorProfileId === null) {
-			throw new Error('Your organization and profile are still loading.');
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
 		}
 		await missionWrites.create(missionId, {
 			controlType: plan.controlType,
@@ -58,7 +58,7 @@ function CreateMissionRoute() {
 
 	return (
 		<MissionFormPage
-			canSubmit={organizationId !== null && actorProfileId !== null}
+			canSubmit={canAttributeWrite({ organization, actorProfileId })}
 			defaultValues={defaultMissionFormValues(timeZone)}
 			errorTitle="Unable to Create Mission"
 			fieldPaths={MISSION_FIELD_PATHS}

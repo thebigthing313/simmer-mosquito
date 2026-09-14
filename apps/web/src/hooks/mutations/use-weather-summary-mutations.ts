@@ -32,7 +32,7 @@ import { settleWrite, type WeatherSummary } from '@simmer-mosquito/sync';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { weather_summaries } from '../../lib/collections/weather_summaries';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** The seven metrics a summary can carry, each `null` where there is no reading. */
 export interface WeatherMetrics {
@@ -174,6 +174,6 @@ export function useWeatherSummaryMutations(): WeatherSummaryMutations {
 		create,
 		save,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

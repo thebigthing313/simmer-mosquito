@@ -5,9 +5,8 @@ import {
 	type SpeciesStatus,
 } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { todayInTimeZone } from '../../lib/local-date';
+import { formatWeekdayDate, todayInTimeZone } from '../../lib/local-date';
 import { formatFullDate, formatMonthDayYear } from '../../lib/record-dates';
-import { formatWeekdayDate } from './-overview-data';
 
 // --- shared labels ----------------------------------------------------------
 

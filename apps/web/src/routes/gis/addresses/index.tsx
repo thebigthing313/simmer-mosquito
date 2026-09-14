@@ -21,6 +21,7 @@ import {
 	type AddressListing,
 	useOrganizationAddresses,
 } from '../../../hooks/queries/use-organization-addresses';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	type FilterCodecs,
 	idSetParam,
@@ -48,7 +49,7 @@ export const Route = createFileRoute('/gis/addresses/')({
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
-const RESULT_NOUN = { one: 'address', many: 'addresses' };
+const RECORD_TYPE: RecordType = 'address';
 const PAGE_SIZE = 25;
 
 function AddressesExplorerRoute() {
@@ -170,7 +171,7 @@ function AddressesExplorerRoute() {
 			footer={
 				pageCount > 1 ? (
 					<ExplorerPagination
-						noun={{ one: 'address', many: 'addresses' }}
+						noun={recordNoun(RECORD_TYPE)}
 						onPageChange={setPage}
 						page={page}
 						pageCount={pageCount}
@@ -183,7 +184,7 @@ function AddressesExplorerRoute() {
 				icon: AddressIcon,
 				total: filtered.length,
 				isLoading,
-				noun: RESULT_NOUN,
+				counts: RECORD_TYPE,
 				create: { to: '/gis/addresses/create', label: 'Create Address' },
 			}}
 			onResetFilters={clearAll}

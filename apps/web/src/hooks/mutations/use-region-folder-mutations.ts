@@ -13,7 +13,7 @@ import { type RegionFolder, settleWrite } from '@simmer-mosquito/sync';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { region_folders } from '../../lib/collections/region_folders';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** A folder as its dialog holds one. */
 export interface RegionFolderFields {
@@ -88,5 +88,9 @@ export function useRegionFolderMutations(): RegionFolderMutations {
 		);
 	};
 
-	return { create, save, canWrite: organizationId !== null && actorProfileId !== null };
+	return {
+		create,
+		save,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
+	};
 }

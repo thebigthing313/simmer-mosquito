@@ -63,12 +63,6 @@ export interface MapFilterInput<TFilters> extends MapReadContext {
 	readonly filters?: TFilters;
 }
 
-export interface MapPageInput<TFilters> extends MapReadContext {
-	readonly filters?: TFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
 export interface MapBoundsPageInput<TFilters> extends MapReadContext {
 	readonly bounds: MapBounds;
 	readonly filters?: TFilters;
@@ -185,9 +179,14 @@ export interface MapSurfaceReaders<TFilters> {
 
 /** The geometry reads plus the row reads a surface with a display projection offers. */
 export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReaders<TFilters> {
-	/** A filtered, offset-paged window with no viewport bound. */
-	listPage(db: DbExecutor, input: MapPageInput<TFilters>): Promise<MapPageResult<TRow>>;
-	/** A filtered, offset-paged window inside an explicit bounding box. */
+	/**
+	 * A filtered, offset-paged window inside an explicit bounding box.
+	 *
+	 * The only paged read a surface offers. `listPage` stood beside it and
+	 * answered the same question with no box, which six explorers read while
+	 * their maps drew the viewport, so the rail and the map showed different
+	 * sets; it went when the last of the six flipped (#920).
+	 */
 	listByBounds(db: DbExecutor, input: MapBoundsPageInput<TFilters>): Promise<MapPageResult<TRow>>;
 	/** One row, or nothing when it is another organization's, deleted, or absent. */
 	getById(db: DbExecutor, input: MapByIdInput): Promise<TRow | undefined>;
@@ -247,26 +246,10 @@ export function mapRecordSurface<TFilters, TRow>(
 		...mapSurface(definition),
 
 		// `total` is the page's, not the row's, so it is not a display column: it
-		// is declared here, on the cast of the read that appends it, and the two
-		// paged readers are the only place it exists. Putting it in the
-		// projection would put it in `TRow`, where the by-id read that never
-		// selects it would then claim it.
-		async listPage(db, input) {
-			const result = await sql<TRow & { readonly total: number }>`
-				select
-					${columns},
-					count(*) over()::int as "total"
-				from ${definition.from}
-				${joins}
-				where ${sql.join(surfaceWhere(definition, input.organizationId, input.filters), sql` and `)}
-				order by ${display.orderBy}
-				limit ${input.limit}
-				offset ${input.offset}
-			`.execute(db);
-
-			return { total: result.rows[0]?.total ?? 0, rows: result.rows };
-		},
-
+		// is declared here, on the cast of the read that appends it, and the
+		// paged reader is the only place it exists. Putting it in the projection
+		// would put it in `TRow`, where the by-id read that never selects it
+		// would then claim it.
 		async listByBounds(db, input) {
 			const result = await sql<TRow & { readonly total: number }>`
 				with bounds as (

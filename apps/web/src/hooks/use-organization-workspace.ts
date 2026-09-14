@@ -7,8 +7,11 @@ import { canManageCatalogs, canManageOperationalCatalogs, readOrgRole } from '..
 
 export function useOrganizationWorkspace(auth: AuthMe | null) {
 	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations() }), []);
-	const organization: Organization | null = result.data[0] ?? null;
-	if (organization === null) {
+	// The throw is what makes the declared type true. A workspace with no
+	// Organization row is not a state any screen renders, so the hook refuses
+	// rather than handing every caller a null to narrow away (#898).
+	const organization: Organization | undefined = result.data[0];
+	if (organization === undefined) {
 		throw new Error('Unable to resolve active organization for this workspace.');
 	}
 	const role = readOrgRole(auth);

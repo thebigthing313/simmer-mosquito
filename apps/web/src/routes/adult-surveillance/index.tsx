@@ -3,16 +3,18 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { trapDisplayName } from '../../hooks/queries/trap-view';
 import {
-	type SpeciesTotal,
-	useAdultSpeciesComposition,
-} from '../../hooks/queries/use-adult-species-composition';
+	SPECIES_WINDOWS,
+	SpeciesCompositionPanel,
+	type SpeciesWindow,
+	speciesWindowSince,
+} from '../../components/species-composition-panel';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { useAdultSpeciesComposition } from '../../hooks/queries/use-adult-species-composition';
 import { useCollectionsAwaitingIdentification } from '../../hooks/queries/use-collections-awaiting-identification';
 import { useCollectionsOverThreshold } from '../../hooks/queries/use-collections-over-threshold';
 import {
@@ -20,14 +22,16 @@ import {
 	useRecentCollections,
 } from '../../hooks/queries/use-recent-collections';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
 import {
-	ADULT_ACTIVITY_WINDOW_DAYS,
 	addDaysToDateString,
 	formatMonthDay,
 	formatWeekdayMonthDay,
 	todayInTimeZone,
-} from './-overview-data';
+} from '../../lib/local-date';
+import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
+
+/** How far back the recent-window queries reach. */
+const ADULT_ACTIVITY_WINDOW_DAYS = 14;
 
 const AdultIcon = iconRegistry.domains.adultSurveillance.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;
@@ -57,7 +61,7 @@ function AdultSurveillanceOverviewRoute() {
 					<RecentCollectionsPanel since={since} />
 				</div>
 				<div className="grid content-start gap-5 xl:col-span-5">
-					<SpeciesCompositionPanel today={today} />
+					<AdultSpeciesComposition today={today} />
 					<AwaitingIdentificationPanel since={since} />
 				</div>
 				<div className="xl:col-span-12">
@@ -220,113 +224,23 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 
 // --- species composition ----------------------------------------------------
 
-const SPECIES_PREVIEW_COUNT = 6;
-type SpeciesWindow = '7d' | '30d';
-
-/** The six species the panel draws, and the tail it sums into one "other" row. */
-function speciesPreview<TRow extends { readonly total: number }>(totals: readonly TRow[]) {
-	const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
-	const rest = totals.slice(SPECIES_PREVIEW_COUNT);
-	return {
-		top: previewed,
-		otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
-		otherCount: rest.length,
-		maxBar: previewed[0]?.total ?? 1,
-	};
-}
-
-function SpeciesCompositionPanel({ today }: { readonly today: string }) {
+function AdultSpeciesComposition({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
-	const since = addDaysToDateString(today, window === '7d' ? -6 : -29);
-	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(since);
-
-	const { top, otherTotal, otherCount, maxBar } = speciesPreview(totals);
-
-	return (
-		<Panel
-			actions={
-				<ToggleGroup
-					aria-label="Species window"
-					className="h-8"
-					onValueChange={(next) => next && setWindow(next as SpeciesWindow)}
-					size="sm"
-					type="single"
-					value={window}
-					variant="outline"
-				>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="7d">
-						7d
-					</ToggleGroupItem>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="30d">
-						30d
-					</ToggleGroupItem>
-				</ToggleGroup>
-			}
-			icon={<SpeciesIcon className="size-4" />}
-			title="Species Composition"
-		>
-			{isError ? (
-				<PanelMessage>Species data is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={5} />
-			) : top.length === 0 ? (
-				<PanelMessage>
-					No specimens identified in the last {window === '7d' ? '7' : '30'} days.
-				</PanelMessage>
-			) : (
-				<div className="grid gap-2.5 p-4">
-					{top.map((entry) => (
-						<SpeciesBar
-							barWidth={(entry.total / maxBar) * 100}
-							entry={entry}
-							key={entry.speciesId}
-							percent={grandTotal === 0 ? 0 : (entry.total / grandTotal) * 100}
-						/>
-					))}
-					{otherTotal > 0 ? (
-						<SpeciesBar
-							barWidth={(otherTotal / maxBar) * 100}
-							entry={{ speciesId: '__other__', name: `Other (${otherCount})`, total: otherTotal }}
-							muted
-							percent={grandTotal === 0 ? 0 : (otherTotal / grandTotal) * 100}
-						/>
-					) : null}
-				</div>
-			)}
-		</Panel>
+	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(
+		speciesWindowSince(today, window),
 	);
-}
 
-function SpeciesBar({
-	entry,
-	percent,
-	barWidth,
-	muted = false,
-}: {
-	readonly entry: SpeciesTotal;
-	readonly percent: number;
-	readonly barWidth: number;
-	readonly muted?: boolean;
-}) {
 	return (
-		<div className="grid gap-1">
-			<div className="flex items-baseline justify-between gap-2 text-sm">
-				<span
-					className={cn('truncate', muted ? 'text-muted-foreground' : 'text-foreground italic')}
-				>
-					{entry.name}
-				</span>
-				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
-				</span>
-			</div>
-			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-				<div
-					className={cn('h-full rounded-full', muted ? 'bg-muted-foreground/40' : 'bg-primary')}
-					style={{ width: `${Math.max(barWidth, 2)}%` }}
-				/>
-			</div>
-		</div>
+		<SpeciesCompositionPanel
+			emptySubject="specimens"
+			grandTotal={grandTotal}
+			isError={isError}
+			isReady={isReady}
+			onWindowChange={setWindow}
+			totals={totals}
+			window={window}
+			windows={SPECIES_WINDOWS}
+		/>
 	);
 }
 

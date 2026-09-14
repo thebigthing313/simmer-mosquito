@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
@@ -43,15 +44,14 @@ function CreateRequestForControlRoute() {
 	// Minted up front so the on-demand stream is already warm when the save fires
 	// — a write to a cold collection waits out its txid confirmation, which reads
 	// as a frozen save.
-	const [requestId] = useState(() => crypto.randomUUID());
+	const [requestId] = useState(() => newRecordId());
 	useRequestedControlAction(requestId);
 
-	const organizationId = organization?.id ?? null;
 	const requestWrites = useRequestedControlActionMutations();
 
 	const onSave = async ({ values, geometry }: RequestSaveInput) => {
-		if (organizationId === null || actorProfileId === null) {
-			throw new Error('Your organization and profile are still loading.');
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
 		}
 		if (geometry === null) {
 			throw new Error('Map where the control work is needed.');
@@ -71,7 +71,7 @@ function CreateRequestForControlRoute() {
 
 	return (
 		<RequestFormPage
-			canSubmit={organizationId !== null && actorProfileId !== null}
+			canSubmit={canAttributeWrite({ organization, actorProfileId })}
 			defaultValues={{
 				...defaultRequestFormValues(),
 				...seededValues({ addressId: search.addressId, habitatId: search.habitatId }),
@@ -85,7 +85,7 @@ function CreateRequestForControlRoute() {
 				backLabel: 'Requests for Control',
 			}}
 			onSave={onSave}
-			organizationId={organizationId ?? ''}
+			organizationId={organization.id}
 			submitLabel="Raise Request"
 		/>
 	);

@@ -8,6 +8,7 @@ import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -49,7 +50,7 @@ function AssignmentCreateRoute() {
 	// Minted up front so the streams below can be warmed against it before the
 	// write lands (a write to a cold on-demand collection waits out its txid
 	// confirmation, which reads as a frozen save).
-	const [assignmentId] = useState(() => crypto.randomUUID());
+	const [assignmentId] = useState(() => newRecordId());
 	useAssignment(assignmentId);
 	useAssignmentItems(assignmentId);
 
@@ -102,7 +103,7 @@ function AssignmentCreateRoute() {
 					// reads each target out of the Route it is copying.
 					stops: routeItems.map((item) => ({
 						routeItemId: item.routeItemId,
-						assignmentItemId: crypto.randomUUID(),
+						assignmentItemId: newRecordId(),
 						entityType: item.entityType,
 						entityId: item.entityId,
 						directionsToNextItem: item.directionsToNextItem,

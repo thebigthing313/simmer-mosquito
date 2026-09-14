@@ -1,5 +1,6 @@
 import type { Kysely, SimmerDatabase } from '@simmer-mosquito/db';
 import {
+	createActingOrganization,
 	createCollection,
 	createCollectionMethod,
 	createCollectionSpecies,
@@ -132,8 +133,7 @@ describeDbIntegration('record deletion at the HTTP boundary', () => {
 	// zone needs before the button is pressed.
 	it('refuses a registration delete a mission notification blocks, and says what blocked it', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const contactId = await createContact(db, org, { wants_email: true });
 			const typeId = await createNotificationType(db, org);
 			const registrationId = await createNotificationRegistration(db, org, contactId);

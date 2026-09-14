@@ -52,7 +52,7 @@ function ContactDetailRoute() {
 	return (
 		<RecordDetailPage
 			layout={layout}
-			noun="contact"
+			recordType="contact"
 			reading={{ isError, isReady, record: contact }}
 		>
 			{(record) => <ContactDetailContent contact={record} />}
@@ -118,7 +118,6 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 				icon: ContactIcon,
 				remove: {
 					name: name,
-					noun: 'contact',
 					onDelete: () => mutations.remove(contact.id),
 					recordId: contact.id,
 					recordType: 'contact',

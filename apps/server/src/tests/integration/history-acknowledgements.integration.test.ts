@@ -26,6 +26,7 @@
 
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
 import {
+	createActingOrganization,
 	createCollection,
 	createCollectionMethod,
 	createContact,
@@ -34,9 +35,9 @@ import {
 	createNotificationType,
 	createOrganization,
 	createOrganizationSpecies,
-	createProfile,
 	createSpecies,
 	createTrap,
+	createTrapSurface,
 	createUser,
 	describeDbIntegration,
 	withTestDb,
@@ -57,10 +58,12 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses a catalog rename with collections behind it, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
-			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, methodId);
+			const {
+				organizationId: org,
+				actorProfileId: actor,
+				collectionMethodId: methodId,
+				trapId,
+			} = await createTrapSurface(db);
 			await createCollection(
 				db,
 				org,
@@ -100,8 +103,7 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('renames a catalog row nothing cites without asking', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
 
 			const response = await commandApp(db, org, actor).request(
@@ -126,10 +128,12 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('leaves an edit that changes no label alone, however much history there is', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
-			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, methodId);
+			const {
+				organizationId: org,
+				actorProfileId: actor,
+				collectionMethodId: methodId,
+				trapId,
+			} = await createTrapSurface(db);
 			await createCollection(
 				db,
 				org,
@@ -157,10 +161,12 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses a trap recode with collections behind it, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
-			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, methodId);
+			const {
+				organizationId: org,
+				actorProfileId: actor,
+				collectionMethodId: methodId,
+				trapId,
+			} = await createTrapSurface(db);
 			await createCollection(
 				db,
 				org,
@@ -200,10 +206,11 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses clearing a trap name when the trap carries no code, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
-			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, methodId, { trap_name: 'North gate' });
+			const {
+				organizationId: org,
+				actorProfileId: actor,
+				trapId,
+			} = await createTrapSurface(db, { trap: { trap_name: 'North gate' } });
 
 			const response = await commandApp(db, org, actor).request(
 				`/commands/traps/${trapId}`,
@@ -229,8 +236,7 @@ describeDbIntegration('history and collision refusals', () => {
 	// survive, so a suite covering only the name would leave half of it untested.
 	it('refuses clearing a trap code when the trap carries no name', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
 			const trapId = await createTrap(db, org, methodId, {
 				trap_name: null,
@@ -249,8 +255,7 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses clearing both labels in one edit', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
 			const trapId = await createTrap(db, org, methodId, {
 				trap_name: 'North gate',
@@ -272,8 +277,7 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('takes a cleared trap name when a code is left behind', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
 			const trapId = await createTrap(db, org, methodId, {
 				trap_name: 'North gate',
@@ -301,10 +305,11 @@ describeDbIntegration('history and collision refusals', () => {
 	// answer this rule even on a trap that would fail it.
 	it('takes a description edit on a trap carrying only a name', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
-			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, methodId, { trap_name: 'North gate' });
+			const {
+				organizationId: org,
+				actorProfileId: actor,
+				trapId,
+			} = await createTrapSurface(db, { trap: { trap_name: 'North gate' } });
 
 			const response = await commandApp(db, org, actor).request(
 				`/commands/traps/${trapId}`,
@@ -330,8 +335,7 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses retiring a notification type people are still subscribed to', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const typeId = await createNotificationType(db, org, { name: 'Adulticide notice' });
 			const registrationId = await createNotificationRegistration(
 				db,
@@ -415,8 +419,7 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('refuses a trap whose code another active trap already carries', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
 			await createTrap(db, org, methodId, { trap_code: 'NG-1' });
 			const newTrapId = '00000000-0000-4000-8000-0000000003a1';
@@ -455,8 +458,7 @@ describeDbIntegration('history and collision refusals', () => {
 
 	it('takes a trap code no active trap carries, whatever the flag says', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db);
-			const actor = await createProfile(db, org);
+			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
 			const newTrapId = '00000000-0000-4000-8000-0000000003a2';
 

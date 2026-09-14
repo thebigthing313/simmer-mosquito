@@ -2,6 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
@@ -18,13 +19,9 @@ import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { noTechnicianValue } from '../../../lib/no-technician';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	noTechnicianValue,
-	OutreachFormPage,
-	type OutreachFormValues,
-} from './-outreach-form';
+import { type DrawGeometry, OutreachFormPage, type OutreachFormValues } from './-outreach-form';
 
 export const Route = createFileRoute('/public-engagement/outreach/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -53,15 +50,15 @@ function EditOutreachActionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="outreach action"
+			recordType="outreachAction"
 			reading={{ isError, isReady, record: action }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
 			{(record) => (
 				<EditOutreachActionLoader
 					action={record}
-					canSubmit={organization !== null && actorProfileId !== null}
-					organizationId={organization?.id ?? ''}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
+					organizationId={organization.id}
 					outreachMethods={methods}
 					profiles={profiles}
 				/>
@@ -156,7 +153,7 @@ function EditOutreachActionLoader({
 			<RecordUnavailable
 				description="This outreach action's geometry could not be loaded."
 				layout="centered"
-				noun="outreach action"
+				recordType="outreachAction"
 				reason="error"
 			/>
 		);
@@ -166,7 +163,7 @@ function EditOutreachActionLoader({
 			<RecordUnavailable
 				description="This outreach action's personnel could not be loaded."
 				layout="centered"
-				noun="outreach action"
+				recordType="outreachAction"
 				reason="error"
 			/>
 		);

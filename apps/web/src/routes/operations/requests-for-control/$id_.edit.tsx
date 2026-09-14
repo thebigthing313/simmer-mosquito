@@ -5,7 +5,6 @@ import {
 	type RequestRecord,
 	useRequestedControlAction,
 } from '../../../hooks/queries/use-requested-control-action';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
@@ -41,7 +40,7 @@ function EditRequestRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="request"
+			recordType="requestedControlAction"
 			reading={{ isError, isReady, record: request }}
 			skeleton={<EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />}
 		>
@@ -60,8 +59,6 @@ function EditRequestRoute() {
  */
 function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 	const navigate = useNavigate();
-	const auth = useAuthSnapshot();
-	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const requestWrites = useRequestedControlActionMutations();
 
 	const geometryQuery = useOwnedGeometry(
@@ -100,9 +97,9 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
-				description="This request's geometry could not be loaded."
+				description="The geometry for this request for control could not be loaded."
 				layout="centered"
-				noun="request"
+				recordType="requestedControlAction"
 				reason="error"
 			/>
 		);
@@ -113,7 +110,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 
 	return (
 		<RequestFormPage
-			canSubmit={actorProfileId !== null}
+			canSubmit={requestWrites.canWrite}
 			defaultValues={defaultsFromRequest(request)}
 			errorTitle="Unable to Save Request"
 			header={{

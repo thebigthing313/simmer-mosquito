@@ -42,7 +42,7 @@ function RouteComponent() {
 	return (
 		<RecordDetailPage
 			layout={layout}
-			noun="address"
+			recordType="address"
 			reading={{ isError: result.isError, isReady: result.isReady, record: result.address }}
 		>
 			{(record) => <AddressDetailContent address={record} />}
@@ -73,7 +73,6 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 				   they can copy it. */
 				remove: {
 					name: address.displayName,
-					noun: 'address',
 					onDelete: () => mutations.remove(address.id),
 					recordId: address.id,
 					recordType: 'address',
@@ -100,7 +99,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 				/>
 			}
 		>
-			<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
+			<RecordRegionsBand recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
 		</DetailPageShell>
 	);

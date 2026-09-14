@@ -39,7 +39,7 @@ function EditServiceRequestRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="service request"
+			recordType="serviceRequest"
 			reading={{ isError, isReady, record: request }}
 			skeleton={<EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />}
 		>

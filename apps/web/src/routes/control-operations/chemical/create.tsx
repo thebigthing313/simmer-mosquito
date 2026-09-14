@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useRecordExtras } from '../../../forms/record-extras';
-import { newRecordId } from '../../../hooks/mutations/shared';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
@@ -74,7 +74,7 @@ function CreateApplicationRoute() {
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
 	// The first application's id is minted up front so its crew rows can be written
 	// the moment it lands — and so the on-demand streams those live on are already
@@ -98,9 +98,6 @@ function CreateApplicationRoute() {
 	}) =>
 		mission.run(async (acknowledgements) => {
 			const { values, geometry } = input;
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
 			if (actorProfileId === null) {
 				throw new Error('Your profile is still loading.');
 			}
@@ -222,19 +219,19 @@ function CreateApplicationRoute() {
 				formulationComponents={formulationComponents}
 				formulations={formulations}
 				header={{
-					title: 'Record Application',
+					title: 'Record Chemical Application',
 					description:
 						'Place the treated point, pick the product and amount, and note who applied it.',
 					backTo: '/control-operations/chemical',
-					backLabel: 'Applications',
+					backLabel: 'Chemical Applications',
 				}}
 				insecticides={insecticides}
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				profiles={profiles}
-				submitLabel="Record Application"
+				submitLabel="Record Chemical Application"
 				units={units}
 				vehicles={vehicles}
 			/>

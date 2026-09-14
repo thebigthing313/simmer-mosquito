@@ -13,6 +13,7 @@ import {
 	impactCountLabel,
 	useDeleteImpact,
 } from '../hooks/use-delete-impact';
+import { recordNoun } from '../lib/record-nouns';
 import { DELETE_FLOOR, RecordDeleteDialog, type RecordDeleteProps } from './record-delete-dialog';
 import { WriteOnly } from './write-only';
 
@@ -49,7 +50,8 @@ export function DangerZoneCard(props: DangerZoneCardProps) {
 }
 
 function DangerZone(props: DangerZoneCardProps) {
-	const { recordType, recordId, noun } = props;
+	const { recordType, recordId } = props;
+	const { one, title } = recordNoun(recordType);
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const impactQuery = useDeleteImpact(recordType, recordId);
 
@@ -65,7 +67,7 @@ function DangerZone(props: DangerZoneCardProps) {
 		<Card className="border-destructive/20" variant="panel">
 			<CardHeader className="gap-1 px-3 pt-3 pb-0">
 				<CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Delete This {titleCase(noun)}
+					Delete This {title}
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-2 px-3 pt-2 pb-3">
@@ -76,10 +78,10 @@ function DangerZone(props: DangerZoneCardProps) {
 						Could not check what deleting this would affect.
 					</p>
 				) : isBlocked ? (
-					<BlockedReasons blockers={blockers} noun={noun} />
+					<BlockedReasons blockers={blockers} noun={one} />
 				) : (
 					<p className="m-0 text-muted-foreground text-xs">
-						This {noun} will be removed. This can't be undone.
+						This {one} will be removed. This can't be undone.
 					</p>
 				)}
 
@@ -91,7 +93,7 @@ function DangerZone(props: DangerZoneCardProps) {
 						variant="destructive"
 					>
 						<DeleteIcon aria-hidden="true" />
-						Delete {titleCase(noun)}
+						Delete {title}
 					</Button>
 				</div>
 			</CardContent>
@@ -128,8 +130,4 @@ function ImpactSkeleton(): ReactNode {
 			<Skeleton className="h-3 w-48" />
 		</div>
 	);
-}
-
-function titleCase(noun: string): string {
-	return noun.replace(/\b[a-z]/g, (char) => char.toUpperCase());
 }

@@ -2,6 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
@@ -22,9 +23,9 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { noTechnicianValue } from '../../../lib/no-technician';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
-	noTechnicianValue,
 	SourceReductionFormPage,
 	type SourceReductionFormValues,
 	type SourceReductionSaveInput,
@@ -63,16 +64,15 @@ function EditSourceReductionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="source reduction action"
+			recordType="sourceReduction"
 			reading={{ isError, isReady, record: sourceReduction }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
-			unavailableTitle="Source Reduction Unavailable"
 		>
 			{(record) => (
 				<EditSourceReductionLoader
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					methods={methods}
-					organizationId={organization?.id ?? ''}
+					organizationId={organization.id}
 					profiles={profiles}
 					sourceReduction={record}
 					units={units}
@@ -154,9 +154,8 @@ function EditSourceReductionLoader({
 			<RecordUnavailable
 				description="This source reduction's geometry could not be loaded."
 				layout="centered"
-				noun="source reduction action"
+				recordType="sourceReduction"
 				reason="error"
-				title="Source Reduction Unavailable"
 			/>
 		);
 	}
@@ -165,9 +164,8 @@ function EditSourceReductionLoader({
 			<RecordUnavailable
 				description="This source reduction's personnel could not be loaded."
 				layout="centered"
-				noun="source reduction action"
+				recordType="sourceReduction"
 				reason="error"
-				title="Source Reduction Unavailable"
 			/>
 		);
 	}

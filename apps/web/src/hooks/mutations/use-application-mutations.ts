@@ -57,7 +57,7 @@ import {
 	contextFor,
 	metadataChanged,
 } from './performed-action-writes';
-import { newRecordId, optimisticStamp } from './shared';
+import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
 
 /** What an application form collects, in the vocabulary the page speaks. */
 export interface ApplicationValues {
@@ -397,7 +397,7 @@ export function useApplicationMutations(): ApplicationMutations {
 		removeBatch,
 		setBatches,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }
 

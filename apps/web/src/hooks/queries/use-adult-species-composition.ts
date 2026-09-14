@@ -14,15 +14,10 @@
  */
 
 import { gte, useLiveQuery } from '@tanstack/react-db';
+import type { SpeciesTotal } from '../../components/species-composition-panel';
 import { collection_species } from '../../lib/collections/collection_species';
 import { activityGcTimeMs } from './shared';
 import { useSpeciesNames } from './use-species-names';
-
-export interface SpeciesTotal {
-	readonly speciesId: string;
-	readonly name: string;
-	readonly total: number;
-}
 
 export function useAdultSpeciesComposition(sinceDate: string): {
 	readonly totals: readonly SpeciesTotal[];

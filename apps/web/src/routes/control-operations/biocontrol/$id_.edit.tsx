@@ -2,6 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
@@ -19,13 +20,13 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { noTechnicianValue } from '../../../lib/no-technician';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
 	biocontrolFieldsFrom,
 	type DrawGeometry,
-	noTechnicianValue,
 } from './-biocontrol-form';
 
 export const Route = createFileRoute('/control-operations/biocontrol/$id_/edit')({
@@ -56,7 +57,7 @@ function EditBiocontrolActionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="biocontrol action"
+			recordType="biocontrolAction"
 			reading={{ isError, isReady, record: action }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -64,8 +65,8 @@ function EditBiocontrolActionRoute() {
 				<EditBiocontrolActionLoader
 					action={record}
 					biocontrolMethods={methods}
-					canSubmit={organization !== null && actorProfileId !== null}
-					organizationId={organization?.id ?? ''}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
+					organizationId={organization.id}
 					profiles={profiles}
 					units={units}
 				/>
@@ -152,7 +153,7 @@ function EditBiocontrolActionLoader({
 			<RecordUnavailable
 				description="This biocontrol action's geometry could not be loaded."
 				layout="centered"
-				noun="biocontrol action"
+				recordType="biocontrolAction"
 				reason="error"
 			/>
 		);
@@ -162,7 +163,7 @@ function EditBiocontrolActionLoader({
 			<RecordUnavailable
 				description="This biocontrol action's personnel could not be loaded."
 				layout="centered"
-				noun="biocontrol action"
+				recordType="biocontrolAction"
 				reason="error"
 			/>
 		);

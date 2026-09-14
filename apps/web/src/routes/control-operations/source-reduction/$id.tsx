@@ -63,9 +63,8 @@ function RouteComponent() {
 		<RecordDetailPage
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="source reduction action"
+			recordType="sourceReduction"
 			reading={{ isError, isReady, record: sourceReduction }}
-			unavailableTitle="Source Reduction Unavailable"
 		>
 			{(record, askDelete) => (
 				<SourceReductionDetailContent askDelete={askDelete} sourceReduction={record} />
@@ -134,7 +133,6 @@ function SourceReductionDetailContent({
 				remove: {
 					ask: askDelete,
 					name: methodName,
-					noun: 'source reduction',
 					onDelete: (acknowledgements) => remove(sourceReduction.id, acknowledgements),
 					recordId: sourceReduction.id,
 					recordType: 'sourceReduction',
@@ -150,11 +148,7 @@ function SourceReductionDetailContent({
 						habitatName={habitatName}
 						sourceReduction={sourceReduction}
 					/>
-					<RecordRegionsBand
-						noun="source reduction action"
-						recordId={sourceReduction.id}
-						recordType="source_reductions"
-					/>
+					<RecordRegionsBand recordId={sourceReduction.id} recordType="source_reductions" />
 				</div>
 			}
 		></DetailPageShell>
@@ -188,7 +182,7 @@ function SourceReductionLocationCard({
 	return (
 		<RecordLocationCard
 			context={habitatContext}
-			emptyDescription="This source reduction action has no location to display."
+			emptyDescription="This source reduction has no location to display."
 			geojson={geometry.geojson}
 			geomType={geometry.geomType ?? sourceReduction.geometryKind}
 			isError={geometry.isError}

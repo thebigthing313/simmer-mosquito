@@ -10,8 +10,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { noTechnicianValue } from '../../../../../lib/no-technician';
 import {
-	noTechnicianValue,
 	type SourceReductionFormValues,
 	validateSourceReduction,
 } from '../../../../../routes/control-operations/source-reduction/-source-reduction-form';

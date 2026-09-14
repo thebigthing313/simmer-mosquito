@@ -42,7 +42,7 @@ const header = {
 
 function page(reading: RecordReading<Region>) {
 	return (
-		<RecordDetailPage layout={layout} noun="region" reading={reading}>
+		<RecordDetailPage layout={layout} reading={reading} recordType="region">
 			{(region) => <p>{region.name}</p>}
 		</RecordDetailPage>
 	);
@@ -120,7 +120,7 @@ describe('RecordDetailPage', () => {
 			<RecordDetailPage
 				deleteRefusals={{ region_in_use: 'acknowledgeUnlink' }}
 				layout={layout}
-				noun="region"
+				recordType="region"
 				reading={{ isReady: true, record: { id: 'r1', name: 'North District' } }}
 			>
 				{(region, askDelete) => {
@@ -148,7 +148,7 @@ describe('RecordDetailPage', () => {
 		render(
 			<RecordDetailPage
 				layout={layout}
-				noun="region"
+				recordType="region"
 				reading={{ isReady: true, record: { id: 'r1', name: 'North District' } }}
 			>
 				{(region, askDelete) => {
@@ -188,7 +188,9 @@ describe('RecordDetailPage', () => {
 	// is a Suspense boundary hands over its body, and still draws the frame's
 	// placeholder as the fallback rather than one of its own.
 	it('lets a page supply its own body', () => {
-		render(<RecordDetailPage body={() => <p>the habitat</p>} layout={layout} noun="habitat" />);
+		render(
+			<RecordDetailPage body={() => <p>the habitat</p>} layout={layout} recordType="habitat" />,
+		);
 
 		expect(screen.getByText('the habitat')).toBeTruthy();
 	});

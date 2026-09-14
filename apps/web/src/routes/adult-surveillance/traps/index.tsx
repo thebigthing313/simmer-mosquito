@@ -11,15 +11,14 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	SegmentedFilter,
 	toggle,
 	useCollectionMethodOptions,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -30,6 +29,7 @@ import {
 	type TrapTileFilters,
 } from '../../../components/map';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -84,7 +84,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 	validateSearch: searchValidator(TRAP_FILTER_CODECS),
 });
 
-const RESULT_NOUN = { one: 'trap', many: 'traps' };
+const RECORD_TYPE: RecordType = 'trap';
 const PATH = '/map/traps';
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
@@ -120,34 +120,28 @@ function TrapsExplorerRoute() {
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
 	const filters: TrapTileFilters = {
-		...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
+		...whenAny('collectionMethodIds', methodIds),
 		...(status === 'all' ? {} : { isActive: status === 'active' }),
-		...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-		...(search.length > 0 ? { search } : {}),
+		...whenAny('regionIds', regionIds),
+		...whenText('search', search),
 	};
 	const legend = trapLegend(status);
-	const params = mapQueryParams({
-		collectionMethodId: filters.collectionMethodIds,
-		status: filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
-		search: filters.search,
-		regionId: filters.regionIds,
-	});
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<TrapSite>({
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+		useExplorerResource<TrapSite>({
 			path: PATH,
 			rowsKey: 'traps',
+			rowKey: 'trap',
 			label: 'Traps',
-			params,
+			params: {
+				collectionMethodId: filters.collectionMethodIds,
+				status:
+					filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
+				search: filters.search,
+				regionId: filters.regionIds,
+			},
+			map,
+			selectedId,
 		});
-
-	const selected = useSelectedMapRecord<TrapSite>({
-		path: PATH,
-		rowKey: 'trap',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 	const layers: readonly MapTileLayer[] = [
@@ -239,7 +233,7 @@ function TrapsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'trap', many: 'traps' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -251,7 +245,6 @@ function TrapsExplorerRoute() {
 				icon: TrapEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
 				create: {
 					to: '/adult-surveillance/traps/create',
 					label: 'Add Trap',
@@ -281,8 +274,8 @@ function TrapsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No traps match',
-				emptyDescription: 'Loosen the filters, or add a trap to start collecting.',
+				emptyTitle: 'No traps in view',
+				emptyDescription: 'Pan or zoom the map, or loosen the filters to bring traps into range.',
 				renderRow: (trap) => (
 					<TrapListItem
 						isSelected={trap.id === selectedId}
