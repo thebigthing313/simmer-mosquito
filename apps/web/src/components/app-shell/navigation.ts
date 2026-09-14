@@ -108,8 +108,11 @@ export interface WebShellDomain extends ShellDomain {
  * word and no register carries it: the same record type is created, recorded
  * or added depending on what the work is called in the field.
  *
- * `Import Regions` is the one create-shaped entry whose noun is a plural, so
- * it reads `titleMany` through {@link createPluralLabel} rather than `title`.
+ * Three entries want the plural rather than the singular and read `titleMany`
+ * through {@link createPluralLabel}: `Import Regions`, and the two cleanup
+ * tools. The cleanup pair both said `Cleanup Tools` until #948, one name on two
+ * entries in two different groups, so the palette listed the same words twice
+ * and neither said which records it tidied.
  */
 function createLabel(verb: string, recordType: RecordType): string {
 	return `${verb} ${recordNoun(recordType).title}`;
@@ -604,7 +607,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'contacts-cleanup',
-						label: 'Cleanup Tools',
+						label: createPluralLabel('Cleanup', 'contact'),
 						to: '/public-engagement/contacts/cleanup',
 						icon: iconRegistry.actions.merge.icon,
 						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
@@ -680,7 +683,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'addresses-cleanup',
-						label: 'Cleanup Tools',
+						label: createPluralLabel('Cleanup', 'address'),
 						to: '/gis/addresses/cleanup',
 						icon: iconRegistry.actions.merge.icon,
 						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },

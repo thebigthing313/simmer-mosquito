@@ -230,6 +230,18 @@ jobs:
       - name: Record nouns
         run: pnpm check:record-nouns
 
+      # The sidebar is where that register is read and where `check:record-nouns`
+      # cannot look: its `NOUN_KEYS` excludes `label`, because widening to that
+      # key reported 73 findings that are nearly all a field label naming a
+      # linked record. A sidebar entry names the surface it moves you to, and it
+      # is read on its own in the palette with no group heading beside it, which
+      # is what #910 found. So the destination settles it rather than the key.
+      # Every entry whose `to` ends in one of the six write verbs must build its
+      # label through `recordNoun`, directly or through a wrapper that does, at
+      # zero with no allowance list. 19 entries of 78 today.
+      - name: Nav labels
+        run: pnpm check:nav-labels
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads

@@ -24,6 +24,7 @@
 		"check:map-palette": "node scripts/check-map-palette.mjs",
 		"check:mapping-callers": "node scripts/check-mapping-callers.mjs",
 		"check:mutation-coverage": "node scripts/check-mutation-coverage.mjs",
+		"check:nav-labels": "node scripts/check-nav-labels.mjs",
 		"check:preview-coverage": "node scripts/check-preview-coverage.mjs",
 		"check:prose": "node scripts/check-prose.mjs",
 		"check:record-nouns": "node scripts/check-record-nouns.mjs",
