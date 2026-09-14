@@ -8,6 +8,7 @@ import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useId, useState } from 'react';
 import type { DuplicateRecord } from '../../hooks/use-merge-candidates';
+import { recordNoun } from '../../lib/record-nouns';
 import type { MergeFieldRow, MergeSuggestion } from './merge-field-plan';
 import { type RecordCleanupConfig, recordLabel } from './record-cleanup-config';
 
@@ -61,11 +62,11 @@ export function MergeRecordBuilder(props: MergeRecordBuilderProps) {
 	return (
 		<div>
 			<h3 className="font-semibold text-muted-foreground text-xs uppercase">
-				{titleCase(props.config.noun.one)} kept
+				{recordNoun(props.config.recordType).title} kept
 			</h3>
 			<p className="mt-1 text-muted-foreground">
 				{decisions.length === 0
-					? `These ${props.config.noun.many} agree on everything, so nothing is lost by merging them.`
+					? `These ${recordNoun(props.config.recordType).many} agree on everything, so nothing is lost by merging them.`
 					: `Where they disagree, pick what ${labels.get(props.target.id)} ends up saying.`}
 			</p>
 
@@ -261,9 +262,4 @@ function recordLabels(
 	config: RecordCleanupConfig,
 ): ReadonlyMap<string, string> {
 	return new Map([target, ...sources].map((record) => [record.id, recordLabel(record, config)]));
-}
-
-/** `contact` to `Contact`, for a heading that leads with the record type. */
-function titleCase(noun: string): string {
-	return `${noun.slice(0, 1).toUpperCase()}${noun.slice(1)}`;
 }

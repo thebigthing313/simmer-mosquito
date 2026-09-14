@@ -14,6 +14,7 @@ import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { useEffect, useId, useState } from 'react';
 import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
 import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
+import { recordNoun } from '../../lib/record-nouns';
 import {
 	defaultMergeFieldSelections,
 	mergeFieldProblems,
@@ -198,7 +199,7 @@ function EmptyFieldAlert({
 			</AlertTitle>
 			<AlertDescription>
 				{problems.length === 1
-					? `Every ${config.noun.one} needs one.`
+					? `Every ${recordNoun(config.recordType).one} needs one.`
 					: `${problems.join(', ')} each need a value.`}
 			</AlertDescription>
 		</Alert>
@@ -251,14 +252,16 @@ function Acknowledgement({
  * "The other address are retired" reached the screen.
  */
 function retiredPhrase(count: number, config: RecordCleanupConfig): string {
+	const noun = recordNoun(config.recordType);
 	return count === 1
-		? `The other ${config.noun.one} is retired.`
-		: `The other ${count} ${config.noun.many} are retired.`;
+		? `The other ${noun.one} is retired.`
+		: `The other ${count} ${noun.many} are retired.`;
 }
 
 /** The same subject, for a sentence that supplies its own verb. */
 function retiredSubject(count: number, config: RecordCleanupConfig): string {
-	return count === 1 ? `The other ${config.noun.one}` : `The other ${count} ${config.noun.many}`;
+	const noun = recordNoun(config.recordType);
+	return count === 1 ? `The other ${noun.one}` : `The other ${count} ${noun.many}`;
 }
 
 /** The records that go away, named rather than counted. */
@@ -294,12 +297,13 @@ function RetiredList({
  * proposal is out of date, which the page's own refetch resolves.
  */
 function refusalMessage(error: unknown, config: RecordCleanupConfig): string {
+	const noun = recordNoun(config.recordType);
 	switch (mergeRefusalReason(error)) {
 		case 'target_inactive':
-			return `The ${config.noun.one} you chose to keep is retired. Reactivate it, or keep a different one.`;
+			return `The ${noun.one} you chose to keep is retired. Reactivate it, or keep a different one.`;
 		case 'target_not_found':
 		case 'source_not_found':
-			return `One of these ${config.noun.many} is already gone. Refresh the page to see what is left.`;
+			return `One of these ${noun.many} is already gone. Refresh the page to see what is left.`;
 		default:
 			return error instanceof Error ? error.message : 'The merge could not be sent.';
 	}

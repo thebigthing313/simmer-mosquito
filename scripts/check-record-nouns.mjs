@@ -39,8 +39,30 @@
  * on the list that no longer exists fails, so the list cannot go stale past a
  * rename.
  *
- * No `.tsx` under `apps/web/src` writes a register form again, as a string
+ * No module under `apps/web/src` writes a register form again, as a string
  * literal under a key or as a run of JSX text between two tags.
+ *
+ * ## Why the corpus is both extensions
+ *
+ * It read `.tsx` alone until #968, and the three cleanup configs are what that
+ * cost. `RECORD_CLEANUP_CONFIGS` wrote a `noun: { one, many }` pair for an
+ * address, a habitat and a contact, which is the register a second time for
+ * three of its twenty record types, and the page heading beside it read
+ * `titleMany` out of the register: one page named its record two ways under a
+ * clean summary line. The depth was never the problem, which is worth reading
+ * before changing `keyBefore`. A literal under `noun: { one: 'address' }` is
+ * read at `one`, `one` is a `NOUN_KEYS` name, and the probe pair says so. The
+ * file is `record-cleanup-config.ts`, and nothing was looking at it.
+ *
+ * So the walk takes `.ts` too, 396 modules beside the 321 `.tsx`, and it found
+ * exactly two things past the six this issue came for: `SEED_PARAMS` in
+ * `components/search/search-seeds.ts` spelled `habitat` and `trap` for the
+ * palette's pick step. Both now name a record type and read the register, which
+ * is the same fix the configs took.
+ *
+ * The JSX half stays on `.tsx`, which is the one thing the extension decides
+ * here. A bare `>` opens a run for `copyStrings` and a `.ts` module writes
+ * plenty of them, so the run corpus is the files that can hold a run.
  *
  * ## What a noun literal is, and what it deliberately is not
  *
@@ -117,10 +139,12 @@
  * `PROBES` is the third guard and cannot be a floor. The literal half is at
  * zero, so no count over the tree can say whether the detector still reads a
  * noun: a `NOUN_KEYS` that matched nothing at all would print the same clean
- * line. Nine sources with known answers go through the same scan the files do,
- * five holding a finding and four holding none, and the noes are the shapes a
+ * line. Twelve sources with known answers go through the same scan the files
+ * do, six holding a finding and six holding none, and the noes are the shapes a
  * rule one notch wider reads wrong: a discriminator, a longer sentence, a
- * plural under `title`, and a title-cased singular between two tags.
+ * plural under `title`, a title-cased singular between two tags, the same
+ * discriminator nested two objects deep, and a run of JSX text read as a `.ts`
+ * module.
  *
  * `JSX_NOUN_BACKLOG` is a floor of its own kind and needs no number beside it.
  * A run scan that breaks reads eleven modules as swept and fails on all eleven,
@@ -259,19 +283,19 @@ const NOUN_COMPONENTS = [
  * The floors, both #591's.
  *
  * 15 record types against a parse that has stopped reading the register, under
- * the 20 it carries today. 250 modules against a walk that has stopped finding
- * the app, under the 318 `.tsx` outside its tests tree. Neither is a ratchet:
- * this gate is at zero, so the numbers move only when a screen or a record type
- * is added, and raising them buys nothing.
+ * the 20 it carries today. 550 modules against a walk that has stopped finding
+ * the app, under the 717 `.ts` and `.tsx` outside its tests tree. Neither is a
+ * ratchet: this gate is at zero, so the numbers move only when a screen or a
+ * record type is added, and raising them buys nothing.
  */
 const MINIMUM_RECORD_TYPES = 15;
-const MINIMUM_FILES = 250;
+const MINIMUM_FILES = 550;
 
 /**
- * Nine sources with known answers, handed to the same scan the app goes
+ * Twelve sources with known answers, handed to the same scan the app goes
  * through.
  *
- * The four that hold nothing are the shapes a wider rule reads wrong: a
+ * The six that hold nothing are the shapes a wider rule reads wrong: a
  * discriminator under a key that is not copy, a register form inside a longer
  * sentence, a plural under `title`, which is a key this register does not own,
  * and a title-cased singular between two tags, which is the one the JSX half
@@ -283,6 +307,16 @@ const MINIMUM_FILES = 250;
  * string read under the two halves, which is the pair to keep: the first says
  * the key rule still reads a literal and the second says the whole-run rule
  * still reads a run, and neither can stand in for the other.
+ *
+ * The last three are #968's, and they come in the same shape. The `noun: { one
+ * }` pair nested two objects deep is what three cleanup configs wrote, and
+ * `keyBefore` reads it at `one` rather than at `noun`, so a nested literal was
+ * always a finding and the corpus was what could not see it. Its no is the same
+ * nesting under `recordType`, because a key this register does not own answers
+ * no however deep it sits, and the pair is what says the depth is not what the
+ * rule turns on. The `{ jsx: false }` run is the other half of the widening:
+ * the same source as the run probe above it, read as a `.ts` module, where a
+ * run is not a thing the file has.
  */
 const PROBES = [
 	{ source: 'const a = <Thing noun="habitat" />;', finds: 'habitat' },
@@ -296,10 +330,13 @@ const PROBES = [
 	},
 	{ source: "const a = { titleMany: 'Traps' };", finds: 'Traps' },
 	{ source: 'const a = <h1>Traps</h1>;', finds: 'Traps' },
+	{ source: "const a = { address: { noun: { one: 'habitat' } } };", finds: 'habitat' },
 	{ source: 'const a = <Thing recordType="habitat" kind="trap" />;', finds: null },
 	{ source: 'const a = <p>No batches have been linked to this application.</p>;', finds: null },
 	{ source: 'const a = <h1 title="Traps">{heading}</h1>;', finds: null },
 	{ source: 'const a = <CardTitle>Habitat</CardTitle>;', finds: null },
+	{ source: "const a = { address: { noun: { recordType: 'habitat' } } };", finds: null },
+	{ source: 'const a = <h1>Traps</h1>;', options: { jsx: false }, finds: null },
 ];
 
 function main() {
@@ -310,17 +347,19 @@ function main() {
 	};
 	const problems = [...registerProblems(register), ...componentProblems()];
 
-	const files = [...typeScriptFilesUnder(WEB_ROOT)].filter((file) => file.endsWith('.tsx'));
+	const files = [...typeScriptFilesUnder(WEB_ROOT)];
 	if (files.length < MINIMUM_FILES) {
 		fail(
-			`found ${count(files.length, '.tsx module')} under apps/web/src, fewer than the ${MINIMUM_FILES} this expects. The walk has stopped finding the app, so a noun written outside the register now passes this. Fix the walk in scripts/check-record-nouns.mjs, or lower MINIMUM_FILES if that many modules were genuinely deleted.`,
+			`found ${count(files.length, 'module')} under apps/web/src, fewer than the ${MINIMUM_FILES} this expects. The walk has stopped finding the app, so a noun written outside the register now passes this. Fix the walk in scripts/check-record-nouns.mjs, or lower MINIMUM_FILES if that many modules were genuinely deleted.`,
 		);
 	}
 
 	const findings = files
 		.filter((file) => file !== REGISTER)
 		.flatMap((file) =>
-			nounLiteralsIn(file, readFileSync(file, 'utf8').replaceAll('\r\n', '\n'), forms),
+			nounLiteralsIn(file, readFileSync(file, 'utf8').replaceAll('\r\n', '\n'), forms, {
+				jsx: file.endsWith('.tsx'),
+			}),
 		);
 
 	const backlog = againstBacklog(findings.filter((finding) => finding.kind === 'jsx'));
@@ -427,10 +466,19 @@ function* nounPropsAt(file, source) {
 	}
 }
 
-/** Every register form written out again in one file, as a literal or as JSX text. */
-function nounLiteralsIn(file, source, forms) {
+/**
+ * Every register form written out again in one file, as a literal or as JSX
+ * text.
+ *
+ * `options.jsx` is off for a `.ts` module, because a run of JSX text is a thing
+ * only a `.tsx` module has. `copyStrings` reads a bare `>` as opening a run, so
+ * leaving it on over the 396 `.ts` modules would put ordinary comparisons and
+ * generics into the run corpus and answer against `JSX_FORM_NAMES` on whatever
+ * came back.
+ */
+function nounLiteralsIn(file, source, forms, options = { jsx: true }) {
 	return copyStrings(source)
-		.filter((copy) => isNoun(copy, source, forms))
+		.filter((copy) => isNoun(copy, source, forms, options))
 		.map((copy) => ({
 			kind: copy.kind,
 			where: pathFrom(workspaceRoot, file).split(sep).join('/'),
@@ -452,9 +500,9 @@ function nounLiteralsIn(file, source, forms) {
  * "whole" means: a literal is its own text under one of `NOUN_KEYS`, and a run
  * of JSX text is the run with its indentation off, against `JSX_FORM_NAMES`.
  */
-function isNoun(copy, source, forms) {
+function isNoun(copy, source, forms, options) {
 	return copy.kind === 'jsx'
-		? forms.jsx.has(textOf(copy))
+		? options.jsx && forms.jsx.has(textOf(copy))
 		: forms.all.has(copy.text) && NOUN_KEYS.has(keyBefore(source, copy.index));
 }
 
@@ -499,10 +547,10 @@ function keyBefore(source, index) {
 	return before.match(/([A-Za-z][\w-]*)\s*[=:]\s*['"`]?$/)?.[1] ?? '-';
 }
 
-/** Refuse a run whose scan reads any of the nine known-answer sources wrong. */
+/** Refuse a run whose scan reads any of the twelve known-answer sources wrong. */
 function checkProbes(forms) {
 	const wrong = PROBES.filter((probe) => {
-		const found = nounLiteralsIn('probe.tsx', probe.source, forms);
+		const found = nounLiteralsIn('probe.tsx', probe.source, forms, probe.options ?? { jsx: true });
 		return probe.finds === null ? found.length > 0 : found[0]?.text !== probe.finds;
 	});
 
