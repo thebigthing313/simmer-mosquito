@@ -49,6 +49,7 @@ import {
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { CONTROL_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { useCommandRunner } from '../-command-runner';
 import { MissionStatusBadge } from '../-operations-display';
 
@@ -237,7 +238,7 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 				<div className="grid gap-1">
 					<CardTitle className="flex items-center gap-2">
 						<MissionIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-						Missions
+						{recordNoun('mission').titleMany}
 					</CardTitle>
 					<CardDescription>The missions carrying this request as a stop.</CardDescription>
 				</div>

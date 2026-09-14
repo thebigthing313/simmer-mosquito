@@ -59,6 +59,7 @@ import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel, habitatLabel } from '../../../lib/coordinate-label';
 import { formatAmount } from '../../../lib/format-count';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
+import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
@@ -454,7 +455,7 @@ function InspectionSamplesCard({
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
 							<SampleIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Samples
+							{recordNoun('sample').titleMany}
 						</CardTitle>
 						<CardDescription>
 							Specimens collected during this inspection and the species identified in each.

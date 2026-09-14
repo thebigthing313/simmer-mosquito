@@ -84,12 +84,16 @@
  * discriminator all over this app: `recordType="region"`, `kind: 'habitat'`,
  * `entity_type: 'habitat'`, `route_type: 'habitat'`. Scanning every copy
  * position reports 430 of those. Widening the keys to `label` and `title`
- * reports 73 more, nearly all of them a field label naming a linked record, as
- * in a Details row reading `Habitat` above a link. A label naming another
- * record is not this register's business; the surface's own noun is. `title`
- * stays out for that reason and `titleMany` is in, which is not an
- * inconsistency: a label above a link names a *linked* record in the singular,
- * and a plural title is a heading over a list of the surface's own.
+ * reports 73 more, nearly all of them a field label naming a record, as in a
+ * Details row reading `Habitat` above a link.
+ *
+ * So `title` stays out and `titleMany` is in, and **the line between them is
+ * what the text sits over rather than who owns the records**: a title-cased
+ * plural names a list of records and reads the register whoever owns them, and
+ * a title-cased singular names one field and does not. #974 settled that
+ * against the ownership reading, which would have let a heading over *linked*
+ * records keep its own spelling. `JSX_FORM_NAMES` carries the measurement and
+ * the two components that made ownership unstatable.
  *
  * So what is left is the five keys the components' contracts are written in,
  * which is exactly the shape the sweep deleted, and the gate is at zero with no
@@ -139,16 +143,16 @@
  * `PROBES` is the third guard and cannot be a floor. The literal half is at
  * zero, so no count over the tree can say whether the detector still reads a
  * noun: a `NOUN_KEYS` that matched nothing at all would print the same clean
- * line. Twelve sources with known answers go through the same scan the files
- * do, six holding a finding and six holding none, and the noes are the shapes a
- * rule one notch wider reads wrong: a discriminator, a longer sentence, a
- * plural under `title`, a title-cased singular between two tags, the same
- * discriminator nested two objects deep, and a run of JSX text read as a `.ts`
- * module.
+ * line. Fourteen sources with known answers go through the same scan the files
+ * do, seven holding a finding and seven holding none, and the noes are the
+ * shapes a rule one notch wider reads wrong: a discriminator, a longer
+ * sentence, a plural under `title`, a title-cased singular between two tags,
+ * the same discriminator nested two objects deep, a run of JSX text read as a
+ * `.ts` module, and a `<TableHead>` column head.
  *
  * `JSX_NOUN_BACKLOG` is a floor of its own kind and needs no number beside it.
- * A run scan that breaks reads eleven modules as swept and fails on all eleven,
- * which is the failure a count would have been written to produce.
+ * A run scan that breaks reads six modules as swept and fails on all six, which
+ * is the failure a count would have been written to produce.
  */
 
 import { readFileSync } from 'node:fs';
@@ -195,13 +199,37 @@ const NOUN_KEYS = new Set(['noun', 'one', 'many', 'titleMany', 'unavailableTitle
  * The forms a run of JSX text is read against, out of the four.
  *
  * A run sits under no key, so `NOUN_KEYS` cannot answer for it, and the answer
- * is the one that list already carries: `title` is out because a title-cased
- * singular is what a label above a link writes, and it names a *linked* record
- * rather than the surface's own. Between two tags that is the same shape, a
- * `<TableHead>Habitat</TableHead>` over a column of links and a
- * `<CardTitle>Contact</CardTitle>` over one, and four of the app's runs are
- * exactly that. So a JSX run is compared against `one`, `many` and `titleMany`,
- * which is `NOUN_KEYS` read as a rule about forms rather than about keys.
+ * is the one that list already carries: `title` is out and the three beside it
+ * are in. So a JSX run is compared against `one`, `many` and `titleMany`, which
+ * is `NOUN_KEYS` read as a rule about forms rather than about keys.
+ *
+ * ## The rule, and the one #974 rejected
+ *
+ * **A title-cased plural names a list of records and reads the register whoever
+ * owns them; a title-cased singular names one field and does not.** The line is
+ * what the text sits over, a list or a field, and number is the readable proxy
+ * for it. That is why `title` is out of both halves and `titleMany` is in, and
+ * it decides the singular and the plural the same way.
+ *
+ * The competing rule was ownership: a heading naming a record the surface does
+ * not own is a label, so the five plural headings over *linked* records would
+ * have come off the backlog for a written reason rather than by a fix. It was
+ * measured before being dropped. Of the 24 title-cased plurals in `apps/web`
+ * that name a record type, 19 name the surface's own records and 13 of those
+ * already read the register, so the number rule costs five call sites and no
+ * exemptions. Ownership also cannot be stated without contradicting a component
+ * this gate already lists: `RecordRegionsBand` takes a `recordType` and reads
+ * the register for its host record's `one`, then spelled `Regions` by hand for
+ * the linked records below it, in the same file. `traps/$id.tsx` did the same
+ * thing over one list, reading `recordNoun('collection')` for the pagination
+ * count and writing `Collections` in the tab above it, which is #968's finding
+ * with the extension put back.
+ *
+ * The singular stays out on its own measurement rather than for symmetry.
+ * Widening `NOUN_KEYS` to `title` is 73 findings, nearly all a field label in a
+ * Details row, and the four runs between two tags are the same shape: two
+ * `<TableHead>` column heads, a picker button, and a `Contact` heading over an
+ * Organization's email and phone, which is not the Contact record at all.
  *
  * Whole and exact stays the rule, so `Import Regions` between two tags is not a
  * finding. The verb is the call site's own word and no register carries it,
@@ -215,32 +243,24 @@ const JSX_FORM_NAMES = ['one', 'many', 'titleMany'];
  *
  * The JSX half ships at the backlog rather than at zero, which is this
  * workspace's rule for a gate that would otherwise fail every branch on
- * history: 11 runs name a record between two tags today, and none of them is
- * this issue's. Six are an explorer heading or a back link, which is #965's
- * whole subject, and five are a plural heading over a list of *linked* records,
- * a `<CardTitle>Samples</CardTitle>` on an inspection page among them, which is
- * the singular-label question one number up and has no issue of its own yet.
- * Neither is fixed here, because widening a corpus and sweeping what it finds
- * are two branches.
+ * history: 11 runs named a record between two tags when #966 widened the
+ * corpus. Five have gone, the plural headings over linked records #974 decided,
+ * and the six left are an explorer heading or a back link naming a *surface*,
+ * two `<h1>` and four back links, which is #965's whole subject.
  *
  * Keyed by module and **failing in both directions**, the way
  * `REACT_RULE_BACKLOG` does. One total is what a swap holds, and at one run per
  * module a swap inside a module cannot happen. It is also the floor under the
  * JSX scan, and there is no separate count beside it: a parse that stops
- * reading runs empties every entry at once and fails on all eleven rather than
+ * reading runs empties every entry at once and fails on all six rather than
  * printing the clean summary line a swept branch prints.
  */
 const JSX_NOUN_BACKLOG = {
-	'apps/web/src/components/map/record-regions-band.tsx': 1,
-	'apps/web/src/routes/adult-surveillance/traps/$id.tsx': 1,
 	'apps/web/src/routes/gis/regions/import.tsx': 1,
-	'apps/web/src/routes/larval-surveillance/inspections/$id.tsx': 1,
 	'apps/web/src/routes/operations/assignments/$id.tsx': 1,
 	'apps/web/src/routes/operations/assignments/index.tsx': 1,
 	'apps/web/src/routes/operations/missions/$id.tsx': 1,
 	'apps/web/src/routes/operations/missions/index.tsx': 1,
-	'apps/web/src/routes/operations/requests-for-control/$id.tsx': 1,
-	'apps/web/src/routes/public-engagement/contacts/$id.tsx': 1,
 	'apps/web/src/routes/public-engagement/service-requests/$id.tsx': 1,
 };
 
@@ -292,7 +312,7 @@ const MINIMUM_RECORD_TYPES = 15;
 const MINIMUM_FILES = 550;
 
 /**
- * Twelve sources with known answers, handed to the same scan the app goes
+ * Fourteen sources with known answers, handed to the same scan the app goes
  * through.
  *
  * The six that hold nothing are the shapes a wider rule reads wrong: a
@@ -317,6 +337,16 @@ const MINIMUM_FILES = 550;
  * rule turns on. The `{ jsx: false }` run is the other half of the widening:
  * the same source as the run probe above it, read as a `.ts` module, where a
  * run is not a thing the file has.
+ *
+ * The last two are #974's, and they are the two sides of the rule it settled.
+ * The `<CardTitle>Samples</CardTitle>` is the plural over *linked* records, the
+ * shape the inspection page drew, and it is a finding because number decides
+ * and not ownership. The `<TableHead>Habitat</TableHead>` beside it is the same
+ * question in the singular and is not, because a column head names a field.
+ * Neither can stand in for the other and no count over the tree replaces
+ * either: the JSX half is a per-module ratchet, so a rule that answered yes to
+ * both would fail on six modules and read as a regression rather than as the
+ * detector having lost the singular.
  */
 const PROBES = [
 	{ source: 'const a = <Thing noun="habitat" />;', finds: 'habitat' },
@@ -337,6 +367,8 @@ const PROBES = [
 	{ source: 'const a = <CardTitle>Habitat</CardTitle>;', finds: null },
 	{ source: "const a = { address: { noun: { recordType: 'habitat' } } };", finds: null },
 	{ source: 'const a = <h1>Traps</h1>;', options: { jsx: false }, finds: null },
+	{ source: 'const a = <CardTitle>Samples</CardTitle>;', finds: 'Samples' },
+	{ source: 'const a = <TableHead>Habitat</TableHead>;', finds: null },
 ];
 
 function main() {
