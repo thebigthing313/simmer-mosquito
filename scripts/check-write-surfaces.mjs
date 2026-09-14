@@ -8,9 +8,10 @@
  * ## What counts as a write surface
  *
  * A route counts when the last segment of its path is one of the six verbs this
- * app names a whole-page write flow with: `create`, `edit`, `import`, `merge`,
- * `cleanup`, `add-stop`. That rule classifies 40 of the 130 routes, and it is
- * exactly the set that guards today plus the three that #623 found open.
+ * app names a whole-page write flow with, which are read from
+ * `scripts/lib/write-verbs.mjs` rather than written out here. That rule
+ * classifies 40 of the 130 routes, and it is exactly the set that guards today
+ * plus the three that #623 found open.
  *
  * The rule triage first proposed was "the route's component tree dispatches a
  * command hook", and it was measured before being dropped: 93 of the 130 routes
@@ -34,10 +35,11 @@
  * - Every register entry names a route that exists, so a renamed route takes
  *   its floor with it rather than leaving allowance behind.
  *
- * Two floors, in the shape the other gates use: `MINIMUM_WRITE_SURFACES` under
- * the classified count, against a scan that has stopped finding them, and
- * `MINIMUM_WRITE_VERBS` under the verb list, because dropping a verb narrows
- * the scan silently and the summary line would still read as a pass.
+ * One floor here, in the shape the other gates use: `MINIMUM_WRITE_SURFACES`
+ * under the classified count, against a scan that has stopped finding them. The
+ * floor under the verb list itself moved out with the list: `scripts/lib/write-verbs.mjs`
+ * refuses a short one on import, so this gate and `check-nav-labels` get the
+ * same refusal rather than each writing their own.
  */
 
 import { readFileSync } from 'node:fs';
@@ -45,16 +47,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
+import { isWriteSurfacePath, WRITE_VERBS } from './lib/write-verbs.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROUTES_DIR = join(workspaceRoot, 'apps/web/src/routes');
 const REGISTER = join(workspaceRoot, 'apps/web/src/lib/write-surfaces.ts');
-
-/** The verbs this app names a whole-page write flow with. */
-const WRITE_VERBS = ['add-stop', 'cleanup', 'create', 'edit', 'import', 'merge'];
-
-/** A verb dropped from the list takes its routes out of scope rather than reporting them. */
-const MINIMUM_WRITE_VERBS = 6;
 
 /**
  * How few write surfaces means the walk has stopped finding routes rather than
@@ -68,14 +65,8 @@ const INLINE_ROLE = /isBelowRole\(\s*context\s*,\s*'[a-z]+'\s*\)/;
 const GUARD_PATH = /isBelowWriteFloor\(\s*context\s*,\s*'([^']+)'\s*\)/;
 
 function main() {
-	if (WRITE_VERBS.length < MINIMUM_WRITE_VERBS) {
-		fail(
-			`the verb list holds ${WRITE_VERBS.length} verbs, fewer than the ${MINIMUM_WRITE_VERBS} this expects. A dropped verb takes its routes out of scope rather than reporting them.`,
-		);
-	}
-
 	const routes = readRoutes();
-	const surfaces = routes.filter((route) => isWriteSurface(route.path));
+	const surfaces = routes.filter((route) => isWriteSurfacePath(route.path));
 	if (surfaces.length < MINIMUM_WRITE_SURFACES) {
 		fail(
 			`classified only ${surfaces.length} write surfaces out of ${routes.length} routes, fewer than the ${MINIMUM_WRITE_SURFACES} this expects. The walk has stopped finding the route tree.`,
@@ -123,8 +114,6 @@ function routePath(id) {
 		)
 		.join('/');
 }
-
-const isWriteSurface = (path) => WRITE_VERBS.includes(path.split('/').pop());
 
 /** The paths the register carries a floor for. */
 function readRegister() {
@@ -202,7 +191,7 @@ function report(problems, surfaceCount, floorCount) {
 		process.exit(1);
 	}
 	console.log(
-		`check-write-surfaces: ${surfaceCount} write surfaces, each guarded at one of the ${floorCount} floors in the register.`,
+		`check-write-surfaces: ${surfaceCount} write surfaces, named with one of the ${WRITE_VERBS.length} write verbs, each guarded at one of the ${floorCount} floors in the register.`,
 	);
 }
 

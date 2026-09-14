@@ -17,6 +17,7 @@ import {
 	duplicateCandidatesQueryKey,
 	useDuplicateCandidates,
 } from '../../hooks/use-merge-candidates';
+import { recordNoun } from '../../lib/record-nouns';
 import { DuplicateGroupPanel } from './duplicate-group-panel';
 import { MatchTypeFilter } from './match-type-filter';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
@@ -112,7 +113,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 			<PageHeader
 				description={`Two records for one ${config.noun.one} split its history in half. This proposes the sets that look like duplicates and folds them into whichever one you keep.`}
 				icon={MergeIcon}
-				title="Cleanup Tools"
+				title={`Cleanup ${recordNoun(recordType).titleMany}`}
 			/>
 
 			{candidates.data === undefined || candidates.data.length === 0 ? null : (
