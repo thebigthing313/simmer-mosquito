@@ -47,17 +47,28 @@ const NON_COPY_ATTRIBUTES = new Set([
 ]);
 
 /**
- * Every piece of copy in one file, as `{ text, index }` into the source.
+ * Every piece of copy in one file, as `{ text, index, kind }` into the source.
  *
- * Two kinds go in: a string literal that is not wiring, and the text between a
- * closing and an opening angle bracket, which is how JSX writes a sentence. A
- * template literal contributes its fixed chunks and not its expressions.
+ * Two kinds go in and each says which it is: a string literal that is not
+ * wiring, `kind: 'literal'`, and the text between a closing and an opening
+ * angle bracket, `kind: 'jsx'`, which is how JSX writes a sentence. A template
+ * literal contributes its fixed chunks and not its expressions.
+ *
+ * The two dash gates and `check-vocabulary.mjs` read both kinds the same way
+ * and ignore the field. `check-record-nouns.mjs` is why it is there: a literal
+ * is given under a key and a run of JSX text is given under none, so the two
+ * are the same corpus asked two different questions, and the alternative was a
+ * second parse of JSX text in that gate. There is one here, it masks correctly,
+ * and #588 is what a second one would have to get right again.
  *
  * @param {string} source File contents, LF-normalized by the caller.
  */
 export function copyStrings(source) {
 	const { literals, masked } = scan(source);
-	return [...literals.filter(isCopy), ...jsxText(masked)];
+	return [
+		...literals.filter(isCopy).map((literal) => ({ ...literal, kind: 'literal' })),
+		...jsxText(masked),
+	];
 }
 
 /**
@@ -93,7 +104,7 @@ const JSX_TEXT = /(?<!=)>([^<>{}]+)<(?=[A-Za-z/>])/g;
 function* jsxText(masked) {
 	for (const match of masked.matchAll(JSX_TEXT)) {
 		if (/[A-Za-z]/.test(match[1])) {
-			yield { text: match[1], index: match.index + 1 };
+			yield { text: match[1], index: match.index + 1, kind: 'jsx' };
 		}
 	}
 }
