@@ -3,7 +3,7 @@
  * Holds what `apps/web` calls each record type to one register.
  *
  * `RECORD_NOUNS` in `apps/web/src/lib/record-nouns.ts` says what a record type
- * is called in the three shapes a screen asks for, keyed by the camelCase
+ * is called in the four shapes a screen asks for, keyed by the camelCase
  * domain vocabulary. Six components used to take a free-text noun instead and
  * every route spelled it at each call site, so one record type carried as many
  * spellings as it had call sites and seven of them disagreed with themselves: a
@@ -26,8 +26,9 @@
  *
  * ## Three rules
  *
- * The register is whole: every entry carries all three forms, none empty, the
- * singular and the plural differ, and **no two record types share a form**.
+ * The register is whole: every entry carries all four forms, none empty, each
+ * plural differs from the singular it pairs with, and **no two record types
+ * share a form**.
  * That last one is the collision the sweep found rather than a tidiness rule:
  * `request` was the count noun for both a service request and a request for
  * control, and a person moving between those two surfaces read the same word
@@ -49,21 +50,25 @@
  * Whole and exact, because a register form inside a longer sentence is
  * English. "No batches have been linked to this application" names the record
  * inside a page whose heading has already named it, and #894's own triage says
- * those read as prose and are not a second name. Case-sensitive for the same
- * reason: `Traps` is an explorer's plural heading and `traps` is the register's
- * count noun, and folding the case would drag every surface title into a
- * register that carries no plural title.
+ * those read as prose and are not a second name. Case-sensitive because the
+ * register now carries both cases of the plural and they are two different
+ * answers: `traps` is the count noun in "3 traps" and `Traps` is the heading
+ * over the list, so folding the case would report one where the other is right
+ * and say nothing about which.
  *
- * `NOUN_KEYS` is an allowlist of four rather than a denylist, because the
+ * `NOUN_KEYS` is an allowlist of five rather than a denylist, because the
  * denylist was measured first and does not work. A register form is an ordinary
  * discriminator all over this app: `recordType="region"`, `kind: 'habitat'`,
  * `entity_type: 'habitat'`, `route_type: 'habitat'`. Scanning every copy
  * position reports 430 of those. Widening the keys to `label` and `title`
  * reports 73 more, nearly all of them a field label naming a linked record, as
  * in a Details row reading `Habitat` above a link. A label naming another
- * record is not this register's business; the surface's own noun is.
+ * record is not this register's business; the surface's own noun is. `title`
+ * stays out for that reason and `titleMany` is in, which is not an
+ * inconsistency: a label above a link names a *linked* record in the singular,
+ * and a plural title is a heading over a list of the surface's own.
  *
- * So what is left is the four keys the components' contracts are written in,
+ * So what is left is the five keys the components' contracts are written in,
  * which is exactly the shape the sweep deleted, and the gate is at zero with no
  * allowance list and no marker vocabulary. A call site wanting an exemption is
  * a call site wanting its own spelling.
@@ -88,11 +93,12 @@
  *
  * `PROBES` is the third guard and cannot be a floor. This gate is at zero, so
  * no count over the tree can say whether the detector still reads a noun: a
- * `NOUN_KEYS` that matched nothing at all would print the same clean line. Six
- * sources with known answers go through the same scan the files do, three
+ * `NOUN_KEYS` that matched nothing at all would print the same clean line.
+ * Seven sources with known answers go through the same scan the files do, four
  * holding a finding and three holding none, and the three noes are the shapes a
  * rule one notch wider reads wrong: a discriminator, a longer sentence, and a
- * plural heading.
+ * plural heading, which is the one that stays a no now that the register
+ * carries the plural title under its own key.
  */
 
 import { readFileSync } from 'node:fs';
@@ -111,20 +117,29 @@ const fail = failure(GATE);
 const WEB_ROOT = join(workspaceRoot, 'apps', 'web', 'src');
 const REGISTER = join(WEB_ROOT, 'lib', 'record-nouns.ts');
 
-/** The three shapes the register carries for every record type. */
-const FORM_NAMES = ['one', 'many', 'title'];
+/** The four shapes the register carries for every record type. */
+const FORM_NAMES = ['one', 'many', 'title', 'titleMany'];
+
+/**
+ * The two forms that are a plural, each against the singular it pairs with.
+ *
+ * Read rather than written out a second time, so a form added to `FORM_NAMES`
+ * with a plural beside it joins the "the two differ" rule by being named here
+ * and nowhere else.
+ */
+const PLURAL_OF = { many: 'one', titleMany: 'title' };
 
 /** One entry of `RECORD_NOUNS`, read off the source of the register. */
 const REGISTER_ENTRY = /\n\t([A-Za-z]+): \{([^}]*)\}/g;
 
 /** One form inside an entry. */
-const ENTRY_FORM = /\b(one|many|title): '([^']*)'/g;
+const ENTRY_FORM = /\b(one|many|title|titleMany): '([^']*)'/g;
 
 /**
  * The keys under which a string is a record's own noun rather than anything
- * else. The gate's header carries why this is four names and not a denylist.
+ * else. The gate's header carries why this is five names and not a denylist.
  */
-const NOUN_KEYS = new Set(['noun', 'one', 'many', 'unavailableTitle']);
+const NOUN_KEYS = new Set(['noun', 'one', 'many', 'titleMany', 'unavailableTitle']);
 
 /**
  * The components whose copy comes from the register, and the prop each takes
@@ -174,11 +189,14 @@ const MINIMUM_RECORD_TYPES = 15;
 const MINIMUM_FILES = 250;
 
 /**
- * Six sources with known answers, handed to the same scan the app goes through.
+ * Seven sources with known answers, handed to the same scan the app goes
+ * through.
  *
  * The three that hold nothing are the shapes a wider rule reads wrong: a
  * discriminator under a key that is not copy, a register form inside a longer
- * sentence, and a plural heading in the case an explorer writes it.
+ * sentence, and a plural heading in the case an explorer writes it, which is
+ * the same string as the `titleMany` probe above it under a key that is not
+ * this register's.
  */
 const PROBES = [
 	{ source: 'const a = <Thing noun="habitat" />;', finds: 'habitat' },
@@ -190,6 +208,7 @@ const PROBES = [
 		source: 'const a = <Thing unavailableTitle="Request for Control" />;',
 		finds: 'Request for Control',
 	},
+	{ source: "const a = { titleMany: 'Traps' };", finds: 'Traps' },
 	{ source: 'const a = <Thing recordType="habitat" kind="trap" />;', finds: null },
 	{ source: 'const a = <p>No batches have been linked to this application.</p>;', finds: null },
 	{ source: 'const a = <h1 title="Traps">Traps</h1>;', finds: null },
@@ -255,11 +274,13 @@ function* registerProblems(register) {
 function* entryProblems({ recordType, forms }) {
 	const missing = FORM_NAMES.filter((name) => (forms[name] ?? '') === '');
 	if (missing.length > 0) {
-		yield `${recordType} has no ${missing.join(' and no ')}. Every record type carries all three forms, because a component asking for one it has not got renders "undefined" on a heading.`;
+		yield `${recordType} has no ${missing.join(' and no ')}. Every record type carries all ${FORM_NAMES.length} forms, because a component asking for one it has not got renders "undefined" on a heading.`;
 		return;
 	}
-	if (forms.one === forms.many) {
-		yield `${recordType} spells its singular and its plural the same way, "${forms.one}". A count then reads "3 ${forms.many}" with no plural in it.`;
+	for (const [plural, singular] of Object.entries(PLURAL_OF)) {
+		if (forms[singular] === forms[plural]) {
+			yield `${recordType} spells its ${singular} and its ${plural} the same way, "${forms[singular]}". A heading over a list then names one record where it means several.`;
+		}
 	}
 }
 

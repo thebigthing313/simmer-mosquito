@@ -22,7 +22,7 @@ type ExtraRecordType = 'weatherStation' | 'missionItem' | 'notificationRegistrat
  */
 export type RecordType = CommentTargetType | ExtraRecordType;
 
-/** What a record type is called, in the three shapes a screen asks for. */
+/** What a record type is called, in the four shapes a screen asks for. */
 export interface RecordNoun {
 	/** Lowercase, as it reads mid-sentence: `This trap has no location`. */
 	readonly one: string;
@@ -30,6 +30,8 @@ export interface RecordNoun {
 	readonly many: string;
 	/** Title case, for a heading: `Request for Control Unavailable`. */
 	readonly title: string;
+	/** Title case plural, for a heading over a list: `Requests for Control`. */
+	readonly titleMany: string;
 }
 
 /**
@@ -57,51 +59,99 @@ export interface RecordNoun {
  * rule: word by word it gives `Request For Control`, and the preposition is
  * lowercase in English.
  *
+ * `titleMany` is stored for both of those reasons at once, and neither of the
+ * two forms beside it will produce it. `title` plus an `s` is the
+ * pluralization rule this module refuses on the way in, and title-casing
+ * `many` word by word gives `Requests For Control` again. It is named for
+ * `title` rather than for `many` because it is the title form first and plural
+ * second, which is also what puts it beside `title` when the four are read in
+ * order.
+ *
  * Module private, reached through {@link recordNoun}. One accessor is what
  * makes a missing entry impossible to write, and `check:record-nouns` reads the
  * declaration out of this source rather than importing it.
  */
 const RECORD_NOUNS: Record<RecordType, RecordNoun> = {
-	address: { one: 'address', many: 'addresses', title: 'Address' },
+	address: { one: 'address', many: 'addresses', title: 'Address', titleMany: 'Addresses' },
 	application: {
 		one: 'chemical application',
 		many: 'chemical applications',
 		title: 'Chemical Application',
+		titleMany: 'Chemical Applications',
 	},
-	assignment: { one: 'assignment', many: 'assignments', title: 'Assignment' },
+	assignment: {
+		one: 'assignment',
+		many: 'assignments',
+		title: 'Assignment',
+		titleMany: 'Assignments',
+	},
 	biocontrolAction: {
 		one: 'biocontrol action',
 		many: 'biocontrol actions',
 		title: 'Biocontrol Action',
+		titleMany: 'Biocontrol Actions',
 	},
-	collection: { one: 'collection', many: 'collections', title: 'Collection' },
-	contact: { one: 'contact', many: 'contacts', title: 'Contact' },
-	habitat: { one: 'habitat', many: 'habitats', title: 'Habitat' },
-	inspection: { one: 'inspection', many: 'inspections', title: 'Inspection' },
-	mission: { one: 'mission', many: 'missions', title: 'Mission' },
-	missionItem: { one: 'mission item', many: 'mission items', title: 'Mission Item' },
+	collection: {
+		one: 'collection',
+		many: 'collections',
+		title: 'Collection',
+		titleMany: 'Collections',
+	},
+	contact: { one: 'contact', many: 'contacts', title: 'Contact', titleMany: 'Contacts' },
+	habitat: { one: 'habitat', many: 'habitats', title: 'Habitat', titleMany: 'Habitats' },
+	inspection: {
+		one: 'inspection',
+		many: 'inspections',
+		title: 'Inspection',
+		titleMany: 'Inspections',
+	},
+	mission: { one: 'mission', many: 'missions', title: 'Mission', titleMany: 'Missions' },
+	missionItem: {
+		one: 'mission item',
+		many: 'mission items',
+		title: 'Mission Item',
+		titleMany: 'Mission Items',
+	},
 	notificationRegistration: {
 		one: 'registration',
 		many: 'registrations',
 		title: 'Registration',
+		titleMany: 'Registrations',
 	},
-	outreachAction: { one: 'outreach action', many: 'outreach actions', title: 'Outreach Action' },
-	region: { one: 'region', many: 'regions', title: 'Region' },
+	outreachAction: {
+		one: 'outreach action',
+		many: 'outreach actions',
+		title: 'Outreach Action',
+		titleMany: 'Outreach Actions',
+	},
+	region: { one: 'region', many: 'regions', title: 'Region', titleMany: 'Regions' },
 	requestedControlAction: {
 		one: 'request for control',
 		many: 'requests for control',
 		title: 'Request for Control',
+		titleMany: 'Requests for Control',
 	},
-	route: { one: 'route', many: 'routes', title: 'Route' },
-	sample: { one: 'sample', many: 'samples', title: 'Sample' },
-	serviceRequest: { one: 'service request', many: 'service requests', title: 'Service Request' },
+	route: { one: 'route', many: 'routes', title: 'Route', titleMany: 'Routes' },
+	sample: { one: 'sample', many: 'samples', title: 'Sample', titleMany: 'Samples' },
+	serviceRequest: {
+		one: 'service request',
+		many: 'service requests',
+		title: 'Service Request',
+		titleMany: 'Service Requests',
+	},
 	sourceReduction: {
 		one: 'source reduction',
 		many: 'source reductions',
 		title: 'Source Reduction',
+		titleMany: 'Source Reductions',
 	},
-	trap: { one: 'trap', many: 'traps', title: 'Trap' },
-	weatherStation: { one: 'weather station', many: 'weather stations', title: 'Weather Station' },
+	trap: { one: 'trap', many: 'traps', title: 'Trap', titleMany: 'Traps' },
+	weatherStation: {
+		one: 'weather station',
+		many: 'weather stations',
+		title: 'Weather Station',
+		titleMany: 'Weather Stations',
+	},
 };
 
 /** What this record type is called. */
