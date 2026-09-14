@@ -15,7 +15,7 @@
 /**
  * `34.05213, -118.24368`, or null when the row carries no centroid yet.
  *
- * Module-private: the two labels below are the whole of what a surface asks
+ * Module-private: the three labels below are the whole of what a surface asks
  * for, and a caller formatting the pair itself is a caller with a fallback of
  * its own, which is what this module exists to hold in one place.
  */
@@ -33,8 +33,12 @@ function formatCoordinates(
  *
  * The three larval detail modules wrote this out for themselves, one against
  * `typeof lat === 'number'` and one against `lat == null`, which are the same
- * test spelled two ways. The fallback is not configurable, because a detail
- * page's Coordinates row says the same thing on every record kind.
+ * test spelled two ways. The fallback is not configurable, because the one
+ * caller left says the same thing on every record kind.
+ *
+ * The inspection and sample detail pages used to draw a Coordinates row of
+ * their own and no longer do, because the Location card beside the facts
+ * already draws the spot. What is left is the habitat's location line.
  */
 export function coordinateLabel(
 	lat: number | null | undefined,

@@ -2,7 +2,6 @@ import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -42,16 +41,14 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
 import {
@@ -81,6 +78,7 @@ import {
 } from '../../../lib/local-date';
 import {
 	CollectionFlagBadges,
+	collectionCrumb,
 	collectionEffectiveDate,
 	collectionTitle,
 	isPendingCollection,
@@ -98,11 +96,11 @@ export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 });
 
 const CollectionIcon = iconRegistry.entities.collection.icon;
+const CollectIcon = iconRegistry.actions.select.icon;
 // Identification is about the mosquitoes in the sample, not the taxonomy tree the
 // names come from — the same mark heads the card on larval samples.
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 // Roles that get a read-only view of a collection — no flag toggles, species
@@ -112,7 +110,7 @@ const READ_ONLY_ROLES = new Set(['viewer']);
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-24', main: ['h-[360px]', 'h-64'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-64'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -125,7 +123,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to collections', to: '/adult-surveillance/collections' }}
 			deleteRefusals={COLLECTION_DELETE_REFUSALS}
 			layout={layout}
 			recordType="collection"
@@ -149,7 +146,7 @@ function CollectionDetailContent({
 }) {
 	const titleTimeZone = useOrganizationTimeZone();
 	const title = collectionTitle(collection, titleTimeZone);
-	useBreadcrumbLabel(collection.id, title);
+	useBreadcrumbLabel(collection.id, collectionCrumb(collection, titleTimeZone));
 
 	// The method roster is still read, because the custom-field schema hangs off
 	// the collection method and a schema is not something a `select` can join. The
@@ -159,6 +156,7 @@ function CollectionDetailContent({
 	const methods = useCollectionMethodRoster();
 	const profiles = useProfileRoster();
 	const mutations = useCollectionMutations();
+	const [collectOpen, setCollectOpen] = useState(false);
 
 	const { methodName } = collection;
 	// Guarded on the collection's own column rather than the joined name: a
@@ -169,8 +167,14 @@ function CollectionDetailContent({
 	const profileNameById = new Map(profiles.map((profile) => [profile.id, profile.displayName]));
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
+				<CommentsSection
+					description="Field notes, identification remarks, and follow-up for this collection."
+					target={{ type: 'collection', id: collection.id }}
+				/>
+			}
+			facts={
 				<>
 					<DetailsCard
 						collection={collection}
@@ -182,81 +186,90 @@ function CollectionDetailContent({
 						metadata={collection.metadata}
 						schema={customSchemaFor(methods, collection.methodId)}
 					/>
-					<CommentsSection
-						description="Field notes, identification remarks, and follow-up for this collection."
-						target={{ type: 'collection', id: collection.id }}
-					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<>
-							<CollectionFlagBadges
-								className="flex flex-wrap items-center gap-1.5"
-								collection={collection}
-							/>
-							{canEdit && isPendingCollection(collection) ? (
-								<WriteOnly>
-									<CollectCollectionButton collection={collection} />
-								</WriteOnly>
-							) : null}
-							{canEdit ? (
-								<WriteOnly>
-									<Button asChild size="sm" variant="outline">
-										<Link
-											params={{ id: collection.id }}
-											to="/adult-surveillance/collections/$id/edit"
-										>
-											<EditIcon aria-hidden="true" />
-											Edit
-										</Link>
-									</Button>
-								</WriteOnly>
-							) : null}
-						</>
-					}
-					eyebrow="Collection"
-					icon={CollectionIcon}
-					description={`${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`}
-					title={title}
-				/>
-			}
+			header={{
+				...(canEdit
+					? {
+							edit: {
+								params: { id: collection.id },
+								to: '/adult-surveillance/collections/$id/edit' as const,
+							},
+						}
+					: {}),
+				actions: [
+					{
+						hidden: !canEdit || !isPendingCollection(collection),
+						icon: CollectIcon,
+						id: 'collect',
+						label: 'Collect',
+						onSelect: () => setCollectOpen(true),
+					},
+				],
+				flags: (
+					<CollectionFlagBadges
+						className="flex flex-wrap items-center gap-1.5"
+						collection={collection}
+					/>
+				),
+				icon: CollectionIcon,
+				recordType: 'Collection',
+				remove: {
+					ask: askDelete,
+					name: title,
+					onDelete: (acknowledgements) => mutations.remove(collection.id, acknowledgements),
+					recordId: collection.id,
+					recordType: 'collection',
+					returnTo: '/adult-surveillance/collections',
+				},
+				subtitle: `${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`,
+				title,
+			}}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<CollectionLocationCard collection={collection} />
+					<RecordRegionsBand recordId={collection.id} recordType="collections" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<CollectionLocationCard collection={collection} />
-				<RecordRegionsBand recordId={collection.id} recordType="collections" />
-			</div>
 			<ResultsCard canEdit={canEdit} collection={collection} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={title}
-				onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
-				recordId={collection.id}
-				recordType="collection"
-				returnTo="/adult-surveillance/collections"
+			<CollectCollectionDialogHost
+				collection={collection}
+				onOpenChange={setCollectOpen}
+				open={collectOpen}
 			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
-/** The second visit, on a trap that is still out. */
-function CollectCollectionButton({ collection }: { readonly collection: AdultCollection }) {
-	const [open, setOpen] = useState(false);
+/**
+ * The second visit, on a trap that is still out.
+ *
+ * Open state is the page's rather than this component's, because the control
+ * that starts it is a `...` menu item and a menu unmounts its items the moment
+ * one is chosen. A dialog owned by the thing that opens it would be torn down
+ * on the same click that asked for it.
+ */
+function CollectCollectionDialogHost({
+	collection,
+	onOpenChange,
+	open,
+}: {
+	readonly collection: AdultCollection;
+	readonly onOpenChange: (open: boolean) => void;
+	readonly open: boolean;
+}) {
 	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
 	const timeZone = useOrganizationTimeZone();
 	const { collect } = useCollectionMutations();
 
 	return (
 		<>
-			<Button onClick={() => setOpen(true)} size="sm" variant="default">
-				Collect
-			</Button>
 			<CollectCollectionDialog
 				defaultDate={todayInTimeZone(timeZone)}
 				onConfirm={(collectedAt) => {
-					setOpen(false);
+					onOpenChange(false);
 					void runAcknowledged((acknowledgements) =>
 						collect({
 							acknowledgements,
@@ -268,7 +281,7 @@ function CollectCollectionButton({ collection }: { readonly collection: AdultCol
 						}),
 					);
 				}}
-				onOpenChange={setOpen}
+				onOpenChange={onOpenChange}
 				open={open}
 			/>
 			{acknowledgeDialog}
@@ -806,7 +819,7 @@ function DetailsCard({
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<DetailList>
-					<DetailRow empty="Ad-hoc, no trap" label="Trap">
+					<DetailRow label="Trap">
 						{collection.trapId === null ? null : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
@@ -819,21 +832,19 @@ function DetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow empty="None" label="Lure">
-						{lureName}
-					</DetailRow>
-					<DetailRow empty="Pending" label="Collected">
+					<DetailRow label="Lure">{lureName}</DetailRow>
+					<DetailRow label="Collected">
 						{collectedDate === null ? null : formatWeekdayMonthDay(collectedDate)}
 					</DetailRow>
 					<DetailRow label="Set">
 						{startedDay === null ? null : formatWeekdayMonthDay(startedDay)}
 					</DetailRow>
-					<DetailRow empty="Unassigned" label="Collected by">
+					<DetailRow label="Collected by">
 						{collection.collectedByProfileId === null
 							? null
 							: (profileNameById.get(collection.collectedByProfileId) ?? 'Unknown')}
 					</DetailRow>
-					<DetailRow empty="Unassigned" label="Set by">
+					<DetailRow label="Set by">
 						{collection.setByProfileId === null
 							? null
 							: (profileNameById.get(collection.setByProfileId) ?? 'Unknown')}

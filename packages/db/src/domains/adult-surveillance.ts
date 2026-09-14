@@ -14,7 +14,7 @@ import {
 	mapRecordSurface,
 } from './map-surface.js';
 import { geojsonToGeom } from './org-owned-writes.js';
-import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
+import { assertIanaTimeZone, collectionStatusSql, localDateSql } from './record-display-sql.js';
 import { checkedValues } from './write-references.js';
 
 export interface CreateTrapInput {
@@ -641,13 +641,9 @@ function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
  * The four states a collection can be in, resolved server-side by precedence so
  * the map colour and the result rail can never disagree about what one is.
  *
- * `pending` first, because it says the record is not finished: the trap is
- * still out and there is nothing to report a problem or a count about yet. It
- * reads the row's own `collection_timing_mode` rather than the organization's
- * current setting, because a null `collected_at` means "not emptied" only under
- * exact timestamps. Under date-plus-duration every finished collection has one,
- * and a status keyed off the column alone would paint the whole surface
- * pending.
+ * The precedence itself is {@link collectionStatusSql}, beside the other
+ * fragments that decide how a record reads, because the profile activity log
+ * resolves the same four states over a different alias.
  */
 export type CollectionStatus = 'pending' | 'problem' | 'zero_result' | 'collected';
 
@@ -658,14 +654,7 @@ export const collectionStatusValues: readonly CollectionStatus[] = [
 	'collected',
 ];
 
-const collectionStatusExpression = sql`
-	case
-		when c.collection_timing_mode = 'exact_timestamps' and c.collected_at is null then 'pending'
-		when c.has_problem then 'problem'
-		when c.is_zero_result then 'zero_result'
-		else 'collected'
-	end
-`;
+const collectionStatusExpression = sql.raw(collectionStatusSql('c'));
 
 const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
 	id: sql`c.id`,

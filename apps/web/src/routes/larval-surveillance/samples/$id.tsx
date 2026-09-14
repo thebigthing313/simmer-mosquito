@@ -2,7 +2,6 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -36,11 +35,10 @@ import { getServerUrl } from '../../../auth';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -56,10 +54,10 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
-import { coordinateLabel, habitatLabel } from '../../../lib/coordinate-label';
+import { habitatLabel } from '../../../lib/coordinate-label';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 import { sampleName } from '../../../lib/sample-name';
-import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
@@ -68,12 +66,9 @@ export const Route = createFileRoute('/larval-surveillance/samples/$id')({
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
-	padding: 'trailing',
 	stickyAside: true,
 	skeleton: {
-		eyebrow: 'w-28',
-		subtitle: 'w-48',
-		main: ['h-[320px]', 'h-64'],
+		main: [['h-[320px]', 'h-64'], 'h-64'],
 		aside: ['h-96'],
 	},
 };
@@ -93,13 +88,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			actions={
-				<SampleSourceButtons
-					habitatId={query.data?.habitatId ?? null}
-					inspectionId={query.data?.inspectionId ?? null}
-				/>
-			}
-			back={{ label: 'Back to samples', to: '/larval-surveillance/samples' }}
 			deleteRefusals={SAMPLE_DELETE_REFUSALS}
 			layout={layout}
 			recordType="sample"
@@ -115,7 +103,7 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 // names come from — the same mark heads the card on adult collections.
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
-const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 
 /**
  * One identification as this page holds it.
@@ -205,36 +193,6 @@ interface SampleGeoRow {
 	readonly updatedAt: string;
 }
 
-/** The inspection this sample was taken on, and the site that inspection was at. */
-function SampleSourceButtons({
-	habitatId,
-	inspectionId,
-}: {
-	readonly habitatId: string | null;
-	readonly inspectionId: string | null;
-}) {
-	return (
-		<>
-			{inspectionId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: inspectionId }} to="/larval-surveillance/inspections/$id">
-						<InspectionIcon aria-hidden="true" />
-						View inspection
-					</Link>
-				</Button>
-			)}
-			{habitatId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-						<HabitatIcon aria-hidden="true" />
-						View habitat
-					</Link>
-				</Button>
-			)}
-		</>
-	);
-}
-
 function SampleDetailContent({
 	geo,
 	askDelete,
@@ -253,71 +211,62 @@ function SampleDetailContent({
 	const sampleMutations = useSampleMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
-				<>
-					<ContextCard geo={geo} />
-					<CommentsSection
-						description="Lab notes, identification context, and follow-up for this sample."
-						target={{ type: 'sample', id: geo.id }}
-					/>
-				</>
+				<CommentsSection
+					description="Lab notes, identification context, and follow-up for this sample."
+					target={{ type: 'sample', id: geo.id }}
+				/>
 			}
-			header={<SampleHeader canManage={canManage} geo={geo} />}
+			facts={<ContextCard geo={geo} />}
+			header={{
+				flags: <AccessBadge canManage={canManage} />,
+				icon: SampleIcon,
+				recordType: 'Larval sample',
+				remove: {
+					ask: askDelete,
+					name: breadcrumbLabel(geo),
+					onDelete: (acknowledgements) => sampleMutations.remove(geo.id, acknowledgements),
+					recordId: geo.id,
+					recordType: 'sample',
+					returnTo: '/larval-surveillance/samples',
+				},
+				subtitle: <SampleSubtitle geo={geo} />,
+				title: sampleName(geo),
+			}}
 			layout={layout}
+			lead={<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />}
 		>
-			<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />
 			<IdentificationCard canManage={canManage} identity={identity} sampleId={geo.id} seed={geo} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={breadcrumbLabel(geo)}
-				onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
-				recordId={geo.id}
-				recordType="sample"
-				returnTo="/larval-surveillance/samples"
-			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
-function SampleHeader({
-	geo,
-	canManage,
-}: {
-	readonly geo: SampleGeoRow;
-	readonly canManage: boolean;
-}) {
+/** When the sample was collected, and off what. */
+function SampleSubtitle({ geo }: { readonly geo: SampleGeoRow }) {
 	return (
-		<PageHeader
-			actions={<AccessBadge canManage={canManage} />}
-			description={
-				<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
-					<CalendarIcon aria-hidden="true" className="size-4" />
-					<span>Collected {formatFullDate(geo.inspectionDate)}</span>
-					{geo.habitatId === null ? (
-						<>
-							<span aria-hidden="true">·</span>
-							<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
-						</>
-					) : (
-						<>
-							<span aria-hidden="true">·</span>
-							<span>at</span>
-							<Link
-								className={recordLink()}
-								params={{ id: geo.habitatId }}
-								to="/larval-surveillance/habitats/$id"
-							>
-								{habitatLabel(geo, SAMPLE_LABEL)}
-							</Link>
-						</>
-					)}
-				</p>
-			}
-			eyebrow="Larval sample"
-			icon={SampleIcon}
-			title={sampleName(geo)}
-		/>
+		<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
+			<CalendarIcon aria-hidden="true" className="size-4" />
+			<span>Collected {formatFullDate(geo.inspectionDate)}</span>
+			{geo.habitatId === null ? (
+				<>
+					<span aria-hidden="true">·</span>
+					<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
+				</>
+			) : (
+				<>
+					<span aria-hidden="true">·</span>
+					<span>at</span>
+					<Link
+						className={recordLink()}
+						params={{ id: geo.habitatId }}
+						to="/larval-surveillance/habitats/$id"
+					>
+						{habitatLabel(geo, SAMPLE_LABEL)}
+					</Link>
+				</>
+			)}
+		</p>
 	);
 }
 
@@ -1027,7 +976,6 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 						)}
 					</DetailRow>
 					<DetailRow label="Collected">{formatFullDate(geo.inspectionDate)}</DetailRow>
-					<DetailRow label="Coordinates">{coordinateLabel(geo.lat, geo.lng)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(geo.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(geo.updatedAt, timeZone)}</DetailRow>
 				</DetailList>

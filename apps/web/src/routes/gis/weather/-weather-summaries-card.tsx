@@ -1,4 +1,5 @@
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -31,7 +32,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { Tabs, TabsList, TabsTrigger } from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Tabs } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -261,15 +262,13 @@ function YearTabs({
 }) {
 	return (
 		<Tabs onValueChange={(next) => onChange(Number(next))} value={String(value ?? '')}>
-			<div className="-mx-1 overflow-x-auto px-1">
-				<TabsList aria-label="Year">
-					{years.map((year) => (
-						<TabsTrigger key={year} value={String(year)}>
-							{year}
-						</TabsTrigger>
-					))}
-				</TabsList>
-			</div>
+			<TabStrip aria-label="Year">
+				{years.map((year) => (
+					<TabStripTab key={year} value={String(year)}>
+						{year}
+					</TabStripTab>
+				))}
+			</TabStrip>
 		</Tabs>
 	);
 }

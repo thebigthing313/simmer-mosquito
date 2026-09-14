@@ -10,7 +10,7 @@ import {
 } from '../../components/map/map-card';
 import type { MapInset } from '../../components/map/map-inset';
 import { useBiocontrolAction } from '../../hooks/queries/use-biocontrol-action';
-import { ContextBadge, formatMeasure } from './-control-display';
+import { ContextBadge, controlContext, formatMeasure } from './-control-display';
 
 const UnitIcon = iconRegistry.entities.unit.icon;
 
@@ -43,7 +43,7 @@ export function BiocontrolMapCard({
 
 	return (
 		<MapCard
-			badges={<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />}
+			badges={<ContextBadge context={controlContext(action)} />}
 			eyebrow={<MapCardEyebrow date={action.actionDate} type="Biocontrol" />}
 			inset={inset}
 			onClose={onClose}

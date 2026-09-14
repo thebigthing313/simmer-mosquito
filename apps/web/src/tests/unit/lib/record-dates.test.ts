@@ -8,11 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	formatDateTime,
-	formatFullDate,
-	formatMonthDayYear,
-} from '../../../../routes/larval-surveillance/-record-dates';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 
 /** Not a date, and not a shape a date column or a date input can hold. */
 const NOT_A_DATE = 'sometime in August';

@@ -1,13 +1,12 @@
 import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
-import { countGeoJsonVertices, formatGeometryTypeLabel } from '@simmer-mosquito/mapping';
+import { formatGeometryTypeLabel } from '@simmer-mosquito/mapping';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows, type PanelRowsMessage } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -25,12 +24,7 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import {
 	AlertTriangleIcon,
 	CheckCircle2Icon,
@@ -38,30 +32,29 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { type CSSProperties, type ReactNode, Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { CustomFieldsList } from '../components/custom-fields-card';
-import { DangerZoneCard } from '../components/danger-zone-card';
 import { ExplorerPagination } from '../components/explorer-pagination';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordRegionsBand } from '../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	createItems,
+	DetailPageShell,
+	detailBodyClass,
 	type RecordDetailLayout,
 	RecordDetailPage,
 	RecordDetailSkeleton,
 	RecordUnavailable,
 } from '../components/record';
 import { RequestStatusBadge } from '../components/request-status-badge';
-import { WriteOnly } from '../components/write-only';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { controlTypeLabel, requestStatus } from '../hooks/queries/operations-view';
-import type { Tag } from '../hooks/queries/tag-view';
 import {
 	useApplicationMethodRoster,
 	useHabitatTypeRoster,
@@ -82,7 +75,6 @@ import { useInsecticideRecords } from '../hooks/queries/use-insecticide-records'
 import { useOrganizationSettings } from '../hooks/queries/use-organization-settings';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useRecordRoutes } from '../hooks/queries/use-record-routes';
-import { useRecordTags } from '../hooks/queries/use-record-tags';
 import { useSpeciesNames } from '../hooks/queries/use-species-names';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
@@ -91,7 +83,6 @@ import { usePagedRows } from '../hooks/use-paged-rows';
 import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
 import { coordinateLabel } from '../lib/coordinate-label';
 import { type CountNoun, formatAmount } from '../lib/format-count';
-import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { formatListDate } from '../lib/local-date';
 import { recordNoun } from '../lib/record-nouns';
 import { sampleName } from '../lib/sample-name';
@@ -111,15 +102,11 @@ const historyPageSize = 25;
  * keyboard cannot reach.
  */
 const historyLinkClassName = recordLink({ tone: 'inherit', underline: 'hover' });
-// The larval-surveillance explorer is the only habitats index, so "Back to
-// habitats" always returns there.
-type HabitatDetailBackTo = '/larval-surveillance/habitats';
-
 interface HabitatDetailProps {
 	readonly habitatId: string;
-	readonly backTo?: HabitatDetailBackTo;
 }
 
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 const MergeIcon = iconRegistry.actions.merge.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
@@ -157,50 +144,16 @@ const NO_CARD_ROWS: readonly never[] = [];
  */
 const layout: RecordDetailLayout = {
 	aside: 'wide',
-	padding: 'trailing',
 	stickyAside: true,
 	skeleton: {
-		title: 'w-64',
 		main: [['h-[460px]', 'h-[460px]'], 'h-64'],
 		aside: ['h-96'],
 	},
 };
 
-export function HabitatDetail({
-	habitatId,
-	backTo = '/larval-surveillance/habitats',
-}: HabitatDetailProps) {
+export function HabitatDetail({ habitatId }: HabitatDetailProps) {
 	return (
 		<RecordDetailPage
-			actions={
-				backTo === '/larval-surveillance/habitats' ? (
-					<>
-						{/*
-						 * Merging is reached from a habitat rather than from a list of
-						 * proposals, because two records for one catch basin agree about
-						 * nothing except where they are. The habitat somebody is already
-						 * looking at is the one that survives, which is the choice a
-						 * cleanup page has to make with a radio and get wrong in silence.
-						 */}
-						<WriteOnly minimum={WRITE_SURFACE_FLOORS['/larval-surveillance/habitats/$id/merge']}>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/merge">
-									<MergeIcon aria-hidden="true" />
-									Merge duplicates
-								</Link>
-							</Button>
-						</WriteOnly>
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
-									Edit Habitat
-								</Link>
-							</Button>
-						</WriteOnly>
-					</>
-				) : undefined
-			}
-			back={{ label: 'Back to habitats', to: backTo }}
 			body={(askDelete) => (
 				<Suspense fallback={<RecordDetailSkeleton layout={layout} />}>
 					<HabitatDetailLoader askDelete={askDelete} habitatId={habitatId} />
@@ -225,7 +178,11 @@ function HabitatDetailLoader({
 	const habitat = useHabitatSuspense(habitatId);
 
 	if (habitat === undefined) {
-		return <RecordUnavailable recordType="habitat" reason="not-found" />;
+		return (
+			<div className={detailBodyClass()}>
+				<RecordUnavailable reason="not-found" recordType="habitat" />
+			</div>
+		);
 	}
 
 	return <HabitatDetailContent askDelete={askDelete} habitat={habitat} />;
@@ -249,7 +206,7 @@ function HabitatDetailContent({
 	const mutations = useHabitatMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
 				<>
 					<HabitatInspectionStats habitatId={habitat.id} />
@@ -259,54 +216,83 @@ function HabitatDetailContent({
 					/>
 				</>
 			}
-			header={<HabitatDetailHeader habitat={habitat} />}
+			facts={<HabitatDetailsCard habitat={habitat} />}
+			header={{
+				actions: [
+					...createItems('habitatId', habitat.id, [
+						'/larval-surveillance/inspections/create',
+						'/control-operations/chemical/create',
+						'/control-operations/source-reduction/create',
+						'/control-operations/biocontrol/create',
+					]),
+					{
+						/*
+						 * Merging is reached from a habitat rather than from a list of
+						 * proposals, because two records for one catch basin agree about
+						 * nothing except where they are. The habitat somebody is already
+						 * looking at is the one that survives, which is the choice a
+						 * cleanup page has to make with a radio and get wrong in silence.
+						 */
+						icon: MergeIcon,
+						id: 'merge',
+						label: 'Merge duplicates',
+						minimum: WRITE_SURFACE_FLOORS['/larval-surveillance/habitats/$id/merge'],
+						params: { id: habitat.id },
+						separatorBefore: true,
+						to: '/larval-surveillance/habitats/$id/merge',
+					},
+				],
+				edit: { params: { id: habitat.id }, to: '/larval-surveillance/habitats/$id/edit' },
+				flags: <HabitatStateBadges habitat={habitat} />,
+				icon: HabitatIcon,
+				recordType: 'Habitat',
+				remove: {
+					ask: askDelete,
+					name: habitat.name,
+					onDelete: (acknowledgements) => mutations.remove(habitat.id, acknowledgements),
+					recordId: habitat.id,
+					recordType: 'habitat',
+					returnTo: '/larval-surveillance/habitats',
+				},
+				subtitle: (
+					<Suspense fallback={<span>Loading type…</span>}>
+						<HabitatTypeSubtitle habitatTypeId={habitat.typeId} />
+					</Suspense>
+				),
+				tags: { recordId: habitat.id },
+				title: habitat.name,
+			}}
 			layout={layout}
+			lead={<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />}
 		>
-			{/* The only page whose map card is half the main column, so the band
-			    goes under the pair rather than inside the left half: the spec
-			    puts it at the full width of the main column, and at 328px a
-			    folder row wraps where six chips are meant to fit on one line. */}
-			<div className="grid gap-5 lg:grid-cols-2">
-				<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
-				<HabitatDetailsCard
-					geometry={resolvedGeometry}
-					habitat={habitat}
-					isGeometryPending={isGeometryPending}
-				/>
-			</div>
+			{/* The band goes under the lead row rather than inside its left half:
+			    the spec puts it at the full width of the main column, and at 328px
+			    a folder row wraps where six chips are meant to fit on one line. */}
 			<RecordRegionsBand recordId={habitat.id} recordType="habitats" />
 			<Suspense fallback={<HistorySkeleton />}>
 				<HabitatHistoryCard habitatId={habitat.id} />
 			</Suspense>
-			<DangerZoneCard
-				ask={askDelete}
-				name={habitat.name}
-				onDelete={(acknowledgements) => mutations.remove(habitat.id, acknowledgements)}
-				recordId={habitat.id}
-				recordType="habitat"
-				returnTo="/larval-surveillance/habitats"
-			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
-function HabitatDetailHeader({ habitat }: { readonly habitat: Habitat }) {
-	return (
-		<PageHeader
-			actions={<HabitatStateBadges habitat={habitat} />}
-			description={
-				<Suspense fallback={<span>Loading type…</span>}>
-					<HabitatTypeLabel habitatTypeId={habitat.typeId} />
-				</Suspense>
-			}
-			title={habitat.name}
-		/>
-	);
-}
-
+/**
+ * The habitat's type in a fact row, which is nothing at all when it has none.
+ *
+ * `null` rather than a sentence, because a `DetailRow` handed nothing draws the
+ * absent mark, and one mark down a column of labels is what makes the missing
+ * values findable. The subtitle needs words instead: it is the only line under
+ * the title, and a lone dash there reads as a glyph nobody placed. See
+ * {@link HabitatTypeSubtitle}.
+ */
 function HabitatTypeLabel({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
 	const typeName = useHabitatTypeName(habitatTypeId);
-	return <span>{typeName}</span>;
+	return typeName === null ? null : <span>{typeName}</span>;
+}
+
+/** The same name, in the header, where an unassigned type is said in words. */
+function HabitatTypeSubtitle({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
+	return <span>{useHabitatTypeName(habitatTypeId) ?? 'Unassigned type'}</span>;
 }
 
 function HabitatStateBadges({ habitat }: { readonly habitat: Habitat }) {
@@ -352,15 +338,7 @@ function HabitatLocationCard({
 	);
 }
 
-function HabitatDetailsCard({
-	geometry,
-	habitat,
-	isGeometryPending,
-}: {
-	readonly geometry: HabitatGeometry | null;
-	readonly habitat: Habitat;
-	readonly isGeometryPending: boolean;
-}) {
+function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
@@ -380,19 +358,10 @@ function HabitatDetailsCard({
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={habitat.addressId} />
 					</DetailRow>
-					<DetailRow label="Tags">
-						<Suspense fallback={<span className="text-muted-foreground">Loading tags…</span>}>
-							<HabitatTags habitatId={habitat.id} />
-						</Suspense>
-					</DetailRow>
 					<DetailRow label="Routes">
 						<Suspense fallback={<span className="text-muted-foreground">Loading routes…</span>}>
 							<HabitatRoutes habitatId={habitat.id} />
 						</Suspense>
-					</DetailRow>
-					<DetailRow label="Geometry">{geometrySummary(geometry, isGeometryPending)}</DetailRow>
-					<DetailRow label="Coordinates">
-						{isGeometryPending ? 'Loading…' : coordinateLabel(geometry?.lat, geometry?.lng)}
 					</DetailRow>
 					<DetailRow label="Created">
 						<AuditValue at={habitat.createdAt} profileId={habitat.createdByProfileId} />
@@ -466,25 +435,6 @@ function AuditValue({
 	);
 }
 
-function HabitatTags({ habitatId }: { readonly habitatId: string }) {
-	// One query, joined to the catalog, so a tag arrives named and coloured — and
-	// `tag_items.entity_id` is globally unique, so no entity type is needed. See
-	// `use-record-tags.ts`.
-	const tags = useRecordTags(habitatId);
-
-	if (tags.length === 0) {
-		return <span className="text-muted-foreground">No tags</span>;
-	}
-
-	return (
-		<div className="flex flex-wrap gap-1.5">
-			{tags.map((tag) => (
-				<TagBadge key={tag.id} tag={tag} />
-			))}
-		</div>
-	);
-}
-
 /**
  * The routes this habitat is a stop on.
  *
@@ -493,10 +443,10 @@ function HabitatTags({ habitatId }: { readonly habitatId: string }) {
  * site needs to know whose run it is already on before adding it to another,
  * and until now the only way to find out was to open every route.
  *
- * Same shape as `HabitatTags` and for the same reason: `route_items` is
- * on-demand, so this is a non-suspense `useLiveQuery` gated on status rather
- * than `useLiveSuspenseQuery`, which hangs permanently after unmount over an
- * on-demand collection. `routes` is eager, so suspense is safe there.
+ * `route_items` is on-demand, so this reads through a non-suspense
+ * `useLiveQuery` gated on status rather than `useLiveSuspenseQuery`, which
+ * hangs permanently after unmount over an on-demand collection. `routes` is
+ * eager, so suspense is safe there.
  */
 function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 	const { routes, isReady, isError } = useRecordRoutes({ type: 'habitat', id: habitatId });
@@ -528,31 +478,6 @@ function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 				</li>
 			))}
 		</ul>
-	);
-}
-
-function TagBadge({ tag }: { readonly tag: Tag }) {
-	const color = validHexColor(tag.color);
-	const style =
-		color === null
-			? undefined
-			: ({
-					'--tag-bg': hexWithAlpha(color, 0.14),
-					'--tag-border': hexWithAlpha(color, 0.36),
-					'--tag-color': color,
-				} as CSSProperties);
-
-	return (
-		<Badge
-			variant={color === null ? 'secondary' : 'outline'}
-			className={
-				color === null ? undefined : 'border-(--tag-border) bg-(--tag-bg) text-(--tag-color)'
-			}
-			style={style}
-			title={tag.description ?? undefined}
-		>
-			{tag.name}
-		</Badge>
 	);
 }
 
@@ -597,25 +522,16 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 					{() => (
 						<Tabs defaultValue="inspections">
 							{/* Five tabs no longer fit a narrow main column, and the strip's
-						    default is to overflow the card rather than shrink. So it
-						    scrolls sideways and each trigger keeps its own width. */}
-							<TabsList className="max-w-full justify-start overflow-x-auto">
-								<TabsTrigger className="shrink-0" value="inspections">
-									Inspections ({inspections.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="samples">
-									Samples ({samples.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="applications">
-									Applications ({applications.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="source-reductions">
+						    default is to overflow the card rather than shrink. */}
+							<TabStrip>
+								<TabStripTab value="inspections">Inspections ({inspections.length})</TabStripTab>
+								<TabStripTab value="samples">Samples ({samples.length})</TabStripTab>
+								<TabStripTab value="applications">Applications ({applications.length})</TabStripTab>
+								<TabStripTab value="source-reductions">
 									Source Reductions ({sourceReductions.length})
-								</TabsTrigger>
-								<TabsTrigger className="shrink-0" value="requests">
-									Requests ({requests.length})
-								</TabsTrigger>
-							</TabsList>
+								</TabStripTab>
+								<TabStripTab value="requests">Requests ({requests.length})</TabStripTab>
+							</TabStrip>
 							<TabsContent value="inspections" className="pt-4">
 								<InspectionHistory habitatId={habitatId} inspections={inspections} />
 							</TabsContent>
@@ -1170,11 +1086,12 @@ function useHabitatTypeSchema(habitatTypeId: string | null): unknown {
 	return customSchemaFor(useHabitatTypeRoster(), habitatTypeId);
 }
 
-function useHabitatTypeName(habitatTypeId: string | null): string {
+/** The type's name, or `null` when the habitat names no type. */
+function useHabitatTypeName(habitatTypeId: string | null): string | null {
 	const habitatTypes = useHabitatTypeRoster();
 
 	if (habitatTypeId === null) {
-		return 'Unassigned type';
+		return null;
 	}
 
 	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
@@ -1251,16 +1168,6 @@ function locationSummary(geometry: HabitatGeometry | null, isPending: boolean): 
 		return 'No geometry recorded';
 	}
 	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${coordinateLabel(geometry.lat, geometry.lng)}`;
-}
-
-function geometrySummary(geometry: HabitatGeometry | null, isPending: boolean): string {
-	if (isPending) {
-		return 'Loading…';
-	}
-	if (geometry == null || geometry.geojson == null) {
-		return 'No geometry recorded';
-	}
-	return `${formatGeometryTypeLabel(geometry.geomType ?? '')} · ${countGeoJsonVertices(geometry.geojson)} vertices`;
 }
 
 function formatSampleResult(sample: HabitatHistorySample): string {

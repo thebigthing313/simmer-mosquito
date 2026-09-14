@@ -1,7 +1,6 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
 import type { ActivityFamily } from '@simmer-mosquito/domain';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -11,7 +10,6 @@ import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type ComponentType, type ReactNode, useState } from 'react';
 import { ExplorerRow } from '../components/explorer';
-import { DensityBadge, WetnessBadge } from '../components/larval-display';
 import type { MapInset } from '../components/map/map-inset';
 import { formatListDate } from '../lib/local-date';
 import {
@@ -22,13 +20,14 @@ import {
 	type ActivityDayGroup,
 	type ActivityEntry,
 	type ActivityLookups,
-	type ActivityStateToken,
+	activityBadgeFacts,
 	activityEntryKey,
-	activityStatus,
+	activityTags,
 	describeActivityEntry,
 	formatActivityTime,
 } from './-activity-data';
 import { HabitatMapCard } from './-habitat-map-card';
+import { hasDetailBadges, RecordBadges, type StatusPlacement } from './-record-badges';
 import { CollectionMapCard } from './adult-surveillance/-collection-map-card';
 import { TrapMapCard } from './adult-surveillance/-trap-map-card';
 import { ApplicationMapCard } from './control-operations/-application-map-card';
@@ -276,11 +275,16 @@ function CollapsibleSection({
 /**
  * One entry, as its own explorer would list it.
  *
- * `ExplorerRow` is the shared list item every explorer already uses, so a row
- * here reads the way the same record reads on the page it lives on — the same
- * title, the same subtitle, the same status pill. Date and personnel are the
- * two things it omits, and they are the two things this page already knows: the
- * section is the date, and the page is the person.
+ * `ExplorerRow` is the shared list item every explorer already uses, and the
+ * badges come from the shared register beside it, so a row here reads the way
+ * the same record reads on the page it lives on: the same title, the same
+ * subtitle, the same life-stage strip. Date and personnel are the two things it
+ * omits, and they are the two things this page already knows — the section is
+ * the date, and the page is the person.
+ *
+ * The state arrives as a pill rather than as the dot, because this page paints
+ * nine record kinds on one map and spends the dot on which family the work
+ * belongs to. See {@link StatusPlacement}.
  */
 function ActivityRow({
 	entry,
@@ -304,19 +308,21 @@ function ActivityRow({
 	const noun = ACTIVITY_CATEGORY_LABEL[entry.category];
 	const verb = ACTIVITY_ROLE_LABEL[entry.role] ?? entry.role;
 	const link = { to: ACTIVITY_DETAIL_ROUTE[entry.category], params: { id: entry.id } };
+	const facts = activityBadgeFacts(entry);
 
 	return (
 		<li>
 			<ExplorerRow
-				// One badge, and only where the record has a state worth a pill. The
-				// panel is half a page wide, and a second one pushed the row into a
-				// horizontal scroll.
-				badges={<ActivityStatusBadge entry={entry} />}
+				badges={<RecordBadges facts={facts} status={ACTIVITY_STATUS_PLACEMENT} />}
 				detailLabel={`View details for ${title}`}
 				detailLink={link}
 				isSelected={isSelected}
 				onSelect={() => onSelect(key)}
 				selectLabel={`Show ${title} on the map`}
+				// A line of their own where the record draws more than its state, with
+				// no date rail here to decide it. A state pill alone stays beside the
+				// title and keeps the row short, which is what a 107-entry day needs.
+				stackBadges={hasDetailBadges(facts)}
 				// The verb leads, because what the person did to the record is the one
 				// thing this page adds over the record's own explorer — and it says
 				// "Assisted" in words rather than resting on the hollow pin alone. The
@@ -329,6 +335,7 @@ function ActivityRow({
 					color: mapFamily[entry.family],
 					label: `${noun}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
 				}}
+				tags={activityTags(entry, lookups.tagById)}
 				title={title}
 				titleLink={link}
 			/>
@@ -337,51 +344,10 @@ function ActivityRow({
 }
 
 /**
- * The one status each category reads by, in the badge its explorer uses.
- *
- * The server sends a single token per category rather than a column per kind,
- * so this is where it becomes the right pill.
+ * The dot is the family this work belongs to, so the record's own state has
+ * nowhere to go but a pill. Every explorer answers the other way.
  */
-function ActivityStatusBadge({ entry }: { readonly entry: ActivityEntry }) {
-	const status = activityStatus(entry);
-	if (status === null) {
-		return null;
-	}
-	if (status.kind === 'density') {
-		return <DensityBadge density={status.density} />;
-	}
-	if (status.kind === 'wetness') {
-		return <WetnessBadge isWet={status.isWet} />;
-	}
-
-	return (
-		<Badge tone={ACTIVITY_DETAIL_TONE[status.token]} variant="outline">
-			{ACTIVITY_DETAIL_LABEL[status.token]}
-		</Badge>
-	);
-}
-
-const ACTIVITY_DETAIL_LABEL: Readonly<Record<ActivityStateToken, string>> = {
-	active: 'Active',
-	inactive: 'Inactive',
-	inaccessible: 'Inaccessible',
-	problem: 'Problem',
-	zero: 'Zero Result',
-	open: 'Open',
-	closed: 'Closed',
-};
-
-const ACTIVITY_DETAIL_TONE: Readonly<
-	Record<ActivityStateToken, 'success' | 'neutral' | 'warning' | 'info'>
-> = {
-	active: 'success',
-	inactive: 'neutral',
-	inaccessible: 'warning',
-	problem: 'warning',
-	zero: 'neutral',
-	open: 'info',
-	closed: 'neutral',
-};
+const ACTIVITY_STATUS_PLACEMENT: StatusPlacement = 'badge';
 
 function PanelMessage({
 	title,

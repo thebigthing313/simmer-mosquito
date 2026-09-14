@@ -105,7 +105,8 @@ export function ExplorerMapPage<TRow>({
 	panel,
 	heading,
 	filters,
-	activeFilterCount,
+	toolbar,
+	activeFilterCount = 0,
 	results,
 	footer,
 	map,
@@ -119,10 +120,22 @@ export function ExplorerMapPage<TRow>({
 	readonly actions?: ReactNode | undefined;
 	readonly panel: ExplorerPanel;
 	readonly heading: ExplorerHeading;
-	/** The filter controls, stacked under the panel's title row. */
-	readonly filters: ReactNode;
+	/**
+	 * The filter controls, in a card beside the results, behind a toggle in the
+	 * panel header. Left out by a surface that narrows nothing: without it the
+	 * header draws no toggle and no card, rather than a control that opens on an
+	 * empty card.
+	 */
+	readonly filters?: ReactNode | undefined;
+	/**
+	 * A control that belongs to the panel rather than to the filter card, drawn
+	 * as a strip under the title row and always in reach. Daily Work's day is
+	 * one: the page is one person on one day, so the day is what the page is
+	 * rather than a way of cutting it down.
+	 */
+	readonly toolbar?: ReactNode | undefined;
 	/** How many filters are off their default, so a collapsed panel can say so. */
-	readonly activeFilterCount: number;
+	readonly activeFilterCount?: number | undefined;
 	/**
 	 * Extra entries for the panel's overflow menu, under the create action. For a
 	 * surface whose work is not only "add one of these".
@@ -168,6 +181,7 @@ export function ExplorerMapPage<TRow>({
 					onResetFilters={onResetFilters}
 					panel={panel}
 					results={results}
+					toolbar={toolbar}
 				/>
 			)}
 		</OutletFullPageMap>
@@ -192,6 +206,7 @@ function OpenPanels<TRow>({
 	onResetFilters,
 	panel,
 	results,
+	toolbar,
 }: {
 	readonly actions: ReactNode;
 	readonly activeFilterCount: number;
@@ -202,6 +217,7 @@ function OpenPanels<TRow>({
 	readonly onResetFilters: (() => void) | undefined;
 	readonly panel: ExplorerPanel;
 	readonly results: ExplorerResults<TRow>;
+	readonly toolbar: ReactNode;
 }) {
 	const { isNarrow } = panel;
 	return (
@@ -225,16 +241,18 @@ function OpenPanels<TRow>({
 					actions={actions}
 					activeFilterCount={activeFilterCount}
 					footer={footer}
+					hasFilters={filters !== undefined}
 					heading={heading}
 					menuItems={menuItems}
 					onCollapse={() => panel.setCollapsed(true)}
 					onResetFilters={onResetFilters}
 					panel={panel}
 					results={results}
+					toolbar={toolbar}
 				/>
 			</div>
 
-			{panel.isFiltersOpen ? (
+			{filters !== undefined && panel.isFiltersOpen ? (
 				<FiltersCard
 					activeFilterCount={activeFilterCount}
 					onClose={() => panel.setFiltersOpen(false)}
@@ -259,21 +277,26 @@ function ResultsPanel<TRow>({
 	heading,
 	results,
 	footer,
+	hasFilters,
 	onCollapse,
 	panel,
 	activeFilterCount,
 	menuItems,
 	onResetFilters,
+	toolbar,
 }: {
 	readonly actions: ReactNode;
 	readonly heading: ExplorerHeading;
 	readonly results: ExplorerResults<TRow>;
 	readonly footer: ReactNode;
+	/** There is a filter card to show, so the header carries the control that shows it. */
+	readonly hasFilters: boolean;
 	readonly onCollapse: () => void;
 	readonly panel: ExplorerPanel;
 	readonly activeFilterCount: number;
 	readonly menuItems: ReactNode;
 	readonly onResetFilters?: (() => void) | undefined;
+	readonly toolbar: ReactNode;
 }) {
 	const { emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } = results;
 	const { isEmpty, content } = resultContent(results);
@@ -291,11 +314,15 @@ function ResultsPanel<TRow>({
 					icon: XIcon,
 				}}
 				create={heading.create}
-				filterToggle={{
-					isOpen: panel.isFiltersOpen,
-					onToggle: () => panel.setFiltersOpen(!panel.isFiltersOpen),
-					activeCount: activeFilterCount,
-				}}
+				{...(hasFilters
+					? {
+							filterToggle: {
+								isOpen: panel.isFiltersOpen,
+								onToggle: () => panel.setFiltersOpen(!panel.isFiltersOpen),
+								activeCount: activeFilterCount,
+							},
+						}
+					: {})}
 				icon={heading.icon}
 				isLoading={heading.isLoading}
 				menuItems={menuItems}
@@ -308,7 +335,9 @@ function ResultsPanel<TRow>({
 				surface="chrome"
 				title={heading.title}
 				total={heading.total}
-			/>
+			>
+				{toolbar}
+			</ExplorerHeader>
 
 			{footer === undefined || isEmpty ? null : <SkipResults targetRef={footerRef} />}
 

@@ -183,7 +183,7 @@ const IMPORT = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g;
  * How many modules have no preview section. Read the docblock before changing
  * it: down is the normal direction and up needs a reason in the commit message.
  */
-const UNCOVERED_MODULES = 75;
+const UNCOVERED_MODULES = 74;
 
 /**
  * The modules with no preview section anybody could write.

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import type { Tag } from '../../../hooks/queries/tag-view';
 import {
 	type ActivityEntry,
 	ActivityRequestError,
+	activityBadgeFacts,
 	activityEntryKey,
 	activityPanelMessage,
 	activityPanelState,
-	activityStatus,
+	activityTags,
 	buildActivityMapData,
 	describeActivityEntry,
 	groupActivityByDay,
@@ -36,6 +38,10 @@ function entry(overrides: Partial<ActivityEntry> = {}): ActivityEntry {
 		amount: null,
 		unitId: null,
 		detail: null,
+		stages: null,
+		context: null,
+		hasBycatch: null,
+		tagIds: null,
 		...overrides,
 	};
 }
@@ -271,45 +277,142 @@ describe('activityPanelState', () => {
 	});
 });
 
-// One short token per category becomes one specific pill. The wrong answers
-// here are silent: an unknown density rendering nothing, or a token from a
-// build that predates the column.
-describe('activityStatus', () => {
-	it('reads an inspection by what was found', () => {
-		expect(activityStatus(entry({ category: 'inspection', detail: 'heavy' }))).toEqual({
-			kind: 'density',
-			density: 'heavy',
+// One short token per category becomes the facts the shared badge register
+// switches on. The wrong answers here are the silent ones: a density this build
+// does not know rendering nothing, or a token from a server that predates a
+// column.
+describe('activityBadgeFacts', () => {
+	it('reads an inspection by what was found, stages included', () => {
+		expect(
+			activityBadgeFacts(entry({ category: 'inspection', detail: 'heavy', stages: 'E13' })),
+		).toEqual({
+			category: 'inspection',
+			result: {
+				isWet: true,
+				density: 'heavy',
+				stages: {
+					hasEggs: true,
+					hasFirstInstar: true,
+					hasSecondInstar: false,
+					hasThirdInstar: true,
+					hasFourthInstar: false,
+					hasPupae: false,
+				},
+			},
 		});
-		expect(activityStatus(entry({ category: 'inspection', detail: 'dry' }))).toEqual({
-			kind: 'wetness',
-			isWet: false,
+	});
+
+	// A dry site has no density and no stages to report, and that is a different
+	// statement from a wet one that found nothing.
+	it('reads a dry site as dry', () => {
+		expect(
+			activityBadgeFacts(entry({ category: 'inspection', detail: 'dry', stages: 'E1' })),
+		).toEqual({
+			category: 'inspection',
+			result: { isWet: false, density: null, stages: null },
 		});
 	});
 
 	// Wet with nothing counted, and a density this build does not know, both land
-	// on "wet" rather than asserting a value the badge table cannot render.
-	it.each(['wet', 'astronomical'])('falls back to wet for %s', (detail) => {
-		expect(activityStatus(entry({ category: 'inspection', detail }))).toEqual({
-			kind: 'wetness',
-			isWet: true,
+	// on wet-with-no-density rather than asserting a value nothing can render.
+	it.each(['wet', 'astronomical'])('falls back to wet with no density for %s', (detail) => {
+		expect(activityBadgeFacts(entry({ category: 'inspection', detail }))).toEqual({
+			category: 'inspection',
+			result: { isWet: true, density: null, stages: null },
+		});
+	});
+
+	// Codes this build knows none of are a server it cannot read, not a site with
+	// nothing in it. Six empty cells would be a claim.
+	it('draws no strip for stage codes it cannot read', () => {
+		const facts = activityBadgeFacts(
+			entry({ category: 'inspection', detail: 'light', stages: 'XY' }),
+		);
+
+		expect(facts).toEqual({
+			category: 'inspection',
+			result: { isWet: true, density: 'light', stages: null },
 		});
 	});
 
 	it('reads a site or a request by its state', () => {
-		expect(activityStatus(entry({ category: 'habitat', detail: 'inaccessible' }))).toEqual({
-			kind: 'state',
-			token: 'inaccessible',
+		expect(activityBadgeFacts(entry({ category: 'habitat', detail: 'inaccessible' }))).toEqual({
+			category: 'habitat',
+			status: 'inaccessible',
 		});
-		expect(activityStatus(entry({ category: 'serviceRequest', detail: 'open' }))).toEqual({
-			kind: 'state',
-			token: 'open',
+		expect(activityBadgeFacts(entry({ category: 'serviceRequest', detail: 'open' }))).toEqual({
+			category: 'serviceRequest',
+			status: 'open',
 		});
 	});
 
-	it('has no pill for an outreach description, an absent detail, or an unknown token', () => {
-		expect(activityStatus(entry({ category: 'outreach', detail: 'Block party' }))).toBeNull();
-		expect(activityStatus(entry({ category: 'habitat', detail: null }))).toBeNull();
-		expect(activityStatus(entry({ category: 'habitat', detail: 'mysterious' }))).toBeNull();
+	// Traps have no inaccessible state, so a token naming one cannot reach the
+	// badge table through this branch.
+	it('holds a trap to the two states it has', () => {
+		expect(activityBadgeFacts(entry({ category: 'trap', detail: 'inaccessible' }))).toEqual({
+			category: 'trap',
+			status: 'active',
+		});
+	});
+
+	it('reads a collection by its four-state status and its bycatch', () => {
+		expect(
+			activityBadgeFacts(entry({ category: 'collection', detail: 'pending', hasBycatch: true })),
+		).toEqual({ category: 'collection', status: 'pending', hasBycatch: true });
+	});
+
+	// An unreadable status says the record was collected, which is what the row's
+	// own verb already said, rather than claiming the trap is still out.
+	it.each([null, 'mysterious'])('falls back to collected for %s', (detail) => {
+		expect(activityBadgeFacts(entry({ category: 'collection', detail }))).toEqual({
+			category: 'collection',
+			status: 'collected',
+			hasBycatch: false,
+		});
+	});
+
+	it('reads a control action by what it was performed against', () => {
+		expect(activityBadgeFacts(entry({ category: 'biocontrol', context: 'larval' }))).toEqual({
+			category: 'biocontrol',
+			context: 'larval',
+		});
+		expect(activityBadgeFacts(entry({ category: 'biocontrol', context: null }))).toEqual({
+			category: 'biocontrol',
+			context: 'standalone',
+		});
+	});
+
+	// Outreach's extra is a description rather than a state; it is already in the
+	// subtitle, and the three categories with no badges say so by carrying none.
+	it('carries no facts for the categories with no badges', () => {
+		expect(activityBadgeFacts(entry({ category: 'outreach', detail: 'Block party' }))).toEqual({
+			category: 'outreach',
+		});
+	});
+});
+
+describe('activityTags', () => {
+	const priority: Tag = { id: 'tag-1', name: 'Priority', color: null, description: null };
+	// hex-color-ignore: a Tag's colour is a column an organization writes, not a role anything paints.
+	const access: Tag = { id: 'tag-2', name: 'Access code', color: '#112233', description: null };
+	const catalog = new Map<string, Tag>([
+		[priority.id, priority],
+		[access.id, access],
+	]);
+
+	// By name, which is the order `useEntityTags` returns them in on the
+	// explorers, so one record's chips read the same on both surfaces.
+	it('names and orders the ids against the catalog', () => {
+		const tags = activityTags(entry({ tagIds: [priority.id, access.id] }), catalog);
+
+		expect(tags.map((tag) => tag.name)).toEqual(['Access code', 'Priority']);
+	});
+
+	// There is no chip to make out of an id, so a tag this client holds no
+	// catalog row for draws nothing rather than an id.
+	it('drops an id the catalog does not name', () => {
+		expect(activityTags(entry({ tagIds: ['tag-1', 'tag-missing'] }), catalog)).toHaveLength(1);
+		expect(activityTags(entry({ tagIds: null }), catalog)).toEqual([]);
 	});
 });
 

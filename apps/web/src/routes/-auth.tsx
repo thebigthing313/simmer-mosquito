@@ -59,11 +59,13 @@ function AuthShell({
 	readonly footer?: ReactNode;
 }) {
 	// Same frame as the landing page, banner wrapper included: the split is
-	// `lg:h-svh`, so the strip goes outside it rather than in a row of its own.
+	// `lg:h-svh`, so the strip goes outside it rather than in a row of its own,
+	// and the column is flex so the split still fills the window on the
+	// deployments where the strip renders nothing.
 	return (
-		<div className="grid min-h-svh grid-rows-[auto_1fr] lg:h-svh">
+		<div className="flex min-h-svh flex-col lg:h-svh">
 			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
-			<div className="grid grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
+			<div className="grid flex-1 grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
 				<LandingStage variant="aside" />
 				{/* Animation on the panel, not the section — see the landing entry column. */}
 				<section className="flex min-h-0 overflow-y-auto bg-(--app-stage) px-6 py-10 sm:px-10 lg:py-12">

@@ -12,6 +12,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	BiocontrolFormPage,
@@ -28,6 +29,7 @@ export const Route = createFileRoute('/control-operations/biocontrol/create')({
 	validateSearch: (search) => ({
 		...mapPointSearchSchema.parse(search),
 		...missionStopSearchSchema.parse(search),
+		...habitatSeedSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/control-operations/biocontrol/create')) {
@@ -120,7 +122,10 @@ function CreateBiocontrolActionRoute() {
 			<BiocontrolFormPage
 				biocontrolMethods={methods}
 				canSubmit={canSubmit}
-				defaultValues={defaultBiocontrolFormValues(timeZone)}
+				defaultValues={{
+					...defaultBiocontrolFormValues(timeZone),
+					...seededValues({ habitatId: search.habitatId }),
+				}}
 				header={{
 					title: 'Record Biocontrol Action',
 					description:

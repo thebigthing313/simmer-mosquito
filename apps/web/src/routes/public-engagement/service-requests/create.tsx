@@ -11,6 +11,11 @@ import { useServiceRequestRecord } from '../../../hooks/queries/use-service-requ
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { todayInTimeZone } from '../../../lib/local-date';
+import {
+	addressSeedSearchSchema,
+	contactSeedSearchSchema,
+	seededValues,
+} from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { contactFieldsFromValues } from '../-contact-fields';
 import {
@@ -24,7 +29,11 @@ export const Route = createFileRoute('/public-engagement/service-requests/create
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...addressSeedSearchSchema.parse(search),
+		...contactSeedSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/public-engagement/service-requests/create')) {
 			throw redirect({ replace: true, to: '/public-engagement/service-requests' });
@@ -35,7 +44,8 @@ export const Route = createFileRoute('/public-engagement/service-requests/create
 
 function CreateServiceRequestRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const profiles = useProfileRoster();
@@ -99,7 +109,10 @@ function CreateServiceRequestRoute() {
 	return (
 		<ServiceRequestFormPage
 			canSubmit={contactWrites.canWrite && requestWrites.canWrite}
-			defaultValues={defaultServiceRequestFormValues(today, actorProfileId ?? '')}
+			defaultValues={{
+				...defaultServiceRequestFormValues(today, actorProfileId ?? ''),
+				...seededValues({ addressId: search.addressId, contactId: search.contactId }),
+			}}
 			header={{
 				title: 'New Service Request',
 				description:

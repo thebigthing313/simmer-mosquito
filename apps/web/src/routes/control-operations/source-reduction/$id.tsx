@@ -1,8 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -16,16 +14,14 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -45,12 +41,11 @@ export const Route = createFileRoute('/control-operations/source-reduction/$id')
 });
 
 const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -66,7 +61,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to source reduction', to: '/control-operations/source-reduction' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
 			recordType="sourceReduction"
@@ -106,8 +100,14 @@ function SourceReductionDetailContent({
 	useBreadcrumbLabel(sourceReduction.id, methodName);
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
+				<CommentsSection
+					description="Follow-up, access notes, and anything crews should know about this work."
+					target={{ type: 'sourceReduction', id: sourceReduction.id }}
+				/>
+			}
+			facts={
 				<>
 					<SourceReductionDetailsCard
 						amountLabel={amountLabel}
@@ -121,48 +121,37 @@ function SourceReductionDetailContent({
 						metadata={sourceReduction.metadata}
 						schema={customSchemaFor(methods, sourceReduction.methodId)}
 					/>
-					<CommentsSection
-						description="Follow-up, access notes, and anything crews should know about this work."
-						target={{ type: 'sourceReduction', id: sourceReduction.id }}
-					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link
-									params={{ id: sourceReduction.id }}
-									to="/control-operations/source-reduction/$id/edit"
-								>
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					}
-					eyebrow="Source reduction"
-					icon={SourceReductionIcon}
-					description={`${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`}
-					title={methodName}
-				/>
-			}
+			header={{
+				edit: {
+					params: { id: sourceReduction.id },
+					to: '/control-operations/source-reduction/$id/edit',
+				},
+				icon: SourceReductionIcon,
+				recordType: 'Source reduction',
+				remove: {
+					ask: askDelete,
+					name: methodName,
+					onDelete: (acknowledgements) => remove(sourceReduction.id, acknowledgements),
+					recordId: sourceReduction.id,
+					recordType: 'sourceReduction',
+					returnTo: '/control-operations/source-reduction',
+				},
+				subtitle: `${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`,
+				title: methodName,
+			}}
 			layout={layout}
-		>
-			<div className="grid content-start gap-3">
-				<SourceReductionLocationCard habitatName={habitatName} sourceReduction={sourceReduction} />
-				<RecordRegionsBand recordId={sourceReduction.id} recordType="source_reductions" />
-			</div>
-			<DangerZoneCard
-				ask={askDelete}
-				name={methodName}
-				onDelete={(acknowledgements) => remove(sourceReduction.id, acknowledgements)}
-				recordId={sourceReduction.id}
-				recordType="sourceReduction"
-				returnTo="/control-operations/source-reduction"
-			/>
-		</RecordDetailColumns>
+			lead={
+				<div className="grid content-start gap-3">
+					<SourceReductionLocationCard
+						habitatName={habitatName}
+						sourceReduction={sourceReduction}
+					/>
+					<RecordRegionsBand recordId={sourceReduction.id} recordType="source_reductions" />
+				</div>
+			}
+		></DetailPageShell>
 	);
 }
 
@@ -228,9 +217,7 @@ function SourceReductionDetailsCard({
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Eliminated">{amountLabel}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(sourceReduction.actionDate)}</DetailRow>
-					<DetailRow empty="Unassigned" label="Technician">
-						{technicianName}
-					</DetailRow>
+					<DetailRow label="Technician">{technicianName}</DetailRow>
 					<DetailRow label="Habitat">
 						{habitatId === null ? null : (
 							<Link

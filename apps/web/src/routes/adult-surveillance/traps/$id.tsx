@@ -1,7 +1,7 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -18,19 +18,13 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -42,7 +36,8 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	createItems,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -76,12 +71,11 @@ export const Route = createFileRoute('/adult-surveillance/traps/$id')({
 const TrapIcon = iconRegistry.entities.trap.icon;
 const CollectionIcon = iconRegistry.entities.collection.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]', 'h-48'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -91,7 +85,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to traps', to: '/adult-surveillance/traps' }}
 			deleteRefusals={TRAP_DELETE_REFUSALS}
 			layout={layout}
 			recordType="trap"
@@ -121,53 +114,46 @@ function TrapDetailContent({
 	const lureName = trap.lureId === null ? null : (trap.lureName ?? 'Unknown lure');
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
-				<>
-					<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />
-					<CommentsSection
-						description="Access notes, maintenance, and follow-up for this trap."
-						target={{ type: 'trap', id: trap.id }}
-					/>
-				</>
-			}
-			header={
-				<PageHeader
-					actions={
-						<>
-							<StatusBadge isActive={trap.isActive} />
-							<WriteOnly minimum="manager">
-								<Button asChild size="sm" variant="outline">
-									<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id/edit">
-										<EditIcon aria-hidden="true" />
-										Edit
-									</Link>
-								</Button>
-							</WriteOnly>
-						</>
-					}
-					eyebrow="Trap"
-					icon={TrapIcon}
-					description={methodName}
-					title={trapDisplayName(trap)}
+				<CommentsSection
+					description="Access notes, maintenance, and follow-up for this trap."
+					target={{ type: 'trap', id: trap.id }}
 				/>
 			}
+			facts={<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />}
+			header={{
+				actions: createItems('trapId', trap.id, ['/adult-surveillance/collections/create']),
+				edit: {
+					minimum: 'manager',
+					params: { id: trap.id },
+					to: '/adult-surveillance/traps/$id/edit',
+				},
+				flags: <StatusBadge isActive={trap.isActive} />,
+				icon: TrapIcon,
+				recordType: 'Trap',
+				remove: {
+					ask: askDelete,
+					name: trapDisplayName(trap),
+					onDelete: (acknowledgements) => mutations.remove(trap.id, acknowledgements),
+					recordId: trap.id,
+					recordType: 'trap',
+					returnTo: '/adult-surveillance/traps',
+				},
+				subtitle: methodName,
+				tags: { recordId: trap.id },
+				title: trapDisplayName(trap),
+			}}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
+					<RecordRegionsBand recordId={trap.id} recordType="traps" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
-				<RecordRegionsBand recordId={trap.id} recordType="traps" />
-			</div>
 			<TrapCollectionsCard trapId={trap.id} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={trapDisplayName(trap)}
-				onDelete={(acknowledgements) => mutations.remove(trap.id, acknowledgements)}
-				recordId={trap.id}
-				recordType="trap"
-				returnTo="/adult-surveillance/traps"
-			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
@@ -214,16 +200,16 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 			<Tabs defaultValue="collections">
 				<CardHeader padding="compact">
 					<div className="flex flex-wrap items-center justify-between gap-3">
-						<TabsList>
-							<TabsTrigger value="collections">
+						<TabStrip>
+							<TabStripTab value="collections">
 								<CollectionIcon aria-hidden="true" />
 								Collections
-							</TabsTrigger>
-							<TabsTrigger value="species">
+							</TabStripTab>
+							<TabStripTab value="species">
 								<SpeciesIcon aria-hidden="true" />
 								Species
-							</TabsTrigger>
-						</TabsList>
+							</TabStripTab>
+						</TabStrip>
 						<WriteOnly>
 							<Button asChild size="sm" variant="outline">
 								<Link search={{ trapId }} to="/adult-surveillance/collections/create">
@@ -490,9 +476,7 @@ function TrapDetailsCard({
 			<CardContent className="grid gap-4" padding="compact">
 				<DetailList>
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow empty="None" label="Lure">
-						{lureName}
-					</DetailRow>
+					<DetailRow label="Lure">{lureName}</DetailRow>
 					<DetailRow label="Code">{trap.trapCode}</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={trap.addressId} />

@@ -4,6 +4,11 @@ import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared'
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import {
+	addressSeedSearchSchema,
+	habitatSeedSearchSchema,
+	seededValues,
+} from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	defaultRequestFormValues,
@@ -13,6 +18,13 @@ import {
 } from './-request-form';
 
 export const Route = createFileRoute('/operations/requests-for-control/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet, which erases the seeds from `Route.useSearch()`.
+	validateSearch: (search) => ({
+		...habitatSeedSearchSchema.parse(search),
+		...addressSeedSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/operations/requests-for-control/create')) {
 			throw redirect({ replace: true, to: '/operations/requests-for-control' });
@@ -23,6 +35,7 @@ export const Route = createFileRoute('/operations/requests-for-control/create')(
 
 function CreateRequestForControlRoute() {
 	const { auth } = Route.useRouteContext();
+	const search = Route.useSearch();
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const actorProfileId =
@@ -59,7 +72,10 @@ function CreateRequestForControlRoute() {
 	return (
 		<RequestFormPage
 			canSubmit={canAttributeWrite({ organization, actorProfileId })}
-			defaultValues={defaultRequestFormValues()}
+			defaultValues={{
+				...defaultRequestFormValues(),
+				...seededValues({ addressId: search.addressId, habitatId: search.habitatId }),
+			}}
 			errorTitle="Unable to Raise Request"
 			header={{
 				title: 'New Request for Control',

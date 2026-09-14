@@ -100,7 +100,7 @@ const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance',
  * do, so those are shared and the fork stays.
  */
 const layout: RecordDetailLayout = {
-	skeleton: { eyebrow: 'w-28', title: 'w-56', main: ['h-40', 'h-56'] },
+	skeleton: { main: ['h-40', 'h-56'] },
 };
 
 function ServiceRequestDetailRoute() {
@@ -311,9 +311,7 @@ function RequestDetailsCard({
 				<DetailList className="border-border/50 border-t pt-4">
 					<DetailRow label="Intake">{intakeTypeLabel(request.intakeType)}</DetailRow>
 					<DetailRow label="Date">{formatRequestDate(request.requestDate)}</DetailRow>
-					<DetailRow empty="Unknown" label="Received by">
-						{receivedByName}
-					</DetailRow>
+					<DetailRow label="Received by">{receivedByName}</DetailRow>
 				</DetailList>
 			</CardContent>
 		</Card>

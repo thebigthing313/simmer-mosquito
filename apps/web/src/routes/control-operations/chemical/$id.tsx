@@ -1,7 +1,6 @@
 import type { InsecticideBatch as InsecticideBatchOption } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -44,16 +43,14 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -65,7 +62,13 @@ import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
-import { ContextBadge, formatActionDate, formatMeasure, nameById } from '../-control-display';
+import {
+	ContextBadge,
+	controlContext,
+	formatActionDate,
+	formatMeasure,
+	nameById,
+} from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,
@@ -73,7 +76,6 @@ export const Route = createFileRoute('/control-operations/chemical/$id')({
 
 const ApplicationIcon = iconRegistry.entities.application.icon;
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 // Roles that get a read-only view — no batch add/remove (mirrors the adult
@@ -83,7 +85,7 @@ const READ_ONLY_ROLES = new Set(['viewer']);
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-24', main: ['h-[360px]', 'h-48'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-48'], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -99,7 +101,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to chemical applications', to: '/control-operations/chemical' }}
 			deleteRefusals={APPLICATION_DELETE_REFUSALS}
 			layout={layout}
 			recordType="application"
@@ -141,8 +142,14 @@ function ApplicationDetailContent({
 			: (habitatNameById.get(application.habitatId) ?? 'Unknown habitat');
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
+				<CommentsSection
+					description="Field notes, product observations, and follow-up for this application."
+					target={{ type: 'application', id: application.id }}
+				/>
+			}
+			facts={
 				<>
 					<ApplicationDetailsCard
 						amount={amount}
@@ -154,62 +161,45 @@ function ApplicationDetailContent({
 						metadata={application.metadata}
 						schema={customSchemaFor(methods, application.methodId)}
 					/>
-					<CommentsSection
-						description="Field notes, product observations, and follow-up for this application."
-						target={{ type: 'application', id: application.id }}
-					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<>
-							<ContextBadge
-								collectionId={application.collectionId}
-								habitatId={application.habitatId}
-								inspectionId={application.inspectionId}
-							/>
-							{canEdit ? (
-								<WriteOnly>
-									<Button asChild size="sm" variant="outline">
-										<Link
-											params={{ id: application.id }}
-											to="/control-operations/chemical/$id/edit"
-										>
-											<EditIcon aria-hidden="true" />
-											Edit
-										</Link>
-									</Button>
-								</WriteOnly>
-							) : null}
-						</>
-					}
-					eyebrow="Chemical application"
-					icon={ApplicationIcon}
-					description={`${amount} · ${formatActionDate(application.actionDate)}`}
-					title={productName}
-				/>
-			}
+			header={{
+				...(canEdit
+					? {
+							edit: {
+								params: { id: application.id },
+								to: '/control-operations/chemical/$id/edit' as const,
+							},
+						}
+					: {}),
+				flags: <ContextBadge context={controlContext(application)} />,
+				icon: ApplicationIcon,
+				recordType: 'Application',
+				remove: {
+					ask: askDelete,
+					name: productName,
+					onDelete: (acknowledgements) => remove(application.id, acknowledgements),
+					recordId: application.id,
+					recordType: 'application',
+					returnTo: '/control-operations/chemical',
+				},
+				subtitle: `${amount} · ${formatActionDate(application.actionDate)}`,
+				title: productName,
+			}}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<ApplicationLocationCard application={application} habitatName={habitatName} />
+					<RecordRegionsBand recordId={application.id} recordType="applications" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<ApplicationLocationCard application={application} habitatName={habitatName} />
-				<RecordRegionsBand recordId={application.id} recordType="applications" />
-			</div>
 			<ApplicationBatchesCard
 				application={application}
 				canEdit={canEdit}
 				productName={productName}
 			/>
-			<DangerZoneCard
-				ask={askDelete}
-				name={productName}
-				onDelete={(acknowledgements) => remove(application.id, acknowledgements)}
-				recordId={application.id}
-				recordType="application"
-				returnTo="/control-operations/chemical"
-			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
@@ -486,19 +476,11 @@ function ApplicationDetailsCard({
 					<DetailRow label="Product">{productName}</DetailRow>
 					<DetailRow label="Amount">{amount}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(application.actionDate)}</DetailRow>
-					<DetailRow empty="No method" label="Method">
-						{application.methodName}
-					</DetailRow>
-					<DetailRow empty="Unassigned" label="Applicator">
-						{application.applicatorName}
-					</DetailRow>
-					<DetailRow empty="None" label="Vehicle">
-						{application.vehicleName}
-					</DetailRow>
-					<DetailRow empty="None" label="Equipment">
-						{application.equipmentName}
-					</DetailRow>
-					<DetailRow empty="Standalone, no habitat" label="Habitat">
+					<DetailRow label="Method">{application.methodName}</DetailRow>
+					<DetailRow label="Applicator">{application.applicatorName}</DetailRow>
+					<DetailRow label="Vehicle">{application.vehicleName}</DetailRow>
+					<DetailRow label="Equipment">{application.equipmentName}</DetailRow>
+					<DetailRow label="Habitat">
 						{application.habitatId === null ? null : (
 							<Link
 								className={recordLink()}

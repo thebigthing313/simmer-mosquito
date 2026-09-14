@@ -1,5 +1,4 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,14 +17,14 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -43,12 +42,10 @@ export const Route = createFileRoute('/gis/weather/$id')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 const layout: RecordDetailLayout = {
-	aside: 'narrow',
-	skeleton: { eyebrow: 'w-24', title: 'w-56', main: ['h-64'], aside: ['h-48'] },
+	skeleton: { main: [['h-64', 'h-64'], 'h-48'] },
 };
 
 function RouteComponent() {
@@ -58,7 +55,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to Weather Stations', to: '/gis/weather' }}
 			deleteRefusals={STATION_DELETE_REFUSALS}
 			layout={layout}
 			recordType="weatherStation"
@@ -84,26 +80,39 @@ function WeatherStationContent({
 	const isOwned = station.sourceType === 'organization' && station.organizationId !== null;
 
 	return (
-		<RecordDetailColumns
-			aside={
-				<>
-					<StationDetailsCard station={station} />
-					{isOwned ? (
-						<WriteOnly minimum="manager">
-							<StationLifecycleCard askDelete={askDelete} station={station} />
-						</WriteOnly>
-					) : null}
-				</>
-			}
-			header={<StationHeader isOwned={isOwned} station={station} />}
+		<DetailPageShell
+			facts={<StationDetailsCard station={station} />}
+			header={{
+				...(isOwned
+					? {
+							edit: {
+								minimum: 'manager' as const,
+								params: { id: station.id },
+								to: '/gis/weather/$id/edit' as const,
+							},
+						}
+					: {}),
+				flags: <StationStatusBadge isActive={station.isActive} />,
+				icon: WeatherIcon,
+				recordType: 'Weather station',
+				subtitle: weatherSourceTypeLabel(station.sourceType),
+				title: station.name,
+			}}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<StationLocationCard station={station} />
+					<RecordRegionsBand recordId={station.id} recordType="weather_sources" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<StationLocationCard station={station} />
-				<RecordRegionsBand recordId={station.id} recordType="weather_sources" />
-			</div>
 			<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
-		</RecordDetailColumns>
+			{isOwned ? (
+				<WriteOnly minimum="manager">
+					<StationLifecycleCard askDelete={askDelete} station={station} />
+				</WriteOnly>
+			) : null}
+		</DetailPageShell>
 	);
 }
 
@@ -129,38 +138,6 @@ function StationLocationCard({ station }: { readonly station: WeatherStation }) 
 			}}
 			geomType={station.geometryKind}
 			height="h-[280px]"
-		/>
-	);
-}
-
-function StationHeader({
-	station,
-	isOwned,
-}: {
-	readonly station: WeatherStation;
-	readonly isOwned: boolean;
-}) {
-	return (
-		<PageHeader
-			actions={
-				<>
-					<StationStatusBadge isActive={station.isActive} />
-					{isOwned ? (
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: station.id }} to="/gis/weather/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					) : null}
-				</>
-			}
-			eyebrow="Weather station"
-			icon={WeatherIcon}
-			description={weatherSourceTypeLabel(station.sourceType)}
-			title={station.name}
 		/>
 	);
 }

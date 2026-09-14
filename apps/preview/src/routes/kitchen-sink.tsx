@@ -1,5 +1,6 @@
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows, type PanelRowsReading } from '@simmer-mosquito/ui-web/components/panel-rows';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -12,6 +13,7 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
+import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import {
 	Field,
 	FieldDescription,
@@ -54,6 +56,7 @@ import {
 	TriangleAlertIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
 
 export const Route = createFileRoute('/kitchen-sink')({
 	component: KitchenSinkPage,
@@ -61,6 +64,8 @@ export const Route = createFileRoute('/kitchen-sink')({
 
 const buttonVariants = ['default', 'secondary', 'outline', 'ghost', 'destructive'] as const;
 const badgeTones = ['success', 'warning', 'info', 'catalog', 'danger', 'neutral'] as const;
+/** Enough tabs to run past the column, which is the case the strip exists for. */
+const PREVIEW_SEASONS = ['2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'] as const;
 
 /** One reading per branch, so all four states of a child-record card sit side by side. */
 const panelRowsStates: readonly {
@@ -237,6 +242,26 @@ function KitchenSinkPage() {
 							<div className="tab-panel">Spatial layer preview placeholder.</div>
 						</TabsContent>
 					</Tabs>
+					{/*
+					 * The product's own strip, drawn here at a length no card holds: it
+					 * runs off the side rather than wrapping, and it draws no vertical
+					 * scrollbar while doing it, which is what a strip built out of
+					 * `overflow-x-auto` alone gets wrong.
+					 */}
+					<Tabs defaultValue="2019">
+						<TabStrip>
+							{PREVIEW_SEASONS.map((season) => (
+								<TabStripTab key={season} value={season}>
+									{season}
+								</TabStripTab>
+							))}
+						</TabStrip>
+						{PREVIEW_SEASONS.map((season) => (
+							<TabsContent key={season} value={season}>
+								<div className="tab-panel">Collections recorded in {season}.</div>
+							</TabsContent>
+						))}
+					</Tabs>
 				</div>
 			</section>
 
@@ -287,6 +312,26 @@ function KitchenSinkPage() {
 			<section className="preview-section">
 				<div className="preview-section-header">
 					<div>
+						<p className="preview-eyebrow">Forms</p>
+						<h2>Date Picker</h2>
+					</div>
+					<p>
+						Three screens in one popover. The month and the year in the caption are each a button
+						into a grid of their own, and a bound greys out the months and years it puts out of
+						reach.
+					</p>
+				</div>
+				<div className="component-grid dense">
+					<DatePickerSample label="Unbounded" />
+					<DatePickerSample label="No later than today" max={new Date()} />
+					<DatePickerSample label="This year only" max={endOfThisYear()} min={startOfThisYear()} />
+					<DatePickerSample disabled label="Disabled" />
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
 						<p className="preview-eyebrow">Records</p>
 						<h2>Panel Rows</h2>
 					</div>
@@ -330,4 +375,42 @@ function KitchenSinkPage() {
 			</section>
 		</div>
 	);
+}
+
+/**
+ * One picker holding its own selection, so the drill-down can actually be
+ * walked here rather than only looked at.
+ */
+function DatePickerSample({
+	label,
+	max,
+	min,
+	disabled = false,
+}: {
+	readonly label: string;
+	readonly max?: Date;
+	readonly min?: Date;
+	readonly disabled?: boolean;
+}) {
+	const [value, setValue] = useState<Date | undefined>(undefined);
+	return (
+		<DatePicker
+			ariaLabel={label}
+			className="w-56"
+			disabled={disabled}
+			max={max}
+			min={min}
+			onChange={setValue}
+			placeholder={label}
+			value={value}
+		/>
+	);
+}
+
+function startOfThisYear(): Date {
+	return new Date(new Date().getFullYear(), 0, 1);
+}
+
+function endOfThisYear(): Date {
+	return new Date(new Date().getFullYear(), 11, 31);
 }

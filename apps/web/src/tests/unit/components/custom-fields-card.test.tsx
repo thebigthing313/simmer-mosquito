@@ -58,17 +58,20 @@ describe('an undeclared key', () => {
 });
 
 describe('a declared key', () => {
-	it('reads Not recorded with no value, where the surface declares nothing', () => {
+	// The mark is `AbsentValue`, the same one a `DetailRow` draws, so the words
+	// are its accessible name rather than its text. Queried by that name: an
+	// assertion on the em dash alone would pass on a stray glyph.
+	it('draws the absent mark with no value, where the surface declares nothing', () => {
 		render(<CustomFieldsList entries={entries({})} />);
 
-		expect(screen.getByText('Not recorded')).toBeTruthy();
+		expect(screen.getByRole('img', { name: 'Not recorded' }).textContent).toBe('—');
 		expect(screen.queryByText('Retired')).toBeNull();
 	});
 
-	it('reads Not recorded with no value, where the surface accepts extra keys', () => {
+	it('draws the absent mark with no value, where the surface accepts extra keys', () => {
 		render(<CustomFieldsList allowsExtraKeys entries={entries({})} />);
 
-		expect(screen.getByText('Not recorded')).toBeTruthy();
+		expect(screen.getByRole('img', { name: 'Not recorded' }).textContent).toBe('—');
 	});
 
 	it('never carries the badge, whatever the surface says', () => {

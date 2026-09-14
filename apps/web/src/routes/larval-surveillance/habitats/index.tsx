@@ -1,5 +1,5 @@
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { ComponentIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
@@ -83,6 +83,8 @@ export const Route = createFileRoute('/larval-surveillance/habitats/')({
 const PATH = '/map/habitats';
 
 const NO_TAGS: readonly Tag[] = [];
+
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 
 /**
  * A Habitat as this list shows one.
@@ -279,7 +281,7 @@ function HabitatsExplorerRoute() {
 			}
 			heading={{
 				title: 'Habitats',
-				icon: ComponentIcon,
+				icon: HabitatIcon,
 				total,
 				isLoading,
 				create: { to: '/larval-surveillance/habitats/create', label: 'Create Habitat' },

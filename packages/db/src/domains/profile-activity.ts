@@ -31,9 +31,12 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { SimmerDatabase } from '../index.js';
 import {
 	assertIanaTimeZone,
+	collectionStatusSql,
 	habitatStatusSql,
 	inspectionResultSql,
+	lifeStageCodesSql,
 	localDateSql,
+	recordTagIdsSql,
 	trapLabelSql,
 	trapStatusSql,
 } from './record-display-sql.js';
@@ -73,11 +76,30 @@ export interface ProfileActivityRow {
 	readonly unitId: string | null;
 	/**
 	 * One short, category-specific thing more: a density or `dry` for inspections,
-	 * `problem`/`zero` for collections, `active`/`inactive`/`inaccessible` for
-	 * sites, `open`/`closed` for requests, the reach description for outreach.
-	 * The client already switches on category to lay a row out; this rides along.
+	 * the four-state status for collections, `active`/`inactive`/`inaccessible`
+	 * for sites, `open`/`closed` for requests, the reach description for
+	 * outreach. The client already switches on category to lay a row out; this
+	 * rides along.
 	 */
 	readonly detail: string | null;
+	/**
+	 * The life stages an inspection found, as the `E1234P` codes the strip draws.
+	 * Null on every other category, and on an inspection that found none.
+	 */
+	readonly stages: string | null;
+	/**
+	 * What a control action was performed against: `larval` where it names a
+	 * habitat or an inspection, `standalone` where it names neither. Null on
+	 * every category that has no such link.
+	 */
+	readonly context: string | null;
+	/** Whether a collection caught something other than what it was set for. */
+	readonly hasBycatch: boolean | null;
+	/**
+	 * The Tags on this record, as ids the client resolves against the eagerly
+	 * synced catalog. Null on the categories that carry no Tags.
+	 */
+	readonly tagIds: readonly string[] | null;
 }
 
 export interface ProfileActivityInput {
@@ -147,11 +169,17 @@ interface RecordShape {
 	readonly amount?: string;
 	readonly unitId?: string;
 	readonly detail?: string;
+	readonly stages?: string;
+	readonly context?: string;
+	readonly hasBycatch?: string;
+	readonly tagIds?: string;
 }
 
 const NO_TIMESTAMP = 'null::timestamptz';
 const NO_NUMBER = 'null::numeric';
 const NO_TEXT = 'null::text';
+const NO_FLAG = 'null::boolean';
+const NO_TEXT_ARRAY = 'null::text[]';
 
 /** The habitat, else the address, a record was performed at. */
 const SITE_JOINS =
@@ -192,6 +220,7 @@ function recordShapes(timeZone: string): {
 			siteName: NO_TEXT,
 			refId: 'r.habitat_type_id::text',
 			detail: habitatStatusSql('r'),
+			tagIds: recordTagIdsSql('r', 'habitat'),
 		},
 		inspection: {
 			category: 'inspection',
@@ -205,6 +234,9 @@ function recordShapes(timeZone: string): {
 			refId: 'r.habitat_type_id::text',
 			// What the explorer's badge reads: dry, or how much was found.
 			detail: inspectionResultSql('r'),
+			// And what its strip reads, which is the one thing neither the density
+			// nor the dot says: which stages were in the water.
+			stages: lifeStageCodesSql('r'),
 		},
 		trap: {
 			category: 'trap',
@@ -228,8 +260,11 @@ function recordShapes(timeZone: string): {
 			// The trap it came out of. A collection with none was recorded ad hoc.
 			siteName: trapLabelSql('t'),
 			refId: 'r.collection_method_id::text',
-			detail: `case when r.has_problem = true then 'problem'
-				when r.is_zero_result = true then 'zero' else null end`,
+			// All four states rather than the two exceptional ones. The explorer
+			// paints its dot with the same resolution, and a log saying nothing
+			// where that dot says "Trap out" is the two surfaces disagreeing.
+			detail: collectionStatusSql('r'),
+			hasBycatch: 'r.has_bycatch',
 		},
 		application: {
 			category: 'application',
@@ -270,6 +305,10 @@ function recordShapes(timeZone: string): {
 			refId: 'r.biocontrol_method_id::text',
 			amount: 'r.amount_released',
 			unitId: 'r.release_unit_id::text',
+			// The same two arms `controlContext` reads on the client, over the two
+			// columns the table has. Biocontrol names no collection.
+			context: `case when r.habitat_id is not null or r.inspection_id is not null
+				then 'larval' else 'standalone' end`,
 		},
 		outreach: {
 			category: 'outreach',
@@ -297,6 +336,7 @@ function recordShapes(timeZone: string): {
 			// Requests carry no method or type lookup; the intake type is a column.
 			refId: NO_TEXT,
 			detail: `case when r.closed_at is null then 'open' else 'closed' end`,
+			tagIds: recordTagIdsSql('r', 'service_request'),
 		},
 	};
 }
@@ -554,6 +594,10 @@ function projection(
 		${sql.raw(shape.methodRefId ?? NO_TEXT)} as "methodRefId",
 		${sql.raw(shape.amount ?? NO_NUMBER)} as amount,
 		${sql.raw(shape.unitId ?? NO_TEXT)} as "unitId",
-		${sql.raw(shape.detail ?? NO_TEXT)} as detail
+		${sql.raw(shape.detail ?? NO_TEXT)} as detail,
+		${sql.raw(shape.stages ?? NO_TEXT)} as stages,
+		${sql.raw(shape.context ?? NO_TEXT)} as context,
+		${sql.raw(shape.hasBycatch ?? NO_FLAG)} as "hasBycatch",
+		${sql.raw(shape.tagIds ?? NO_TEXT_ARRAY)} as "tagIds"
 	`;
 }

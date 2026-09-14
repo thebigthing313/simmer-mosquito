@@ -41,6 +41,7 @@ export function ExplorerRow({
 	personnel,
 	tags,
 	badges,
+	stackBadges,
 	detailLink,
 	detailLabel,
 	isSelected,
@@ -65,6 +66,13 @@ export function ExplorerRow({
 	readonly tags?: readonly Tag[];
 	/** Status pills, life-stage strips: whatever this record type reads by. */
 	readonly badges?: ReactNode;
+	/**
+	 * Put the badges on their own line, for a list that has no date rail to
+	 * decide it. Daily Work is the caller: its date lives in the day heading
+	 * above the rows, and its badges are the richest of any list here, because
+	 * the row's dot is spent on the family rather than on the record's state.
+	 */
+	readonly stackBadges?: boolean;
 	/** Where the chevron goes: this record's detail page. */
 	readonly detailLink: LinkProps;
 	readonly detailLabel: string;
@@ -89,9 +97,11 @@ export function ExplorerRow({
 	 * density badge plus its life-stage strip. That left the title column at
 	 * literally zero and the record drew with no name on it at all.
 	 *
-	 * Undated rows have the room, so they keep the pill.
+	 * Undated rows have the room, so they keep the pill, unless the caller says
+	 * otherwise: a list with no date rail can still put more beside a title than
+	 * one line holds.
 	 */
-	const isStacked = badges !== undefined && date !== undefined;
+	const isStacked = badges !== undefined && (stackBadges ?? date !== undefined);
 
 	return (
 		<div className="relative">

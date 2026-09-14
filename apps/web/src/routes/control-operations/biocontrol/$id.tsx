@@ -1,8 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -16,16 +14,14 @@ import { AdditionalPersonnelList } from '../../../components/additional-personne
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
@@ -35,10 +31,9 @@ import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { ContextBadge, formatActionDate, formatMeasure } from '../-control-display';
+import { ContextBadge, controlContext, formatActionDate, formatMeasure } from '../-control-display';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 export const Route = createFileRoute('/control-operations/biocontrol/$id')({
 	component: RouteComponent,
@@ -47,7 +42,7 @@ export const Route = createFileRoute('/control-operations/biocontrol/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64']], aside: ['h-72'] },
 };
 
 function RouteComponent() {
@@ -59,7 +54,6 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to biocontrol', to: '/control-operations/biocontrol' }}
 			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
 			layout={layout}
 			recordType="biocontrolAction"
@@ -94,8 +88,14 @@ function BiocontrolDetailContent({
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.actionDate)}`);
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
+				<CommentsSection
+					description="Follow-up, agent survival, and restocking notes for this release."
+					target={{ type: 'biocontrolAction', id: action.id }}
+				/>
+			}
+			facts={
 				<>
 					<BiocontrolDetailsCard
 						action={action}
@@ -108,48 +108,32 @@ function BiocontrolDetailContent({
 						metadata={action.metadata}
 						schema={customSchemaFor(methods, action.methodId)}
 					/>
-					<CommentsSection
-						description="Follow-up, agent survival, and restocking notes for this release."
-						target={{ type: 'biocontrolAction', id: action.id }}
-					/>
 				</>
 			}
-			header={
-				<PageHeader
-					actions={
-						<>
-							<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />
-							<WriteOnly>
-								<Button asChild size="sm" variant="outline">
-									<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id/edit">
-										<EditIcon aria-hidden="true" />
-										Edit
-									</Link>
-								</Button>
-							</WriteOnly>
-						</>
-					}
-					eyebrow="Biocontrol"
-					icon={BiocontrolIcon}
-					description={`${amountLabel} released on ${formatActionDate(action.actionDate)}`}
-					title={methodName}
-				/>
-			}
+			header={{
+				edit: { params: { id: action.id }, to: '/control-operations/biocontrol/$id/edit' },
+				flags: <ContextBadge context={controlContext(action)} />,
+				icon: BiocontrolIcon,
+				recordType: 'Biocontrol',
+				remove: {
+					ask: askDelete,
+					name: methodName,
+					onDelete: (acknowledgements) => remove(action.id, acknowledgements),
+					recordId: action.id,
+					recordType: 'biocontrolAction',
+					returnTo: '/control-operations/biocontrol',
+				},
+				subtitle: `${amountLabel} released on ${formatActionDate(action.actionDate)}`,
+				title: methodName,
+			}}
 			layout={layout}
-		>
-			<div className="grid content-start gap-3">
-				<ReleaseLocationCard action={action} habitatName={habitatName} />
-				<RecordRegionsBand recordId={action.id} recordType="biocontrol_actions" />
-			</div>
-			<DangerZoneCard
-				ask={askDelete}
-				name={methodName}
-				onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
-				recordId={action.id}
-				recordType="biocontrolAction"
-				returnTo="/control-operations/biocontrol"
-			/>
-		</RecordDetailColumns>
+			lead={
+				<div className="grid content-start gap-3">
+					<ReleaseLocationCard action={action} habitatName={habitatName} />
+					<RecordRegionsBand recordId={action.id} recordType="biocontrol_actions" />
+				</div>
+			}
+		></DetailPageShell>
 	);
 }
 
@@ -211,9 +195,7 @@ function BiocontrolDetailsCard({
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Released">{amountLabel}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(action.actionDate)}</DetailRow>
-					<DetailRow empty="Unassigned" label="Technician">
-						{technicianName}
-					</DetailRow>
+					<DetailRow label="Technician">{technicianName}</DetailRow>
 					<DetailRow label="Habitat">
 						{action.habitatId === null || habitatName === null ? null : (
 							<Link

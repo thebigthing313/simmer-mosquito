@@ -5,7 +5,8 @@ import {
 	type SpeciesStatus,
 } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { formatNumericDate, formatWeekdayDate, todayInTimeZone } from '../../lib/local-date';
+import { formatWeekdayDate, todayInTimeZone } from '../../lib/local-date';
+import { formatFullDate, formatMonthDayYear } from '../../lib/record-dates';
 
 // --- shared labels ----------------------------------------------------------
 
@@ -52,7 +53,18 @@ export function collectionEffectiveDate(
 	return typeof collectedAt === 'string' ? collectedAt.slice(0, 10) : null;
 }
 
-/** Title for a collection: its date as `M/D/YYYY`, or `Pending collection` when unretrieved. */
+/**
+ * Heading for a collection detail page: `August 12, 2026`, or `Pending
+ * collection` when the trap has not been retrieved.
+ *
+ * The long month is the rule every detail page titled by its record's date
+ * follows, which is the inspection page's `formatFullDate`. It read `8/12/2026`
+ * here, and a numeric date at the top of a page is the one place the year has to
+ * be decoded rather than read: `8/12` is August in this product and December in
+ * the parts of the world that write it the other way round.
+ *
+ * The breadcrumb takes the short form instead. See {@link collectionCrumb}.
+ */
 export function collectionTitle(
 	collection: {
 		readonly collectedAt: Date | string | null;
@@ -61,7 +73,25 @@ export function collectionTitle(
 	timeZone: string,
 ): string {
 	const date = collectionEffectiveDate(collection, timeZone);
-	return date === null ? 'Pending collection' : formatNumericDate(date);
+	return date === null ? 'Pending collection' : formatFullDate(date);
+}
+
+/**
+ * The same collection in the breadcrumb trail: `Collection · Aug 12, 2026`.
+ *
+ * A trail is read across rather than down, so it takes the short month the
+ * inspection and sample trails take, and it names the record type because a
+ * bare date in a chain of links says nothing about what it leads to.
+ */
+export function collectionCrumb(
+	collection: {
+		readonly collectedAt: Date | string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string {
+	const date = collectionEffectiveDate(collection, timeZone);
+	return date === null ? 'Pending collection' : `Collection · ${formatMonthDayYear(date)}`;
 }
 
 /**

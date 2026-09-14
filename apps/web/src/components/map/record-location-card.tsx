@@ -327,7 +327,15 @@ function unionBounds(
 	return bounds;
 }
 
-/** `Polygon · 12 vertices` — the stored type, not an assumed point. */
+/**
+ * `Polygon · 12 vertices` — the stored type, not an assumed point.
+ *
+ * A one-vertex shape reads out its coordinates instead, because "1 vertex" is
+ * the same sentence for every point on the product and says nothing about this
+ * one. The detail pages used to carry a Coordinates row beside this map saying
+ * exactly what the map already drew, and those rows are gone, so this line is
+ * where the numbers live now.
+ */
 function geometrySummary(
 	geojson: GeoJsonGeometry | null,
 	geomType: string | null,
@@ -345,5 +353,11 @@ function geometrySummary(
 	}
 	const label = formatGeometryTypeLabel(geomType ?? geojson.type);
 	const vertices = countGeoJsonVertices(geojson);
+	if (vertices === 1) {
+		const centroid = centroidFromGeoJson(geojson);
+		if (centroid !== null) {
+			return `${label} · ${centroid.lat.toFixed(5)}, ${centroid.lng.toFixed(5)}`;
+		}
+	}
 	return `${label} · ${vertices} ${vertices === 1 ? 'vertex' : 'vertices'}`;
 }

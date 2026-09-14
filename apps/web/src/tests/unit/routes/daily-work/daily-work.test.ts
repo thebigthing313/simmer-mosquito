@@ -3,6 +3,7 @@ import { ActivityRequestError, activityPanelState } from '../../../../routes/-ac
 import {
 	DAILY_WORK_COPY,
 	dailyWorkDay,
+	dailyWorkStep,
 	dailyWorkWindow,
 	isProfileId,
 } from '../../../../routes/daily-work/-daily-work';
@@ -28,6 +29,38 @@ describe('dailyWorkDay', () => {
 
 	it('treats today itself as selectable', () => {
 		expect(dailyWorkDay('2026-09-04', '2026-09-04')).toBe('2026-09-04');
+	});
+});
+
+describe('dailyWorkStep', () => {
+	it('walks back a day', () => {
+		expect(dailyWorkStep('2026-09-04', -1, '2026-09-10')).toBe('2026-09-03');
+	});
+
+	it('walks forward a day', () => {
+		expect(dailyWorkStep('2026-09-04', 1, '2026-09-10')).toBe('2026-09-05');
+	});
+
+	// The forward arrow is disabled at today, so this is the hand-edited URL and
+	// the double press. Either way the page stays on a day that can hold work.
+	it('stops going forward at today', () => {
+		expect(dailyWorkStep('2026-09-10', 1, '2026-09-10')).toBe('2026-09-10');
+	});
+
+	// The step is calendar arithmetic, not a subtraction of milliseconds, so the
+	// two boundaries a zone offset would move are the ones worth stating.
+	it('crosses a month boundary', () => {
+		expect(dailyWorkStep('2026-09-01', -1, '2026-09-10')).toBe('2026-08-31');
+	});
+
+	it('crosses a year boundary', () => {
+		expect(dailyWorkStep('2026-01-01', -1, '2026-09-10')).toBe('2025-12-31');
+	});
+
+	// Backward has no floor: a Profile's field work goes back as far as the
+	// organization's records do.
+	it('keeps going back past any bound but the calendar', () => {
+		expect(dailyWorkStep('2019-03-01', -1, '2026-09-10')).toBe('2019-02-28');
 	});
 });
 
