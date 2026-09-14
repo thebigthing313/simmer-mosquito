@@ -23,6 +23,7 @@ import { useContactMutations } from '../../../hooks/mutations/use-contact-mutati
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
 import { useContactServiceRequests } from '../../../hooks/queries/use-contact-service-requests';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	contactDisplayName,
 	formatRequestDate,
@@ -159,7 +160,7 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
-				<CardTitle>Service Requests</CardTitle>
+				<CardTitle>{recordNoun('serviceRequest').titleMany}</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
 				<PanelRows

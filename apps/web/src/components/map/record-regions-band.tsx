@@ -131,7 +131,7 @@ function BandShell({ children }: { readonly children: React.ReactNode }) {
 			<CardContent className="grid gap-3" padding="compact">
 				<p className="m-0 flex items-center gap-2 text-sm font-medium">
 					<RegionIcon aria-hidden="true" className="size-3.5" />
-					Regions
+					{recordNoun('region').titleMany}
 				</p>
 				{children}
 			</CardContent>

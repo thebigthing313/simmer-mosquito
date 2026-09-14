@@ -203,7 +203,7 @@ function TrapCollectionsCard({ trapId }: { readonly trapId: string }) {
 						<TabStrip>
 							<TabStripTab value="collections">
 								<CollectionIcon aria-hidden="true" />
-								Collections
+								{recordNoun('collection').titleMany}
 							</TabStripTab>
 							<TabStripTab value="species">
 								<SpeciesIcon aria-hidden="true" />
