@@ -1,4 +1,5 @@
 import type { CorpusTable } from '@simmer-mosquito/domain';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
 /**
  * The two create routes a palette action can open on a record, and the search
@@ -13,20 +14,23 @@ import type { CorpusTable } from '@simmer-mosquito/domain';
  * `trapId` for the trap detail page's collection history, and both flow through
  * their form's `seededDefaults`.
  *
- * The noun rides along because the step's copy names the record being picked,
- * and a second map from table to noun would be a second thing to keep in step.
+ * The record type rides along because the step's copy names the record being
+ * picked, and a second map from table to record type would be a second thing to
+ * keep in step. It is the record type and not the word: `RECORD_NOUNS` in
+ * `lib/record-nouns.ts` says what a record is called and this entry says which
+ * record it is, so the palette and every other surface spell it the same way.
  */
 const SEED_PARAMS = {
-	habitats: { param: 'habitatId', noun: 'habitat' },
-	traps: { param: 'trapId', noun: 'trap' },
-} as const satisfies Partial<Record<CorpusTable, { param: string; noun: string }>>;
+	habitats: { param: 'habitatId', recordType: 'habitat' },
+	traps: { param: 'trapId', recordType: 'trap' },
+} as const satisfies Partial<Record<CorpusTable, { param: string; recordType: RecordType }>>;
 
 /** A corpus table a create form can open on. */
 export type SeedableTable = keyof typeof SEED_PARAMS;
 
 /** The word the pick step calls the record it is asking for. */
 export function seedNoun(table: SeedableTable): string {
-	return SEED_PARAMS[table].noun;
+	return recordNoun(SEED_PARAMS[table].recordType).one;
 }
 
 /**

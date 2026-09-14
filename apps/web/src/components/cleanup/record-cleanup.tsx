@@ -111,7 +111,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 	return (
 		<div className={pageContainer({ gap: 'detail' })}>
 			<PageHeader
-				description={`Two records for one ${config.noun.one} split its history in half. This proposes the sets that look like duplicates and folds them into whichever one you keep.`}
+				description={`Two records for one ${recordNoun(recordType).one} split its history in half. This proposes the sets that look like duplicates and folds them into whichever one you keep.`}
 				icon={MergeIcon}
 				title={`Cleanup ${recordNoun(recordType).titleMany}`}
 			/>
@@ -317,8 +317,8 @@ function CleanupEmpty({
 			icon={config.icon}
 			title={
 				isFiltered
-					? `No duplicate ${config.noun.many} of this kind`
-					: `No duplicate ${config.noun.many} found`
+					? `No duplicate ${recordNoun(config.recordType).many} of this kind`
+					: `No duplicate ${recordNoun(config.recordType).many} found`
 			}
 		/>
 	);
