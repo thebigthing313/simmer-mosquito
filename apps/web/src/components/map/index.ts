@@ -1,3 +1,4 @@
+export type { AddressTileFilters } from './address-tiles';
 export type { BiocontrolTileFilters } from './biocontrol-tiles';
 export type { ChemicalTileFilters } from './chemical-tiles';
 export {

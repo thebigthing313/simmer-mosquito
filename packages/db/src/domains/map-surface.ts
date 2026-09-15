@@ -195,9 +195,10 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
 /**
  * The geometry half of a map surface: the tile and the framed extent.
  *
- * Enough on its own for a surface the explorer only draws — addresses and
- * regions are read as rows through their own catalog, not through a display
- * projection. Anything with a result rail wants {@link mapRecordSurface}.
+ * Enough on its own for a surface the explorer only draws — regions are read
+ * as rows through their own catalog, not through a display projection.
+ * Anything with a result rail wants {@link mapRecordSurface}; addresses moved
+ * across when their rail became a page of the viewport (#962).
  */
 export function mapSurface<TFilters>(
 	definition: MapSurfaceDefinition<TFilters>,

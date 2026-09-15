@@ -13,7 +13,7 @@ import type { SimmerDatabase } from '../../../index.js';
 // --- the SQL every map surface emits ----------------------------------------
 //
 // Eleven explorer surfaces each answer the same four questions — the tile, the
-// framed extent, the paged list, the single row — and all forty-one answers come
+// framed extent, the paged list, the single row — and all forty-three answers come
 // out of one factory, reached through the register the surfaces are keyed in.
 // What has to hold across all of them is invisible in any one reader: the
 // organization predicate, the soft-delete predicate, and (for the spatial reads)
@@ -610,6 +610,20 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
+		name: 'address bbox list',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		spatial: true,
+		read: (db) =>
+			MAP_SURFACES.addresses.listByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				...page,
+				filters: { search: 'main st', regionIds },
+			}),
+	},
+	{
 		name: 'address extent',
 		organizationAlias: 'a',
 		geomAlias: 'a',
@@ -620,6 +634,13 @@ const mapReads: ReadonlyArray<{
 				timeZone,
 				filters: { search: 'main st', regionIds },
 			}),
+	},
+	{
+		name: 'address by id',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		spatial: false,
+		read: (db) => MAP_SURFACES.addresses.getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- regions ---

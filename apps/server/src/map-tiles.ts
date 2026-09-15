@@ -5,7 +5,6 @@ import {
 	type CollectionMapFilters,
 	countActiveHabitatsByType,
 	countProfileActivity,
-	getAddressById,
 	getNotificationRegistrationGeometryById,
 	getOrganizationSettingsRaw,
 	getRegionById,
@@ -64,7 +63,7 @@ type TileDb = Kysely<SimmerDatabase>;
  *
  * One object, one spread. A new route adds a line here and a line at its
  * registration, and it is injectable from the moment it exists — which the old
- * shape did not manage: `getRegionById`, `getAddressById` and
+ * shape did not manage: `getRegionById`, the address by-id read and
  * `getRequestedControlActionDisplayRowById` were called directly, so three
  * routes could not be driven without a database at all.
  */
@@ -119,16 +118,18 @@ const defaultMapReaders = {
 	listOutreachDisplayRows: MAP_SURFACES.outreach.listByBounds,
 	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
 
-	// Addresses and regions are drawn from their surface and read as rows through
-	// their own catalog, so their by-id readers are not surface methods.
-	getRegionTile: MAP_SURFACES.regions.getTile,
-	getRegionExtent: MAP_SURFACES.regions.getExtent,
 	getAddressTile: MAP_SURFACES.addresses.getTile,
 	getAddressExtent: MAP_SURFACES.addresses.getExtent,
+	listAddressDisplayRows: MAP_SURFACES.addresses.listByBounds,
+	getAddressDisplayRow: MAP_SURFACES.addresses.getById,
 
-	// The ten readers that are nobody's surface method.
+	// Regions are drawn from their surface and read as rows through their own
+	// catalog, so the by-id reader is not a surface method.
+	getRegionTile: MAP_SURFACES.regions.getTile,
+	getRegionExtent: MAP_SURFACES.regions.getExtent,
+
+	// The nine readers that are nobody's surface method.
 	getRegionRow: getRegionById,
-	getAddressRow: getAddressById,
 	getRequestedControlActionRow: getRequestedControlActionDisplayRowById,
 	getNotificationRegistrationGeometry: getNotificationRegistrationGeometryById,
 	searchHabitatDisplayRows: searchHabitatSites,
@@ -270,9 +271,9 @@ export function registerMapTileRoutes(
 		get: readers.getHabitatDisplayRow,
 	});
 
-	// Region + address geometry is deliberately excluded from the Electric sync
-	// shapes (the on-demand rows carry no geometry), so detail views read the
-	// polygon/point over HTTP the same way habitats do.
+	// Region geometry is deliberately excluded from the Electric sync shape (the
+	// on-demand rows carry no geometry), so detail views read the polygon over
+	// HTTP the same way habitats do.
 	registerByIdRoute(app, options, {
 		path: '/map/regions/:id',
 		key: 'region',
@@ -281,12 +282,23 @@ export function registerMapTileRoutes(
 		toResponse: (row) => ({ ...row.geometry }),
 	});
 
+	// The address book's rail is a page of the viewport, the way the nine paged
+	// explorers' are (#962). The by-id read answers the same display row, which
+	// carries the geometry the sync shape omits at its top level, so the detail
+	// page's geometry read still finds `lat`, `lng` and `geojson` where it did.
+	registerPagedRoute(app, options, {
+		path: '/map/addresses',
+		key: 'addresses',
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseAddressTileFilters),
+		list: readers.listAddressDisplayRows,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/addresses/:id',
 		key: 'address',
 		noun: 'Address',
-		get: readers.getAddressRow,
-		toResponse: (row) => ({ ...row.geometry }),
+		get: readers.getAddressDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -647,13 +659,13 @@ function registerByIdRoute<TRow>(
 				 * The organization's zone, on every by-id read for the reason
 				 * `PageInput` carries one: the map surfaces share an input shape, and
 				 * which of them reads a zone is a fact about the schema rather than
-				 * about this file. The four readers here that are not surface methods
+				 * about this file. The three readers here that are not surface methods
 				 * ignore it.
 				 */
 				readonly timeZone: string;
 			},
 		) => Promise<TRow | undefined>;
-		/** For the two routes that answer geometry rather than the row. */
+		/** For the region route, which answers geometry rather than the row. */
 		readonly toResponse?: (row: TRow) => unknown;
 	},
 ): void {

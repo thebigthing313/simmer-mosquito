@@ -3,7 +3,13 @@ import { type RawBuilder, sql } from 'kysely';
 import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js';
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
-import { type MapSurfaceReaders, mapSurface } from './map-surface.js';
+import {
+	type MapDisplayColumns,
+	type MapRecordSurfaceReaders,
+	type MapSurfaceReaders,
+	mapRecordSurface,
+	mapSurface,
+} from './map-surface.js';
 import { geojsonToGeom, type SelectedRow } from './org-owned-writes.js';
 import { checkedValues } from './write-references.js';
 
@@ -75,7 +81,7 @@ export const addressColumns = [
 /**
  * What an address write answers with: the columns it returned, under their own
  * names. `SafeAddress` above is the camelCase reading of the same list, and only
- * the operator console's list and the `/map/*` lookup still read it.
+ * the operator console's list still reads it.
  */
 export type AddressRow = SelectedRow<'addresses', typeof addressColumns>;
 
@@ -165,18 +171,11 @@ export async function listAddresses(
 	return rows.map(toSafeAddress);
 }
 
-export async function getAddressById(
-	db: DbExecutor,
-	input: { readonly id: string; readonly organizationId: string },
-): Promise<SafeAddress | undefined> {
-	const row = await getAddressRowById(db, input);
-	return row === undefined ? undefined : toSafeAddress(row);
-}
-
 /**
- * The same read, unmapped. `foundation.mergeAddresses` answers with the address
- * that survived, and the merge does not write it, so this is the one read on the
- * command path.
+ * One address by id, unmapped. `foundation.mergeAddresses` answers with the
+ * address that survived, and the merge does not write it, so this is the one
+ * read on the command path. The `/map/addresses/:id` route used to read a
+ * camelCase mapping of this; it reads the surface's `getById` below now.
  */
 export async function getAddressRowById(
 	db: DbExecutor,
@@ -279,33 +278,85 @@ export async function deleteAddress(
 }
 
 export interface AddressMvtTileFilters {
-	/** Case-insensitive substring match on the address display name. */
+	/**
+	 * Case-insensitive substring match on the postal address as a whole: display
+	 * name, first street line, locality, region and postal code. The explorer's
+	 * list used to match those five fields in the browser while the tiles matched
+	 * the display name alone, so the map and the rail could disagree on a search
+	 * by postal code; one predicate serves both now (#962).
+	 */
 	readonly search?: string;
 	/** Match addresses falling inside any of these regions. */
 	readonly regionIds?: readonly string[];
 }
 
+/** An address as the explorer rail lists it and the map card opens it. */
+export interface SafeAddressDisplayRow {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly geojson: GeoJsonGeometry;
+	readonly geomType: string;
+	readonly displayName: string;
+	readonly country: string;
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+const addressDisplayColumns: MapDisplayColumns<SafeAddressDisplayRow> = {
+	id: sql`a.id`,
+	organizationId: sql`a.organization_id`,
+	lat: sql`a.lat`,
+	lng: sql`a.lng`,
+	geojson: sql`a.geojson`,
+	geomType: sql`a.geom_type`,
+	displayName: sql`a.display_name`,
+	country: sql`a.country`,
+	addressLine1: sql`a.address_line_1`,
+	addressLine2: sql`a.address_line_2`,
+	locality: sql`a.locality`,
+	region: sql`a.region`,
+	postalCode: sql`a.postal_code`,
+	createdAt: sql`a.created_at`,
+	updatedAt: sql`a.updated_at`,
+};
+
 /**
  * The addresses map surface: address points as a vector tile for the address-book
- * explorer map, and the extent that map frames on load and after a search
- * change. Each feature carries its `id` and `displayName`, so the map can label
- * and select a point without a second round-trip.
+ * explorer map, the extent that map frames on load and after a filter change,
+ * the page of addresses inside the viewport its rail lists, and the one address
+ * its map card opens. Each tile feature carries its `id` and `displayName`, so
+ * the map can label and select a point without a second round-trip.
  *
- * Addresses are drawn, not listed, from here: the address book reads its rows
- * through the catalog above, so this surface is the tile and the framed extent
- * and nothing else.
+ * The rail used to list the whole Organization out of the sync collection,
+ * 9,818 rows in the prod clone, beside a map drawing one viewport, so the two
+ * showed different sets (#962). All four reads share one scope and one filter
+ * predicate now, the way the nine paged explorers' surfaces do.
  *
  * The layer is the argument rather than a literal, because it is the key this
  * surface is registered under in `map-surface-register.ts`.
  */
-export function addressSurface(layer: MapTilesetLayer): MapSurfaceReaders<AddressMvtTileFilters> {
-	return mapSurface<AddressMvtTileFilters>({
+export function addressSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<AddressMvtTileFilters, SafeAddressDisplayRow> {
+	return mapRecordSurface<AddressMvtTileFilters, SafeAddressDisplayRow>({
 		layer,
 		from: sql`addresses a`,
 		alias: 'a',
 		geom: sql`a.geom`,
 		properties: [sql`a.id`, sql`a.display_name as "displayName"`],
 		filterWhere: addressFilterWhere,
+		display: {
+			columns: addressDisplayColumns,
+			// Alphabetical, which is the order the address book always read in.
+			orderBy: sql`a.display_name asc, a.id`,
+		},
 	});
 }
 
@@ -314,8 +365,11 @@ function addressFilterWhere(filters: AddressMvtTileFilters | undefined): RawBuil
 
 	const search = filters?.search?.trim();
 	if (search !== undefined && search.length > 0) {
-		// position()-based match keeps user input literal — no LIKE wildcard escaping.
-		whereClauses.push(sql<boolean>`position(lower(${search}) in lower(a.display_name)) > 0`);
+		// position()-based match keeps user input literal, with no LIKE wildcard
+		// escaping. `concat_ws` drops the null lines rather than nulling the whole.
+		whereClauses.push(
+			sql<boolean>`position(lower(${search}) in lower(concat_ws(' ', a.display_name, a.address_line_1, a.locality, a.region, a.postal_code))) > 0`,
+		);
 	}
 
 	whereClauses.push(
@@ -348,8 +402,8 @@ export interface RegionMvtTileFilters {
  * explorer map, and the extent that map frames as the visible set changes.
  * Polygon-only, since a region is always an area.
  *
- * Like addresses, regions are drawn from here and read as rows through the
- * catalog below, so this surface is the tile and the framed extent only.
+ * Regions are drawn from here and read as rows through the catalog below, so
+ * this surface is the tile and the framed extent only.
  */
 export function regionSurface(layer: MapTilesetLayer): MapSurfaceReaders<RegionMvtTileFilters> {
 	return mapSurface<RegionMvtTileFilters>({

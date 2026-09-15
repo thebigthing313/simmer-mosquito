@@ -22,13 +22,15 @@ export interface RegionMembership {
 const NO_REGIONS: RegionMembership = { contains: () => true, isReady: true };
 
 /**
- * Region membership for explorers that filter their list in the browser.
+ * Region membership for an explorer that filters its list in the browser.
  *
  * Most map surfaces narrow by region server-side, where PostGIS answers it, but
- * the address book and the service-request list are built from rows already
- * synced to the client. Both hold point records, so the same question is
- * answerable here from the region boundaries alone — read over HTTP, since the
- * region sync shape deliberately carries no geometry.
+ * the service-request list is built from rows already synced to the client. It
+ * holds point records, so the same question is answerable here from the region
+ * boundaries alone — read over HTTP, since the region sync shape deliberately
+ * carries no geometry. The address book was the other reader until it paged by
+ * viewport off `/map/addresses` (#962); the service-request conversion is #963,
+ * and this hook goes with it.
  *
  * Boundaries are cached per region and never go stale on their own, so ticking a
  * region off and back on costs nothing.
