@@ -10,26 +10,57 @@
  * the one import, for the anchor `Link` becomes.
  */
 
-import type { ReactNode } from 'react';
+import { type ReactNode, useSyncExternalStore } from 'react';
+
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void): () => void {
+	listeners.add(listener);
+	return () => listeners.delete(listener);
+}
+
+/**
+ * Tell every mounted `useSearch` and `useParams` that what they read has
+ * changed, the way a navigation would.
+ *
+ * A suite that changes the search between renders and re-renders the root is
+ * not enough on its own: the compiled route component hands its page the same
+ * props, React skips the page, and the hook inside it is never called again.
+ * The real router's hooks subscribe to its store, so this stand-in subscribes
+ * to this, and a suite calls it inside `act` after changing what `search` or
+ * `params` answers.
+ */
+export function notifyRouterStandIn(): void {
+	for (const listener of listeners) {
+		listener();
+	}
+}
 
 /**
  * The router, reduced to what a route module needs to mount outside one: the
- * search a match would carry, a navigation that goes nowhere, and a `Link` that
- * is an anchor. `search` is read on every call, so a suite may change it
- * between renders.
+ * search and the path params a match would carry, a navigation that goes
+ * nowhere, and a `Link` that is an anchor. `search` and `params` are read as a
+ * store snapshot, so each must answer the same object until it changes, and a
+ * suite that changes one calls {@link notifyRouterStandIn}. `params` defaults
+ * to none, which is every route under a static path.
  */
 export function routerStandIn<TActual extends object>(
 	actual: TActual,
 	search: () => Record<string, unknown>,
+	params: () => Record<string, string> = () => ({}),
 ): TActual {
+	const useSearch = () => useSyncExternalStore(subscribe, search);
+	const useParams = () => useSyncExternalStore(subscribe, params);
 	return {
 		...actual,
 		createFileRoute: () => (options: Record<string, unknown>) => ({
 			...options,
 			options,
-			useSearch: search,
+			useSearch,
+			useParams,
 		}),
-		useSearch: search,
+		useSearch,
+		useParams,
 		useNavigate: () => async () => undefined,
 		Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,
 	};

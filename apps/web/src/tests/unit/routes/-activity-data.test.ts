@@ -10,13 +10,12 @@ import {
 	activityTags,
 	buildActivityMapData,
 	describeActivityEntry,
-	groupActivityByDay,
+	groupActivityByFamily,
 } from '../../../routes/-activity-data';
 import { DAILY_WORK_COPY } from '../../../routes/daily-work/-daily-work';
 
 // The pure half of one Profile's field work: how a flat, time-ordered array
-// becomes days, families and pins, and which of the non-log states the panel is
-// in. The server answers a data contract and this is what arranges it, so a
+// becomes families and pins, and which of the non-log states the panel is in. The server answers a data contract and this is what arranges it, so a
 // regression here is a supervisor reading the wrong shape of somebody's day
 // rather than an error.
 
@@ -57,34 +56,34 @@ describe('activityEntryKey', () => {
 	});
 });
 
-describe('groupActivityByDay', () => {
-	it('reads as days newest first, each split into families in a fixed order', () => {
-		const groups = groupActivityByDay([
-			entry({ date: '2026-08-05', family: 'larval' }),
-			entry({ date: '2026-08-07', family: 'control', category: 'application', role: 'applied' }),
-			entry({ date: '2026-08-05', family: 'adult', category: 'trap', role: 'created' }),
-			entry({ date: '2026-08-05', family: 'larval' }),
+describe('groupActivityByFamily', () => {
+	it('reads as families in a fixed order, with no day above them', () => {
+		const groups = groupActivityByFamily([
+			entry({ family: 'control', category: 'application', role: 'applied' }),
+			entry({ family: 'larval' }),
+			entry({ family: 'adult', category: 'trap', role: 'created' }),
+			entry({ family: 'larval' }),
 		]);
 
-		expect(groups.map((group) => group.date)).toEqual(['2026-08-07', '2026-08-05']);
-		// Families keep their declared order rather than a per-day order, so a week
-		// of days reads down the same columns.
-		expect(groups[1]?.families.map((family) => family.family)).toEqual(['larval', 'adult']);
-		expect(groups[1]?.families[0]?.entries).toHaveLength(2);
+		// Declared order rather than first-seen order, so every day reads down the
+		// same columns.
+		expect(groups.map((group) => group.family)).toEqual(['larval', 'adult', 'control']);
+		expect(groups[0]?.entries).toHaveLength(2);
+		expect(groups.every((group) => !('date' in group))).toBe(true);
 	});
 
-	it('leaves out families with nothing in them on a given day', () => {
-		const groups = groupActivityByDay([entry({ family: 'publicEngagement' })]);
+	it('leaves out families with nothing in them', () => {
+		const groups = groupActivityByFamily([entry({ family: 'publicEngagement' })]);
 
-		expect(groups[0]?.families).toHaveLength(1);
-		expect(groups[0]?.families[0]?.family).toBe('publicEngagement');
+		expect(groups).toHaveLength(1);
+		expect(groups[0]?.family).toBe('publicEngagement');
 	});
 
 	// Six of the nine categories are dated by a date with no time of day, so
 	// within-day ordering is partial by nature: what is timed sorts, and what is
 	// not keeps the order the server sent rather than being interleaved by guess.
 	it('sorts the timed entries and keeps the undated ones after them', () => {
-		const groups = groupActivityByDay([
+		const groups = groupActivityByFamily([
 			entry({ id: 'undated-first', occurredAt: null }),
 			entry({ id: 'late', occurredAt: '2026-08-05T15:00:00Z' }),
 			entry({ id: 'undated-second', occurredAt: null }),
@@ -99,8 +98,21 @@ describe('groupActivityByDay', () => {
 		]);
 	});
 
+	// The page sends one day as both ends of the window, so this never arrives.
+	// If it did, the two days would read as one: the grouping carries no date,
+	// so a page reading a range owes its own day level rather than this.
+	it('folds two days into one set of families, which is why a caller sends one', () => {
+		const groups = groupActivityByFamily([
+			entry({ id: 'monday', date: '2026-08-03' }),
+			entry({ id: 'tuesday', date: '2026-08-04' }),
+		]);
+
+		expect(groups).toHaveLength(1);
+		expect(groups[0]?.entries.map((item) => item.id)).toEqual(['monday', 'tuesday']);
+	});
+
 	it('answers nothing for an empty log', () => {
-		expect(groupActivityByDay([])).toEqual([]);
+		expect(groupActivityByFamily([])).toEqual([]);
 	});
 });
 
