@@ -128,8 +128,11 @@ function isRefitOwed(map: MapboxMap, url: string | null, bounds: BoundingBox): b
  * leaves open runs the safe way, a fit that was not needed rather than a set
  * left off screen: an extent whose records straddle the line arrives from
  * `ST_Extent` as a box spanning the long way round, and is never in view. It
- * does not touch the `bbox` the rail sends, which is #933's clamp and stays as
- * it is.
+ * does not share `normalizeBounds` in `explorer/use-map-bounds.ts`, which reads
+ * the same unwrapped camera and answers a different question: that one sends
+ * the whole world for a view across the line, because the endpoint takes one
+ * box, and a whole-world view here would hold every extent and skip a fit that
+ * was owed (#933).
  */
 function isInView(map: MapboxMap, extent: BoundingBox): boolean {
 	const view = map.getBounds();
