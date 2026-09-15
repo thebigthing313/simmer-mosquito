@@ -139,7 +139,15 @@ function ApplicationsExplorerRoute() {
 		...whenText('dateFrom', dateFrom),
 		...whenText('dateTo', dateTo),
 	};
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'chemical',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<ApplicationSite>({
 			path: PATH,
 			rowsKey: 'applications',
@@ -153,21 +161,13 @@ function ApplicationsExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
+			layer,
 			map,
 			selectedId,
 			normalizeRow: normalizeApplication,
 		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'chemical',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	const clearAll = reset;
 
@@ -285,9 +285,7 @@ function ApplicationsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No chemical applications in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring treatments into range.',
+				empty,
 				renderRow: (row) => (
 					<ApplicationListItem
 						amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}

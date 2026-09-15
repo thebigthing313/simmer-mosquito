@@ -21,6 +21,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MapQueryValue } from '../../../../components/explorer/use-paged-map-resource';
+import type { MapTileLayer } from '../../../../components/map/tile-layers';
 import type { RecordType } from '../../../../lib/record-nouns';
 import { cleanupRenderedHooks, createFakeMap } from '../map/fake-map';
 
@@ -37,7 +38,9 @@ let failing: (url: URL) => boolean = () => false;
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-	sessionFetch: (url: URL) => {
+	// The page fetch passes a `URL` and the extent fetch a string; both count.
+	sessionFetch: (input: URL | string) => {
+		const url = input instanceof URL ? input : new URL(input);
 		sent.push(url);
 		const ok = !failing(url);
 		return Promise.resolve({
@@ -51,6 +54,17 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 const { useExplorerResource } = await import(
 	'../../../../components/explorer/use-explorer-resource'
 );
+const { tileLayerExtentUrl } = await import('../../../../components/map/tile-layers');
+const { useMapExtent } = await import('../../../../components/map/use-map-extent-fit');
+
+/**
+ * The tile layer each route hands the hook beside its params: the same entry
+ * `MapCanvas` frames, whose extent URL is what the empty state reads. Bare, so
+ * the extent request carries no filter and the case that wants one says so.
+ */
+function bareLayer(kind: MapTileLayer['kind']): MapTileLayer {
+	return { kind, serverUrl: 'http://api.test' } as MapTileLayer;
+}
 
 interface Site {
 	readonly id: string;
@@ -77,8 +91,25 @@ afterEach(() => {
 
 const ids = (prefix: string) => [`${prefix}-1`, `${prefix}-2`];
 
-/** How many of the requests so far were the page, and how many were a record by id. */
-function requestCounts(path: string): { readonly page: number; readonly byId: number } {
+/** The page requests so far, which is what every query-string case reads. */
+function pageRequests(path: string): readonly URL[] {
+	return sent.filter((url) => url.pathname === path);
+}
+
+/** The extent requests so far. A tileset's extent path is under `/map/tiles/`. */
+function extentRequests(): readonly URL[] {
+	return sent.filter((url) => url.pathname.endsWith('/extent'));
+}
+
+/**
+ * How many of the requests so far were the page, how many a record by id, and
+ * how many the extent the rail reads its empty state off.
+ */
+function requestCounts(path: string): {
+	readonly page: number;
+	readonly byId: number;
+	readonly extent: number;
+} {
 	let page = 0;
 	let byId = 0;
 	for (const url of sent) {
@@ -88,7 +119,7 @@ function requestCounts(path: string): { readonly page: number; readonly byId: nu
 			byId += 1;
 		}
 	}
-	return { page, byId };
+	return { page, byId, extent: extentRequests().length };
 }
 
 /** A page answer a case releases by hand, so it can look at what went out beside it. */
@@ -112,11 +143,14 @@ interface SurfaceCase {
 	readonly recordType: RecordType;
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	readonly search: string;
+	/** The tileset the route draws, whose extent the empty state reads. */
+	readonly kind: MapTileLayer['kind'];
 }
 
 const SURFACES: readonly SurfaceCase[] = [
 	{
 		name: 'habitats',
+		kind: 'habitats',
 		path: '/map/habitats',
 		rowsKey: 'habitats',
 		rowKey: 'habitat',
@@ -134,6 +168,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'inspections',
+		kind: 'inspections',
 		path: '/map/inspections',
 		rowsKey: 'inspections',
 		rowKey: 'inspection',
@@ -153,6 +188,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'samples',
+		kind: 'samples',
 		path: '/map/samples',
 		rowsKey: 'samples',
 		rowKey: 'sample',
@@ -170,6 +206,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'collections',
+		kind: 'collections',
 		path: '/map/collections',
 		rowsKey: 'collections',
 		rowKey: 'collection',
@@ -186,6 +223,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'traps',
+		kind: 'traps',
 		path: '/map/traps',
 		rowsKey: 'traps',
 		rowKey: 'trap',
@@ -201,6 +239,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'biocontrol',
+		kind: 'biocontrol',
 		path: '/map/biocontrol',
 		rowsKey: 'biocontrolActions',
 		rowKey: 'biocontrolAction',
@@ -218,6 +257,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'chemical',
+		kind: 'chemical',
 		path: '/map/chemical',
 		rowsKey: 'applications',
 		rowKey: 'application',
@@ -235,6 +275,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'source reduction',
+		kind: 'source-reduction',
 		path: '/map/source-reduction',
 		rowsKey: 'sourceReductions',
 		rowKey: 'sourceReduction',
@@ -251,6 +292,7 @@ const SURFACES: readonly SurfaceCase[] = [
 	},
 	{
 		name: 'outreach',
+		kind: 'outreach',
 		path: '/map/outreach',
 		rowsKey: 'outreachActions',
 		rowKey: 'outreachAction',
@@ -281,15 +323,15 @@ describe('useExplorerResource: what each surface sends', () => {
 						rowKey: surface.rowKey,
 						recordType: surface.recordType,
 						params: surface.params,
+						layer: bareLayer(surface.kind),
 						map: fake.map,
 						selectedId: null,
 					}),
 				{ wrapper },
 			);
 
-			await waitFor(() => expect(sent).toHaveLength(1));
-			expect(sent[0]?.pathname).toBe(surface.path);
-			expect(sent[0]?.search).toBe(surface.search);
+			await waitFor(() => expect(pageRequests(surface.path)).toHaveLength(1));
+			expect(pageRequests(surface.path)[0]?.search).toBe(surface.search);
 		});
 	}
 
@@ -320,20 +362,23 @@ describe('useExplorerResource: the viewport', () => {
 					rowKey: 'row',
 					recordType: 'habitat',
 					params: { search: 'pond' },
+					layer: bareLayer('habitats'),
 					map,
 					selectedId: null,
 				}),
 			{ wrapper, initialProps: noMapYet },
 		);
 
-		// No box yet, so no request. A first page against the whole Organization
-		// is the answer this surface must never give.
-		await waitFor(() => expect(sent).toHaveLength(0));
+		// No box yet, so no page. A first page against the whole Organization is
+		// the answer this surface must never give. The extent is not bounded and
+		// goes out now, as it did from the map before the rail read it (#958).
+		await waitFor(() => expect(extentRequests()).toHaveLength(1));
+		expect(pageRequests('/map/habitats')).toHaveLength(0);
 
 		rerender({ map: fake.map });
 
-		await waitFor(() => expect(sent).toHaveLength(1));
-		expect(sent[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+		await waitFor(() => expect(pageRequests('/map/habitats')).toHaveLength(1));
+		expect(pageRequests('/map/habitats')[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
 	});
 
 	it('listens to the camera on the surfaces that used to page without one', async () => {
@@ -348,6 +393,7 @@ describe('useExplorerResource: the viewport', () => {
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: { technician: ['p-1'] },
+					layer: bareLayer('outreach'),
 					map: fake.map,
 					selectedId: null,
 				}),
@@ -357,8 +403,8 @@ describe('useExplorerResource: the viewport', () => {
 		// One listener, and one request carrying what it read. Outreach put no
 		// listener on the camera at all until its server reader landed (#920).
 		expect(fake.listenerCount('moveend')).toBe(1);
-		await waitFor(() => expect(sent).toHaveLength(1));
-		expect(sent[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
+		await waitFor(() => expect(pageRequests('/map/outreach')).toHaveLength(1));
+		expect(pageRequests('/map/outreach')[0]?.searchParams.get('bbox')).toBe('0,-0.8,1,0');
 	});
 });
 
@@ -384,6 +430,7 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
+					layer: bareLayer('outreach'),
 					map: fake.map,
 					selectedId: 'row-1',
 				}),
@@ -411,6 +458,7 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
+					layer: bareLayer('outreach'),
 					map: fake.map,
 					selectedId: 'row-1',
 				}),
@@ -420,7 +468,7 @@ describe('useExplorerResource: the selected record', () => {
 		await waitFor(() => expect(result.current.selected).toEqual(onPage));
 		// Settled, so anything the hook was going to send has been sent.
 		await waitFor(() => expect(result.current.isSettled).toBe(true));
-		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 0 });
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 0, extent: 1 });
 	});
 
 	it('asks for a row the page does not hold once the page has answered', async () => {
@@ -439,6 +487,7 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
+					layer: bareLayer('outreach'),
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -447,14 +496,16 @@ describe('useExplorerResource: the selected record', () => {
 
 		// The page is still open, and nothing has gone out beside it.
 		await waitFor(() => expect(requestCounts('/map/outreach').page).toBe(1));
-		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 0 });
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 0, extent: 1 });
 		expect(result.current.selected).toBeNull();
 
 		page.resolve({ rows: [{ id: 'row-1', lat: 1, lng: 2 }], total: 1 });
 
 		await waitFor(() => expect(result.current.selected?.id).toBe('off-page'));
-		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1 });
-		expect(sent.map((url) => url.pathname)).toEqual(['/map/outreach', '/map/outreach/off-page']);
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1, extent: 1 });
+		expect(
+			sent.map((url) => url.pathname).filter((pathname) => pathname.startsWith('/map/outreach')),
+		).toEqual(['/map/outreach', '/map/outreach/off-page']);
 	});
 
 	// A page with no rows is an answer, and it does not hold the selection. The
@@ -475,6 +526,7 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
+					layer: bareLayer('outreach'),
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -483,12 +535,12 @@ describe('useExplorerResource: the selected record', () => {
 
 		await waitFor(() => expect(result.current.selected?.id).toBe('off-page'));
 		expect(result.current.rows).toHaveLength(0);
-		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1 });
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1, extent: 1 });
 	});
 
 	// An error settles the page too. The rail can draw when the list cannot.
 	it('asks for the row when the page request failed', async () => {
-		failing = (url) => !url.pathname.endsWith('/off-page');
+		failing = (url) => url.pathname === '/map/outreach';
 		answer = () => ({ row: { id: 'off-page', lat: 10, lng: 20 } });
 		const fake = createFakeMap();
 
@@ -500,6 +552,7 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
+					layer: bareLayer('outreach'),
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -508,7 +561,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		await waitFor(() => expect(result.current.isError).toBe(true));
 		await waitFor(() => expect(result.current.selected?.id).toBe('off-page'));
-		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1 });
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1, extent: 1 });
 	});
 
 	it('fetches a selection the page does not hold, and flies to it', async () => {
@@ -526,6 +579,7 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					recordType: 'outreachAction',
 					params: {},
+					layer: bareLayer('outreach'),
 					map: fake.map,
 					selectedId: 'off-page',
 				}),
@@ -552,6 +606,7 @@ describe('useExplorerResource: the selected record', () => {
 					rowKey: 'row',
 					recordType: 'application',
 					params: {},
+					layer: bareLayer('chemical'),
 					map: fake.map,
 					selectedId: 'off-page',
 					// What a deployed server that predates the column leaves out.
@@ -563,5 +618,132 @@ describe('useExplorerResource: the selected record', () => {
 		await waitFor(() => expect(result.current.rows).toHaveLength(1));
 		expect(result.current.rows[0]?.quantity).toBe(0);
 		await waitFor(() => expect(result.current.selected?.quantity).toBe(0));
+	});
+});
+
+describe('useExplorerResource: why the rail is empty', () => {
+	/*
+	 * The extent the map fetches to frame its data is what settles the empty
+	 * state: a box means matches exist somewhere and the viewport is what to
+	 * change, null means nothing matched anywhere, and then the extent URL's own
+	 * query string says whether a filter did it (#958). None of it is a second
+	 * request, which the first case counts.
+	 */
+	const BOX = { west: -1, south: -1, east: 1, north: 1 };
+
+	function withExtent(extent: unknown, rows: readonly Site[] = []) {
+		answer = (url) =>
+			url.pathname.endsWith('/extent') ? { extent } : { rows, total: rows.length };
+	}
+
+	/** The layer a first-run habitats route draws: nothing narrowed. */
+	const UNFILTERED: MapTileLayer = bareLayer('habitats');
+	/** The same layer with a search term, so the extent request carries a filter. */
+	const FILTERED: MapTileLayer = {
+		kind: 'habitats',
+		serverUrl: 'http://api.test',
+		filters: { search: 'pond' },
+	};
+
+	function renderRail(layer: MapTileLayer, map: MapboxMap) {
+		return renderHook(
+			() => ({
+				rail: useExplorerResource<Site>({
+					path: '/map/habitats',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'habitat',
+					params: {},
+					layer,
+					map,
+					selectedId: null,
+				}),
+				// What `MapCanvas` runs under `fitToData`: the same extent, observed a
+				// second time. One request between the two is the whole point.
+				fit: useMapExtent(tileLayerExtentUrl(layer)),
+			}),
+			{ wrapper },
+		);
+	}
+
+	it('spends one extent and one page on a first-run surface, with the map framing the same extent', async () => {
+		withExtent(null);
+		const fake = createFakeMap();
+
+		const { result } = renderRail(UNFILTERED, fake.map);
+
+		await waitFor(() => expect(result.current.rail.empty.reason).toBe('none'));
+		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
+		expect(result.current.fit.isSettled).toBe(true);
+		expect(requestCounts('/map/habitats')).toEqual({ page: 1, byId: 0, extent: 1 });
+		// The extent asks for the whole filtered set, never the viewport.
+		expect(extentRequests()[0]?.pathname).toBe('/map/tiles/habitats/extent');
+		expect(extentRequests()[0]?.search).toBe('');
+	});
+
+	it('reads an empty page under a framed extent as the viewport', async () => {
+		withExtent(BOX);
+		const fake = createFakeMap();
+
+		const { result } = renderRail(UNFILTERED, fake.map);
+
+		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
+		expect(result.current.rail.rows).toHaveLength(0);
+		expect(result.current.rail.empty).toEqual({ recordType: 'habitat', reason: 'viewport' });
+		expect(result.current.rail.isLoading).toBe(false);
+	});
+
+	it('reads a null extent under a filter as nothing matching the filters', async () => {
+		withExtent(null);
+		const fake = createFakeMap();
+
+		const { result } = renderRail(FILTERED, fake.map);
+
+		await waitFor(() => expect(result.current.rail.empty.reason).toBe('filters'));
+		expect(extentRequests()[0]?.search).toBe('?search=pond');
+		expect(requestCounts('/map/habitats')).toEqual({ page: 1, byId: 0, extent: 1 });
+	});
+
+	it('reads a null extent with no filter as the Organization having none yet', async () => {
+		withExtent(null);
+		const fake = createFakeMap();
+
+		const { result } = renderRail(UNFILTERED, fake.map);
+
+		await waitFor(() => expect(result.current.rail.empty.reason).toBe('none'));
+		expect(result.current.rail.isLoading).toBe(false);
+	});
+
+	// The rail cannot say which of the three it is until the extent has answered,
+	// so it reports loading and the placeholders stay up.
+	it('reports loading, and no reason, while the extent is in flight', async () => {
+		const extent = deferred<{ extent: null }>();
+		answer = (url) => (url.pathname.endsWith('/extent') ? extent.promise : { rows: [], total: 0 });
+		const fake = createFakeMap();
+
+		const { result } = renderRail(UNFILTERED, fake.map);
+
+		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
+		expect(result.current.rail.isLoading).toBe(true);
+		expect(result.current.rail.empty.reason).toBeNull();
+
+		extent.resolve({ extent: null });
+
+		await waitFor(() => expect(result.current.rail.empty.reason).toBe('none'));
+		expect(result.current.rail.isLoading).toBe(false);
+	});
+
+	// A failed extent settles nothing about the set, so the rail says what it
+	// said before it could tell: pan or zoom.
+	it('falls back to the viewport copy when the extent request fails', async () => {
+		failing = (url) => url.pathname.endsWith('/extent');
+		answer = () => ({ rows: [], total: 0 });
+		const fake = createFakeMap();
+
+		const { result } = renderRail(UNFILTERED, fake.map);
+
+		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
+		await waitFor(() => expect(result.current.rail.isLoading).toBe(false));
+		expect(result.current.rail.empty.reason).toBe('viewport');
 	});
 });

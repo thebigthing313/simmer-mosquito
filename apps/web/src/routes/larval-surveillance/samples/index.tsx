@@ -165,7 +165,15 @@ function SamplesExplorerRoute() {
 		...whenText('dateTo', dateTo),
 	};
 
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'samples',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<SampleFeature>({
 			path: PATH,
 			rowsKey: 'samples',
@@ -179,20 +187,12 @@ function SamplesExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
+			layer,
 			map,
 			selectedId,
 		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'samples',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
 	const legend = sampleLegend(status);
@@ -289,9 +289,7 @@ function SamplesExplorerRoute() {
 				isError,
 				onRetry: retry,
 				skeletonClassName: 'h-[64px]',
-				emptyTitle: 'No samples in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range.',
+				empty,
 				renderRow: (sample) => (
 					<SampleListItem
 						isSelected={sample.id === selectedId}

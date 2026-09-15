@@ -126,7 +126,15 @@ function OutreachExplorerRoute() {
 		...whenText('dateFrom', dateFrom),
 		...whenText('dateTo', dateTo),
 	};
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'outreach',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<OutreachSite>({
 			path: PATH,
 			rowsKey: 'outreachActions',
@@ -139,20 +147,12 @@ function OutreachExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
+			layer,
 			map,
 			selectedId,
 		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'outreach',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	return (
 		<ExplorerMapPage
@@ -256,9 +256,7 @@ function OutreachExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No outreach in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring outreach actions into range.',
+				empty,
 				renderRow: (row) => (
 					<OutreachListItem
 						isSelected={row.id === selectedId}
