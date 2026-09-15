@@ -126,7 +126,7 @@ export function inspectionSiteLabel(row: LarvalActivityRow, address?: LinkedAddr
 	return (
 		row.habitatName?.trim() ||
 		addressCardLabel(linked)?.trim() ||
-		adhocLabel(row.latitude, row.longitude)
+		adhocLabel(row.latitude, row.longitude, 'Ad-hoc inspection')
 	);
 }
 

@@ -62,7 +62,7 @@ export function InspectionMapCard({
 	const siteLabel =
 		inspection.habitatName ??
 		addressCardLabel(resolveLinkedAddress(inspection.address)) ??
-		adhocLabel(inspection.latitude, inspection.longitude);
+		adhocLabel(inspection.latitude, inspection.longitude, 'Ad-hoc inspection');
 	const typeName =
 		inspection.habitatTypeId === null ? 'Unassigned type' : (inspection.typeName ?? 'Unknown type');
 

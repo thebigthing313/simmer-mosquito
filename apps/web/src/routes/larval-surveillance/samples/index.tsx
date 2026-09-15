@@ -572,7 +572,9 @@ function SampleContext({ sample }: { readonly sample: SampleFeature }) {
 	return (
 		<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
 			{sample.habitatId === null ? (
-				<span className="truncate tabular-nums">{adhocLabel(sample.lat, sample.lng)}</span>
+				<span className="truncate tabular-nums">
+					{adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')}
+				</span>
 			) : (
 				<Link
 					className="pointer-events-auto relative z-10 truncate rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

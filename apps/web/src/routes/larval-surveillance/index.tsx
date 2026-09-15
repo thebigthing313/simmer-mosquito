@@ -301,7 +301,9 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 								</Link>
 								<span className="truncate text-muted-foreground text-xs tabular-nums">
 									{sample.habitatName ??
-										(sample.habitatId === null ? adhocLabel(sample.lat, sample.lng) : 'Habitat')}
+										(sample.habitatId === null
+											? adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')
+											: 'Habitat')}
 								</span>
 							</div>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
