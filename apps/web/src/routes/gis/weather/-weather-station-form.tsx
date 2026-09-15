@@ -46,7 +46,6 @@ export interface WeatherStationFormPageProps {
 	/** The station's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
 	readonly header: WeatherStationFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: WeatherStationFormValues;
 		readonly geometry: DrawGeometry | null;
@@ -89,7 +88,6 @@ export function WeatherStationFormPage({
 	defaultValues,
 	initialGeometry = null,
 	header,
-	submitLabel,
 	onSave,
 }: WeatherStationFormPageProps) {
 	const location = useDrawLocation({
@@ -135,7 +133,7 @@ export function WeatherStationFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

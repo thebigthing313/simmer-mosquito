@@ -163,7 +163,6 @@ export interface InspectionFormPageProps {
 	 */
 	readonly mode: 'create' | 'edit';
 	readonly header: InspectionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: InspectionFormValues;
 		readonly adhocGeometry: DrawGeometry | null;
@@ -269,7 +268,6 @@ export function InspectionFormPage({
 	initialPreviewGeometry = null,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: InspectionFormPageProps) {
 	const timeZone = useOrganizationTimeZone();
@@ -383,7 +381,7 @@ export function InspectionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

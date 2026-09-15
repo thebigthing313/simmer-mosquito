@@ -190,7 +190,6 @@ function EditOutreachActionLoader({
 			outreachMethods={outreachMethods}
 			profiles={profiles}
 			requireLocation={false}
-			submitLabel="Save changes"
 		/>
 	);
 }

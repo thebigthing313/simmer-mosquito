@@ -27,6 +27,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -247,7 +248,7 @@ function ServiceRequestsExplorerRoute() {
 				isLoading,
 				create: {
 					to: '/public-engagement/service-requests/create',
-					label: 'New Service Request',
+					label: createLabel('serviceRequest'),
 					minimum: 'manager',
 				},
 			}}

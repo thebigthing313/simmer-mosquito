@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
@@ -64,14 +65,13 @@ function CreateMissionRoute() {
 			errorTitle="Unable to Create Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{
-				title: 'New Mission',
+				title: createLabel('mission'),
 				description:
 					'Schedule the work and say what kind. Stops are added to the mission afterwards.',
 				backTo: '/operations/missions',
 				backLabel: recordNoun('mission').titleMany,
 			}}
 			onSave={onSave}
-			submitLabel="Create Mission"
 			validate={validateMissionPlan}
 		/>
 	);

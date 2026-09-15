@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -226,7 +227,7 @@ function OutreachExplorerRoute() {
 				icon: OutreachEntityIcon,
 				total,
 				isLoading,
-				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach Action' },
+				create: { to: '/public-engagement/outreach/create', label: createLabel('outreachAction') },
 			}}
 			onResetFilters={reset}
 			map={

@@ -191,7 +191,6 @@ function EditSourceReductionLoader({
 			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
-			submitLabel="Save changes"
 			units={units}
 		/>
 	);

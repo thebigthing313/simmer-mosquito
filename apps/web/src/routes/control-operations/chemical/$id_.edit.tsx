@@ -258,7 +258,6 @@ function EditApplicationLoader({
 				organizationId={organizationId}
 				profiles={profiles}
 				requireLocation={false}
-				submitLabel="Save Changes"
 				units={units}
 				vehicles={vehicles}
 			/>

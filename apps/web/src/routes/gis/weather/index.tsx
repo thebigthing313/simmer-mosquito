@@ -4,6 +4,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -109,7 +110,11 @@ function WeatherStationsRoute() {
 				total: stations.length,
 				isLoading: false,
 				counts: RECORD_TYPE,
-				create: { to: '/gis/weather/create', label: 'Add Station', minimum: 'manager' },
+				create: {
+					to: '/gis/weather/create',
+					label: createLabel('weatherStation'),
+					minimum: 'manager',
+				},
 			}}
 			onResetFilters={filters.onClearAll}
 			map={

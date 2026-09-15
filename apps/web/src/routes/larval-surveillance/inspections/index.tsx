@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ExplorerMapPage,
@@ -115,7 +116,7 @@ function inspectionsHeading(total: number, isLoading: boolean) {
 		icon: InspectionEntityIcon,
 		total,
 		isLoading,
-		create: { to: '/larval-surveillance/inspections/create', label: 'Create Inspection' },
+		create: { to: '/larval-surveillance/inspections/create', label: createLabel('inspection') },
 	} as const;
 }
 

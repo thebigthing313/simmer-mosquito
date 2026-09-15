@@ -17,6 +17,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useHasRole } from '../../hooks/use-can-write';
+import { createLabel } from '../app-shell/navigation';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../map';
 import { WriteOnly } from '../write-only';
@@ -155,7 +156,7 @@ export function RoutesIndexPage({
 							<WriteOnly minimum="manager">
 								<Button onClick={() => setCreateOpen(true)} size="sm">
 									<PlusIcon aria-hidden="true" />
-									New Route
+									{createLabel('route')}
 								</Button>
 							</WriteOnly>
 						</div>
@@ -245,7 +246,7 @@ function RouteResults({
 						<WriteOnly minimum="manager">
 							<Button onClick={onCreate}>
 								<PlusIcon aria-hidden="true" />
-								New Route
+								{createLabel('route')}
 							</Button>
 						</WriteOnly>
 					</EmptyContent>

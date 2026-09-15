@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -239,7 +240,7 @@ function SourceReductionExplorerRoute() {
 				isLoading,
 				create: {
 					to: '/control-operations/source-reduction/create',
-					label: 'Record Source Reduction',
+					label: createLabel('sourceReduction'),
 				},
 			}}
 			onResetFilters={clearAll}

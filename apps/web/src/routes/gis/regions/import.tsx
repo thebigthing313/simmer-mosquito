@@ -369,7 +369,7 @@ function ImportRegionsRoute() {
 											variant="outline"
 										>
 											<PlusIcon aria-hidden="true" data-icon="inline-start" />
-											New Folder
+											Create Folder
 										</Button>
 									</div>
 								</div>

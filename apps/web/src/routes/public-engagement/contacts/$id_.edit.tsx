@@ -76,7 +76,6 @@ function EditContactLoader({ contact }: { readonly contact: Contact }) {
 				backLabel: 'Back to Contact',
 			}}
 			onSave={onSave}
-			submitLabel="Save Changes"
 		/>
 	);
 }

@@ -123,7 +123,6 @@ export interface BiocontrolFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: BiocontrolFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: BiocontrolFormValues;
 		/** The action's geometry. Always set on create; may be unchanged on edit. */
@@ -159,7 +158,6 @@ export function BiocontrolFormPage({
 	requireLocation = true,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: BiocontrolFormPageProps) {
 	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
@@ -211,7 +209,7 @@ export function BiocontrolFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

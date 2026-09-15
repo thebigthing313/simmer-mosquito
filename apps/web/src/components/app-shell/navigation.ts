@@ -90,8 +90,60 @@ export interface WebShellDomain extends ShellDomain {
 }
 
 /**
- * The label of an entry that opens a create form: the verb, then the record
- * type's full noun.
+ * The verb a create surface puts in front of a record type's name, one per
+ * kind of record. `CONTEXT.md` carries the rule under Core language, and this
+ * is that rule as a register, so a surface reads its verb rather than choosing
+ * one.
+ *
+ * **Record** is work performed: an inspection, a collection, a control action.
+ * It happened in the field and the form writes down what happened. **Create**
+ * is a thing brought into existence, a root record with an `organization_id`
+ * and no parent it cannot open without: a habitat, a trap, a request. **Add**
+ * is a child attached to a parent that already exists, whose form cannot open
+ * without the parent's id: samples under an inspection, a stop under a mission.
+ * `New` is not used.
+ *
+ * Trap takes `Create` by the root-record test, and so does a weather station:
+ * `/gis/weather/create` opens with no source and no parent, and the station is
+ * placed on the map from nothing. A route is `Create` for the same reason, and
+ * a registration is `Add` because it is drawn under the contact or address it
+ * notifies. Four verbs named one act on `develop` before #949, `Create` on six
+ * kinds, `Record` on five, `Add` on three and `New` on three, with Mission and
+ * Assignment each carrying two on different surfaces.
+ *
+ * Every record type is in here, the kinds with no create surface included,
+ * because the rule classifies the record and not the surface, and a
+ * `Record<RecordType, CreateVerb>` is what lets the compiler refuse a kind
+ * nobody has classified (#644).
+ */
+type CreateVerb = 'Record' | 'Create' | 'Add';
+
+const CREATE_VERBS: Record<RecordType, CreateVerb> = {
+	address: 'Create',
+	application: 'Record',
+	assignment: 'Create',
+	biocontrolAction: 'Record',
+	collection: 'Record',
+	contact: 'Create',
+	habitat: 'Create',
+	inspection: 'Record',
+	mission: 'Create',
+	missionItem: 'Add',
+	notificationRegistration: 'Add',
+	outreachAction: 'Record',
+	region: 'Create',
+	requestedControlAction: 'Create',
+	route: 'Create',
+	sample: 'Add',
+	serviceRequest: 'Create',
+	sourceReduction: 'Record',
+	trap: 'Create',
+	weatherStation: 'Create',
+};
+
+/**
+ * The label of a create surface: the record type's verb, then its full noun.
+ * `Create Habitat`, `Record Inspection`.
  *
  * The noun comes from `RECORD_NOUNS` rather than being written here, so the
  * sidebar cannot spell a record type a second way. Four of these labels leaned
@@ -104,18 +156,24 @@ export interface WebShellDomain extends ShellDomain {
  * Application` was landing on a page headed `Record Chemical Application`
  * (#910).
  *
- * The verb stays a literal at the call site, because it is the entry's own
- * word and no register carries it: the same record type is created, recorded
- * or added depending on what the work is called in the field.
+ * The verb comes from {@link CREATE_VERBS} rather than the call site since
+ * #949. It used to be the entry's own word, and the eight explorer headers
+ * and the map's context menu each carried their own copy of it, agreeing with
+ * the sidebar by copy rather than by mechanism: `Create Inspection` in the
+ * sidebar over a page headed `Record Inspection`, `Add Station` in a header
+ * over a page headed `Add Weather Station`. Now the sidebar entry, the header
+ * control, the empty state that points at it, the map menu item and the page
+ * title all call this and read one string. It is exported for that reason.
  *
  * Three entries want the plural rather than the singular and read `titleMany`
  * through {@link createPluralLabel}: `Import Regions`, and the two cleanup
  * tools. The cleanup pair both said `Cleanup Tools` until #948, one name on two
  * entries in two different groups, so the palette listed the same words twice
- * and neither said which records it tidied.
+ * and neither said which records it tidied. Their verbs are not create verbs,
+ * so they stay the call site's word.
  */
-function createLabel(verb: string, recordType: RecordType): string {
-	return `${verb} ${recordNoun(recordType).title}`;
+export function createLabel(recordType: RecordType): string {
+	return `${CREATE_VERBS[recordType]} ${recordNoun(recordType).title}`;
 }
 
 /** The same label over a record type's title-cased plural: `Import Regions`. */
@@ -203,7 +261,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'habitats-create',
-						label: createLabel('Create', 'habitat'),
+						label: createLabel('habitat'),
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
 						// vocabulary-ignore site: a search keyword matches what a person types, not what SIMMER calls the record.
@@ -248,7 +306,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'inspections-create',
-						label: createLabel('Create', 'inspection'),
+						label: createLabel('inspection'),
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -327,7 +385,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'traps-create',
-						label: createLabel('Add', 'trap'),
+						label: createLabel('trap'),
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'station', 'adult'] },
@@ -359,7 +417,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'collections-create',
-						label: createLabel('Record', 'collection'),
+						label: createLabel('collection'),
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -420,7 +478,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'chemical-create',
-						label: createLabel('Record', 'application'),
+						label: createLabel('application'),
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -466,7 +524,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'source-reduction-create',
-						label: createLabel('Record', 'sourceReduction'),
+						label: createLabel('sourceReduction'),
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'habitat', 'removal', 'drainage'] },
@@ -498,7 +556,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'biocontrol-create',
-						label: createLabel('Record', 'biocontrolAction'),
+						label: createLabel('biocontrolAction'),
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'fish', 'gambusia', 'stocking'] },
@@ -562,7 +620,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'service-requests-create',
-						label: createLabel('New', 'serviceRequest'),
+						label: createLabel('serviceRequest'),
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'complaint', 'call', 'resident', 'public'] },
@@ -581,7 +639,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'outreach-create',
-						label: createLabel('Record', 'outreachAction'),
+						label: createLabel('outreachAction'),
 						to: '/public-engagement/outreach/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'education', 'event', 'public'] },
@@ -613,7 +671,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'contacts-create',
-						label: createLabel('New', 'contact'),
+						label: createLabel('contact'),
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'person', 'resident', 'caller'] },
@@ -663,7 +721,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'regions-create',
-						label: createLabel('Create', 'region'),
+						label: createLabel('region'),
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'zone', 'boundary', 'district'] },
@@ -689,7 +747,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'addresses-create',
-						label: createLabel('Create', 'address'),
+						label: createLabel('address'),
 						to: '/gis/addresses/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'street', 'parcel', 'property', 'location'] },
@@ -718,7 +776,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'weather-create',
-						label: createLabel('Add', 'weatherStation'),
+						label: createLabel('weatherStation'),
 						to: '/gis/weather/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'sensor', 'gauge', 'met', 'station'] },
@@ -771,7 +829,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'requests-for-control-create',
-						label: createLabel('New', 'requestedControlAction'),
+						label: createLabel('requestedControlAction'),
 						to: '/operations/requests-for-control/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'treatment', 'work', 'ask'] },
@@ -790,7 +848,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'assignments-create',
-						label: createLabel('New', 'assignment'),
+						label: createLabel('assignment'),
 						to: '/operations/assignments/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'route', 'surveillance'] },
@@ -809,7 +867,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'missions-create',
-						label: createLabel('New', 'mission'),
+						label: createLabel('mission'),
 						to: '/operations/missions/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'treatment', 'control'] },

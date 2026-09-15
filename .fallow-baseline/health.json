@@ -414,14 +414,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/gis/addresses/index.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/gis/regions/import.tsx": {
       "complexity_critical": {
         "count": 1
@@ -448,11 +440,6 @@
         "count": 1
       },
       "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/larval-surveillance/inspections/-inspection-form.tsx": {
-      "complexity_moderate": {
         "count": 1
       }
     },
@@ -545,17 +532,6 @@
       }
     },
     "apps/web/src/routes/profile.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/public-engagement/service-requests/index.tsx": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      },
       "crap_moderate": {
         "count": 1
       }

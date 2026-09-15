@@ -130,7 +130,7 @@ describe('shellDomainsForRole', () => {
 
 		expect(weather?.items.map((item) => item.label)).toEqual([
 			'Map',
-			'Add Weather Station',
+			'Create Weather Station',
 			'Statistics',
 		]);
 	});

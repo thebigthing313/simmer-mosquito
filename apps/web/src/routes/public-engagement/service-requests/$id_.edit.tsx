@@ -111,7 +111,6 @@ function EditServiceRequestLoader({
 				organizationId={request.organizationId}
 				profiles={profiles}
 				requireLocation={false}
-				submitLabel="Save Changes"
 			/>
 			{dialog}
 		</>

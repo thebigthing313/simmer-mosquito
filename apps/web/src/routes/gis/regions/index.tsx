@@ -21,6 +21,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -463,7 +464,7 @@ function RegionsExplorerRoute() {
 					<WriteOnly minimum="manager">
 						<DropdownMenuItem onSelect={() => setFolderDialog('new')}>
 							<NewFolderIcon aria-hidden="true" />
-							New Folder
+							Create Folder
 						</DropdownMenuItem>
 						<DropdownMenuItem asChild>
 							<Link to="/gis/regions/import">
@@ -479,7 +480,7 @@ function RegionsExplorerRoute() {
 					total: regions.length,
 					isLoading: !isReady,
 					counts: RECORD_TYPE,
-					create: { to: '/gis/regions/create', label: 'Create Region', minimum: 'manager' },
+					create: { to: '/gis/regions/create', label: createLabel('region'), minimum: 'manager' },
 				}}
 				onResetFilters={() => commitSearch('')}
 				map={

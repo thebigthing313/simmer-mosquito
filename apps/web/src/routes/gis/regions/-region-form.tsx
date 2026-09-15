@@ -49,7 +49,6 @@ export interface RegionFormPageProps {
 	/** The region's boundary to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
 	readonly header: RegionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: RegionFormValues;
 		/** The boundary. Always set on create; may be unchanged on edit. */
@@ -92,7 +91,6 @@ export function RegionFormPage({
 	defaultValues,
 	initialGeometry = null,
 	header,
-	submitLabel,
 	onSave,
 }: RegionFormPageProps) {
 	const location = useDrawLocation({
@@ -136,7 +134,7 @@ export function RegionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

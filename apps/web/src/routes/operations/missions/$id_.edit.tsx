@@ -80,7 +80,6 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 				backLabel: 'Back to mission',
 			}}
 			onSave={onSave}
-			submitLabel="Save Changes"
 			validate={validateMissionPlan}
 		/>
 	);

@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useRecordExtras } from '../../../forms/record-extras';
@@ -121,7 +122,7 @@ function CreateSourceReductionRoute() {
 					...seededValues({ habitatId: search.habitatId }),
 				}}
 				header={{
-					title: 'Record Source Reduction',
+					title: createLabel('sourceReduction'),
 					description: 'Place the point, then record what the crew eliminated, how much, and when.',
 					backTo: '/control-operations/source-reduction',
 					backLabel: 'Source Reduction',
@@ -133,7 +134,6 @@ function CreateSourceReductionRoute() {
 				onSave={onSave}
 				organizationId={organization.id}
 				profiles={profiles}
-				submitLabel="Record Source Reduction"
 				units={units}
 			/>
 			{mission.dialog}

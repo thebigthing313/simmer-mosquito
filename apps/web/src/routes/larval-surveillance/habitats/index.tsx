@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -285,7 +286,7 @@ function HabitatsExplorerRoute() {
 				icon: HabitatIcon,
 				total,
 				isLoading,
-				create: { to: '/larval-surveillance/habitats/create', label: 'Create Habitat' },
+				create: { to: '/larval-surveillance/habitats/create', label: createLabel('habitat') },
 			}}
 			onResetFilters={clearAll}
 			map={

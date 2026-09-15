@@ -123,7 +123,6 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 			initialGeometry={geometryQuery.geometry}
 			onSave={onSave}
 			organizationId={request.organizationId}
-			submitLabel="Save Changes"
 		/>
 	);
 }

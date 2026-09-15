@@ -3,6 +3,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -153,7 +154,10 @@ function RequestsForControlRoute() {
 				total: visible.length,
 				isLoading,
 				counts: RECORD_TYPE,
-				create: { to: '/operations/requests-for-control/create', label: 'New Request for Control' },
+				create: {
+					to: '/operations/requests-for-control/create',
+					label: createLabel('requestedControlAction'),
+				},
 			}}
 			onResetFilters={reset}
 			map={

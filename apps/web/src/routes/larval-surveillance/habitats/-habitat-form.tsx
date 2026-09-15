@@ -45,7 +45,6 @@ export interface HabitatFormPageProps {
 	readonly defaultValues: HabitatFormValues;
 	readonly initialGeometry: DrawGeometry | null;
 	readonly header: HabitatFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: HabitatFormValues;
 		readonly geometry: DrawGeometry;
@@ -83,7 +82,6 @@ export function HabitatFormPage({
 	defaultValues,
 	initialGeometry,
 	header,
-	submitLabel,
 	onSave,
 }: HabitatFormPageProps) {
 	const location = useDrawLocation({
@@ -136,7 +134,7 @@ export function HabitatFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				gap="tight"

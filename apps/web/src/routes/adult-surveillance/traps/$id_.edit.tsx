@@ -121,7 +121,6 @@ function EditTrapLoader({
 				onSave={onSave}
 				organizationId={trap.organizationId}
 				requireLocation={false}
-				submitLabel="Save Changes"
 			/>
 			{dialog}
 		</>

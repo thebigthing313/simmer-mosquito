@@ -60,7 +60,6 @@ export interface ContactFormPageProps {
 	readonly canSubmit: boolean;
 	readonly defaultValues: ContactFormValues;
 	readonly header: ContactFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (values: ContactFormValues) => Promise<void>;
 }
 
@@ -68,7 +67,6 @@ export function ContactFormPage({
 	canSubmit,
 	defaultValues,
 	header,
-	submitLabel,
 	onSave,
 }: ContactFormPageProps) {
 	const form = useAppForm({
@@ -87,7 +85,7 @@ export function ContactFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

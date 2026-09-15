@@ -1,6 +1,7 @@
 import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
@@ -115,7 +116,7 @@ function CreateServiceRequestRoute() {
 				...seededValues({ addressId: search.addressId, contactId: search.contactId }),
 			}}
 			header={{
-				title: 'New Service Request',
+				title: createLabel('serviceRequest'),
 				description:
 					'Log a request from the public. Link or create a contact and address, then place its location.',
 				backTo: '/public-engagement/service-requests',
@@ -125,7 +126,6 @@ function CreateServiceRequestRoute() {
 			onSave={onSave}
 			organizationId={organization.id}
 			profiles={profiles}
-			submitLabel="Create Service Request"
 		/>
 	);
 }

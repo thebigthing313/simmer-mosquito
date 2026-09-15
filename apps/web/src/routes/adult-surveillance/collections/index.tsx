@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -233,7 +234,7 @@ function CollectionsExplorerRoute() {
 				icon: CollectionEntityIcon,
 				total,
 				isLoading,
-				create: { to: '/adult-surveillance/collections/create', label: 'Record Collection' },
+				create: { to: '/adult-surveillance/collections/create', label: createLabel('collection') },
 			}}
 			onResetFilters={clearAll}
 			map={

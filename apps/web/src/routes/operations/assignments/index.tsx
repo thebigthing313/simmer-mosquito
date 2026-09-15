@@ -13,6 +13,7 @@ import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-we
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	activeDatePresetId,
@@ -208,7 +209,7 @@ function AssignmentsIndexRoute() {
 							<Button asChild size="sm">
 								<Link to="/operations/assignments/create">
 									<PlusIcon aria-hidden="true" />
-									New Assignment
+									{createLabel('assignment')}
 								</Link>
 							</Button>
 						</WriteOnly>
@@ -331,7 +332,7 @@ function AssignmentResults({
 								<Button asChild size="sm">
 									<Link to="/operations/assignments/create">
 										<PlusIcon aria-hidden="true" />
-										New Assignment
+										{createLabel('assignment')}
 									</Link>
 								</Button>
 							</WriteOnly>

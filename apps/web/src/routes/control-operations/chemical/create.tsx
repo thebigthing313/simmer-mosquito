@@ -2,6 +2,7 @@ import { calculateFormulationComponentAmounts } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useRecordExtras } from '../../../forms/record-extras';
@@ -220,7 +221,7 @@ function CreateApplicationRoute() {
 				formulationComponents={formulationComponents}
 				formulations={formulations}
 				header={{
-					title: 'Record Chemical Application',
+					title: createLabel('application'),
 					description:
 						'Place the treated point, pick the product and amount, and note who applied it.',
 					backTo: '/control-operations/chemical',
@@ -232,7 +233,6 @@ function CreateApplicationRoute() {
 				onSave={onSave}
 				organizationId={organization.id}
 				profiles={profiles}
-				submitLabel="Record Chemical Application"
 				units={units}
 				vehicles={vehicles}
 			/>

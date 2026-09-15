@@ -83,7 +83,6 @@ export function RequestFormPage({
 	initialGeometry = null,
 	organizationId,
 	canSubmit,
-	submitLabel,
 	errorTitle,
 	onSave,
 }: {
@@ -93,7 +92,6 @@ export function RequestFormPage({
 	readonly initialGeometry?: DrawGeometry | null;
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly submitLabel: string;
 	readonly errorTitle: string;
 	readonly onSave: (input: RequestSaveInput) => Promise<void>;
 }) {
@@ -153,7 +151,7 @@ export function RequestFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				aside={

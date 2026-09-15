@@ -1,6 +1,7 @@
 import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -51,7 +52,7 @@ function CreateWeatherStationRoute() {
 			canSubmit={mutations.canWrite}
 			defaultValues={defaultWeatherStationFormValues()}
 			header={{
-				title: 'Add Weather Station',
+				title: createLabel('weatherStation'),
 				description: 'Place a station and name it, then record its readings against it.',
 				backTo: '/gis/weather',
 				backLabel: recordNoun('weatherStation').titleMany,
@@ -59,7 +60,6 @@ function CreateWeatherStationRoute() {
 			initialGeometry={null}
 			mode="create"
 			onSave={onSave}
-			submitLabel="Add Station"
 		/>
 	);
 }

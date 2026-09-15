@@ -264,7 +264,6 @@ export interface ApplicationFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: ApplicationFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: ApplicationFormValues;
 		/** The application's geometry. Always set on create; may be unchanged on edit. */
@@ -312,7 +311,6 @@ export function ApplicationFormPage({
 	requireLocation = true,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: ApplicationFormPageProps) {
 	const location = useDrawLocation({
@@ -406,7 +404,7 @@ export function ApplicationFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
