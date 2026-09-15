@@ -409,22 +409,21 @@ function matchesFilters(
 	filters: RequestFilters,
 	assignedRequestIds: ReadonlySet<string>,
 ): boolean {
-	if (filters.status !== 'all' && requestStatus(request) !== filters.status) {
-		return false;
+	return (
+		(filters.status === 'all' || requestStatus(request) === filters.status) &&
+		!(filters.unassigned && assignedRequestIds.has(request.id)) &&
+		(filters.types.size === 0 || filters.types.has(request.controlType)) &&
+		matchesRequester(request, filters.people)
+	);
+}
+
+/** Whether the request was raised by one of the chosen people; an empty set is off. */
+function matchesRequester(request: RequestListing, people: ReadonlySet<string>): boolean {
+	if (people.size === 0) {
+		return true;
 	}
-	if (filters.unassigned && assignedRequestIds.has(request.id)) {
-		return false;
-	}
-	if (filters.types.size > 0 && !filters.types.has(request.controlType)) {
-		return false;
-	}
-	if (filters.people.size > 0) {
-		const requester = request.requestedByProfileId;
-		if (requester === null || !filters.people.has(requester)) {
-			return false;
-		}
-	}
-	return true;
+	const requester = request.requestedByProfileId;
+	return requester !== null && people.has(requester);
 }
 
 function RequestRow({

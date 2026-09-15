@@ -211,31 +211,19 @@ function CollectionsExplorerRoute() {
 					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{[...methodIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={methodNameById.get(id) ?? 'Unknown method'}
-									onRemove={() => setMethodIds(toggle(methodIds, id))}
-								/>
-							))}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-							{problemOnly ? (
-								<FilterChip label="Problems only" onRemove={() => setProblemOnly(false)} />
-							) : null}
-							{awaitingOnly ? (
-								<FilterChip
-									label="Awaiting identification"
-									onRemove={() => setAwaitingOnly(false)}
-								/>
-							) : null}
-						</ActiveFilterBar>
+						<CollectionChips
+							awaitingOnly={awaitingOnly}
+							methodIds={methodIds}
+							methodNameById={methodNameById}
+							onClearAll={clearAll}
+							problemOnly={problemOnly}
+							regionIds={regionIds}
+							regionNameById={regions.nameById}
+							setAwaitingOnly={setAwaitingOnly}
+							setMethodIds={setMethodIds}
+							setProblemOnly={setProblemOnly}
+							setRegionIds={setRegionIds}
+						/>
 					) : null}
 				</>
 			}
@@ -296,6 +284,58 @@ function CollectionsExplorerRoute() {
 				),
 			}}
 		/>
+	);
+}
+
+/** What is currently narrowing the list, each chip removing its own filter. */
+function CollectionChips({
+	methodIds,
+	regionIds,
+	problemOnly,
+	awaitingOnly,
+	methodNameById,
+	regionNameById,
+	setMethodIds,
+	setRegionIds,
+	setProblemOnly,
+	setAwaitingOnly,
+	onClearAll,
+}: {
+	readonly methodIds: ReadonlySet<string>;
+	readonly regionIds: ReadonlySet<string>;
+	readonly problemOnly: boolean;
+	readonly awaitingOnly: boolean;
+	readonly methodNameById: ReadonlyMap<string, string>;
+	readonly regionNameById: ReadonlyMap<string, string>;
+	readonly setMethodIds: (next: ReadonlySet<string>) => void;
+	readonly setRegionIds: (next: ReadonlySet<string>) => void;
+	readonly setProblemOnly: (next: boolean) => void;
+	readonly setAwaitingOnly: (next: boolean) => void;
+	readonly onClearAll: () => void;
+}) {
+	return (
+		<ActiveFilterBar onClearAll={onClearAll}>
+			{[...methodIds].map((id) => (
+				<FilterChip
+					key={id}
+					label={methodNameById.get(id) ?? 'Unknown method'}
+					onRemove={() => setMethodIds(toggle(methodIds, id))}
+				/>
+			))}
+			{[...regionIds].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={regionNameById.get(id) ?? 'Unknown region'}
+					onRemove={() => setRegionIds(toggle(regionIds, id))}
+				/>
+			))}
+			{problemOnly ? (
+				<FilterChip label="Problems only" onRemove={() => setProblemOnly(false)} />
+			) : null}
+			{awaitingOnly ? (
+				<FilterChip label="Awaiting identification" onRemove={() => setAwaitingOnly(false)} />
+			) : null}
+		</ActiveFilterBar>
 	);
 }
 

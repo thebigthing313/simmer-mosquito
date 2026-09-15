@@ -78,6 +78,20 @@ export const mapCardGcTimeMs = 30_000;
  */
 export const activityGcTimeMs = 30_000;
 
+/**
+ * What every Dashboard queue read off Electric answers with: how many are
+ * pending and how old the oldest is, beside the two status flags the panel
+ * draws its skeleton and its message on. Four hooks answer this shape, and the
+ * page reads them through one row component.
+ */
+export interface ElectricQueue {
+	readonly count: number;
+	/** The oldest pending row's date, `YYYY-MM-DD` in the Organization's zone; null at zero. */
+	readonly oldest: string | null;
+	readonly isReady: boolean;
+	readonly isError: boolean;
+}
+
 /** The query a caller of {@link useRecordById} builds, with the row aliased `record`. */
 type RecordQuery<TRow extends SyncedRow, TContext extends Context> = (
 	query: QueryBuilder<ContextFromSource<{ record: CollectionOf<TRow> }>>,

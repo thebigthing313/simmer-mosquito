@@ -1,0 +1,291 @@
+/** @vitest-environment jsdom */
+
+/**
+ * The Dashboard rendered whole, through its four states: loading, loaded,
+ * empty and the server half failing.
+ *
+ * The four Electric queues come off memory collections and the server half
+ * off a `sessionFetch` the suite answers, so what is on screen is what the
+ * hooks and the query really produced rather than a fixture handed to a
+ * component. The router is the stand-in beside the route suites, because a
+ * `Link` here only needs to be an anchor; where each one goes is asserted by
+ * href in `link-destinations.test.tsx`, the one file for that.
+ */
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { Suspense } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { assignment_items } from '../../../lib/collections/assignment_items';
+import { collections } from '../../../lib/collections/collections';
+import { missions } from '../../../lib/collections/missions';
+import { organizations } from '../../../lib/collections/organizations';
+import { profiles } from '../../../lib/collections/profiles';
+import { service_requests } from '../../../lib/collections/service_requests';
+import type { DashboardResponse } from '../../../routes/-dashboard-data';
+import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
+
+const harness = vi.hoisted(() => ({
+	/** Every pending `/dashboard` read, so a case can answer or refuse it. */
+	pending: [] as ((response: Response) => void)[],
+}));
+
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+	const { routerStandIn } = await import('./route-mock-stand-ins');
+	return routerStandIn(await importOriginal<object>(), () => ({}));
+});
+
+vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
+	sessionFetch: () =>
+		new Promise<Response>((resolve) => {
+			harness.pending.push(resolve);
+		}),
+}));
+
+const { DashboardPage } = await import('../../../routes/-dashboard-page');
+
+/** Noon in New York on 2026-09-15, so `today` is fixed for every age below. */
+const NOW = new Date('2026-09-15T16:00:00Z');
+
+function answer(body: DashboardResponse): void {
+	const resolve = harness.pending.shift();
+	if (resolve === undefined) {
+		throw new Error('No dashboard read is pending.');
+	}
+	resolve(new Response(JSON.stringify(body), { status: 200 }));
+}
+
+function refuse(): void {
+	harness.pending.shift()?.(new Response('{}', { status: 500 }));
+}
+
+function renderDashboard() {
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	return render(
+		<QueryClientProvider client={client}>
+			<Suspense fallback={<span>loading</span>}>
+				<DashboardPage />
+			</Suspense>
+		</QueryClientProvider>,
+	);
+}
+
+const SERVER: DashboardResponse = {
+	today: '2026-09-15',
+	queues: {
+		samplesAwaiting: { count: 23, oldest: '2026-08-27' },
+		collectionsAwaiting: { count: 41, oldest: '2026-09-03' },
+		requestsUnassigned: { count: 6, oldest: '2026-09-11' },
+	},
+	untreatedHabitats: { count: 5, oldest: '2026-09-09' },
+	activity: {
+		window: { from: '2026-09-09', to: '2026-09-15' },
+		priorWindow: { from: '2026-09-02', to: '2026-09-08' },
+		types: {
+			inspections: { count: 212, prior: 187 },
+			samples: { count: 31, prior: 44 },
+			collections: { count: 66, prior: 66 },
+			applications: { count: 17, prior: 9 },
+			sourceReductions: { count: 4, prior: 11 },
+			releases: null,
+			serviceRequests: { count: 29, prior: 25 },
+			outreachActions: { count: 0, prior: 2 },
+		},
+	},
+	peopleToday: [
+		{ profileId: 'p-dana', records: 38, lastAt: '2026-09-15T18:52:00Z' },
+		{ profileId: 'p-miguel', records: 21, lastAt: '2026-09-15T14:10:00Z' },
+	],
+};
+
+const EMPTY: DashboardResponse = {
+	today: '2026-09-15',
+	queues: {
+		samplesAwaiting: { count: 0, oldest: null },
+		collectionsAwaiting: { count: 0, oldest: null },
+		requestsUnassigned: { count: 0, oldest: null },
+	},
+	untreatedHabitats: { count: 0, oldest: null },
+	activity: {
+		window: { from: '2026-09-09', to: '2026-09-15' },
+		priorWindow: { from: '2026-09-02', to: '2026-09-08' },
+		types: {
+			inspections: { count: 0, prior: 0 },
+			samples: null,
+			collections: null,
+			applications: null,
+			sourceReductions: null,
+			releases: null,
+			serviceRequests: null,
+			outreachActions: null,
+		},
+	},
+	peopleToday: [],
+};
+
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(NOW);
+	harness.pending.length = 0;
+	installMemoryCollections();
+	seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
+	seedRows(profiles, [
+		{ id: 'p-dana', display_name: 'Dana Okafor' },
+		{ id: 'p-miguel', display_name: 'Miguel Herrera' },
+	]);
+});
+
+afterEach(() => {
+	cleanup();
+	vi.useRealTimers();
+});
+
+/** The panel whose heading reads `title`, so an assertion is scoped to it. */
+function panel(title: string) {
+	const heading = screen.getByRole('heading', { name: title });
+	const card = heading.closest('[data-slot="card"]') ?? heading.parentElement?.parentElement;
+	if (card === null || card === undefined) {
+		throw new Error(`No panel around the heading ${title}.`);
+	}
+	return within(card as HTMLElement);
+}
+
+/**
+ * The queue line whose link reads `label`. By text rather than by role: the
+ * router stand-in's `Link` is an anchor with no `href`, which has no link role.
+ */
+function queueLine(label: string): HTMLElement {
+	const line = screen.getByText(label).closest('li');
+	if (line === null) {
+		throw new Error(`No queue line for ${label}.`);
+	}
+	return line;
+}
+
+describe('the Dashboard', () => {
+	it('draws skeletons and no banner until the server answers', async () => {
+		renderDashboard();
+
+		await waitFor(() => expect(harness.pending).toHaveLength(1));
+		expect(screen.getByRole('heading', { name: 'Surveillance backlog' })).toBeTruthy();
+		expect(screen.queryByText(/awaiting identification/)).toBeNull();
+		expect(screen.queryByText(/untreated habitats/)).toBeNull();
+		expect(screen.queryByText('Nothing logged yet today.')).toBeNull();
+		// Every section that waits on the server holds a skeleton, and no count pill.
+		expect(document.querySelectorAll('[aria-hidden="true"] .animate-pulse').length).toBeGreaterThan(
+			0,
+		);
+	});
+
+	it('draws every section from the hooks and the server read', async () => {
+		seedRows(collections, [
+			{
+				id: 'c-problem',
+				trap_id: 't1',
+				collection_method_id: 'm1',
+				collected_at: null,
+				collection_date: '2026-09-06',
+				collection_timing_mode: 'collection_date_duration',
+				has_problem: true,
+				is_zero_result: false,
+				has_bycatch: false,
+			},
+		]);
+		seedRows(service_requests, [
+			{ id: 'sr-1', request_date: '2026-05-26', closed_at: null },
+			{ id: 'sr-2', request_date: '2026-09-10', closed_at: null },
+			{ id: 'sr-3', request_date: '2026-09-12', closed_at: null },
+		]);
+		seedRows(assignment_items, [
+			{ id: 'stop-1', assignment_id: 'a1', entity_type: 'service_request', entity_id: 'sr-3' },
+		]);
+		seedRows(missions, [
+			{
+				id: 'm-overdue',
+				mission_name: 'Levee run',
+				control_type: 'larvicide',
+				scheduled_start_at: new Date('2026-09-14T13:00:00Z'),
+				started_at: null,
+				completed_at: null,
+				cancelled_at: null,
+			},
+		]);
+		renderDashboard();
+		await waitFor(() => expect(harness.pending).toHaveLength(1));
+		answer(SERVER);
+
+		await waitFor(() => expect(screen.getByText('Samples awaiting identification')));
+
+		// Surveillance backlog: two server rows and one Electric row, the pill their sum.
+		expect(queueLine('Samples awaiting identification').textContent).toContain('19 days');
+		expect(queueLine('Samples awaiting identification').textContent).toContain('23');
+		expect(queueLine('Collections awaiting identification').textContent).toContain('12 days');
+		expect(queueLine('Collections with a problem').textContent).toContain('last 14 days');
+		expect(queueLine('Collections with a problem').textContent).toContain('9 days');
+		expect(panel('Surveillance backlog').getByText('65')).toBeTruthy();
+
+		// Operations backlog: the split, the unassigned count, an empty row, an overdue mission.
+		expect(queueLine('Open service requests').textContent).toContain('2 new · 1 in progress');
+		expect(queueLine('Open service requests').textContent).toContain('112 days');
+		expect(queueLine('Requests for Control not yet assigned').textContent).toContain('4 days');
+		expect(queueLine('Assignments started and not finished').className).toContain(
+			'text-muted-foreground',
+		);
+		expect(queueLine('Missions due today or overdue').textContent).toContain('1 day');
+		expect(panel('Operations backlog').getByText('10')).toBeTruthy();
+
+		// The banner, the whole row a link.
+		const banner = screen.getByText('5 untreated habitats').closest('a');
+		expect(banner?.textContent).toContain(
+			'heavy in the last 7 days with no control action since; oldest 6 days',
+		);
+
+		// The strip: seven cells, the never-recorded type absent, a delta each way.
+		expect(screen.getByText('Sep 9 to Sep 15, delta against the 7 before')).toBeTruthy();
+		expect(screen.queryByText('Biocontrol Actions')).toBeNull();
+		expect(screen.getByText('+25')).toBeTruthy();
+		expect(screen.getByText('-13')).toBeTruthy();
+		expect(screen.getByText('same')).toBeTruthy();
+		expect(screen.getByText('Service Requests received')).toBeTruthy();
+
+		// The people table: names off the profiles, most records first, the time
+		// in the Organization's zone.
+		const people = panel('In the field today');
+		const rows = people.getAllByRole('row').slice(1);
+		expect(rows.map((row) => row.textContent)).toEqual([
+			'Dana Okafor3814:52',
+			'Miguel Herrera2110:10',
+		]);
+	});
+
+	it('draws the empty states without hiding the check that ran', async () => {
+		renderDashboard();
+		await waitFor(() => expect(harness.pending).toHaveLength(1));
+		answer(EMPTY);
+
+		await waitFor(() => expect(screen.getByText('No untreated habitats')));
+
+		expect(screen.getByText('No untreated habitats').closest('a')).toBeNull();
+		const samples = queueLine('Samples awaiting identification');
+		expect(samples.className).toContain('text-muted-foreground');
+		expect(samples.textContent).not.toContain('day');
+		// One cell, at zero, with its chip.
+		expect(screen.getByText('Inspections')).toBeTruthy();
+		expect(screen.queryByText('Samples')).toBeNull();
+		expect(screen.getByText('same')).toBeTruthy();
+		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
+	});
+
+	it('says which sections are unavailable when the server read fails', async () => {
+		renderDashboard();
+		await waitFor(() => expect(harness.pending).toHaveLength(1));
+		refuse();
+
+		await waitFor(() =>
+			expect(screen.getAllByText('Pending work is unavailable right now.')).toHaveLength(2),
+		);
+		expect(screen.getByText('Untreated habitats are unavailable right now.')).toBeTruthy();
+		expect(screen.getAllByText('Activity is unavailable right now.')).toHaveLength(2);
+	});
+});

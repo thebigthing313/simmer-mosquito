@@ -19,17 +19,21 @@
  * different href and fails here.
  */
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { memberships } from '../../lib/collections/memberships';
+import { organizations } from '../../lib/collections/organizations';
 import { profiles } from '../../lib/collections/profiles';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import type { DashboardResponse } from '../../routes/-dashboard-data';
+import { DashboardPage } from '../../routes/-dashboard-page';
 import { HabitatHistoryCard } from '../../routes/-habitat-detail';
 import { InspectionSurfaceSwitch } from '../../routes/larval-surveillance/-inspection-surface-switch';
 import { sharedInspectionSearch } from '../../routes/larval-surveillance/-inspections-search';
@@ -335,5 +339,111 @@ describe('the Inspections Map/Table switch', () => {
 			'/larval-surveillance/inspections',
 			'/larval-surveillance/inspections/table',
 		]);
+	});
+});
+
+/**
+ * The Dashboard, whose every queue links to an explorer with its filters set
+ * so the explorer shows the rows the count counted (#1014).
+ *
+ * The carried search is the whole point: `from` is the oldest row's date and
+ * `to` is today, `status=awaiting`, `awaiting=true`, `problems=true`,
+ * `unassigned=true` and the two `statuses` arrays are what turn a count into
+ * the same rows on the explorer, and `tsc` checks none of it, since every
+ * explorer validates to a plain record. The service requests row carries no
+ * window because that explorer takes no date. The server half is a stubbed
+ * `fetch`, the four Electric queues are empty memory collections, and today is
+ * pinned so the `to` half of each window is a literal here.
+ */
+describe('the Dashboard', () => {
+	const NOW = new Date('2026-09-15T16:00:00Z');
+
+	const SERVER: DashboardResponse = {
+		today: '2026-09-15',
+		queues: {
+			samplesAwaiting: { count: 23, oldest: '2026-08-27' },
+			collectionsAwaiting: { count: 41, oldest: '2026-09-03' },
+			requestsUnassigned: { count: 6, oldest: '2026-09-11' },
+		},
+		untreatedHabitats: { count: 5, oldest: '2026-09-09' },
+		activity: {
+			window: { from: '2026-09-09', to: '2026-09-15' },
+			priorWindow: { from: '2026-09-02', to: '2026-09-08' },
+			types: {
+				inspections: { count: 1, prior: 0 },
+				samples: null,
+				collections: null,
+				applications: null,
+				sourceReductions: null,
+				releases: null,
+				serviceRequests: null,
+				outreachActions: null,
+			},
+		},
+		peopleToday: [{ profileId: 'profile-1', records: 3, lastAt: '2026-09-15T18:52:00Z' }],
+	};
+
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(NOW);
+		vi.stubGlobal('fetch', async () => new Response(JSON.stringify(SERVER), { status: 200 }));
+		seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
+		seedRows(profiles, [{ id: 'profile-1', display_name: 'Dana Okafor' }]);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.useRealTimers();
+	});
+
+	async function openDashboard() {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		renderWithRouter(
+			<QueryClientProvider client={client}>
+				<Suspense fallback={null}>
+					<DashboardPage />
+				</Suspense>
+			</QueryClientProvider>,
+		);
+		await waitFor(() => screen.getByRole('link', { name: 'Samples awaiting identification' }));
+	}
+
+	it('sends each queue to its explorer with the count’s own window', async () => {
+		await openDashboard();
+
+		expect(linkHref('Samples awaiting identification')).toBe(
+			'/larval-surveillance/samples?status=awaiting&from=2026-08-27&to=2026-09-15',
+		);
+		expect(linkHref('Collections awaiting identification')).toBe(
+			'/adult-surveillance/collections?awaiting=true&from=2026-09-03&to=2026-09-15',
+		);
+		expect(linkHref('Requests for Control not yet assigned')).toBe(
+			'/operations/requests-for-control?status=open&unassigned=true&from=2026-09-11&to=2026-09-15',
+		);
+		// The service requests explorer takes no date, so the link carries none.
+		expect(linkHref('Open service requests')).toBe(
+			'/public-engagement/service-requests?status=open',
+		);
+	});
+
+	it('sends an empty Electric queue to its explorer with the filter and no window', async () => {
+		await openDashboard();
+
+		expect(linkHref('Collections with a problem')).toBe(
+			'/adult-surveillance/collections?problems=true',
+		);
+		expect(linkHref('Assignments started and not finished')).toBe(
+			'/operations/assignments?statuses=%5B%22inProgress%22%5D',
+		);
+		expect(linkHref('Missions due today or overdue')).toBe(
+			'/operations/missions?statuses=%5B%22scheduled%22%5D',
+		);
+	});
+
+	it('sends the banner to the untreated filter and a person to their day', async () => {
+		await openDashboard();
+
+		expect(linkHref(/5 untreated habitats/)).toBe('/larval-surveillance/habitats?untreated=true');
+		expect(linkHref('Dana Okafor')).toBe('/daily-work/profile-1?date=2026-09-15');
 	});
 });
