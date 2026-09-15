@@ -73,6 +73,8 @@ interface CollectionFilters {
 	readonly to: string;
 	readonly methods: ReadonlySet<string>;
 	readonly problems: boolean;
+	/** Awaiting identification: dated, not a zero result, no species keyed out. */
+	readonly awaiting: boolean;
 	readonly regions: ReadonlySet<string>;
 }
 
@@ -81,6 +83,7 @@ const COLLECTION_FILTER_CODECS: FilterCodecs<CollectionFilters> = {
 	to: dateParam,
 	methods: idSetParam,
 	problems: flagParam,
+	awaiting: flagParam,
 	regions: idSetParam,
 };
 
@@ -106,6 +109,7 @@ function CollectionsExplorerRoute() {
 		to: today,
 		methods: new Set(),
 		problems: false,
+		awaiting: false,
 		regions: new Set(),
 	};
 	const {
@@ -118,9 +122,11 @@ function CollectionsExplorerRoute() {
 	const dateTo = query.to;
 	const methodIds = query.methods;
 	const problemOnly = query.problems;
+	const awaitingOnly = query.awaiting;
 	const regionIds = query.regions;
 	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
 	const setProblemOnly = (next: boolean) => setFilters({ problems: next });
+	const setAwaitingOnly = (next: boolean) => setFilters({ awaiting: next });
 	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -137,6 +143,7 @@ function CollectionsExplorerRoute() {
 	const filters: CollectionTileFilters = {
 		...whenAny('collectionMethodIds', methodIds),
 		...whenOn('problemOnly', problemOnly),
+		...whenOn('awaitingOnly', awaitingOnly),
 		...whenAny('regionIds', regionIds),
 		...whenText('dateFrom', dateFrom),
 		...whenText('dateTo', dateTo),
@@ -159,6 +166,7 @@ function CollectionsExplorerRoute() {
 			params: {
 				collectionMethodId: filters.collectionMethodIds,
 				problem: filters.problemOnly,
+				awaiting: filters.awaitingOnly,
 				regionId: filters.regionIds,
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
@@ -195,6 +203,11 @@ function CollectionsExplorerRoute() {
 							selected={regionIds}
 						/>
 						<ToggleFilter label="Problems only" onChange={setProblemOnly} value={problemOnly} />
+						<ToggleFilter
+							label="Awaiting identification"
+							onChange={setAwaitingOnly}
+							value={awaitingOnly}
+						/>
 					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
@@ -215,6 +228,12 @@ function CollectionsExplorerRoute() {
 							))}
 							{problemOnly ? (
 								<FilterChip label="Problems only" onRemove={() => setProblemOnly(false)} />
+							) : null}
+							{awaitingOnly ? (
+								<FilterChip
+									label="Awaiting identification"
+									onRemove={() => setAwaitingOnly(false)}
+								/>
 							) : null}
 						</ActiveFilterBar>
 					) : null}

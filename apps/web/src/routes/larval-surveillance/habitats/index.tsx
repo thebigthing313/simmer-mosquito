@@ -13,6 +13,7 @@ import {
 	FilterGrid,
 	MultiSelectFilter,
 	SegmentedFilter,
+	ToggleFilter,
 	toggle,
 	useEntityTags,
 	useExplorerPanel,
@@ -36,6 +37,7 @@ import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
+	flagParam,
 	idSetParam,
 	searchValidator,
 	textParam,
@@ -56,6 +58,11 @@ interface HabitatFilters {
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;
 	readonly regions: ReadonlySet<string>;
+	/**
+	 * Untreated: heavy in the last 7 days with no control action since. The
+	 * server's rule, which the Dashboard's banner counts by and links here with.
+	 */
+	readonly untreated: boolean;
 }
 
 const HABITAT_FILTER_DEFAULTS: HabitatFilters = {
@@ -65,6 +72,7 @@ const HABITAT_FILTER_DEFAULTS: HabitatFilters = {
 	typeIds: new Set(),
 	tagIds: new Set(),
 	regions: new Set(),
+	untreated: false,
 };
 
 const HABITAT_FILTER_CODECS: FilterCodecs<HabitatFilters> = {
@@ -74,6 +82,7 @@ const HABITAT_FILTER_CODECS: FilterCodecs<HabitatFilters> = {
 	typeIds: idSetParam,
 	tagIds: idSetParam,
 	regions: idSetParam,
+	untreated: flagParam,
 };
 
 export const Route = createFileRoute('/larval-surveillance/habitats/')({
@@ -113,7 +122,7 @@ function HabitatsExplorerRoute() {
 		reset,
 		activeCount: activeFilterCount,
 	} = useSearchFilters(HABITAT_FILTER_DEFAULTS, HABITAT_FILTER_CODECS);
-	const { search, status, access, typeIds, tagIds, regions: regionIds } = query;
+	const { search, status, access, typeIds, tagIds, regions: regionIds, untreated } = query;
 	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: searchInput,
@@ -125,6 +134,7 @@ function HabitatsExplorerRoute() {
 	const setTypeIds = (next: ReadonlySet<string>) => setFilters({ typeIds: next });
 	const setTagIds = (next: ReadonlySet<string>) => setFilters({ tagIds: next });
 	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
+	const setUntreated = (next: boolean) => setFilters({ untreated: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -140,6 +150,7 @@ function HabitatsExplorerRoute() {
 		...whenAny('tagIds', tagIds),
 		...whenAny('regionIds', regionIds),
 		...whenText('search', search),
+		...(untreated ? { untreatedOnly: true } : {}),
 	};
 
 	const legend = habitatLegend(status, access);
@@ -175,6 +186,7 @@ function HabitatsExplorerRoute() {
 			tagId: filters.tagIds,
 			regionId: filters.regionIds,
 			search: filters.search,
+			untreated: filters.untreatedOnly,
 		},
 		layer,
 		map,
@@ -248,6 +260,7 @@ function HabitatsExplorerRoute() {
 							selected={regionIds}
 							onChange={setRegionIds}
 						/>
+						<ToggleFilter label="Untreated" onChange={setUntreated} value={untreated} />
 					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
@@ -258,6 +271,7 @@ function HabitatsExplorerRoute() {
 							typeIds={typeIds}
 							tagIds={tagIds}
 							regionIds={regionIds}
+							untreated={untreated}
 							typeNameById={typeNameById}
 							tagById={tagById}
 							regionNameById={regions.nameById}
@@ -267,6 +281,7 @@ function HabitatsExplorerRoute() {
 							onToggleType={(id) => setTypeIds(toggle(typeIds, id))}
 							onToggleTag={(id) => setTagIds(toggle(tagIds, id))}
 							onToggleRegion={(id) => setRegionIds(toggle(regionIds, id))}
+							onClearUntreated={() => setUntreated(false)}
 							onClearAll={clearAll}
 						/>
 					) : null}
@@ -352,6 +367,7 @@ function ActiveFilters({
 	typeIds,
 	tagIds,
 	regionIds,
+	untreated,
 	typeNameById,
 	tagById,
 	regionNameById,
@@ -361,6 +377,7 @@ function ActiveFilters({
 	onToggleType,
 	onToggleTag,
 	onToggleRegion,
+	onClearUntreated,
 	onClearAll,
 }: {
 	readonly search: string;
@@ -369,6 +386,7 @@ function ActiveFilters({
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;
 	readonly regionIds: ReadonlySet<string>;
+	readonly untreated: boolean;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly tagById: ReadonlyMap<string, Tag>;
 	readonly regionNameById: ReadonlyMap<string, string>;
@@ -378,6 +396,7 @@ function ActiveFilters({
 	readonly onToggleType: (id: string) => void;
 	readonly onToggleTag: (id: string) => void;
 	readonly onToggleRegion: (id: string) => void;
+	readonly onClearUntreated: () => void;
 	readonly onClearAll: () => void;
 }) {
 	return (
@@ -385,6 +404,7 @@ function ActiveFilters({
 			{search.length > 0 ? (
 				<FilterChip label={`Search: ${search}`} onRemove={onClearSearch} />
 			) : null}
+			{untreated ? <FilterChip label="Untreated" onRemove={onClearUntreated} /> : null}
 			{status !== 'active' ? (
 				<FilterChip
 					label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}

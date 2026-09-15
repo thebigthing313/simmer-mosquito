@@ -23,6 +23,8 @@ export interface CollectionTileFilters extends RegionScopedTileFilters {
 	readonly collectionMethodIds?: readonly string[];
 	/** Only collections flagged with a problem. */
 	readonly problemOnly?: boolean;
+	/** Only collections awaiting identification, the Dashboard's queue. */
+	readonly awaitingOnly?: boolean;
 	/** Inclusive `YYYY-MM-DD` lower bound on collection date. */
 	readonly dateFrom?: string;
 	/** Inclusive `YYYY-MM-DD` upper bound on collection date. */
@@ -103,6 +105,9 @@ function collectionTileParams(filters?: CollectionTileFilters): URLSearchParams 
 	}
 	if (filters?.problemOnly === true) {
 		params.set('problem', 'true');
+	}
+	if (filters?.awaitingOnly === true) {
+		params.set('awaiting', 'true');
 	}
 	if (filters?.dateFrom !== undefined) {
 		params.set('dateFrom', filters.dateFrom);

@@ -19,6 +19,7 @@ import {
 	type FilterOption,
 	MultiSelectFilter,
 	SegmentedFilter,
+	ToggleFilter,
 	useControlMethodNames,
 	useExplorerPanel,
 	usePersonnelOptions,
@@ -33,6 +34,7 @@ import {
 	requestDisplayName,
 	requestStatus,
 } from '../../../hooks/queries/operations-view';
+import { useAssignedRequestIds } from '../../../hooks/queries/use-assigned-request-ids';
 import { useRequestedControlActions } from '../../../hooks/queries/use-requested-control-actions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
@@ -43,6 +45,7 @@ import {
 	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
+	flagParam,
 	idSetParam,
 	searchValidator,
 	useSearchFilters,
@@ -70,6 +73,8 @@ interface RequestFilters {
 	readonly status: StatusFilter;
 	readonly types: ReadonlySet<string>;
 	readonly people: ReadonlySet<string>;
+	/** Only requests no live stop on a scheduled or in-progress mission names. */
+	readonly unassigned: boolean;
 }
 
 // `open` is the default and so stays out of the URL: the queue is read to find
@@ -81,6 +86,7 @@ const FILTER_CODECS: FilterCodecs<RequestFilters> = {
 	status: choiceParam(['all', 'open', 'resolved'], 'open'),
 	types: idSetParam,
 	people: idSetParam,
+	unassigned: flagParam,
 };
 
 export const Route = createFileRoute('/operations/requests-for-control/')({
@@ -102,6 +108,7 @@ function RequestsForControlRoute() {
 		status: 'open',
 		types: new Set(),
 		people: new Set(),
+		unassigned: false,
 	};
 	const {
 		filters,
@@ -115,10 +122,16 @@ function RequestsForControlRoute() {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const { requests, isLoading } = useRequestedControlActions(filters.from, filters.to);
+	// The stops are a second subset rather than a join on the window, so the
+	// window stays pushed down; the hook's header says why. Applied in memory
+	// after the window, the way `status` is.
+	const { assignedRequestIds, isReady: assignedReady } = useAssignedRequestIds();
 	const { options: personnelOptions, nameById } = usePersonnelOptions();
 	const methodNameById = useControlMethodNames();
 
-	const visible = requests.filter((request) => matchesFilters(request, filters));
+	const visible = requests.filter((request) =>
+		matchesFilters(request, filters, assignedRequestIds),
+	);
 
 	const mapped = mappable(visible);
 	const geoJson = requestFeatures(mapped);
@@ -152,7 +165,7 @@ function RequestsForControlRoute() {
 				title: recordNoun('requestedControlAction').titleMany,
 				icon: RequestIcon,
 				total: visible.length,
-				isLoading,
+				isLoading: isLoading || (filters.unassigned && !assignedReady),
 				counts: RECORD_TYPE,
 				create: {
 					to: '/operations/requests-for-control/create',
@@ -313,6 +326,11 @@ function RequestControlFilters({
 					options={personnelOptions}
 					selected={filters.people}
 				/>
+				<ToggleFilter
+					label="Not yet assigned"
+					onChange={(next) => setFilters({ unassigned: next })}
+					value={filters.unassigned}
+				/>
 			</FilterGrid>
 
 			<RequestControlChips
@@ -365,6 +383,9 @@ function RequestControlChips({
 					onRemove={() => setFilters({ people: without(filters.people, id) })}
 				/>
 			))}
+			{filters.unassigned ? (
+				<FilterChip label="Not yet assigned" onRemove={() => setFilters({ unassigned: false })} />
+			) : null}
 		</ActiveFilterBar>
 	);
 }
@@ -377,13 +398,21 @@ function without(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 }
 
 /**
- * Status, control type, and requester are matched here rather than in the query:
- * status derives from a nullable timestamp rather than a column, and narrowing
- * the shape per filter change would re-stream the whole window each time. An
- * empty set means the filter is off.
+ * Status, control type, requester and assignment are matched here rather than
+ * in the query: status derives from a nullable timestamp rather than a column,
+ * assignment lives on another table, and narrowing the shape per filter change
+ * would re-stream the whole window each time. An empty set means the filter is
+ * off.
  */
-function matchesFilters(request: RequestListing, filters: RequestFilters): boolean {
+function matchesFilters(
+	request: RequestListing,
+	filters: RequestFilters,
+	assignedRequestIds: ReadonlySet<string>,
+): boolean {
 	if (filters.status !== 'all' && requestStatus(request) !== filters.status) {
+		return false;
+	}
+	if (filters.unassigned && assignedRequestIds.has(request.id)) {
 		return false;
 	}
 	if (filters.types.size > 0 && !filters.types.has(request.controlType)) {

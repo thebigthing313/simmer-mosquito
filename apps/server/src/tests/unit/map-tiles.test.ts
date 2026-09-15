@@ -1504,10 +1504,19 @@ describe('map filter fields', () => {
 	});
 
 	it('maps the collection params', () => {
-		expect(filtersOf(parseCollectionMapFilters, `collectionMethodId=${idA}&problem=true`)).toEqual({
+		expect(
+			filtersOf(parseCollectionMapFilters, `collectionMethodId=${idA}&problem=true&awaiting=true`),
+		).toEqual({
 			collectionMethodIds: [idA],
 			problemOnly: true,
+			awaitingOnly: true,
 		});
+	});
+
+	// The Dashboard's untreated banner links to the explorer with this on, and
+	// the explorer's count is the surface's, so the param has to reach the reader.
+	it('maps the habitat untreated param', () => {
+		expect(filtersOf(parseHabitatTileFilters, 'untreated=true')).toEqual({ untreatedOnly: true });
 	});
 
 	// The four filters the explorer used to apply in the browser, as the query
@@ -1527,6 +1536,8 @@ describe('map filter fields', () => {
 		[parseSampleTileFilters, 'nonMosquito'],
 		[parseBiocontrolMapFilters, 'habitatLinked'],
 		[parseCollectionMapFilters, 'problem'],
+		[parseCollectionMapFilters, 'awaiting'],
+		[parseHabitatTileFilters, 'untreated'],
 	] as const)('drops %#: only true narrows', (parse, param) => {
 		expect(filtersOf(parse, `${param}=false`)).toEqual({});
 		expect(Object.values(filtersOf(parse, `${param}=true`))).toEqual([true]);

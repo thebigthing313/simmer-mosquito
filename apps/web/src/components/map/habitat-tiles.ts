@@ -24,6 +24,8 @@ export interface HabitatTileFilters extends RegionScopedTileFilters {
 	readonly habitatTypeIds?: readonly string[];
 	readonly tagIds?: readonly string[];
 	readonly search?: string;
+	/** Only untreated habitats, the Dashboard's banner. */
+	readonly untreatedOnly?: boolean;
 }
 
 export const HABITAT_SOURCE_ID = 'habitats';
@@ -91,6 +93,9 @@ function habitatTileParams(filters?: HabitatTileFilters): URLSearchParams {
 	const search = filters?.search?.trim();
 	if (search !== undefined && search.length > 0) {
 		params.set('search', search);
+	}
+	if (filters?.untreatedOnly === true) {
+		params.set('untreated', 'true');
 	}
 
 	setRegionTileParam(params, filters?.regionIds);
