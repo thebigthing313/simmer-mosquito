@@ -58,6 +58,7 @@ import {
 } from './-region-dnd';
 import { RegionMapCard } from './-region-map-card';
 import { type RegionRename, useRegionRename } from './-region-rename';
+import { type FolderMatch, groupByFolder, type RegionTree, searchTree } from './-region-tree';
 
 interface RegionFilters {
 	readonly search: string;
@@ -180,7 +181,7 @@ function RegionTreeBody({
 	showUnfiledHeader,
 	view,
 }: {
-	readonly filtered: ReturnType<typeof searchTree>;
+	readonly filtered: RegionTree;
 	readonly on: RegionTreeHandlers;
 	readonly showUnfiledHeader: boolean;
 	readonly view: RegionTreeView;
@@ -254,68 +255,6 @@ function withIds(
 		}
 	}
 	return next;
-}
-
-/** The regions under each folder, and the ones filed nowhere. */
-function groupByFolder(regions: readonly RegionListing[]): {
-	readonly byFolder: ReadonlyMap<string, readonly RegionListing[]>;
-	readonly root: readonly RegionListing[];
-} {
-	const byFolder = new Map<string, RegionListing[]>();
-	const root: RegionListing[] = [];
-	for (const region of regions) {
-		if (region.folderId === null) {
-			root.push(region);
-			continue;
-		}
-		const bucket = byFolder.get(region.folderId);
-		if (bucket === undefined) {
-			byFolder.set(region.folderId, [region]);
-		} else {
-			bucket.push(region);
-		}
-	}
-	return { byFolder, root };
-}
-
-/** One folder and whichever of its regions the search kept. */
-interface FolderMatch {
-	readonly folder: RegionFolderListing;
-	readonly regions: readonly RegionListing[];
-}
-
-/**
- * The tree, narrowed by the search term.
- *
- * Search spans both levels: a folder hit keeps all of its regions, since you
- * searched for the folder and so want its contents, and a region hit keeps just
- * that region under its folder. Folders that end up with nothing drop out.
- */
-function searchTree(
-	sortedFolders: readonly RegionFolderListing[],
-	grouped: ReturnType<typeof groupByFolder>,
-	query: string,
-): { readonly folders: readonly FolderMatch[]; readonly unfiled: readonly RegionListing[] } {
-	if (query.length === 0) {
-		return {
-			folders: sortedFolders.map((folder) => ({
-				folder,
-				regions: grouped.byFolder.get(folder.id) ?? [],
-			})),
-			unfiled: grouped.root,
-		};
-	}
-	const hit = (value: string | null): boolean => value?.toLowerCase().includes(query) === true;
-	const matched: FolderMatch[] = [];
-	for (const folder of sortedFolders) {
-		const folderRegions = grouped.byFolder.get(folder.id) ?? [];
-		const folderHit = hit(folder.name) || hit(folder.description);
-		const kept = folderHit ? folderRegions : folderRegions.filter((region) => hit(region.name));
-		if (folderHit || kept.length > 0) {
-			matched.push({ folder, regions: kept });
-		}
-	}
-	return { folders: matched, unfiled: grouped.root.filter((region) => hit(region.name)) };
 }
 
 /**
