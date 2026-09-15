@@ -20,6 +20,7 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
@@ -287,24 +288,29 @@ function QueuePanel({
 			icon={<QueueIcon className="size-4" />}
 			title={title}
 		>
-			{isError ? (
-				<PanelMessage>{QUEUES_UNAVAILABLE}</PanelMessage>
-			) : !isReady || rows === undefined ? (
-				<RowSkeleton count={3} />
-			) : (
-				<>
-					<div className="flex items-center gap-3 px-4 py-1.5 text-muted-foreground text-xs">
-						<span className="flex-1">Queue</span>
-						<span className="w-20 text-right">Oldest</span>
-						<span className="w-10 text-right">Count</span>
-					</div>
-					<ul className="m-0 list-none divide-y divide-border/60 p-0">
-						{rows.map((row) => (
-							<QueueLine key={row.key} row={row} today={today} />
-						))}
-					</ul>
-				</>
-			)}
+			{/* No `empty`: a queue at zero is a row on the page, not an empty panel. */}
+			<PanelRows
+				icon={<QueueIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: rows ?? [] }}
+				unavailable={{ description: QUEUES_UNAVAILABLE }}
+				wrap="none"
+			>
+				{(lines) => (
+					<>
+						<div className="flex items-center gap-3 px-4 py-1.5 text-muted-foreground text-xs">
+							<span className="flex-1">Queue</span>
+							<span className="w-20 text-right">Oldest</span>
+							<span className="w-10 text-right">Count</span>
+						</div>
+						<ul className="m-0 list-none divide-y divide-border/60 p-0">
+							{lines.map((row) => (
+								<QueueLine key={row.key} row={row} today={today} />
+							))}
+						</ul>
+					</>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -426,6 +432,10 @@ function ActivityStrip({ server }: { readonly server: ServerRead }) {
 					</span>
 				)}
 			</div>
+			{/*
+			 * Not `PanelRows`: this is one row of cells rather than rows, and its
+			 * two-row placeholder would stand in for a strip a single row tall.
+			 */}
 			{server.isError ? (
 				<div className="rounded-md border border-border/60">
 					<PanelMessage>{ACTIVITY_UNAVAILABLE}</PanelMessage>
@@ -492,43 +502,46 @@ function PeopleTodayPanel({
 			icon={<PeopleIcon className="size-4" />}
 			title="In the field today"
 		>
-			{server.isError ? (
-				<PanelMessage>{ACTIVITY_UNAVAILABLE}</PanelMessage>
-			) : people === undefined ? (
-				<RowSkeleton count={3} />
-			) : people.length === 0 ? (
-				<PanelMessage>Nothing logged yet today.</PanelMessage>
-			) : (
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Person</TableHead>
-							<TableHead className="text-right">Records</TableHead>
-							<TableHead className="text-right">Last record</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{people.map((person) => (
-							<TableRow key={person.profileId}>
-								<TableCell>
-									<Link
-										className={cn(recordLink({ size: 'sm' }), 'truncate')}
-										params={{ profileId: person.profileId }}
-										search={{ date: today }}
-										to="/daily-work/$profileId"
-									>
-										{nameById.get(person.profileId) ?? 'Unknown profile'}
-									</Link>
-								</TableCell>
-								<TableCell className="text-right tabular-nums">{person.records}</TableCell>
-								<TableCell className="text-right text-muted-foreground tabular-nums">
-									{localTimeOfDay(person.lastAt, timeZone)}
-								</TableCell>
+			<PanelRows
+				empty={{ description: 'Nothing logged yet today.' }}
+				icon={<PeopleIcon aria-hidden="true" />}
+				inset
+				reading={{ isError: server.isError, isReady: people !== undefined, rows: people ?? [] }}
+				unavailable={{ description: ACTIVITY_UNAVAILABLE }}
+				wrap="none"
+			>
+				{(rows) => (
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Person</TableHead>
+								<TableHead className="text-right">Records</TableHead>
+								<TableHead className="text-right">Last record</TableHead>
 							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			)}
+						</TableHeader>
+						<TableBody>
+							{rows.map((person) => (
+								<TableRow key={person.profileId}>
+									<TableCell>
+										<Link
+											className={cn(recordLink({ size: 'sm' }), 'truncate')}
+											params={{ profileId: person.profileId }}
+											search={{ date: today }}
+											to="/daily-work/$profileId"
+										>
+											{nameById.get(person.profileId) ?? 'Unknown profile'}
+										</Link>
+									</TableCell>
+									<TableCell className="text-right tabular-nums">{person.records}</TableCell>
+									<TableCell className="text-right text-muted-foreground tabular-nums">
+										{localTimeOfDay(person.lastAt, timeZone)}
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }

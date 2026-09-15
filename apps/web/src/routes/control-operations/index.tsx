@@ -1,7 +1,8 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
@@ -179,22 +180,25 @@ function DailyControlActionsPanel({ today }: { readonly today: string }) {
 		>
 			<WeekDayStrip onSelect={setSelectedDate} selectedDate={selectedDate} today={today} />
 
-			{isError ? (
-				<PanelMessage>Control activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton />
-			) : groups.length === 0 ? (
-				<PanelMessage>No control actions recorded on this day.</PanelMessage>
-			) : (
-				// A busy day can hold hundreds of actions; keep the panel a fixed,
-				// internally scrolling height so the page stays balanced beside the
-				// shorter right column instead of stretching to full document length.
-				<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
-					{groups.map((group) => (
-						<CrewGroupBlock group={group} key={group.key} />
-					))}
-				</div>
-			)}
+			<PanelRows
+				empty={{ description: 'No control actions recorded on this day.' }}
+				icon={<ControlIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: groups }}
+				unavailable={{ description: 'Control activity is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					// A busy day can hold hundreds of actions; keep the panel a fixed,
+					// internally scrolling height so the page stays balanced beside the
+					// shorter right column instead of stretching to full document length.
+					<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
+						{rows.map((group) => (
+							<CrewGroupBlock group={group} key={group.key} />
+						))}
+					</div>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -373,32 +377,35 @@ function InsecticideUsagePanel({
 				</ToggleGroup>
 			</div>
 
-			{isError ? (
-				<PanelMessage>Application activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : rows.length === 0 ? (
-				<PanelMessage>No insecticide applied in the last {windowDays} days.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{rows.map((row) => (
-						<li className="flex items-center gap-3 px-4 py-2.5" key={row.insecticideId}>
-							<div className="grid min-w-0 flex-1">
-								<span className="truncate font-medium text-foreground text-sm">{row.name}</span>
-								<span className="truncate text-muted-foreground text-xs tabular-nums">
-									{row.applicationCount} application{row.applicationCount === 1 ? '' : 's'}
+			<PanelRows
+				empty={{ description: `No insecticide applied in the last ${windowDays} days.` }}
+				icon={<InsecticideIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows }}
+				unavailable={{ description: 'Application activity is unavailable right now.' }}
+				wrap="none"
+			>
+				{(usageRows) => (
+					<ul className="divide-y divide-border/60">
+						{usageRows.map((row) => (
+							<li className="flex items-center gap-3 px-4 py-2.5" key={row.insecticideId}>
+								<div className="grid min-w-0 flex-1">
+									<span className="truncate font-medium text-foreground text-sm">{row.name}</span>
+									<span className="truncate text-muted-foreground text-xs tabular-nums">
+										{row.applicationCount} application{row.applicationCount === 1 ? '' : 's'}
+									</span>
+								</div>
+								<span
+									className="shrink-0 text-right text-foreground text-sm tabular-nums"
+									title={row.total.convertedFrom ?? undefined}
+								>
+									{row.total.text}
 								</span>
-							</div>
-							<span
-								className="shrink-0 text-right text-foreground text-sm tabular-nums"
-								title={row.total.convertedFrom ?? undefined}
-							>
-								{row.total.text}
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
+							</li>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -421,29 +428,32 @@ function RecentSourceReductionsPanel({ since }: { readonly since: string }) {
 			scrollBody
 			title={recordNoun('sourceReduction').titleMany}
 		>
-			{isError ? (
-				<PanelMessage>Source reduction activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : actions.length === 0 ? (
-				<PanelMessage>
-					No source reductions recorded in the last {CONTROL_ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{actions.map((action) => (
-						<ActionRow
-							amount={formatMeasure(action.amount, action.unitAbbreviation)}
-							date={formatActionDate(action.actionDate)}
-							key={action.id}
-							params={{ id: action.id }}
-							primary={action.methodName}
-							secondary={technicianLabel(action)}
-							to="/control-operations/source-reduction/$id"
-						/>
-					))}
-				</ul>
-			)}
+			<PanelRows
+				empty={{
+					description: `No source reductions recorded in the last ${CONTROL_ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<SourceReductionIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: actions }}
+				unavailable={{ description: 'Source reduction activity is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((action) => (
+							<ActionRow
+								amount={formatMeasure(action.amount, action.unitAbbreviation)}
+								date={formatActionDate(action.actionDate)}
+								key={action.id}
+								params={{ id: action.id }}
+								primary={action.methodName}
+								secondary={technicianLabel(action)}
+								to="/control-operations/source-reduction/$id"
+							/>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -463,29 +473,32 @@ function RecentBiocontrolPanel({ since }: { readonly since: string }) {
 			scrollBody
 			title="Biocontrol Releases"
 		>
-			{isError ? (
-				<PanelMessage>Biocontrol activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : actions.length === 0 ? (
-				<PanelMessage>
-					No biocontrol releases recorded in the last {CONTROL_ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{actions.map((action) => (
-						<ActionRow
-							amount={formatMeasure(action.amount, action.unitAbbreviation)}
-							date={formatActionDate(action.actionDate)}
-							key={action.id}
-							params={{ id: action.id }}
-							primary={action.methodName}
-							secondary={technicianLabel(action)}
-							to="/control-operations/biocontrol/$id"
-						/>
-					))}
-				</ul>
-			)}
+			<PanelRows
+				empty={{
+					description: `No biocontrol releases recorded in the last ${CONTROL_ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<BiocontrolIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: actions }}
+				unavailable={{ description: 'Biocontrol activity is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((action) => (
+							<ActionRow
+								amount={formatMeasure(action.amount, action.unitAbbreviation)}
+								date={formatActionDate(action.actionDate)}
+								key={action.id}
+								params={{ id: action.id }}
+								primary={action.methodName}
+								secondary={technicianLabel(action)}
+								to="/control-operations/biocontrol/$id"
+							/>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }

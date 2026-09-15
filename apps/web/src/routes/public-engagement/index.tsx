@@ -1,5 +1,6 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -195,26 +196,29 @@ function OpenServiceRequestsPanel({
 			icon={<RequestIcon className="size-4" />}
 			title="Open Service Requests"
 		>
-			{requests.isError ? (
-				<PanelMessage>Service requests are unavailable right now.</PanelMessage>
-			) : !requests.isReady ? (
-				<RowSkeleton count={3} />
-			) : preview.length === 0 ? (
-				<PanelMessage>No open service requests.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{preview.map((request) => (
-						<PanelRow
-							date={formatMonthDay(request.requestDate)}
-							key={request.id}
-							params={{ id: request.id }}
-							primary={serviceRequestTitle(request)}
-							secondary={<RequestParty parties={parties} request={request} />}
-							to="/public-engagement/service-requests/$id"
-						/>
-					))}
-				</ul>
-			)}
+			<PanelRows
+				empty={{ description: 'No open service requests.' }}
+				icon={<RequestIcon aria-hidden="true" />}
+				inset
+				reading={{ isError: requests.isError, isReady: requests.isReady, rows: preview }}
+				unavailable={{ description: 'Service requests are unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((request) => (
+							<PanelRow
+								date={formatMonthDay(request.requestDate)}
+								key={request.id}
+								params={{ id: request.id }}
+								primary={serviceRequestTitle(request)}
+								secondary={<RequestParty parties={parties} request={request} />}
+								to="/public-engagement/service-requests/$id"
+							/>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -305,31 +309,34 @@ function ServiceRequestActivityPanel({
 			scrollBody
 			title={`Service Request Activity · Last ${SERVICE_REQUEST_FEED_WINDOW_DAYS} Days`}
 		>
-			{isError ? (
-				<PanelMessage>Service request activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={4} />
-			) : preview.length === 0 ? (
-				<PanelMessage>
-					No service request activity in the last {SERVICE_REQUEST_FEED_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{preview.map((event) => (
-						<ActivityRow
-							actorName={
-								event.actorProfileId === null
-									? null
-									: (profileNameById.get(event.actorProfileId) ?? 'Unknown profile')
-							}
-							event={event}
-							key={event.key}
-							requestTitle={titleById.get(event.requestId) ?? 'a service request'}
-							timeZone={timeZone}
-						/>
-					))}
-				</ul>
-			)}
+			<PanelRows
+				empty={{
+					description: `No service request activity in the last ${SERVICE_REQUEST_FEED_WINDOW_DAYS} days.`,
+				}}
+				icon={<ActivityIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: preview }}
+				unavailable={{ description: 'Service request activity is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((event) => (
+							<ActivityRow
+								actorName={
+									event.actorProfileId === null
+										? null
+										: (profileNameById.get(event.actorProfileId) ?? 'Unknown profile')
+								}
+								event={event}
+								key={event.key}
+								requestTitle={titleById.get(event.requestId) ?? 'a service request'}
+								timeZone={timeZone}
+							/>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -397,29 +404,32 @@ function RecentOutreachPanel({ since }: { readonly since: string }) {
 			icon={<OutreachIcon className="size-4" />}
 			title={`Recent Outreach Actions · Last ${OUTREACH_ACTIVITY_WINDOW_DAYS} Days`}
 		>
-			{isError ? (
-				<PanelMessage>Outreach activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : preview.length === 0 ? (
-				<PanelMessage>
-					No outreach recorded in the last {OUTREACH_ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{preview.map((action) => (
-						<PanelRow
-							date={formatMonthDay(action.outreachDate)}
-							icon={<OutreachIcon aria-hidden="true" className="size-4" />}
-							key={action.id}
-							params={{ id: action.id }}
-							primary={action.methodName}
-							secondary={outreachSecondary(action)}
-							to="/public-engagement/outreach/$id"
-						/>
-					))}
-				</ul>
-			)}
+			<PanelRows
+				empty={{
+					description: `No outreach recorded in the last ${OUTREACH_ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<OutreachIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: preview }}
+				unavailable={{ description: 'Outreach activity is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((action) => (
+							<PanelRow
+								date={formatMonthDay(action.outreachDate)}
+								icon={<OutreachIcon aria-hidden="true" className="size-4" />}
+								key={action.id}
+								params={{ id: action.id }}
+								primary={action.methodName}
+								secondary={outreachSecondary(action)}
+								to="/public-engagement/outreach/$id"
+							/>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }

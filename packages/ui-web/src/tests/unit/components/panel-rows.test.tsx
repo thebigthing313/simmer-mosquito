@@ -168,3 +168,44 @@ describe('PanelRows with no empty state', () => {
 		expect(html).toContain('No species identified yet.');
 	});
 });
+
+/**
+ * The overview panels' shape (#936): one sentence per state, no title over
+ * it, and a body whose rows pad themselves, so the states that draw no rows
+ * carry the padding the rows would have.
+ */
+describe('PanelRows inset, with untitled messages', () => {
+	const overview = (reading: PanelRowsReading<string>): string =>
+		renderToStaticMarkup(
+			<PanelRows
+				empty={{ description: 'No inspections recorded on this day.' }}
+				icon={<svg aria-hidden="true" />}
+				inset
+				reading={reading}
+				unavailable={{ description: 'Inspection activity is unavailable right now.' }}
+			>
+				{(rows) => rows.map((row) => <li key={row}>{row}</li>)}
+			</PanelRows>,
+		);
+
+	it('draws the sentence with no title element over it', () => {
+		const html = overview({ isReady: true, rows: [] });
+
+		expect(html).toContain('No inspections recorded on this day.');
+		expect(html).not.toContain('data-slot="empty-title"');
+	});
+
+	it('pads the messages and the placeholder', () => {
+		expect(overview({ isReady: true, rows: [] })).toContain('class="p-4"');
+		expect(overview({ isError: true, isReady: true, rows: [] })).toContain('class="p-4"');
+		expect(overview({ isReady: false, rows: [] })).toContain('grid gap-2 p-4');
+	});
+
+	it('leaves the rows to pad themselves', () => {
+		expect(overview({ isReady: true, rows: ROWS })).not.toContain('p-4');
+	});
+
+	it('is off by default, so a detail card keeps its own padding', () => {
+		expect(markup({ isReady: true, rows: [] })).not.toContain('p-4');
+	});
+});
