@@ -44,172 +44,15 @@
  * Run it with `pnpm check:build-graph`.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readJsonc, readProjects } from './lib/workspace-projects.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Every field a workspace edge can be declared in. */
 const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies'];
-
-/**
- * Strips the two things a tsconfig may contain and `JSON.parse` will not take:
- * comments, and a trailing comma before a closing brace or bracket.
- *
- * Half the tsconfigs here carry comments — `packages/mapping` explains its `DOM`
- * lib in a block comment, `packages/sync` explains the very reference this check
- * exists to guard — and TypeScript 7's package no longer exposes
- * `readConfigFile`, so there is no parser to borrow (see CLAUDE.md).
- *
- * String-aware on purpose: a `//` inside a path value is not a comment, and a
- * quote inside a comment does not open a string.
- */
-function stripJsonComments(text) {
-	let out = '';
-	let index = 0;
-	/** Where in `out` each comma outside a string landed, so a `,]` in a path is left alone. */
-	const commas = [];
-
-	while (index < text.length) {
-		const char = text[index];
-
-		if (char === '"') {
-			const end = endOfString(text, index);
-			out += text.slice(index, end);
-			index = end;
-			continue;
-		}
-
-		const comment = commentLength(text, index);
-		if (comment > 0) {
-			index += comment;
-			continue;
-		}
-
-		if (char === ',') commas.push(out.length);
-		out += char;
-		index++;
-	}
-
-	return dropTrailingCommas(out, commas);
-}
-
-/** The index just past the string literal that starts at `start`. */
-function endOfString(text, start) {
-	for (let index = start + 1; index < text.length; index++) {
-		if (text[index] === '\\') index++;
-		else if (text[index] === '"') return index + 1;
-	}
-
-	return text.length;
-}
-
-/** How many characters the comment at `start` occupies, or 0 where none begins. */
-function commentLength(text, start) {
-	if (text[start] !== '/') return 0;
-
-	// The newline itself is left in, so a `//` comment does not join two lines.
-	if (text[start + 1] === '/') {
-		const end = text.indexOf('\n', start);
-		return end === -1 ? text.length - start : end - start;
-	}
-
-	if (text[start + 1] === '*') {
-		const end = text.indexOf('*/', start + 2);
-		return end === -1 ? text.length - start : end + 2 - start;
-	}
-
-	return 0;
-}
-
-/** Removes each comma at the given indices that is followed by a `}` or `]`. */
-function dropTrailingCommas(text, indices) {
-	let out = text;
-
-	// Right to left, so removing one does not move the next one's index.
-	for (const index of [...indices].reverse()) {
-		if (/^,\s*[}\]]/.test(out.slice(index))) out = out.slice(0, index) + out.slice(index + 1);
-	}
-
-	return out;
-}
-
-function readJsonc(path) {
-	try {
-		return JSON.parse(stripJsonComments(readFileSync(path, 'utf8')));
-	} catch (error) {
-		throw new Error(`${path} is not readable as JSON: ${error.message}`);
-	}
-}
-
-/**
- * Every directory a workspace pattern names, read from `pnpm-workspace.yaml`
- * rather than hard-coded, so a third directory alongside `apps` and `packages`
- * cannot leave half the workspace unchecked.
- */
-function workspaceProjectPaths() {
-	const yaml = readFileSync(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8');
-	const patterns = [];
-
-	for (const line of yaml.split('\n')) {
-		const match = /^\s*-\s*["']?([^"'\s]+)["']?\s*$/.exec(line);
-		if (match?.[1]) patterns.push(match[1]);
-	}
-
-	return patterns.flatMap(expandPattern);
-}
-
-/**
- * The project paths one pattern names.
- *
- * Two shapes are understood, and they are the two this workspace writes. A
- * `<dir>/*` pattern names a parent, so each of its subdirectories is a
- * candidate. A plain `<dir>` names one project, which is what `scripts` is: one
- * project rather than a parent of many. Anything else is an error rather than a
- * skip, because a pattern this cannot read is a slice of the workspace going
- * unchecked with nothing saying so.
- */
-function expandPattern(pattern) {
-	if (!pattern.includes('*')) return [pattern];
-
-	const match = /^([^*]+)\/\*$/.exec(pattern);
-	if (!match?.[1]) {
-		throw new Error(
-			`pnpm-workspace.yaml declares "${pattern}", which this check does not understand. ` +
-				'It reads `<dir>/*` and plain `<dir>` patterns only — teach it the new shape rather than dropping the pattern.',
-		);
-	}
-
-	const directory = match[1];
-	const parent = join(workspaceRoot, directory);
-	if (!existsSync(parent)) return [];
-
-	return readdirSync(parent, { withFileTypes: true })
-		.filter((entry) => entry.isDirectory())
-		.map((entry) => `${directory}/${entry.name}`);
-}
-
-/** Every workspace project that compiles: one with both a package.json and a tsconfig.json. */
-function readProjects() {
-	const projects = [];
-
-	for (const path of workspaceProjectPaths()) {
-		const manifestPath = join(workspaceRoot, path, 'package.json');
-		const tsconfigPath = join(workspaceRoot, path, 'tsconfig.json');
-		if (!existsSync(manifestPath) || !existsSync(tsconfigPath)) continue;
-
-		const manifest = readJsonc(manifestPath);
-		projects.push({
-			path,
-			name: manifest.name,
-			manifest,
-			tsconfig: readJsonc(tsconfigPath),
-		});
-	}
-
-	return projects;
-}
 
 /** The workspace packages a project's package.json declares, in any dependency field. */
 function declaredDependencies(project, projectsByName) {
@@ -367,7 +210,7 @@ function referencePathBetween(from, to) {
 	return `${'../'.repeat(fromParts.length - shared)}${toParts.slice(shared).join('/')}`;
 }
 
-const projects = readProjects();
+const projects = readProjects(workspaceRoot);
 const projectsByName = new Map(projects.map((project) => [project.name, project]));
 const projectsByPath = new Map(projects.map((project) => [project.path, project]));
 
