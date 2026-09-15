@@ -71,6 +71,9 @@ domain doc instead of expanding this file.
   **in progress** once it is a stop on an **Assignment**, whatever that
   assignment's state; a comment on it is not progress. Before that it is
   **new**.
+- A **Service Request** is **received** on its request date, the day the
+  Organization took it, and that is the day it counts on. When the row was
+  entered is not a domain date.
 - A **Requested Control Action** is **assigned** while a **Mission Item** on a
   scheduled or in-progress **Mission** names it. A stop on a completed or
   cancelled mission leaves an unresolved request unassigned again.
