@@ -1,5 +1,5 @@
 import { availableParallelism } from 'node:os';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
 import type { Reporter, TestModule, Vitest } from 'vitest/node';
 
 /**
@@ -35,6 +35,31 @@ const sharedTestExclude = ['**/node_modules/**', '**/dist/**', '**/.nx/**', '**/
  * schema names are already unique, so nothing here changes what a test can see.
  */
 const TEST_FILE_WORKERS = Math.max(4, availableParallelism() - 1);
+
+/**
+ * How many test files a database-backed project may run at once, on any machine.
+ *
+ * The floor above is also the ceiling for `packages/db` and `apps/server`,
+ * because the wider default a larger machine gets is what starves the container
+ * on a full `pnpm test`. Nx runs three projects at a time, so on a twelve-core
+ * machine `apps/web`, `packages/db` and `apps/server` overlap at eleven forks
+ * each, 33 forks on 12 cores, and the Docker VM that runs Postgres is competing
+ * for the same cores. Measured on a fresh container over IPv4 (#926): at the
+ * default, 42 of the 2,430 database-backed tests timed out at 45s, the
+ * container reached 63 sessions and 60 live `simmer_test_*` schemas as each
+ * timed-out test left its schema build running, and a `docker exec psql` that
+ * took two seconds at the start of the run took 28 in the middle of it. At four
+ * workers on these two projects every test passed, the peak was 8 schemas, and
+ * the whole run was 213s against 261s failing, because these files wait on
+ * Postgres rather than on a core, so eleven workers were never buying wall time:
+ * `packages/db` alone is 72.6s at eleven and 81s at four. Serialising the two
+ * projects in Nx passed too, at 240s, and was not taken, since a `dependsOn`
+ * between two test targets skips `server:test` whenever `db:test` fails.
+ *
+ * CI is unchanged: its runner has two vCPUs, so the floor and this ceiling are
+ * the same number there.
+ */
+const DATABASE_TEST_FILE_WORKERS = 4;
 
 /**
  * How long one test file may hold a worker without reporting anything.
@@ -135,11 +160,24 @@ class FileProgressWatchdog implements Reporter {
 	}
 }
 
-export default defineConfig({
+const shared = defineConfig({
 	test: {
 		exclude: sharedTestExclude,
 		fileParallelism: true,
 		maxWorkers: TEST_FILE_WORKERS,
 		reporters: ['default', new FileProgressWatchdog()],
 	},
+});
+
+export default shared;
+
+/**
+ * The config for a project whose suites build throwaway schemas in Postgres.
+ *
+ * Everything above, with `maxWorkers` held at `DATABASE_TEST_FILE_WORKERS`.
+ * `packages/db` and `apps/server` export this; every other project exports the
+ * default.
+ */
+export const databaseBackedConfig = mergeConfig(shared, {
+	test: { maxWorkers: DATABASE_TEST_FILE_WORKERS },
 });

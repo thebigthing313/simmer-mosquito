@@ -68,6 +68,8 @@ export async function withTestDb<T>(
 		throw new Error('SIMMER_TEST_DATABASE_URL or TEST_DATABASE_URL is required.');
 	}
 
+	refuseLoopbackNameOnWindows(testDatabaseUrl);
+
 	const schemaName = `simmer_test_${process.pid}_${Date.now()}_${Math.random()
 		.toString(16)
 		.slice(2)}`;
@@ -126,6 +128,63 @@ export async function withTestDb<T>(
 			await teardownPool.end();
 		}
 	}
+}
+
+/**
+ * The host names that mean IPv6 loopback to Node on Windows.
+ *
+ * `localhost` resolves to `::1` ahead of `127.0.0.1` on Node 17 and later, and
+ * `[::1]` says so outright.
+ */
+const IPV6_LOOPBACK_NAMES: ReadonlySet<string> = new Set(['localhost', '[::1]']);
+
+/**
+ * Refuse a URL that reaches a container through IPv6 loopback on Windows.
+ *
+ * Docker Desktop publishes a port on `0.0.0.0` and on `[::]`, and a connection
+ * to either goes through its own proxy rather than to the container. Under the
+ * burst of connects a full `pnpm test` opens, eleven workers each starting a
+ * pool at once, the `::1` listener accepts the TCP connection and then never
+ * completes the backend half: the client sits with no answer and the proxy
+ * resets it at exactly thirty seconds. The IPv4 listener does not do this. It
+ * was measured with an independent client opening five connections a second
+ * beside `packages/db` at eleven workers on a fresh container: over `localhost`,
+ * 60 of 450 connects hung and were reset at 30,000ms while the rest took 12ms;
+ * over `127.0.0.1`, 450 of 450 connected and the suite passed 311 of 311. The
+ * suite alone showed the same two faces #926 was filed with, a test timing out
+ * at 45s and `read ECONNRESET` on a file that passes alone, and both were one
+ * hung connect. Neither a worker cap nor serialising the two projects in Nx
+ * moved it, because the burst is the start of a run and not its width.
+ *
+ * Windows only, because that is where the proxy is. CI's service container is
+ * reached over `localhost` on Linux and needs nothing. There is deliberately no
+ * override, for the reason `refuseDatabaseWithReplicationSlot` gives: the URL
+ * is the fix and the message carries it.
+ */
+export function refuseLoopbackNameOnWindows(
+	url: string,
+	platform: NodeJS.Platform = process.platform,
+): void {
+	if (platform !== 'win32') {
+		return;
+	}
+
+	const parsed = new URL(url);
+	const name = parsed.hostname;
+	if (!IPV6_LOOPBACK_NAMES.has(name)) {
+		return;
+	}
+
+	parsed.hostname = '127.0.0.1';
+	throw new Error(
+		[
+			`Refusing to run integration tests over ${name} on Windows. ` +
+				"That name is IPv6 loopback, and Docker Desktop's IPv6 port proxy " +
+				'hangs new connections under the burst a full pnpm test opens, which arrives as ' +
+				'a 45s timeout or read ECONNRESET on a file that passes alone (#926).',
+			`Point TEST_DATABASE_URL at the container over IPv4 instead: ${parsed.href}`,
+		].join('\n'),
+	);
 }
 
 /**

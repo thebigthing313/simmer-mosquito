@@ -75,9 +75,15 @@ PowerShell:
 
 ```powershell
 docker-compose up -d postgres
-$env:TEST_DATABASE_URL='postgres://postgres:postgres@localhost:55432/simmer_mosquito'
+$env:TEST_DATABASE_URL='postgres://postgres:postgres@127.0.0.1:55432/simmer_mosquito'
 pnpm --filter @simmer-mosquito/db test
 ```
+
+On Windows the host is `127.0.0.1` and `withTestDb` refuses `localhost`: Node
+resolves that name to `::1` first, and Docker Desktop's IPv6 port proxy hangs
+new connections under the burst a full `pnpm test` opens, which arrives as a
+45s timeout or `read ECONNRESET` on a file that passes alone (#926). The
+database section of `CLAUDE.md` carries the measurement.
 
 `docker-compose up -d postgres` is the path that works out of the box. Several
 files build their schemas at once, so the lock table holds every object of all
