@@ -56,6 +56,31 @@
 // it, being recommendations rather than findings. The verdict reports and never
 // decides: every exit code here is what it was before.
 //
+// The duplication verdict is #971, the same reading error one gate over. A
+// `dupes` run ends on `✗ 15,260 lines (4.7%) duplicated across 408 files` and
+// exits 0, because 4.7% is under the 5.0 threshold in `.fallowrc.jsonc`. Run
+// against `--threshold 1` the same line prints, and fallow adds `Duplication
+// (4.7%) exceeds threshold (1.0%)` before exiting 1. So the cross says nothing
+// about the gate either, and this prints a verdict naming the percentage, the
+// threshold it was measured against and the exit code.
+//
+// Two verdict functions and one shared sentence, which is the design question
+// the issue asked to settle rather than assume. What the two have in common is
+// the disclaimer and the place it prints, and `fallowsCross` below is that
+// sentence, taking the noun for whatever fallow counted. Everything else
+// differs: health names a baseline file and lists a regression per entry, and
+// has to spawn a second fallow run to know them, while this reads two numbers
+// off one line fallow already printed and spawns nothing. One function over
+// both would be the two bodies behind a flag, with the shared half the one line
+// that is now shared.
+//
+// The threshold is read from the config rather than written here, so the gate
+// and the verdict cannot disagree about what the run was measured against, and
+// `--threshold` on the command line wins because fallow lets it. The word
+// before it, `under` or `over`, is read off the two numbers rather than off the
+// exit code: a run that fails for another reason then says so, since the exit
+// code is named separately. This reports and never decides, the same as #941's.
+//
 // The freshness half is #669, and it is the gate under fallow's quarter. Below
 // that line fallow says nothing, so a baseline could carry any number of
 // entries matching nothing and every one of them was headroom a new finding
@@ -67,10 +92,28 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+// Aliased: `scan` below is this file's own reader over the child's streams.
+import { scan as scanSource } from './lib/masked-source.mjs';
 
 const args = process.argv.slice(2);
 const readsBaseline = args.includes('--baseline');
 const STALENESS_PATTERN = /health baseline is partially stale: \d+ of \d+ entries/;
+
+// The summary fallow ends a `dupes` run on. The glyph is deliberately not part
+// of the match, because it is the same cross on a run that passes the threshold
+// and one that fails it.
+const DUPLICATION_PATTERN = /([\d,]+) lines \(([\d.]+)%\) duplicated across ([\d,]+) files/;
+
+/** The percentage and file count that summary carried, read off the run below. */
+let duplication = null;
+
+// Where the duplication threshold lives when `--config` does not point fallow
+// somewhere else. The number itself is never written here.
+const DEFAULT_CONFIG_PATH = '.fallowrc.jsonc';
+
+// fallow's subcommand, which comes before the flags, so the first argument that
+// is not one is it.
+const subcommand = args.find((arg) => !arg.startsWith('-')) ?? null;
 
 // More than five saved entries matching nothing fails the run. Five is #605's
 // own number: five entries of 166 is three percent, nowhere near the quarter
@@ -88,23 +131,27 @@ const STALE_ENTRIES_SHOWN = 20;
 // first.
 const REGRESSIONS_SHOWN = 20;
 
-// The path `--save-baseline` was given, in either spelling fallow accepts, or
-// null when this run saves nothing.
-const savesBaseline = (() => {
-	const flag = args.indexOf('--save-baseline');
-	if (flag >= 0) return args[flag + 1] ?? null;
-	const inline = args.find((arg) => arg.startsWith('--save-baseline='));
-	return inline ? inline.slice('--save-baseline='.length) : null;
-})();
+/**
+ * The value this run gave `flag`, in either spelling fallow accepts, or null
+ * when it did not give it one. `--baseline-mode` is a different flag from
+ * `--baseline` to both halves, since the name is matched whole.
+ */
+const flagValue = (flag) => {
+	const at = args.indexOf(flag);
+	if (at >= 0) return args[at + 1] ?? null;
+	const inline = args.find((arg) => arg.startsWith(`${flag}=`));
+	return inline ? inline.slice(flag.length + 1) : null;
+};
 
-// The path `--baseline` was given, in either spelling, or null when this run
-// compares against nothing.
-const baselinePath = (() => {
-	const flag = args.indexOf('--baseline');
-	if (flag >= 0) return args[flag + 1] ?? null;
-	const inline = args.find((arg) => arg.startsWith('--baseline='));
-	return inline ? inline.slice('--baseline='.length) : null;
-})();
+// The path `--save-baseline` was given, or null when this run saves nothing.
+const savesBaseline = flagValue('--save-baseline');
+
+// The path `--baseline` was given, or null when this run compares against
+// nothing.
+const baselinePath = flagValue('--baseline');
+
+// The config this run reads its threshold out of, which `--config` may move.
+const configPath = flagValue('--config') ?? flagValue('-c') ?? DEFAULT_CONFIG_PATH;
 
 // #668's distinction, read once: a run that saves is recording findings and a
 // run that only compares is judging them. Freshness is a judgement, so the
@@ -332,6 +379,15 @@ const verdictOutcome = (regressions) => {
 };
 
 /**
+ * The sentence both verdicts end on, taking the noun for whatever fallow
+ * counted. It is the one thing the two gates share, and #971's answer to
+ * whether one function serves both: what fallow counted differs between them,
+ * and that its cross prints either way does not.
+ */
+const fallowsCross = (counted) =>
+	`The ✗ line above is fallow's own ${counted}. It prints the same on a run that passes this comparison and one that fails it, so it is not this gate's answer.`;
+
+/**
  * The gate's own answer, read last. The first line names the comparison's
  * outcome and this run's exit code, and the last says whose the `✗` count above
  * it is, which is the whole of #941: that count is fallow's and it prints the
@@ -344,9 +400,82 @@ const reportVerdict = (regressions) => {
 	for (const regression of named.slice(0, REGRESSIONS_SHOWN)) console.error(`  ${regression}`);
 	if (named.length > REGRESSIONS_SHOWN)
 		console.error(`  and ${named.length - REGRESSIONS_SHOWN} more`);
-	console.error(
-		"The ✗ line above is fallow's own count of findings above its threshold. It prints the same on a run that passes this comparison and one that fails it, so it is not this gate's answer.",
-	);
+	console.error(fallowsCross('count of findings above its threshold'));
+};
+
+/**
+ * The duplication threshold the config sets, or null when it cannot be read.
+ * The file is JSONC, so the comment spans the shared masker finds come out
+ * before `JSON.parse` reads what is left. That masker is written for
+ * TypeScript, which costs nothing here: JSON is a subset of what it walks, and
+ * a `//` inside a string stays inside a string either way.
+ */
+const withoutComments = (source) => {
+	let code = '';
+	let from = 0;
+	for (const comment of scanSource(source).comments) {
+		code += source.slice(from, comment.index);
+		from = comment.end;
+	}
+	return code + source.slice(from);
+};
+
+/**
+ * The duplication threshold the config sets, or null when it cannot be read. A
+ * config with no `duplicates` block throws its way here rather than being asked
+ * about, which is the same answer by a shorter route.
+ */
+const configuredThreshold = () => {
+	try {
+		const config = JSON.parse(withoutComments(readFileSync(configPath, 'utf8')));
+		const threshold = config.duplicates.threshold;
+		return typeof threshold === 'number' ? threshold : null;
+	} catch {
+		return null;
+	}
+};
+
+/**
+ * The threshold this run was gated against and where it came from, or null when
+ * neither place names one. `--threshold` wins, because fallow takes it over the
+ * config.
+ */
+const measuredAgainst = () => {
+	const given = flagValue('--threshold');
+	if (given === null) {
+		const configured = configuredThreshold();
+		return configured === null ? null : { value: configured, source: `in ${configPath}` };
+	}
+	const value = Number(given);
+	return Number.isFinite(value) ? { value, source: 'this run was given' } : null;
+};
+
+/**
+ * How the measured percentage sits against the threshold, as one word. Read off
+ * the two numbers and never off the exit code, so a run that fails for some
+ * other reason says `under` and names the exit code beside it.
+ */
+const standing = (measured, threshold) => {
+	if (measured > threshold) return 'over';
+	if (measured < threshold) return 'under';
+	return 'level with';
+};
+
+/** What the duplication run measured, as the clause the verdict opens with. */
+const duplicationOutcome = () => {
+	if (duplication === null) return 'fallow printed no duplication summary for this to read';
+	const measured = `${duplication.percentage}% duplicated across ${duplication.files} files`;
+	const threshold = measuredAgainst();
+	if (threshold === null) return `${measured}, against a threshold this could not read`;
+	if (threshold.value === 0) return `${measured}, with no threshold set to gate it`;
+	const word = standing(duplication.percentage, threshold.value);
+	return `${measured}, ${word} the ${threshold.value.toFixed(1)}% threshold ${threshold.source}`;
+};
+
+/** The duplication gate's own answer, #941's shape and #971's sentence. */
+const reportDuplicationVerdict = () => {
+	console.error(`\nfallow dupes: ${duplicationOutcome()}. This run exits ${exitCode()}.`);
+	console.error(fallowsCross('count of duplicated lines'));
 };
 
 /** The #669 gate and #941's verdict, in that order: the verdict reads last. */
@@ -374,6 +503,18 @@ const noteIfStale = (line) => {
 	if (readsBaseline && STALENESS_PATTERN.test(line)) warning = line.trim();
 };
 
+const noteIfDuplication = (line) => {
+	if (subcommand !== 'dupes') return;
+	const summary = DUPLICATION_PATTERN.exec(line);
+	if (summary) duplication = { percentage: Number(summary[2]), files: summary[3] };
+};
+
+/** Every line of the child's output goes past both gates' readers. */
+const noteLine = (line) => {
+	noteIfStale(line);
+	noteIfDuplication(line);
+};
+
 // Bytes reach the terminal untouched; only whole lines are scanned, so a
 // warning split across two chunks is still read.
 const scan = (source, terminal) => {
@@ -382,28 +523,35 @@ const scan = (source, terminal) => {
 		terminal.write(chunk);
 		const lines = (carry + chunk).split('\n');
 		carry = lines.pop() ?? '';
-		for (const line of lines) noteIfStale(line);
+		for (const line of lines) noteLine(line);
 	});
-	source.on('end', () => noteIfStale(carry));
+	source.on('end', () => noteLine(carry));
 };
 
 scan(child.stdout, process.stdout);
 scan(child.stderr, process.stderr);
 
+/** Reprints fallow's staleness warning where the result line is read, and fails. */
+const reportStaleWarning = () => {
+	console.error(`\n${warning}`);
+	console.error(
+		'Re-save it with `pnpm fallow:baseline` and read the diff before committing: a re-save is also how a regression gets buried.',
+	);
+	process.exitCode = 1;
+};
+
+/** The verdict this run's subcommand owes, printed under fallow's report. */
+const reportOwnVerdict = (code) => {
+	// A child killed by a signal analyzed nothing, so there is nothing to measure
+	// freshness against and the run is already failing.
+	if (code !== null && gatesOnBaseline) reportComparison();
+	if (subcommand === 'dupes') reportDuplicationVerdict();
+};
+
 // Setting `exitCode` rather than calling `process.exit` lets the writes above
 // drain; nothing holds the loop open once the child has closed.
 child.on('close', (code) => {
 	process.exitCode = exitCodeFor(code);
-
-	if (warning) {
-		console.error(`\n${warning}`);
-		console.error(
-			'Re-save it with `pnpm fallow:baseline` and read the diff before committing: a re-save is also how a regression gets buried.',
-		);
-		process.exitCode = 1;
-	}
-
-	// A child killed by a signal analyzed nothing, so there is nothing to measure
-	// freshness against and the run is already failing.
-	if (code !== null && gatesOnBaseline) reportComparison();
+	if (warning) reportStaleWarning();
+	reportOwnVerdict(code);
 });
