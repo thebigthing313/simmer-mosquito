@@ -9,6 +9,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
+import type { RouteSummary } from '../../../components/route-planning/route-summary';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
@@ -24,11 +25,13 @@ import {
 import {
 	AssignmentDetailFields,
 	type AssignmentDetailValues,
+	applyGeneratedName,
 	assigneeOrNull,
 	assignmentNameOrNull,
 	deadlineHalfEntered,
 	defaultAssignmentDetails,
 	RoutePicker,
+	routeAssignmentName,
 	toDueAt,
 } from './-assignment-form';
 
@@ -60,7 +63,17 @@ function AssignmentCreateRoute() {
 	const [values, setValues] = useState<AssignmentDetailValues>(() =>
 		defaultAssignmentDetails(today),
 	);
-	const [routeId, setRouteId] = useState<string | null>(null);
+	// The summary rather than its id, because the generated name is written
+	// from the route's name at the moment the route is picked or the date
+	// moves, and a lookup in the catalog by id would read a renamed route's new
+	// name into a field the person may have already seen.
+	const [route, setRoute] = useState<RouteSummary | null>(null);
+	const routeId = route?.id ?? null;
+	// What the form itself last wrote into the Name field, so the next
+	// regeneration can tell an untouched field from a typed one by comparing
+	// against it rather than by a flag (#1007). Empty when it has written
+	// nothing, which is also what an empty field compares equal to.
+	const [generatedName, setGeneratedName] = useState('');
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +97,23 @@ function AssignmentCreateRoute() {
 		!deadlineHalfEntered(values) &&
 		routeReady &&
 		!saving;
+
+	// Every change that can move the generated name lands here: the route picked
+	// or cleared, the mode switched, the date moved. The rule is applied once,
+	// against the draft as it will be, and the field and the remembered string
+	// are stored together so neither lags the other. Typing in the Name field
+	// does not come through here, since that is the edit the rule protects.
+	const settle = (nextMode: Mode, nextRoute: RouteSummary | null, next: AssignmentDetailValues) => {
+		const generated =
+			nextMode === 'route' && nextRoute !== null
+				? routeAssignmentName(nextRoute.routeName, next.assignmentDate)
+				: '';
+		const applied = applyGeneratedName(next, generatedName, generated);
+		setMode(nextMode);
+		setRoute(nextRoute);
+		setValues(applied.values);
+		setGeneratedName(applied.generated);
+	};
 
 	const submit = async () => {
 		if (!canSubmit) {
@@ -155,18 +185,22 @@ function AssignmentCreateRoute() {
 					}}
 				>
 					<div className="flex gap-2">
-						<ModeButton active={mode === 'blank'} label="Blank" onClick={() => setMode('blank')} />
+						<ModeButton
+							active={mode === 'blank'}
+							label="Blank"
+							onClick={() => settle('blank', route, values)}
+						/>
 						<ModeButton
 							active={mode === 'route'}
 							label="From a route"
-							onClick={() => setMode('route')}
+							onClick={() => settle('route', route, values)}
 						/>
 					</div>
 
 					{mode === 'route' ? (
 						<div className="grid gap-2">
 							<RoutePicker
-								onSelect={(route) => setRouteId(route?.id ?? null)}
+								onSelect={(picked) => settle(mode, picked, values)}
 								routes={allRoutes}
 								stopCountById={countByRouteId}
 								value={routeId}
@@ -184,7 +218,13 @@ function AssignmentCreateRoute() {
 					<AssignmentDetailFields
 						assigneeOptions={assigneeOptions}
 						disabled={saving}
-						onChange={setValues}
+						onChange={(next) =>
+							// Only a moved date regenerates. Running the rule on every
+							// keystroke would refill a field the person had just cleared.
+							next.assignmentDate === values.assignmentDate
+								? setValues(next)
+								: settle(mode, route, next)
+						}
 						values={values}
 					/>
 

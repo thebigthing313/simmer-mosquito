@@ -75,6 +75,9 @@ const { useAssignmentItemMutations } = await import(
 const { useAdditionalPersonnelMutations } = await import(
 	'../../../../hooks/mutations/use-additional-personnel-mutations'
 );
+const { routeAssignmentName } = await import(
+	'../../../../routes/operations/assignments/-assignment-form'
+);
 
 beforeEach(() => {
 	installMemoryCollections();
@@ -307,6 +310,25 @@ describe('an assignment write', () => {
 			{ id: 'copied-2', route_item_id: 'route-stop-2' },
 		]);
 		expect(dispatches()).toHaveLength(0);
+	});
+
+	it('sends the route-copied name as the stored column and not as a display fallback', async () => {
+		// The create form writes `<route name>, <date>` into the Name field, and
+		// the assignment carries it wherever it is shown only if the save sends
+		// it (#1007). `assignmentDisplayName` would draw a date and an assignee
+		// for a null name, which is the shape this asserts against.
+		const { result } = renderHook(() => useAssignmentMutations());
+		const generated = routeAssignmentName('North loop', '2026-08-03');
+
+		await result.current.createFromRoute({
+			assignmentId: ASSIGNMENT,
+			routeId: ROUTE,
+			details: { ...assignmentDetails(), assignmentName: generated },
+			stops: [],
+		});
+
+		expect(generated).toBe('North loop, Aug 3, 2026');
+		expect(lastRequest().body.assignment_name).toBe('North loop, Aug 3, 2026');
 	});
 
 	it('names the details save and leaves the lifecycle columns alone', async () => {

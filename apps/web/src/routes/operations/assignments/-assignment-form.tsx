@@ -12,6 +12,7 @@ import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
 import type { RouteSummary } from '../../../components/route-planning/route-summary';
 import {
+	formatListDate,
 	formatLocalDate,
 	localCalendarDay,
 	localTimeAsInstant,
@@ -139,6 +140,56 @@ export function sameAssignmentDetails(
 		first.dueDate === second.dueDate &&
 		first.dueTime === second.dueTime
 	);
+}
+
+/**
+ * `North loop, Sep 15, 2026`, the name a route copy is given before anyone
+ * types one (#1007).
+ *
+ * The date is {@link formatListDate}'s wording, the same the explorer lists
+ * draw, and it takes the assignment date as the `YYYY-MM-DD` the form holds:
+ * which day that is was the organization's to say when the date was picked,
+ * so no zone is asked for here. A comma and not a dash, because
+ * `check:copy-dashes` reads what a form writes into a field the same as any
+ * other copy. The weekday stays off since the list draws it beside the name
+ * already.
+ *
+ * With no date there is no date to write, so the name is the route alone
+ * rather than a route with a comma hanging off it; the date follows as soon
+ * as one is picked, through {@link applyGeneratedName}.
+ */
+export function routeAssignmentName(routeName: string, assignmentDate: string): string {
+	return assignmentDate === '' ? routeName : `${routeName}, ${formatListDate(assignmentDate)}`;
+}
+
+/**
+ * The draft with a generated name written into it, or left as the person
+ * typed it, and the string the form should remember as generated after this.
+ *
+ * "Untouched" is the rule, and it is read off the field rather than off a
+ * flag: the field is untouched when it is empty or holds exactly what was
+ * last generated, and only then does `generated` overwrite it. Comparing
+ * against the remembered string is what lets the date change after the route
+ * was picked without clobbering a typed name, and what lets a person who typed
+ * and deleted back to empty get the default at the next change. A flag set on
+ * every keystroke would answer "edited" to both.
+ *
+ * `generated` is `''` when there is nothing to generate, the route cleared or
+ * the mode back to Blank, and the same comparison then clears an unedited
+ * field and leaves an edited one alone. The remembered string moves only when
+ * the field does, so an edited field is still compared against the value it
+ * was edited away from.
+ */
+export function applyGeneratedName(
+	values: AssignmentDetailValues,
+	lastGenerated: string,
+	generated: string,
+): { readonly values: AssignmentDetailValues; readonly generated: string } {
+	const untouched = values.assignmentName === '' || values.assignmentName === lastGenerated;
+	if (!untouched) {
+		return { values, generated: lastGenerated };
+	}
+	return { values: { ...values, assignmentName: generated }, generated };
 }
 
 export function assignmentNameOrNull(values: AssignmentDetailValues): string | null {

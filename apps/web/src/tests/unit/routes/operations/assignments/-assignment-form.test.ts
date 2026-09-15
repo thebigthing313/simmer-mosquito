@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	type AssignmentDetailValues,
+	applyGeneratedName,
 	deadlineHalfEntered,
+	routeAssignmentName,
 	sameAssignmentDetails,
 	toAssignmentDetails,
 	toDueAt,
@@ -170,5 +172,115 @@ describe('typing a due time', () => {
 		const rescheduled = { ...entered, assignmentDate: '2026-08-05' };
 		expect(rescheduled.dueDate).toBe('2026-08-04');
 		expect(withDueTime(rescheduled, '17:00').dueDate).toBe('2026-08-04');
+	});
+});
+
+/**
+ * A route copy is named after the route and its date before anyone types, and
+ * the form keeps that name current until somebody does (#1007). The cases
+ * below are the create route's transitions run through the pure rule, each
+ * carrying the string the form remembered forward the way the route does, so
+ * a change to the comparison fails here rather than on a rendered form.
+ */
+describe('the route-copied name', () => {
+	function draft(overrides: Partial<AssignmentDetailValues> = {}): AssignmentDetailValues {
+		return {
+			assignmentName: '',
+			assignmentDate: '2026-09-15',
+			assignedToProfileId: 'no-assignee',
+			dueDate: '',
+			dueTime: '',
+			...overrides,
+		};
+	}
+
+	const NORTH_15 = 'North loop, Sep 15, 2026';
+	const NORTH_16 = 'North loop, Sep 16, 2026';
+
+	it('is the route name, a comma and the list date', () => {
+		expect(routeAssignmentName('North loop', '2026-09-15')).toBe(NORTH_15);
+		// The explorer lists' wording: month abbreviated, no leading zero, the
+		// year in full and no weekday.
+		expect(routeAssignmentName('North loop', '2026-03-04')).toBe('North loop, Mar 4, 2026');
+	});
+
+	it('is the route alone while no date is picked', () => {
+		expect(routeAssignmentName('North loop', '')).toBe('North loop');
+	});
+
+	it('fills an empty field when a route is chosen', () => {
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		expect(chosen.values.assignmentName).toBe(NORTH_15);
+		expect(chosen.generated).toBe(NORTH_15);
+	});
+
+	it('follows the date while the field is untouched', () => {
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		const moved = applyGeneratedName(
+			{ ...chosen.values, assignmentDate: '2026-09-16' },
+			chosen.generated,
+			NORTH_16,
+		);
+		expect(moved.values.assignmentName).toBe(NORTH_16);
+		expect(moved.generated).toBe(NORTH_16);
+	});
+
+	it('follows a change of route while the field is untouched', () => {
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		const swapped = applyGeneratedName(chosen.values, chosen.generated, 'South loop, Sep 15, 2026');
+		expect(swapped.values.assignmentName).toBe('South loop, Sep 15, 2026');
+	});
+
+	it('never overwrites a name the person edited, and keeps comparing against the old one', () => {
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		const edited = { ...chosen.values, assignmentName: 'Tuesday north' };
+		const moved = applyGeneratedName(
+			{ ...edited, assignmentDate: '2026-09-16' },
+			chosen.generated,
+			NORTH_16,
+		);
+		expect(moved.values.assignmentName).toBe('Tuesday north');
+		// The remembered string does not move with a regeneration that was not
+		// written, so a later clear still reads the typed name as typed.
+		expect(moved.generated).toBe(NORTH_15);
+		const cleared = applyGeneratedName(moved.values, moved.generated, '');
+		expect(cleared.values.assignmentName).toBe('Tuesday north');
+	});
+
+	it('clears an unedited name when the route is cleared', () => {
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		const cleared = applyGeneratedName(chosen.values, chosen.generated, '');
+		expect(cleared.values.assignmentName).toBe('');
+		expect(cleared.generated).toBe('');
+	});
+
+	it('leaves an edited name when the route is cleared', () => {
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		const edited = { ...chosen.values, assignmentName: 'Tuesday north' };
+		expect(applyGeneratedName(edited, chosen.generated, '').values.assignmentName).toBe(
+			'Tuesday north',
+		);
+	});
+
+	it('clears an unedited name on the switch back to Blank, and leaves an edited one', () => {
+		// The route stays selected under Blank mode and there is nothing to
+		// generate from, which is the same `''` the cleared route hands over.
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		expect(applyGeneratedName(chosen.values, chosen.generated, '').values.assignmentName).toBe('');
+		const edited = { ...chosen.values, assignmentName: 'Tuesday north' };
+		expect(applyGeneratedName(edited, chosen.generated, '').values.assignmentName).toBe(
+			'Tuesday north',
+		);
+	});
+
+	it('takes the default again once a typed name is deleted back to empty', () => {
+		const chosen = applyGeneratedName(draft(), '', NORTH_15);
+		const emptied = { ...chosen.values, assignmentName: '' };
+		const moved = applyGeneratedName(
+			{ ...emptied, assignmentDate: '2026-09-16' },
+			chosen.generated,
+			NORTH_16,
+		);
+		expect(moved.values.assignmentName).toBe(NORTH_16);
 	});
 });
