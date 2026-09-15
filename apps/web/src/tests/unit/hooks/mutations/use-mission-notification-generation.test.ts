@@ -122,6 +122,62 @@ describe('generationRefusalOf', () => {
 		expect(generationRefusalOf(error)?.unitCodes).toEqual(['gallon']);
 	});
 
+	it('reads every reason the union holds back as itself', () => {
+		// The membership check is a `Record<GenerationRefusalReason, true>`, so a
+		// reason missing from it fails `tsc`. This is the other direction: that the
+		// check passes each one rather than answering null for a member.
+		const reasons = [
+			'mission_not_found',
+			'mission_completed',
+			'mission_cancelled',
+			'mission_has_no_items',
+			'mission_has_no_notification_type',
+			'buffer_unit_not_convertible',
+		] as const;
+
+		for (const reason of reasons) {
+			const error = new CommandError('Refused.', 409, {
+				error: 'mission_notifications_refused',
+				code: reason,
+				reason: 'The server said why.',
+			});
+			expect(generationRefusalOf(error)?.code).toBe(reason);
+		}
+	});
+
+	it('is null for a code the union does not hold', () => {
+		// It used to be cast, so a reason the server grew arrived inside the union
+		// without being a member and landed on the card's default heading. Null is
+		// the same answer `mergeRefusalReason` gives, and it sends the failure down
+		// the path every other error takes (#930).
+		const error = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			code: 'mission_paused',
+			reason: 'The mission is paused.',
+		});
+
+		expect(generationRefusalOf(error)).toBeNull();
+	});
+
+	it('reads the sentence the way every other refusal reader does', () => {
+		// `refusalSentence` since #929. This site had a fourth rule: it took a
+		// string of spaces as an answer and never looked at `message`, so a refusal
+		// arriving either way rendered a blank red box.
+		const spaces = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			code: 'mission_completed',
+			reason: '   ',
+			message: 'The mission is already complete.',
+		});
+		expect(generationRefusalOf(spaces)?.reason).toBe('The mission is already complete.');
+
+		const neither = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			code: 'mission_completed',
+		});
+		expect(generationRefusalOf(neither)?.reason).toBe('Generation was refused.');
+	});
+
 	it('is null for a failure that is not a generation refusal', () => {
 		const error = new CommandError('Nope.', 403, { error: 'forbidden', reason: 'role_too_low' });
 

@@ -25,7 +25,7 @@
  * cannot collapse them into "nothing happened".
  */
 
-import { sessionFetch } from '@simmer-mosquito/sync';
+import { refusalSentence, sessionFetch } from '@simmer-mosquito/sync';
 import { getServerUrl } from '../../auth';
 import { commandErrorFrom, readResponseBody } from '../../sync/command-error';
 
@@ -54,6 +54,29 @@ export type GenerationRefusalReason =
 	| 'mission_has_no_items'
 	| 'mission_has_no_notification_type'
 	| 'buffer_unit_not_convertible';
+
+/**
+ * The union as a value, so the membership check cannot drift from the type.
+ *
+ * `Record<GenerationRefusalReason, true>` is the whole mechanism, the shape
+ * `MAP_SURFACES` and `RECORD_NOUNS` use: a seventh reason added above fails
+ * `tsc` here until it is listed, and a key here that the union does not hold
+ * fails too. A second list written out by hand would let a new reason read as
+ * unrecognised, which is silent, because an unrecognised code is what
+ * {@link generationRefusalOf} answers `null` for.
+ */
+const GENERATION_REFUSAL_REASONS: Record<GenerationRefusalReason, true> = {
+	mission_not_found: true,
+	mission_completed: true,
+	mission_cancelled: true,
+	mission_has_no_items: true,
+	mission_has_no_notification_type: true,
+	buffer_unit_not_convertible: true,
+};
+
+function isGenerationRefusalReason(value: unknown): value is GenerationRefusalReason {
+	return typeof value === 'string' && Object.hasOwn(GENERATION_REFUSAL_REASONS, value);
+}
 
 /** One registration the server could not price, as the refusal names it. */
 export interface RefusedRegistration {
@@ -99,12 +122,18 @@ export function generationRefusalOf(error: unknown): GenerationRefusal | null {
 		readonly registrations?: unknown;
 		readonly registrationsNotShown?: unknown;
 	};
-	if (record.error !== 'mission_notifications_refused' || typeof record.code !== 'string') {
+	// Membership rather than a cast, which is what `mergeRefusalReason` has always
+	// done: a code the union does not hold is not a refusal this card can draw,
+	// so it takes the path every other failure takes (#930).
+	if (record.error !== 'mission_notifications_refused' || !isGenerationRefusalReason(record.code)) {
 		return null;
 	}
 	return {
-		code: record.code as GenerationRefusalReason,
-		reason: typeof record.reason === 'string' ? record.reason : 'Generation was refused.',
+		code: record.code,
+		// The one rule for what a refusal reads as, which every other reader goes
+		// through since #929. This site carried a fourth emptiness rule: no trim,
+		// and no fall through to `message`.
+		reason: refusalSentence(record, 'Generation was refused.'),
 		unitCodes: Array.isArray(record.unitCodes)
 			? record.unitCodes.filter((code): code is string => typeof code === 'string')
 			: [],
