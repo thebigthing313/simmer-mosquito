@@ -209,10 +209,18 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 // Building commands
 // ===========================================================================
 
-/** The 400 body a domain builder's rejection becomes. */
+/**
+ * The 400 body a domain builder's rejection becomes.
+ *
+ * `reason` and not `message`, which is #795's rule reaching the last refusal
+ * that had not moved (#928): a refusal's sentence is `reason` everywhere, so a
+ * caller reading that one field reads every refusal. `message` inside `issues`
+ * is a different field and stays, being the sentence for one path rather than
+ * for the command.
+ */
 export type InvalidCommandBody = {
 	readonly error: 'invalid_command';
-	readonly message: string;
+	readonly reason: string;
 	readonly issues: readonly { readonly path: string; readonly message: string }[];
 };
 
@@ -227,7 +235,7 @@ export type CommandsResult<TCommand> =
 	| { readonly ok: false; readonly body: InvalidCommandBody };
 
 function invalidCommandBody(error: DomainValidationError): InvalidCommandBody {
-	return { error: 'invalid_command', message: error.message, issues: error.issues };
+	return { error: 'invalid_command', reason: error.message, issues: error.issues };
 }
 
 /** The two fields every organization command carries, read off the resolved session. */

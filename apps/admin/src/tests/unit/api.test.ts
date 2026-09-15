@@ -225,6 +225,22 @@ describe('what a refusal reads as', () => {
 		).toBe('Region name is required.');
 	});
 
+	// #928: the sentence used to arrive in `message`, which nothing here reads,
+	// so the register answered for this code with a sentence naming no command.
+	// It arrives in `reason` now and the entry is gone.
+	it('reads a refused command as the command the server named', async () => {
+		expect(
+			await writeMessage(
+				{
+					error: 'invalid_command',
+					reason: 'Create Trap command is invalid.',
+					issues: [{ path: 'name', message: 'name is required.' }],
+				},
+				400,
+			),
+		).toBe('Create Trap command is invalid.');
+	});
+
 	// The register is a map. A code it has never heard of takes the caller's
 	// fallback sentence, and specifically not `snake_case_code_on_screen`.
 	it('falls back to the caller sentence for an unmapped code, never to the code', async () => {
@@ -250,13 +266,13 @@ describe('what a refusal reads as', () => {
 	 * that a map is a map: this is the second copy on purpose, and a code
 	 * dropped from the register fails on the line that names it.
 	 *
-	 * Three shorter than it was. `membership_required`, `organization_required`
-	 * and `unauthenticated` each write their own sentence since #795, so their
-	 * entries were dead and are gone.
+	 * Four shorter than it was. `membership_required`, `organization_required`
+	 * and `unauthenticated` each write their own sentence since #795, and
+	 * `invalid_command` writes one since #928, so their entries were dead and
+	 * are gone.
 	 */
 	const COVERED = [
 		'already_a_member',
-		'invalid_command',
 		'invited_email_already_used',
 		'operator_not_configured',
 		'operator_required',
