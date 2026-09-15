@@ -61,7 +61,13 @@ domain doc instead of expanding this file.
   record was a mistake, so anything referring to it proves otherwise and refuses
   the delete. Deactivate says the record was real and its use has ended, so it
   never touches what already names it and only stops new references.
-- A **Service Request** belongs to a **Contact** and location.
+- A **Service Request** belongs to a **Contact** and location. An open one is
+  **in progress** once it is a stop on an **Assignment**, whatever that
+  assignment's state; a comment on it is not progress. Before that it is
+  **new**.
+- A **Requested Control Action** is **assigned** while a **Mission Item** on a
+  scheduled or in-progress **Mission** names it. A stop on a completed or
+  cancelled mission leaves an unresolved request unassigned again.
 - A **Mission** contains ordered **Mission Items**; a mission item can produce
   zero or more performed control actions.
 
