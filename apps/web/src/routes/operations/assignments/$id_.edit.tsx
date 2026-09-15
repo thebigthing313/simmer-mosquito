@@ -59,6 +59,7 @@ import {
 	type AssignmentDetailValues,
 	assigneeOrNull,
 	assignmentNameOrNull,
+	deadlineHalfEntered,
 	sameAssignmentDetails,
 	toAssignmentDetails,
 	toDueAt,
@@ -162,8 +163,14 @@ function AssignmentPlanRoute() {
 
 	const editable = assignment !== null && canEditPlan(assignment.status);
 
+	// A date with no time, or a time with no date, is not a deadline and is not
+	// saved as one: refused here rather than written as null, which would drop a
+	// deadline the operator was halfway through changing.
+	const detailsSaveable =
+		values !== null && values.assignmentDate !== '' && !deadlineHalfEntered(values);
+
 	const saveDetails = async () => {
-		if (detailDraft === null || detailDraft.assignmentDate === '') {
+		if (detailDraft === null || !detailsSaveable) {
 			return;
 		}
 		setSavingDetails(true);
@@ -286,7 +293,7 @@ function AssignmentPlanRoute() {
 								{isDirty ? (
 									<div className="flex items-center gap-2">
 										<Button
-											disabled={savingDetails || values.assignmentDate === ''}
+											disabled={savingDetails || !detailsSaveable}
 											onClick={() => void saveDetails()}
 											size="sm"
 											type="button"

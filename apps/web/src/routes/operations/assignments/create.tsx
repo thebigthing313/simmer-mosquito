@@ -26,6 +26,7 @@ import {
 	type AssignmentDetailValues,
 	assigneeOrNull,
 	assignmentNameOrNull,
+	deadlineHalfEntered,
 	defaultAssignmentDetails,
 	RoutePicker,
 	toDueAt,
@@ -75,7 +76,14 @@ function AssignmentCreateRoute() {
 	// before the subset resolves would quietly produce a short assignment.
 	const routeReady =
 		mode === 'blank' || (routeId !== null && routeItemsReady && routeStopCount > 0);
-	const canSubmit = canWrite && values.assignmentDate !== '' && routeReady && !saving;
+	// A deadline with one half missing is refused rather than guessed at: a time
+	// on no day would save as no deadline, and the operator typed one.
+	const canSubmit =
+		canWrite &&
+		values.assignmentDate !== '' &&
+		!deadlineHalfEntered(values) &&
+		routeReady &&
+		!saving;
 
 	const submit = async () => {
 		if (!canSubmit) {
