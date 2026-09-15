@@ -2,6 +2,7 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { getServerUrl } from '../../auth';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
 /** Rows per page on every explorer. */
 const PAGE_SIZE = 50;
@@ -65,7 +66,7 @@ export interface PagedMapResource<TRow> {
 export function usePagedMapResource<TRow>({
 	path,
 	rowsKey,
-	label,
+	recordType,
 	params,
 	enabled = true,
 	normalizeRow,
@@ -74,8 +75,14 @@ export function usePagedMapResource<TRow>({
 	readonly path: string;
 	/** The key the rows arrive under in the response body, e.g. `sourceReductions`. */
 	readonly rowsKey: string;
-	/** Plural noun for the failure message, e.g. `Source reductions`. */
-	readonly label: string;
+	/**
+	 * What the page lists. Names the failure out of `lib/record-nouns.ts`.
+	 *
+	 * It was a free-text `label` until #940, and four of the nine explorers were
+	 * spelling their own: `Applications`, `Biocontrol`, `Outreach` and `Source
+	 * reductions`, beside five that read `titleMany` out of the register.
+	 */
+	readonly recordType: RecordType;
 	readonly params: Readonly<Record<string, string>>;
 	/** False while the request cannot be made yet — before the map has a viewport. */
 	readonly enabled?: boolean;
@@ -94,7 +101,7 @@ export function usePagedMapResource<TRow>({
 	const query = useQuery({
 		enabled,
 		queryKey: [path, 'page', paramsKey, page],
-		queryFn: ({ signal }) => fetchPage<TRow>(path, rowsKey, label, params, page, signal),
+		queryFn: ({ signal }) => fetchPage<TRow>(path, rowsKey, recordType, params, page, signal),
 		placeholderData: (previous) => previous,
 	});
 
@@ -191,7 +198,7 @@ function stableParamsKey(params: Readonly<Record<string, string>>): string {
 async function fetchPage<TRow>(
 	path: string,
 	rowsKey: string,
-	label: string,
+	recordType: RecordType,
 	params: Readonly<Record<string, string>>,
 	page: number,
 
@@ -206,7 +213,7 @@ async function fetchPage<TRow>(
 
 	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
-		throw new Error(`${label} request failed (${response.status}).`);
+		throw new Error(`${recordNoun(recordType).titleMany} request failed (${response.status}).`);
 	}
 	const body = (await response.json()) as Record<string, unknown>;
 	const rows = body[rowsKey];

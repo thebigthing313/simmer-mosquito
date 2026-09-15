@@ -21,6 +21,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MapQueryValue } from '../../../../components/explorer/use-paged-map-resource';
+import type { RecordType } from '../../../../lib/record-nouns';
 import { cleanupRenderedHooks, createFakeMap } from '../map/fake-map';
 
 /** Every request the hook sent, in order. */
@@ -75,7 +76,7 @@ interface SurfaceCase {
 	readonly path: string;
 	readonly rowsKey: string;
 	readonly rowKey: string;
-	readonly label: string;
+	readonly recordType: RecordType;
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	readonly search: string;
 }
@@ -86,7 +87,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/habitats',
 		rowsKey: 'habitats',
 		rowKey: 'habitat',
-		label: 'Habitats',
+		recordType: 'habitat',
 		params: {
 			isActive: true,
 			isInaccessible: false,
@@ -103,7 +104,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/inspections',
 		rowsKey: 'inspections',
 		rowKey: 'inspection',
-		label: 'Inspections',
+		recordType: 'inspection',
 		params: {
 			isWet: false,
 			density: ['low', 'high'],
@@ -122,7 +123,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/samples',
 		rowsKey: 'samples',
 		rowKey: 'sample',
-		label: 'Samples',
+		recordType: 'sample',
 		params: {
 			species: ids('species'),
 			status: 'identified',
@@ -139,7 +140,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/collections',
 		rowsKey: 'collections',
 		rowKey: 'collection',
-		label: 'Collections',
+		recordType: 'collection',
 		params: {
 			collectionMethodId: ids('method'),
 			problem: true,
@@ -155,7 +156,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/traps',
 		rowsKey: 'traps',
 		rowKey: 'trap',
-		label: 'Traps',
+		recordType: 'trap',
 		params: {
 			collectionMethodId: ids('method'),
 			status: 'active',
@@ -170,7 +171,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/biocontrol',
 		rowsKey: 'biocontrolActions',
 		rowKey: 'biocontrolAction',
-		label: 'Biocontrol',
+		recordType: 'biocontrolAction',
 		params: {
 			biocontrolMethodId: ids('method'),
 			technician: ids('person'),
@@ -187,7 +188,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/chemical',
 		rowsKey: 'applications',
 		rowKey: 'application',
-		label: 'Applications',
+		recordType: 'application',
 		params: {
 			insecticideId: ids('product'),
 			applicationMethodId: ids('method'),
@@ -204,7 +205,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/source-reduction',
 		rowsKey: 'sourceReductions',
 		rowKey: 'sourceReduction',
-		label: 'Source reductions',
+		recordType: 'sourceReduction',
 		params: {
 			sourceReductionMethodId: ids('method'),
 			technician: ids('person'),
@@ -220,7 +221,7 @@ const SURFACES: readonly SurfaceCase[] = [
 		path: '/map/outreach',
 		rowsKey: 'outreachActions',
 		rowKey: 'outreachAction',
-		label: 'Outreach',
+		recordType: 'outreachAction',
 		params: {
 			outreachMethodId: ids('method'),
 			technician: ids('person'),
@@ -245,7 +246,7 @@ describe('useExplorerResource: what each surface sends', () => {
 						path: surface.path,
 						rowsKey: surface.rowsKey,
 						rowKey: surface.rowKey,
-						label: surface.label,
+						recordType: surface.recordType,
 						params: surface.params,
 						map: fake.map,
 						selectedId: null,
@@ -284,7 +285,7 @@ describe('useExplorerResource: the viewport', () => {
 					path: '/map/habitats',
 					rowsKey: 'rows',
 					rowKey: 'row',
-					label: 'Habitats',
+					recordType: 'habitat',
 					params: { search: 'pond' },
 					map,
 					selectedId: null,
@@ -312,7 +313,7 @@ describe('useExplorerResource: the viewport', () => {
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
-					label: 'Outreach',
+					recordType: 'outreachAction',
 					params: { technician: ['p-1'] },
 					map: fake.map,
 					selectedId: null,
@@ -347,7 +348,7 @@ describe('useExplorerResource: the selected record', () => {
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
-					label: 'Outreach',
+					recordType: 'outreachAction',
 					params: {},
 					map: fake.map,
 					selectedId: 'row-1',
@@ -376,7 +377,7 @@ describe('useExplorerResource: the selected record', () => {
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
-					label: 'Outreach',
+					recordType: 'outreachAction',
 					params: {},
 					map: fake.map,
 					selectedId: 'off-page',
@@ -402,7 +403,7 @@ describe('useExplorerResource: the selected record', () => {
 					path: '/map/chemical',
 					rowsKey: 'rows',
 					rowKey: 'row',
-					label: 'Applications',
+					recordType: 'application',
 					params: {},
 					map: fake.map,
 					selectedId: 'off-page',

@@ -186,7 +186,7 @@ function InspectionsExplorerRoute() {
 			path: PATH,
 			rowsKey: 'inspections',
 			rowKey: 'inspection',
-			label: recordNoun('inspection').titleMany,
+			recordType: 'inspection',
 			params: inspectionQueryParams(filters),
 			map,
 			selectedId,

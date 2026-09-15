@@ -145,7 +145,7 @@ function BiocontrolExplorerRoute() {
 			path: PATH,
 			rowsKey: 'biocontrolActions',
 			rowKey: 'biocontrolAction',
-			label: 'Biocontrol',
+			recordType: 'biocontrolAction',
 			params: {
 				biocontrolMethodId: filters.biocontrolMethodIds,
 				technician: filters.technicianProfileIds,

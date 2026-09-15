@@ -131,7 +131,7 @@ function TrapsExplorerRoute() {
 			path: PATH,
 			rowsKey: 'traps',
 			rowKey: 'trap',
-			label: recordNoun('trap').titleMany,
+			recordType: 'trap',
 			params: {
 				collectionMethodId: filters.collectionMethodIds,
 				status:

@@ -26,7 +26,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
-import { recordNoun } from '../../../lib/record-nouns';
+import { recordCount, recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
@@ -173,7 +173,7 @@ function CreateApplicationRoute() {
 						throw error;
 					}
 					throw new Error(
-						`Recorded ${saved.length} of ${products.length} applications before failing: ${
+						`Recorded ${saved.length} of ${recordCount('application', products.length)} before failing: ${
 							error instanceof Error ? error.message : 'Unknown error.'
 						}`,
 					);
@@ -197,7 +197,7 @@ function CreateApplicationRoute() {
 
 			const first = saved[0];
 			if (saved.length > 1 || first === undefined) {
-				toast.success(`Recorded ${saved.length} applications.`);
+				toast.success(`Recorded ${recordCount('application', saved.length)}.`);
 				await navigate({ to: '/control-operations/chemical' });
 				return;
 			}

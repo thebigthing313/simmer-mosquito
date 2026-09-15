@@ -146,7 +146,7 @@ function CollectionsExplorerRoute() {
 			path: PATH,
 			rowsKey: 'collections',
 			rowKey: 'collection',
-			label: recordNoun('collection').titleMany,
+			recordType: 'collection',
 			params: {
 				collectionMethodId: filters.collectionMethodIds,
 				problem: filters.problemOnly,
