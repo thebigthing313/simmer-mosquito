@@ -33,6 +33,12 @@ export function useRecordTags(entityId: string): readonly Tag[] {
 					// an assignment whose catalog row this client does not hold has no name
 					// and no colour to draw, and a chip reading "Unknown tag" reads as a
 					// broken record rather than as one still arriving.
+					//
+					// Safe against #1026's cold-page rule because `tags` is eager: an
+					// `inner` join lazy-loads whichever side holds more rows at compile
+					// time, and an eager side has loaded its initial state, so it is never
+					// re-requested, while `tag_items` carries `entity_id` in every subset it
+					// sends. Measured in #1028 with the catalog populated and with it empty.
 					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id), 'inner')
 					.orderBy(({ tag }) => tag.tag_name, 'asc')
 					// The `coalesce` calls are what make this compile. The builder types a

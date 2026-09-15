@@ -54,7 +54,9 @@ export function useRecordRoutes(target: {
 					// `inner`, and passed rather than left to the default, which is `left`:
 					// a stop whose Route this client does not hold has no name to draw, and
 					// the line is a link, so drawing it unnamed offers a page that is not
-					// there.
+					// there. Safe against #1026's cold-page rule for the reason recorded in
+					// `use-record-tags.ts`: `routes` is eager, so it is never lazy-loaded,
+					// and every `route_items` subset carries the record's id (#1028).
 					.join({ route: routes() }, ({ item, route }) => eq(item.route_id, route.id), 'inner')
 					.orderBy(({ route }) => route.route_name, 'asc')
 					.select(({ item, route }) => ({
