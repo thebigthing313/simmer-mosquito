@@ -416,9 +416,8 @@ describe('inspectionHabitatLabel', () => {
 		//
 		// Fixing it means guarding the projection on the joined row rather than on
 		// the inspection's own `habitat_id`, which is a change to every habitat
-		// name reader in the app and the policy `habitat-view.ts` states. Filed
-		// separately; this case is what makes it a known string rather than a
-		// surprise.
+		// name reader in the app and the policy `habitat-view.ts` states. That is
+		// #998; this case is what makes it a known string rather than a surprise.
 		seedRows(inspections, [
 			inspection('i1', { habitat_id: '1a2b3c4d-0000-4000-8000-000000000001' }),
 		]);

@@ -107,7 +107,7 @@ export interface HabitatLabelRow {
  * separator alone, and `habitatName` is the non-empty string `,`. A case in
  * `use-inspection-table.test.tsx` holds that string, because fixing it means
  * guarding the projection on the joined row rather than on the inspection's own
- * `habitat_id`, which is every habitat name reader in the app.
+ * `habitat_id`, which is every habitat name reader in the app (#998).
  *
  * The blank-name arm is unreachable from either, because `readNullableText`
  * turns an empty or whitespace-only name into `null` at the write. It stays
