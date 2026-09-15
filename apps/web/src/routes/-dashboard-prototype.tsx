@@ -146,7 +146,7 @@ function ActivityTile({ type }: { readonly type: ActivityType }) {
 export function VariantA() {
 	const shown = ACTIVITY.filter((type) => type.count !== null);
 	return (
-		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
+		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="What is pending, what needs attention, and what was logged this week."
 				eyebrow="Organization"
@@ -267,7 +267,7 @@ function DomainQueuePanel({
 export function VariantB() {
 	const shown = ACTIVITY.filter((type) => type.count !== null);
 	return (
-		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
+		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="The state of the Organization, for the person deciding what happens next."
 				eyebrow="Organization"
@@ -399,7 +399,7 @@ function LedgerRow({ row, flag = false }: { readonly row: QueueRow; readonly fla
 export function VariantC() {
 	const shown = ACTIVITY.filter((type) => type.count !== null);
 	return (
-		<div className={pageContainer({ gap: 'detail', padding: 'page' })}>
+		<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'page' })}>
 			<PageHeader eyebrow="Organization" icon={HomeIcon} title="Dashboard" />
 			<section className="grid gap-1">
 				<LedgerHeading aside="open now">Backlog</LedgerHeading>
