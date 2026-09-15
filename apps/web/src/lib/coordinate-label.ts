@@ -79,10 +79,11 @@ export interface HabitatLabelRow {
  * What to call a record by the habitat it sits on.
  *
  * The inspection detail, the inspection explorer and the sample detail each
- * wrote this out, two of them under the name `siteLabel`, and the three
+ * wrote this out, two of them under the name `site` plus `Label`, and the three
  * disagreed on the arm that runs when there is no habitat: two read the
  * coordinates and the sample's read the bare word `Ad-hoc`. The coordinates
- * win, which is the rule the header above already states (#918).
+ * win, which is the rule the header above already states (#918). Two more
+ * followed in #954, the inspection map card and the larval activity reader.
  *
  * The name is `habitat` and not `site`, because `CONTEXT.md` lists `site` as
  * not a term: it reads as a Habitat to one person and a Trap to the next.
@@ -91,6 +92,38 @@ export interface HabitatLabelRow {
  * one record kind's category name, and the sample detail is what a wrong one
  * looks like on screen: it reached `adhocLabel` through an arm of its own, so a
  * sample carrying no centroid read `Ad-hoc inspection`.
+ *
+ * ## Which arm a seam can reach
+ *
+ * The id arm runs only where `habitatName` is the raw `habitat_name` column.
+ * That is the two server map surfaces, `/map/inspections` and `/map/samples`,
+ * which select `h.habitat_name` unwrapped. Every client seam under
+ * `hooks/queries` projects it as `coalesce(habitat_name, concat(lat, ', ',
+ * lng))` guarded on the inspection's own `habitat_id`, which is the policy
+ * `habitat-view.ts` states, so a habitat with no name has already read out its
+ * coordinates one layer down and `habitatName` is null only where `habitatId`
+ * is. Not even for a habitat whose join has not streamed: there is no row to
+ * coalesce, so the `concat` runs over absent columns and answers with its
+ * separator alone, and `habitatName` is the non-empty string `,`. A case in
+ * `use-inspection-table.test.tsx` holds that string, because fixing it means
+ * guarding the projection on the joined row rather than on the inspection's own
+ * `habitat_id`, which is every habitat name reader in the app (#998).
+ *
+ * `||` rather than `??` on the name, so a habitat named with whitespace alone
+ * falls out of the name arm instead of titling the record with spaces. That is
+ * unreachable too, and from the write rather than from a read: every path into
+ * `habitat_name` is one of the three arms of `habitatTableCommands`, each
+ * reading the column through `readNullableText`, which trims and answers `null`
+ * on what is left. The habitat merge dispatches `updateHabitatDetails` and is
+ * the same arm; the organization seed routes create habitat types and no
+ * habitat; there is no habitat importer; the column carries no default and no
+ * CHECK, and the seeds write literal names. The trim has been on that path
+ * since habitats shipped, so no stored row predates it either.
+ *
+ * So the whole of `||` and the id arm is inert on this seam, and both stay
+ * because a surface asking this question should ask the one function rather
+ * than a private variant that omits the arms it happens not to need. A seam
+ * reaching them is #998.
  */
 export function habitatLabel(
 	row: HabitatLabelRow,

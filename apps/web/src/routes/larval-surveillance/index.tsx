@@ -24,7 +24,7 @@ import {
 } from '../../components/species-composition-panel';
 import { WeekDayStrip } from '../../components/week-day-strip';
 import {
-	inspectionSiteLabel,
+	inspectionHabitatLabel,
 	inspectionTypeLabel,
 	type LarvalActivityRow,
 } from '../../hooks/queries/larval-activity-view';
@@ -115,7 +115,7 @@ function OverviewBody() {
 
 /** Habitat name as a link to the habitat, for panels that list a day's work. */
 function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
-	const label = inspectionSiteLabel(row);
+	const label = inspectionHabitatLabel(row);
 	if (row.habitatId === null) {
 		return (
 			<span className="truncate font-medium text-foreground text-sm tabular-nums">{label}</span>
@@ -374,7 +374,7 @@ function HeavyInspectionsPanel({
 									to="/larval-surveillance/inspections/$id"
 								>
 									<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
-										{inspectionSiteLabel(row)}
+										{inspectionHabitatLabel(row)}
 									</span>
 									<span className="truncate text-muted-foreground text-xs">
 										{row.typeName ?? 'Unassigned type'}

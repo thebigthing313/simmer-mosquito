@@ -14,7 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	type InspectionTableRow,
-	inspectionSiteLabel,
+	inspectionHabitatLabel,
 } from '../../../../hooks/queries/larval-activity-view';
 import {
 	DEFAULT_INSPECTION_SORT,
@@ -343,13 +343,13 @@ describe('nextSort', () => {
 	});
 });
 
-describe('inspectionSiteLabel', () => {
+describe('inspectionHabitatLabel', () => {
 	it('names the habitat when there is one', async () => {
 		seedRows(inspections, [inspection('i1')]);
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('Alder catch basin');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('Alder catch basin');
 	});
 
 	it('falls back to the linked address', async () => {
@@ -368,7 +368,7 @@ describe('inspectionSiteLabel', () => {
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('123 Main St, Edison, NJ 08817');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('123 Main St, Edison, NJ 08817');
 	});
 
 	it('falls back to the centroid when there is neither', async () => {
@@ -376,7 +376,7 @@ describe('inspectionSiteLabel', () => {
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('34.05213, -118.24368');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('34.05213, -118.24368');
 	});
 
 	it('names an unnamed habitat by the habitat, not by the linked address', async () => {
@@ -400,14 +400,38 @@ describe('inspectionSiteLabel', () => {
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('40.1, -74.4');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('40.1, -74.4');
+	});
+
+	it('reads a habitat whose row has not arrived as a bare comma', async () => {
+		// Not what anybody wants on screen, and it is here because it is what the
+		// seam does. The id arm of `habitatLabel` looks like the answer for a
+		// habitat with no name, and on this seam it is unreachable twice over: an
+		// unnamed habitat reads out its coordinates through
+		// `coalesce(habitat_name, concat(lat, ', ', lng))` a layer down, and a
+		// habitat the collection has not streamed has no row to coalesce, so the
+		// `concat` runs over absent columns and produces its separator alone.
+		// `habitatName` is then the non-empty string `,` and no fallback below it
+		// runs.
+		//
+		// Fixing it means guarding the projection on the joined row rather than on
+		// the inspection's own `habitat_id`, which is a change to every habitat
+		// name reader in the app and the policy `habitat-view.ts` states. That is
+		// #998; this case is what makes it a known string rather than a surprise.
+		seedRows(inspections, [
+			inspection('i1', { habitat_id: '1a2b3c4d-0000-4000-8000-000000000001' }),
+		]);
+
+		const result = await renderTable(10);
+
+		expect(habitatLabelOf(result.current.rows[0])).toBe(',');
 	});
 });
 
-function siteLabelOf(row: InspectionTableRow | undefined): string {
+function habitatLabelOf(row: InspectionTableRow | undefined): string {
 	expect(row, 'the hook returned no row to label').toBeDefined();
 	const found = row as InspectionTableRow;
-	return inspectionSiteLabel(found, found.address);
+	return inspectionHabitatLabel(found, found.address);
 }
 
 /** A visit that found nothing, for the cases about the life-stage columns. */

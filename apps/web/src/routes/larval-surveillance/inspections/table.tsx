@@ -31,7 +31,7 @@ import {
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
 import {
 	type InspectionTableRow,
-	inspectionSiteLabel,
+	inspectionHabitatLabel,
 	inspectionTypeLabel,
 } from '../../../hooks/queries/larval-activity-view';
 import {
@@ -128,7 +128,7 @@ const WINDOW_STEP = 50;
  *
  * A header sorts the whole set for the same reason, not the rows already down.
  * Four of the nine columns carry the control. `INSPECTION_SORT_KEYS` says which
- * four and why Site, Habitat type, Inspector and Density are not among them;
+ * four and why Habitat, Habitat type, Inspector and Density are not among them;
  * Life stages is six boolean columns drawn as one strip, so there is no column
  * under it to sort by at all.
  *
@@ -508,12 +508,12 @@ function SortableHead({
 
 function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 	const when = formatListDate(row.inspectionDate);
-	const site = inspectionSiteLabel(row, row.address);
+	const label = inspectionHabitatLabel(row, row.address);
 	return (
 		<TableRow>
 			<TableCell className="tabular-nums">{when}</TableCell>
-			<TableCell className="max-w-[22rem] truncate font-medium" title={site}>
-				{site}
+			<TableCell className="max-w-[22rem] truncate font-medium" title={label}>
+				{label}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
 				{inspectionTypeLabel(row) ?? <AbsentValue />}
@@ -536,7 +536,7 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 			</TableCell>
 			<TableCell className="text-right">
 				<Button
-					aria-label={`View the ${when} inspection of ${site}`}
+					aria-label={`View the ${when} inspection of ${label}`}
 					asChild
 					size="icon-sm"
 					variant="ghost"
