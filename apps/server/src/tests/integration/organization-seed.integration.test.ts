@@ -27,11 +27,10 @@ import {
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
-import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
 import { registerOrganizationSeedRoutes } from '../../organization-seed-routes.js';
+import { ownerSession } from './support/command-app.js';
 
 const POINT = { type: 'Point', coordinates: [-90.5, 35.5] };
 const POLYGON = {
@@ -242,14 +241,7 @@ function seedApp(
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerOrganizationSeedRoutes(app, {
 		db,
-		authContextMiddleware: createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-			context.set('authContext', {
-				organization: { id: organizationId },
-				profile: { id: profileId },
-				role: 'owner',
-			} as AuthContext);
-			await next();
-		}),
+		authContextMiddleware: ownerSession(organizationId, profileId),
 	});
 	return app;
 }
