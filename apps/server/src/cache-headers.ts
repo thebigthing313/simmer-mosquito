@@ -51,8 +51,20 @@ import type { MiddlewareHandler } from 'hono';
  * worst shape this list can take, which is why `cache-headers.test.ts` drives
  * every entry at the routes `registerAllRoutes` really registers, rather than
  * only asserting the array.
+ *
+ * `/dashboard` and `/larval-surveillance/samples/awaiting` are the same shape
+ * as `/search`: one exact path each, a read that varies by the session's
+ * Organization with no id in the URL. The Dashboard's count of samples
+ * awaiting and the larval overview's preview of them are two organizations'
+ * numbers on byte-identical URLs.
  */
-export const PRIVATE_READ_PREFIXES = ['/map/*', '/records/*', '/search'] as const;
+export const PRIVATE_READ_PREFIXES = [
+	'/map/*',
+	'/records/*',
+	'/search',
+	'/dashboard',
+	'/larval-surveillance/samples/awaiting',
+] as const;
 
 export const privateNoStore: MiddlewareHandler = async (context, next) => {
 	await next();

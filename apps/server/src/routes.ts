@@ -40,6 +40,7 @@ import {
 	type FinalizeWorkOsSession,
 	registerAuthUserRoutes,
 } from './auth-user-commands.js';
+import { registerDashboardReadRoutes } from './dashboard-reads.js';
 import { registerGeocoderRoutes } from './geocoder.js';
 import { registerSampleReadRoutes } from './larval-surveillance-reads.js';
 import { registerMapTileRoutes } from './map-tiles.js';
@@ -131,6 +132,9 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	// per-domain write surface; see each module for why it is still its own route.
 	registerOrganizationSeedRoutes(app, { db, authContextMiddleware });
 	registerSampleReadRoutes(app, { db, authContextMiddleware });
+	// The Dashboard's server half, one read for every panel the client cannot
+	// answer off a synced table.
+	registerDashboardReadRoutes(app, { db, authContextMiddleware });
 
 	registerMapTileRoutes(app, { db, authContextMiddleware });
 	registerSearchRoutes(app, { db, authContextMiddleware });

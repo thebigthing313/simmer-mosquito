@@ -101,6 +101,9 @@ export const CORS_SURFACES: readonly CorsSurface[] = [
 	// its own origin — so without this the palette's fetch fails in the browser
 	// and nowhere else.
 	{ prefix: '/search', methods: READ_METHODS },
+	// One exact path for the same reason: `dashboard-reads.ts` registers
+	// `GET /dashboard` and nothing else lives under it.
+	{ prefix: '/dashboard', methods: READ_METHODS },
 	// The per-table command surface. One prefix for all of it, organization
 	// tables and operator tables alike — CORS is about which origin may ask, and
 	// the door a table sits behind is decided by its middleware, not by its path.

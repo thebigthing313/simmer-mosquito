@@ -36,6 +36,33 @@ export interface SamplesAwaitingResult {
 }
 
 /**
+ * A sample still awaiting identification, over a `samples s` joined to its
+ * `inspections i`.
+ *
+ * It holds larvae (not zero, not closed out as unidentifiable), its inspection
+ * is live, and no live species row has been recorded against it. One fragment,
+ * because three reads answer the question: the overview's 14-day preview below,
+ * the `status=awaiting` filter on the samples map surface, and the Dashboard's
+ * all-time count. Three spellings would drift, and the Dashboard links to the
+ * explorer on the promise that the rows it shows are the rows the count
+ * counted.
+ *
+ * Organization scope and the sample's own soft delete are the caller's: every
+ * read here scopes its own alias before it asks.
+ */
+export const sampleAwaitingCondition = sql<boolean>`(
+	s.is_zero_larvae = false
+	and s.unidentifiable_reason is null
+	and i.deleted_at is null
+	and not exists (
+		select 1
+		from sample_species ss
+		where ss.sample_id = s.id
+			and ss.deleted_at is null
+	)
+)`;
+
+/**
  * Recent samples awaiting identification for one organization: collected samples
  * that carry no identified species yet and have not been closed out as
  * zero-larvae or unidentifiable. Bounded by the parent inspection's date so the
@@ -49,21 +76,11 @@ export async function listSamplesAwaitingIdentification(
 	db: Kysely<SimmerDatabase>,
 	input: SamplesAwaitingInput,
 ): Promise<SamplesAwaitingResult> {
-	// A sample is "awaiting" when it holds larvae (not zero, not unidentifiable)
-	// and no species row has been recorded against it yet.
 	const awaitingCondition = sql`
 		s.organization_id = ${input.organizationId}
 		and s.deleted_at is null
-		and s.is_zero_larvae = false
-		and s.unidentifiable_reason is null
-		and i.deleted_at is null
 		and i.inspection_date >= ${input.since}
-		and not exists (
-			select 1
-			from sample_species ss
-			where ss.sample_id = s.id
-				and ss.deleted_at is null
-		)
+		and ${sampleAwaitingCondition}
 	`;
 
 	const totalResult = await sql<{ total: number }>`
@@ -500,13 +517,9 @@ function sampleStatusClause(status: SampleStatus): RawBuilder<boolean> {
 		case 'unidentifiable':
 			return sql<boolean>`s.unidentifiable_reason is not null`;
 		case 'awaiting':
-			return sql<boolean>`(
-				s.is_zero_larvae = false
-				and s.unidentifiable_reason is null
-				and not exists (
-					select 1 from sample_species ss
-					where ss.sample_id = s.id and ss.deleted_at is null
-				)
-			)`;
+			// The surface already refuses a deleted parent inspection in its
+			// `alwaysWhere`, so the fragment's own test of it is redundant here and
+			// costs nothing; what it buys is one spelling for the three reads.
+			return sampleAwaitingCondition;
 	}
 }

@@ -72,6 +72,7 @@ const mapReads: ReadonlyArray<{
 					tagIds: ids,
 					regionIds,
 					search: 'ditch',
+					untreatedOnly: true,
 				},
 			}),
 	},
@@ -86,7 +87,14 @@ const mapReads: ReadonlyArray<{
 				timeZone,
 				bounds,
 				...page,
-				filters: { isActive: true, habitatTypeIds: ids, tagIds: ids, regionIds, search: 'ditch' },
+				filters: {
+					isActive: true,
+					habitatTypeIds: ids,
+					tagIds: ids,
+					regionIds,
+					search: 'ditch',
+					untreatedOnly: true,
+				},
 			}),
 	},
 	{
@@ -98,7 +106,14 @@ const mapReads: ReadonlyArray<{
 			MAP_SURFACES.habitats.getExtent(db, {
 				organizationId,
 				timeZone,
-				filters: { isActive: true, habitatTypeIds: ids, tagIds: ids, regionIds, search: 'ditch' },
+				filters: {
+					isActive: true,
+					habitatTypeIds: ids,
+					tagIds: ids,
+					regionIds,
+					search: 'ditch',
+					untreatedOnly: true,
+				},
 			}),
 	},
 	{
@@ -306,7 +321,13 @@ const mapReads: ReadonlyArray<{
 				...tile,
 				organizationId,
 				timeZone,
-				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
 			}),
 	},
 	{
@@ -320,7 +341,13 @@ const mapReads: ReadonlyArray<{
 				timeZone,
 				bounds,
 				...page,
-				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
 			}),
 	},
 	{
@@ -332,7 +359,13 @@ const mapReads: ReadonlyArray<{
 			MAP_SURFACES.collections.getExtent(db, {
 				organizationId,
 				timeZone,
-				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
 			}),
 	},
 	{

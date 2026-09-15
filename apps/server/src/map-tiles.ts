@@ -1031,6 +1031,8 @@ export const parseHabitatTileFilters = defineFilters<HabitatMvtTileFilters>('hab
 	{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
 	regionField,
 	{ param: 'search', kind: 'text' },
+	// The Dashboard's banner links here; the surface reads the same fragment.
+	{ param: 'untreated', as: 'untreatedOnly', kind: 'trueOnly' },
 ]);
 
 export const parseAddressTileFilters = defineFilters<AddressMvtTileFilters>('address tile', [
@@ -1110,6 +1112,8 @@ export const parseTrapMapFilters = defineFilters<TrapMapFilters>('traps', [
 export const parseCollectionMapFilters = defineFilters<CollectionMapFilters>('collections', [
 	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
 	{ param: 'problem', as: 'problemOnly', kind: 'trueOnly' },
+	// The Dashboard's queue links here; the surface reads the same fragment.
+	{ param: 'awaiting', as: 'awaitingOnly', kind: 'trueOnly' },
 	regionField,
 	...dateFields,
 ]);

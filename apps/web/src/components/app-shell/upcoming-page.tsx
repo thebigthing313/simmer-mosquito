@@ -165,17 +165,6 @@ const collectionMethods: Elsewhere = {
  * unbuilt section to another is how a placeholder becomes a maze.
  */
 const CONTENT: Readonly<Record<string, UpcomingContent>> = {
-	'/': {
-		title: 'Dashboard',
-		summary:
-			'A single view of where the work stands: recent field activity, records that need a decision, and the operational picture across surveillance and control.',
-		willLand: [
-			'Cross-domain activity for the current period',
-			'Records flagged for attention, each linking straight to the record',
-			'Entry points into the day’s work without hunting through domains',
-		],
-		elsewhere: [larvalOverview, adultOverview, controlOverview],
-	},
 	'/today': {
 		title: 'Today',
 		summary:

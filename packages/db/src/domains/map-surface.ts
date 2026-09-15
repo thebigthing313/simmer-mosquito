@@ -115,8 +115,18 @@ export interface MapSurfaceDefinition<TFilters> {
 	 * soft delete, its geometry being present). Not a place for filters.
 	 */
 	readonly alwaysWhere?: readonly RawBuilder<boolean>[];
-	/** The predicates the surface's own filters contribute, or none. */
-	readonly filterWhere?: (filters: TFilters | undefined) => RawBuilder<boolean>[];
+	/**
+	 * The predicates the surface's own filters contribute, or none.
+	 *
+	 * The read context rides along for the one filter whose predicate is a
+	 * question about today: the habitats surface's `untreated`, whose window is
+	 * the rolling week ending on the organization's day, which only the zone can
+	 * name. A filter over a stored column ignores it.
+	 */
+	readonly filterWhere?: (
+		filters: TFilters | undefined,
+		context: MapReadContext,
+	) => RawBuilder<boolean>[];
 }
 
 /**
@@ -215,7 +225,7 @@ export function mapSurface<TFilters>(
 				geom: definition.geom,
 				properties: definition.properties,
 				where: [
-					...surfaceWhere(definition, input.organizationId, input.filters),
+					...surfaceWhere(definition, input, input.filters),
 					...envelopeWhere(definition.geom),
 				],
 			});
@@ -225,7 +235,7 @@ export function mapSurface<TFilters>(
 			return readMapExtent(db, {
 				geom: definition.geom,
 				from: definition.from,
-				where: surfaceWhere(definition, input.organizationId, input.filters),
+				where: surfaceWhere(definition, input, input.filters),
 			});
 		},
 	};
@@ -270,10 +280,7 @@ export function mapRecordSurface<TFilters, TRow>(
 				${joins}
 				cross join bounds
 				where ${sql.join(
-					[
-						...surfaceWhere(definition, input.organizationId, input.filters),
-						...envelopeWhere(definition.geom),
-					],
+					[...surfaceWhere(definition, input, input.filters), ...envelopeWhere(definition.geom)],
 					sql` and `,
 				)}
 				order by ${display.orderBy}
@@ -326,10 +333,13 @@ function scopeWhere<TFilters>(
 /** The scope plus the surface's own filters — every read but the by-id one. */
 function surfaceWhere<TFilters>(
 	definition: MapSurfaceDefinition<TFilters>,
-	organizationId: string,
+	context: MapReadContext,
 	filters: TFilters | undefined,
 ): RawBuilder<boolean>[] {
-	return [...scopeWhere(definition, organizationId), ...(definition.filterWhere?.(filters) ?? [])];
+	return [
+		...scopeWhere(definition, context.organizationId),
+		...(definition.filterWhere?.(filters, context) ?? []),
+	];
 }
 
 /**

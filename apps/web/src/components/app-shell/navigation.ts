@@ -225,7 +225,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						id: 'dashboard',
 						label: 'Dashboard',
 						to: '/',
-						stub: true,
 						icon: iconRegistry.generic.component.icon,
 					},
 				],
@@ -1117,7 +1116,7 @@ export interface WebShellCandidate {
  * An item is in exactly one list. Carrying an `action` moves it out of the route
  * list, so a create form appears once rather than as both a place and a verb.
  *
- * Stubs are excluded from both: the fifteen `stub: true` items are unbuilt
+ * Stubs are excluded from both: the fourteen `stub: true` items are unbuilt
  * destinations, and offering one is offering a door that opens onto nothing.
  *
  * The Daily Work rows are excluded by reading the declared navigation rather
