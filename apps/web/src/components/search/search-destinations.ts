@@ -202,7 +202,7 @@ const SEARCH_ICONS: Record<SearchIconKey, RegistryIcon> = {
 	inspections: iconRegistry.entities.inspection.icon,
 	collections: iconRegistry.entities.collection.icon,
 	applications: iconRegistry.entities.application.icon,
-	source_reductions: iconRegistry.entities.sourceReductionAction.icon,
+	source_reductions: iconRegistry.entities.sourceReduction.icon,
 	biocontrol_actions: iconRegistry.entities.biocontrolAction.icon,
 	outreach_actions: iconRegistry.entities.outreachAction.icon,
 };

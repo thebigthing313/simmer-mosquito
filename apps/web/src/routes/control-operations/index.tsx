@@ -40,7 +40,7 @@ type UsageWindowDays = (typeof USAGE_WINDOW_DAYS)[number];
 
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
 const ApplicationIcon = iconRegistry.entities.application.icon;
-const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
+const SourceReductionIcon = iconRegistry.entities.sourceReduction.icon;
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const InsecticideIcon = iconRegistry.entities.insecticide.icon;
 const FormulationIcon = iconRegistry.entities.formulation.icon;

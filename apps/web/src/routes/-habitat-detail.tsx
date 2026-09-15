@@ -111,7 +111,7 @@ const MergeIcon = iconRegistry.actions.merge.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
 const ApplicationIcon = iconRegistry.entities.application.icon;
-const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
+const SourceReductionIcon = iconRegistry.entities.sourceReduction.icon;
 const RequestIcon = iconRegistry.entities.requestedControlAction.icon;
 
 /**

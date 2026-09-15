@@ -129,7 +129,7 @@ const sourceReduction: Elsewhere = {
 	label: 'Source Reduction',
 	description: 'Sources eliminated, by method and technician',
 	to: '/control-operations/source-reduction',
-	icon: iconRegistry.entities.sourceReductionAction.icon,
+	icon: iconRegistry.entities.sourceReduction.icon,
 };
 const biocontrol: Elsewhere = {
 	label: 'Biocontrol',
