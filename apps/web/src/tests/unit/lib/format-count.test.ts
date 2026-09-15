@@ -1,11 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { countLabel, formatAmount, formatCount } from '../../../lib/format-count';
+import { countLabel, countPhrase, formatAmount, formatCount } from '../../../lib/format-count';
 
 const HABITATS = { one: 'habitat', many: 'habitats' };
 
 describe('formatCount', () => {
 	it('separates thousands', () => {
 		expect(formatCount(14245)).toBe('14,245');
+	});
+});
+
+/**
+ * The number and the noun that agrees with it, shared by the count beside an
+ * explorer heading and the count inside a sentence. What a surface draws for an
+ * empty set is its own question, which is the one thing the two answer apart.
+ */
+describe('countPhrase', () => {
+	it('agrees with itself on one record', () => {
+		expect(countPhrase(1, HABITATS)).toBe('1 habitat');
+	});
+
+	it('separates thousands on the plural', () => {
+		expect(countPhrase(14245, HABITATS)).toBe('14,245 habitats');
+	});
+
+	it('leaves zero a plural for the surface to draw', () => {
+		expect(countPhrase(0, HABITATS)).toBe('0 habitats');
 	});
 });
 

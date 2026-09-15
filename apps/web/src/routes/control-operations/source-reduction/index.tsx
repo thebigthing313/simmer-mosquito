@@ -135,7 +135,7 @@ function SourceReductionExplorerRoute() {
 			path: PATH,
 			rowsKey: 'sourceReductions',
 			rowKey: 'sourceReduction',
-			label: 'Source reductions',
+			recordType: 'sourceReduction',
 			params: {
 				sourceReductionMethodId: filters.sourceReductionMethodIds,
 				technician: filters.technicianProfileIds,

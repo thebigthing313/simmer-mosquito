@@ -34,7 +34,7 @@
  * control, and a person moving between those two surfaces read the same word
  * for two different records.
  *
- * Each of `NOUN_COMPONENTS` exists, declares the register-driven prop it is
+ * Each of `NOUN_CONSUMERS` exists, declares the register-driven prop it is
  * listed with, and is passed no `noun` attribute at any call site. A component
  * on the list that no longer exists fails, so the list cannot go stale past a
  * rename.
@@ -118,6 +118,37 @@
  * register is a web module until a second app needs it. Admin writes `title:
  * 'Contact'` and `label: 'Address'` about its own foundations screens, and
  * those are its copy rather than this register's.
+ *
+ * ## What no widening of this reaches, measured
+ *
+ * Every rule here compares a piece of copy against a **register form**, so what
+ * it refuses is a second copy of the register's spelling. A string saying a
+ * word the register does not carry is invisible to all of it, and #940 was
+ * three of those: two toasts on the chemical create route and the mix preview
+ * above the form counted `applications` where the register says `chemical
+ * applications`.
+ *
+ * The brief blamed interpolation and that is not the mechanism. `copyStrings`
+ * contributes a template's fixed chunks, so ` applications.` arrives here as a
+ * literal and is read; it matches nothing because `applications` is not a form.
+ * Trimming a chunk before matching changes nothing either, measured over the
+ * 716 modules: 18 chunks trim to a form and **0** of them become findings,
+ * because every one is a title-cased singular or a lowercase plural under a key
+ * `NOUN_KEYS` does not carry.
+ *
+ * Reaching a divergent spelling needs a rule over the **tail word** of a
+ * multi-word form, `applications` out of `chemical applications`, and the four
+ * shapes of that were measured before being dropped. A form as a substring of
+ * any copy is 1,425 findings. A tail word anywhere in any copy is 539. A tail
+ * word opening a piece of copy is 156, and a whole text that is exactly a tail
+ * word is 92, nearly all of them the discriminator class #894 declined. The
+ * narrowest, a template chunk or a run opening on a tail word, is 6, and 4 of
+ * the 6 are English rather than a record name: `Request a new link`, `Control
+ * actions`, `Control type`, and the ` request failed (` chunk in
+ * `use-paged-map-resource.ts`. After #940's fix that rule ships at one finding
+ * needing the first marker this gate has ever had, to guard a class with no
+ * members, so the fix is at the call site instead: `recordCount` in the
+ * register module, which the three now call.
  *
  * ## The other half of the corpus: a run of JSX text
  *
@@ -310,7 +341,7 @@ const KEY_FREE_FORM_NAME = 'titleMany';
 const JSX_NOUN_BACKLOG = {};
 
 /**
- * The components whose copy comes from the register, and the prop each takes
+ * The modules whose copy comes from the register, and the prop each takes
  * instead of a noun.
  *
  * `ExplorerHeader` takes `counts` rather than `recordType` because a surface
@@ -318,8 +349,16 @@ const JSX_NOUN_BACKLOG = {};
  * which span four record types and are none of them. Its prop takes a record
  * type or a pair, and the pair is what keeps that one surface honest without a
  * free-text noun on the five components that name a record.
+ *
+ * The last two are hooks rather than components, and #940 is why they are
+ * here. `usePagedMapResource` names the failed request and took a free-text
+ * `label`, which five of the nine explorers filled from the register and four
+ * spelled themselves. The attribute half of this rule is inert for a hook,
+ * since nothing writes `<usePagedMapResource noun=`, and the half that does the
+ * work is the other one: the prop has to still be there, so putting `label`
+ * back fails the branch that does it.
  */
-const NOUN_COMPONENTS = [
+const NOUN_CONSUMERS = [
 	{
 		name: 'RecordUnavailable',
 		module: 'components/record/record-unavailable.tsx',
@@ -342,6 +381,16 @@ const NOUN_COMPONENTS = [
 	},
 	{ name: 'DangerZoneCard', module: 'components/danger-zone-card.tsx', prop: 'recordType' },
 	{ name: 'ExplorerHeader', module: 'components/explorer/explorer-header.tsx', prop: 'counts' },
+	{
+		name: 'usePagedMapResource',
+		module: 'components/explorer/use-paged-map-resource.ts',
+		prop: 'recordType',
+	},
+	{
+		name: 'useExplorerResource',
+		module: 'components/explorer/use-explorer-resource.ts',
+		prop: 'recordType',
+	},
 ];
 
 /**
@@ -466,7 +515,7 @@ function main() {
 	checkProbes(forms);
 
 	console.log(
-		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_COMPONENTS.length} components reading it, no noun written again across ${files.length} modules${sweptOrAllowed()}`,
+		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_CONSUMERS.length} modules reading it, no noun written again across ${files.length} modules${sweptOrAllowed()}`,
 	);
 }
 
@@ -542,9 +591,9 @@ function* collisionProblems({ recordType, forms }, seen) {
 	}
 }
 
-/** What is wrong with the six components, as sentences. */
+/** What is wrong with the eight modules that read the register, as sentences. */
 function* componentProblems() {
-	for (const component of NOUN_COMPONENTS) {
+	for (const component of NOUN_CONSUMERS) {
 		yield* listedComponentProblems(component);
 	}
 	for (const file of [...typeScriptFilesUnder(WEB_ROOT)].filter((file) => file.endsWith('.tsx'))) {
@@ -552,21 +601,21 @@ function* componentProblems() {
 	}
 }
 
-/** Whether one listed component is still there and still declares its prop. */
+/** Whether one listed module is still there and still declares its prop. */
 function* listedComponentProblems(component) {
 	const source = readSource(join(WEB_ROOT, ...component.module.split('/')));
 	if (source === null) {
-		yield `${component.name} is listed here as reading the register and ${component.module} does not exist. Point NOUN_COMPONENTS at where it moved, or drop the entry if the component is gone.`;
+		yield `${component.name} is listed here as reading the register and ${component.module} does not exist. Point NOUN_CONSUMERS at where it moved, or drop the entry if it is gone.`;
 		return;
 	}
 	if (!source.includes(component.prop)) {
-		yield `${component.module} no longer declares a ${component.prop} prop, so nothing says where its copy comes from. A component naming a record takes the register's key and looks the noun up.`;
+		yield `${component.module} no longer declares a ${component.prop} prop, so nothing says where its copy comes from. A module naming a record takes the register's key and looks the noun up.`;
 	}
 }
 
-/** A `noun` attribute passed to one of the six, which is the prop the register replaced. */
+/** A `noun` attribute passed to one of the components, which is the prop the register replaced. */
 function* nounPropsAt(file, source) {
-	const names = NOUN_COMPONENTS.map((component) => component.name).join('|');
+	const names = NOUN_CONSUMERS.map((component) => component.name).join('|');
 	const element = new RegExp(`<(${names})\\b[^>]*?\\bnoun\\s*=`, 'gs');
 
 	for (const match of source.matchAll(element)) {

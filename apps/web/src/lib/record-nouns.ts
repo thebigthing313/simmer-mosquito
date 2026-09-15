@@ -1,4 +1,5 @@
 import type { CommentTargetType } from '@simmer-mosquito/domain';
+import { countPhrase } from './format-count';
 
 /**
  * Record types with a web surface that the comment vocabulary does not carry.
@@ -157,4 +158,26 @@ const RECORD_NOUNS: Record<RecordType, RecordNoun> = {
 /** What this record type is called. */
 export function recordNoun(recordType: RecordType): RecordNoun {
 	return RECORD_NOUNS[recordType];
+}
+
+/**
+ * `1 chemical application`, `3 chemical applications` — a count that names a
+ * record type.
+ *
+ * A count written into a sentence is where the register's reach ended, because
+ * `check:record-nouns` refuses a *copy* of a register form and these three said
+ * a word the register does not carry: two toasts on the chemical create route
+ * and the mix preview above the form all counted `applications` where the
+ * register says `chemical applications`, so the surface that writes a record
+ * named it one way in its heading and another in the line that confirmed the
+ * save (#940).
+ *
+ * So the call site passes the record type and the noun comes from here, which
+ * is what the six components reading `recordNoun` already do. The number and
+ * the singular fork are {@link countPhrase}'s, shared with the count beside
+ * every explorer heading; what differs there is the empty set, which
+ * `countLabel` draws as `None`.
+ */
+export function recordCount(recordType: RecordType, total: number): string {
+	return countPhrase(total, RECORD_NOUNS[recordType]);
 }

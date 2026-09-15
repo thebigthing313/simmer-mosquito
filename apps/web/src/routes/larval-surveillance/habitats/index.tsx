@@ -157,7 +157,7 @@ function HabitatsExplorerRoute() {
 		path: PATH,
 		rowsKey: 'habitats',
 		rowKey: 'habitat',
-		label: recordNoun('habitat').titleMany,
+		recordType: 'habitat',
 		params: {
 			isActive: filters.isActive,
 			isInaccessible: filters.isInaccessible,

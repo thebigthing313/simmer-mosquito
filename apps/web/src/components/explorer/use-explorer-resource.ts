@@ -1,4 +1,5 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
+import type { RecordType } from '../../lib/record-nouns';
 import { useFlyToSelection } from './use-fly-to-selection';
 import { useMapBoundsParam } from './use-map-bounds';
 import {
@@ -43,7 +44,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	path,
 	rowsKey,
 	rowKey,
-	label,
+	recordType,
 	params,
 	map,
 	selectedId,
@@ -55,8 +56,8 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	readonly rowsKey: string;
 	/** The key one record arrives under, e.g. `sourceReduction`. */
 	readonly rowKey: string;
-	/** Plural noun for the failure message, e.g. `Source reductions`. */
-	readonly label: string;
+	/** What the page lists. `usePagedMapResource`'s prop carries the rule. */
+	readonly recordType: RecordType;
 	/** The surface's own filters, before the empties are dropped. */
 	readonly params: Readonly<Record<string, MapQueryValue>>;
 	readonly map: MapboxMap | null;
@@ -75,7 +76,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	const paged = usePagedMapResource<TRow>({
 		path,
 		rowsKey,
-		label,
+		recordType,
 		params: query,
 		// Nothing to ask for until the map has said what is in view. A first page
 		// against the whole Organization is the answer no explorer may give.

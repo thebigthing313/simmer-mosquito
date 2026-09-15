@@ -144,7 +144,7 @@ function ApplicationsExplorerRoute() {
 			path: PATH,
 			rowsKey: 'applications',
 			rowKey: 'application',
-			label: 'Applications',
+			recordType: 'application',
 			params: {
 				insecticideId: filters.insecticideIds,
 				applicationMethodId: filters.applicationMethodIds,

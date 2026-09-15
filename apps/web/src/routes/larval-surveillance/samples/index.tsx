@@ -170,7 +170,7 @@ function SamplesExplorerRoute() {
 			path: PATH,
 			rowsKey: 'samples',
 			rowKey: 'sample',
-			label: recordNoun('sample').titleMany,
+			recordType: 'sample',
 			params: {
 				species: filters.speciesIds,
 				status: filters.status,

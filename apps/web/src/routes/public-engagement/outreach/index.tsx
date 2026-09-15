@@ -131,7 +131,7 @@ function OutreachExplorerRoute() {
 			path: PATH,
 			rowsKey: 'outreachActions',
 			rowKey: 'outreachAction',
-			label: 'Outreach',
+			recordType: 'outreachAction',
 			params: {
 				outreachMethodId: filters.outreachMethodIds,
 				technician: filters.technicianProfileIds,

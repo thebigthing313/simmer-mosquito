@@ -40,6 +40,7 @@ import type { UnitLabel, UnitType } from '../../../hooks/queries/use-unit-labels
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { recordCount } from '../../../lib/record-nouns';
 import { unitOptions } from '../../../lib/unit-options';
 import { insecticideDisplayName } from '../-control-display';
 import { HabitatPicker } from '../-control-pickers';
@@ -818,7 +819,7 @@ function FormulationBreakdown({
 		<div className="grid gap-2 rounded-md border border-border/50 bg-muted/30 p-3">
 			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
 				<span className="font-medium text-foreground text-sm">
-					Saves as {ordered.length} {ordered.length === 1 ? 'application' : 'applications'}
+					Saves as {recordCount('application', ordered.length)}
 				</span>
 				<span className="text-muted-foreground text-xs">
 					{batches === null || !Number.isFinite(batches)
