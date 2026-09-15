@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -175,7 +176,7 @@ function AddressesExplorerRoute() {
 				icon: AddressIcon,
 				total,
 				isLoading,
-				create: { to: '/gis/addresses/create', label: 'Create Address' },
+				create: { to: '/gis/addresses/create', label: createLabel('address') },
 			}}
 			onResetFilters={clearAll}
 			map={

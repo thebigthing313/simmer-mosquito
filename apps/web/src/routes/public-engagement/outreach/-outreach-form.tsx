@@ -118,7 +118,6 @@ export interface OutreachFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: OutreachFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: OutreachFormValues;
 		/** The action's geometry. Always set on create; may be unchanged on edit. */
@@ -152,7 +151,6 @@ export function OutreachFormPage({
 	requireLocation = true,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: OutreachFormPageProps) {
 	const location = useDrawLocation({
@@ -198,7 +196,7 @@ export function OutreachFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

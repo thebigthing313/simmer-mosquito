@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -247,7 +248,7 @@ function TrapsExplorerRoute() {
 				isLoading,
 				create: {
 					to: '/adult-surveillance/traps/create',
-					label: 'Add Trap',
+					label: createLabel('trap'),
 					minimum: 'manager',
 				},
 			}}

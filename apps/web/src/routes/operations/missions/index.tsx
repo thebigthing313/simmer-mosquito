@@ -13,6 +13,7 @@ import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-we
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	activeDatePresetId,
@@ -218,7 +219,7 @@ function MissionsRoute() {
 							<Button asChild size="sm">
 								<Link to="/operations/missions/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									New Mission
+									{createLabel('mission')}
 								</Link>
 							</Button>
 						</WriteOnly>
@@ -418,7 +419,7 @@ function MissionResults({
 								<Button asChild size="sm">
 									<Link to="/operations/missions/create">
 										<PlusIcon aria-hidden="true" data-icon="inline-start" />
-										New Mission
+										{createLabel('mission')}
 									</Link>
 								</Button>
 							</WriteOnly>

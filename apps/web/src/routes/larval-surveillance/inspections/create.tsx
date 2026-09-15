@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../forms/record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
@@ -228,7 +229,7 @@ function CreateInspectionRoute() {
 				habitatTypes={habitatTypes}
 				mode="create"
 				header={{
-					title: 'Record Inspection',
+					title: createLabel('inspection'),
 					description: 'Log a larval inspection against a habitat or an ad-hoc field location.',
 					backTo: '/larval-surveillance/inspections',
 					backLabel: recordNoun('inspection').titleMany,
@@ -238,7 +239,6 @@ function CreateInspectionRoute() {
 				organizationId={organization.id}
 				policy={policy}
 				profiles={profiles}
-				submitLabel="Record Inspection"
 			/>
 			{acknowledgeDialog}
 		</>

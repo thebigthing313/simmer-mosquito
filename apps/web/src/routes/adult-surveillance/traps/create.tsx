@@ -1,6 +1,7 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import {
@@ -102,7 +103,7 @@ function CreateTrapRoute() {
 					...seededValues({ addressId: search.addressId }),
 				}}
 				header={{
-					title: 'Add Trap',
+					title: createLabel('trap'),
 					description:
 						'Place the trap point, optionally reference an address, and set its method and lure.',
 					backTo: '/adult-surveillance/traps',
@@ -111,7 +112,6 @@ function CreateTrapRoute() {
 				initialGeometry={initialGeometry}
 				onSave={onSave}
 				organizationId={organization.id}
-				submitLabel="Add Trap"
 			/>
 			{dialog}
 		</>

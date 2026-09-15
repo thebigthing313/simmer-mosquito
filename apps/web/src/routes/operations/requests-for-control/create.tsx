@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
@@ -79,7 +80,7 @@ function CreateRequestForControlRoute() {
 			}}
 			errorTitle="Unable to Raise Request"
 			header={{
-				title: 'New Request for Control',
+				title: createLabel('requestedControlAction'),
 				description:
 					'Map where control work is needed and say what kind. Missions draw their stops from this queue.',
 				backTo: '/operations/requests-for-control',
@@ -87,7 +88,6 @@ function CreateRequestForControlRoute() {
 			}}
 			onSave={onSave}
 			organizationId={organization.id}
-			submitLabel="Raise Request"
 		/>
 	);
 }

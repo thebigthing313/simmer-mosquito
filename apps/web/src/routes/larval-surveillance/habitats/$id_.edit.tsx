@@ -174,7 +174,6 @@ function EditHabitatLoader({
 				backParams: { id: habitat.id },
 				backLabel: 'Back to habitat',
 			}}
-			submitLabel="Save Changes"
 			onSave={onSave}
 		/>
 	);

@@ -108,7 +108,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 			actions={
 				<Button disabled={busy || actorProfileId === null} type="submit">
 					{busy ? <Spinner /> : null}
-					Add Stop
+					Save
 				</Button>
 			}
 			aside={

@@ -119,7 +119,6 @@ export interface AddressFormPageProps {
 	readonly initialGeometry?: AddressPointGeometry | null;
 	readonly initialGeocoderResponse?: unknown | null;
 	readonly header: AddressFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: AddressFormSave) => Promise<void>;
 }
 
@@ -141,7 +140,6 @@ export function AddressFormPage({
 	initialGeometry = null,
 	initialGeocoderResponse = null,
 	header,
-	submitLabel,
 	onSave,
 }: AddressFormPageProps) {
 	const location = useDrawLocation({
@@ -207,7 +205,7 @@ export function AddressFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				aside={

@@ -56,13 +56,12 @@ function renderForm(
 			}}
 			initialGeometry={POINT}
 			onSave={onSave}
-			submitLabel="Create Address"
 		/>,
 	);
 }
 
 function save(): HTMLElement {
-	return screen.getByRole('button', { name: 'Create Address' });
+	return screen.getByRole('button', { name: 'Save' });
 }
 
 afterEach(cleanup);

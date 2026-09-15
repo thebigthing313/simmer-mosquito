@@ -3,6 +3,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
@@ -62,7 +63,7 @@ function CreateRegionRoute() {
 			canSubmit={mutations.canWrite}
 			defaultValues={defaultRegionFormValues()}
 			header={{
-				title: 'Create Region',
+				title: createLabel('region'),
 				description: 'Draw a region boundary and name it for use across your organization.',
 				backTo: '/gis/regions',
 				backLabel: recordNoun('region').titleMany,
@@ -71,7 +72,6 @@ function CreateRegionRoute() {
 			mode="create"
 			onSave={onSave}
 			regionFolders={folders}
-			submitLabel="Create Region"
 		/>
 	);
 }

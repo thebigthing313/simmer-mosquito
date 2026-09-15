@@ -108,7 +108,6 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 				initialGeometry={pointFrom(station)}
 				mode="edit"
 				onSave={onSave}
-				submitLabel="Save Changes"
 			/>
 			{dialog}
 		</>

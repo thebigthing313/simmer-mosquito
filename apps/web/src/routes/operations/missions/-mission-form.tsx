@@ -224,7 +224,6 @@ export function MissionFormPage({
 	validate,
 	fieldPaths,
 	canSubmit,
-	submitLabel,
 	errorTitle,
 	onSave,
 }: {
@@ -235,7 +234,6 @@ export function MissionFormPage({
 	/** Domain issue path → the form field holding it. */
 	readonly fieldPaths: Readonly<Record<string, string>>;
 	readonly canSubmit: boolean;
-	readonly submitLabel: string;
 	readonly errorTitle: string;
 	readonly onSave: (plan: MissionPlan) => Promise<void>;
 }) {
@@ -260,7 +258,7 @@ export function MissionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				gap="tight"

@@ -14,9 +14,10 @@
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { type RenderResult, render } from '@testing-library/react';
+import { fireEvent, type RenderResult, render, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, Suspense, useEffect } from 'react';
+import { webShellDomains } from '../../../components/app-shell/navigation';
 import type { MapTileLayer } from '../../../components/map/tile-layers';
 import { tileLayerExtentUrl } from '../../../components/map/tile-layers';
 import { useMapExtent } from '../../../components/map/use-map-extent-fit';
@@ -121,4 +122,38 @@ export function stubPanelLayout(): void {
 		configurable: true,
 		get: () => 1000,
 	});
+}
+
+/**
+ * The three places a create surface is named on one explorer, read off the
+ * rendered page and the sidebar register together, so a suite can assert they
+ * are one string (#949).
+ *
+ * The sidebar entry is read out of `webShellDomains` by destination, since that
+ * is the key `check:nav-labels` selects an entry by. The header control is a
+ * menu item in the map frame, so the menu is opened the way a pointer would,
+ * and the pointer is the empty state's sentence, which reads the same `label`
+ * the menu draws. Both are found by the sidebar's own words, because the three
+ * agreeing by construction is the whole point and a suite that spelled the
+ * label itself would be a fourth copy.
+ */
+export async function createSurfaceNames(to: string): Promise<{
+	readonly sidebar: string;
+	readonly header: string;
+	readonly pointer: string;
+}> {
+	const entry = webShellDomains
+		.flatMap((domain) => domain.groups)
+		.flatMap((group) => group.items)
+		.find((item) => item.to === to);
+	if (entry === undefined) {
+		throw new Error(`no sidebar entry lands on ${to}`);
+	}
+	fireEvent.pointerDown(
+		screen.getByRole('button', { name: 'More actions' }),
+		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
+	);
+	const header = (await screen.findByRole('menuitem', { name: entry.label })).textContent ?? '';
+	const pointer = screen.getByText(`${entry.label} is in the More actions menu.`).textContent ?? '';
+	return { sidebar: entry.label, header, pointer };
 }

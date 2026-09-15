@@ -83,7 +83,7 @@ export function RegionFolderDialog({
 		>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>{isEdit ? 'Edit Region Folder' : 'New Region Folder'}</DialogTitle>
+					<DialogTitle>{isEdit ? 'Edit Region Folder' : 'Create Region Folder'}</DialogTitle>
 					<DialogDescription>Group related regions under a named folder.</DialogDescription>
 				</DialogHeader>
 				<div className="grid gap-4">
@@ -112,7 +112,7 @@ export function RegionFolderDialog({
 						Cancel
 					</Button>
 					<Button disabled={!canSave || isSaving} onClick={onSave} type="button">
-						{isEdit ? 'Save Folder' : 'Create Folder'}
+						Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>

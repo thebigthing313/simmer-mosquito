@@ -119,7 +119,6 @@ function EditRegionLoader({
 			mode="edit"
 			onSave={onSave}
 			regionFolders={regionFolders}
-			submitLabel="Save Changes"
 		/>
 	);
 }

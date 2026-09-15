@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -256,7 +257,10 @@ function BiocontrolExplorerRoute() {
 				icon: BiocontrolEntityIcon,
 				total,
 				isLoading,
-				create: { to: '/control-operations/biocontrol/create', label: 'Record Biocontrol Action' },
+				create: {
+					to: '/control-operations/biocontrol/create',
+					label: createLabel('biocontrolAction'),
+				},
 			}}
 			onResetFilters={clearAll}
 			map={

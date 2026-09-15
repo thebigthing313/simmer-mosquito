@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useContact } from '../../../hooks/queries/use-contact-record';
@@ -41,13 +42,12 @@ function CreateContactRoute() {
 			canSubmit={mutations.canWrite}
 			defaultValues={defaultContactFormValues()}
 			header={{
-				title: 'Create Contact',
+				title: createLabel('contact'),
 				description: 'Add a person to the contact list.',
 				backTo: '/public-engagement/contacts',
 				backLabel: recordNoun('contact').titleMany,
 			}}
 			onSave={onSave}
-			submitLabel="Create Contact"
 		/>
 	);
 }

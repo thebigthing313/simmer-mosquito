@@ -162,7 +162,6 @@ export interface ServiceRequestFormPageProps {
 	/** Edit disables inline contact creation (existing contact only). */
 	readonly disableNewContact?: boolean;
 	readonly header: ServiceRequestFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: ServiceRequestSaveInput) => Promise<void>;
 }
 
@@ -192,7 +191,6 @@ export function ServiceRequestFormPage({
 	hideLocation = false,
 	disableNewContact = false,
 	header,
-	submitLabel,
 	onSave,
 }: ServiceRequestFormPageProps) {
 	// The draw layer both renders the placed point and edits it, so the map needs no
@@ -238,7 +236,7 @@ export function ServiceRequestFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

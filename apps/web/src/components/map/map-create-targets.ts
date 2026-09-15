@@ -1,5 +1,7 @@
+import type { RecordType } from '../../lib/record-nouns';
 import type { MinimumRole } from '../../lib/write-access';
 import { WRITE_SURFACE_FLOORS, type WriteSurfacePath } from '../../lib/write-surfaces';
+import { createLabel } from '../app-shell/navigation';
 
 /**
  * A record an operator can start from a point on the map.
@@ -18,15 +20,20 @@ import { WRITE_SURFACE_FLOORS, type WriteSurfacePath } from '../../lib/write-sur
 export interface MapCreateTarget {
 	/** Stable key, for React lists and for pages naming the targets they offer. */
 	readonly id: string;
-	/** Menu wording. "New X" rather than "Add X": the map is where the record begins. */
+	/**
+	 * Menu wording, read through `createLabel` so it is the sidebar entry and the
+	 * explorer header's control word for word. It used to say "New X" here on the
+	 * ground that the map is where the record begins, which was a fourth verb for
+	 * one act; `CONTEXT.md` settled on one verb per kind of record (#949).
+	 */
 	readonly label: string;
 	readonly to: WriteSurfacePath;
 	readonly minimumRole: MinimumRole;
 }
 
-const target = (id: string, label: string, to: WriteSurfacePath): MapCreateTarget => ({
+const target = (id: string, recordType: RecordType, to: WriteSurfacePath): MapCreateTarget => ({
 	id,
-	label,
+	label: createLabel(recordType),
 	to,
 	minimumRole: WRITE_SURFACE_FLOORS[to],
 });
@@ -37,26 +44,22 @@ const target = (id: string, label: string, to: WriteSurfacePath): MapCreateTarge
  * menu listing every record type is a menu nobody reads.
  */
 export const MAP_CREATE_TARGETS = {
-	habitat: target('habitat', 'New Habitat', '/larval-surveillance/habitats/create'),
-	inspection: target('inspection', 'New Inspection', '/larval-surveillance/inspections/create'),
-	trap: target('trap', 'New Trap', '/adult-surveillance/traps/create'),
-	collection: target('collection', 'New Collection', '/adult-surveillance/collections/create'),
-	chemical: target('chemical', 'New Application', '/control-operations/chemical/create'),
+	habitat: target('habitat', 'habitat', '/larval-surveillance/habitats/create'),
+	inspection: target('inspection', 'inspection', '/larval-surveillance/inspections/create'),
+	trap: target('trap', 'trap', '/adult-surveillance/traps/create'),
+	collection: target('collection', 'collection', '/adult-surveillance/collections/create'),
+	chemical: target('chemical', 'application', '/control-operations/chemical/create'),
 	sourceReduction: target(
 		'sourceReduction',
-		'New Source Reduction',
+		'sourceReduction',
 		'/control-operations/source-reduction/create',
 	),
-	biocontrol: target(
-		'biocontrol',
-		'New Biocontrol Release',
-		'/control-operations/biocontrol/create',
-	),
-	outreach: target('outreach', 'New Outreach', '/public-engagement/outreach/create'),
+	biocontrol: target('biocontrol', 'biocontrolAction', '/control-operations/biocontrol/create'),
+	outreach: target('outreach', 'outreachAction', '/public-engagement/outreach/create'),
 	serviceRequest: target(
 		'serviceRequest',
-		'New Service Request',
+		'serviceRequest',
 		'/public-engagement/service-requests/create',
 	),
-	address: target('address', 'New Address', '/gis/addresses/create'),
+	address: target('address', 'address', '/gis/addresses/create'),
 } as const satisfies Record<string, MapCreateTarget>;

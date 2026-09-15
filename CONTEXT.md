@@ -25,6 +25,28 @@ domain doc instead of expanding this file.
 | **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, retire, purge |
 | **Deactivate** | Retiring a record that should not be referred to from now on. Leaves records that already name it alone. | delete, disable, archive |
 
+### Create verbs
+
+A surface that opens a create form names it with one verb per kind of record,
+in its navigation entry, its page title and its heading alike. The verb says
+what the form makes; the submit button says **Save** on every create and edit
+form, because it names the act of committing, so an entry and its button are
+expected to differ. **New** is not used.
+
+- **Record** for work performed in the field: Inspection, Collection, Chemical
+  Application, Biocontrol Action, Source Reduction, Outreach Action.
+- **Create** for a thing brought into existence, a root record with no parent
+  its form cannot open without: Habitat, Trap, Address, Region, Contact,
+  Mission, Assignment, Requested Control Action, Service Request, Weather
+  Station, Route.
+- **Add** for a child attached to a parent that already exists, whose form
+  cannot open without the parent's id: Samples to an Inspection, a stop to a
+  Mission, a Notification Registration to a Contact or Address.
+
+The noun is the record's term above, read from `RECORD_NOUNS` in `apps/web`,
+and the verb is `CREATE_VERBS` in the same app's navigation module, so a surface
+calls `createLabel` and reads both rather than spelling either.
+
 ## Workflow language
 
 | Area | Terms | Detail |

@@ -8,6 +8,7 @@ import { ArrowLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
 import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
@@ -134,7 +135,7 @@ function AssignmentCreateRoute() {
 					</Link>
 					<PageHeader
 						description="Start empty and add stops, or snapshot the stops of an existing route."
-						title="New Assignment"
+						title={createLabel('assignment')}
 					/>
 				</div>
 
@@ -191,7 +192,7 @@ function AssignmentCreateRoute() {
 						</Button>
 						<Button disabled={!canSubmit} size="sm" type="submit">
 							{saving ? <Spinner /> : null}
-							Create Assignment
+							Save
 						</Button>
 					</div>
 				</form>

@@ -214,7 +214,6 @@ export interface CollectionFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: CollectionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: CollectionSaveInput) => Promise<void>;
 }
 
@@ -258,7 +257,6 @@ export function CollectionFormPage({
 	initialGeometry = null,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: CollectionFormPageProps) {
 	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
@@ -310,7 +308,7 @@ export function CollectionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

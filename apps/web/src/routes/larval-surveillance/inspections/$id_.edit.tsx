@@ -266,7 +266,6 @@ function EditInspectionLoader({
 			organizationId={organizationId}
 			policy={policy}
 			profiles={profiles}
-			submitLabel="Save changes"
 		/>
 	);
 }

@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
@@ -66,14 +67,13 @@ function CreateAddressRoute() {
 			canSubmit={canSubmit}
 			defaultValues={defaultAddressFormValues()}
 			header={{
-				title: 'Create Address',
+				title: createLabel('address'),
 				description: 'Add a geocoded address to the address book.',
 				backTo: '/gis/addresses',
 				backLabel: 'Address Book',
 			}}
 			initialGeometry={initialGeometry}
 			onSave={onSave}
-			submitLabel="Create Address"
 		/>
 	);
 }

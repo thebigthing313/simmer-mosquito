@@ -105,7 +105,6 @@ export interface TrapFormPageProps {
 	 */
 	readonly requireLocation?: boolean;
 	readonly header: TrapFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: TrapFormValues;
 		/** The trap's point. Always set on create; may be unchanged on edit. */
@@ -136,7 +135,6 @@ export function TrapFormPage({
 	initialGeometry = null,
 	requireLocation = true,
 	header,
-	submitLabel,
 	onSave,
 }: TrapFormPageProps) {
 	// The draw layer both renders the trap's point and edits it, so the map needs no
@@ -176,7 +174,7 @@ export function TrapFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

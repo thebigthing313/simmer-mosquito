@@ -10,9 +10,10 @@ import type { DetailAction } from './detail-page-header';
  * **Record** for dated field work: an inspection, a collection, a control
  * action. It happened, and the form writes down what happened. **Create** for a
  * record that goes on existing afterwards: a habitat, a trap, a service
- * request. The map's own menu says "New X" for all of them, and that stays as
- * it is: there the record begins at the point under the cursor, while here it
- * begins from the record already on screen.
+ * request. That is the rule `CONTEXT.md` states under Core language, and the
+ * map's own menu reads it through `createLabel` since #949; these labels are
+ * sentence case because they sit in a menu under a record's own heading, and
+ * routing them through the register is the follow-up that issue names.
  *
  * The trap page shows why the wording is decided once. It carries a "Record
  * Collection" button on its collections card and the same action in its menu,

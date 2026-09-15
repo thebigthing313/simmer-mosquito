@@ -175,7 +175,6 @@ function EditCollectionLoader({
 			onSave={onSave}
 			organizationId={collection.organizationId}
 			profiles={profiles}
-			submitLabel="Save changes"
 			traps={traps}
 			units={units}
 		/>

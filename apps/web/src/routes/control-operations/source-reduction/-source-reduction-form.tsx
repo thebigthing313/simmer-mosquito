@@ -134,7 +134,6 @@ export interface SourceReductionFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: SourceReductionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: SourceReductionSaveInput) => Promise<void>;
 }
 
@@ -164,7 +163,6 @@ export function SourceReductionFormPage({
 	requireLocation = true,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: SourceReductionFormPageProps) {
 	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
@@ -207,7 +205,7 @@ export function SourceReductionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}

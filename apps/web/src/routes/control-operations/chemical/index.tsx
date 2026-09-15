@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -257,7 +258,7 @@ function ApplicationsExplorerRoute() {
 				icon: ApplicationEntityIcon,
 				total,
 				isLoading,
-				create: { to: '/control-operations/chemical/create', label: 'Record Chemical Application' },
+				create: { to: '/control-operations/chemical/create', label: createLabel('application') },
 			}}
 			onResetFilters={clearAll}
 			map={

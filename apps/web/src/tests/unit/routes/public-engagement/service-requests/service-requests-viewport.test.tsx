@@ -34,6 +34,7 @@ import { organizations } from '../../../../../lib/collections/organizations';
 import type { MinimumRole } from '../../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
 import {
+	createSurfaceNames,
 	preloadRouteComponent,
 	renderExplorer,
 	stubPanelLayout,
@@ -289,7 +290,24 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.getByText('New Service Request is in the More actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Service Request is in the More actions menu.')).toBeTruthy();
+	});
+
+	// The sidebar entry, the header's menu item and the pointer read one string
+	// through `createLabel`, so a verb settled once in `CREATE_VERBS` moves all
+	// three (#949). Service request is a surface that said `New` on both.
+	it('names the create control the way the sidebar and the pointer do', async () => {
+		harness.search = { status: 'all' };
+		renderServiceRequests();
+		await screen.findByText('No service requests yet');
+
+		const names = await createSurfaceNames('/public-engagement/service-requests/create');
+
+		expect(names).toEqual({
+			sidebar: 'Create Service Request',
+			header: 'Create Service Request',
+			pointer: 'Create Service Request is in the More actions menu.',
+		});
 	});
 
 	it('keeps the pointer from a reader below the floor the control needs', async () => {
@@ -298,7 +316,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.queryByText('New Service Request is in the More actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Service Request is in the More actions menu.')).toBeNull();
 	});
 
 	// The route opens on open requests, and the extent it sends says so. A null

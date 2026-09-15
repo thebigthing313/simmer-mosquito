@@ -31,6 +31,7 @@ import { organizations } from '../../../../../lib/collections/organizations';
 import type { MinimumRole } from '../../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
 import {
+	createSurfaceNames,
 	preloadRouteComponent,
 	renderExplorer,
 	stubPanelLayout,
@@ -125,7 +126,24 @@ describe('the traps explorer with nothing on the page', () => {
 		renderTraps();
 
 		expect(await screen.findByText('No traps yet')).toBeTruthy();
-		expect(screen.getByText('Add Trap is in the More actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Trap is in the More actions menu.')).toBeTruthy();
+	});
+
+	// The sidebar entry, the header's menu item and the pointer read one string
+	// through `createLabel`, so a verb settled once in `CREATE_VERBS` moves all
+	// three (#949). Trap is the surface whose verb moved, from `Add` to `Create`.
+	it('names the create control the way the sidebar and the pointer do', async () => {
+		harness.search = { status: 'all' };
+		renderTraps();
+		await screen.findByText('No traps yet');
+
+		const names = await createSurfaceNames('/adult-surveillance/traps/create');
+
+		expect(names).toEqual({
+			sidebar: 'Create Trap',
+			header: 'Create Trap',
+			pointer: 'Create Trap is in the More actions menu.',
+		});
 	});
 
 	it('keeps the pointer from a reader below the floor the control needs', async () => {
@@ -134,7 +152,7 @@ describe('the traps explorer with nothing on the page', () => {
 		renderTraps();
 
 		expect(await screen.findByText('No traps yet')).toBeTruthy();
-		expect(screen.queryByText('Add Trap is in the More actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Trap is in the More actions menu.')).toBeNull();
 	});
 
 	// The route opens on active traps, and the extent it sends says so. A null

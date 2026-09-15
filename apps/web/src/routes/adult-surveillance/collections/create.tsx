@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { useRecordExtras } from '../../../forms/record-extras';
@@ -184,7 +185,7 @@ function CreateCollectionRoute() {
 					initialGeometry,
 				)}
 				header={{
-					title: 'Record Collection',
+					title: createLabel('collection'),
 					description: 'Log a collection from a trap or a one-off field location.',
 					backTo: '/adult-surveillance/collections',
 					backLabel: recordNoun('collection').titleMany,
@@ -193,7 +194,6 @@ function CreateCollectionRoute() {
 				onSave={onSave}
 				organizationId={organization.id}
 				profiles={profiles}
-				submitLabel="Record Collection"
 				traps={traps}
 				units={units}
 			/>

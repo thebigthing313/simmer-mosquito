@@ -123,7 +123,6 @@ function EditAddressLoader({
 			initialGeocoderResponse={address.geocoderResponse ?? null}
 			initialGeometry={initialGeometry}
 			onSave={onSave}
-			submitLabel="Save Changes"
 		/>
 	);
 }

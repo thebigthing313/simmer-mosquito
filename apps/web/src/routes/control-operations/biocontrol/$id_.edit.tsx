@@ -190,7 +190,6 @@ function EditBiocontrolActionLoader({
 			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
-			submitLabel="Save changes"
 			units={units}
 		/>
 	);
