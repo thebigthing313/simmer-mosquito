@@ -53,11 +53,11 @@ const DB_SURFACE_DIR = join(workspaceRoot, 'packages/db/src/domains');
  * one that stops matching must fail, not pass over nothing. Moving it is a
  * deliberate edit.
  */
-const EXPECTED_TILESETS = 11;
+const EXPECTED_TILESETS = 12;
 
 /**
  * The floor under the fourth assertion's walk, which is the one input that is a
- * directory listing rather than a single declaration. Thirty-three modules sit
+ * directory listing rather than a single declaration. Thirty-five modules sit
  * there today; the floor sits under that rather than on it because a domain
  * module is deleted now and then, while a walk finding a handful has lost the
  * directory and would report no stray literal under a passing summary line
