@@ -21,7 +21,7 @@ import {
 } from '../hooks/queries/use-catalog-rosters';
 import { useInsecticideRecords } from './../hooks/queries/use-insecticide-records';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
-import type { InspectionResult, RecordBadgeFacts, SiteStatus } from './-record-badges';
+import type { InspectionResult, LifecycleStatus, RecordBadgeFacts } from './-record-badges';
 import {
 	type ControlContext,
 	formatAmount,
@@ -48,7 +48,7 @@ export interface ActivityEntry {
 	/** The record's own name where it has one — a habitat, a trap, a request number. */
 	readonly label: string | null;
 	/** The place it hangs off — habitat, trap or address — already resolved server-side. */
-	readonly siteName: string | null;
+	readonly placeName: string | null;
 	/** The lookup that names its kind (type/method/insecticide). */
 	readonly refId: string | null;
 	/** A second lookup where one exists — an application's method, beside its product. */
@@ -390,11 +390,11 @@ export function activityBadgeFacts(entry: ActivityEntry): RecordBadgeFacts {
 	const detail = text(entry.detail);
 	switch (entry.category) {
 		case 'habitat':
-			return { category: 'habitat', status: siteStatus(detail) };
+			return { category: 'habitat', status: lifecycleStatus(detail) };
 		case 'trap':
 			return {
 				category: 'trap',
-				status: siteStatus(detail) === 'inactive' ? 'inactive' : 'active',
+				status: lifecycleStatus(detail) === 'inactive' ? 'inactive' : 'active',
 			};
 		case 'inspection':
 			return { category: 'inspection', result: inspectionResult(entry) };
@@ -419,7 +419,7 @@ export function activityBadgeFacts(entry: ActivityEntry): RecordBadgeFacts {
 	}
 }
 
-function siteStatus(detail: string | null): SiteStatus {
+function lifecycleStatus(detail: string | null): LifecycleStatus {
 	if (detail === 'inactive' || detail === 'inaccessible') {
 		return detail;
 	}
@@ -536,7 +536,7 @@ export interface ActivityDescription {
  * its explorer composes.
  *
  * `nameById` resolves the lookup ids (types, methods, products) from the eagerly
- * synced collections; `siteName` is already text, because habitats and addresses
+ * synced collections; `placeName` is already text, because habitats and addresses
  * are not synced to the client.
  */
 export function describeActivityEntry(
@@ -552,7 +552,7 @@ export function describeActivityEntry(
 		/** The record's own name. */
 		own: text(entry.label),
 		/** The place it hangs off. */
-		site: text(entry.siteName),
+		place: text(entry.placeName),
 		/** What it measured, already in its unit. */
 		// `typeof` rather than a null check: a server that predates these columns
 		// sends no field at all, and `undefined` reaching the formatter is a crash.
@@ -570,7 +570,7 @@ interface DescriptionParts {
 	readonly kind: string | null;
 	readonly method: string | null;
 	readonly own: string | null;
-	readonly site: string | null;
+	readonly place: string | null;
 	readonly measured: string | null;
 	readonly reached: string | null;
 	readonly extra: string | null;
@@ -588,26 +588,26 @@ const DESCRIBE_BY_CATEGORY: Readonly<
 > = {
 	habitat: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
 	trap: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
-	inspection: (parts) => ({ title: parts.site ?? parts.fallback, subtitle: parts.kind }),
+	inspection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
 	// A collection with no trap was recorded away from one.
-	collection: (parts) => ({ title: parts.site ?? 'Ad-hoc collection', subtitle: parts.kind }),
+	collection: (parts) => ({ title: parts.place ?? 'Ad-hoc collection', subtitle: parts.kind }),
 	application: (parts) => ({
 		title: parts.kind ?? parts.fallback,
-		subtitle: joinParts([parts.measured, parts.method, parts.site]),
+		subtitle: joinParts([parts.measured, parts.method, parts.place]),
 	}),
 	sourceReduction: (parts) => ({
 		title: parts.kind ?? parts.fallback,
-		subtitle: joinParts([parts.measured, parts.site]),
+		subtitle: joinParts([parts.measured, parts.place]),
 	}),
 	biocontrol: (parts) => ({
 		title: parts.kind ?? parts.fallback,
-		subtitle: joinParts([parts.measured, parts.site]),
+		subtitle: joinParts([parts.measured, parts.place]),
 	}),
 	outreach: (parts) => ({
 		title: parts.kind ?? parts.fallback,
-		subtitle: joinParts([parts.reached, parts.extra, parts.site]),
+		subtitle: joinParts([parts.reached, parts.extra, parts.place]),
 	}),
-	serviceRequest: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.site }),
+	serviceRequest: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.place }),
 };
 
 function resolve(id: string | null, nameById: ReadonlyMap<string, string>): string | null {

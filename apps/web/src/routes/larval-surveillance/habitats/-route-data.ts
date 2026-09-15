@@ -11,7 +11,7 @@ import { route_items } from '../../../lib/collections/route_items';
 import { routes } from '../../../lib/collections/routes';
 
 /** The slice of a habitat the route surfaces need — geometry, status, address. */
-export interface HabitatSite {
+export interface RouteHabitat {
 	readonly id: string;
 	readonly habitatName: string | null;
 	readonly description: string;
@@ -277,7 +277,7 @@ const minSearchLength = 2;
 
 /** Name/address habitat search for the add-stop picker (min 2 chars). */
 export function useHabitatSearch(query: string): {
-	readonly results: readonly HabitatSite[];
+	readonly results: readonly RouteHabitat[];
 	readonly isFetching: boolean;
 	readonly isTooShort: boolean;
 } {
@@ -298,14 +298,14 @@ export function useHabitatSearch(query: string): {
 	};
 }
 
-async function fetchHabitatSearch(query: string, signal: AbortSignal): Promise<HabitatSite[]> {
+async function fetchHabitatSearch(query: string, signal: AbortSignal): Promise<RouteHabitat[]> {
 	const url = new URL('/map/habitats/search', getServerUrl());
 	url.searchParams.set('q', query);
 	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`Habitat search failed (${response.status}).`);
 	}
-	const body = (await response.json()) as { readonly habitats?: HabitatSite[] };
+	const body = (await response.json()) as { readonly habitats?: RouteHabitat[] };
 	return body.habitats ?? [];
 }
 

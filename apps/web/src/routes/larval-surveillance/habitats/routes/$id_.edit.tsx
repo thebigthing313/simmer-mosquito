@@ -51,7 +51,7 @@ import { useDebouncedValue } from '../../../../hooks/use-debounced-value';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
-	type HabitatSite,
+	type RouteHabitat,
 	type RouteStopView,
 	stopTone,
 	updateHabitatDescription,
@@ -154,7 +154,7 @@ function RouteEditRoute() {
 		setNameDraft(null);
 	};
 
-	const addStop = async (habitat: HabitatSite) => {
+	const addStop = async (habitat: RouteHabitat) => {
 		if (existingHabitatIds.has(habitat.id)) {
 			return;
 		}
@@ -379,7 +379,7 @@ function AddStopBar({
 	onAdd,
 }: {
 	readonly existingHabitatIds: ReadonlySet<string>;
-	readonly onAdd: (habitat: HabitatSite) => void;
+	readonly onAdd: (habitat: RouteHabitat) => void;
 }) {
 	const [searchInput, setSearchInput] = useState('');
 	const { debounced: search, settle } = useDebouncedValue(searchInput, 220);

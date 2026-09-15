@@ -31,7 +31,7 @@ function entry(overrides: Partial<ActivityEntry> = {}): ActivityEntry {
 		date: '2026-08-05',
 		occurredAt: null,
 		label: null,
-		siteName: null,
+		placeName: null,
 		refId: null,
 		methodRefId: null,
 		amount: null,
@@ -135,10 +135,12 @@ describe('describeActivityEntry', () => {
 	}
 
 	it('titles an inspection by the site it was performed at', () => {
-		expect(describe_({ category: 'inspection', siteName: 'Culvert 12', refId: 'type-1' })).toEqual({
-			title: 'Culvert 12',
-			subtitle: 'Roadside ditch',
-		});
+		expect(describe_({ category: 'inspection', placeName: 'Culvert 12', refId: 'type-1' })).toEqual(
+			{
+				title: 'Culvert 12',
+				subtitle: 'Roadside ditch',
+			},
+		);
 	});
 
 	it('titles an application by its product, and measures it', () => {
@@ -149,7 +151,7 @@ describe('describeActivityEntry', () => {
 				methodRefId: 'method-1',
 				amount: 2,
 				unitId: 'unit-1',
-				siteName: 'Culvert 12',
+				placeName: 'Culvert 12',
 			}),
 		).toEqual({ title: 'Altosid', subtitle: '2 gal · Backpack sprayer · Culvert 12' });
 	});
@@ -161,7 +163,7 @@ describe('describeActivityEntry', () => {
 				refId: 'sr-method-1',
 				amount: 4,
 				unitId: 'unit-1',
-				siteName: 'Culvert 12',
+				placeName: 'Culvert 12',
 			}),
 		).toEqual({ title: 'Container removal', subtitle: '4 gal · Culvert 12' });
 	});
@@ -173,10 +175,10 @@ describe('describeActivityEntry', () => {
 	});
 
 	it('names a collection by its trap, and says so when there is none', () => {
-		expect(describe_({ category: 'collection', siteName: 'T-1 - North gate' }).title).toBe(
+		expect(describe_({ category: 'collection', placeName: 'T-1 - North gate' }).title).toBe(
 			'T-1 - North gate',
 		);
-		expect(describe_({ category: 'collection', siteName: null }).title).toBe('Ad-hoc collection');
+		expect(describe_({ category: 'collection', placeName: null }).title).toBe('Ad-hoc collection');
 	});
 
 	// Nothing resolved and nothing joined still has to read as something.

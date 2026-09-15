@@ -16,9 +16,10 @@ import { ContextBadge, type ControlContext } from './control-operations/-control
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
- * A site's availability. Traps have no inaccessible state; habitats do.
+ * A habitat's or a trap's lifecycle state. Traps have no inaccessible state;
+ * habitats do.
  */
-export type SiteStatus = 'active' | 'inactive' | 'inaccessible';
+export type LifecycleStatus = 'active' | 'inactive' | 'inaccessible';
 
 /**
  * What an inspection found.
@@ -46,7 +47,7 @@ type NoBadgeFacts = Record<never, never>;
  * says so with an empty object rather than by being absent.
  */
 interface BadgeFactsByCategory extends Record<ActivityCategory, object> {
-	readonly habitat: { readonly status: SiteStatus };
+	readonly habitat: { readonly status: LifecycleStatus };
 	readonly inspection: { readonly result: InspectionResult };
 	readonly trap: { readonly status: 'active' | 'inactive' };
 	readonly collection: {
@@ -187,7 +188,7 @@ export function hasDetailBadges(facts: RecordBadgeFacts): boolean {
 }
 
 /** The states a pill can name, across the four categories that have one. */
-type StateToken = SiteStatus | CollectionStatus | 'open' | 'closed';
+type StateToken = LifecycleStatus | CollectionStatus | 'open' | 'closed';
 
 const STATE_BADGE: Readonly<
 	Record<StateToken, { readonly label: string; readonly tone: BadgeTone }>

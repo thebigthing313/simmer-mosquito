@@ -43,7 +43,7 @@ import {
 import { OutreachMapCard } from '../-outreach-map-card';
 import { formatReach } from '../-public-engagement-display';
 
-interface OutreachSite {
+interface OutreachRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -136,7 +136,7 @@ function OutreachExplorerRoute() {
 	};
 	const layers: readonly MapTileLayer[] = [layer];
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<OutreachSite>({
+		useExplorerResource<OutreachRow>({
 			path: PATH,
 			rowsKey: 'outreachActions',
 			rowKey: 'outreachAction',
@@ -284,7 +284,7 @@ function OutreachListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: OutreachSite;
+	readonly row: OutreachRow;
 	readonly methodName: string;
 	readonly technicianName: string | null;
 	readonly isSelected: boolean;

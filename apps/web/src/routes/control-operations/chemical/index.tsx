@@ -45,7 +45,7 @@ import {
 import { ApplicationMapCard } from '../-application-map-card';
 import { formatAmount } from '../-control-display';
 
-interface ApplicationSite {
+interface ApplicationRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -149,7 +149,7 @@ function ApplicationsExplorerRoute() {
 	};
 	const layers: readonly MapTileLayer[] = [layer];
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<ApplicationSite>({
+		useExplorerResource<ApplicationRow>({
 			path: PATH,
 			rowsKey: 'applications',
 			rowKey: 'application',
@@ -309,7 +309,7 @@ function ApplicationsExplorerRoute() {
 
 // The applicator + batch fields are newer than some deployed servers; default
 // them so a row that predates them can never crash the list/card render.
-function normalizeApplication(row: ApplicationSite): ApplicationSite {
+function normalizeApplication(row: ApplicationRow): ApplicationRow {
 	return {
 		...row,
 		applicatorName: row.applicatorName ?? null,
@@ -325,7 +325,7 @@ function ApplicationListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: ApplicationSite;
+	readonly row: ApplicationRow;
 	readonly productName: string;
 	readonly methodName: string | null;
 	readonly amount: string;

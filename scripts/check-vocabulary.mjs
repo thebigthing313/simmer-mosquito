@@ -43,6 +43,50 @@
  * not match `agency_id` or `agencyName`, because an underscore and a capital are
  * both word characters.
  *
+ * ## Identifiers are the second scan
+ *
+ * The word boundary is also how `siteLabel` lived in three modules under a
+ * green gate (#954, #955). So a second scan reads the identifiers in the same
+ * three roots, off the masked source, where a word in a comment or a string is
+ * not one. The rule is stricter than the copy scan's on purpose: an identifier
+ * matches when one of the parts its case convention separates is exactly the
+ * word, so `useLiveQuery` and `website` are out and `siteName`, `HabitatSite`
+ * and `agency_id` are in. That last is the whole reason the rule is not the
+ * copy pattern run over identifiers: a column named `agency_id` is exactly what
+ * this scan exists to refuse, and `\bagency\b` cannot see it.
+ * `lib/identifier-parts.mjs` is the split, and its header has the shapes.
+ *
+ * Every token is an identifier there, a property key included, because
+ * `{ site: habitat.name }` is the shape a rename reaches for first. A key that
+ * is a column would be a rename with a migration behind it, and `schema.sql`
+ * names no column on any enforced word, so today that is nobody's case.
+ *
+ * The suites are in, which is where this corpus departs from the copy scan's.
+ * A fixture string is input to an assertion and nobody meets it on screen, so
+ * the copy scan leaves `src/tests` out; an identifier in a suite is the same
+ * drift as one beside it, `interface Site` typed a fixture row and `siteName`
+ * keyed six of them, and a rename that stops at the suites leaves the next
+ * reader a second spelling to copy. So `identifierScan` walks each root with
+ * the tests trees in, and the copy walk is unchanged.
+ *
+ * `user` is the one word the identifier scan does not read, and
+ * `IDENTIFIER_EXCLUSIONS` carries the reason beside it: the `users` table and
+ * WorkOS's own `user` object both name it, `userId` and `user_id` are its
+ * readers, and `CONTEXT.md` refuses the word in copy, where the Account term
+ * is what to write. An entry there that excuses nothing fails, the rule every
+ * marker register here follows, so the exclusion cannot outlive its last
+ * identifier. There is no marker for this scan. An identifier wanting one is
+ * an identifier wanting a rename, and the sweep that shipped it took the
+ * fourteen `site` identifiers to zero rather than listing them.
+ *
+ * `MINIMUM_IDENTIFIERS` is #591's floor, against a masker that reads no
+ * identifiers and would otherwise pass every one under the same summary line.
+ * `PROBES` is the guard a floor cannot be: the scan is at zero, so a part
+ * splitter that has stopped splitting prints the same clean line a clean tree
+ * does, and no count over the corpus can tell the two apart. Seven sources with
+ * known answers, four holding a finding and three holding none, the noes being
+ * the shapes a rule one notch too wide reads wrong.
+ *
  * ## Six words, not twenty-five
  *
  * `ENFORCED` is `agency`, `tenant`, `site`, `seat`, `login` and `user`, out of
@@ -132,6 +176,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { commentsInJsxText, copyStrings } from './lib/copy-strings.mjs';
+import { identifiersIn, spells } from './lib/identifier-parts.mjs';
 import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
@@ -180,6 +225,55 @@ const MINIMUM_REFUSED = 2;
 /** How a bullet in the Ambiguities section says the word it opens with is refused. */
 const REFUSAL = /(?:^|\.\s)Not a term:/;
 
+/**
+ * The enforced words the identifier scan does not read, each with its reason.
+ *
+ * An entry must name a word in `ENFORCED`, and the corpus must still hold an
+ * identifier spelling it, or the entry excuses nothing and the gate fails: an
+ * exclusion nothing uses is headroom the next identifier lands inside.
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+const IDENTIFIER_EXCLUSIONS = {
+	user: 'The `users` table and the WorkOS API both name it, so `userId`, `user_id` and `workosUserId` read a column and a vendor object; CONTEXT.md refuses the word in copy, where Account is the term.',
+};
+
+/**
+ * Below this the masker has stopped handing identifiers back, and a clean
+ * identifier scan means nothing. Measured at 288,716 on 2026-09-15.
+ */
+const MINIMUM_IDENTIFIERS = 200000;
+
+/**
+ * Sources whose identifier findings are known, four that hold one and three
+ * that hold none.
+ *
+ * The four yeses are one per case convention the splitter reads: camelCase,
+ * snake_case, PascalCase and a digit boundary. The three noes are the shapes a
+ * rule one notch too wide reads wrong: a word that is a prefix of a part rather
+ * than the part, a word that is a suffix of one, and the word in a comment and
+ * a string, which the masked source blanks.
+ *
+ * @type {ReadonlyArray<{ name: string, source: string, spelled: readonly string[] }>}
+ */
+const PROBES = [
+	{ name: 'probe-camel.ts', source: 'const siteName = 1;\n', spelled: ['siteName'] },
+	{ name: 'probe-snake.ts', source: 'const agency_id = 1;\n', spelled: ['agency_id'] },
+	{
+		name: 'probe-pascal.ts',
+		source: 'type HabitatSite = { id: string };\n',
+		spelled: ['HabitatSite'],
+	},
+	{ name: 'probe-digit.ts', source: 'const md5Seat = 1;\n', spelled: ['md5Seat'] },
+	{ name: 'probe-prefix.ts', source: 'const useLiveQuery = 1;\n', spelled: [] },
+	{ name: 'probe-suffix.ts', source: 'const website = 1;\n', spelled: [] },
+	{
+		name: 'probe-masked.ts',
+		source: "// siteName is prose here.\nconst label = 'siteName';\n",
+		spelled: [],
+	},
+];
+
 /** The word that opens a marker, and the token the sweep for a stale one looks for. */
 const MARKER_WORD = 'vocabulary-ignore';
 
@@ -198,10 +292,13 @@ function main() {
 		);
 	}
 
-	report(
-		COPY_ROOTS.flatMap((root) => scanRoot(root)),
-		register,
-	);
+	verifyProbes();
+	verifyExclusions();
+
+	const files = COPY_ROOTS.flatMap((root) => scanRoot(root));
+	const identified = COPY_ROOTS.flatMap((root) => identifierScan(root));
+	verifyIdentifierCorpus(identified);
+	report(files, identified, register);
 }
 
 // ---------------------------------------------------------------------------
@@ -417,6 +514,101 @@ function avoidedIn(copy) {
 }
 
 // ---------------------------------------------------------------------------
+// The identifiers
+// ---------------------------------------------------------------------------
+
+/** The words the identifier scan reads: everything enforced that is not excluded. */
+const IDENTIFIER_WORDS = ENFORCED.filter((word) => !(word in IDENTIFIER_EXCLUSIONS));
+
+/** Every file under one root, suites in, with the identifiers read off its masked copy. */
+function identifierScan(root) {
+	return [...typeScriptFilesUnder(join(workspaceRoot, root), [], { tests: true })].map((file) => {
+		const source = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+		return {
+			where: pathFrom(workspaceRoot, file),
+			source,
+			identifiers: identifiersIn(maskedSource(source)),
+		};
+	});
+}
+
+/** The first word in `words` one identifier spells, or `null`. */
+const spelledBy = (name, words) => words.find((word) => spells(name, word)) ?? null;
+
+/**
+ * Every identifier in one file spelling a word in `words`, one finding per
+ * distinct name at the line it first appears on.
+ *
+ * One per name rather than one per occurrence, because a rename is one edit
+ * however many times the name is read, and forty lines naming `siteName` is
+ * forty copies of one message.
+ */
+function identifierFindingsIn(identifiers, source, where, words) {
+	const seen = new Set();
+	return identifiers.flatMap(({ name, index }) => {
+		const word = seen.has(name) ? null : spelledBy(name, words);
+		if (word === null) {
+			return [];
+		}
+		seen.add(name);
+		return [{ where, name, word, line: lineOf(source, index) }];
+	});
+}
+
+/** Run the probes through the scan a file goes through, and refuse a wrong reading. */
+function verifyProbes() {
+	for (const probe of PROBES) {
+		const found = identifierFindingsIn(
+			identifiersIn(maskedSource(probe.source)),
+			probe.source,
+			probe.name,
+			ENFORCED,
+		).map((finding) => finding.name);
+		if (found.join(',') !== probe.spelled.join(',')) {
+			fail(
+				`the identifier scan reads ${probe.name} as spelling [${found.join(', ')}] and it spells [${probe.spelled.join(', ')}]. The part splitter in scripts/lib/identifier-parts.mjs is broken, so a clean run below means nothing.`,
+			);
+		}
+	}
+}
+
+/** Refuse an exclusion naming a word the gate does not enforce. Whether it excuses anything is asked of the corpus. */
+function verifyExclusions() {
+	const unknown = Object.keys(IDENTIFIER_EXCLUSIONS).filter((word) => !ENFORCED.includes(word));
+	if (unknown.length > 0) {
+		fail(
+			`IDENTIFIER_EXCLUSIONS names ${unknown.join(', ')}, which ENFORCED does not hold (${ENFORCED.join(', ')}). An exclusion is of an enforced word; take the entry out or add the word.`,
+		);
+	}
+}
+
+/** The floor under the identifier count, and the check that each exclusion still excuses an identifier. */
+function verifyIdentifierCorpus(files) {
+	const total = files.reduce((sum, file) => sum + file.identifiers.length, 0);
+	if (total < MINIMUM_IDENTIFIERS) {
+		fail(
+			`read only ${count(total, 'identifier')} out of the three copy roots, fewer than the ${MINIMUM_IDENTIFIERS} this expects. The masker has stopped handing identifiers back, so a clean identifier scan means nothing.`,
+		);
+	}
+
+	for (const word of Object.keys(IDENTIFIER_EXCLUSIONS)) {
+		if (!files.some((file) => file.identifiers.some(({ name }) => spells(name, word)))) {
+			fail(
+				`IDENTIFIER_EXCLUSIONS excludes "${word}" and no identifier under ${COPY_ROOTS.join(', ')} spells it. The entry excuses nothing; delete it and let the scan enforce the word.`,
+			);
+		}
+	}
+}
+
+function identifierMessage(finding) {
+	return [
+		`check-vocabulary: ${finding.where}:${finding.line} names an identifier "${finding.name}" that spells "${finding.word}".`,
+		'',
+		`CONTEXT.md refuses "${finding.word}", and an identifier built from it names the same wrong thing. Rename it; there is no marker for an identifier.`,
+	].join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // The markers
 // ---------------------------------------------------------------------------
 
@@ -467,11 +659,18 @@ function problemWith(word, reason) {
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(files, register) {
-	const problems = files.flatMap((file) => problemsIn(file, register));
+function report(files, identified, register) {
+	const problems = [
+		...files.flatMap((file) => problemsIn(file, register)),
+		...identified.flatMap((file) =>
+			identifierFindingsIn(file.identifiers, file.source, file.where, IDENTIFIER_WORDS).map(
+				identifierMessage,
+			),
+		),
+	];
 
 	if (problems.length === 0) {
-		announce(files, register);
+		announce(files, identified, register);
 		return;
 	}
 
@@ -480,8 +679,9 @@ function report(files, register) {
 }
 
 /**
- * Everything wrong in one file: copy with no marker over it, markers over
- * nothing, and comments a browser puts on screen.
+ * Everything wrong with one file's copy: copy with no marker over it, markers
+ * over nothing, and comments a browser puts on screen. The identifiers are
+ * reported off the other walk, in `report`.
  */
 function problemsIn(file, register) {
 	return [
@@ -609,10 +809,12 @@ function writeInstead({ terms, refused }, word) {
 		: 'Write the term CONTEXT.md names instead.';
 }
 
-function announce(files, { terms, refused }) {
+function announce(files, identified, { terms, refused }) {
 	const markers = markersAcross(files);
+	const identifiers = identified.reduce((sum, file) => sum + file.identifiers.length, 0);
+	const excluded = Object.keys(IDENTIFIER_EXCLUSIONS);
 	console.log(
-		`${GATE}: ${terms.size} terms and ${refused.length} refused words in CONTEXT.md, ${ENFORCED.length} enforced (${ENFORCED.join(', ')}), ${count(markers, 'string')} exempted by a marker and no others.`,
+		`${GATE}: ${terms.size} terms and ${refused.length} refused words in CONTEXT.md, ${ENFORCED.length} enforced (${ENFORCED.join(', ')}), ${count(markers, 'string')} exempted by a marker and no others; ${count(identifiers, 'identifier')} read, none spelling an enforced word, ${excluded.join(', ')} excluded.`,
 	);
 }
 

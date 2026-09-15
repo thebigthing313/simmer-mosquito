@@ -49,7 +49,7 @@ import { RecordBadges } from '../../-record-badges';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';
 import { controlContext, formatAmount } from '../-control-display';
 
-interface BiocontrolSite {
+interface BiocontrolRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -150,7 +150,7 @@ function BiocontrolExplorerRoute() {
 	};
 	const layers: readonly MapTileLayer[] = [layer];
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<BiocontrolSite>({
+		useExplorerResource<BiocontrolRow>({
 			path: PATH,
 			rowsKey: 'biocontrolActions',
 			rowKey: 'biocontrolAction',
@@ -323,7 +323,7 @@ function BiocontrolListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: BiocontrolSite;
+	readonly row: BiocontrolRow;
 	readonly methodName: string;
 	readonly amount: string;
 	readonly habitatName: string | null;
