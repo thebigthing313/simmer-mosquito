@@ -33,7 +33,7 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 
 // --- what the map surfaces actually answer -----------------------------------
 //
-// `map-surface-sql.test.ts` compiles all forty-three map reads and pins the SQL,
+// `map-surface-sql.test.ts` compiles all forty-seven map reads and pins the SQL,
 // which proves ADR 0008's organization and soft-delete predicates are written.
 // It pins text, not execution: no read in this package has ever been run
 // against Postgres, so a predicate on the wrong alias, a join that outlives its
@@ -43,7 +43,7 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 // This runs every one of them. The seed puts each surface's live record on top
 // of a deleted one and a neighbouring organization's, so a read that lost its
 // scope answers with three where one was seeded — the returned id set is the
-// whole assertion, and it is compared for all thirteen surfaces at once so a
+// whole assertion, and it is compared for all fourteen surfaces at once so a
 // broken predicate shows up as a diff naming its surface rather than one
 // failure that stops the loop.
 //
@@ -189,6 +189,14 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		extent: MAP_SURFACES.regions.getExtent,
 		padding: boxPadding,
 	},
+	{
+		name: 'serviceRequest',
+		layer: 'service-requests',
+		tile: MAP_SURFACES['service-requests'].getTile,
+		extent: MAP_SURFACES['service-requests'].getExtent,
+		boundsPage: MAP_SURFACES['service-requests'].listByBounds,
+		byId: MAP_SURFACES['service-requests'].getById,
+	},
 ];
 
 const page = { limit: 50, offset: 0 };
@@ -216,7 +224,7 @@ const page = { limit: 50, offset: 0 };
 // `st_isvalid` or `st_area` can be asked of it. The cost is that the transform
 // and the envelope around the call are a second copy of `readMapTile`'s. What
 // holds those to each other is `map-surface-sql.test.ts`, which pins the shipped
-// query text for all forty-one reads, so a changed SRID or envelope there is a
+// query text for all forty-seven reads, so a changed SRID or envelope there is a
 // snapshot diff rather than a case that stays green while the map breaks.
 //
 // The case below it seeds the same two shapes as habitats and reads them back
@@ -459,6 +467,79 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				ids: [],
 				total: 0,
 			});
+		});
+	});
+
+	// The three filters the service-request explorer used to apply in the browser
+	// over the whole Organization's rows, run against Postgres on one row (#963).
+	// The seed's request has no number, so the title half of the search has
+	// nothing to match until this case gives it one; `#12` then finds it the way
+	// typing that into the rail did, a word from its details does too, and a
+	// term nothing carries does not. Status reads `closed_at`, so the same row is
+	// the answer to `isOpen: true` and then to `isOpen: false` once it is
+	// stamped. The tag filter reads `tag_items` under the snake_case
+	// `service_request`, and a tag the row does not carry matches nothing.
+	it('pages the service requests in the box that match the status, search and tag', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = mapSurfaceRowIds.serviceRequest;
+			const tagId = '00000000-0000-4000-8000-000000009901';
+			const otherTagId = '00000000-0000-4000-8000-000000009902';
+			await db
+				.updateTable('service_requests')
+				.set({ display_name: 12 })
+				.where('id', '=', ids.inside)
+				.execute();
+			await db
+				.insertInto('tags')
+				.values([
+					{ id: tagId, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Drainage' },
+					{ id: otherTagId, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Noise' },
+				])
+				.execute();
+			await db
+				.insertInto('tag_items')
+				.values({
+					tag_id: tagId,
+					organization_id: mapSurfaceOrganizationIds.own,
+					entity_type: 'service_request',
+					entity_id: ids.inside,
+				})
+				.execute();
+
+			const read = async (filters: {
+				readonly isOpen?: boolean;
+				readonly search?: string;
+				readonly tagIds?: readonly string[];
+			}) => {
+				const result = await MAP_SURFACES['service-requests'].listByBounds(db, {
+					organizationId: mapSurfaceOrganizationIds.own,
+					timeZone: mapSurfaceTimeZone,
+					bounds: mapSurfacePlace.bounds,
+					filters,
+					...page,
+				});
+				return { ids: sortedIds(result.rows), total: result.total };
+			};
+			const found = { ids: [ids.inside], total: 1 };
+			const nothing = { ids: [], total: 0 };
+
+			expect(await read({ isOpen: true })).toEqual(found);
+			expect(await read({ isOpen: false })).toEqual(nothing);
+			expect(await read({ search: '#12' })).toEqual(found);
+			expect(await read({ search: 'garage' })).toEqual(found);
+			expect(await read({ search: 'elm' })).toEqual(nothing);
+			expect(await read({ tagIds: [tagId] })).toEqual(found);
+			expect(await read({ tagIds: [otherTagId] })).toEqual(nothing);
+
+			await db
+				.updateTable('service_requests')
+				.set({ closed_at: new Date('2026-03-20T15:00:00.000Z') })
+				.where('id', '=', ids.inside)
+				.execute();
+
+			expect(await read({ isOpen: true })).toEqual(nothing);
+			expect(await read({ isOpen: false })).toEqual(found);
 		});
 	});
 
@@ -820,7 +901,7 @@ function expectedPerSurface<T>(
  * An extent at four decimal places — about eleven metres, and far finer than the
  * degrees between the seeded records.
  *
- * Compared by value rather than with `toBeCloseTo` so all eleven surfaces' boxes
+ * Compared by value rather than with `toBeCloseTo` so all twelve surfaces' boxes
  * can be asserted in one diff; PostGIS answers in float8 and the corners come
  * back a few ulps off the literals they were built from.
  */

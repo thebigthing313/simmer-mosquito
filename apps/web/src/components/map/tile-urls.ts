@@ -24,12 +24,36 @@ export function setRegionTileParam(
 	params: URLSearchParams,
 	regionIds: readonly string[] | undefined,
 ): void {
-	if (regionIds === undefined || regionIds.length === 0) {
+	setIdListTileParam(params, 'regionId', regionIds);
+}
+
+/**
+ * Fold a list of ids into a tileset's query as one comma-joined param, or leave
+ * the query alone when there are none.
+ */
+export function setIdListTileParam(
+	params: URLSearchParams,
+	name: string,
+	ids: readonly string[] | undefined,
+): void {
+	if (ids === undefined || ids.length === 0) {
 		return;
 	}
-	// Sorted so re-selecting the same regions in a different order leaves the URL
-	// — and therefore the tile source — untouched.
-	params.set('regionId', [...regionIds].sort().join(','));
+	// Sorted so re-selecting the same ids in a different order leaves the URL,
+	// and therefore the tile source, untouched.
+	params.set(name, [...ids].sort().join(','));
+}
+
+/** Fold a search term into a tileset's query, trimmed, or nothing for a blank one. */
+export function setTextTileParam(
+	params: URLSearchParams,
+	name: string,
+	value: string | undefined,
+): void {
+	const trimmed = value?.trim();
+	if (trimmed !== undefined && trimmed.length > 0) {
+		params.set(name, trimmed);
+	}
 }
 
 /** The vector-tile template for one tileset, with the filters folded in. */

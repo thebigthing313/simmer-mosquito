@@ -24,14 +24,17 @@
  * lazy stand-in would otherwise overrun the test timeout while it imports.
  */
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { type ReactNode, Suspense } from 'react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { organizations } from '../../../../../lib/collections/organizations';
 import type { MinimumRole } from '../../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
-import { stubPanelLayout } from '../../explorer-route-harness';
+import {
+	preloadRouteComponent,
+	renderExplorer,
+	stubPanelLayout,
+} from '../../explorer-route-harness';
 
 const harness = vi.hoisted(() => ({
 	/** The search params a match would carry: the route's filters. */
@@ -45,35 +48,19 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-	return {
-		...actual,
-		createFileRoute: () => (options: Record<string, unknown>) => ({
-			...options,
-			options,
-			useSearch: () => harness.search,
-		}),
-		useSearch: () => harness.search,
-		useNavigate: () => async () => undefined,
-		Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,
-	};
+	const { routerStandIn } = await import('../../route-mock-stand-ins');
+	return routerStandIn(await importOriginal<object>(), () => harness.search);
 });
 
-vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
-	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-	sessionFetch: (input: URL | string) => {
-		const url = input instanceof URL ? input : new URL(input);
-		harness.sent.push(url);
-		const body = url.pathname.endsWith('/extent')
-			? { extent: harness.extent }
-			: { traps: [], total: 0 };
-		return Promise.resolve({
-			ok: true,
-			status: 200,
-			json: () => Promise.resolve(body),
-		} as Response);
-	},
-}));
+vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
+	const { sessionFetchStandIn } = await import('../../route-mock-stand-ins');
+	return {
+		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
+		sessionFetch: sessionFetchStandIn(harness.sent, (url) =>
+			url.pathname.endsWith('/extent') ? { extent: harness.extent } : { traps: [], total: 0 },
+		),
+	};
+});
 
 vi.mock('../../../../../hooks/use-can-write', async () => {
 	const { roleReaches } = await import('../../explorer-route-harness');
@@ -90,18 +77,13 @@ vi.mock('../../../../../components/map', async (importOriginal) => {
 
 stubPanelLayout();
 
-type SplitComponent = (() => ReactNode) & { readonly preload?: () => Promise<unknown> };
-
 let TrapsExplorer: () => ReactNode;
 
 beforeAll(async () => {
-	const module = await import('../../../../../routes/adult-surveillance/traps/index');
-	const component = module.Route.options.component as SplitComponent | undefined;
-	if (typeof component !== 'function') {
-		throw new Error('The traps route declares no component.');
-	}
-	await component.preload?.();
-	TrapsExplorer = component;
+	TrapsExplorer = await preloadRouteComponent(
+		() => import('../../../../../routes/adult-surveillance/traps/index'),
+		'traps',
+	);
 }, 300_000);
 
 beforeEach(() => {
@@ -118,14 +100,7 @@ afterEach(() => {
 });
 
 function renderTraps() {
-	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	return render(
-		<QueryClientProvider client={client}>
-			<Suspense fallback={<span>loading</span>}>
-				<TrapsExplorer />
-			</Suspense>
-		</QueryClientProvider>,
-	);
+	return renderExplorer(TrapsExplorer);
 }
 
 function requestCounts(): { readonly page: number; readonly extent: number } {

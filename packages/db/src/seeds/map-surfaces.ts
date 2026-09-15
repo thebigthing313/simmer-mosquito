@@ -11,7 +11,7 @@ import type { DbExecutor } from '../index.js';
  * deleted parent, compiles to text that passes every assertion there and still
  * hands one organization another's habitats. Nothing runs these reads.
  *
- * So this seeds each of the twelve map surfaces four times over, once per way a
+ * So this seeds each of the fourteen map surfaces four times over, once per way a
  * read can be wrong:
  *
  * - `inside` — this organization's live record, inside {@link
@@ -86,7 +86,8 @@ export type MapSurfaceName =
 	| 'requestedControlAction'
 	| 'notificationRegistration'
 	| 'address'
-	| 'region';
+	| 'region'
+	| 'serviceRequest';
 
 const surfaceNames: readonly MapSurfaceName[] = [
 	'habitat',
@@ -102,6 +103,7 @@ const surfaceNames: readonly MapSurfaceName[] = [
 	'notificationRegistration',
 	'address',
 	'region',
+	'serviceRequest',
 ];
 
 /**
@@ -587,6 +589,28 @@ async function seedSurfaceRows(db: DbExecutor): Promise<void> {
 		)
 		.execute();
 
+	// A request always names a contact and an address, so each row points at its
+	// own organization's seeded contact and at the address seeded in the same
+	// state on the same organization, which is what a real write would produce.
+	await db
+		.insertInto('service_requests')
+		.values(
+			surfaceRows('serviceRequest').map((row) => ({
+				id: row.id,
+				organization_id: row.organization_id,
+				geom: row.geom,
+				deleted_at: row.deleted_at,
+				contact_id: row.refs.contactId,
+				address_id:
+					row.organization_id === mapSurfaceOrganizationIds.own
+						? mapSurfaceRowIds.address.inside
+						: mapSurfaceRowIds.address.otherOrg,
+				request_date: inspectionDate,
+				details: 'Standing water behind the garage.',
+			})),
+		)
+		.execute();
+
 	await db
 		.insertInto('requested_control_actions')
 		.values(
@@ -642,7 +666,7 @@ export type MapSurfaceSplitHabitatName = keyof typeof mapSurfaceSplitHabitatIds;
  * Kept out of {@link seedMapSurfaces} for the reason {@link seedLateCollection}
  * is: every surface there has the same five rows and the shared assertions count
  * them, so two more habitats would make that surface answer differently from its
- * twelve peers over something none of those tests are about.
+ * thirteen peers over something none of those tests are about.
  *
  * The shapes arrive as WKT rather than living here so the case that decodes a
  * tile and the case that asks `ST_AsMVTGeom` about the same geometry are talking
@@ -675,7 +699,7 @@ export async function seedSplitHabitats(
  * Kept out of {@link seedMapSurfaces} on purpose: every surface there has
  * exactly the same five rows, and the shared assertions count on that. A sixth
  * collection would make the collections surface answer differently from its
- * eleven peers for a reason that has nothing to do with what those tests check.
+ * thirteen peers for a reason that has nothing to do with what those tests check.
  * Call it after the main seed, from the test that is actually about timezones.
  */
 export async function seedLateCollection(db: DbExecutor): Promise<void> {

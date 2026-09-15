@@ -1,10 +1,12 @@
 /**
  * Every Service Request the organization has, newest first.
  *
- * One subset serves the whole public-engagement domain — the overview's open list
- * and activity feed, and the explorer's list, map and filters — because they all
- * ask about the same rows from different angles, and a second org-scoped query
- * over the same table would double the sync for nothing.
+ * One subset serves the public-engagement overview, its open list and its
+ * activity feed, because both ask about the same rows from different angles,
+ * and a second org-scoped query over the same table would double the sync for
+ * nothing. The explorer was the other reader until it paged the map's viewport
+ * off `/map/service-requests` (#963); it reads no sync collection for its rows
+ * now.
  *
  * ## No contacts, no addresses
  *
@@ -13,8 +15,8 @@
  * has ever taken — a subset request whose id list grows with the season and
  * eventually fails (`docs/sync.md`, and the nested-include failures on the
  * larval overview). `useRequestParties` resolves them for a bounded set of rows
- * instead, which is what both surfaces already do: the overview asks for its
- * six previewed rows, the explorer for its page of twenty-five.
+ * instead: the overview asks for its six previewed rows, the explorer for its
+ * page of fifty.
  *
  * ## No org predicate
  *

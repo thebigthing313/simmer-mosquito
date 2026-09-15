@@ -12,8 +12,8 @@ import type { SimmerDatabase } from '../../../index.js';
 
 // --- the SQL every map surface emits ----------------------------------------
 //
-// Eleven explorer surfaces each answer the same four questions — the tile, the
-// framed extent, the paged list, the single row — and all forty-three answers come
+// Twelve explorer surfaces each answer the same four questions — the tile, the
+// framed extent, the paged list, the single row — and all forty-seven answers come
 // out of one factory, reached through the register the surfaces are keyed in.
 // What has to hold across all of them is invisible in any one reader: the
 // organization predicate, the soft-delete predicate, and (for the spatial reads)
@@ -641,6 +641,54 @@ const mapReads: ReadonlyArray<{
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) => MAP_SURFACES.addresses.getById(db, { organizationId, timeZone, id }),
+	},
+
+	// --- service requests ---
+	{
+		name: 'service request tile',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: true,
+		read: (db) =>
+			MAP_SURFACES['service-requests'].getTile(db, {
+				...tile,
+				organizationId,
+				timeZone,
+				filters: { isOpen: true, search: '#12', tagIds: ids, regionIds },
+			}),
+	},
+	{
+		name: 'service request bbox list',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: true,
+		read: (db) =>
+			MAP_SURFACES['service-requests'].listByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				...page,
+				filters: { isOpen: false, search: '#12', tagIds: ids, regionIds },
+			}),
+	},
+	{
+		name: 'service request extent',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: false,
+		read: (db) =>
+			MAP_SURFACES['service-requests'].getExtent(db, {
+				organizationId,
+				timeZone,
+				filters: { isOpen: true, search: '#12', tagIds: ids, regionIds },
+			}),
+	},
+	{
+		name: 'service request by id',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: false,
+		read: (db) => MAP_SURFACES['service-requests'].getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- regions ---

@@ -10,8 +10,9 @@ import { habitatSurface } from './habitats.js';
 import { inspectionSurface, sampleSurface } from './larval-surveillance.js';
 import type { MapTilesetLayer } from './map-layers.js';
 import type { MapSurfaceReaders } from './map-surface.js';
+import { serviceRequestSurface } from './public-engagement-map.js';
 
-// --- the eleven map surfaces, keyed by the layer they answer on --------------
+// --- the twelve map surfaces, keyed by the layer they answer on --------------
 //
 // One entry per tileset name, over the surface that answers it. `apps/server`
 // reads the four readers of an entry straight off this, so the tile route, the
@@ -23,6 +24,8 @@ import type { MapSurfaceReaders } from './map-surface.js';
 // shared `Map*Input` shapes under a per-surface name. Every reference to the 40
 // outside this package landed in `apps/server/src/map-tiles.ts`, which then put
 // 22 of them back together into the eleven tilesets they came from (#772).
+// Service requests joined as the twelfth when its explorer stopped drawing an
+// overlay off the sync collection and paged the viewport instead (#963).
 //
 // The keys are {@link MapTilesetLayer}, so the compiler refuses a key that is
 // not a tileset name and demands every one that is. Each surface is *handed* its
@@ -41,7 +44,7 @@ import type { MapSurfaceReaders } from './map-surface.js';
  * A surface declaration waiting for its layer.
  *
  * `never` for the filters because this constraint says only "these are surfaces
- * on eleven layers": the precise filter and row types of each entry are what
+ * on twelve layers": the precise filter and row types of each entry are what
  * `satisfies`-style inference keeps, through {@link MapSurfaceOf} below, and are
  * what a caller reading `MAP_SURFACES.collections.listByBounds` gets.
  */
@@ -83,4 +86,5 @@ export const MAP_SURFACES = buildMapSurfaces({
 	outreach: outreachSurface,
 	traps: trapSurface,
 	collections: collectionSurface,
+	'service-requests': serviceRequestSurface,
 });

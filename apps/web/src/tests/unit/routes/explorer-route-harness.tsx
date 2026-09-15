@@ -7,16 +7,55 @@
  * lines, with the service-request conversion (#963) queued to be a third.
  * `vi.mock` is hoisted per file and has to stay in the suite, but what the
  * factory hands back does not: the canvas stand-in, the role ladder and the
- * layout stubs are ordinary modules a factory can `import()`.
+ * layout stubs are ordinary modules a factory can `import()`. The third suite
+ * (#963) moved the preload and the render in here too; the router and the
+ * transport stand-ins are in `route-mock-stand-ins.tsx`, whose header says why
+ * a factory for `@simmer-mosquito/sync` cannot reach this module.
  */
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { type RenderResult, render } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect } from 'react';
+import { type ReactNode, Suspense, useEffect } from 'react';
 import type { MapTileLayer } from '../../../components/map/tile-layers';
 import { tileLayerExtentUrl } from '../../../components/map/tile-layers';
 import { useMapExtent } from '../../../components/map/use-map-extent-fit';
 import type { MinimumRole } from '../../../lib/write-access';
 import { createFakeMap } from '../components/map/fake-map';
+
+type SplitComponent = (() => ReactNode) & { readonly preload?: () => Promise<unknown> };
+
+/**
+ * The route's component, imported and preloaded, for the reason
+ * `write-attribution.test.tsx` gives: the split build hands back a lazy stand-in
+ * whose first render pulls the route's whole dependency tree, which overruns a
+ * test timeout with nothing saying so. Call it from a `beforeAll` with a hook
+ * timeout that fits.
+ */
+export async function preloadRouteComponent(
+	load: () => Promise<{ readonly Route: { readonly options: { readonly component?: unknown } } }>,
+	name: string,
+): Promise<() => ReactNode> {
+	const module = await load();
+	const component = module.Route.options.component as SplitComponent | undefined;
+	if (typeof component !== 'function') {
+		throw new Error(`The ${name} route declares no component.`);
+	}
+	await component.preload?.();
+	return component;
+}
+
+/** A route component under a fresh query client, with no retries to wait out. */
+export function renderExplorer(Explorer: () => ReactNode): RenderResult {
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	return render(
+		<QueryClientProvider client={client}>
+			<Suspense fallback={<span>loading</span>}>
+				<Explorer />
+			</Suspense>
+		</QueryClientProvider>,
+	);
+}
 
 /**
  * The canvas, reduced to the two things the rail depends on it for: a map to

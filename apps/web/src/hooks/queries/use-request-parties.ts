@@ -4,8 +4,8 @@
  * `contacts` and `addresses` are both on-demand, so this asks each for exactly
  * the rows the given requests point at — one `id = ANY($1)` subset each. That is
  * why the caller passes the rows it is about to *draw* rather than every row it
- * holds: a page of twenty-five ids loads reliably, and the whole season's worth
- * does not.
+ * holds: a page of fifty ids loads reliably, and the whole season's worth does
+ * not.
  *
  * Which is also why this is not a join. `useOrganizationServiceRequests` could
  * join both tables, and the planner would then collect join keys from every

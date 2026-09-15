@@ -167,7 +167,6 @@ const REACT_RULE_BACKLOG = new Map([
 	['apps/web/src/routes/larval-surveillance/samples/$id.tsx', 2],
 	['apps/web/src/routes/my-organization/-components/general.tsx', 1],
 	['apps/web/src/routes/public-engagement/contacts/index.tsx', 2],
-	['apps/web/src/routes/public-engagement/service-requests/index.tsx', 2],
 	['apps/web/src/routes/search.tsx', 7],
 	['apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx', 4],
 	['packages/ui-web/src/components/color-picker.tsx', 1],

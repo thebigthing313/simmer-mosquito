@@ -7,8 +7,9 @@ import { readMapTile } from './map-tile.js';
 
 // --- what a map surface is ---------------------------------------------------
 //
-// Eleven explorer surfaces — habitats, inspections, samples, traps, collections,
-// the four control actions, addresses, regions — answer the same four questions.
+// Twelve explorer surfaces — habitats, inspections, samples, traps, collections,
+// the four control actions, addresses, regions, service requests — answer the
+// same four questions.
 // Where are the records in this tile? What area do they cover? Give me a page of
 // them. Give me this one. Only the table, the geometry, the projection, and the
 // predicates that narrow the set differ; everything around those was written out

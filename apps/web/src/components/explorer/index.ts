@@ -35,7 +35,6 @@ export { useExplorerResource } from './use-explorer-resource';
 export { useFlyToSelection } from './use-fly-to-selection';
 export { useHabitatTypeOptions } from './use-habitat-type-options';
 export { usePersonnelOptions } from './use-personnel-options';
-export { useRegionMembership } from './use-region-membership';
 export { useRegionOptions } from './use-region-options';
 export { useSpeciesOptions } from './use-species-options';
 export { useTagOptions } from './use-tag-options';

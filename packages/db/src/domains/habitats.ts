@@ -3,11 +3,13 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
+import { searchClauses } from './map-search-filter.js';
 import {
 	type MapDisplayColumns,
 	type MapRecordSurfaceReaders,
 	mapRecordSurface,
 } from './map-surface.js';
+import { tagMembershipClauses } from './map-tag-filter.js';
 
 export interface HabitatMvtTileFilters {
 	readonly isActive?: boolean;
@@ -262,18 +264,9 @@ function habitatFilterWhere(filters: HabitatMvtTileFilters | undefined): RawBuil
 		);
 	}
 
-	if (filters?.tagIds !== undefined) {
-		whereClauses.push(
-			sql<boolean>`exists (
-				select 1
-				from tag_items ti
-				where ti.entity_type = 'habitat'
-					and ti.entity_id = h.id
-					and ti.deleted_at is null
-					and ti.tag_id = any(${[...filters.tagIds]}::uuid[])
-			)`,
-		);
-	}
+	whereClauses.push(
+		...tagMembershipClauses({ id: sql`h.id`, entityType: 'habitat', tagIds: filters?.tagIds }),
+	);
 
 	whereClauses.push(
 		...regionMembershipClauses({
@@ -284,16 +277,9 @@ function habitatFilterWhere(filters: HabitatMvtTileFilters | undefined): RawBuil
 		}),
 	);
 
-	const search = filters?.search?.trim();
-	if (search !== undefined && search.length > 0) {
-		// position()-based match keeps user input literal — no LIKE wildcard escaping.
-		whereClauses.push(
-			sql<boolean>`(
-				position(lower(${search}) in lower(coalesce(h.habitat_name, ''))) > 0
-				or position(lower(${search}) in lower(h.description)) > 0
-			)`,
-		);
-	}
+	whereClauses.push(
+		...searchClauses(filters?.search, [sql`coalesce(h.habitat_name, '')`, sql`h.description`]),
+	);
 
 	return whereClauses;
 }

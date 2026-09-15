@@ -1,5 +1,5 @@
 /**
- * The eleven vector tilesets a {@link MapCanvas} can draw, in one table.
+ * The twelve vector tilesets a {@link MapCanvas} can draw, in one table.
  *
  * The variation between them was already extracted: `use-tile-layer.ts` owns the
  * whole GL lifecycle and each tileset only supplies a source id, two URL
@@ -9,7 +9,7 @@
  *
  * A row here is one record kind. The `kind` a caller writes in the `layers` list
  * is the key of that row, and it is also the `/map/tiles/:tileset` segment the
- * server answers on: `apps/server/src/map-tiles.ts` holds the same eleven names
+ * server answers on: `apps/server/src/map-tiles.ts` holds the same twelve names
  * in `createTileSetRegistry`. `pnpm check:tileset-keys` holds the two lists and
  * the `*_SOURCE_ID` constants to each other, because a name that disagrees 404s
  * every tile and draws an empty map with nothing on screen to say why.
@@ -98,6 +98,15 @@ import {
 	sampleTileLayers,
 } from './sample-tiles';
 import {
+	buildServiceRequestExtentUrl,
+	buildServiceRequestTileUrl,
+	SERVICE_REQUEST_INTERACTIVE_LAYER_IDS,
+	SERVICE_REQUEST_LAYER_IDS,
+	SERVICE_REQUEST_SOURCE_ID,
+	type ServiceRequestTileFilters,
+	serviceRequestTileLayers,
+} from './service-request-tiles';
+import {
 	buildSourceReductionExtentUrl,
 	buildSourceReductionTileUrl,
 	SOURCE_REDUCTION_INTERACTIVE_LAYER_IDS,
@@ -144,7 +153,7 @@ interface TileLayerBinding<TLayer> {
 
 /**
  * One row of the table. `TExtra` is what this kind carries beyond the four
- * shared fields, and only Regions has any: a field meaningless for the other ten
+ * shared fields, and only Regions has any: a field meaningless for the other eleven
  * on the shared shape is how the next one gets added without an argument.
  */
 function defineTileLayer<TFilters, TExtra = unknown>(
@@ -262,6 +271,14 @@ const TILE_LAYER_BINDINGS = {
 		buildExtentUrl: (layer) => buildCollectionExtentUrl(layer.serverUrl, layer.filters),
 		buildLayers: (layer) => collectionTileLayers(layer.selectedId ?? null),
 	}),
+	'service-requests': defineTileLayer<ServiceRequestTileFilters>({
+		sourceId: SERVICE_REQUEST_SOURCE_ID,
+		interactiveLayerIds: SERVICE_REQUEST_INTERACTIVE_LAYER_IDS,
+		allLayerIds: SERVICE_REQUEST_LAYER_IDS,
+		buildTileUrl: (layer) => buildServiceRequestTileUrl(layer.serverUrl, layer.filters),
+		buildExtentUrl: (layer) => buildServiceRequestExtentUrl(layer.serverUrl, layer.filters),
+		buildLayers: (layer) => serviceRequestTileLayers(layer.selectedId ?? null),
+	}),
 };
 
 type LayerOf<TBinding> = TBinding extends TileLayerBinding<infer TLayer> ? TLayer : never;
@@ -283,7 +300,7 @@ export type MapTileLayer = {
 /** The row for this entry's kind. */
 export function tileLayerBinding(layer: MapTileLayer): TileLayerBinding<MapTileLayer> {
 	// The row and the entry are correlated by `kind`, and a union lookup is where
-	// TypeScript loses that: the parameter types of eleven rows have no common
+	// TypeScript loses that: the parameter types of twelve rows have no common
 	// supertype to narrow to. The key comes off the entry itself, so it holds.
 	return TILE_LAYER_BINDINGS[layer.kind] as TileLayerBinding<MapTileLayer>;
 }
@@ -292,7 +309,7 @@ export function tileLayerBinding(layer: MapTileLayer): TileLayerBinding<MapTileL
  * The filters this layer's GL specs currently carry, as a value an effect can
  * compare. Reading it off the built specs rather than off a per-tileset list of
  * the fields they depend on is what lets Regions, whose base layers are filtered
- * by the ticked set, share one re-scope effect with the ten whose are not.
+ * by the ticked set, share one re-scope effect with the eleven whose are not.
  */
 export function tileLayerFilterKey(layer: MapTileLayer): string {
 	const specs = tileLayerBinding(layer).buildLayers(layer);

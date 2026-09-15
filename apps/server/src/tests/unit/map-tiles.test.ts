@@ -17,6 +17,7 @@ import {
 	parseOutreachMapFilters,
 	parseRegionTileFilters,
 	parseSampleTileFilters,
+	parseServiceRequestMapFilters,
 	parseSourceReductionMapFilters,
 	parseTileCoordinate,
 	parseTrapMapFilters,
@@ -1143,7 +1144,7 @@ const sampleInspectionRow = {
  * The model is `sync-shapes.test.ts`: one table, one assertion per entry, no
  * fixture. It exists because a typo in a registry key — `'source-reduction'` is
  * the one with a hyphen, and `apps/web` has to spell it the same way — ships as
- * a 400 `invalid_tileset` with nothing failing, and because seven of the eleven
+ * a 400 `invalid_tileset` with nothing failing, and because seven of the eleven original
  * tilesets and nineteen of the twenty-seven routes were reached by no test at
  * all.
  *
@@ -1172,6 +1173,7 @@ describe('map read route registration', () => {
 		'outreach',
 		'traps',
 		'collections',
+		'service-requests',
 	] as const satisfies readonly MapTilesetLayer[];
 
 	function registrationApp() {
@@ -1213,6 +1215,7 @@ describe('map read route registration', () => {
 		'/map/outreach',
 		'/map/traps',
 		'/map/collections',
+		'/map/service-requests',
 	])('registers %s and refuses a param its filters do not admit', async (path) => {
 		const response = await registrationApp().request(`${path}?notAFilter=1`);
 
@@ -1235,6 +1238,7 @@ describe('map read route registration', () => {
 		'/map/profiles/not-a-uuid/activity',
 		'/map/traps/not-a-uuid',
 		'/map/collections/not-a-uuid',
+		'/map/service-requests/not-a-uuid',
 	])('registers %s and refuses an id that is not a UUID', async (path) => {
 		const response = await registrationApp().request(path);
 
@@ -1291,6 +1295,7 @@ describe('paged map surfaces', () => {
 		['/map/outreach', 'listOutreachDisplayRows', bbox],
 		['/map/traps', 'listTrapDisplayRows', bbox],
 		['/map/collections', 'listCollectionDisplayRows', bbox],
+		['/map/service-requests', 'listServiceRequestDisplayRows', bbox],
 	] as const;
 
 	function pagedApp(reader: (typeof pagedSurfaces)[number][1]) {
@@ -1379,6 +1384,18 @@ describe('enum map filters', () => {
 		expect(response.status).toBe(400);
 		const body = (await response.json()) as { readonly reason: string };
 		expect(body.reason).toContain('status must be');
+	});
+
+	it('refuses a service request status that is not open or closed, and names both', async () => {
+		const app = createApp({
+			listServiceRequestDisplayRows: async () => ({ rows: [], total: 0 }),
+		});
+
+		const response = await app.request('/map/service-requests?bbox=-91,35,-90,36&status=all');
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { readonly reason: string };
+		expect(body.reason).toBe('status must be open or closed.');
 	});
 
 	it('refuses an id that is not a UUID inside a list filter', async () => {
@@ -1491,6 +1508,17 @@ describe('map filter fields', () => {
 			collectionMethodIds: [idA],
 			problemOnly: true,
 		});
+	});
+
+	// The four filters the explorer used to apply in the browser, as the query
+	// params the reader takes. `status` is the same two-word shape as the trap's,
+	// over `open` and `closed`, and lands on `isOpen` either way round.
+	it('maps the service request params', () => {
+		expect(
+			filtersOf(parseServiceRequestMapFilters, `status=open&search=%2312&tagId=${idA}`),
+		).toEqual({ isOpen: true, search: '#12', tagIds: [idA] });
+		expect(filtersOf(parseServiceRequestMapFilters, 'status=closed')).toEqual({ isOpen: false });
+		expect(filtersOf(parseServiceRequestMapFilters, '')).toEqual({});
 	});
 
 	// Three surfaces wrote this rule out longhand; it is one field kind now, so
