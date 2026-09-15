@@ -1,1 +1,1 @@
-export { default } from '../../vitest.shared.js';
+export { databaseBackedConfig as default } from '../../vitest.shared.js';
