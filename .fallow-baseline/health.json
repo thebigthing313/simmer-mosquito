@@ -191,14 +191,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/danger-zone-card.tsx": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/key-entry/key-entry-dialog.tsx": {
       "complexity_high": {
         "count": 1
@@ -720,7 +712,7 @@
     },
     "scripts/check-build-graph.mjs": {
       "crap_moderate": {
-        "count": 5
+        "count": 2
       }
     },
     "scripts/check-column-vocabularies.mjs": {
@@ -773,6 +765,11 @@
     "scripts/lib/source-files.mjs": {
       "crap_high": {
         "count": 1
+      }
+    },
+    "scripts/lib/workspace-projects.mjs": {
+      "crap_moderate": {
+        "count": 3
       }
     },
     "scripts/map-style/build.mjs": {
