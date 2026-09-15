@@ -337,6 +337,36 @@ export function localTimeOfDay(
 }
 
 /**
+ * A stored instant back as the `YYYY-MM-DD` a date field holds, on the
+ * organization's calendar.
+ *
+ * The other half of {@link localTimeOfDay}: an instant is a day and a time only
+ * once a zone says which, and a form that reads the time back on the
+ * organization's clock has to read the day back on the same clock, or a
+ * deadline at 23:00 in New York comes back dated tomorrow to a dispatcher in
+ * Auckland and saves there. Reading the time alone is how the assignment form
+ * lost the day: `due_at` came back as a time on the assignment date whatever
+ * day it was on, and the next save wrote it there (#1005).
+ *
+ * The formatter is {@link todayInTimeZone}, which already takes the instant and
+ * pins `en-CA` for the shape. This is the null and unreadable handling around
+ * it, spelled the way the time half spells its own.
+ */
+export function localCalendarDay(
+	instant: Date | string | null | undefined,
+	timeZone: string,
+): string {
+	if (instant === null || instant === undefined) {
+		return '';
+	}
+	const parsed = new Date(instant);
+	if (Number.isNaN(parsed.getTime())) {
+		return '';
+	}
+	return todayInTimeZone(timeZone, parsed);
+}
+
+/**
  * The instant whose clock in `timeZone` reads `wall`, where `wall` is that wall
  * time treated as UTC.
  *
