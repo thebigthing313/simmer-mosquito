@@ -14,21 +14,12 @@
  */
 
 import type { LarvalDensity } from '@simmer-mosquito/domain';
-import {
-	and,
-	caseWhen,
-	coalesce,
-	concat,
-	eq,
-	gte,
-	inArray,
-	isNull,
-	useLiveQuery,
-} from '@tanstack/react-db';
+import { and, caseWhen, eq, gte, inArray, isNull, useLiveQuery } from '@tanstack/react-db';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
+import { joinedHabitatNameSelect } from './habitat-view';
 import type { LarvalActivityRow } from './larval-activity-view';
 import { activityGcTimeMs } from './shared';
 
@@ -89,14 +80,9 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 						larvaeCount: inspection.larvae_count,
 
 						habitatId: inspection.habitat_id,
-						// Guarded on the inspection's own column rather than read off the joined
-						// row: an Ad Hoc Inspection matches no Habitat, so every `habitat.*` here
-						// is absent and the coordinate fallback would build a label out of nothing.
-						habitatName: caseWhen(
-							isNull(inspection.habitat_id),
-							null,
-							coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
-						),
+						// Guarded on the joined row and not on `habitat_id`: the row can be
+						// arriving, and `habitat-view.ts` says what that reads as (#998).
+						habitatName: joinedHabitatNameSelect(habitat),
 						habitatTypeId: inspection.habitat_type_id,
 						typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
 

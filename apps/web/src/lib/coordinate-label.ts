@@ -95,23 +95,25 @@ export interface HabitatLabelRow {
  *
  * ## Which arm a seam can reach
  *
- * The id arm runs only where `habitatName` is the raw `habitat_name` column.
- * That is the two server map surfaces, `/map/inspections` and `/map/samples`,
- * which select `h.habitat_name` unwrapped. Every client seam under
- * `hooks/queries` projects it as `coalesce(habitat_name, concat(lat, ', ',
- * lng))` guarded on the inspection's own `habitat_id`, which is the policy
- * `habitat-view.ts` states, so a habitat with no name has already read out its
- * coordinates one layer down and `habitatName` is null only where `habitatId`
- * is. Not even for a habitat whose join has not streamed: there is no row to
- * coalesce, so the `concat` runs over absent columns and answers with its
- * separator alone, and `habitatName` is the non-empty string `,`. A case in
- * `use-inspection-table.test.tsx` holds that string, because fixing it means
- * guarding the projection on the joined row rather than on the inspection's own
- * `habitat_id`, which is every habitat name reader in the app (#998).
+ * The id arm runs where `habitatName` is `null` and `habitatId` is not, and
+ * every seam can produce that row. The two server map surfaces,
+ * `/map/inspections` and `/map/samples`, select `h.habitat_name` unwrapped, so
+ * a habitat with no name reaches it. Every client seam under `hooks/queries`
+ * projects the name through `joinedHabitatNameSelect` in `habitat-view.ts`,
+ * which is `coalesce(habitat_name, concat(lat, ', ', lng))` guarded on the
+ * joined row, so there a habitat with no name has already read out its
+ * coordinates one layer down and the row that reaches the id arm is a habitat
+ * whose row has not streamed: `habitats` syncs on demand, the `left` join is
+ * unmatched until it lands, and the guard answers `null` for that. Before #998
+ * the guard was on the inspection's own `habitat_id`, which cannot see the
+ * difference, so the `concat` ran over absent columns and `habitatName` was
+ * the non-empty string `, ` that no arm below it could get past. The seam
+ * suites beside `use-inspection-table.test.tsx` hold all three answers per
+ * seam.
  *
  * `||` rather than `??` on the name, so a habitat named with whitespace alone
  * falls out of the name arm instead of titling the record with spaces. That is
- * unreachable too, and from the write rather than from a read: every path into
+ * unreachable, and from the write rather than from a read: every path into
  * `habitat_name` is one of the three arms of `habitatTableCommands`, each
  * reading the column through `readNullableText`, which trims and answers `null`
  * on what is left. The habitat merge dispatches `updateHabitatDetails` and is
@@ -120,10 +122,9 @@ export interface HabitatLabelRow {
  * CHECK, and the seeds write literal names. The trim has been on that path
  * since habitats shipped, so no stored row predates it either.
  *
- * So the whole of `||` and the id arm is inert on this seam, and both stay
- * because a surface asking this question should ask the one function rather
- * than a private variant that omits the arms it happens not to need. A seam
- * reaching them is #998.
+ * So `||` is inert on every seam, and it stays because a surface asking this
+ * question should ask the one function rather than a private variant that
+ * omits the arms it happens not to need.
  */
 export function habitatLabel(
 	row: HabitatLabelRow,

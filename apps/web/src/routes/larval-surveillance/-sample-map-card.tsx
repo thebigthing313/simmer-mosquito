@@ -19,7 +19,7 @@ import type { MapInset } from '../../components/map/map-inset';
 import type { SampleStatus } from '../../hooks/queries/sample-view';
 import { useSample } from '../../hooks/queries/use-sample';
 import { useSampleIdentifications } from '../../hooks/queries/use-sample-identifications';
-import { adhocLabel } from '../../lib/coordinate-label';
+import { habitatLabel } from '../../lib/coordinate-label';
 
 const STATUS_META: Record<
 	SampleStatus,
@@ -75,6 +75,18 @@ export function SampleMapCard({
 		(latest, row) => (latest === null || row.identifiedAt > latest ? row.identifiedAt : latest),
 		null,
 	);
+	// The row is mapped at the call rather than renamed at the seam, the way the
+	// inspection card maps it (#907). `habitatName` is `null` while the habitat's
+	// row is arriving, and the id arm is what the link reads then (#998).
+	const habitat = habitatLabel(
+		{
+			habitatId: sample.habitatId,
+			habitatName: sample.habitatName,
+			lat: sample.latitude,
+			lng: sample.longitude,
+		},
+		{ fallback: 'Ad-hoc sample' },
+	);
 
 	return (
 		<MapCard
@@ -96,16 +108,14 @@ export function SampleMapCard({
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={MapPinnedIcon}>
 					{sample.habitatId === null ? (
-						<span className="tabular-nums">
-							{adhocLabel(sample.latitude, sample.longitude, 'Ad-hoc sample')}
-						</span>
+						<span className="tabular-nums">{habitat}</span>
 					) : (
 						<Link
 							className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							params={{ id: sample.habitatId }}
 							to="/larval-surveillance/habitats/$id"
 						>
-							{sample.habitatName}
+							{habitat}
 						</Link>
 					)}
 				</MapCardDetail>

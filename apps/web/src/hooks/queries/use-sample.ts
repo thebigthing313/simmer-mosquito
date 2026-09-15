@@ -12,10 +12,11 @@
  * on a map card is a blank where a title should be.
  */
 
-import { caseWhen, coalesce, concat, eq, isNull } from '@tanstack/react-db';
+import { coalesce, eq } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { samples } from '../../lib/collections/samples';
+import { joinedHabitatNameSelect } from './habitat-view';
 import type { Sample } from './sample-view';
 import { useRecordById } from './shared';
 
@@ -55,21 +56,17 @@ export function useSample(sampleId: string): {
 					// wrapped in `coalesce` for the same reason: an unmatched join yields
 					// `undefined`, not `null`, and the rest of this folder speaks `null`.
 					//
-					// There is no guard to write instead. A guard has to test the driving
-					// row's own column, and `sample.inspection_id` is not nullable, so it
+					// `sample.inspection_id` is not nullable, so the Sample's own column
 					// cannot say whether the Inspection has arrived. Here "unmatched" only
 					// ever means "still streaming".
 					inspectionDate: coalesce(inspection.inspection_date, null),
 
 					habitatId: coalesce(inspection.habitat_id, null),
-					// Guarded on the Inspection's own column: an Ad Hoc Inspection matches no
-					// Habitat, and without the guard the coordinate fallback would build a
-					// label out of an absent row.
-					habitatName: caseWhen(
-						isNull(inspection.habitat_id),
-						null,
-						coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
-					),
+					// Guarded on the joined Habitat row and not on `inspection.habitat_id`.
+					// That column is `undefined` while the Inspection is arriving and `null`
+					// for an Ad Hoc Inspection, and a guard reading it let the coordinate
+					// fallback build `, ` out of an absent row in the first case (#998).
+					habitatName: joinedHabitatNameSelect(habitat),
 
 					latitude: coalesce(inspection.lat, null),
 					longitude: coalesce(inspection.lng, null),

@@ -23,12 +23,13 @@
  * same collection, is one subset.
  */
 
-import { caseWhen, coalesce, concat, eq, isNull } from '@tanstack/react-db';
+import { caseWhen, eq, isNull } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
+import { joinedHabitatNameSelect } from './habitat-view';
 import type { InspectionCard } from './larval-activity-view';
 import { addressSelect, useRecordById } from './shared';
 
@@ -84,11 +85,9 @@ export function useInspection(inspectionId: string): {
 					larvaeCount: inspection.larvae_count,
 
 					habitatId: inspection.habitat_id,
-					habitatName: caseWhen(
-						isNull(inspection.habitat_id),
-						null,
-						coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
-					),
+					// Guarded on the joined row and not on `habitat_id`: the row can be
+					// arriving, and `habitat-view.ts` says what that reads as (#998).
+					habitatName: joinedHabitatNameSelect(habitat),
 					habitatTypeId: inspection.habitat_type_id,
 					typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
 

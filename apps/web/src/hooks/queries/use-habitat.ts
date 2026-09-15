@@ -7,11 +7,11 @@
  * the opposite; that is `use-habitat-suspense.ts`.
  */
 
-import { caseWhen, coalesce, concat, eq, isNull } from '@tanstack/react-db';
+import { caseWhen, eq, isNull } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
-import type { Habitat } from './habitat-view';
+import { type Habitat, habitatNameSelect } from './habitat-view';
 import { addressSelect, useRecordById } from './shared';
 
 /**
@@ -43,7 +43,7 @@ export function useHabitat(
 				.select(({ record: habitat, type, address }) => ({
 					id: habitat.id,
 					address: addressSelect(address),
-					name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+					name: habitatNameSelect(habitat),
 					description: habitat.description,
 					typeId: habitat.habitat_type_id,
 					// Guarded on the Habitat's own column, so an unmatched join reads as
