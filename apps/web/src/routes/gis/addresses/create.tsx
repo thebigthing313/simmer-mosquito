@@ -70,6 +70,9 @@ function CreateAddressRoute() {
 				title: createLabel('address'),
 				description: 'Add a geocoded address to the address book.',
 				backTo: '/gis/addresses',
+				// The surface's own name, not the register's `Addresses`: CONTEXT.md
+				// glosses an Address as an "address book entry", and the explorer this
+				// goes back to is headed Address Book for that reason (#985).
 				backLabel: 'Address Book',
 			}}
 			initialGeometry={initialGeometry}

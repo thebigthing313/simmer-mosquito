@@ -13,6 +13,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
@@ -125,7 +126,7 @@ function CreateSourceReductionRoute() {
 					title: createLabel('sourceReduction'),
 					description: 'Place the point, then record what the crew eliminated, how much, and when.',
 					backTo: '/control-operations/source-reduction',
-					backLabel: 'Source Reduction',
+					backLabel: recordNoun('sourceReduction').titleMany,
 				}}
 				methods={methods}
 				mode="create"

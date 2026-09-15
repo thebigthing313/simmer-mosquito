@@ -13,6 +13,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
@@ -132,7 +133,7 @@ function CreateBiocontrolActionRoute() {
 					description:
 						'Place the release point, then record the method, amount, and date of the release.',
 					backTo: '/control-operations/biocontrol',
-					backLabel: 'Biocontrol',
+					backLabel: recordNoun('biocontrolAction').titleMany,
 				}}
 				mode="create"
 				initialGeometry={initialGeometry}

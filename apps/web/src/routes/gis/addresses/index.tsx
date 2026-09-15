@@ -172,6 +172,11 @@ function AddressesExplorerRoute() {
 				/>
 			}
 			heading={{
+				// Not the register's `Addresses`, and deliberately. CONTEXT.md glosses an
+				// Address as an "Organization-owned address book entry", so this surface
+				// is the book those entries are in, which is a place rather than a second
+				// spelling of the record. The sidebar entry that opens it says the same
+				// words; the group heading above that entry names the records (#985).
 				title: 'Address Book',
 				icon: AddressIcon,
 				total,

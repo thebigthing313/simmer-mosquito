@@ -234,7 +234,7 @@ function SourceReductionExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Source Reduction',
+				title: recordNoun(RECORD_TYPE).titleMany,
 				icon: SourceReductionEntityIcon,
 				total,
 				isLoading,

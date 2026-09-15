@@ -223,7 +223,7 @@ function OutreachExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Outreach',
+				title: recordNoun(RECORD_TYPE).titleMany,
 				icon: OutreachEntityIcon,
 				total,
 				isLoading,
