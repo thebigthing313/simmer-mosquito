@@ -100,11 +100,37 @@ export interface ProfileActivityRow {
 	 * synced catalog. Null on the categories that carry no Tags.
 	 */
 	readonly tagIds: readonly string[] | null;
+	/**
+	 * The Profile this entry is attributed to: the record's own attribution
+	 * column on a primary entry, the assisting link's Profile on an assisting
+	 * one. On a one-Profile read this is the Profile that was asked for on every
+	 * row; the Dashboard's people table reads the whole Organization for a day
+	 * and groups by it.
+	 */
+	readonly profileId: string;
+	/**
+	 * The moment this entry is best known by, as an ISO instant: `occurredAt`
+	 * where the record carries one, else when the record was typed in. Never
+	 * null, which is what lets "the latest record" be answered for a person
+	 * whose day was inspections, a record type that carries a date and no time.
+	 */
+	readonly recordedAt: string;
 }
 
-export interface ProfileActivityInput {
+/**
+ * What every activity read takes: one Organization, one window, one zone, and
+ * optionally one Profile.
+ *
+ * With `profileId` the read is the Activity Monitor's, one person's log.
+ * Without it the same seventeen branches read the whole Organization, which is
+ * what the Dashboard's people table groups by Profile. The attribution rule is
+ * the same either way: a record with no attributed Profile counts for nobody,
+ * so the branch that would name it is skipped rather than widened.
+ */
+export interface ActivityBranchInput {
 	readonly organizationId: string;
-	readonly profileId: string;
+	/** Narrow to one Profile's entries; omit for every Profile in the Organization. */
+	readonly profileId?: string;
 	/** Inclusive lower bound on the activity date (`YYYY-MM-DD`). */
 	readonly dateFrom: string;
 	/** Inclusive upper bound on the activity date (`YYYY-MM-DD`). */
@@ -115,6 +141,10 @@ export interface ProfileActivityInput {
 	 * day the database server rolled over.
 	 */
 	readonly timeZone: string;
+}
+
+export interface ProfileActivityInput extends ActivityBranchInput {
+	readonly profileId: string;
 	/** Safety cap on total rows returned across all branches. */
 	readonly limit?: number;
 }
@@ -478,10 +508,14 @@ export async function countProfileActivity(
 }
 
 /**
- * The seventeen branches one question expands to: eleven where the Profile is
- * named on the record, six where they assisted on it.
+ * The seventeen branches one question expands to: eleven where a Profile is
+ * named on the record, six where one assisted on it.
+ *
+ * Exported for the Dashboard's people table, which wraps the union in a group
+ * by `profileId` rather than copying seventeen branches. Each branch is a
+ * `select`, so the caller writes the `union all` and whatever sits above it.
  */
-function activityBranches(input: ProfileActivityInput): RawBuilder<ProfileActivityRow>[] {
+export function activityBranches(input: ActivityBranchInput): RawBuilder<ProfileActivityRow>[] {
 	const timeZone = assertIanaTimeZone(input.timeZone);
 	const shapes = recordShapes(timeZone);
 	const assistingShapes = shapeByEntityType(shapes);
@@ -502,14 +536,26 @@ function activityBranches(input: ProfileActivityInput): RawBuilder<ProfileActivi
 
 interface BranchScope {
 	readonly org: string;
-	readonly profileId: string;
+	readonly profileId: string | undefined;
 	readonly dateFrom: string;
 	readonly dateTo: string;
+}
+
+/**
+ * The Profile predicate: one Profile when the read asks for one, any attributed
+ * Profile when it does not. Never "any row": a record nobody is named on is
+ * nobody's field work.
+ */
+function profilePredicate(column: RawBuilder<unknown>, scope: BranchScope): RawBuilder<boolean> {
+	return scope.profileId === undefined
+		? sql<boolean>`${column} is not null`
+		: sql<boolean>`${column} = ${scope.profileId}`;
 }
 
 function primarySelect(branch: PrimaryBranch, scope: BranchScope): RawBuilder<ProfileActivityRow> {
 	const { shape } = branch;
 	const date = branch.date ?? shape.date;
+	const profileColumn = sql`r.${sql.raw(branch.profileColumn)}`;
 
 	return sql<ProfileActivityRow>`
 		select ${projection(shape, {
@@ -517,12 +563,13 @@ function primarySelect(branch: PrimaryBranch, scope: BranchScope): RawBuilder<Pr
 			role: branch.role,
 			date,
 			occurredAt: branch.occurredAt ?? shape.occurredAt,
+			profileId: profileColumn,
 		})}
 		from ${sql.raw(shape.table)} r
 		${shape.joins === undefined ? sql`` : sql.raw(shape.joins)}
 		where r.organization_id = ${scope.org}
 			and r.deleted_at is null
-			and r.${sql.raw(branch.profileColumn)} = ${scope.profileId}
+			and ${profilePredicate(profileColumn, scope)}
 			and (${sql.raw(date)}) between ${scope.dateFrom}::date and ${scope.dateTo}::date
 			${branch.where === undefined ? sql`` : sql`and ${sql.raw(branch.where)}`}
 	`;
@@ -545,13 +592,14 @@ function assistingSelect(
 			role: 'assisted',
 			date: shape.date,
 			occurredAt: shape.occurredAt,
+			profileId: sql`ap.personnel_profile_id`,
 		})}
 		from additional_personnel ap
 		join ${sql.raw(shape.table)} r on r.id = ap.entity_id
 		${shape.joins === undefined ? sql`` : sql.raw(shape.joins)}
 		where ap.organization_id = ${scope.org}
 			and ap.deleted_at is null
-			and ap.personnel_profile_id = ${scope.profileId}
+			and ${profilePredicate(sql`ap.personnel_profile_id`, scope)}
 			and ap.entity_type = ${entityType}
 			and r.organization_id = ${scope.org}
 			and r.deleted_at is null
@@ -573,6 +621,8 @@ function projection(
 		readonly role: ActivityRole;
 		readonly date: string;
 		readonly occurredAt: string;
+		/** The column naming the Profile this entry counts for. */
+		readonly profileId: RawBuilder<unknown>;
 	},
 ): RawBuilder<unknown> {
 	return sql`
@@ -598,6 +648,11 @@ function projection(
 		${sql.raw(shape.stages ?? NO_TEXT)} as stages,
 		${sql.raw(shape.context ?? NO_TEXT)} as context,
 		${sql.raw(shape.hasBycatch ?? NO_FLAG)} as "hasBycatch",
-		${sql.raw(shape.tagIds ?? NO_TEXT_ARRAY)} as "tagIds"
+		${sql.raw(shape.tagIds ?? NO_TEXT_ARRAY)} as "tagIds",
+		${entry.profileId}::text as "profileId",
+		to_char(
+			coalesce((${sql.raw(entry.occurredAt)}), r.created_at) at time zone 'UTC',
+			'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+		) as "recordedAt"
 	`;
 }

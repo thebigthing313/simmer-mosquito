@@ -583,6 +583,8 @@ export interface CollectionMapFilters {
 	readonly collectionMethodIds?: readonly string[];
 	/** Only collections flagged with a problem. */
 	readonly problemOnly?: boolean;
+	/** Only collections awaiting identification; see {@link collectionAwaitingCondition}. */
+	readonly awaitingOnly?: boolean;
 	/** Match collections falling inside any of these regions. */
 	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on the collection's effective date (`YYYY-MM-DD`). */
@@ -631,10 +633,40 @@ export interface SafeCollectionDisplayRow {
  * applies the offset in force at that instant, so this stays right across a
  * daylight-saving change rather than an hour off for half the season.
  */
-function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
+export function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
 	return sql.raw(
 		`coalesce(${localDateSql('c.collected_at', assertIanaTimeZone(timeZone))}, c.collection_date)`,
 	);
+}
+
+/**
+ * A collection awaiting identification, over `collections c`: dated, not
+ * declared a zero result, and carrying no live species row.
+ *
+ * Dated means the effective date is set. Under exact timestamps a trap still
+ * out has no `collected_at`, so there is nothing to identify yet; that
+ * collection is pending rather than awaiting, and it is on no queue.
+ *
+ * One fragment for the `awaiting` filter on the collections map surface and the
+ * Dashboard's all-time count, so the count and the rows the explorer shows
+ * behind its link are one predicate. `has_problem` is not a term here: a
+ * collection with a problem and no species rows still needs keying out, and the
+ * overview's client-side count (`useCollectionsAwaitingIdentification`) reads
+ * it the same way.
+ */
+export function collectionAwaitingCondition(
+	effectiveDate: RawBuilder<unknown>,
+): RawBuilder<boolean> {
+	return sql<boolean>`(
+		c.is_zero_result = false
+		and ${effectiveDate} is not null
+		and not exists (
+			select 1
+			from collection_species cs
+			where cs.collection_id = c.id
+				and cs.deleted_at is null
+		)
+	)`;
 }
 
 /**
@@ -762,6 +794,9 @@ function collectionFilterWhere(
 	}
 	if (filters?.problemOnly === true) {
 		clauses.push(sql<boolean>`c.has_problem = true`);
+	}
+	if (filters?.awaitingOnly === true) {
+		clauses.push(collectionAwaitingCondition(effectiveDate));
 	}
 	if (filters?.dateFrom !== undefined) {
 		clauses.push(sql<boolean>`${effectiveDate} >= ${filters.dateFrom}`);
