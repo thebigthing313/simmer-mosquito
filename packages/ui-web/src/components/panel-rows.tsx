@@ -6,6 +6,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 
 /** What a card knows about the read behind its rows. */
@@ -19,20 +20,29 @@ export interface PanelRowsReading<Row> {
 
 /** The words on one of the three states that draw no rows. */
 export interface PanelRowsMessage {
-	/** Title case, the way the other titles in a card header read. */
-	readonly title: string;
+	/**
+	 * Title case, the way the other titles in a card header read.
+	 *
+	 * Optional since #936, because an overview panel says one sentence in each
+	 * of these states and a title over it would be copy nobody wrote: "Sample
+	 * data is unavailable right now." is the whole message, and the panel's own
+	 * header already names what the card holds.
+	 */
+	readonly title?: string | undefined;
 	readonly description: ReactNode;
 }
 
 /**
- * The body of a child-record card: error, then placeholder, then empty, then
- * rows.
+ * The body of a child-record card or an overview panel: error, then
+ * placeholder, then empty, then rows.
  *
  * `Panel` above holds the header a summary surface repeats. This holds the
  * fork under it, which the seven child-record cards on the detail pages each
- * wrote by hand and none of them asserted. `record-detail-page.test.tsx` is the
- * same fork one level up, written fourteen times before it was collapsed; this
- * is that fork one level down.
+ * wrote by hand and none of them asserted, and which the four domain overviews
+ * in `apps/web` had written fifteen more times, on sixteen panels, by the time
+ * #936 moved them here. `record-detail-page.test.tsx` is the same fork one
+ * level up, written fourteen times before it was collapsed; this is that fork
+ * one level down.
  *
  * The order is the whole of it, and only the first branch is arguable. A read
  * that failed is not a card with nothing in it: telling a reader there are no
@@ -41,9 +51,11 @@ export interface PanelRowsMessage {
  * answered yet is not empty either, which is why the count is last.
  *
  * `instead` is a fifth branch and sits between the placeholder and the count.
- * It is for the card whose record answers for its own children, and the one
- * that has it is `ResultsCard`: a collection marked zero result is not a
- * collection nobody has keyed out yet, and the two read differently.
+ * It is for the card whose record answers for its own children. `ResultsCard`
+ * has it, because a collection marked zero result is not a collection nobody
+ * has keyed out yet, and the two read differently; so does the adult overview's
+ * Over Action Threshold panel, where an empty list under no configured
+ * threshold is not a quiet fortnight.
  *
  * One skeleton height, `h-16`. The seven copies wrote three, `h-12`, `h-14` and
  * `h-16`, with nothing anywhere saying why they differed. 16 is what these rows
@@ -62,10 +74,11 @@ export function PanelRows<Row>({
 	instead,
 	empty,
 	wrap = 'list',
+	inset = false,
 	children,
 }: {
 	readonly reading: PanelRowsReading<Row>;
-	/** Drawn in every message state. Pass it `aria-hidden`, the title carries the meaning. */
+	/** Drawn in every message state. Pass it `aria-hidden`, the words carry the meaning. */
 	readonly icon: ReactNode;
 	/** Shown when the read failed. Say what could not be loaded, not why. */
 	readonly unavailable: PanelRowsMessage;
@@ -98,15 +111,25 @@ export function PanelRows<Row>({
 	 * and its rows is markup the browser throws away.
 	 */
 	readonly wrap?: 'list' | 'none';
+	/**
+	 * Pad the placeholder and the messages, and nothing else.
+	 *
+	 * For a body whose rows pad themselves, which is every overview panel: the
+	 * rows carry `px-4` and their dividers run to the card's edge, so nothing
+	 * sits between the card and its body, and a message drawn there puts its
+	 * border on the card's. A detail card's `CardContent` pads the body already
+	 * and leaves this off.
+	 */
+	readonly inset?: boolean;
 	/** The rows. What sits around them is `wrap`'s. */
 	readonly children: (rows: readonly Row[]) => ReactNode;
 }) {
 	if (reading.isError === true) {
-		return <PanelRowsEmpty icon={icon} message={unavailable} />;
+		return <PanelRowsEmpty icon={icon} inset={inset} message={unavailable} />;
 	}
 	if (!reading.isReady) {
 		return (
-			<div aria-hidden="true" className="grid gap-2">
+			<div aria-hidden="true" className={cn('grid gap-2', inset && 'p-4')}>
 				{PLACEHOLDER_KEYS.map((key) => (
 					<Skeleton className="h-16 w-full" key={key} />
 				))}
@@ -114,10 +137,10 @@ export function PanelRows<Row>({
 		);
 	}
 	if (instead !== undefined) {
-		return <PanelRowsEmpty icon={icon} message={instead} />;
+		return <PanelRowsEmpty icon={icon} inset={inset} message={instead} />;
 	}
 	if (empty !== undefined && reading.rows.length === 0) {
-		return <PanelRowsEmpty icon={icon} message={empty} />;
+		return <PanelRowsEmpty icon={icon} inset={inset} message={empty} />;
 	}
 	if (wrap === 'none') {
 		return children(reading.rows);
@@ -135,18 +158,21 @@ const PLACEHOLDER_KEYS = ['row-1', 'row-2'] as const;
  */
 function PanelRowsEmpty({
 	icon,
+	inset,
 	message,
 }: {
 	readonly icon: ReactNode;
+	readonly inset: boolean;
 	readonly message: PanelRowsMessage;
 }) {
-	return (
+	const block = (
 		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
 			<EmptyHeader>
 				<EmptyMedia variant="icon">{icon}</EmptyMedia>
-				<EmptyTitle>{message.title}</EmptyTitle>
+				{message.title === undefined ? null : <EmptyTitle>{message.title}</EmptyTitle>}
 				<EmptyDescription>{message.description}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
 	);
+	return inset ? <div className="p-4">{block}</div> : block;
 }

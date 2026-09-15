@@ -14,7 +14,8 @@
  * largest first, and the two load flags.
  */
 
-import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -104,34 +105,37 @@ export function SpeciesCompositionPanel({
 			icon={<SpeciesIcon className="size-4" />}
 			title="Species Composition"
 		>
-			{isError ? (
-				<PanelMessage>Species data is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={5} />
-			) : top.length === 0 ? (
-				<PanelMessage>
-					No {emptySubject} identified in the last {WINDOW_DAYS[window]} days.
-				</PanelMessage>
-			) : (
-				<div className="grid gap-2.5 p-4">
-					{top.map((entry) => (
-						<SpeciesBar
-							barWidth={(entry.total / maxBar) * 100}
-							entry={entry}
-							key={entry.speciesId}
-							percent={grandTotal === 0 ? 0 : (entry.total / grandTotal) * 100}
-						/>
-					))}
-					{otherTotal > 0 ? (
-						<SpeciesBar
-							barWidth={(otherTotal / maxBar) * 100}
-							entry={{ speciesId: '__other__', name: `Other (${otherCount})`, total: otherTotal }}
-							muted
-							percent={grandTotal === 0 ? 0 : (otherTotal / grandTotal) * 100}
-						/>
-					) : null}
-				</div>
-			)}
+			<PanelRows
+				empty={{
+					description: `No ${emptySubject} identified in the last ${WINDOW_DAYS[window]} days.`,
+				}}
+				icon={<SpeciesIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: top }}
+				unavailable={{ description: 'Species data is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<div className="grid gap-2.5 p-4">
+						{rows.map((entry) => (
+							<SpeciesBar
+								barWidth={(entry.total / maxBar) * 100}
+								entry={entry}
+								key={entry.speciesId}
+								percent={grandTotal === 0 ? 0 : (entry.total / grandTotal) * 100}
+							/>
+						))}
+						{otherTotal > 0 ? (
+							<SpeciesBar
+								barWidth={(otherTotal / maxBar) * 100}
+								entry={{ speciesId: '__other__', name: `Other (${otherCount})`, total: otherTotal }}
+								muted
+								percent={grandTotal === 0 ? 0 : (otherTotal / grandTotal) * 100}
+							/>
+						) : null}
+					</div>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }

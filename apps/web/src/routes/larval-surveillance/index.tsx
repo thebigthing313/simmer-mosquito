@@ -1,6 +1,7 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -39,6 +40,9 @@ import { useSamplesAwaiting, useSpeciesComposition } from './-overview-data';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 const ACTIVITY_WINDOW_DAYS = 14;
+
+/** Both inspection panels read the same activity, so a failure says the same thing. */
+const INSPECTIONS_UNAVAILABLE = { description: 'Inspection activity is unavailable right now.' };
 
 const LarvalIcon = iconRegistry.domains.larvalSurveillance.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
@@ -165,22 +169,25 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 		>
 			<WeekDayStrip onSelect={setSelectedDate} selectedDate={selectedDate} today={today} />
 
-			{isError ? (
-				<PanelMessage>Inspection activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton />
-			) : groups.length === 0 ? (
-				<PanelMessage>No inspections recorded on this day.</PanelMessage>
-			) : (
-				// A busy day can hold hundreds of inspections; keep the panel a fixed,
-				// internally scrolling height so the page stays balanced beside the
-				// shorter right column instead of stretching to full document length.
-				<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
-					{groups.map((group) => (
-						<InspectorGroupBlock group={group} key={group.key} />
-					))}
-				</div>
-			)}
+			<PanelRows
+				empty={{ description: 'No inspections recorded on this day.' }}
+				icon={<InspectionIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: groups }}
+				unavailable={INSPECTIONS_UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					// A busy day can hold hundreds of inspections; keep the panel a fixed,
+					// internally scrolling height so the page stays balanced beside the
+					// shorter right column instead of stretching to full document length.
+					<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
+						{rows.map((group) => (
+							<InspectorGroupBlock group={group} key={group.key} />
+						))}
+					</div>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -281,38 +288,42 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 			icon={<SampleIcon className="size-4" />}
 			title="Awaiting Identification"
 		>
-			{isError ? (
-				<PanelMessage>Sample data is unavailable right now.</PanelMessage>
-			) : isLoading ? (
-				<RowSkeleton count={3} />
-			) : samples.length === 0 ? (
-				<PanelMessage>No samples awaiting identification. Nice work.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{samples.map((sample) => (
-						<li className="flex items-center gap-3 px-4 py-2.5" key={sample.id}>
-							<div className="grid min-w-0 flex-1">
-								<Link
-									className={cn(recordLink({ size: 'sm' }), 'truncate')}
-									params={{ id: sample.id }}
-									to="/larval-surveillance/samples/$id"
-								>
-									{sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`}
-								</Link>
-								<span className="truncate text-muted-foreground text-xs tabular-nums">
-									{sample.habitatName ??
-										(sample.habitatId === null
-											? adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')
-											: 'Habitat')}
+			<PanelRows
+				empty={{ description: 'No samples awaiting identification. Nice work.' }}
+				icon={<SampleIcon aria-hidden="true" />}
+				inset
+				// The hook says `isLoading`; the reading asks the other way round.
+				reading={{ isError, isReady: !isLoading, rows: samples }}
+				unavailable={{ description: 'Sample data is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((sample) => (
+							<li className="flex items-center gap-3 px-4 py-2.5" key={sample.id}>
+								<div className="grid min-w-0 flex-1">
+									<Link
+										className={cn(recordLink({ size: 'sm' }), 'truncate')}
+										params={{ id: sample.id }}
+										to="/larval-surveillance/samples/$id"
+									>
+										{sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`}
+									</Link>
+									<span className="truncate text-muted-foreground text-xs tabular-nums">
+										{sample.habitatName ??
+											(sample.habitatId === null
+												? adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')
+												: 'Habitat')}
+									</span>
+								</div>
+								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+									{formatMonthDay(sample.inspectionDate)}
 								</span>
-							</div>
-							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-								{formatMonthDay(sample.inspectionDate)}
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
+							</li>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -343,54 +354,57 @@ function HeavyInspectionsPanel({
 			icon={<AlertTriangleIcon className="size-4" />}
 			title={`Heavy & Very Heavy · Last ${ACTIVITY_WINDOW_DAYS} Days`}
 		>
-			{isError ? (
-				<PanelMessage>Inspection activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : hot.length === 0 ? (
-				<PanelMessage>
-					No heavy or very heavy inspections in the last {ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="grid gap-1 p-2 sm:grid-cols-2">
-					{hot.map((inspection) => {
-						const row = inspection;
-						return (
-							<li
-								className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
-								key={inspection.id}
-							>
-								<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-									{formatMonthDay(inspection.inspectionDate)}
-								</span>
-								{/*
-								 * The reason to look at this panel is to open the inspection that
-								 * came back heavy, so the row's body goes there rather than to the
-								 * habitat — the habitat is one hop further on from the inspection.
-								 */}
-								<Link
-									className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-									params={{ id: inspection.id }}
-									to="/larval-surveillance/inspections/$id"
+			<PanelRows
+				empty={{
+					description: `No heavy or very heavy inspections in the last ${ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<AlertTriangleIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: hot }}
+				unavailable={INSPECTIONS_UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="grid gap-1 p-2 sm:grid-cols-2">
+						{rows.map((inspection) => {
+							const row = inspection;
+							return (
+								<li
+									className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
+									key={inspection.id}
 								>
-									<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
-										{inspectionHabitatLabel(row)}
+									<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
+										{formatMonthDay(inspection.inspectionDate)}
 									</span>
-									<span className="truncate text-muted-foreground text-xs">
-										{row.typeName ?? 'Unassigned type'}
-									</span>
-								</Link>
-								<div className="flex shrink-0 items-center gap-2">
-									<DensityBadge density={inspection.density} />
-									{hasAnyLifeStage(inspection) ? (
-										<LifeStageStrip size="sm" stages={inspection} />
-									) : null}
-								</div>
-							</li>
-						);
-					})}
-				</ul>
-			)}
+									{/*
+									 * The reason to look at this panel is to open the inspection that
+									 * came back heavy, so the row's body goes there rather than to the
+									 * habitat — the habitat is one hop further on from the inspection.
+									 */}
+									<Link
+										className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										params={{ id: inspection.id }}
+										to="/larval-surveillance/inspections/$id"
+									>
+										<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
+											{inspectionHabitatLabel(row)}
+										</span>
+										<span className="truncate text-muted-foreground text-xs">
+											{row.typeName ?? 'Unassigned type'}
+										</span>
+									</Link>
+									<div className="flex shrink-0 items-center gap-2">
+										<DensityBadge density={inspection.density} />
+										{hasAnyLifeStage(inspection) ? (
+											<LifeStageStrip size="sm" stages={inspection} />
+										) : null}
+									</div>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
