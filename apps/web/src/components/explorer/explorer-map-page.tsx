@@ -12,6 +12,7 @@ import type { CountNoun } from '../../lib/format-count';
 import type { RecordType } from '../../lib/record-nouns';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
 import { MAP_CHROME_SURFACE } from '../map/chrome';
+import { type EmptyRailCopy, type ExplorerEmptiness, emptyRailCopy } from './explorer-empty-state';
 import { countNoun, type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
 import { ResultBody, ResultList, ResultRows } from './result-list';
 import { ResultMeta } from './result-meta';
@@ -41,12 +42,33 @@ export interface ExplorerHeading {
 	readonly create?: ExplorerCreateAction | undefined;
 }
 
+/**
+ * What stands in for the rows when there are none.
+ *
+ * A surface that pages the map's viewport hands over the emptiness its resource
+ * hook reports, and the frame writes the copy: it holds the create action, the
+ * filter count and the filter card, which is everything the three branches read
+ * (#958). A surface whose list is not a page of the viewport writes its own two
+ * sentences, since what "nothing here" means on a folder tree or a day's log is
+ * that surface's to say.
+ */
+type ExplorerEmptyCopy =
+	| {
+			/** What is missing, e.g. `No regions yet`. */
+			readonly emptyTitle: string;
+			/** What to change to find some. */
+			readonly emptyDescription: string;
+			readonly empty?: undefined;
+	  }
+	| {
+			/** `ExplorerResource.empty`: what the page lists, and why it holds nothing. */
+			readonly empty: ExplorerEmptiness;
+			readonly emptyTitle?: undefined;
+			readonly emptyDescription?: undefined;
+	  };
+
 /** What every panel needs, whether it hands over rows or a whole body. */
 interface ExplorerResultsBase {
-	/** What is missing, e.g. `No habitats in view`. */
-	readonly emptyTitle: string;
-	/** What to change to find some. */
-	readonly emptyDescription: string;
 	/** The placeholder's height, matched to the row it stands in for. */
 	readonly skeletonClassName?: string | undefined;
 	/** The request failed. Replaces the empty state, which would misread as "none match". */
@@ -81,7 +103,8 @@ interface ExplorerBodyResults extends ExplorerResultsBase {
 }
 
 /** The results, and what stands in for them when there are none. */
-export type ExplorerResults<TRow> = ExplorerRowResults<TRow> | ExplorerBodyResults;
+export type ExplorerResults<TRow> = (ExplorerRowResults<TRow> | ExplorerBodyResults) &
+	ExplorerEmptyCopy;
 
 /**
  * A map-first record page: the map owns the stage, and what matched floats over
@@ -298,8 +321,14 @@ function ResultsPanel<TRow>({
 	readonly onResetFilters?: (() => void) | undefined;
 	readonly toolbar: ReactNode;
 }) {
-	const { emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } = results;
+	const { skeletonClassName, isError, onRetry } = results;
 	const { isEmpty, content } = resultContent(results);
+	const empty = emptyCopy(results, {
+		create: heading.create,
+		activeFilterCount,
+		onResetFilters,
+		onShowFilters: hasFilters ? () => panel.setFiltersOpen(true) : undefined,
+	});
 	const footerRef = useRef<HTMLDivElement | null>(null);
 
 	return (
@@ -342,8 +371,7 @@ function ResultsPanel<TRow>({
 			{footer === undefined || isEmpty ? null : <SkipResults targetRef={footerRef} />}
 
 			<ResultList
-				emptyDescription={emptyDescription}
-				emptyTitle={emptyTitle}
+				{...empty}
 				isEmpty={isEmpty}
 				isError={isError ?? false}
 				isLoading={heading.isLoading}
@@ -406,6 +434,25 @@ function resultContent<TRow>(results: ExplorerResults<TRow>): {
 		};
 	}
 	return { isEmpty: results.isEmpty, content: <ResultBody>{results.body}</ResultBody> };
+}
+
+/**
+ * The two copy shapes resolved to what the rail draws: a caller's own two
+ * sentences as they are, or the paged branches written from the frame's state.
+ */
+function emptyCopy<TRow>(
+	results: ExplorerResults<TRow>,
+	frame: {
+		readonly create: ExplorerCreateAction | undefined;
+		readonly activeFilterCount: number;
+		readonly onResetFilters: (() => void) | undefined;
+		readonly onShowFilters: (() => void) | undefined;
+	},
+): EmptyRailCopy {
+	if (results.empty === undefined) {
+		return { emptyTitle: results.emptyTitle, emptyDescription: results.emptyDescription };
+	}
+	return emptyRailCopy({ empty: results.empty, ...frame });
 }
 
 /**

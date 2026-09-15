@@ -130,7 +130,15 @@ function SourceReductionExplorerRoute() {
 		...whenText('dateFrom', dateFrom),
 		...whenText('dateTo', dateTo),
 	};
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'source-reduction',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<SourceReductionSite>({
 			path: PATH,
 			rowsKey: 'sourceReductions',
@@ -143,6 +151,7 @@ function SourceReductionExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
+			layer,
 			map,
 			selectedId,
 		});
@@ -153,15 +162,6 @@ function SourceReductionExplorerRoute() {
 	const habitatNameById = useHabitatNames(habitatIds);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'source-reduction',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	const clearAll = reset;
 
@@ -268,9 +268,7 @@ function SourceReductionExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No source reduction in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring actions into range.',
+				empty,
 				renderRow: (row) => (
 					<SourceReductionListItem
 						amountLabel={formatAmount(

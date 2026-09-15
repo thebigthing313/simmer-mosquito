@@ -33,6 +33,7 @@ export function ResultList({
 	onRetry,
 	emptyTitle,
 	emptyDescription,
+	emptyAction,
 	skeletonClassName = 'h-[60px]',
 	children,
 }: {
@@ -45,8 +46,10 @@ export function ResultList({
 	readonly onRetry?: (() => void) | undefined;
 	/** What is missing, e.g. `No traps match`. */
 	readonly emptyTitle: string;
-	/** What to change to find some. */
-	readonly emptyDescription: string;
+	/** What to change to find some. Left out where a control says it instead. */
+	readonly emptyDescription?: string | undefined;
+	/** A control under the copy, such as the reset that clears the filters. */
+	readonly emptyAction?: ReactNode;
 	/**
 	 * The placeholder's height, matched to the row it stands in for so the list
 	 * does not jump when results arrive. A literal class, because Tailwind's
@@ -94,13 +97,7 @@ export function ResultList({
 	}
 
 	if (isEmpty) {
-		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-				<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
-				<p className="font-medium text-foreground text-sm">{emptyTitle}</p>
-				<p className="max-w-[34ch] text-muted-foreground text-sm">{emptyDescription}</p>
-			</div>
-		);
+		return <EmptyResults action={emptyAction} description={emptyDescription} title={emptyTitle} />;
 	}
 
 	return (
@@ -129,6 +126,28 @@ export function ResultList({
 			) : null}
 			{children}
 		</>
+	);
+}
+
+/** Why there is nothing to show, and what to do about it. */
+function EmptyResults({
+	title,
+	description,
+	action,
+}: {
+	readonly title: string;
+	readonly description: string | undefined;
+	readonly action: ReactNode;
+}) {
+	return (
+		<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+			<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
+			<p className="font-medium text-foreground text-sm">{title}</p>
+			{description === undefined ? null : (
+				<p className="max-w-[34ch] text-muted-foreground text-sm">{description}</p>
+			)}
+			{action}
+		</div>
 	);
 }
 

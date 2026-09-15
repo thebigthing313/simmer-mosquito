@@ -141,7 +141,15 @@ function CollectionsExplorerRoute() {
 		...whenText('dateTo', dateTo),
 	};
 	const legend = collectionLegend(problemOnly);
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'collections',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<CollectionSite>({
 			path: PATH,
 			rowsKey: 'collections',
@@ -154,20 +162,12 @@ function CollectionsExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
+			layer,
 			map,
 			selectedId,
 		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'collections',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	const clearAll = reset;
 
@@ -262,9 +262,7 @@ function CollectionsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No collections in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring collections into range.',
+				empty,
 				renderRow: (row) => (
 					<CollectionListItem
 						isSelected={row.id === selectedId}

@@ -143,6 +143,14 @@ function HabitatsExplorerRoute() {
 
 	const legend = habitatLegend(status, access);
 
+	const layer: MapTileLayer = {
+		kind: 'habitats',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
 	const {
 		rows,
 		total,
@@ -153,6 +161,7 @@ function HabitatsExplorerRoute() {
 		pageCount,
 		setPage,
 		selected: selectedHabitat,
+		empty,
 	} = useExplorerResource<HabitatListRow>({
 		path: PATH,
 		rowsKey: 'habitats',
@@ -166,6 +175,7 @@ function HabitatsExplorerRoute() {
 			regionId: filters.regionIds,
 			search: filters.search,
 		},
+		layer,
 		map,
 		selectedId,
 	});
@@ -174,15 +184,6 @@ function HabitatsExplorerRoute() {
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'habitats',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	const clearAll = () => {
 		clearSearchInput();
@@ -315,9 +316,7 @@ function HabitatsExplorerRoute() {
 				isError,
 				onRetry: retry,
 				skeletonClassName: 'h-[58px]',
-				emptyTitle: 'No habitats in view',
-				emptyDescription:
-					'Pan or zoom the map, or loosen the filters to bring habitats into range.',
+				empty,
 				renderRow: (habitat) => (
 					<HabitatListItem
 						habitat={habitat}

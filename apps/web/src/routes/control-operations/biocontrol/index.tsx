@@ -140,7 +140,15 @@ function BiocontrolExplorerRoute() {
 		...whenText('dateFrom', dateFrom),
 		...whenText('dateTo', dateTo),
 	};
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'biocontrol',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<BiocontrolSite>({
 			path: PATH,
 			rowsKey: 'biocontrolActions',
@@ -154,6 +162,7 @@ function BiocontrolExplorerRoute() {
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
 			},
+			layer,
 			map,
 			selectedId,
 		});
@@ -164,15 +173,6 @@ function BiocontrolExplorerRoute() {
 	const habitatNameById = useHabitatNames(habitatIds);
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'biocontrol',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	const clearAll = reset;
 
@@ -284,9 +284,7 @@ function BiocontrolExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No releases in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring biocontrol releases into range.',
+				empty,
 				renderRow: (row) => (
 					<BiocontrolListItem
 						amount={formatAmount(row.amountReleased, unitById.get(row.releaseUnitId))}

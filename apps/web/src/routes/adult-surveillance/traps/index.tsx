@@ -126,7 +126,15 @@ function TrapsExplorerRoute() {
 		...whenText('search', search),
 	};
 	const legend = trapLegend(status);
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'traps',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<TrapSite>({
 			path: PATH,
 			rowsKey: 'traps',
@@ -139,20 +147,12 @@ function TrapsExplorerRoute() {
 				search: filters.search,
 				regionId: filters.regionIds,
 			},
+			layer,
 			map,
 			selectedId,
 		});
 
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'traps',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 
 	const clearAll = () => {
 		clearSearchInput();
@@ -274,8 +274,7 @@ function TrapsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No traps in view',
-				emptyDescription: 'Pan or zoom the map, or loosen the filters to bring traps into range.',
+				empty,
 				renderRow: (trap) => (
 					<TrapListItem
 						isSelected={trap.id === selectedId}

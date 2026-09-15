@@ -40,14 +40,9 @@ export function useMapExtentFit(
 	const url = source !== null && 'url' in source ? source.url : null;
 	const localBounds = source !== null && 'bounds' in source ? source.bounds : null;
 
-	const query = useQuery({
-		enabled: url !== null,
-		queryKey: ['map-extent', url],
-		queryFn: ({ signal }) => fetchMapExtent(url ?? '', signal),
-		staleTime: extentStaleTimeMs,
-	});
+	const { extent } = useMapExtent(url);
 
-	const bounds = url === null ? localBounds : (query.data ?? null);
+	const bounds = url === null ? localBounds : extent;
 	// Keyed on the source as well as the box: re-running the same filter set is a
 	// pan-and-forget, but picking a *different* filter that happens to cover the
 	// same ground should still pull the camera back onto it.
@@ -74,6 +69,43 @@ export function useMapExtentFit(
 		fittedKeyRef.current = fitKey;
 		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, padding);
 	}, [map, isLoaded, bounds, fitKey, paddingKey]);
+}
+
+/** What the extent endpoint has said about one filter set. */
+export interface MapExtent {
+	/**
+	 * The box every row the filters select fits in, or null. Null before the
+	 * request has answered and null when the server said nothing matched; read
+	 * `isSettled` to tell those apart.
+	 */
+	readonly extent: BoundingBox | null;
+	/** The request has answered, with a box, with null, or with an error. */
+	readonly isSettled: boolean;
+	readonly isError: boolean;
+}
+
+/**
+ * The extent of one tileset's filtered set, keyed on the extent URL.
+ *
+ * Two readers share it: the camera fit above, and the explorer rail, which
+ * reads a null extent as "nothing matches anywhere" rather than "nothing in
+ * view" (#958). Both observe the same query key, so a surface framing its data
+ * and branching its empty state on it sends one request, not two. A `null` URL
+ * is a canvas framing local rows, which never settles here because nothing was
+ * asked for.
+ */
+export function useMapExtent(url: string | null): MapExtent {
+	const query = useQuery({
+		enabled: url !== null,
+		queryKey: ['map-extent', url],
+		queryFn: ({ signal }) => fetchMapExtent(url ?? '', signal),
+		staleTime: extentStaleTimeMs,
+	});
+	return {
+		extent: query.data ?? null,
+		isSettled: query.status !== 'pending',
+		isError: query.isError,
+	};
 }
 
 function fitMapToBounds(

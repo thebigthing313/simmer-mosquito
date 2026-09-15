@@ -105,13 +105,8 @@ function useInspectionFilterOptions(): InspectionFilterOptions {
 
 const RECORD_TYPE: RecordType = 'inspection';
 
-/** What an empty or loading rail draws, which is the same whatever is filtered. */
-const INSPECTION_RESULTS_COPY = {
-	skeletonClassName: 'h-[64px]',
-	emptyTitle: 'No inspections in view',
-	emptyDescription:
-		'Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range.',
-} as const;
+/** The placeholder's height, matched to the two-line row it stands in for. */
+const INSPECTION_SKELETON_CLASS = 'h-[64px]';
 
 /** The panel's title row: what the surface is, and how much of it matched. */
 function inspectionsHeading(total: number, isLoading: boolean) {
@@ -181,26 +176,26 @@ function InspectionsExplorerRoute() {
 	const filterOptions = useInspectionFilterOptions();
 	const filters = inspectionTileFilters(state);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected } =
+	const layer: MapTileLayer = {
+		kind: 'inspections',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
 		useExplorerResource<InspectionSite>({
 			path: PATH,
 			rowsKey: 'inspections',
 			rowKey: 'inspection',
 			recordType: 'inspection',
 			params: inspectionQueryParams(filters),
+			layer,
 			map,
 			selectedId,
 		});
 	const handleMapReady = (instance: MapboxMap) => setMap(instance);
-	const layers: readonly MapTileLayer[] = [
-		{
-			kind: 'inspections',
-			serverUrl: getServerUrl(),
-			filters,
-			selectedId,
-			onSelectFeature: setSelectedId,
-		},
-	];
 	const legend = inspectionLegend(wetness, densities);
 
 	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
@@ -245,7 +240,8 @@ function InspectionsExplorerRoute() {
 			}
 			panel={panel}
 			results={{
-				...INSPECTION_RESULTS_COPY,
+				skeletonClassName: INSPECTION_SKELETON_CLASS,
+				empty,
 				rows,
 				isError,
 				onRetry: retry,
