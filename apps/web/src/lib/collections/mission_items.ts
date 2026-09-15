@@ -25,11 +25,14 @@ export const mission_items = declareCollection<MissionItem>({
 	/*
 	 * The join key an inner join on `missions` loads this table by.
 	 *
-	 * `useMissionsForRequest` and `useAssignedRequestIds` both join stops to
-	 * their missions, and the compiler drives an inner join from the smaller
-	 * side and loads the other lazily by `mission_id = any(...)`. That lookup is
-	 * taken only while the column is indexed; without one the compiler warns
-	 * once and asks the shape for every stop the source predicate admits.
+	 * `useAssignedRequestIds` joins stops to their missions with `inner`, and
+	 * the compiler drives an inner join from whichever side holds fewer rows in
+	 * the browser and loads the other lazily by `mission_id = any(...)`. That
+	 * lookup is taken only while the column is indexed; without one the compiler
+	 * warns once and asks the shape for every stop the source predicate admits.
+	 * `useMissionsForRequest` joins the same two tables and does not read this:
+	 * its join is `left` since #1026, so the stops are always the driven side
+	 * and the missions are fetched by their own `id`.
 	 */
 	index: (collection) => {
 		collection.createIndex((row) => row.mission_id, { indexType: BasicIndex });

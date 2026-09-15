@@ -19,8 +19,11 @@
  * terminal columns, and the explorer applies the set in memory after the window,
  * the way it applies `status` today.
  *
- * `inner`, the join `useMissionsForRequest` already makes: a stop whose mission
- * has not streamed yet is not one to count until the row arrives. The mission's
+ * `inner`: a stop whose mission has not streamed yet is not one to count until
+ * the row arrives. `inner` picks its driven side by which collection holds
+ * fewer rows in the browser, which is why `useMissionsForRequest` moved to
+ * `left` (#1026); it is harmless here because both sides carry a predicate of
+ * their own, so whichever side streams whole streams a bounded set. The mission's
  * status is two `isNull` tests rather than `missionStatus` in the hook body, so
  * the narrowing is the shape's and a mission that completes leaves the set
  * without every stop being re-read.
