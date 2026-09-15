@@ -33,6 +33,9 @@ export function useSampleIdentifications(sampleId: string): {
 					// an identification whose taxonomy row this client does not hold is a
 					// count with nothing to attribute it to, and "Unknown species" beside a
 					// number reads as a broken record rather than as one still arriving.
+					// Safe against #1026's cold-page rule for the reason recorded in
+					// `use-record-tags.ts`: `species` is eager, so it is never lazy-loaded,
+					// and every `sample_species` subset carries the sample's id (#1028).
 					.join(
 						{ taxon: species() },
 						({ identification, taxon }) => eq(identification.species_id, taxon.id),

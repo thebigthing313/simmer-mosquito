@@ -50,7 +50,10 @@ export function useEntityTags(
 					)
 					// `inner`, and passed rather than left to the default, which is `left`,
 					// for the reason recorded in `use-record-tags.ts`: an assignment whose
-					// catalog row this client does not hold has no chip to draw.
+					// catalog row this client does not hold has no chip to draw. Safe
+					// against #1026's cold-page rule for the reason recorded there too:
+					// `tags` is eager, so it is never lazy-loaded, and every `tag_items`
+					// subset carries the page's ids (#1028).
 					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id), 'inner')
 					.orderBy(({ tag }) => tag.tag_name, 'asc')
 					// The `coalesce` calls are what make this compile, for the reason
