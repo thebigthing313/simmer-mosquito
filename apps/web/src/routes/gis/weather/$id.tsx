@@ -94,7 +94,7 @@ function WeatherStationContent({
 					: {}),
 				flags: <StationStatusBadge isActive={station.isActive} />,
 				icon: WeatherIcon,
-				recordType: 'Weather station',
+				recordType: 'weatherStation',
 				subtitle: weatherSourceTypeLabel(station.sourceType),
 				title: station.name,
 			}}

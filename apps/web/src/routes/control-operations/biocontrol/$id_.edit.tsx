@@ -21,6 +21,7 @@ import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-l
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { noTechnicianValue } from '../../../lib/no-technician';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	BiocontrolFormPage,
@@ -178,7 +179,7 @@ function EditBiocontrolActionLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
-				title: 'Edit Biocontrol',
+				title: `Edit ${recordNoun('biocontrolAction').title}`,
 				description: 'Update this release’s method, amount, date, context, or location.',
 				backTo: '/control-operations/biocontrol/$id',
 				backParams: { id: action.id },

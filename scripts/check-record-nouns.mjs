@@ -24,7 +24,7 @@
  * doubled or misspelled record type fails `tsc`. That is #644's shape and it
  * leaves this gate one question: is the noun written out again anywhere else.
  *
- * ## Three rules
+ * ## Four rules
  *
  * The register is whole: every entry carries all four forms, none empty, each
  * plural differs from the singular it pairs with, and **no two record types
@@ -41,6 +41,26 @@
  *
  * No module under `apps/web/src` writes a register form again, as a string
  * literal under a key or as a run of JSX text between two tags.
+ *
+ * ## The fourth rule, which is what the compiler cannot hold
+ *
+ * A literal written under the key `recordType` is one of the register's keys.
+ * `tsc` holds that for every module that types the prop as `RecordType`, and
+ * what it cannot see is a module that types it as `string`: `DetailPageHeader`
+ * took the eyebrow's display text under the register's own prop name for
+ * fourteen pages, `Biocontrol` and `Larval sample` beside `recordType="region"`
+ * on the component next to it, and every gate stayed green because `title` is
+ * deliberately not a `NOUN_KEYS` member and a display string is not a key
+ * (#1020). So the gate reads the key by name rather than the prop by type,
+ * over every string literal in the corpus, and a `recordType: 'Biocontrol'` is
+ * a finding whatever the prop it feeds is declared as.
+ *
+ * `RecordRegionsBand` is the one reader whose `recordType` is a different
+ * vocabulary, `RegionMembershipRecordType`, the table names ADR 0015's endpoint
+ * takes, and the domain names the prop that way. Its entry in `NOUN_CONSUMERS`
+ * says so under `keys`, and a literal inside its tag is read against that
+ * list, which the gate reads out of the register the band declares rather than
+ * spelling here.
  *
  * ## Why the corpus is both extensions
  *
@@ -200,6 +220,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyStrings } from './lib/copy-strings.mjs';
+import { scan } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
 import { lineOf } from './lib/source-position.mjs';
@@ -235,6 +256,19 @@ const ENTRY_FORM = /\b(one|many|title|titleMany): '([^']*)'/g;
  * else. The gate's header carries why this is five names and not a denylist.
  */
 const NOUN_KEYS = new Set(['noun', 'one', 'many', 'titleMany', 'unavailableTitle']);
+
+/**
+ * The key whose literal value is the register's own key rather than any noun.
+ *
+ * Every module reading the register takes it under this name, so a literal
+ * written under it anywhere in the corpus is one of the register's keys, and a
+ * display string there is a component wearing the register's prop name over a
+ * `string` type. Read off every string literal `scan` returns rather than off
+ * `copyStrings`, because the question is the key and not whether the value is
+ * copy. A comparison is not a key: `keyBefore` reads `recordType === 'x'` as
+ * `-`, since the `=` it anchors on has another `=` in front of it.
+ */
+const REGISTER_KEY = 'recordType';
 
 /**
  * The forms a run of JSX text is read against, out of the four.
@@ -357,8 +391,25 @@ const JSX_NOUN_BACKLOG = {};
  * since nothing writes `<usePagedMapResource noun=`, and the half that does the
  * work is the other one: the prop has to still be there, so putting `label`
  * back fails the branch that does it.
+ *
+ * `DetailPageHeader` and `MapCardEyebrow` are #1020's, the detail eyebrow and
+ * the map card's. Each took the display text under a `string` prop, which is
+ * the shape the fourth rule exists for.
+ *
+ * `keys` names a declaration in the module whose object keys are what its
+ * `recordType` takes when that is not the register's key. One entry carries it:
+ * `RecordRegionsBand` takes the region-membership table name, which the domain
+ * calls `recordType` too, and maps it to the register through
+ * `RECORD_TYPE_BY_TABLE`. The gate reads the table names off that map rather
+ * than writing them here, so a table the band learns is one edit.
  */
 const NOUN_CONSUMERS = [
+	{
+		name: 'DetailPageHeader',
+		module: 'components/record/detail-page-header.tsx',
+		prop: 'recordType',
+	},
+	{ name: 'MapCardEyebrow', module: 'components/map/map-card.tsx', prop: 'recordType' },
 	{
 		name: 'RecordUnavailable',
 		module: 'components/record/record-unavailable.tsx',
@@ -378,6 +429,7 @@ const NOUN_CONSUMERS = [
 		name: 'RecordRegionsBand',
 		module: 'components/map/record-regions-band.tsx',
 		prop: 'recordType',
+		keys: 'RECORD_TYPE_BY_TABLE',
 	},
 	{ name: 'DangerZoneCard', module: 'components/danger-zone-card.tsx', prop: 'recordType' },
 	{ name: 'ExplorerHeader', module: 'components/explorer/explorer-header.tsx', prop: 'counts' },
@@ -496,16 +548,22 @@ function main() {
 		);
 	}
 
+	const keys = {
+		register: new Set(register.map((entry) => entry.recordType)),
+		foreign: foreignVocabularies(),
+	};
 	const findings = files
 		.filter((file) => file !== REGISTER)
-		.flatMap((file) =>
-			nounLiteralsIn(file, readFileSync(file, 'utf8').replaceAll('\r\n', '\n'), forms, {
-				jsx: file.endsWith('.tsx'),
-			}),
-		);
+		.flatMap((file) => {
+			const source = readFileSync(file, 'utf8').replaceAll('\r\n', '\n');
+			return [
+				...nounLiteralsIn(file, source, forms, { jsx: file.endsWith('.tsx') }),
+				...foreignKeysIn(file, source, keys),
+			];
+		});
 
 	const backlog = againstBacklog(findings.filter((finding) => finding.kind === 'jsx'));
-	const reported = [...findings.filter((finding) => finding.kind === 'literal'), ...backlog.over];
+	const reported = [...findings.filter((finding) => finding.kind !== 'jsx'), ...backlog.over];
 
 	if (problems.length + backlog.problems.length > 0 || reported.length > 0) {
 		report([...problems, ...backlog.problems], reported);
@@ -513,10 +571,88 @@ function main() {
 	}
 
 	checkProbes(forms);
+	checkKeyProbes(keys);
 
 	console.log(
-		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_CONSUMERS.length} modules reading it, no noun written again across ${files.length} modules${sweptOrAllowed()}`,
+		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_CONSUMERS.length} modules reading it, every ${REGISTER_KEY} a register key and no noun written again across ${files.length} modules${sweptOrAllowed()}`,
 	);
+}
+
+/**
+ * The vocabularies a listed reader's `recordType` takes when it is not the
+ * register's key, as the tag that takes it against the keys it takes.
+ *
+ * One today, read off the map `RecordRegionsBand` declares rather than spelled
+ * here. A `keys` declaration that reads empty is a problem
+ * `listedComponentProblems` reports rather than an exemption that widens, and
+ * every literal inside that tag is a finding besides, which is loud in both
+ * directions; the alternative is a band that learned a table nothing checks.
+ */
+function foreignVocabularies() {
+	return NOUN_CONSUMERS.filter((component) => component.keys !== undefined).map((component) => ({
+		name: component.name,
+		keys: declaredKeysOf(component),
+	}));
+}
+
+/** The object keys of the declaration a reader names under `keys`, off its source. */
+function declaredKeysOf(component) {
+	const source = readSource(join(WEB_ROOT, ...component.module.split('/'))) ?? '';
+	const start = source.indexOf(`const ${component.keys}`);
+	const body = start === -1 ? '' : source.slice(start, source.indexOf('\n};', start));
+	return new Set([...body.matchAll(/\n\t([A-Za-z_]+): '/g)].map((match) => match[1]));
+}
+
+/**
+ * Every `REGISTER_KEY` literal in one file that is not a register key.
+ *
+ * A literal inside a tag whose reader declares another vocabulary is read
+ * against that vocabulary instead. The tag is found off the masked copy, where
+ * a string body is blank, so a `>` inside an attribute cannot close it early.
+ */
+function foreignKeysIn(file, source, keys) {
+	const { literals, masked } = scan(source);
+	const tags = foreignTagsIn(masked, keys.foreign);
+
+	return literals
+		.filter((literal) => keyBefore(source, literal.index) === REGISTER_KEY)
+		.map((literal) => ({
+			literal,
+			tag: tags.find((span) => literal.index > span.start && literal.index < span.end),
+		}))
+		.filter(({ literal, tag }) => !(tag?.keys ?? keys.register).has(literal.text))
+		.map(({ literal, tag }) => keyFinding(file, source, literal, tag));
+}
+
+/** Where each tag that takes another vocabulary opens and closes, off the masked copy. */
+function foreignTagsIn(masked, foreign) {
+	return foreign.flatMap((vocabulary) =>
+		[...masked.matchAll(new RegExp(`<${vocabulary.name}\\b[^>]*>`, 'g'))].map((match) => ({
+			...vocabulary,
+			start: match.index,
+			end: match.index + match[0].length,
+		})),
+	);
+}
+
+/** One `REGISTER_KEY` literal that is not a key, in the shape `report` prints. */
+function keyFinding(file, source, literal, tag) {
+	return {
+		kind: 'key',
+		where: pathFrom(workspaceRoot, file).split(sep).join('/'),
+		at: `${pathFrom(workspaceRoot, file)}:${lineOf(source, literal.index)}`,
+		line: trim(
+			source
+				.slice(source.lastIndexOf('\n', literal.index) + 1)
+				.split('\n')[0]
+				.trim(),
+		),
+		text: literal.text,
+		message:
+			tag === undefined
+				? `"${literal.text}" is written under ${REGISTER_KEY} and is not one of the register's keys. That name means the register's key wherever it is written: pass the key and let the component look the noun up.`
+				: `"${literal.text}" is written under ${REGISTER_KEY} on <${tag.name}> and is not one of the keys that reader declares.`,
+	};
 }
 
 /**
@@ -591,7 +727,7 @@ function* collisionProblems({ recordType, forms }, seen) {
 	}
 }
 
-/** What is wrong with the eight modules that read the register, as sentences. */
+/** What is wrong with the listed modules that read the register, as sentences. */
 function* componentProblems() {
 	for (const component of NOUN_CONSUMERS) {
 		yield* listedComponentProblems(component);
@@ -610,6 +746,14 @@ function* listedComponentProblems(component) {
 	}
 	if (!source.includes(component.prop)) {
 		yield `${component.module} no longer declares a ${component.prop} prop, so nothing says where its copy comes from. A module naming a record takes the register's key and looks the noun up.`;
+	}
+	yield* vocabularyProblems(component);
+}
+
+/** Whether a listed module that names another vocabulary under `keys` still declares it. */
+function* vocabularyProblems(component) {
+	if (component.keys !== undefined && declaredKeysOf(component).size === 0) {
+		yield `${component.module} no longer declares ${component.keys}, which is where NOUN_CONSUMERS says its ${component.prop} vocabulary is read from. Point the entry's keys at where it moved, or drop keys if the prop takes the register's key now.`;
 	}
 }
 
@@ -719,6 +863,44 @@ function keyBefore(source, index) {
 	return before.match(/([A-Za-z][\w-]*)\s*[=:]\s*['"`]?$/)?.[1] ?? '-';
 }
 
+/**
+ * Six sources with known answers for the fourth rule, three holding a finding
+ * and three holding none.
+ *
+ * It cannot be a floor for the reason `PROBES` cannot: the rule is at zero, so
+ * a `REGISTER_KEY` that matched nothing would print the same clean line. The
+ * yeses are the eyebrow #1020 found, a display string under the key in an
+ * object, the same under the key as a JSX attribute, and a table name outside
+ * the one tag that takes it. The noes are the register's key itself, a table
+ * name inside `RecordRegionsBand`, which is the one reader whose vocabulary is
+ * not the register's, and a comparison, because `=== 'x'` is not a key.
+ */
+const KEY_PROBES = [
+	{ source: "const a = { header: { recordType: 'Biocontrol' } };", finds: 'Biocontrol' },
+	{
+		source: 'const a = <DetailPageHeader recordType="Biocontrol Action" />;',
+		finds: 'Biocontrol Action',
+	},
+	{ source: 'const a = <Thing recordType="habitats" />;', finds: 'habitats' },
+	{ source: "const a = { recordType: 'biocontrolAction' };", finds: null },
+	{ source: 'const a = <RecordRegionsBand recordId={id} recordType="habitats" />;', finds: null },
+	{ source: "const a = recordType === 'Biocontrol';", finds: null },
+];
+
+/** Refuse a run whose key scan reads any of the known-answer sources wrong. */
+function checkKeyProbes(keys) {
+	const wrong = KEY_PROBES.filter((probe) => {
+		const found = [...foreignKeysIn('probe.tsx', probe.source, keys)];
+		return probe.finds === null ? found.length > 0 : found[0]?.text !== probe.finds;
+	});
+
+	if (wrong.length > 0) {
+		fail(
+			`the key scan read ${count(wrong.length, 'probe')} wrong, so this run's clean zero is the detector failing rather than every ${REGISTER_KEY} being a register key. The first is: ${wrong[0].source}`,
+		);
+	}
+}
+
 /** Refuse a run whose scan reads any of the known-answer sources wrong. */
 function checkProbes(forms) {
 	const wrong = PROBES.filter((probe) => {
@@ -740,11 +922,14 @@ function report(problems, findings) {
 	}
 	for (const finding of findings) {
 		console.error(
-			`  ${finding.at}\n    ${finding.line}\n    "${finding.text}" is the register's word for a record type. Read it out of ${pathFrom(workspaceRoot, REGISTER).split(sep).join('/')} rather than writing it here.\n`,
+			`  ${finding.at}\n    ${finding.line}\n    ${finding.message ?? nounMessage(finding)}\n`,
 		);
 	}
 	process.exitCode = 1;
 }
+
+const nounMessage = (finding) =>
+	`"${finding.text}" is the register's word for a record type. Read it out of ${pathFrom(workspaceRoot, REGISTER).split(sep).join('/')} rather than writing it here.`;
 
 /** One module's source, or `null` when it is not there. */
 function readSource(module) {

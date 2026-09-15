@@ -22,9 +22,15 @@ import { Link, type LinkProps } from '@tanstack/react-router';
 import { Fragment, type ReactNode, useState } from 'react';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
-import { recordNoun } from '../../lib/record-nouns';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
-import { DELETE_FLOOR, RecordDeleteDialog, type RecordDeleteProps } from '../record-delete-dialog';
+import {
+	DELETE_FLOOR,
+	type RecordDeleteDestination,
+	RecordDeleteDialog,
+	type RecordDeleteProps,
+	type RecordDeleteTarget,
+} from '../record-delete-dialog';
 import { TagBadge } from '../tag-badge';
 
 /**
@@ -67,31 +73,34 @@ import { TagBadge } from '../tag-badge';
  * and the browser's own back button does, three ways of going up, and the one
  * that cost a row of the page was the one that could be wrong: it named a fixed
  * destination, so a habitat opened from Daily Work offered "Back to habitats".
+ *
+ * ## The eyebrow reads the register
+ *
+ * `recordType` is the register's key and the eyebrow is `recordNoun(...).title`,
+ * which is what puts this module on `check:record-nouns`' list of readers. It
+ * used to take the eyebrow's display text under the same prop name, typed
+ * `string`, and the fourteen detail pages spelled it by hand: three disagreed
+ * with the register outright, `Biocontrol`, `Source reduction` and `Outreach`,
+ * two put `Larval` in front of a word the register carries bare, one wrote
+ * `Application` for a chemical application, and the rest agreed by copy (#1020).
+ * The same key names the record the `...` menu deletes, which is why `remove`
+ * no longer carries one of its own: see {@link DetailPageRecord}.
  */
-export function DetailPageHeader({
-	icon: RecordIcon,
-	recordType,
-	title,
-	subtitle,
-	edit,
-	actions,
-	remove,
-	flags,
-	tags,
-}: DetailPageHeaderProps) {
+export function DetailPageHeader(props: DetailPageHeaderProps) {
+	const { icon: RecordIcon, recordType, title, subtitle, edit, actions, flags, tags } = props;
 	return (
 		<DetailHeaderBar>
 			<div className="flex min-w-0 flex-col gap-1.5">
 				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					<RecordIcon aria-hidden="true" className="size-3.5" />
-					{recordType}
+					{recordNoun(recordType).title}
 				</span>
 				<div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-2">
 					<h1 className="m-0 text-pretty font-semibold text-foreground text-heading leading-heading">
 						{title}
 					</h1>
 					{edit === undefined ? null : <EditControl edit={edit} />}
-					<ActionsMenu actions={actions ?? NO_ACTIONS} remove={remove} />
+					<ActionsMenu actions={actions ?? NO_ACTIONS} remove={deletionOf(props)} />
 				</div>
 				{subtitle === undefined ? null : (
 					<div className="max-w-[68ch] text-pretty text-muted-foreground text-sm leading-snug">
@@ -107,11 +116,11 @@ export function DetailPageHeader({
 	);
 }
 
-export interface DetailPageHeaderProps {
+export type DetailPageHeaderProps = DetailPageHeaderBase & DetailPageRecord;
+
+interface DetailPageHeaderBase {
 	/** The record type's mark, from `iconRegistry.entities`. */
 	readonly icon: RegistryIcon;
-	/** The record type, sentence case: `Trap`, `Weather station`. */
-	readonly recordType: string;
 	/** The record's name. */
 	readonly title: string;
 	/** The line under the name: what this record is, in a few words. */
@@ -120,19 +129,54 @@ export interface DetailPageHeaderProps {
 	readonly edit?: DetailEditLink;
 	/** Everything else the page can do, behind the `...`. */
 	readonly actions?: readonly DetailAction[];
-	/**
-	 * Deleting the record, which is the last item in the `...` and the dialog it
-	 * opens. Omit for a record with no delete, which is none of them today.
-	 */
-	readonly remove?: RecordDeleteProps;
 	/** The record's state badges, drawn at the right end of the bar. */
 	readonly flags?: ReactNode;
 	/** The record's id, for the six record kinds `TAG_TARGET_TYPES` allows. */
 	readonly tags?: { readonly recordId: string };
 }
 
+/**
+ * Which record the bar names, and whether it can be deleted from here.
+ *
+ * One `recordType` rather than two. The eyebrow's key and the delete dialog's
+ * key were one name on one component with two types, a display string on the
+ * header and a register key under `remove`, and every page wrote both. Now a
+ * page writes the key once and the header hands it to the dialog.
+ *
+ * A union rather than one optional `remove`, because the dialog's key is
+ * narrower than the eyebrow's: `RecordDeleteTarget` takes only the record types
+ * with a delete policy, and a weather station has a page and no delete. So a
+ * page for a record that cannot be deleted may not pass `remove`, and a page
+ * that passes it has already said, in `recordType`, that the endpoint knows the
+ * kind. `tsc` refuses the other pairing rather than the endpoint refusing it.
+ */
+type DetailPageRecord =
+	| {
+			/** The register's key for this record type, which names the eyebrow. */
+			readonly recordType: DeletableDetailType;
+			/**
+			 * Deleting the record, which is the last item in the `...` and the dialog
+			 * it opens. Omit for a record with no delete.
+			 */
+			readonly remove?: DetailPageRemove;
+	  }
+	| {
+			readonly recordType: Exclude<RecordType, DeletableDetailType>;
+			readonly remove?: undefined;
+	  };
+
+type DeletableDetailType = RecordDeleteTarget['recordType'];
+
+/** The delete dialog's props less the key, which is the header's. */
+type DetailPageRemove = Omit<RecordDeleteTarget, 'recordType'> & RecordDeleteDestination;
+
+/** The dialog's props for this record, or nothing when it cannot be deleted from here. */
+function deletionOf(props: DetailPageRecord): RecordDeleteProps | undefined {
+	return props.remove === undefined ? undefined : { ...props.remove, recordType: props.recordType };
+}
+
 /** Where the pencil goes, and who may press it. */
-export interface DetailEditLink {
+interface DetailEditLink {
 	readonly to: NonNullable<LinkProps['to']>;
 	readonly params?: Readonly<Record<string, string>>;
 	/** The floor for this record's edit command. Defaults to `collector`. */

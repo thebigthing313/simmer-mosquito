@@ -103,13 +103,12 @@ function OutreachDetailContent({
 			header={{
 				edit: { params: { id: action.id }, to: '/public-engagement/outreach/$id/edit' },
 				icon: OutreachIcon,
-				recordType: 'Outreach',
+				recordType: 'outreachAction',
 				remove: {
 					ask: askDelete,
 					name: methodName,
 					onDelete: (acknowledgements) => remove(action.id, acknowledgements),
 					recordId: action.id,
-					recordType: 'outreachAction',
 					returnTo: '/public-engagement/outreach',
 				},
 				subtitle: `${formatReach(action.reach)} reached on ${formatActionDate(action.outreachDate)}`,

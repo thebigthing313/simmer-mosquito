@@ -11,6 +11,7 @@ import {
 } from '../../../hooks/queries/use-catalog-rosters';
 import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -111,7 +112,7 @@ function EditTrapLoader({
 				collectionMethods={collectionMethods}
 				defaultValues={trapFormValuesFrom(trap)}
 				header={{
-					title: 'Edit Trap',
+					title: `Edit ${recordNoun('trap').title}`,
 					description: 'Update this trap’s details, method, lure, or location.',
 					backTo: '/adult-surveillance/traps/$id',
 					backParams: { id: trap.id },

@@ -10,6 +10,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { unreadable } from '../../lib/unreadable-input';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
 
@@ -227,23 +228,30 @@ export function MapCardLocation({
 }
 
 /**
- * The eyebrow row at the top of a {@link MapCard}: the record's `type` (e.g.
- * "Inspection"), plus its `date` for dated records. Every card passes its type so
- * the kind of feature you clicked always reads at a glance; inspections, samples,
- * collections, applications, source-reduction, biocontrol, and service requests
- * additionally pass `date`, which appears with a calendar icon after the type.
+ * The eyebrow row at the top of a {@link MapCard}: the record's type, plus its
+ * `date` for dated records. Every card passes its type so the kind of feature
+ * you clicked always reads at a glance; inspections, samples, collections,
+ * applications, source-reduction, biocontrol, and service requests additionally
+ * pass `date`, which appears with a calendar icon after the type.
+ *
+ * `recordType` is the register's key and the word drawn is
+ * `recordNoun(...).title`, which is what puts this module on
+ * `check:record-nouns`' list of readers. It took the display text as a free
+ * `type` string until #1020, and the thirteen cards spelled it by hand: three
+ * disagreed with the register outright, `Biocontrol`, `Source reduction` and
+ * `Outreach`, and the rest agreed by copy or by case.
  */
 export function MapCardEyebrow({
-	type,
+	recordType,
 	date,
 }: {
-	readonly type: string;
+	readonly recordType: RecordType;
 	readonly date?: string | undefined;
 }) {
 	return (
 		<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
 			<span className="font-semibold text-[0.68rem] text-foreground/75 uppercase tracking-wide">
-				{type}
+				{recordNoun(recordType).title}
 			</span>
 			{date === undefined ? null : (
 				<>

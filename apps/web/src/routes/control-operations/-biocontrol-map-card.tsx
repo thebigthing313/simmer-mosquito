@@ -10,6 +10,7 @@ import {
 } from '../../components/map/map-card';
 import type { MapInset } from '../../components/map/map-inset';
 import { useBiocontrolAction } from '../../hooks/queries/use-biocontrol-action';
+import { recordNoun } from '../../lib/record-nouns';
 import { ContextBadge, controlContext, formatMeasure } from './-control-display';
 
 const UnitIcon = iconRegistry.entities.unit.icon;
@@ -32,7 +33,7 @@ export function BiocontrolMapCard({
 
 	if (action === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Biocontrol">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('biocontrolAction').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -44,7 +45,7 @@ export function BiocontrolMapCard({
 	return (
 		<MapCard
 			badges={<ContextBadge context={controlContext(action)} />}
-			eyebrow={<MapCardEyebrow date={action.actionDate} type="Biocontrol" />}
+			eyebrow={<MapCardEyebrow date={action.actionDate} recordType="biocontrolAction" />}
 			inset={inset}
 			onClose={onClose}
 			title={action.methodName}

@@ -222,13 +222,12 @@ function SampleDetailContent({
 			header={{
 				flags: <AccessBadge canManage={canManage} />,
 				icon: SampleIcon,
-				recordType: 'Larval sample',
+				recordType: 'sample',
 				remove: {
 					ask: askDelete,
 					name: breadcrumbLabel(geo),
 					onDelete: (acknowledgements) => sampleMutations.remove(geo.id, acknowledgements),
 					recordId: geo.id,
-					recordType: 'sample',
 					returnTo: '/larval-surveillance/samples',
 				},
 				subtitle: <SampleSubtitle geo={geo} />,

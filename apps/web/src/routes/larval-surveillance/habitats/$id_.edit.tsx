@@ -15,6 +15,7 @@ import {
 	useHabitatTypeRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { type HabitatRecord, useHabitatRecord } from '../../../hooks/queries/use-habitat-record';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
@@ -168,7 +169,7 @@ function EditHabitatLoader({
 			defaultValues={defaultsFromHabitat(habitat)}
 			initialGeometry={initialGeometry}
 			header={{
-				title: 'Edit Habitat',
+				title: `Edit ${recordNoun('habitat').title}`,
 				description: 'Update the field details or redraw the mapped geometry for this habitat.',
 				backTo: '/larval-surveillance/habitats/$id',
 				backParams: { id: habitat.id },

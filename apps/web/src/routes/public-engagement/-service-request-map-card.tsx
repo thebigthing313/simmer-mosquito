@@ -8,6 +8,7 @@ import { TagBadge } from '../../components/tag-badge';
 import { resolveLinkedContact } from '../../hooks/queries/contact-view';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useServiceRequest } from '../../hooks/queries/use-service-request';
+import { recordNoun } from '../../lib/record-nouns';
 import {
 	contactDisplayName,
 	isServiceRequestOpen,
@@ -37,7 +38,12 @@ export function ServiceRequestMapCard({
 
 	if (request === undefined) {
 		return (
-			<MapCard className="max-w-[440px]" inset={inset} onClose={onClose} title="Service Request">
+			<MapCard
+				className="max-w-[440px]"
+				inset={inset}
+				onClose={onClose}
+				title={recordNoun('serviceRequest').title}
+			>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -61,7 +67,7 @@ export function ServiceRequestMapCard({
 				</>
 			}
 			className="max-w-[440px]"
-			eyebrow={<MapCardEyebrow date={request.requestDate} type="Service request" />}
+			eyebrow={<MapCardEyebrow date={request.requestDate} recordType="serviceRequest" />}
 			inset={inset}
 			onClose={onClose}
 			title={serviceRequestTitle(request)}

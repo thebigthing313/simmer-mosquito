@@ -20,6 +20,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { noTechnicianValue } from '../../../lib/no-technician';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { type DrawGeometry, OutreachFormPage, type OutreachFormValues } from './-outreach-form';
 
@@ -178,7 +179,7 @@ function EditOutreachActionLoader({
 			mode="edit"
 			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
-				title: 'Edit Outreach',
+				title: `Edit ${recordNoun('outreachAction').title}`,
 				description: 'Update this action’s method, reach, date, or location.',
 				backTo: '/public-engagement/outreach/$id',
 				backParams: { id: action.id },

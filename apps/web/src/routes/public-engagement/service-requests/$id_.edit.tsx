@@ -9,6 +9,7 @@ import {
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
 import { SERVICE_REQUEST_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { serviceRequestTitle } from '../-public-engagement-display';
 import {
@@ -99,7 +100,7 @@ function EditServiceRequestLoader({
 				defaultValues={defaultsFromServiceRequest(request)}
 				disableNewContact
 				header={{
-					title: 'Edit Service Request',
+					title: `Edit ${recordNoun('serviceRequest').title}`,
 					description:
 						'Update the request details or its contact. Location and address stay as recorded.',
 					backTo: '/public-engagement/service-requests/$id',

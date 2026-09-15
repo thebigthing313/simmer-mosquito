@@ -12,6 +12,7 @@ import type { MapInset } from '../../components/map/map-inset';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../hooks/queries/use-adult-collection';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { recordNoun } from '../../lib/record-nouns';
 import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
 
 const CollectionEntityIcon = iconRegistry.entities.collection.icon;
@@ -37,7 +38,7 @@ export function CollectionMapCard({
 
 	if (collection === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Collection">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('collection').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -50,7 +51,7 @@ export function CollectionMapCard({
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={effectiveDate ?? undefined} type="Collection" />}
+			eyebrow={<MapCardEyebrow date={effectiveDate ?? undefined} recordType="collection" />}
 			inset={inset}
 			onClose={onClose}
 			title={collectionTitle(collection)}
