@@ -33,6 +33,13 @@ export interface MergeConfirmDialogProps {
 	readonly target: DuplicateRecord;
 	/** The records folded into it and retired. */
 	readonly sources: readonly DuplicateRecord[];
+	/**
+	 * Whether there is an Organization and an actor Profile to record the merge
+	 * against. The route computes it with `canAttributeWrite` and the page hands
+	 * it down; a merge is a command like any other write and the server refuses
+	 * one it cannot attribute, so the button is off before the click (#944).
+	 */
+	readonly canSubmit: boolean;
 	/** Runs the merge. Rejects with the server's refusal. */
 	readonly onConfirm: (acknowledged: boolean, fieldUpdates: MergeFieldUpdates) => Promise<void>;
 }
@@ -47,10 +54,11 @@ export interface MergeConfirmDialogProps {
  * write, and a second vocabulary for the same kind of decision would be worse
  * than a modal.
  *
- * Two things have to be true before the button is live: no required field has
- * been emptied, and the user has ticked the acknowledgement. Until then this
- * sends `false` for the flag rather than omitting it, because the server reads
- * an absent flag as agreement.
+ * Three things have to be true before the button is live: there is an actor
+ * Profile to attribute the merge to, no required field has been emptied, and
+ * the user has ticked the acknowledgement. Until then this sends `false` for
+ * the flag rather than omitting it, because the server reads an absent flag as
+ * agreement.
  *
  * ## What moves is stated, not counted
  *
@@ -158,7 +166,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>
 					<AlertDialogAction
-						disabled={!acknowledged || isMerging || problems.length > 0}
+						disabled={!props.canSubmit || !acknowledged || isMerging || problems.length > 0}
 						onClick={(event) => {
 							// The primitive closes on click. This one has to stay open to show
 							// a refusal, and closes itself once the write settles.

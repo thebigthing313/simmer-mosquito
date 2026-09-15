@@ -54,8 +54,19 @@ interface PendingMerge {
  * Removing records that nothing refers to any more is the other half of cleanup
  * and is not here yet; the page says so rather than leaving the nav entry
  * promising it.
+ *
+ * `canSubmit` is the route's answer to `canAttributeWrite`, the same prop the
+ * form pages take, and it reaches the two controls a merge goes through: the
+ * button on a group that opens the confirmation, and the action in it that
+ * sends the command (#944).
  */
-export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRecordType }) {
+export function RecordCleanup({
+	recordType,
+	canSubmit,
+}: {
+	readonly recordType: DuplicateRecordType;
+	readonly canSubmit: boolean;
+}) {
 	const config = RECORD_CLEANUP_CONFIGS[recordType];
 	const pageConfig = DUPLICATE_PAGE_CONFIGS[recordType];
 	const candidates = useDuplicateCandidates(recordType);
@@ -129,6 +140,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 
 			<CleanupBody
 				candidates={candidates}
+				canSubmit={canSubmit}
 				config={config}
 				excluded={excluded}
 				pageConfig={pageConfig}
@@ -145,6 +157,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 
 			{pending === null ? null : (
 				<MergeConfirmDialog
+					canSubmit={canSubmit}
 					config={config}
 					onConfirm={runMerge}
 					onOpenChange={(open) => {
@@ -164,6 +177,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 
 function CleanupBody({
 	candidates,
+	canSubmit,
 	config,
 	excluded,
 	matchTypes,
@@ -176,6 +190,7 @@ function CleanupBody({
 	survivors,
 }: {
 	readonly candidates: ReturnType<typeof useDuplicateCandidates>;
+	readonly canSubmit: boolean;
 	readonly config: RecordCleanupConfig;
 	readonly pageConfig: DuplicatePageConfig;
 	readonly excluded: ReadonlySet<string>;
@@ -222,6 +237,7 @@ function CleanupBody({
 				const survivor = kept.find((record) => record.id === survivors[group.key]) ?? kept[0];
 				return survivor === undefined ? null : (
 					<DuplicateGroupPanel
+						canSubmit={canSubmit}
 						config={config}
 						group={group}
 						key={group.key}

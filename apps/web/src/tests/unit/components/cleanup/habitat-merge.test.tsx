@@ -116,14 +116,14 @@ function candidate(id: string, label: string, distanceMetres: number, isActive =
 	};
 }
 
-function renderPage() {
+function renderPage(canSubmit = true) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={client}>
 			{/* The shell provides one at the root; the explorer frame's collapse
 			    control opens a tooltip and Radix refuses without it. */}
 			<TooltipProvider>
-				<HabitatMerge habitatId={KEPT} />
+				<HabitatMerge canSubmit={canSubmit} habitatId={KEPT} />
 			</TooltipProvider>
 		</QueryClientProvider>,
 	);
@@ -263,5 +263,18 @@ describe('HabitatMerge', () => {
 		fireEvent.click(screen.getByRole('checkbox', { name: /CB-41/ }));
 
 		expect(screen.queryByRole('button', { name: /^Merge \d/ })).toBeNull();
+	});
+
+	it('offers no live merge with no actor Profile to attribute it to', () => {
+		// Disabled rather than hidden, unlike the role floor above: the floor is a
+		// fact about the account, and this is a session the server would refuse
+		// to attribute, which no sentence on the page explains. The route answers
+		// `canAttributeWrite`; `write-attribution.test.tsx` holds that half.
+		renderPage(false);
+
+		fireEvent.click(screen.getByRole('checkbox', { name: /CB-41/ }));
+
+		expect(screen.getByRole('button', { name: /^Merge \d/ }).hasAttribute('disabled')).toBe(true);
+		expect(merges).not.toHaveBeenCalled();
 	});
 });

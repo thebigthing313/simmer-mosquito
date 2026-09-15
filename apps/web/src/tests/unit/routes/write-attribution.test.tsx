@@ -13,7 +13,18 @@
  * wiring: a route that stopped calling it, or passed `true` beside it, failed no
  * gate, because `tsc` is happy with any boolean and the three static gates over
  * this app read colours, copy and hooks rather than props. This file is the
- * table, so a fifteenth site is one row.
+ * table, so a further site is one row.
+ *
+ * #944 added the eight of `WRITE_SURFACE_FLOORS`' forty surfaces that named no
+ * `canSubmit` and could be asserted: the two cleanup pages and the habitat
+ * merge, whose commit is the action in `MergeConfirmDialog`; the weather import
+ * and the mission add-stop, which are form pages the route now hands the prop
+ * to; and the three live editors, which have no submit at all and gate every
+ * control that writes. The ninth, the regions import, reads the same predicate
+ * as `mutations.canWrite` under its own two conditions and is not a row, since
+ * its button is disabled until a file has been parsed and no fixture here can
+ * hand it one, so a case over it could only ever assert the direction that a
+ * hardcoded `false` also passes.
  *
  * ## Both directions, per row
  *
@@ -24,8 +35,8 @@
  *
  * ## What is faked, and why none of it is the assertion
  *
- * The mocks below exist to get fourteen components to render in jsdom, not to
- * supply the answer. Three of them are worth the note:
+ * The mocks below exist to get twenty-two components to render in jsdom, not to
+ * supply the answer. Four of them are worth the note:
  *
  * - `createFileRoute` is replaced so a route module's `Route` hands back the
  *   context, params and search a match would. Rendering these through a real
@@ -33,16 +44,28 @@
  *   floor and a different question (`isBelowWriteFloor`, covered by
  *   `check:write-surfaces` and its own suites). It also means this file imports
  *   no route tree, which is the cost `link-destinations.test.tsx` is a single
- *   file to avoid paying twice. What it does pay is fourteen route modules, and
- *   that is the same argument: one file, fourteen rows.
- * - The eight form-page modules keep every export but their `*FormPage`, which
+ *   file to avoid paying twice. What it does pay is twenty-two route modules,
+ *   and that is the same argument: one file, twenty-two rows.
+ * - The form-page modules keep every export but their page component, which
  *   becomes {@link SubmitProbe}. The real ones draw a Mapbox canvas, and what
- *   this file reads is the prop they are handed.
- * - `RecordEditFrame` is replaced for the six edit routes, whose `canSubmit` is
+ *   this file reads is the prop they are handed. The three merge surfaces and
+ *   the weather import are the same shape one level up, a route handing
+ *   `canSubmit` to `RecordCleanup`, `HabitatMerge` or `ImportWeatherPage`.
+ * - `RecordEditFrame` is replaced for the edit routes, whose `canSubmit` is
  *   computed in the outer component and handed to a loader the frame renders
  *   only once the record is in hand. The stand-in calls the frame's child
  *   function and draws the probe against the `canSubmit` on the element it gets
- *   back, so no route needs a record fixture shaped like its own table.
+ *   back, so no route needs a record fixture shaped like its own table. A live
+ *   editor hands the frame no such element, since it has no form to hand the
+ *   prop to: its child is the editor itself, and the stand-in renders that
+ *   instead, so the row names a control the editor draws and the case reads the
+ *   `disabled` off it. Two of the three need a record row, because the
+ *   assignment editor draws its fields only once the assignment is in hand, and
+ *   `seedRows` puts one in the memory collection with the columns its read
+ *   selects.
+ * - The maps are stand-ins, `MapSplitPage` rendering its children and the two
+ *   route maps rendering nothing, because a live editor's real body is what
+ *   these rows render and Mapbox GL has no jsdom.
  *
  * ## Why the components are preloaded first
  *
@@ -62,7 +85,10 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { type ReactElement, type ReactNode, Suspense } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AuthMe } from '../../../auth';
+import { assignments } from '../../../lib/collections/assignments';
+import { missions } from '../../../lib/collections/missions';
 import { organizations } from '../../../lib/collections/organizations';
+import { weather_sources } from '../../../lib/collections/weather_sources';
 import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
 
 /**
@@ -75,7 +101,7 @@ import { installMemoryCollections, seedRows } from '../lib/collections/memory-co
 const harness = vi.hoisted(() => ({
 	/** The route context a matched route would carry. Set per render. */
 	context: { auth: { snapshot: null as unknown } } as unknown,
-	/** `$id` for the six edit routes; empty for the eight create routes. */
+	/** `$id` for the routes under a record; empty for the create routes. */
 	params: {} as unknown,
 	/** No route under test reads a search key that changes the answer. */
 	search: {} as unknown,
@@ -95,8 +121,23 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 		// No router is mounted, so the real one would throw looking for a match.
 		// Nothing here submits, so nothing navigates.
 		useNavigate: () => async () => undefined,
+		// The live editors draw a back link and a link per stop. Where each goes is
+		// `link-destinations.test.tsx`'s question, and a real `Link` throws here.
+		Link: ({ children, ...rest }: { readonly children?: ReactNode }) => <a {...rest}>{children}</a>,
 	};
 });
+
+/**
+ * The same snapshot the route context carries, for what reads it off the store.
+ *
+ * The mutation hooks and the live editors read `useAuthSnapshot` rather than the
+ * route context, and both answer the one question this file asks, so the mock
+ * reads the harness. Two sources of the actor Profile would let a row pass on
+ * one while the component read the other.
+ */
+vi.mock('../../../hooks/use-auth-snapshot', () => ({
+	useAuthSnapshot: () => (harness.context as { auth: { snapshot: unknown } }).auth.snapshot,
+}));
 
 /**
  * Every geometry read these routes make, answered.
@@ -158,21 +199,55 @@ vi.mock('../../../routes/public-engagement/outreach/-outreach-form', async (orig
 	...(await original<Record<string, unknown>>()),
 	OutreachFormPage: SubmitProbe,
 }));
+vi.mock('../../../routes/gis/weather/-import-page', async (original) => ({
+	...(await original<Record<string, unknown>>()),
+	ImportWeatherPage: SubmitProbe,
+}));
+vi.mock('../../../routes/operations/missions/-add-stop-form', async (original) => ({
+	...(await original<Record<string, unknown>>()),
+	AddMissionStopForm: SubmitProbe,
+}));
+vi.mock('../../../components/cleanup/record-cleanup', async (original) => ({
+	...(await original<Record<string, unknown>>()),
+	RecordCleanup: SubmitProbe,
+}));
+vi.mock('../../../components/cleanup/habitat-merge', async (original) => ({
+	...(await original<Record<string, unknown>>()),
+	HabitatMerge: SubmitProbe,
+}));
+
+vi.mock('../../../components/app-shell/outlet/map-split-page', () => ({
+	MapSplitPage: ({ children }: { readonly children?: ReactNode }) => <>{children}</>,
+}));
+vi.mock('../../../components/route-planning', async (original) => ({
+	...(await original<Record<string, unknown>>()),
+	RouteMap: () => null,
+}));
+vi.mock('../../../routes/operations/-worklist-map', () => ({
+	WorklistMap: () => null,
+}));
 
 vi.mock('../../../components/record', async (importOriginal) => ({
 	...(await importOriginal<Record<string, unknown>>()),
 	RecordEditFrame: ({ children }: { readonly children: (record: unknown) => ReactNode }) => {
 		// The record is a bare id because no child function below reads a column
 		// off it: each one passes it straight down to the loader it renders.
-		const rendered = children({ id: 'record-1' }) as ReactElement<{
-			canSubmit: boolean | undefined;
+		const rendered = children({ id: RECORD_ID }) as ReactElement<{
+			canSubmit?: boolean | undefined;
 		}>;
-		return <SubmitProbe canSubmit={rendered.props.canSubmit} />;
+		// A form route hands back a loader carrying the prop; a live editor hands
+		// back its own body, which is what the row's control is read off.
+		return typeof rendered.props.canSubmit === 'boolean' ? (
+			<SubmitProbe canSubmit={rendered.props.canSubmit} />
+		) : (
+			rendered
+		);
 	},
 }));
 
 const ORGANIZATION_ID = 'organization-1';
 const PROFILE_ID = 'profile-1';
+const RECORD_ID = 'record-1';
 
 /** A signed-in snapshot whose actor Profile is there, or is not. */
 function snapshotWith(profileId: string | null): AuthMe {
@@ -217,6 +292,14 @@ async function loadRoutes() {
 		requestCreate,
 		outreachCreate,
 		outreachEdit,
+		trapRouteEdit,
+		addressCleanup,
+		weatherImport,
+		habitatMerge,
+		habitatRouteEdit,
+		assignmentEdit,
+		missionAddStop,
+		contactCleanup,
 	] = await Promise.all([
 		import('../../../routes/control-operations/biocontrol/create'),
 		import('../../../routes/control-operations/biocontrol/$id_.edit'),
@@ -232,6 +315,14 @@ async function loadRoutes() {
 		import('../../../routes/operations/requests-for-control/create'),
 		import('../../../routes/public-engagement/outreach/create'),
 		import('../../../routes/public-engagement/outreach/$id_.edit'),
+		import('../../../routes/adult-surveillance/traps/routes/$id_.edit'),
+		import('../../../routes/gis/addresses/cleanup'),
+		import('../../../routes/gis/weather/$id_.import'),
+		import('../../../routes/larval-surveillance/habitats/$id_.merge'),
+		import('../../../routes/larval-surveillance/habitats/routes/$id_.edit'),
+		import('../../../routes/operations/assignments/$id_.edit'),
+		import('../../../routes/operations/missions/$id_.add-stop'),
+		import('../../../routes/public-engagement/contacts/cleanup'),
 	]);
 	return {
 		biocontrolCreate,
@@ -248,6 +339,14 @@ async function loadRoutes() {
 		requestCreate,
 		outreachCreate,
 		outreachEdit,
+		trapRouteEdit,
+		addressCleanup,
+		weatherImport,
+		habitatMerge,
+		habitatRouteEdit,
+		assignmentEdit,
+		missionAddStop,
+		contactCleanup,
 	};
 }
 
@@ -269,11 +368,23 @@ async function componentOf(module: RouteModule): Promise<() => ReactNode> {
 	return component;
 }
 
+/**
+ * Which element a row reads `disabled` off.
+ *
+ * The probe for every route that hands `canSubmit` to a form. A live editor has
+ * no form and no one submit, so its row names one of the controls that write,
+ * by accessible label, and the case reads the real element.
+ */
+type SubmitControl = { readonly probe: true } | { readonly label: string };
+
+const PROBE: SubmitControl = { probe: true };
+
 /** Whether the route's submit control is live under this snapshot. */
 async function submitEnabledUnder(
 	Component: () => ReactNode,
 	profileId: string | null,
 	params: Record<string, string>,
+	control: SubmitControl,
 ): Promise<boolean> {
 	harness.context = { auth: { snapshot: snapshotWith(profileId) } };
 	harness.params = params;
@@ -285,10 +396,12 @@ async function submitEnabledUnder(
 			</Suspense>
 		</QueryClientProvider>,
 	);
+	const find = () =>
+		'probe' in control ? screen.getByTestId('submit') : screen.getByLabelText(control.label);
 	await waitFor(() => {
-		expect(screen.getByTestId('submit')).toBeDefined();
+		expect(find()).toBeDefined();
 	});
-	return !screen.getByTestId('submit').hasAttribute('disabled');
+	return !find().hasAttribute('disabled');
 }
 
 /** Which route module a row is about, and what a match would hand its component. */
@@ -297,50 +410,139 @@ interface WriteSurface {
 	readonly path: string;
 	/** How {@link loadRoutes} holds the module. */
 	readonly key: keyof Awaited<ReturnType<typeof loadRoutes>>;
-	/** `$id` for the six edit routes, empty for the eight create routes. */
+	/** `$id` for the routes under a record, empty for the create routes. */
 	readonly params: Record<string, string>;
+	/** The probe, or the label of a live editor's control. */
+	readonly control: SubmitControl;
 }
+
+const UNDER_RECORD = { id: RECORD_ID };
 
 /**
  * Every route site, as the list.
  *
- * Fourteen rows, and the list is the coverage: a fifteenth route computing its
- * own attribution belongs here rather than in a case of its own.
+ * Twenty-two rows, and the list is the coverage: a route computing its own
+ * attribution belongs here rather than in a case of its own.
  */
 const WRITE_SURFACES = [
-	{ path: '/control-operations/biocontrol/create', key: 'biocontrolCreate', params: {} },
+	{
+		path: '/control-operations/biocontrol/create',
+		key: 'biocontrolCreate',
+		params: {},
+		control: PROBE,
+	},
 	{
 		path: '/control-operations/biocontrol/$id/edit',
 		key: 'biocontrolEdit',
-		params: { id: 'record-1' },
+		params: UNDER_RECORD,
+		control: PROBE,
 	},
-	{ path: '/control-operations/chemical/create', key: 'chemicalCreate', params: {} },
+	{
+		path: '/control-operations/chemical/create',
+		key: 'chemicalCreate',
+		params: {},
+		control: PROBE,
+	},
 	{
 		path: '/control-operations/chemical/$id/edit',
 		key: 'chemicalEdit',
-		params: { id: 'record-1' },
+		params: UNDER_RECORD,
+		control: PROBE,
 	},
-	{ path: '/control-operations/source-reduction/create', key: 'sourceReductionCreate', params: {} },
+	{
+		path: '/control-operations/source-reduction/create',
+		key: 'sourceReductionCreate',
+		params: {},
+		control: PROBE,
+	},
 	{
 		path: '/control-operations/source-reduction/$id/edit',
 		key: 'sourceReductionEdit',
-		params: { id: 'record-1' },
+		params: UNDER_RECORD,
+		control: PROBE,
 	},
-	{ path: '/gis/addresses/create', key: 'addressCreate', params: {} },
-	{ path: '/gis/addresses/$id/edit', key: 'addressEdit', params: { id: 'record-1' } },
-	{ path: '/larval-surveillance/inspections/create', key: 'inspectionCreate', params: {} },
+	{ path: '/gis/addresses/create', key: 'addressCreate', params: {}, control: PROBE },
+	{
+		path: '/gis/addresses/$id/edit',
+		key: 'addressEdit',
+		params: UNDER_RECORD,
+		control: PROBE,
+	},
+	{
+		path: '/larval-surveillance/inspections/create',
+		key: 'inspectionCreate',
+		params: {},
+		control: PROBE,
+	},
 	{
 		path: '/larval-surveillance/inspections/$id/edit',
 		key: 'inspectionEdit',
-		params: { id: 'record-1' },
+		params: UNDER_RECORD,
+		control: PROBE,
 	},
-	{ path: '/operations/missions/create', key: 'missionCreate', params: {} },
-	{ path: '/operations/requests-for-control/create', key: 'requestCreate', params: {} },
-	{ path: '/public-engagement/outreach/create', key: 'outreachCreate', params: {} },
+	{ path: '/operations/missions/create', key: 'missionCreate', params: {}, control: PROBE },
+	{
+		path: '/operations/requests-for-control/create',
+		key: 'requestCreate',
+		params: {},
+		control: PROBE,
+	},
+	{
+		path: '/public-engagement/outreach/create',
+		key: 'outreachCreate',
+		params: {},
+		control: PROBE,
+	},
 	{
 		path: '/public-engagement/outreach/$id/edit',
 		key: 'outreachEdit',
-		params: { id: 'record-1' },
+		params: UNDER_RECORD,
+		control: PROBE,
+	},
+	// The eight #944 added. A live editor's control is the rename, the field
+	// that writes on blur, so it is on screen with no stops seeded.
+	{
+		path: '/adult-surveillance/traps/routes/$id/edit',
+		key: 'trapRouteEdit',
+		params: UNDER_RECORD,
+		control: { label: 'Route name' },
+	},
+	{ path: '/gis/addresses/cleanup', key: 'addressCleanup', params: {}, control: PROBE },
+	{
+		path: '/gis/weather/$id/import',
+		key: 'weatherImport',
+		params: UNDER_RECORD,
+		control: PROBE,
+	},
+	{
+		path: '/larval-surveillance/habitats/$id/merge',
+		key: 'habitatMerge',
+		params: UNDER_RECORD,
+		control: PROBE,
+	},
+	{
+		path: '/larval-surveillance/habitats/routes/$id/edit',
+		key: 'habitatRouteEdit',
+		params: UNDER_RECORD,
+		control: { label: 'Route name' },
+	},
+	{
+		path: '/operations/assignments/$id/edit',
+		key: 'assignmentEdit',
+		params: UNDER_RECORD,
+		control: { label: 'Name' },
+	},
+	{
+		path: '/operations/missions/$id/add-stop',
+		key: 'missionAddStop',
+		params: UNDER_RECORD,
+		control: PROBE,
+	},
+	{
+		path: '/public-engagement/contacts/cleanup',
+		key: 'contactCleanup',
+		params: {},
+		control: PROBE,
 	},
 ] as const satisfies readonly WriteSurface[];
 
@@ -350,6 +552,59 @@ describe('a write surface reads the actor Profile off the snapshot', () => {
 	beforeAll(async () => {
 		installMemoryCollections();
 		seedRows(organizations, [{ id: ORGANIZATION_ID, name: 'Test Mosquito Control', settings: {} }]);
+		// The three routes that draw nothing until their record is in hand. Each
+		// row carries the columns its read selects and no more; the null
+		// timestamps are what puts the plan in a state the page lets anyone edit.
+		seedRows(assignments, [
+			{
+				id: RECORD_ID,
+				organization_id: ORGANIZATION_ID,
+				assignment_name: 'Tuesday route',
+				assignment_date: '2026-09-15',
+				assigned_to_profile_id: null,
+				due_at: null,
+				started_at: null,
+				completed_at: null,
+				cancelled_at: null,
+				cancellation_reason: null,
+			},
+		]);
+		seedRows(missions, [
+			{
+				id: RECORD_ID,
+				organization_id: ORGANIZATION_ID,
+				mission_name: 'Fog run',
+				control_type: 'adulticide',
+				planned_method_id: null,
+				assigned_to_profile_id: null,
+				assigned_by_profile_id: null,
+				scheduled_start_at: null,
+				scheduled_end_at: null,
+				rain_date: null,
+				started_at: null,
+				completed_at: null,
+				cancelled_at: null,
+				cancellation_reason: null,
+				notification_type_id: null,
+				created_at: '2026-09-15T00:00:00Z',
+				updated_at: '2026-09-15T00:00:00Z',
+			},
+		]);
+		seedRows(weather_sources, [
+			{
+				id: RECORD_ID,
+				organization_id: ORGANIZATION_ID,
+				source_name: 'Yard station',
+				source_type: 'station',
+				source_code: null,
+				provider_source_id: null,
+				is_active: true,
+				lat: null,
+				lng: null,
+				geom_type: null,
+				metadata: {},
+			},
+		]);
 		const routes = await loadRoutes();
 		const loaded: Partial<Record<(typeof WRITE_SURFACES)[number]['key'], () => ReactNode>> = {};
 		for (const surface of WRITE_SURFACES) {
@@ -360,19 +615,32 @@ describe('a write surface reads the actor Profile off the snapshot', () => {
 
 	afterEach(cleanup);
 
-	/** Fourteen sites, the number #888 left reading the predicate at a route. */
+	/**
+	 * Twenty-two sites: the fourteen #888 left reading the predicate at a route,
+	 * and the eight of #944's nine that a case can assert in both directions.
+	 */
 	it('covers every route that computes its own write attribution', () => {
-		expect(WRITE_SURFACES).toHaveLength(14);
+		expect(WRITE_SURFACES).toHaveLength(22);
 	});
 
 	for (const surface of WRITE_SURFACES) {
 		it(`${surface.path} cannot be submitted with no actor Profile`, async () => {
-			const enabled = await submitEnabledUnder(components[surface.key], null, surface.params);
+			const enabled = await submitEnabledUnder(
+				components[surface.key],
+				null,
+				surface.params,
+				surface.control,
+			);
 			expect(enabled).toBe(false);
 		});
 
 		it(`${surface.path} can be submitted once the actor Profile is there`, async () => {
-			const enabled = await submitEnabledUnder(components[surface.key], PROFILE_ID, surface.params);
+			const enabled = await submitEnabledUnder(
+				components[surface.key],
+				PROFILE_ID,
+				surface.params,
+				surface.control,
+			);
 			expect(enabled).toBe(true);
 		});
 	}

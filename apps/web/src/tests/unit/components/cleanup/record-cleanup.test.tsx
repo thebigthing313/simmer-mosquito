@@ -149,11 +149,11 @@ function labelledValues(row: HTMLElement): readonly (readonly [string, string])[
 	]);
 }
 
-function renderPage(recordType: 'address' | 'contact' = 'address') {
+function renderPage(recordType: 'address' | 'contact' = 'address', canSubmit = true) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={client}>
-			<RecordCleanup recordType={recordType} />
+			<RecordCleanup canSubmit={canSubmit} recordType={recordType} />
 		</QueryClientProvider>,
 	);
 }
@@ -472,6 +472,19 @@ describe('RecordCleanup', () => {
 		// nothing to merge.
 		expect(screen.queryByRole('button', { name: /^Merge/ })).toBeNull();
 		expect(screen.getByText('No duplicate addresses found')).toBeTruthy();
+	});
+
+	it('offers no live merge with no actor Profile to attribute it to', () => {
+		// The route answers `canAttributeWrite` and hands it down. The group's
+		// button is what a person meets first, so it is off rather than opening a
+		// dialog whose action is off; `write-attribution.test.tsx` holds the route
+		// half, that the prop reaches this component at all.
+		renderPage('address', false);
+
+		expect(
+			screen.getByRole('button', { name: 'Merge 2 into 412 Oak St' }).hasAttribute('disabled'),
+		).toBe(true);
+		expect(merges).not.toHaveBeenCalled();
 	});
 
 	it('hides the merge control below the manager floor', () => {
