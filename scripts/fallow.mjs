@@ -49,10 +49,11 @@
 // gate's answer, and the issue it produced was a disagreement between local and
 // CI that did not exist. So a run that compares prints its own verdict under
 // fallow's, naming the regressions and this run's exit code. The regression
-// count is measured here rather than read off fallow, which prints no regression
-// detail at all, only the exit code; the measurement is fallow's own `count`
+// count is re-derived rather than read off fallow, which prints no regression
+// detail at all, only the exit code; the re-derivation is fallow's own `count`
 // mode, a comparison per file and finding category, against the fresh baseline
-// the freshness check below already saves. Refactoring targets are left out of
+// the freshness check below already saves. What fails a run whose flags move
+// fallow off that mode is #972's guard. Refactoring targets are left out of
 // it, being recommendations rather than findings. The verdict reports and never
 // decides: every exit code here is what it was before.
 //
@@ -66,7 +67,7 @@
 //
 // Two verdict functions and one shared sentence, which is the design question
 // the issue asked to settle rather than assume. What the two have in common is
-// the disclaimer and the place it prints, and `fallowsCross` below is that
+// the disclaimer and the place it prints, and `fallowsCross` is that
 // sentence, taking the noun for whatever fallow counted. Everything else
 // differs: health names a baseline file and lists a regression per entry, and
 // has to spawn a second fallow run to know them, while this reads two numbers
@@ -88,12 +89,29 @@
 // until a person read the file. So a gating run counts the stale entries
 // itself, by saving a second baseline off the same tree and asking which of the
 // checked-in entries the fresh one no longer names.
+//
+// The deciding half of all of that moved to `lib/fallow-comparison.mjs` under
+// #972, because this file spawns fallow on import and so cannot be imported by
+// a suite. What is left here is the spawning half: the child, its streams, the
+// filesystem, and the exit code. The rule for which side a function is on, and
+// the guard that fails a run whose flags the regression count is not derived
+// under, are in that module's header.
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-// Aliased: `scan` below is this file's own reader over the child's streams.
-import { scan as scanSource } from './lib/masked-source.mjs';
+import {
+	baselineEntries,
+	duplicationOutcome,
+	fallowsCross,
+	freshnessArgs,
+	probeFailures,
+	flagValue as readFlag,
+	regressionsBetween,
+	unmodelledComparisonFlag,
+	verdictOutcome,
+	withoutComments,
+} from './lib/fallow-comparison.mjs';
 
 const args = process.argv.slice(2);
 const readsBaseline = args.includes('--baseline');
@@ -131,17 +149,8 @@ const STALE_ENTRIES_SHOWN = 20;
 // first.
 const REGRESSIONS_SHOWN = 20;
 
-/**
- * The value this run gave `flag`, in either spelling fallow accepts, or null
- * when it did not give it one. `--baseline-mode` is a different flag from
- * `--baseline` to both halves, since the name is matched whole.
- */
-const flagValue = (flag) => {
-	const at = args.indexOf(flag);
-	if (at >= 0) return args[at + 1] ?? null;
-	const inline = args.find((arg) => arg.startsWith(`${flag}=`));
-	return inline ? inline.slice(flag.length + 1) : null;
-};
+/** The value this run gave `flag`, read by the shared reader over this run's own arguments. */
+const flagValue = (flag) => readFlag(args, flag);
 
 // The path `--save-baseline` was given, or null when this run saves nothing.
 const savesBaseline = flagValue('--save-baseline');
@@ -208,55 +217,6 @@ if (process.stdout.isTTY) {
 	env.CLICOLOR_FORCE ??= '1';
 }
 
-/**
- * What one baseline entry is named by, as a list of strings. Identity and never
- * the count: a saved entry whose count happens to match a different finding is
- * exactly what a stale entry looks like, so the count is not read at all.
- *
- * `finding_counts` is keyed by file and then by category, `crap_high` and its
- * six neighbours, which is the pair `--baseline-mode count` matches on.
- * `target_keys` is the refactoring targets, already one string each.
- * `runtime_coverage_findings` is deliberately not counted: it is empty in every
- * baseline this workspace has saved, so nothing here knows what identifies one,
- * and guessing would report entries that are fine. That leaves this able to
- * under-report and never to invent, which is the safe half to be wrong on.
- */
-const baselineEntries = (baseline) => [
-	...Object.entries(baseline.finding_counts ?? {}).flatMap(([file, categories]) =>
-		Object.keys(categories).map((category) => `${file} (${category})`),
-	),
-	...(baseline.target_keys ?? []).map((key) => `refactoring target ${key}`),
-];
-
-// The flags that say this run compares against a baseline. The first two carry
-// the value after them, so that value comes off with the flag; the third stands
-// alone. Both spellings fallow accepts are covered, since `--baseline=path` is
-// one argument.
-const VALUED_COMPARISON_FLAGS = new Set(['--baseline', '--baseline-mode']);
-const COMPARISON_FLAGS = new Set([...VALUED_COMPARISON_FLAGS, '--fail-on-regression']);
-const INLINE_COMPARISON_FLAG = /^--baseline(-mode)?=/;
-
-/** Whether `args[index]` belongs to this run's comparison rather than its scope. */
-const isComparisonArg = (index) =>
-	COMPARISON_FLAGS.has(args[index]) ||
-	INLINE_COMPARISON_FLAG.test(args[index]) ||
-	VALUED_COMPARISON_FLAGS.has(args[index - 1]);
-
-/**
- * The arguments that save a baseline off the same tree the gating run reads.
- * Derived from this run's own arguments rather than written out, so a scope
- * flag such as `--workspace` reaches both halves and the two are measured over
- * the same corpus. Only the comparison flags come off, since there is nothing
- * to compare against yet.
- */
-const freshnessArgs = (destination) => {
-	// Quoted because the child is spawned through a shell, which splits on the
-	// space in a temp path such as `C:\Users\Some One\AppData\Local\Temp`.
-	const quoted = /\s/.test(destination) ? `"${destination}"` : destination;
-	const scope = args.filter((_, index) => !isComparisonArg(index));
-	return [...scope, '--save-baseline', quoted, '--quiet'];
-};
-
 /** What the second run said, kept for the message when it wrote nothing usable. */
 let freshnessDetail = 'the second fallow run did not start';
 
@@ -264,35 +224,6 @@ let freshnessDetail = 'the second fallow run did not start';
 const describeRun = (run) => {
 	const output = `${run.stderr ?? ''}`.trim();
 	return `fallow exited ${run.status}${output ? `, saying: ${output}` : ' and said nothing'}`;
-};
-
-/**
- * How many findings each file and category carries, keyed the way
- * `baselineEntries` names them. This is the pair `--baseline-mode count`
- * matches on, and the count is what the verdict compares: a key whose fresh
- * count is above its saved one is the regression fallow failed the run over.
- */
-const findingCounts = (baseline) =>
-	new Map(
-		Object.entries(baseline.finding_counts ?? {}).flatMap(([file, categories]) =>
-			Object.entries(categories).map(([category, finding]) => [
-				`${file} (${category})`,
-				finding.count,
-			]),
-		),
-	);
-
-/**
- * The findings that have gone up between two baselines, one line each. A key
- * the saved baseline does not carry counts from zero, which is how a file that
- * was clean when the baseline was written reports its first finding.
- */
-const regressionsBetween = (saved, fresh) => {
-	const before = findingCounts(saved);
-	const countBefore = (entry) => before.get(entry) ?? 0;
-	return [...findingCounts(fresh)]
-		.filter(([entry, count]) => count > countBefore(entry))
-		.map(([entry, count]) => `${entry} ${countBefore(entry)} to ${count}`);
 };
 
 /**
@@ -310,7 +241,7 @@ const measureBaseline = () => {
 	const directory = mkdtempSync(join(tmpdir(), 'fallow-freshness-'));
 	const destination = join(directory, 'health.json');
 	try {
-		const run = spawnSync('fallow', freshnessArgs(destination), {
+		const run = spawnSync('fallow', freshnessArgs(args, destination), {
 			shell: true,
 			// Only stderr is kept: the report on stdout is the same 1500 lines the
 			// gating run already printed, and holding a second copy in memory buys
@@ -367,27 +298,6 @@ const reportStale = (stale) => {
 const exitCode = () => process.exitCode ?? 0;
 
 /**
- * What the comparison found, as the clause the verdict opens with. Null is the
- * run whose fresh baseline could not be read, which has already failed above.
- */
-const verdictOutcome = (regressions) => {
-	if (regressions === null)
-		return `the comparison against ${baselinePath} could not be counted here, for the reason above`;
-	if (regressions.length === 0) return `no regression against ${baselinePath}`;
-	const plural = regressions.length === 1 ? 'regression' : 'regressions';
-	return `${regressions.length} ${plural} against ${baselinePath}`;
-};
-
-/**
- * The sentence both verdicts end on, taking the noun for whatever fallow
- * counted. It is the one thing the two gates share, and #971's answer to
- * whether one function serves both: what fallow counted differs between them,
- * and that its cross prints either way does not.
- */
-const fallowsCross = (counted) =>
-	`The ✗ line above is fallow's own ${counted}. It prints the same on a run that passes this comparison and one that fails it, so it is not this gate's answer.`;
-
-/**
  * The gate's own answer, read last. The first line names the comparison's
  * outcome and this run's exit code, and the last says whose the `✗` count above
  * it is, which is the whole of #941: that count is fallow's and it prints the
@@ -396,28 +306,13 @@ const fallowsCross = (counted) =>
  */
 const reportVerdict = (regressions) => {
 	const named = regressions ?? [];
-	console.error(`\nfallow:health: ${verdictOutcome(regressions)}. This run exits ${exitCode()}.`);
+	console.error(
+		`\nfallow:health: ${verdictOutcome(regressions, baselinePath)}. This run exits ${exitCode()}.`,
+	);
 	for (const regression of named.slice(0, REGRESSIONS_SHOWN)) console.error(`  ${regression}`);
 	if (named.length > REGRESSIONS_SHOWN)
 		console.error(`  and ${named.length - REGRESSIONS_SHOWN} more`);
 	console.error(fallowsCross('count of findings above its threshold'));
-};
-
-/**
- * The duplication threshold the config sets, or null when it cannot be read.
- * The file is JSONC, so the comment spans the shared masker finds come out
- * before `JSON.parse` reads what is left. That masker is written for
- * TypeScript, which costs nothing here: JSON is a subset of what it walks, and
- * a `//` inside a string stays inside a string either way.
- */
-const withoutComments = (source) => {
-	let code = '';
-	let from = 0;
-	for (const comment of scanSource(source).comments) {
-		code += source.slice(from, comment.index);
-		from = comment.end;
-	}
-	return code + source.slice(from);
 };
 
 /**
@@ -450,36 +345,64 @@ const measuredAgainst = () => {
 	return Number.isFinite(value) ? { value, source: 'this run was given' } : null;
 };
 
-/**
- * How the measured percentage sits against the threshold, as one word. Read off
- * the two numbers and never off the exit code, so a run that fails for some
- * other reason says `under` and names the exit code beside it.
- */
-const standing = (measured, threshold) => {
-	if (measured > threshold) return 'over';
-	if (measured < threshold) return 'under';
-	return 'level with';
-};
-
-/** What the duplication run measured, as the clause the verdict opens with. */
-const duplicationOutcome = () => {
-	if (duplication === null) return 'fallow printed no duplication summary for this to read';
-	const measured = `${duplication.percentage}% duplicated across ${duplication.files} files`;
-	const threshold = measuredAgainst();
-	if (threshold === null) return `${measured}, against a threshold this could not read`;
-	if (threshold.value === 0) return `${measured}, with no threshold set to gate it`;
-	const word = standing(duplication.percentage, threshold.value);
-	return `${measured}, ${word} the ${threshold.value.toFixed(1)}% threshold ${threshold.source}`;
-};
-
 /** The duplication gate's own answer, #941's shape and #971's sentence. */
 const reportDuplicationVerdict = () => {
-	console.error(`\nfallow dupes: ${duplicationOutcome()}. This run exits ${exitCode()}.`);
+	console.error(
+		`\nfallow dupes: ${duplicationOutcome(duplication, measuredAgainst())}. This run exits ${exitCode()}.`,
+	);
 	console.error(fallowsCross('count of duplicated lines'));
+};
+
+/**
+ * Fails the run when the guard's own probes answer wrong. They are pure string
+ * arithmetic over six argument lists, so this costs nothing and reads ahead of
+ * the second fallow spawn.
+ */
+const reportBrokenProbes = (broken) => {
+	console.error(
+		`\nfallow:health: ${broken.length} of the guard's own probes answered wrong, so nothing here can say whether this run's flags are ones the regression count is derived under.`,
+	);
+	for (const failure of broken) console.error(`  ${failure}`);
+	console.error('Fix `unmodelledComparisonFlag` in `scripts/lib/fallow-comparison.mjs`.');
+	process.exitCode = 1;
+};
+
+/**
+ * Fails the run rather than judging it, when a flag moves fallow's comparison
+ * away from the one re-derived here.
+ */
+const reportUnmodelled = (flag) => {
+	console.error(`\nfallow:health: this run passed ${flag}, and refuses to print a verdict.`);
+	console.error(
+		"The regressions below a verdict are re-derived here rather than read off fallow, which prints no regression detail on a failing comparison, and the re-derivation is fallow's `count` baseline mode forgiving nothing. Under this flag it would name regressions fallow forgave, or match on something fallow did not, so the verdict and the exit code beside it would disagree, which is the reading error #941 was filed about.",
+	);
+	console.error(
+		'Nothing here gates baseline freshness or regressions on this run. Drop the flag, or teach `unmodelledComparisonFlag` in `scripts/lib/fallow-comparison.mjs` what fallow does under it.',
+	);
+	process.exitCode = 1;
+};
+
+/**
+ * #972's guard, read before anything is spawned: whether this run is one the
+ * comparison below cannot judge, having already said so and failed the run. The
+ * broken-reader case comes first, because a guard that cannot read a flag
+ * cannot be trusted to say the flags are fine.
+ */
+const refusedComparison = () => {
+	const broken = probeFailures();
+	if (broken.length > 0) {
+		reportBrokenProbes(broken);
+		return true;
+	}
+	const unmodelled = unmodelledComparisonFlag(args);
+	if (unmodelled === null) return false;
+	reportUnmodelled(unmodelled);
+	return true;
 };
 
 /** The #669 gate and #941's verdict, in that order: the verdict reads last. */
 const reportComparison = () => {
+	if (refusedComparison()) return;
 	const measured = measureBaseline();
 	if (measured === null) {
 		reportUnmeasurable();
