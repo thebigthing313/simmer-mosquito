@@ -40,7 +40,7 @@ export const Route = createFileRoute('/control-operations/source-reduction/$id')
 	component: RouteComponent,
 });
 
-const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
+const SourceReductionIcon = iconRegistry.entities.sourceReduction.icon;
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',

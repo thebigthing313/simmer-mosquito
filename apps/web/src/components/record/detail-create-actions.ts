@@ -44,7 +44,7 @@ const CREATE_TARGETS = {
 		label: 'Record application',
 	},
 	'/control-operations/source-reduction/create': {
-		icon: iconRegistry.entities.sourceReductionAction.icon,
+		icon: iconRegistry.entities.sourceReduction.icon,
 		label: 'Record source reduction',
 	},
 	'/larval-surveillance/habitats/create': {

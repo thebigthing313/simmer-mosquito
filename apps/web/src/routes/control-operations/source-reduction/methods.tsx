@@ -9,7 +9,7 @@ export const Route = createFileRoute('/control-operations/source-reduction/metho
 	component: SourceReductionMethodsRoute,
 });
 
-const SourceReductionIcon = iconRegistry.entities.sourceReductionAction.icon;
+const SourceReductionIcon = iconRegistry.entities.sourceReduction.icon;
 
 function SourceReductionMethodsRoute() {
 	const { auth } = Route.useRouteContext();

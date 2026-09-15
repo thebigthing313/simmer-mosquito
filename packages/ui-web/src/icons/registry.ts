@@ -196,12 +196,7 @@ export const iconRegistry = {
 		// showed one glyph for two different things. Source reduction removes the
 		// standing water a Habitat holds, so the struck-through droplet says what
 		// the action does rather than borrowing the mark for discarding a record.
-		sourceReductionAction: icon(
-			'sourceReductionAction',
-			'Source reduction action',
-			'entities',
-			DropletOff,
-		),
+		sourceReduction: icon('sourceReduction', 'Source reduction action', 'entities', DropletOff),
 		tag: icon('tag', 'Tag', 'entities', Tag),
 		taxonomy: icon('taxonomy', 'Taxonomy', 'entities', Network),
 		trap: icon('trap', 'Trap', 'entities', Box),

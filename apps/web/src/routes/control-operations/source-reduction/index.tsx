@@ -73,7 +73,7 @@ const FILTER_CODECS: FilterCodecs<SourceReductionFilters> = {
 	regions: idSetParam,
 };
 
-const SourceReductionEntityIcon = iconRegistry.entities.sourceReductionAction.icon;
+const SourceReductionEntityIcon = iconRegistry.entities.sourceReduction.icon;
 
 export const Route = createFileRoute('/control-operations/source-reduction/')({
 	component: SourceReductionExplorerRoute,
