@@ -18,9 +18,10 @@
  * address is still the answer to "what is here", and the caller marks it.
  */
 
-import { coalesce, concat, inArray, useLiveQuery } from '@tanstack/react-db';
+import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
 import { traps } from '../../lib/collections/traps';
+import { habitatNameSelect } from './habitat-view';
 import { activityGcTimeMs, unmatchableId } from './shared';
 import { trapDisplayName } from './trap-view';
 
@@ -67,7 +68,7 @@ export function useAddressSurveillance(addressIds: readonly string[]): AddressSu
 					.select(({ habitat }) => ({
 						id: habitat.id,
 						addressId: habitat.address_id,
-						name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+						name: habitatNameSelect(habitat),
 						isActive: habitat.is_active,
 					})),
 		},

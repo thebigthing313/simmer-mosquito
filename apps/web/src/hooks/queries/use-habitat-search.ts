@@ -17,9 +17,9 @@
  * quietly picking one and changing what an operator can find.
  */
 
-import { and, coalesce, concat, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
+import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
-import type { HabitatMatch } from './habitat-view';
+import { type HabitatMatch, habitatNameSelect } from './habitat-view';
 
 export function useHabitatSearch(
 	organizationId: string,
@@ -60,7 +60,7 @@ export function useHabitatSearch(
 					.limit(6)
 					.select(({ habitat }) => ({
 						id: habitat.id,
-						name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+						name: habitatNameSelect(habitat),
 						description: habitat.description,
 						latitude: habitat.lat,
 						longitude: habitat.lng,

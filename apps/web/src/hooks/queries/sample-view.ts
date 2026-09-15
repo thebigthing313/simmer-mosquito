@@ -24,10 +24,12 @@ export interface Sample {
 	/**
 	 * The organization's own name for the jar, or `null` when it named none.
 	 *
-	 * The one nullable name in this folder. Everywhere else the query resolves the
-	 * fallback so no call site has to — a Habitat with no name reads out its
-	 * coordinates. A Sample's fallback is a short id, and the expression language
-	 * has no substring to take one with, so it stays where it can be written.
+	 * The one name in this folder that is nullable for the record's own sake.
+	 * Everywhere else the query resolves the fallback so no call site has to: a
+	 * Habitat with no name reads out its coordinates, through `habitatNameSelect`
+	 * in `habitat-view.ts`. A Sample's fallback is a short id, and the expression
+	 * language has no substring to take one with, so it stays where it can be
+	 * written.
 	 */
 	readonly name: string | null;
 	readonly isZeroLarvae: boolean;
@@ -41,7 +43,10 @@ export interface Sample {
 	readonly habitatId: string | null;
 	/**
 	 * The Habitat's name, or its coordinates when it has none. `null` when the
-	 * parent Inspection was Ad Hoc and so has no Habitat to name.
+	 * parent Inspection was Ad Hoc and so has no Habitat to name, and `null`
+	 * while the Habitat's row is still arriving, which `habitatId` tells apart:
+	 * it is set in the second case, and `habitatLabel` names the row by it.
+	 * `habitat-view.ts` carries the rule.
 	 */
 	readonly habitatName: string | null;
 
