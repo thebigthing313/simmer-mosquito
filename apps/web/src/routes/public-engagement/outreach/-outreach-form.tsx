@@ -24,7 +24,7 @@ import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-ro
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { noTechnicianValue } from '../../../lib/no-technician';
+import { noTechnicianValue, technicianOptions } from '../../../lib/no-technician';
 
 /** Domain issue path → the form field holding it. */
 const OUTREACH_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -166,14 +166,6 @@ export function OutreachFormPage({
 		(method) => method.isActive,
 		(method) => method.name,
 	);
-	const technicianOptions = [
-		{ label: 'Unassigned', value: noTechnicianValue },
-		...lifecycleOptions(
-			profiles,
-			(profile) => profile.isActive,
-			(profile) => profile.displayName,
-		),
-	];
 
 	const form = useAppForm({
 		defaultValues,
@@ -232,7 +224,7 @@ export function OutreachFormPage({
 						{(field) => (
 							<field.SelectField
 								label="Technician"
-								options={technicianOptions}
+								options={technicianOptions(profiles)}
 								placeholder="Unassigned"
 							/>
 						)}
