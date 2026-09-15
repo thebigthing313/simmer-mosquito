@@ -18,12 +18,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import type { ReactNode } from 'react';
+import { act, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ExplorerResource } from '../../../../components/explorer/use-explorer-resource';
 import type { MapQueryValue } from '../../../../components/explorer/use-paged-map-resource';
 import type { MapTileLayer } from '../../../../components/map/tile-layers';
 import type { RecordType } from '../../../../lib/record-nouns';
-import { cleanupRenderedHooks, createFakeMap } from '../map/fake-map';
+import { cleanupRenderedHooks, createFakeMap, type FakeMap } from '../map/fake-map';
 
 /** Every request the hook sent, in order. */
 const sent: URL[] = [];
@@ -55,7 +56,9 @@ const { useExplorerResource } = await import(
 	'../../../../components/explorer/use-explorer-resource'
 );
 const { tileLayerExtentUrl } = await import('../../../../components/map/tile-layers');
-const { useMapExtent } = await import('../../../../components/map/use-map-extent-fit');
+const { useMapExtent, useMapExtentFit } = await import(
+	'../../../../components/map/use-map-extent-fit'
+);
 
 /**
  * The tile layer each route hands the hook beside its params: the same entry
@@ -745,5 +748,201 @@ describe('useExplorerResource: why the rail is empty', () => {
 		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
 		await waitFor(() => expect(result.current.rail.isLoading).toBe(false));
 		expect(result.current.rail.empty.reason).toBe('viewport');
+	});
+});
+
+describe('useExplorerResource: a filter change', () => {
+	/*
+	 * What one filter change costs, with the canvas's fit running beside the
+	 * rail the way `MapCanvas` runs it. The fake map's `fitBounds` moves nothing
+	 * and fires no `moveend`, so each case fires the move by hand with `moveTo`
+	 * where the real animation would end, and asserts what went out before and
+	 * after it. That is the seam the sequence turns on: a fit moves the camera,
+	 * the move changes the box, and the box keys the page (#957).
+	 */
+
+	/** A layer carrying the surface's filters, so its extent URL changes with them. */
+	function layerFor(search: string): MapTileLayer {
+		return search === ''
+			? bareLayer('habitats')
+			: { kind: 'habitats', serverUrl: 'http://api.test', filters: { search } };
+	}
+
+	/** Answer each extent request from a table keyed by the search it carries. */
+	function serveExtents(extents: Readonly<Record<string, unknown>>) {
+		answer = (url) =>
+			url.pathname.endsWith('/extent')
+				? { extent: extents[url.searchParams.get('search') ?? ''] ?? null }
+				: { rows: [], total: 0 };
+	}
+
+	function renderExplorer(fake: FakeMap) {
+		return renderHook(
+			({ search }: { readonly search: string }) => {
+				const layer = layerFor(search);
+				const rail = useExplorerResource<Site>({
+					path: '/map/habitats',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'habitat',
+					params: { search },
+					layer,
+					map: fake.map,
+					selectedId: null,
+				});
+				// The canvas's half: the same extent, and the camera move it decides.
+				useMapExtentFit(fake.map, true, { url: tileLayerExtentUrl(layer) ?? '' });
+				return rail;
+			},
+			{ wrapper, initialProps: { search: '' } },
+		);
+	}
+
+	/** The page requests so far, as the box each one asked about. */
+	function pageBoxes(): readonly (string | null)[] {
+		return pageRequests('/map/habitats').map((url) => url.searchParams.get('bbox'));
+	}
+
+	/**
+	 * The fake map answers `getBounds` at the origin with the padded strip west
+	 * 0.2, south -0.8, east 0.4, north 0. One extent sits wholly inside it, the
+	 * other has a corner past its east edge.
+	 */
+	const INSIDE = { west: 0.25, south: -0.5, east: 0.35, north: -0.1 };
+	const OUTSIDE = { west: 0.3, south: -0.5, east: 0.6, north: -0.1 };
+
+	/**
+	 * Load the surface and let its first fit land: the page against the map's
+	 * opening camera, the extent, the fit, the move, and the page against the
+	 * box the move produced. Then bring the camera back to the origin, so every
+	 * case starts from the same view, and wait for that page too.
+	 */
+	async function loadAndFrame(
+		fake: FakeMap,
+		result: { readonly current: ExplorerResource<Site> },
+	): Promise<void> {
+		await waitFor(() =>
+			expect(requestCounts('/map/habitats')).toEqual({ page: 1, byId: 0, extent: 1 }),
+		);
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		expect(fake.cameraCalls[0]?.kind).toBe('fitBounds');
+		expect(pageBoxes()).toEqual(['0,-0.8,1,0']);
+		act(() => {
+			fake.moveTo(1, 1);
+		});
+		await waitFor(() => expect(pageBoxes()).toEqual(['0,-0.8,1,0', '1,0.2,2,1']));
+		act(() => {
+			fake.moveTo(0, 0);
+		});
+		await waitFor(() => expect(pageBoxes()).toHaveLength(3));
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+	}
+
+	it('frames the data on load, whichever side of the view it is on', async () => {
+		serveExtents({ '': INSIDE });
+		const fake = createFakeMap();
+
+		const { result } = renderExplorer(fake);
+
+		// The load-time fit is unconditional: a fresh map always frames its data,
+		// and the page that follows the move is the one the rail keeps.
+		await loadAndFrame(fake, result);
+		expect(fake.cameraCalls).toHaveLength(1);
+	});
+
+	it('spends one page request, and no camera move, on a change whose extent is already in view', async () => {
+		serveExtents({ '': OUTSIDE, pond: INSIDE });
+		const fake = createFakeMap();
+		const { result, rerender } = renderExplorer(fake);
+		await loadAndFrame(fake, result);
+		const before = requestCounts('/map/habitats');
+
+		rerender({ search: 'pond' });
+
+		await waitFor(() => expect(requestCounts('/map/habitats').extent).toBe(before.extent + 1));
+		await waitFor(() => expect(result.current.isLoading).toBe(false));
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		// One extent, one page against the box the person is already looking at,
+		// and the camera left where it was: every match is on screen.
+		expect(requestCounts('/map/habitats')).toEqual({
+			page: before.page + 1,
+			byId: 0,
+			extent: before.extent + 1,
+		});
+		expect(fake.cameraCalls).toHaveLength(1);
+		expect(pageRequests('/map/habitats').at(-1)?.searchParams.get('search')).toBe('pond');
+	});
+
+	it('fits, and pages again after the move, on a change whose extent is partly off screen', async () => {
+		serveExtents({ '': INSIDE, pond: OUTSIDE });
+		const fake = createFakeMap();
+		const { result, rerender } = renderExplorer(fake);
+		await loadAndFrame(fake, result);
+		const before = requestCounts('/map/habitats');
+
+		rerender({ search: 'pond' });
+
+		// The page against the old box goes out beside the extent, and the fit
+		// follows the extent's answer.
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(2));
+		expect(fake.cameraCalls[1]?.kind).toBe('fitBounds');
+		expect(requestCounts('/map/habitats')).toEqual({
+			page: before.page + 1,
+			byId: 0,
+			extent: before.extent + 1,
+		});
+		expect(pageBoxes().at(-1)).toBe('0,-0.8,1,0');
+
+		// The move lands, and the page against the box it produced follows.
+		act(() => {
+			fake.moveTo(0.3, 0);
+		});
+		await waitFor(() => expect(requestCounts('/map/habitats').page).toBe(before.page + 2));
+		expect(pageBoxes().at(-1)).toBe('0.3,-0.8,1.3,0');
+		expect(pageRequests('/map/habitats').at(-1)?.searchParams.get('search')).toBe('pond');
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(fake.cameraCalls).toHaveLength(2);
+	});
+
+	it('leaves the camera alone when nothing matches, and the rail says why', async () => {
+		serveExtents({ '': INSIDE, pond: null });
+		const fake = createFakeMap();
+		const { result, rerender } = renderExplorer(fake);
+		await loadAndFrame(fake, result);
+		const before = requestCounts('/map/habitats');
+
+		rerender({ search: 'pond' });
+
+		await waitFor(() => expect(result.current.empty.reason).toBe('filters'));
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(requestCounts('/map/habitats')).toEqual({
+			page: before.page + 1,
+			byId: 0,
+			extent: before.extent + 1,
+		});
+		expect(fake.cameraCalls).toHaveLength(1);
+	});
+
+	it('reads an extent on the far side of the antimeridian as in view', async () => {
+		// A view unwrapped past the line, 180.1 to 180.3 east, which is how mapbox
+		// reports a camera there, and an extent the server writes at -179.8,
+		// which is the same ground.
+		serveExtents({ '': INSIDE, pond: { west: -179.8, south: -0.5, east: -179.75, north: -0.1 } });
+		const fake = createFakeMap();
+		const { result, rerender } = renderExplorer(fake);
+		await loadAndFrame(fake, result);
+		act(() => {
+			fake.moveTo(179.9, 0);
+		});
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		const before = requestCounts('/map/habitats');
+
+		rerender({ search: 'pond' });
+
+		await waitFor(() => expect(requestCounts('/map/habitats').extent).toBe(before.extent + 1));
+		await waitFor(() => expect(result.current.isLoading).toBe(false));
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(fake.cameraCalls).toHaveLength(1);
+		expect(requestCounts('/map/habitats').page).toBe(before.page + 1);
 	});
 });
