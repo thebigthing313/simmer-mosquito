@@ -57,4 +57,14 @@ describe('restRefusalFor', () => {
 	it('still says something when a refusal explains nothing', () => {
 		expect(restRefusalFor(502, false, {}, FALLBACK)?.message).toBe(FALLBACK);
 	});
+
+	// This call site read `reason ?? message ?? fallback`, so a sentence of
+	// spaces was an answer and rendered as an empty red box. It reads
+	// `refusalSentence` now, which counts it as absent (#929).
+	it('treats a whitespace reason as no reason at all', () => {
+		expect(restRefusalFor(403, false, { reason: '   ' }, FALLBACK)?.message).toBe(FALLBACK);
+		expect(restRefusalFor(403, false, { reason: '   ', message: 'boom' }, FALLBACK)?.message).toBe(
+			'boom',
+		);
+	});
 });

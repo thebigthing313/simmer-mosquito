@@ -15,7 +15,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setSessionFetcher } from '../../../../collections/functions/session-fetch.js';
-import { CommandError, writeCommand } from '../../../../collections/functions/write-command.js';
+import {
+	CommandError,
+	refusalSentence,
+	writeCommand,
+} from '../../../../collections/functions/write-command.js';
 import { globalTransport } from './global-transport.js';
 
 const URL = 'http://localhost:3002/commands/memberships';
@@ -87,4 +91,63 @@ describe('writeCommand', () => {
 			'Not your rung.',
 		);
 	});
+
+	// The shape that used to read differently at each of the eight call sites.
+	// A sentence of spaces says nothing, so it is absent and the fallback names
+	// the record instead (#929).
+	it('takes the fallback over a reason that is only whitespace', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(JSON.stringify({ error: 'forbidden', reason: '   ' }), { status: 403 }),
+			),
+		);
+
+		await expect(writeCommand(URL, 'POST', { intents: [] }, 'Unable to write.')).rejects.toThrow(
+			'Unable to write.',
+		);
+	});
+});
+
+/**
+ * The one reader every command-shaped refusal goes through (#929).
+ *
+ * Eight call sites carried this rule before, on three emptiness tests between
+ * them, so `reason: '   '` rendered as an empty red box through some and took
+ * the fallback through others. The whitespace rows are the ones that used to
+ * disagree; the rest pin the precedence.
+ */
+describe('refusalSentence', () => {
+	const shapes: readonly {
+		readonly name: string;
+		readonly body: unknown;
+		readonly reads: string;
+	}[] = [
+		{ name: 'a reason', body: { reason: 'Not your rung.' }, reads: 'Not your rung.' },
+		{
+			name: 'a reason over a message',
+			body: { reason: 'Not your rung.', message: 'Forbidden.' },
+			reads: 'Not your rung.',
+		},
+		{ name: 'a message alone', body: { message: 'Forbidden.' }, reads: 'Forbidden.' },
+		{ name: 'an empty reason', body: { reason: '' }, reads: 'Unable to save.' },
+		{ name: 'a whitespace reason', body: { reason: '   ' }, reads: 'Unable to save.' },
+		{
+			name: 'a whitespace reason over a message',
+			body: { reason: '   ', message: 'Forbidden.' },
+			reads: 'Forbidden.',
+		},
+		{ name: 'a whitespace message', body: { message: '\t\n' }, reads: 'Unable to save.' },
+		{ name: 'a code and no sentence', body: { error: 'forbidden' }, reads: 'Unable to save.' },
+		{ name: 'a reason that is not a string', body: { reason: 42 }, reads: 'Unable to save.' },
+		{ name: 'a body that is not an object', body: 'nope', reads: 'Unable to save.' },
+		{ name: 'no body at all', body: null, reads: 'Unable to save.' },
+	];
+
+	for (const shape of shapes) {
+		it(`reads ${shape.name} as "${shape.reads}"`, () => {
+			expect(refusalSentence(shape.body, 'Unable to save.')).toBe(shape.reads);
+		});
+	}
 });

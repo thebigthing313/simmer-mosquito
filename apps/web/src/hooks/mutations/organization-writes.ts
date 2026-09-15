@@ -45,7 +45,7 @@
  * two-write save needs.
  */
 
-import { CommandError } from '@simmer-mosquito/sync';
+import { CommandError, refusalSentence } from '@simmer-mosquito/sync';
 import { organizations } from '../../lib/collections/organizations';
 import { type RestRefusalBody, writeThroughRest } from './rest-writes';
 
@@ -119,7 +119,7 @@ export function organizationRefusalFor(
 	}
 
 	if (!ok || typeof body.txid !== 'number') {
-		return new CommandError(body.reason ?? body.message ?? 'Unable to save changes.', status, body);
+		return new CommandError(refusalSentence(body, 'Unable to save changes.'), status, body);
 	}
 
 	return null;
