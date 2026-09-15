@@ -15,6 +15,14 @@ services:
       # 64 runs out of shared memory partway through.
       - -c
       - max_locks_per_transaction=1024
+    # The two services share a 4 GB ceiling, split 3:1. Postgres gets the larger
+    # share because the integration harness and the prod clone both run
+    # through it; Electric holds shape logs on disk and its process stays well
+    # under 1 GB. Compose v2 applies `deploy.resources.limits` outside swarm.
+    deploy:
+      resources:
+        limits:
+          memory: 3g
     environment:
       POSTGRES_DB: simmer_mosquito
       POSTGRES_PASSWORD: postgres
@@ -38,6 +46,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/simmer_mosquito?sslmode=disable
       ELECTRIC_INSECURE: "true"
