@@ -29,9 +29,10 @@ import {
 } from './control-operations/-control-display';
 
 // Data + display helpers for one Profile's field work: the response shape, the
-// grouping, and the wording the page states around it. Daily Work reads it over
-// one day, and the endpoint behind it still answers a `dateFrom`/`dateTo` range,
-// so the shapes here are a window's rather than a day's.
+// grouping into families, and the wording the page states around it. Daily Work
+// reads one day. The endpoint behind it still answers a `dateFrom`/`dateTo`
+// range, so the response carries both ends, and `dailyWorkWindow` is what makes
+// them the same day; nothing below groups by date.
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 export interface ActivityEntry {
@@ -136,45 +137,28 @@ export interface ActivityFamilyGroup {
 	readonly entries: readonly ActivityEntry[];
 }
 
-export interface ActivityDayGroup {
-	readonly date: string;
-	readonly entries: readonly ActivityEntry[];
-	readonly families: readonly ActivityFamilyGroup[];
-}
-
 /**
- * The log, as days newest-first, each split into families.
+ * The log, as families in {@link ACTIVITY_FAMILY_LABELS} order, empty ones left
+ * out.
  *
  * Within a family the entries run oldest-first, but only partly: six of the nine
  * categories are dated by a `date` with no time of day, so entries without a
  * timestamp keep the order the server sent and sit after the timed ones.
- * Families keep {@link ACTIVITY_FAMILY_LABELS} order rather than a per-day order, so
- * a week of days reads down the same columns.
+ *
+ * There is no day level. The page sends one day as both ends of the window, so
+ * every entry here carries the same `date`, and a heading naming it would repeat
+ * the stepper. Handed two days, this would fold them into one set of families
+ * with nothing on a row to say which day it fell on, so a page that ever reads a
+ * range again owes the grouping a date rather than reaching for this.
  */
-export function groupActivityByDay(items: readonly ActivityEntry[]): readonly ActivityDayGroup[] {
-	const byDate = new Map<string, ActivityEntry[]>();
-	for (const item of items) {
-		const day = byDate.get(item.date);
-		if (day === undefined) {
-			byDate.set(item.date, [item]);
-		} else {
-			day.push(item);
-		}
-	}
-
-	return [...byDate.keys()]
-		.sort((first, second) => second.localeCompare(first))
-		.map((date) => {
-			const entries = (byDate.get(date) ?? []).slice().sort(byMoment);
-			return {
-				date,
-				entries,
-				families: ACTIVITY_FAMILY_LABELS.map(({ key }) => ({
-					family: key,
-					entries: entries.filter((entry) => entry.family === key),
-				})).filter((group) => group.entries.length > 0),
-			};
-		});
+export function groupActivityByFamily(
+	items: readonly ActivityEntry[],
+): readonly ActivityFamilyGroup[] {
+	const entries = items.slice().sort(byMoment);
+	return ACTIVITY_FAMILY_LABELS.map(({ key }) => ({
+		family: key,
+		entries: entries.filter((entry) => entry.family === key),
+	})).filter((group) => group.entries.length > 0);
 }
 
 /** Timed entries first, in order; undated ones keep their incoming order after them. */

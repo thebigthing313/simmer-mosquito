@@ -102,7 +102,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 		{
 			isLoading: activity.isLoading,
 			error: activity.error,
-			isEmpty: view.days.length === 0,
+			isEmpty: view.families.length === 0,
 		},
 		DAILY_WORK_COPY,
 	);
@@ -140,7 +140,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 				body: (
 					<ActivityLog
 						copy={DAILY_WORK_COPY}
-						days={view.days}
+						families={view.families}
 						lookups={lookups}
 						message={panelState.message}
 						onSelect={selection.select}

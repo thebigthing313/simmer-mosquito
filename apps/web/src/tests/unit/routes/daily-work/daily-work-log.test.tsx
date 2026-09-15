@@ -1,0 +1,339 @@
+/** @vitest-environment jsdom */
+
+/**
+ * The Daily Work page, rendered whole, with a day of mixed families in the
+ * results panel (#1003).
+ *
+ * The log used to open with a collapsible section headed by the date, with the
+ * family sections nested one level under it. The date is the stepper's, so the
+ * heading repeated it, and the fold hid the whole day behind one click for a
+ * surface that never has a second day to scan past. This holds the panel to
+ * what it draws now: the family sections are the top level, each foldable
+ * with its count and open by default, and no section is headed by a date.
+ *
+ * The heading structure is read off the collapsible triggers rather than off
+ * the words alone, because "the date is not a heading" and "the families are
+ * not nested under anything" are both questions about depth, and a suite that
+ * only asked for the family names would pass with the fold still there.
+ *
+ * The server stand-in answers `/map/profiles/:profileId/activity` from a table
+ * keyed by the day the request names, so changing the day is a second read
+ * with a different answer, which is what lets the selection cases say that a
+ * key the new day does not hold is no selection. The canvas stand-in records
+ * the `activityLayer` prop, which is where the map's highlight comes from.
+ * What is faked is what `traps-empty-state.test.tsx` fakes, for the reasons its
+ * docblock gives, and the component is preloaded first for the reason
+ * `write-attribution.test.tsx` gives.
+ */
+
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ActivityLayerConfig } from '../../../../components/map/use-activity-layer';
+import { organizations } from '../../../../lib/collections/organizations';
+import { profiles } from '../../../../lib/collections/profiles';
+import type { MinimumRole } from '../../../../lib/write-access';
+import type { ActivityEntry } from '../../../../routes/-activity-data';
+import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
+import { preloadRouteComponent, renderExplorer, stubPanelLayout } from '../explorer-route-harness';
+import { notifyRouterStandIn } from '../route-mock-stand-ins';
+
+const PROFILE_ID = '2f1b8c4e-9d3a-4f7b-8c21-5a6d7e8f9a0b';
+const DAY = '2026-08-05';
+const OTHER_DAY = '2026-08-04';
+
+function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
+	return {
+		category: 'inspection',
+		family: 'larval',
+		involvement: 'primary',
+		role: 'inspected',
+		id: 'record-1',
+		lat: 35.5,
+		lng: -90.5,
+		date: DAY,
+		occurredAt: null,
+		label: null,
+		siteName: null,
+		refId: null,
+		methodRefId: null,
+		amount: null,
+		unitId: null,
+		detail: null,
+		stages: null,
+		context: null,
+		hasBycatch: null,
+		tagIds: null,
+		...overrides,
+	};
+}
+
+/** One entry in each of the four families, so every family section draws. */
+const MIXED_DAY: readonly ActivityEntry[] = [
+	entry({ id: 'habitat-1', category: 'habitat', role: 'created', label: 'Culvert 12' }),
+	entry({
+		id: 'trap-1',
+		family: 'adult',
+		category: 'trap',
+		role: 'created',
+		label: 'GT-04',
+		lat: 35.6,
+	}),
+	entry({
+		id: 'application-1',
+		family: 'control',
+		category: 'application',
+		role: 'applied',
+		siteName: 'Culvert 12',
+		lat: 35.7,
+	}),
+	entry({
+		id: 'request-1',
+		family: 'publicEngagement',
+		category: 'serviceRequest',
+		role: 'received',
+		label: '#88',
+		lat: 35.8,
+	}),
+];
+
+/** The day before holds one Habitat and nothing the mixed day holds. */
+const OTHER_DAY_ONLY: readonly ActivityEntry[] = [
+	entry({
+		id: 'habitat-2',
+		category: 'habitat',
+		role: 'created',
+		label: 'Ditch 7',
+		date: OTHER_DAY,
+	}),
+];
+
+const harness = vi.hoisted(() => ({
+	/** The search params a match would carry: the day. */
+	search: {} as Record<string, unknown>,
+	/** The path params a match would carry: the Profile. */
+	params: {} as Record<string, string>,
+	/** Every request the route sent, in order. */
+	sent: [] as URL[],
+	/** What the server holds, by the day a request names. */
+	log: new Map<string, readonly unknown[]>(),
+	/** Whether the server reports the answer as capped. */
+	truncated: false,
+	/** The total the server reports, where it differs from what it sent. */
+	total: null as number | null,
+	/** What the canvas was last handed for the activity layer. */
+	activityLayer: null as ActivityLayerConfig | null,
+	role: 'admin' as string,
+}));
+
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+	const { routerStandIn } = await import('../route-mock-stand-ins');
+	return routerStandIn(
+		await importOriginal<object>(),
+		() => harness.search,
+		() => harness.params,
+	);
+});
+
+vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
+	const { sessionFetchStandIn } = await import('../route-mock-stand-ins');
+	return {
+		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
+		sessionFetch: sessionFetchStandIn(harness.sent, (url) => {
+			const items = harness.log.get(url.searchParams.get('dateFrom') ?? '') ?? [];
+			return {
+				profileId: PROFILE_ID,
+				dateFrom: url.searchParams.get('dateFrom'),
+				dateTo: url.searchParams.get('dateTo'),
+				items,
+				total: harness.total ?? items.length,
+				truncated: harness.truncated,
+			};
+		}),
+	};
+});
+
+vi.mock('../../../../hooks/use-can-write', async () => {
+	const { roleReaches } = await import('../explorer-route-harness');
+	return { useHasRole: (minimum: MinimumRole) => roleReaches(harness.role, minimum) };
+});
+
+vi.mock('../../../../components/map', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../../../components/map')>();
+	return {
+		...actual,
+		MapCanvas: ({ activityLayer }: { readonly activityLayer?: ActivityLayerConfig }) => {
+			harness.activityLayer = activityLayer ?? null;
+			return <p>map surface</p>;
+		},
+	};
+});
+
+stubPanelLayout();
+
+let DailyWork: () => ReactNode;
+
+beforeAll(async () => {
+	DailyWork = await preloadRouteComponent(
+		() => import('../../../../routes/daily-work/$profileId'),
+		'daily work',
+	);
+}, 300_000);
+
+beforeEach(() => {
+	installMemoryCollections();
+	seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
+	seedRows(profiles, [
+		{ id: PROFILE_ID, organization_id: 'org-1', display_name: 'Dana Okafor', deleted_at: null },
+	]);
+	harness.search = { date: DAY };
+	harness.params = { profileId: PROFILE_ID };
+	harness.sent.length = 0;
+	harness.log = new Map([
+		[DAY, MIXED_DAY],
+		[OTHER_DAY, OTHER_DAY_ONLY],
+	]);
+	harness.truncated = false;
+	harness.total = null;
+	harness.activityLayer = null;
+	harness.role = 'admin';
+});
+
+afterEach(() => {
+	cleanup();
+});
+
+function renderDailyWork() {
+	return renderExplorer(DailyWork);
+}
+
+/** The stepper pressed: the day in the URL changes and the router says so. */
+function stepTo(day: string): void {
+	harness.search = { date: day };
+	act(() => notifyRouterStandIn());
+}
+
+/**
+ * The panel's section headings, outermost first, each with how many
+ * collapsibles it sits inside. A day heading over the families reads as depth
+ * 0 with the families at depth 1; families at the top read as depth 0 alone.
+ */
+function headingStructure(): readonly string[] {
+	return Array.from(
+		document.querySelectorAll<HTMLElement>('[data-slot="collapsible-trigger"]'),
+	).map((trigger) => {
+		let depth = 0;
+		for (
+			let node = trigger.parentElement?.closest('[data-slot="collapsible"]') ?? null;
+			node !== null;
+			node = node.parentElement?.closest('[data-slot="collapsible"]') ?? null
+		) {
+			depth += 1;
+		}
+		return `${'  '.repeat(depth - 1)}${trigger.textContent} [${trigger.dataset.state}]`;
+	});
+}
+
+/** The truncation notice and the section headings, in the order the panel draws them. */
+function panelOrder(): readonly string[] {
+	return Array.from(
+		document.querySelectorAll<HTMLElement>('[role="alert"], [data-slot="collapsible-trigger"]'),
+	).map((node) =>
+		node.getAttribute('role') === 'alert'
+			? `notice: ${node.textContent}`
+			: `heading: ${node.textContent}`,
+	);
+}
+
+function selectButton(title: string): HTMLElement {
+	return screen.getByRole('button', { name: `Show ${title} on the map` });
+}
+
+describe('the Daily Work log', () => {
+	it('lists the family sections at the top of the panel, open, each with its count', async () => {
+		renderDailyWork();
+		await screen.findByText('Culvert 12');
+
+		const structure = headingStructure();
+		// Printed so the shape is in the run's output.
+		console.info(['heading structure:', ...structure].join('\n'));
+
+		expect(structure).toEqual([
+			'Larval Surveillance1 [open]',
+			'Adult Surveillance1 [open]',
+			'Control Actions1 [open]',
+			'Public Engagement1 [open]',
+		]);
+		// The stepper is the only thing that says the date: the fold's heading was
+		// the list-date form, and nothing draws it now.
+		expect(screen.queryByText('Aug 5, 2026')).toBeNull();
+	});
+
+	it('folds a family section on its heading and unfolds it again', async () => {
+		renderDailyWork();
+		await screen.findByText('Culvert 12');
+
+		const larval = screen.getByRole('button', { name: /^Larval Surveillance/ });
+		fireEvent.click(larval);
+		expect(larval.dataset.state).toBe('closed');
+		expect(screen.queryByText('Culvert 12')).toBeNull();
+		// The other three are untouched.
+		expect(screen.getByText('GT-04')).toBeTruthy();
+
+		fireEvent.click(larval);
+		expect(larval.dataset.state).toBe('open');
+		expect(screen.getByText('Culvert 12')).toBeTruthy();
+	});
+
+	it('puts a family section first under the truncation notice', async () => {
+		harness.truncated = true;
+		harness.total = 640;
+		renderDailyWork();
+		await screen.findByText('Culvert 12');
+
+		// The notice and every section heading, in document order. The first
+		// heading after the notice is a family's, with no date heading between.
+		const order = panelOrder();
+		console.info(['panel order:', ...order].join('\n'));
+		expect(order.slice(0, 2)).toEqual([
+			'notice: This log is incompleteShowing the first 4 of 640 entries.',
+			'heading: Larval Surveillance1',
+		]);
+	});
+});
+
+describe('selecting a row on the Daily Work log', () => {
+	it('opens the focus card and highlights the pin', async () => {
+		renderDailyWork();
+		await screen.findByText('GT-04');
+
+		fireEvent.click(selectButton('GT-04'));
+
+		expect(selectButton('GT-04').getAttribute('aria-pressed')).toBe('true');
+		// The card is the trap card, which titles itself by the register while it
+		// resolves the row.
+		expect(await screen.findByRole('heading', { name: 'Trap' })).toBeTruthy();
+		await waitFor(() => expect(harness.activityLayer?.selectedKey).toBe('trap:trap-1:created'));
+	});
+
+	it('clears a selection the new day does not contain', async () => {
+		renderDailyWork();
+		await screen.findByText('GT-04');
+		fireEvent.click(selectButton('GT-04'));
+		await waitFor(() => expect(harness.activityLayer?.selectedKey).toBe('trap:trap-1:created'));
+
+		stepTo(OTHER_DAY);
+		await screen.findByText('Ditch 7');
+
+		expect(screen.queryByText('GT-04')).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'Trap' })).toBeNull();
+		expect(screen.queryByRole('button', { pressed: true })).toBeNull();
+		// The key is still held, and resolves to nothing on this day: the pin cloud
+		// holds the new day's one entry and the selected key names none of it.
+		const cloud = harness.activityLayer?.data as GeoJSON.FeatureCollection | null | undefined;
+		expect(cloud?.features.map((feature) => feature.properties?.id)).toEqual([
+			'habitat:habitat-2:created',
+		]);
+		expect(headingStructure()).toEqual(['Larval Surveillance1 [open]']);
+	});
+});
