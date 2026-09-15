@@ -50,6 +50,12 @@ domain doc instead of expanding this file.
   **Species Counts**.
 - A **Habitat** can have many **Habitat Inspections**; an **Ad Hoc Inspection**
   may be promoted into a **Habitat**.
+- An active **Habitat** is **untreated** while its latest inspection came back
+  heavy or very heavy, no **Chemical Application**, **Source Reduction** or
+  **Biocontrol Action** dated on or after that inspection names the habitat or
+  the inspection, and no unresolved **Requested Control Action** names it. A
+  later inspection at a lower density clears it on its own; a request for
+  control takes it off the untreated list without treating it.
 - A **Route** is reusable planning; an **Assignment** is dated field work; a
   **Mission** is scheduled control-work dispatch.
 - A **Requested Control Action** may later be linked to a performed **Chemical
