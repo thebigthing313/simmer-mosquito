@@ -13,6 +13,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { noTechnicianValue } from '../../../lib/no-technician';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -136,7 +137,7 @@ function CreateOutreachActionRoute() {
 					description:
 						'Place where the outreach happened, then record the method, how many were reached, and the date.',
 					backTo: '/public-engagement/outreach',
-					backLabel: 'Outreach',
+					backLabel: recordNoun('outreachAction').titleMany,
 				}}
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}

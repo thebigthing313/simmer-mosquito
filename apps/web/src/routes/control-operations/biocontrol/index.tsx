@@ -253,7 +253,7 @@ function BiocontrolExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Biocontrol',
+				title: recordNoun(RECORD_TYPE).titleMany,
 				icon: BiocontrolEntityIcon,
 				total,
 				isLoading,

@@ -126,19 +126,19 @@ const applications: Elsewhere = {
 	icon: iconRegistry.entities.application.icon,
 };
 const sourceReduction: Elsewhere = {
-	label: 'Source Reduction',
+	label: recordNoun('sourceReduction').titleMany,
 	description: 'Sources eliminated, by method and technician',
 	to: '/control-operations/source-reduction',
 	icon: iconRegistry.entities.sourceReduction.icon,
 };
 const biocontrol: Elsewhere = {
-	label: 'Biocontrol',
+	label: recordNoun('biocontrolAction').titleMany,
 	description: 'Releases logged by method, amount, and habitat',
 	to: '/control-operations/biocontrol',
 	icon: iconRegistry.entities.biocontrolAction.icon,
 };
 const outreach: Elsewhere = {
-	label: 'Outreach',
+	label: recordNoun('outreachAction').titleMany,
 	description: 'Outreach actions and the reach recorded against each',
 	to: '/public-engagement/outreach',
 	icon: iconRegistry.entities.outreachAction.icon,
