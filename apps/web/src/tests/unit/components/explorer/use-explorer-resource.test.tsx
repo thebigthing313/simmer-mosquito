@@ -26,15 +26,23 @@ import { cleanupRenderedHooks, createFakeMap } from '../map/fake-map';
 
 /** Every request the hook sent, in order. */
 const sent: URL[] = [];
-/** What the next response body is, which each test sets for its own shape. */
+/**
+ * What the next response body is, which each test sets for its own shape. A
+ * promise is adopted, which is how a case holds the page open while it counts
+ * what went out beside it.
+ */
 let answer: (url: URL) => unknown = () => ({});
+/** Which requests fail. The body is not read on a failure. */
+let failing: (url: URL) => boolean = () => false;
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
 	sessionFetch: (url: URL) => {
 		sent.push(url);
+		const ok = !failing(url);
 		return Promise.resolve({
-			ok: true,
+			ok,
+			status: ok ? 200 : 500,
 			json: () => Promise.resolve(answer(url)),
 		} as Response);
 	},
@@ -59,6 +67,7 @@ function wrapper({ children }: { readonly children: ReactNode }) {
 beforeEach(() => {
 	sent.length = 0;
 	answer = () => ({});
+	failing = () => false;
 });
 
 afterEach(() => {
@@ -67,6 +76,30 @@ afterEach(() => {
 });
 
 const ids = (prefix: string) => [`${prefix}-1`, `${prefix}-2`];
+
+/** How many of the requests so far were the page, and how many were a record by id. */
+function requestCounts(path: string): { readonly page: number; readonly byId: number } {
+	let page = 0;
+	let byId = 0;
+	for (const url of sent) {
+		if (url.pathname === path) {
+			page += 1;
+		} else if (url.pathname.startsWith(`${path}/`)) {
+			byId += 1;
+		}
+	}
+	return { page, byId };
+}
+
+/** A page answer a case releases by hand, so it can look at what went out beside it. */
+function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value: T) => void } {
+	let resolve: (value: T) => void = () => undefined;
+	const promise = new Promise<T>((settle) => {
+		resolve = settle;
+	});
+	return { promise, resolve };
+}
+
 const DATE_FROM = '2026-01-01';
 const DATE_TO = '2026-01-31';
 
@@ -331,11 +364,12 @@ describe('useExplorerResource: the viewport', () => {
 
 describe('useExplorerResource: the selected record', () => {
 	/*
-	 * Worth knowing before reading this one: a by-id request goes out anyway on
-	 * the first render, because the page has not arrived yet and a selection the
-	 * page does not hold is exactly what that read is for. It is
-	 * `useSelectedMapRecord`'s behaviour and predates this hook, so it is left
-	 * alone here rather than asserted either way.
+	 * The rule these cases hold, stated in `useSelectedMapRecord`'s docblock: a
+	 * record is asked for by id only once the page has answered and does not hold
+	 * it. Before #934 the by-id request went out on the first render beside the
+	 * page request, because `rows` is empty until the page lands and an empty
+	 * page cannot hold anything, so every deep link whose row was on the page
+	 * spent a round trip on a row the page was about to deliver.
 	 */
 	it('reads a selection off the page it already holds', async () => {
 		const onPage = { id: 'row-1', lat: 3, lng: 4 };
@@ -362,6 +396,119 @@ describe('useExplorerResource: the selected record', () => {
 		expect(result.current.selected).toBe(result.current.rows[0]);
 		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
 		expect(fake.cameraCalls[0]?.kind).toBe('flyTo');
+	});
+
+	it('spends one request on a deep link whose row is on the page', async () => {
+		const onPage = { id: 'row-1', lat: 3, lng: 4 };
+		answer = () => ({ rows: [onPage], total: 1 });
+		const fake = createFakeMap();
+
+		const { result } = renderHook(
+			() =>
+				useExplorerResource<Site>({
+					path: '/map/outreach',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'outreachAction',
+					params: {},
+					map: fake.map,
+					selectedId: 'row-1',
+				}),
+			{ wrapper },
+		);
+
+		await waitFor(() => expect(result.current.selected).toEqual(onPage));
+		// Settled, so anything the hook was going to send has been sent.
+		await waitFor(() => expect(result.current.isSettled).toBe(true));
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 0 });
+	});
+
+	it('asks for a row the page does not hold once the page has answered', async () => {
+		const page = deferred<{ rows: readonly Site[]; total: number }>();
+		answer = (url) =>
+			url.pathname.endsWith('/off-page')
+				? { row: { id: 'off-page', lat: 10, lng: 20 } }
+				: page.promise;
+		const fake = createFakeMap();
+
+		const { result } = renderHook(
+			() =>
+				useExplorerResource<Site>({
+					path: '/map/outreach',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'outreachAction',
+					params: {},
+					map: fake.map,
+					selectedId: 'off-page',
+				}),
+			{ wrapper },
+		);
+
+		// The page is still open, and nothing has gone out beside it.
+		await waitFor(() => expect(requestCounts('/map/outreach').page).toBe(1));
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 0 });
+		expect(result.current.selected).toBeNull();
+
+		page.resolve({ rows: [{ id: 'row-1', lat: 1, lng: 2 }], total: 1 });
+
+		await waitFor(() => expect(result.current.selected?.id).toBe('off-page'));
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1 });
+		expect(sent.map((url) => url.pathname)).toEqual(['/map/outreach', '/map/outreach/off-page']);
+	});
+
+	// A page with no rows is an answer, and it does not hold the selection. The
+	// gate is on the page having settled and never on it holding something, or a
+	// deep link into an empty viewport would draw no rail at all.
+	it('asks for the row when the page legitimately holds nothing', async () => {
+		answer = (url) =>
+			url.pathname.endsWith('/off-page')
+				? { row: { id: 'off-page', lat: 10, lng: 20 } }
+				: { rows: [], total: 0 };
+		const fake = createFakeMap();
+
+		const { result } = renderHook(
+			() =>
+				useExplorerResource<Site>({
+					path: '/map/outreach',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'outreachAction',
+					params: {},
+					map: fake.map,
+					selectedId: 'off-page',
+				}),
+			{ wrapper },
+		);
+
+		await waitFor(() => expect(result.current.selected?.id).toBe('off-page'));
+		expect(result.current.rows).toHaveLength(0);
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1 });
+	});
+
+	// An error settles the page too. The rail can draw when the list cannot.
+	it('asks for the row when the page request failed', async () => {
+		failing = (url) => !url.pathname.endsWith('/off-page');
+		answer = () => ({ row: { id: 'off-page', lat: 10, lng: 20 } });
+		const fake = createFakeMap();
+
+		const { result } = renderHook(
+			() =>
+				useExplorerResource<Site>({
+					path: '/map/outreach',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'outreachAction',
+					params: {},
+					map: fake.map,
+					selectedId: 'off-page',
+				}),
+			{ wrapper },
+		);
+
+		await waitFor(() => expect(result.current.isError).toBe(true));
+		await waitFor(() => expect(result.current.selected?.id).toBe('off-page'));
+		expect(requestCounts('/map/outreach')).toEqual({ page: 1, byId: 1 });
 	});
 
 	it('fetches a selection the page does not hold, and flies to it', async () => {

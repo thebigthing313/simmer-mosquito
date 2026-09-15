@@ -87,6 +87,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		path,
 		rowKey,
 		rows: paged.rows,
+		pageSettled: paged.isSettled,
 		selectedId,
 		...shaping,
 	});
