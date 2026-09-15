@@ -163,9 +163,9 @@ describe('assignmentStopTone', () => {
 		// which said the site was retired or unreachable rather than that the crew
 		// had been there. The two vocabularies share a union; they must not share
 		// values.
-		const siteTones = ['inactive', 'inaccessible'];
+		const lifecycleTones = ['inactive', 'inaccessible'];
 		for (const progress of ['pending', 'completed', 'skipped'] as const) {
-			expect(siteTones).not.toContain(assignmentStopTone(stop(progress)));
+			expect(lifecycleTones).not.toContain(assignmentStopTone(stop(progress)));
 		}
 	});
 });

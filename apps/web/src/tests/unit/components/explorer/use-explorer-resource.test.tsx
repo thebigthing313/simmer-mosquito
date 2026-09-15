@@ -69,7 +69,7 @@ function bareLayer(kind: MapTileLayer['kind']): MapTileLayer {
 	return { kind, serverUrl: 'http://api.test' } as MapTileLayer;
 }
 
-interface Site {
+interface Row {
 	readonly id: string;
 	readonly lat: number | null;
 	readonly lng: number | null;
@@ -320,7 +320,7 @@ describe('useExplorerResource: what each surface sends', () => {
 
 			renderHook(
 				() =>
-					useExplorerResource<Site>({
+					useExplorerResource<Row>({
 						path: surface.path,
 						rowsKey: surface.rowsKey,
 						rowKey: surface.rowKey,
@@ -359,7 +359,7 @@ describe('useExplorerResource: the viewport', () => {
 
 		const { rerender } = renderHook(
 			({ map }: { readonly map: MapboxMap | null }) =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/habitats',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -390,7 +390,7 @@ describe('useExplorerResource: the viewport', () => {
 
 		renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -427,7 +427,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -455,7 +455,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -475,7 +475,7 @@ describe('useExplorerResource: the selected record', () => {
 	});
 
 	it('asks for a row the page does not hold once the page has answered', async () => {
-		const page = deferred<{ rows: readonly Site[]; total: number }>();
+		const page = deferred<{ rows: readonly Row[]; total: number }>();
 		answer = (url) =>
 			url.pathname.endsWith('/off-page')
 				? { row: { id: 'off-page', lat: 10, lng: 20 } }
@@ -484,7 +484,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -523,7 +523,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -549,7 +549,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -576,7 +576,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/outreach',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -603,7 +603,7 @@ describe('useExplorerResource: the selected record', () => {
 
 		const { result } = renderHook(
 			() =>
-				useExplorerResource<Site>({
+				useExplorerResource<Row>({
 					path: '/map/chemical',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -634,7 +634,7 @@ describe('useExplorerResource: why the rail is empty', () => {
 	 */
 	const BOX = { west: -1, south: -1, east: 1, north: 1 };
 
-	function withExtent(extent: unknown, rows: readonly Site[] = []) {
+	function withExtent(extent: unknown, rows: readonly Row[] = []) {
 		answer = (url) =>
 			url.pathname.endsWith('/extent') ? { extent } : { rows, total: rows.length };
 	}
@@ -651,7 +651,7 @@ describe('useExplorerResource: why the rail is empty', () => {
 	function renderRail(layer: MapTileLayer, map: MapboxMap) {
 		return renderHook(
 			() => ({
-				rail: useExplorerResource<Site>({
+				rail: useExplorerResource<Row>({
 					path: '/map/habitats',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -780,7 +780,7 @@ describe('useExplorerResource: a filter change', () => {
 		return renderHook(
 			({ search }: { readonly search: string }) => {
 				const layer = layerFor(search);
-				const rail = useExplorerResource<Site>({
+				const rail = useExplorerResource<Row>({
 					path: '/map/habitats',
 					rowsKey: 'rows',
 					rowKey: 'row',
@@ -819,7 +819,7 @@ describe('useExplorerResource: a filter change', () => {
 	 */
 	async function loadAndFrame(
 		fake: FakeMap,
-		result: { readonly current: ExplorerResource<Site> },
+		result: { readonly current: ExplorerResource<Row> },
 	): Promise<void> {
 		await waitFor(() =>
 			expect(requestCounts('/map/habitats')).toEqual({ page: 1, byId: 0, extent: 1 }),

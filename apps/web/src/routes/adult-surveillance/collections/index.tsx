@@ -51,7 +51,7 @@ import { CollectionMapCard } from '../-collection-map-card';
 import type { CollectionStatusValue } from './-legend';
 import { collectionLegend, collectionStatusLabel } from './-legend';
 
-interface CollectionSite {
+interface CollectionRow {
 	readonly id: string;
 	readonly trapId: string | null;
 	readonly lat: number;
@@ -158,7 +158,7 @@ function CollectionsExplorerRoute() {
 	};
 	const layers: readonly MapTileLayer[] = [layer];
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<CollectionSite>({
+		useExplorerResource<CollectionRow>({
 			path: PATH,
 			rowsKey: 'collections',
 			rowKey: 'collection',
@@ -347,7 +347,7 @@ function CollectionListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: CollectionSite;
+	readonly row: CollectionRow;
 	readonly trapName: string | null;
 	readonly methodName: string;
 	readonly setByName: string | null;
@@ -400,7 +400,7 @@ function collectionSwatch(status: CollectionStatusValue): {
 
 /** Who handled this collection: whoever collected it, else whoever set it. */
 function collectionPersonnelName(
-	row: CollectionSite,
+	row: CollectionRow,
 	nameById: ReadonlyMap<string, string>,
 ): string | null {
 	const profileId = row.collectedByProfileId ?? row.setByProfileId;

@@ -44,7 +44,7 @@ import { TrapMapCard } from '../-trap-map-card';
 import type { StatusFilter } from './-legend';
 import { trapLegend } from './-legend';
 
-interface TrapSite {
+interface TrapRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -136,7 +136,7 @@ function TrapsExplorerRoute() {
 	};
 	const layers: readonly MapTileLayer[] = [layer];
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<TrapSite>({
+		useExplorerResource<TrapRow>({
 			path: PATH,
 			rowsKey: 'traps',
 			rowKey: 'trap',
@@ -304,7 +304,7 @@ function TrapListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly trap: TrapSite;
+	readonly trap: TrapRow;
 	readonly methodName: string;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;

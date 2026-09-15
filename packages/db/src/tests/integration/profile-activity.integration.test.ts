@@ -133,18 +133,18 @@ describeDbIntegration('profile activity', () => {
 			// The habitat the inspection was performed at, joined here because
 			// habitats do not stream to the client.
 			expect(pick(rows, (row) => row.category === 'inspection')).toMatchObject({
-				siteName: 'Culvert 12',
+				placeName: 'Culvert 12',
 				refId: world.habitatTypeId,
 				detail: 'light',
 			});
 			// The trap the collection came out of.
 			expect(pick(rows, (row) => row.id === world.spanningCollectionId)).toMatchObject({
-				siteName: 'T-1 - North gate',
+				placeName: 'T-1 - North gate',
 				refId: world.collectionMethodId,
 			});
 			expect(pick(rows, (row) => row.role === 'received')).toMatchObject({
 				label: 'Request 42',
-				siteName: '100 Main St',
+				placeName: '100 Main St',
 				detail: 'closed',
 			});
 		});

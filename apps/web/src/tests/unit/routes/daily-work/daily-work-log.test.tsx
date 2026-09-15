@@ -54,7 +54,7 @@ function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
 		date: DAY,
 		occurredAt: null,
 		label: null,
-		siteName: null,
+		placeName: null,
 		refId: null,
 		methodRefId: null,
 		amount: null,
@@ -84,7 +84,7 @@ const MIXED_DAY: readonly ActivityEntry[] = [
 		family: 'control',
 		category: 'application',
 		role: 'applied',
-		siteName: 'Culvert 12',
+		placeName: 'Culvert 12',
 		lat: 35.7,
 	}),
 	entry({

@@ -70,7 +70,7 @@ export const Route = createFileRoute('/larval-surveillance/inspections/')({
  * plus the record fields and the joined habitat / address / inspector labels the
  * list and detail card need to identify a row (an inspection has no name of its own).
  */
-interface InspectionSite {
+interface InspectionRow {
 	readonly id: string;
 	readonly lat: number | null;
 	readonly lng: number | null;
@@ -186,7 +186,7 @@ function InspectionsExplorerRoute() {
 	};
 	const layers: readonly MapTileLayer[] = [layer];
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<InspectionSite>({
+		useExplorerResource<InspectionRow>({
 			path: PATH,
 			rowsKey: 'inspections',
 			rowKey: 'inspection',
@@ -274,7 +274,7 @@ function InspectionMap({
 	readonly onSelect: (id: string | null) => void;
 	readonly onMapReady: (map: MapboxMap) => void;
 	readonly panel: ReturnType<typeof useExplorerPanel>;
-	readonly selected: InspectionSite | null;
+	readonly selected: InspectionRow | null;
 }) {
 	return (
 		<>
@@ -438,7 +438,7 @@ function InspectionListItem({
 	selectedId,
 	onSelect,
 }: {
-	readonly inspection: InspectionSite;
+	readonly inspection: InspectionRow;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
@@ -499,7 +499,7 @@ function InspectionListItem({
 }
 
 /** The heat colour this inspection draws in, so the row matches the map. */
-function inspectionSwatch(inspection: InspectionSite): {
+function inspectionSwatch(inspection: InspectionRow): {
 	readonly color: string;
 	readonly label: string;
 } {
@@ -517,7 +517,7 @@ function inspectionSwatch(inspection: InspectionSite): {
 // --- helpers ----------------------------------------------------------------
 
 function resolveTypeName(
-	inspection: InspectionSite,
+	inspection: InspectionRow,
 	typeNameById: ReadonlyMap<string, string>,
 ): string {
 	if (inspection.habitatTypeId === null) {

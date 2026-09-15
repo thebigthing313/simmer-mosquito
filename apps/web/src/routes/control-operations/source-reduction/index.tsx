@@ -45,7 +45,7 @@ import {
 import { formatAmount } from '../-control-display';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';
 
-interface SourceReductionSite {
+interface SourceReductionRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -140,7 +140,7 @@ function SourceReductionExplorerRoute() {
 	};
 	const layers: readonly MapTileLayer[] = [layer];
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
-		useExplorerResource<SourceReductionSite>({
+		useExplorerResource<SourceReductionRow>({
 			path: PATH,
 			rowsKey: 'sourceReductions',
 			rowKey: 'sourceReduction',
@@ -305,7 +305,7 @@ function SourceReductionListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: SourceReductionSite;
+	readonly row: SourceReductionRow;
 	readonly methodName: string;
 	readonly amountLabel: string;
 	readonly habitatName: string | null;
