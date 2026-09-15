@@ -93,7 +93,7 @@ function ContactsExplorerRoute() {
 						</WriteOnly>
 					}
 					description="The people you engage with on service requests and notifications."
-					title="Contacts"
+					title={recordNoun('contact').titleMany}
 				/>
 
 				<SearchInput

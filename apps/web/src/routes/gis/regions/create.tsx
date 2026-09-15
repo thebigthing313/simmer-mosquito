@@ -8,6 +8,7 @@ import { useRegionMutations } from '../../../hooks/mutations/use-region-mutation
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -64,7 +65,7 @@ function CreateRegionRoute() {
 				title: 'Create Region',
 				description: 'Draw a region boundary and name it for use across your organization.',
 				backTo: '/gis/regions',
-				backLabel: 'Regions',
+				backLabel: recordNoun('region').titleMany,
 			}}
 			initialGeometry={null}
 			mode="create"

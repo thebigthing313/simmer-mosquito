@@ -4,6 +4,7 @@ import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared'
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	addressSeedSearchSchema,
 	habitatSeedSearchSchema,
@@ -82,7 +83,7 @@ function CreateRequestForControlRoute() {
 				description:
 					'Map where control work is needed and say what kind. Missions draw their stops from this queue.',
 				backTo: '/operations/requests-for-control',
-				backLabel: 'Requests for Control',
+				backLabel: recordNoun('requestedControlAction').titleMany,
 			}}
 			onSave={onSave}
 			organizationId={organization.id}

@@ -253,7 +253,7 @@ function ApplicationsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Chemical Applications',
+				title: recordNoun('application').titleMany,
 				icon: ApplicationEntityIcon,
 				total,
 				isLoading,

@@ -474,7 +474,7 @@ function RegionsExplorerRoute() {
 					</WriteOnly>
 				}
 				heading={{
-					title: 'Regions',
+					title: recordNoun('region').titleMany,
 					icon: RegionIcon,
 					total: regions.length,
 					isLoading: !isReady,

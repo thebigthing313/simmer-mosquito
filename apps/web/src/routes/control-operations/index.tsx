@@ -27,6 +27,7 @@ import {
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';
+import { recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 import { formatActionDate, formatMeasure, usageTotal } from './-control-display';
 
@@ -418,7 +419,7 @@ function RecentSourceReductionsPanel({ since }: { readonly since: string }) {
 			count={isReady ? actions.length : undefined}
 			icon={<SourceReductionIcon className="size-4" />}
 			scrollBody
-			title="Source Reductions"
+			title={recordNoun('sourceReduction').titleMany}
 		>
 			{isError ? (
 				<PanelMessage>Source reduction activity is unavailable right now.</PanelMessage>

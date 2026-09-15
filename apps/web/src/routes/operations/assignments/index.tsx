@@ -42,6 +42,7 @@ import { useAssignmentItemCounts } from '../../../hooks/queries/use-assignment-i
 import { useAssignments } from '../../../hooks/queries/use-assignments';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -196,7 +197,9 @@ function AssignmentsIndexRoute() {
 				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 					<div className="flex items-center justify-between gap-3">
 						<div className="flex items-baseline gap-2">
-							<h1 className="font-semibold text-foreground text-lg leading-none">Assignments</h1>
+							<h1 className="font-semibold text-foreground text-lg leading-none">
+								{recordNoun('assignment').titleMany}
+							</h1>
 							<span className="text-muted-foreground text-sm">
 								{visible.length === 1 ? '1 assignment' : `${visible.length} assignments`}
 							</span>

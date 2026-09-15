@@ -170,7 +170,7 @@ function SamplesExplorerRoute() {
 			path: PATH,
 			rowsKey: 'samples',
 			rowKey: 'sample',
-			label: 'Samples',
+			label: recordNoun('sample').titleMany,
 			params: {
 				species: filters.speciesIds,
 				status: filters.status,
@@ -256,7 +256,7 @@ function SamplesExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Samples',
+				title: recordNoun('sample').titleMany,
 				icon: SampleIcon,
 				total,
 				isLoading,

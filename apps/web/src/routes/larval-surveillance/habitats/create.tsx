@@ -4,6 +4,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { recordNoun } from '../../../lib/record-nouns';
 import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
@@ -94,7 +95,7 @@ function CreateHabitatRoute() {
 				title: 'Create Habitat',
 				description: 'Add a mapped larval habitat with the core field details crews need.',
 				backTo: '/larval-surveillance/habitats',
-				backLabel: 'Habitats',
+				backLabel: recordNoun('habitat').titleMany,
 			}}
 			submitLabel="Create Habitat"
 			onSave={onSave}

@@ -3,6 +3,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -53,7 +54,7 @@ function CreateWeatherStationRoute() {
 				title: 'Add Weather Station',
 				description: 'Place a station and name it, then record its readings against it.',
 				backTo: '/gis/weather',
-				backLabel: 'Weather Stations',
+				backLabel: recordNoun('weatherStation').titleMany,
 			}}
 			initialGeometry={null}
 			mode="create"

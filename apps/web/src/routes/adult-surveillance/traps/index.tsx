@@ -131,7 +131,7 @@ function TrapsExplorerRoute() {
 			path: PATH,
 			rowsKey: 'traps',
 			rowKey: 'trap',
-			label: 'Traps',
+			label: recordNoun('trap').titleMany,
 			params: {
 				collectionMethodId: filters.collectionMethodIds,
 				status:
@@ -241,7 +241,7 @@ function TrapsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Traps',
+				title: recordNoun('trap').titleMany,
 				icon: TrapEntityIcon,
 				total,
 				isLoading,
