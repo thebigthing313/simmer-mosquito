@@ -42,14 +42,8 @@ import {
 	describeDbIntegration,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
-import { Hono } from 'hono';
-import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import type { AuthContext } from '../../auth-context.js';
-import type { AuthVariables, OperatorAuthContext } from '../../auth-middleware.js';
-import { registerTableCommandRoutes } from '../../table-commands/dispatch.js';
-import { speciesTableCommands } from '../../table-commands/taxonomy.js';
-import { command, commandApp } from './support/command-app.js';
+import { command, commandApp, operatorCommandApp } from './support/command-app.js';
 
 describeDbIntegration('history and collision refusals', () => {
 	// -----------------------------------------------------------------------
@@ -382,15 +376,13 @@ describeDbIntegration('history and collision refusals', () => {
 			await createOrganizationSpecies(db, first, speciesId);
 			await createOrganizationSpecies(db, second, speciesId);
 
-			const response = await speciesApp(db, operator).request(`/commands/species/${speciesId}`, {
-				method: 'PATCH',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					intents: ['foundation.updateSpecies'],
+			const response = await operatorCommandApp(db, operator).request(
+				`/commands/species/${speciesId}`,
+				command('PATCH', ['foundation.updateSpecies'], {
 					display_name: 'Culex quinquefasciatus',
 					acknowledgedTaxonomyMeaningChange: false,
 				}),
-			});
+			);
 
 			expect(response.status).toBe(409);
 			await expect(response.json()).resolves.toMatchObject({
@@ -482,48 +474,10 @@ describeDbIntegration('history and collision refusals', () => {
 });
 
 // ===========================================================================
-// Apps
+// Fixtures
 // ===========================================================================
 
 type Db = Kysely<SimmerDatabase>;
-
-function authMiddleware(organizationId: string, profileId: string) {
-	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-		context.set('authContext', {
-			organization: { id: organizationId },
-			profile: { id: profileId },
-			role: 'owner',
-		} as AuthContext);
-		await next();
-	});
-}
-
-/** The operator door, which carries a SIMMER user id and no organization at all. */
-function operatorMiddleware(userId: string) {
-	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-		context.set('operatorContext', {
-			localIdentity: { user: { id: userId } },
-		} as OperatorAuthContext);
-		await next();
-	});
-}
-
-function speciesApp(db: Db, operatorUserId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerTableCommandRoutes(
-		app,
-		{
-			authContextMiddleware: authMiddleware('', ''),
-			operatorAuthContextMiddleware: operatorMiddleware(operatorUserId),
-		},
-		speciesTableCommands(db),
-	);
-	return app;
-}
-
-// ===========================================================================
-// Fixtures
-// ===========================================================================
 
 function createSubscription(
 	db: Db,

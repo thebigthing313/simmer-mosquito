@@ -19,12 +19,10 @@ import {
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
-import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
 import { registerRecordDeletionRoutes } from '../../record-deletion.js';
-import { command, commandApp } from './support/command-app.js';
+import { command, commandApp, ownerSession } from './support/command-app.js';
 
 /**
  * The delete policy where it meets HTTP.
@@ -178,22 +176,12 @@ type Db = Kysely<SimmerDatabase>;
 
 const NEVER_EXISTED = 'b7c2f0a4-6f0e-4c39-9f1e-6a4a4b7c9d21';
 
-function authMiddleware(organizationId: string, profileId: string) {
-	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-		context.set('authContext', {
-			organization: { id: organizationId },
-			profile: { id: profileId },
-			role: 'owner',
-		} as AuthContext);
-		await next();
-	});
-}
-
+/** The delete-impact read, which is not on the command surface. */
 function impactApp(db: Db, organizationId: string): Hono<{ Variables: AuthVariables }> {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerRecordDeletionRoutes(app, {
 		db,
-		authContextMiddleware: authMiddleware(organizationId, NEVER_EXISTED),
+		authContextMiddleware: ownerSession(organizationId, NEVER_EXISTED),
 	});
 	return app;
 }

@@ -5,13 +5,8 @@ import {
 	describeDbIntegration,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
-import { Hono } from 'hono';
-import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import type { AuthContext } from '../../auth-context.js';
-import type { AuthVariables } from '../../auth-middleware.js';
-import { registerTableCommandRoutes } from '../../table-commands/dispatch.js';
-import { habitatTableCommands } from '../../table-commands/habitats.js';
+import { command, commandApp } from './support/command-app.js';
 
 /**
  * The covers-ground rule where it meets HTTP.
@@ -30,16 +25,14 @@ describeDbIntegration('a geometry that covers no ground', () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 
-			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/habitats',
+				command('POST', ['larvalSurveillance.createHabitat'], {
 					id: HABITAT_ID,
-					intents: ['larvalSurveillance.createHabitat'],
 					description: 'Roadside ditch',
 					locationSource: { kind: 'geometry', geometry: PINPRICK },
 				}),
-			});
+			);
 
 			expect(response.status).toBe(400);
 			// `reason` and not `message`, which is the shape every refusal answers
@@ -69,16 +62,14 @@ describeDbIntegration('a geometry that covers no ground', () => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const inspectionId = await createDegenerateInspection(db, org);
 
-			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/habitats',
+				command('POST', ['larvalSurveillance.createHabitat'], {
 					id: HABITAT_ID,
-					intents: ['larvalSurveillance.createHabitat'],
 					description: 'Roadside ditch',
 					locationSource: { kind: 'inspection', inspectionId },
 				}),
-			});
+			);
 
 			expect(response.status).toBe(400);
 			await expect(response.json()).resolves.toEqual({
@@ -93,12 +84,10 @@ describeDbIntegration('a geometry that covers no ground', () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 
-			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/habitats',
+				command('POST', ['larvalSurveillance.createHabitat'], {
 					id: HABITAT_ID,
-					intents: ['larvalSurveillance.createHabitat'],
 					description: 'Roadside ditch',
 					locationSource: {
 						kind: 'geometry',
@@ -115,7 +104,7 @@ describeDbIntegration('a geometry that covers no ground', () => {
 						},
 					},
 				}),
-			});
+			);
 
 			expect(response.status).toBe(201);
 			await expect(countHabitats(db, org)).resolves.toBe(1);
@@ -144,27 +133,6 @@ const PINPRICK = {
 		],
 	],
 };
-
-function authMiddleware(organizationId: string, profileId: string) {
-	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-		context.set('authContext', {
-			organization: { id: organizationId },
-			profile: { id: profileId },
-			role: 'owner',
-		} as AuthContext);
-		await next();
-	});
-}
-
-function habitatApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerTableCommandRoutes(
-		app,
-		{ authContextMiddleware: authMiddleware(organizationId, profileId) },
-		habitatTableCommands(db),
-	);
-	return app;
-}
 
 /** An inspection already stored on a zero-area ring, which the rule has to find. */
 function createDegenerateInspection(db: Db, organizationId: string): Promise<string> {
