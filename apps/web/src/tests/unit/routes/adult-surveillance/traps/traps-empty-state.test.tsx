@@ -18,19 +18,20 @@
  * docblock gives: the route module's `Route` hands back the search a match
  * would, `MapCanvas` becomes a stand-in that reports a fake map and observes
  * the extent the way the real one does under `fitToData`, and the role comes
- * from a variable. The component is preloaded first, since the split build's
+ * from a variable. The stand-in, the role ladder and the layout stubs are in
+ * `explorer-route-harness.tsx`, shared with the other route suites that render
+ * a whole explorer. The component is preloaded first, since the split build's
  * lazy stand-in would otherwise overrun the test timeout while it imports.
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, Suspense, useEffect } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MapTileLayer } from '../../../../../components/map/tile-layers';
 import { organizations } from '../../../../../lib/collections/organizations';
 import type { MinimumRole } from '../../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
+import { stubPanelLayout } from '../../explorer-route-harness';
 
 const harness = vi.hoisted(() => ({
 	/** The search params a match would carry: the route's filters. */
@@ -74,70 +75,20 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	},
 }));
 
-const RANK: Record<string, number | undefined> = {
-	viewer: 0,
-	collector: 1,
-	manager: 2,
-	admin: 3,
-	owner: 4,
-};
-vi.mock('../../../../../hooks/use-can-write', () => ({
-	useHasRole: (minimum: MinimumRole) => (RANK[harness.role] ?? 0) >= (RANK[minimum] ?? 0),
-}));
+vi.mock('../../../../../hooks/use-can-write', async () => {
+	const { roleReaches } = await import('../../explorer-route-harness');
+	return { useHasRole: (minimum: MinimumRole) => roleReaches(harness.role, minimum) };
+});
 
-/**
- * The canvas, reduced to the two things the rail depends on it for: a map to
- * read a viewport off, and the extent request `fitToData` sends. The real one
- * observes the same query through `useMapExtentFit`, and so does this, which is
- * what lets the request count below say whether the rail added one.
- */
+// The canvas stand-in, the role ladder and the layout stubs are the harness
+// beside the route suites; its header says why they live there.
 vi.mock('../../../../../components/map', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('../../../../../components/map')>();
-	const { tileLayerExtentUrl } = await import('../../../../../components/map/tile-layers');
-	const { useMapExtent } = await import('../../../../../components/map/use-map-extent-fit');
-	const { createFakeMap } = await import('../../../components/map/fake-map');
-	function MapCanvasStandIn({
-		fitToData,
-		layers,
-		onMapReady,
-	}: {
-		readonly fitToData?: boolean;
-		readonly layers?: readonly MapTileLayer[];
-		readonly onMapReady?: (map: MapboxMap) => void;
-	}) {
-		const first = layers?.[0];
-		useMapExtent(fitToData === true && first !== undefined ? tileLayerExtentUrl(first) : null);
-		useEffect(() => {
-			onMapReady?.(createFakeMap().map);
-		}, [onMapReady]);
-		return <p>map surface</p>;
-	}
+	const { MapCanvasStandIn } = await import('../../explorer-route-harness');
 	return { ...actual, MapCanvas: MapCanvasStandIn };
 });
 
-// The panel measures the stage and its own box. Every element reports one size.
-vi.stubGlobal(
-	'ResizeObserver',
-	class {
-		private readonly callback: (entries: readonly unknown[]) => void;
-		constructor(callback: (entries: readonly unknown[]) => void) {
-			this.callback = callback;
-		}
-		observe(target: Element) {
-			this.callback([{ contentRect: { width: 1000, height: 700 }, target }]);
-		}
-		unobserve() {}
-		disconnect() {}
-	},
-);
-Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-	configurable: true,
-	get: () => 700,
-});
-Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-	configurable: true,
-	get: () => 1000,
-});
+stubPanelLayout();
 
 type SplitComponent = (() => ReactNode) & { readonly preload?: () => Promise<unknown> };
 

@@ -33,7 +33,7 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 
 // --- what the map surfaces actually answer -----------------------------------
 //
-// `map-surface-sql.test.ts` compiles all forty-one map reads and pins the SQL,
+// `map-surface-sql.test.ts` compiles all forty-three map reads and pins the SQL,
 // which proves ADR 0008's organization and soft-delete predicates are written.
 // It pins text, not execution: no read in this package has ever been run
 // against Postgres, so a predicate on the wrong alias, a join that outlives its
@@ -43,7 +43,7 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 // This runs every one of them. The seed puts each surface's live record on top
 // of a deleted one and a neighbouring organization's, so a read that lost its
 // scope answers with three where one was seeded — the returned id set is the
-// whole assertion, and it is compared for all twelve surfaces at once so a
+// whole assertion, and it is compared for all thirteen surfaces at once so a
 // broken predicate shows up as a diff naming its surface rather than one
 // failure that stops the loop.
 //
@@ -179,6 +179,8 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'addresses',
 		tile: MAP_SURFACES.addresses.getTile,
 		extent: MAP_SURFACES.addresses.getExtent,
+		boundsPage: MAP_SURFACES.addresses.listByBounds,
+		byId: MAP_SURFACES.addresses.getById,
 	},
 	{
 		name: 'region',
@@ -423,6 +425,40 @@ describeDbIntegration('map surfaces against Postgres', () => {
 					(surface) => surface.byId !== undefined,
 				),
 			);
+		});
+	});
+
+	// The one filtered read here, because the address search is the predicate
+	// the explorer's list used to apply in the browser over five fields and the
+	// tiles applied over one. Both go through this predicate now (#962), so what
+	// it matches is what the map draws and the rail lists. The seed's display
+	// name is `100 Main St`, with every other line null: a match on it comes
+	// back, a term nothing carries does not, and a null line does not null the
+	// whole because `concat_ws` skips it.
+	it('pages the addresses in the box that match the search', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = mapSurfaceRowIds.address;
+			const read = async (search: string) =>
+				MAP_SURFACES.addresses.listByBounds(db, {
+					organizationId: mapSurfaceOrganizationIds.own,
+					timeZone: mapSurfaceTimeZone,
+					bounds: mapSurfacePlace.bounds,
+					filters: { search },
+					...page,
+				});
+
+			const matched = await read('main');
+			const unmatched = await read('elm');
+
+			expect({ ids: sortedIds(matched.rows), total: matched.total }).toEqual({
+				ids: [ids.inside],
+				total: 1,
+			});
+			expect({ ids: sortedIds(unmatched.rows), total: unmatched.total }).toEqual({
+				ids: [],
+				total: 0,
+			});
 		});
 	});
 

@@ -805,6 +805,8 @@ describe('registerMapTileRoutes — inspections', () => {
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).
+// The address route is a surface by-id read since #962, and answers the whole
+// display row with the geometry at its top level.
 describe('map geometry routes', () => {
 	it('answers a region with its geometry alone, scoped to the organization', async () => {
 		const calls: unknown[] = [];
@@ -824,15 +826,18 @@ describe('map geometry routes', () => {
 		expect(calls).toEqual([{ id: regionId, organizationId }]);
 	});
 
-	it('answers an address with its geometry alone', async () => {
+	it('answers an address as its display row, with the geometry at the top level', async () => {
+		const row = { id: addressId, organizationId, ...geometry, displayName: '100 Main St' };
 		const app = createApp({
-			getAddressRow: async () => ({ id: addressId, organizationId, geometry }) as never,
+			getAddressDisplayRow: async () => row as never,
 		});
 
 		const response = await app.request(`/map/addresses/${addressId}`);
 
 		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toEqual({ address: geometry });
+		// `lat`, `lng` and `geojson` sit where the detail page's geometry read has
+		// always found them, so the route changing shape moved nothing it reads.
+		await expect(response.json()).resolves.toEqual({ address: row });
 	});
 
 	it('answers a requested control action, and 404s for another organization’s', async () => {
@@ -1199,6 +1204,7 @@ describe('map read route registration', () => {
 
 	it.each([
 		'/map/habitats',
+		'/map/addresses',
 		'/map/inspections',
 		'/map/samples',
 		'/map/chemical',
@@ -1277,6 +1283,7 @@ describe('paged map surfaces', () => {
 	// client cannot mean (#920).
 	const bbox = 'bbox=-91,35,-90,36&';
 	const pagedSurfaces = [
+		['/map/addresses', 'listAddressDisplayRows', bbox],
 		['/map/samples', 'listSampleDisplayRows', bbox],
 		['/map/chemical', 'listApplicationDisplayRows', bbox],
 		['/map/source-reduction', 'listSourceReductionDisplayRows', bbox],
@@ -1333,8 +1340,9 @@ describe('paged map surfaces', () => {
 		expect(list).not.toHaveBeenCalled();
 	});
 
-	// The date fields every one of these surfaces carries, and the one shape of
-	// bad input a caller is most likely to send.
+	// The date fields most of these surfaces carry, and the one shape of bad
+	// input a caller is most likely to send. Addresses and traps carry none, and
+	// refuse the param as one their filters do not admit, which is the same 400.
 	it.each(pagedSurfaces)('refuses a malformed date on %s', async (path, reader, prefix) => {
 		const { app, list } = pagedApp(reader);
 
