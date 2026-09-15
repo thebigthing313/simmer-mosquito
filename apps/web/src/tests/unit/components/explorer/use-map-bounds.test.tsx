@@ -7,8 +7,10 @@
  * rather than from `getBounds`, which subtracts the map's viewport padding: a
  * page with a results panel floating over its map sets that padding, so
  * `getBounds` hands back only the strip beside the panel and the list drops
- * every record behind it. And a view wide enough to wrap the world collapses to
- * one whole-world box rather than going out as a span no endpoint can read.
+ * every record behind it. And a view with a longitude outside the range, whether
+ * wide enough to wrap the world or across the antimeridian, collapses to one
+ * whole-world box rather than going out as a span no endpoint can read or
+ * clamped to one side of the line (#933).
  *
  * The fake map unprojects linearly, a flat 0.001 degrees per pixel from the
  * origin, over a 1000x800 canvas. So the untouched viewport is west 0, south
@@ -91,6 +93,41 @@ describe('useMapBoundsParam', () => {
 		// both directions. The raw span is 500 degrees, which is not a box any
 		// endpoint can read.
 		unprojectAs(fake, ([x, y]) => ({ lng: -250 + x * 0.5, lat: -y * 0.001 }));
+
+		const { result } = renderHook<MapboxMap | null, string | null>(useMapBoundsParam, fake.map);
+
+		expect(result.current).toBe('-180,-0.8,180,0');
+	});
+
+	it('collapses a view across the antimeridian to the whole world, not to one side of it', () => {
+		const fake = createFakeMap();
+		// Mapbox unprojects a camera past the line unwrapped, so a view centred on
+		// it reads west 170, east 190. Clamping that to 170,180 would drop the
+		// eastern half of what the reader is looking at, with nothing on screen
+		// to say so; the whole world is a superset, which is wrong in the
+		// direction a person can see (#933).
+		unprojectAs(fake, ([x, y]) => ({ lng: 170 + x * 0.02, lat: -y * 0.001 }));
+
+		const { result } = renderHook<MapboxMap | null, string | null>(useMapBoundsParam, fake.map);
+
+		expect(result.current).toBe('-180,-0.8,180,0');
+	});
+
+	it('sends a view inside the longitude range as it is', () => {
+		const fake = createFakeMap();
+		unprojectAs(fake, ([x, y]) => ({ lng: -170 + x * 0.1, lat: -y * 0.001 }));
+
+		const { result } = renderHook<MapboxMap | null, string | null>(useMapBoundsParam, fake.map);
+
+		expect(result.current).toBe('-170,-0.8,-70,0');
+	});
+
+	it('sends a view that is exactly the whole world as it is', () => {
+		const fake = createFakeMap();
+		// The endpoints of the range are in it, so a 360 degree span sitting
+		// exactly on them is a box the endpoint reads, and collapsing it would
+		// answer the same string anyway.
+		unprojectAs(fake, ([x, y]) => ({ lng: -180 + x * 0.36, lat: -y * 0.001 }));
 
 		const { result } = renderHook<MapboxMap | null, string | null>(useMapBoundsParam, fake.map);
 
