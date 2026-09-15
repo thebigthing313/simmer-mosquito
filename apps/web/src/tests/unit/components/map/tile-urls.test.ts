@@ -8,6 +8,10 @@ import {
 	buildChemicalTileUrl,
 } from '../../../../components/map/chemical-tiles';
 import {
+	buildCollectionExtentUrl,
+	buildCollectionTileUrl,
+} from '../../../../components/map/collection-tiles';
+import {
 	buildHabitatExtentUrl,
 	buildHabitatTileUrl,
 } from '../../../../components/map/habitat-tiles';
@@ -64,6 +68,21 @@ describe('tile and extent URLs', () => {
 	])('carries the same %s filters on both URLs', (_tileset, tileUrl, extentUrl) => {
 		expect(queryOf(extentUrl)).toBe(queryOf(tileUrl));
 		expect(queryOf(extentUrl).length).toBeGreaterThan(0);
+	});
+
+	// The two Dashboard filters, spelled as the server's `trueOnly` params and
+	// dropped when off, so a link with the flag lands on the rows the count
+	// counted and a page without it sends nothing the reader has to ignore.
+	it('sends the untreated and awaiting flags only when they are on', () => {
+		expect(queryOf(buildHabitatTileUrl(serverUrl, { untreatedOnly: true }))).toBe('untreated=true');
+		expect(queryOf(buildHabitatTileUrl(serverUrl, { untreatedOnly: false }))).toBe('');
+		expect(queryOf(buildCollectionTileUrl(serverUrl, { awaitingOnly: true }))).toBe(
+			'awaiting=true',
+		);
+		expect(queryOf(buildCollectionExtentUrl(serverUrl, { awaitingOnly: true }))).toBe(
+			'awaiting=true',
+		);
+		expect(queryOf(buildCollectionTileUrl(serverUrl, { awaitingOnly: false }))).toBe('');
 	});
 
 	// Every record tileset takes the region narrowing under the same param, so a
