@@ -22,7 +22,9 @@
  * read first to stop that (#689), which was the opposite of what that issue's
  * brief asked for. #795 fixed the server instead: every refusal body's
  * `reason` is a sentence now, those three arms write one each, and the three
- * entries that stood in for them are gone from the list below.
+ * entries that stood in for them are gone from the list below. `invalid_command`
+ * is the fourth entry to go the same way (#928): it carried its sentence in
+ * `message`, which nothing here reads, and it writes `reason` now.
  *
  * The rule for what goes in is unchanged and is what makes the plain order
  * safe: **a code is entered here only when every admin-reachable refusal that
@@ -32,8 +34,9 @@
  * `invalid_payload` names the field, `forbidden` names the standing,
  * `reference_refused` names the row, `trap_display_required` says which of the
  * two labels to keep, `workos_identity_writes_disabled` says the deployment
- * refuses identity writes, and the three `invitation_*` 502s carry the copy
- * `invitation-refusal.ts` keeps beside each name.
+ * refuses identity writes, `invalid_command` names the command it refused, and
+ * the three `invitation_*` 502s carry the copy `invitation-refusal.ts` keeps
+ * beside each name.
  *
  * ## How the list was found
  *
@@ -64,7 +67,6 @@
 /** One sentence per code, and no entry that is the code with its shape changed. */
 const REFUSAL_MESSAGES: Record<string, string> = {
 	already_a_member: 'That person already holds a membership in this organization.',
-	invalid_command: 'The server refused these values. Check the form and try again.',
 	invited_email_already_used:
 		'That email address already has an invitation in this organization. Check the list before sending another.',
 	operator_not_configured:

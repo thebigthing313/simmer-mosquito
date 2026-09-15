@@ -41,7 +41,7 @@ describe('a domain refusal raised inside the write transaction', () => {
 		expect(response.status).toBe(400);
 		await expect(response.json()).resolves.toEqual({
 			error: 'invalid_command',
-			message: 'Geometry must cover ground.',
+			reason: 'Geometry must cover ground.',
 			issues: [{ path: 'geometry', message: 'Geometry must cover ground.' }],
 		});
 	});
@@ -83,7 +83,7 @@ describe('a domain refusal raised by the builder', () => {
 		expect(response.status).toBe(400);
 		await expect(response.json()).resolves.toEqual({
 			error: 'invalid_command',
-			message: 'Name is required.',
+			reason: 'Name is required.',
 			issues: [{ path: 'name', message: 'Name is required.' }],
 		});
 	});

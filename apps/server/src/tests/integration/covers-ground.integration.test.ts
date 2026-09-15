@@ -42,8 +42,12 @@ describeDbIntegration('a geometry that covers no ground', () => {
 			});
 
 			expect(response.status).toBe(400);
+			// `reason` and not `message`, which is the shape every refusal answers
+			// in since #928. The per-path `message` inside `issues` is a different
+			// field and says what is wrong with that one path.
 			await expect(response.json()).resolves.toMatchObject({
 				error: 'invalid_command',
+				reason: 'Create habitat command is invalid.',
 				issues: [
 					{
 						path: 'locationSource.geometry.coordinates',

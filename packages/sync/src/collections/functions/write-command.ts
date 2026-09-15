@@ -37,7 +37,12 @@ import { sessionFetch } from './session-fetch.js';
  *
  * `message` is the fallback for a body no server wrote: {@link readBody} puts
  * an unparseable response's text there, so a proxy's HTML reaches a caller as
- * something rather than as nothing. No command endpoint sets it.
+ * something rather than as nothing. No command endpoint sets it, which #928 is
+ * what made true: `invalid_command` wrote its sentence there until then, so
+ * this field carried two unrelated things and the fallback below read like a
+ * second name for `reason`. It is not one, and the two refusals that still
+ * write `message` are `delete_blocked` and `acknowledgement_required`, which
+ * reach a caller through the same fallback.
  */
 export interface CommandRefusal {
 	readonly error?: string;
