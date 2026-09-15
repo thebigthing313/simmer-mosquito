@@ -219,6 +219,30 @@ describe('what a refusal reads as', () => {
 		);
 	});
 
+	// #929: this reader already trimmed, and now every reader does. The case is
+	// here because the console reads the register between the body and the
+	// caller's fallback, so a whitespace reason has two things to fall through.
+	it('reads a whitespace reason as no sentence and falls through to the register', async () => {
+		expect(await readMessage({ error: 'operator_not_configured', reason: '   ' }, 403)).toBe(
+			'This server has no SIMMER organization set, so it can admit no operators. Set SIMMER_OPERATOR_ORG_ID on the server and restart it.',
+		);
+	});
+
+	// `message` is the fallback `readBody` fills from an unparseable answer, and
+	// the console read none of it before #929. Nothing the register carries ever
+	// arrives with one, which is the register's own entry rule read backwards.
+	it('reads a message when the body carries no reason', async () => {
+		expect(await readMessage({ error: 'gateway', message: 'Upstream said no.' }, 502)).toBe(
+			'Upstream said no.',
+		);
+	});
+
+	it('takes the fallback for a code with neither a sentence nor an entry', async () => {
+		expect(await readMessage({ error: 'nothing_the_console_knows' }, 500)).toBe(
+			'Unable to load organizations.',
+		);
+	});
+
 	it("keeps the server's own sentence for a code the register does not carry", async () => {
 		expect(
 			await writeMessage({ error: 'invalid_payload', reason: 'Region name is required.' }, 400),

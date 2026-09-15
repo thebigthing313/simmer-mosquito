@@ -4,7 +4,6 @@ import {
 	CommandError,
 	commandErrorFrom,
 	isDeleteBlocked,
-	messageFromBody,
 	readBlockers,
 	readResponseBody,
 } from '../../../sync/command-error';
@@ -43,23 +42,42 @@ describe('commandErrorFrom', () => {
 	});
 });
 
-describe('messageFromBody', () => {
+/**
+ * The precedence itself is `refusalSentence`'s and is covered in
+ * `packages/sync`, where every reader now shares it (#929). What these cases
+ * hold is that this call site reaches it, including on the whitespace shape the
+ * local copy here used to render as an empty red box.
+ */
+describe('commandErrorFrom reads the shared rule', () => {
 	it('prefers reason over message', () => {
-		// Both appear on refusals. `reason` is the specific one — "Collectors can
-		// only work assignments assigned to them" versus "Forbidden".
-		expect(messageFromBody({ reason: 'Specific.', message: 'Generic.' }, 'fallback')).toBe(
-			'Specific.',
-		);
+		// Both appear on refusals. `reason` is the specific one: "Collectors can
+		// only work assignments assigned to them" against "Forbidden".
+		const body = { reason: 'Specific.', message: 'Generic.' };
+
+		expect(commandErrorFrom(failed(403, body), body, 'fallback').message).toBe('Specific.');
 	});
 
 	it('takes message when there is no reason', () => {
-		expect(messageFromBody({ message: 'Generic.' }, 'fallback')).toBe('Generic.');
+		const body = { message: 'Generic.' };
+
+		expect(commandErrorFrom(failed(409, body), body, 'fallback').message).toBe('Generic.');
+	});
+
+	it('treats a whitespace reason as no reason at all', () => {
+		const body = { reason: '   ', message: 'Generic.' };
+
+		expect(commandErrorFrom(failed(403, body), body, 'fallback').message).toBe('Generic.');
+		expect(
+			commandErrorFrom(failed(403, { reason: '   ' }), { reason: '   ' }, 'fallback').message,
+		).toBe('fallback');
 	});
 
 	it('ignores empty strings and non-objects', () => {
-		expect(messageFromBody({ reason: '', message: '' }, 'fallback')).toBe('fallback');
-		expect(messageFromBody('not json', 'fallback')).toBe('fallback');
-		expect(messageFromBody(null, 'fallback')).toBe('fallback');
+		const empty = { reason: '', message: '' };
+
+		expect(commandErrorFrom(failed(500, empty), empty, 'fallback').message).toBe('fallback');
+		expect(commandErrorFrom(failed(502, null), 'not json', 'fallback').message).toBe('fallback');
+		expect(commandErrorFrom(failed(502, null), null, 'fallback').message).toBe('fallback');
 	});
 });
 

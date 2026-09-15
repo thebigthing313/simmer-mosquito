@@ -4,7 +4,7 @@ import {
 	type ActivityInvolvement,
 	isLarvalDensity,
 } from '@simmer-mosquito/domain';
-import { sessionFetch } from '@simmer-mosquito/sync';
+import { refusalSentence, sessionFetch } from '@simmer-mosquito/sync';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
 import { useTagOptions } from '../components/explorer';
@@ -730,13 +730,11 @@ async function fetchProfileActivity(
 
 /** The server's own explanation where it gave one; the status code otherwise. */
 async function refusalReason(response: Response): Promise<string> {
+	const fallback = `Activity request failed (${response.status}).`;
 	try {
-		const body = (await response.json()) as { readonly reason?: unknown };
-		if (typeof body.reason === 'string' && body.reason.trim() !== '') {
-			return body.reason;
-		}
+		return refusalSentence(await response.json(), fallback);
 	} catch {
 		// Not JSON; fall through to the status.
+		return fallback;
 	}
-	return `Activity request failed (${response.status}).`;
 }

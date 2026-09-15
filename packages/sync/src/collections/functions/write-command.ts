@@ -53,6 +53,44 @@ export interface CommandRefusal {
 }
 
 /**
+ * The sentence a refusal reads as on screen, or `fallback` when it has none.
+ *
+ * `reason` first, then `message`, then the caller's own sentence. That order is
+ * the docblock above turned into code: `reason` is what a server producer
+ * writes for a person, and `message` is only ever the fallback {@link readBody}
+ * puts an unparseable response's text into.
+ *
+ * Eight places carried this rule before #929 and they disagreed on what counts
+ * as empty. Three tested `!== ''`, three tested `.trim() !== ''`, and two used a
+ * bare `??`, which takes an empty string as an answer. So `reason: '   '`
+ * rendered as a blank red box through some of them and fell through to the
+ * fallback in others. The strictest rule is the one kept here, because a
+ * sentence of spaces tells a person nothing and the fallback names the record.
+ * No server producer sends that shape today, which is why #929 was filed as
+ * duplication and not as a bug.
+ *
+ * `body` is `unknown` for {@link CommandError}'s reason: a proxy answers with
+ * HTML, a gateway with nothing, and a caller handed either still needs a
+ * sentence.
+ *
+ * `packages/auth`'s `readReason` is deliberately not a caller. It reads a
+ * session-layer body that carries no `message`, and folding it in would put an
+ * edge from `packages/auth` to this package and its Electric and TanStack DB
+ * dependencies to share four lines that already agree with this rule.
+ */
+export function refusalSentence(body: unknown, fallback: string): string {
+	if (typeof body !== 'object' || body === null) {
+		return fallback;
+	}
+	const refusal = body as CommandRefusal;
+	return sentenceOrNull(refusal.reason) ?? sentenceOrNull(refusal.message) ?? fallback;
+}
+
+function sentenceOrNull(value: unknown): string | null {
+	return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+/**
  * A refused command, carrying enough for a caller to render or re-ask.
  *
  * This is the only `CommandError` in the workspace: `apps/web` re-exports it
@@ -110,11 +148,7 @@ export async function writeCommand(
 	const parsed: CommandRefusal & { readonly txid?: unknown } = await readBody(response);
 
 	if (!response.ok || typeof parsed.txid !== 'number') {
-		throw new CommandError(
-			parsed.reason ?? parsed.message ?? fallbackMessage,
-			response.status,
-			parsed,
-		);
+		throw new CommandError(refusalSentence(parsed, fallbackMessage), response.status, parsed);
 	}
 
 	return parsed.txid;

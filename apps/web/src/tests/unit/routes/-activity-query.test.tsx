@@ -11,20 +11,28 @@ import { describe, expect, it, vi } from 'vitest';
 // reader watched a full log blank under them.
 
 /** Every pending read, so a test can answer them one at a time. */
-const pending: ((items: readonly unknown[]) => void)[] = [];
+const pending: ((response: Response) => void)[] = [];
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
 	sessionFetch: () =>
 		new Promise((resolve) => {
-			pending.push((items) =>
-				resolve({
-					ok: true,
-					json: () => Promise.resolve({ items, total: items.length, truncated: false }),
-				} as Response),
-			);
+			pending.push(resolve);
 		}),
 }));
+
+/** Answer the oldest pending read with a log. */
+function answer(items: readonly unknown[]): void {
+	pending.shift()?.({
+		ok: true,
+		json: () => Promise.resolve({ items, total: items.length, truncated: false }),
+	} as Response);
+}
+
+/** Answer the oldest pending read with a refusal, body and all. */
+function refuse(status: number, body: unknown): void {
+	pending.shift()?.(new Response(JSON.stringify(body), { status }));
+}
 
 const { useProfileActivity } = await import('../../../routes/-activity-data');
 
@@ -43,7 +51,7 @@ describe('useProfileActivity', () => {
 			},
 		);
 
-		pending.shift()?.([{ id: 'first-log' }]);
+		answer([{ id: 'first-log' }]);
 		await waitFor(() => expect(result.current.data?.items).toHaveLength(1));
 
 		rerender({ profileId: 'p-1', dateFrom: '2026-08-02', dateTo: '2026-08-02' });
@@ -54,7 +62,45 @@ describe('useProfileActivity', () => {
 		expect(result.current.data?.items).toHaveLength(1);
 		expect(result.current.isLoading).toBe(false);
 
-		pending.shift()?.([{ id: 'second-log' }, { id: 'and-another' }]);
+		answer([{ id: 'second-log' }, { id: 'and-another' }]);
 		await waitFor(() => expect(result.current.data?.items).toHaveLength(2));
+	});
+});
+
+/**
+ * What a refused read says. The panel shows `error.message`, so the sentence
+ * the server sent is the whole screen, and #929 is why it is read through
+ * `refusalSentence` rather than through a copy of the rule sitting beside a
+ * byte-for-byte twin in the search hook.
+ */
+describe('a refused activity read', () => {
+	async function messageFor(status: number, body: unknown): Promise<string> {
+		const { result } = renderHook(
+			() => useProfileActivity({ profileId: 'p-1', dateFrom: '2026-08-01', dateTo: '2026-08-01' }),
+			{ wrapper },
+		);
+
+		await waitFor(() => expect(pending).toHaveLength(1));
+		refuse(status, body);
+		await waitFor(() => expect(result.current.error).not.toBeNull());
+		return result.current.error?.message ?? '';
+	}
+
+	it("states the server's own sentence", async () => {
+		expect(
+			await messageFor(400, { error: 'invalid_range', reason: 'That range is too wide.' }),
+		).toBe('That range is too wide.');
+	});
+
+	it('states the status when the sentence is only whitespace', async () => {
+		expect(await messageFor(400, { error: 'invalid_range', reason: '   ' })).toBe(
+			'Activity request failed (400).',
+		);
+	});
+
+	it('states the status when the body has nothing to say', async () => {
+		expect(await messageFor(400, { error: 'invalid_range' })).toBe(
+			'Activity request failed (400).',
+		);
 	});
 });

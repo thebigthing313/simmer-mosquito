@@ -75,4 +75,12 @@ describe('organizationRefusalFor', () => {
 	it('still says something when a refusal explains nothing', () => {
 		expect(organizationRefusalFor(500, false, {})?.message).toBe('Unable to save changes.');
 	});
+
+	// Same as `restRefusalFor`: a sentence of spaces used to be an answer here
+	// and is absent now (#929).
+	it('treats a whitespace reason as no reason at all', () => {
+		expect(organizationRefusalFor(400, false, { reason: '   ' })?.message).toBe(
+			'Unable to save changes.',
+		);
+	});
 });

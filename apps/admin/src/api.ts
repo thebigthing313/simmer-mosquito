@@ -6,6 +6,7 @@ import type {
 	OrganizationSubscriptionStatus,
 	SimmerRole,
 } from '@simmer-mosquito/domain';
+import { refusalSentence } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
 import { refusalMessage } from './lib/refusal-messages';
 
@@ -458,30 +459,30 @@ function adminApiError(response: Response, body: unknown, fallback: string): Adm
 }
 
 /**
- * What a refusal reads as, in three steps and never as a code.
+ * What a refusal reads as, and never a code.
  *
- * The server's own `reason` is asked first, then the register, then the
- * caller's fallback. That order is the plain one and #795 is what let it come
- * back: `reason` used to be a code on three of the refusals the console
- * reaches, so preferring it would have put `organization_required` in a red
- * box, and the register was read first to stop that (#689). Every refusal
- * body's `reason` is now a sentence, so the register is what answers a code
- * that sends no `reason` at all, which `refusal-messages.ts` lists.
+ * The body's own sentence is asked first through `refusalSentence`, then the
+ * register, then the caller's fallback. Reading the body first is the plain
+ * order and #795 is what let it come back: `reason` used to be a code on three
+ * of the refusals the console reaches, so preferring it would have put
+ * `organization_required` in a red box, and the register was read first to stop
+ * that (#689). Every refusal body's `reason` is now a sentence, so the register
+ * is what answers a code that sends no sentence at all, which
+ * `refusal-messages.ts` lists.
+ *
+ * The register is passed as the fallback rather than consulted between the two
+ * body fields, so `message` now wins over it where both exist. That is the
+ * register's own rule read the other way round: an entry goes in only for a
+ * code every admin-reachable refusal sends bare, and `message` is a sentence.
+ * The two refusals that write one, `delete_blocked` and
+ * `acknowledgement_required`, have no entry.
  *
  * `body.error` is never returned. A code the register has not thought about
  * takes the fallback, which is a sentence every caller already supplies.
  */
 function responseErrorMessage(body: unknown, fallback: string): string {
-	if (isRecord(body)) {
-		if (typeof body.reason === 'string' && body.reason.trim() !== '') {
-			return body.reason;
-		}
-		const mapped = refusalMessage(typeof body.error === 'string' ? body.error : null);
-		if (mapped !== null) {
-			return mapped;
-		}
-	}
-	return fallback;
+	const code = isRecord(body) && typeof body.error === 'string' ? body.error : null;
+	return refusalSentence(body, refusalMessage(code) ?? fallback);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

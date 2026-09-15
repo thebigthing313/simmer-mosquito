@@ -1,5 +1,5 @@
 import type { SearchDocumentClass, SearchResponse } from '@simmer-mosquito/domain';
-import { sessionFetch } from '@simmer-mosquito/sync';
+import { refusalSentence, sessionFetch } from '@simmer-mosquito/sync';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../auth';
 
@@ -91,15 +91,13 @@ async function fetchSearch(
 
 /** The server's own explanation where it gave one; the status code otherwise. */
 async function refusalReason(response: Response): Promise<string> {
+	const fallback = `Search failed (${response.status}).`;
 	try {
-		const body = (await response.json()) as { readonly reason?: unknown };
-		if (typeof body.reason === 'string' && body.reason.trim() !== '') {
-			return body.reason;
-		}
+		return refusalSentence(await response.json(), fallback);
 	} catch {
 		// Not JSON; fall through to the status.
+		return fallback;
 	}
-	return `Search failed (${response.status}).`;
 }
 
 /**
