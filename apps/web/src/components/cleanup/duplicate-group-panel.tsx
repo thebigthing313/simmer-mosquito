@@ -50,6 +50,8 @@ export interface DuplicateGroupPanelProps {
 	 */
 	readonly records: readonly DuplicateRecord[];
 	readonly onExclude: (recordId: string) => void;
+	/** Whether the merge can be attributed; the confirm dialog reads it too. */
+	readonly canSubmit: boolean;
 	readonly onMerge: () => void;
 }
 
@@ -83,7 +85,7 @@ export function DuplicateGroupPanel(props: DuplicateGroupPanelProps) {
 			count={kept.length}
 			footer={
 				<WriteOnly minimum="manager">
-					<Button onClick={props.onMerge} size="sm">
+					<Button disabled={!props.canSubmit} onClick={props.onMerge} size="sm">
 						<MergeIcon aria-hidden="true" />
 						Merge {sources.length} into {recordLabel(survivor, props.config)}
 					</Button>

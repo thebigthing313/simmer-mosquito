@@ -100,7 +100,12 @@ function AssignmentPlanRoute() {
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
-	const { updateDetails, remove: removeAssignment, moveStops } = useAssignmentMutations();
+	const {
+		updateDetails,
+		remove: removeAssignment,
+		moveStops,
+		canWrite: canWriteAssignment,
+	} = useAssignmentMutations();
 	// Held on the route itself, and rendered on both of its branches. The delete
 	// is optimistic, so the assignment leaves the collection the moment the button
 	// is pressed and the card unmounts before the registry's refusal comes back.
@@ -109,6 +114,11 @@ function AssignmentPlanRoute() {
 		ask: true,
 	});
 	const items = useAssignmentItemMutations();
+	// No single submit: the details save, the stop picker, the reorder controls
+	// and the directions each write on their own, so `editable` below carries
+	// this to every one of them. Both hooks publish `canAttributeWrite` over the
+	// snapshot, and both are read because the page writes through both (#944).
+	const canSubmit = canWriteAssignment && items.canWrite;
 
 	const { assignment, isReady, isError } = useAssignment(id);
 	const { stops, isLoading } = useAssignmentStops(id);
@@ -161,7 +171,12 @@ function AssignmentPlanRoute() {
 			.map((stop) => `${stop.entityType}:${stop.entityId}`),
 	);
 
-	const editable = assignment !== null && canEditPlan(assignment.status);
+	// Two questions with two answers on screen. `planOpen` is the assignment's
+	// lifecycle, and the alert below says so when it is closed; `editable` adds
+	// whether this session can attribute a write, which the alert must not read,
+	// since "this assignment is cancelled" would be the wrong sentence for it.
+	const planOpen = assignment !== null && canEditPlan(assignment.status);
+	const editable = planOpen && canSubmit;
 
 	// A date with no time, or a time with no date, is not a deadline and is not
 	// saved as one: refused here rather than written as null, which would drop a
@@ -269,7 +284,7 @@ function AssignmentPlanRoute() {
 							{assignment === null ? null : <AssignmentStatusBadge status={assignment.status} />}
 						</div>
 
-						{assignment !== null && !editable ? (
+						{assignment !== null && !planOpen ? (
 							<Alert>
 								<AlertDescription>
 									{`This assignment is ${assignment.status === 'completed' ? 'completed' : 'cancelled'}. Reopen it on the run page to change the plan.`}
@@ -293,7 +308,7 @@ function AssignmentPlanRoute() {
 								{isDirty ? (
 									<div className="flex items-center gap-2">
 										<Button
-											disabled={savingDetails || !detailsSaveable}
+											disabled={!canSubmit || savingDetails || !detailsSaveable}
 											onClick={() => void saveDetails()}
 											size="sm"
 											type="button"
@@ -343,7 +358,7 @@ function AssignmentPlanRoute() {
 						stops={orderedStops}
 					/>
 
-					{assignment === null ? null : (
+					{assignment === null || !canSubmit ? null : (
 						<div className="shrink-0 border-border/40 border-t p-3">
 							<DangerZoneCard
 								ask={askDelete}

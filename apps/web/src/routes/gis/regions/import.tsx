@@ -118,6 +118,10 @@ function ImportRegionsRoute() {
 	const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+	// `mutations.canWrite` is `canAttributeWrite` over the snapshot, the same
+	// predicate the create routes hand their form as `canSubmit`, so an import,
+	// which is one create per feature, is gated on it here under the surface's
+	// own two conditions (#944).
 	const canImport = items.length > 0 && mutations.canWrite && !isImporting;
 
 	const handleFile = async (file: File) => {

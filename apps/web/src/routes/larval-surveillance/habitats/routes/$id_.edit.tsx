@@ -104,8 +104,17 @@ function RouteEditRoute() {
 	const [error, setError] = useState<string | null>(null);
 
 	const organizationId = identity?.organizationId ?? null;
-	const { rename, remove: removeRoute, moveStops } = useRouteMutations();
-	const { addStop: addRouteItem, setDirections, removeStop } = useRouteItemMutations();
+	const { rename, remove: removeRoute, moveStops, canWrite: canWriteRoute } = useRouteMutations();
+	const {
+		addStop: addRouteItem,
+		setDirections,
+		removeStop,
+		canWrite: canWriteStops,
+	} = useRouteItemMutations();
+	// No single submit: every control on this page writes as it is used, so each
+	// one reads this. Both hooks publish `canAttributeWrite` over the snapshot,
+	// and both are read because the page writes through both (#944).
+	const canSubmit = canWriteRoute && canWriteStops;
 
 	const commitMove = (plan: MovePlan) => moveStops(id, plan);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
@@ -241,6 +250,7 @@ function RouteEditRoute() {
 							</Link>
 							<Button
 								className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+								disabled={!canSubmit}
 								onClick={() => setDeleteOpen(true)}
 								size="sm"
 								variant="ghost"
@@ -261,6 +271,7 @@ function RouteEditRoute() {
 								<RouteIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
 								<Input
 									className="font-medium"
+									disabled={!canSubmit}
 									id="route-name"
 									onBlur={commitName}
 									onChange={(event) => setNameDraft(event.target.value)}
@@ -275,7 +286,9 @@ function RouteEditRoute() {
 							</div>
 						</div>
 
-						<AddStopBar existingHabitatIds={existingHabitatIds} onAdd={addStop} />
+						{canSubmit ? (
+							<AddStopBar existingHabitatIds={existingHabitatIds} onAdd={addStop} />
+						) : null}
 
 						{error !== null ? (
 							<Alert variant="destructive">
@@ -285,6 +298,7 @@ function RouteEditRoute() {
 					</div>
 
 					<EditStopList
+						canSubmit={canSubmit}
 						highlightId={highlightId}
 						isLoading={isLoading}
 						itemCount={itemCount}
@@ -442,6 +456,7 @@ function AddStopBar({
 
 function EditStopList({
 	stops,
+	canSubmit,
 	isLoading,
 	itemCount,
 	selectedStopId,
@@ -455,6 +470,7 @@ function EditStopList({
 	onHover,
 }: {
 	readonly stops: readonly RouteStopView[];
+	readonly canSubmit: boolean;
 	readonly isLoading: boolean;
 	readonly itemCount: number;
 	readonly selectedStopId: string | null;
@@ -481,6 +497,7 @@ function EditStopList({
 		>
 			{stops.map((stop, index) => (
 				<EditStopRow
+					canSubmit={canSubmit}
 					index={index}
 					isFirst={index === 0}
 					isHighlighted={stop.routeItemId === highlightId}
@@ -511,6 +528,7 @@ function EditStopList({
 
 function EditStopRow({
 	stop,
+	canSubmit,
 	ordinal,
 	index,
 	isFirst,
@@ -529,6 +547,7 @@ function EditStopRow({
 	onHover,
 }: {
 	readonly stop: RouteStopView;
+	readonly canSubmit: boolean;
 	readonly ordinal: number;
 	readonly index: number;
 	readonly isFirst: boolean;
@@ -586,24 +605,26 @@ function EditStopRow({
 						<StopTypePill typeName={typeName} />
 						<StopStatus stop={stop} />
 						<span aria-hidden="true" className="min-w-0 flex-1" />
-						<StopReorderControls
-							extraActions={
-								<>
-									<DropdownMenuItem onClick={() => onEditAddress(stop)}>
-										<HomeIcon aria-hidden="true" />
-										Edit linked address…
-									</DropdownMenuItem>
-									<DropdownMenuSeparator />
-									<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
-										Remove from route
-									</DropdownMenuItem>
-								</>
-							}
-							index={index}
-							isFirst={isFirst}
-							isLast={isLast}
-							onMove={onMove}
-						/>
+						{canSubmit ? (
+							<StopReorderControls
+								extraActions={
+									<>
+										<DropdownMenuItem onClick={() => onEditAddress(stop)}>
+											<HomeIcon aria-hidden="true" />
+											Edit linked address…
+										</DropdownMenuItem>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
+											Remove from route
+										</DropdownMenuItem>
+									</>
+								}
+								index={index}
+								isFirst={isFirst}
+								isLast={isLast}
+								onMove={onMove}
+							/>
+						) : null}
 					</div>
 
 					{/* The home icon is the label; consecutive matching addresses read dimmed. */}
@@ -623,6 +644,7 @@ function EditStopRow({
 					<div className="mt-2 grid gap-1.5">
 						<InlineEditField
 							ariaLabel={`Description for ${stop.name}`}
+							disabled={!canSubmit}
 							emptyLabel="Add a description"
 							onSave={(value) => onSaveDescription(stop.habitatId, value)}
 							renderValue={(value) => (
@@ -635,6 +657,7 @@ function EditStopRow({
 						/>
 						<InlineEditField
 							ariaLabel={`Directions after ${stop.name}`}
+							disabled={!canSubmit}
 							emptyLabel="Add directions to the next stop"
 							onSave={(value) => onSaveDirections(stop.routeItemId, value)}
 							renderValue={(value) => (

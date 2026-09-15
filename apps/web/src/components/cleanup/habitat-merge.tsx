@@ -67,7 +67,14 @@ const NEARBY_LIMIT = 100;
  * an organization that maps culverts every hundred feet needs a tighter one
  * than that.
  */
-export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
+export function HabitatMerge({
+	habitatId,
+	canSubmit,
+}: {
+	readonly habitatId: string;
+	/** The route's `canAttributeWrite`, read by the footer and the dialog (#944). */
+	readonly canSubmit: boolean;
+}) {
 	const [isConfirming, setIsConfirming] = useState(false);
 	const { selected, toggle, clear } = useHabitatSelection();
 	const { bounds, candidates, mapData, nearby, radius, setRadius, target, unit } =
@@ -154,6 +161,7 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 					</div>
 
 					<MergeFooter
+						canSubmit={canSubmit}
 						count={sources.length}
 						isTrimmed={candidates.length >= NEARBY_LIMIT}
 						onMerge={() => setIsConfirming(true)}
@@ -164,6 +172,7 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 
 			{!isConfirming || target === undefined ? null : (
 				<MergeConfirmDialog
+					canSubmit={canSubmit}
 					config={config}
 					onConfirm={runMerge}
 					onOpenChange={(open) => {
@@ -409,11 +418,13 @@ function RadiusControl({
  * that would read a full list as the whole answer.
  */
 function MergeFooter({
+	canSubmit,
 	count,
 	isTrimmed,
 	onMerge,
 	target,
 }: {
+	readonly canSubmit: boolean;
 	readonly count: number;
 	readonly isTrimmed: boolean;
 	readonly onMerge: () => void;
@@ -432,7 +443,7 @@ function MergeFooter({
 			) : null}
 			{count === 0 ? null : (
 				<WriteOnly minimum="manager">
-					<Button className="w-full" onClick={onMerge} size="sm">
+					<Button className="w-full" disabled={!canSubmit} onClick={onMerge} size="sm">
 						<MergeIcon aria-hidden="true" />
 						Merge {count} into {recordLabel(target, config)}
 					</Button>
