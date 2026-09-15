@@ -223,7 +223,9 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 	if (inspection.habitatId === null) {
 		return (
 			<p className="m-0 text-[0.95rem] text-muted-foreground">
-				<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
+				<span className="tabular-nums">
+					{adhocLabel(inspection.lat, inspection.lng, 'Ad-hoc inspection')}
+				</span>
 				{inspection.addressDisplayName === null ? null : ` · ${inspection.addressDisplayName}`}
 			</p>
 		);

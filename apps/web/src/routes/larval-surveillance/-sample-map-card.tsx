@@ -96,7 +96,9 @@ export function SampleMapCard({
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={MapPinnedIcon}>
 					{sample.habitatId === null ? (
-						<span className="tabular-nums">{adhocLabel(sample.latitude, sample.longitude)}</span>
+						<span className="tabular-nums">
+							{adhocLabel(sample.latitude, sample.longitude, 'Ad-hoc sample')}
+						</span>
 					) : (
 						<Link
 							className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

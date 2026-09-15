@@ -47,11 +47,22 @@ export function coordinateLabel(
 	return formatCoordinates(lat, lng) ?? 'Unknown coordinates';
 }
 
-/** The coordinates, falling back to the category name when there is no centroid. */
+/**
+ * The coordinates, falling back to what the surface calls a record with none.
+ *
+ * `fallback` is required, which is the whole of #953. The default was
+ * `Ad-hoc inspection`, one record kind's category name, and three sample
+ * surfaces took it: the samples explorer row, the sample map card and the
+ * Awaiting Identification panel on the larval overview each read
+ * `Ad-hoc inspection` for a sample with no habitat and no centroid. #918 made
+ * `habitatLabel`'s fallback required for that reason one level up, and a
+ * required argument makes the next instance a `tsc` error rather than a wrong
+ * word on screen.
+ */
 export function adhocLabel(
 	lat: number | null | undefined,
 	lng: number | null | undefined,
-	fallback = 'Ad-hoc inspection',
+	fallback: string,
 ): string {
 	return formatCoordinates(lat, lng) ?? fallback;
 }
