@@ -12,14 +12,24 @@
  * the text, because the address arm puts the same address in the Address row
  * below the title and a search over the card would pass on either one.
  *
- * Two of the six rows cannot arrive from this card's read seam, and they are
- * the two the fold is about. `use-inspection.ts` projects `habitatName` as
- * `caseWhen(isNull(habitat_id), null, coalesce(habitat_name, concat(lat, ', ',
- * lng)))`, so a habitat with no name already reads out its own coordinates one
- * layer down and a blank name never reaches the column, `readNullableText`
- * having turned it into `null` at the write. They are here because the card's
- * own arms are what this changes, and a row the seam cannot send today is a row
- * a later seam can.
+ * Two of the six rows are the ones the fold moves, and **neither can arrive**,
+ * which is why this carries no changeset. The card drew `34.05213, -118.24368`
+ * for the second and three spaces for the third before it; it draws
+ * `Habitat 1a2b3c4d` for both now, and nothing renders either.
+ *
+ * The second is barred at the read. `use-inspection.ts` projects `habitatName`
+ * as `caseWhen(isNull(habitat_id), null, coalesce(habitat_name, concat(lat,
+ * ', ', lng)))`, so a habitat with no name has read out its own coordinates a
+ * layer down and `habitatName` is null only where `habitatId` is.
+ *
+ * The third is barred at the write. Every path into `habitat_name` is an arm of
+ * `habitatTableCommands` reading it through `readNullableText`, which trims and
+ * answers `null`; the merge dispatches one of those arms, the seed routes make
+ * habitat types rather than habitats, there is no habitat importer, and the
+ * column has no default and no CHECK.
+ *
+ * They are cases anyway, because they are what the card's arms now say and a
+ * row neither gate can send today is a row a later seam can (#998).
  */
 
 import { cleanup, render, screen } from '@testing-library/react';
