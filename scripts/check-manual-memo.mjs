@@ -69,21 +69,19 @@
  * inside, so if that case ever arrives the wrapper carries an ordinary marker
  * and the reason names the directive.
  *
- * ## The floors, and the probes that are not floors
+ * ## The floor, and the probes that are not a floor
  *
  * `MINIMUM_FILES` is against a walk that has stopped finding the compiled
- * corpus, and `MINIMUM_WRAPPERS` against a detector that found the files and
- * read no calls out of them. Both otherwise print the summary line a clean run
- * prints.
+ * corpus, which otherwise prints the summary line a clean run prints.
  *
- * `MINIMUM_WRAPPERS` came down as each strip slice landed, because the corpus it
- * measures is the thing the strip was emptying: it shipped at 500 against 848 and
- * a slice that took the register below it had to move it or fail on its own
- * work. It stayed close under the register rather than being dropped to give
- * headroom, since a tripwire far below the count catches nothing, and it has
- * reached zero with the register, where `PROBES` is the only guard left.
+ * It is the only floor. A second one stood against a detector that found the
+ * files and read no calls out of them, and it came down as each strip slice
+ * landed, because the corpus it measured is the thing the strip was emptying.
+ * It reached zero with the register, which left it unable to fire twice over:
+ * no count is below zero, and the branch reading it ran only while the register
+ * recorded something. #951 deleted it.
  *
- * `PROBES` is the guard neither floor can be, and it earns its place from the
+ * `PROBES` is the guard a floor cannot be, and it earns its place from the
  * end state rather than from today: when the backlog reaches empty, every count
  * this gate produces is zero, and a detector that has stopped detecting reads
  * exactly like a finished strip. So the probes hand the reader six sources with
@@ -127,14 +125,6 @@ const MANUAL_MEMO_BACKLOG = {};
 
 /** The floor under the walk. See the header. */
 const MINIMUM_FILES = 700;
-
-/**
- * The floor under the detector, at zero with the register. See the header.
- *
- * It guards nothing now, because the check it gates on runs only while the
- * register records something, and `PROBES` is the guard that takes over.
- */
-const MINIMUM_WRAPPERS = 0;
 
 /**
  * Sources whose wrapper counts are known.
@@ -369,7 +359,7 @@ const verifyProbes = () => {
 	}
 };
 
-/** The compiled corpus, held to its two floors. */
+/** The compiled corpus, held to its floor. */
 const readCorpus = () => {
 	const files = [...sourceFiles(workspaceRoot, [])]
 		.map((path) => pathFrom(workspaceRoot, path))
@@ -379,14 +369,6 @@ const readCorpus = () => {
 	if (files.length < MINIMUM_FILES) {
 		fail(
 			`only ${count(files.length, 'module')} on a compiled path, under the floor of ${MINIMUM_FILES}. The walk has stopped finding the corpus COMPILER_PHASES names.`,
-		);
-	}
-
-	const wrappers = files.reduce((total, file) => total + file.wrappers.length, 0);
-	const recorded = Object.values(MANUAL_MEMO_BACKLOG).reduce((total, each) => total + each, 0);
-	if (recorded > 0 && wrappers < MINIMUM_WRAPPERS) {
-		fail(
-			`only ${count(wrappers, 'wrapper')} across ${files.length} modules, under the floor of ${MINIMUM_WRAPPERS}, while MANUAL_MEMO_BACKLOG still records ${recorded}. The detector found the files and read almost nothing out of them.`,
 		);
 	}
 
