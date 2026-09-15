@@ -465,11 +465,25 @@ function main() {
 
 	checkProbes(forms);
 
-	const allowed = Object.keys(JSX_NOUN_BACKLOG).length;
 	console.log(
-		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_COMPONENTS.length} components reading it, no noun written again across ${files.length} modules${allowed === 0 ? ', as a literal under any key or as a run of JSX text.' : ` beyond the ${count(allowed, 'module')} JSX_NOUN_BACKLOG still holds.`}`,
+		`Record nouns: ${count(register.length, 'record type')} in the register, ${NOUN_COMPONENTS.length} components reading it, no noun written again across ${files.length} modules${sweptOrAllowed()}`,
 	);
 }
+
+/**
+ * How the summary line ends, which depends on whether the backlog holds
+ * anything.
+ *
+ * It is empty today, so the line says what the run covered rather than naming a
+ * register with nothing in it. The other half is what a future backlog would
+ * print, and it stays here for the reason the register itself does.
+ */
+const sweptOrAllowed = () => {
+	const allowed = Object.keys(JSX_NOUN_BACKLOG).length;
+	return allowed === 0
+		? ', as a literal under any key or as a run of JSX text.'
+		: ` beyond the ${count(allowed, 'module')} JSX_NOUN_BACKLOG still holds.`;
+};
 
 /** `RECORD_NOUNS` as `[{ recordType, forms }]`, read off the register's source. */
 function readRegister() {
@@ -599,14 +613,21 @@ function nounLiteralsIn(file, source, forms, options = { jsx: true }) {
  * every other form is a record's own noun only under one of `NOUN_KEYS`.
  */
 function isNoun(copy, source, forms, options) {
-	if (copy.kind === 'jsx') {
-		return options.jsx && forms.jsx.has(textOf(copy));
-	}
-	return (
-		forms.keyFree.has(copy.text) ||
-		(forms.all.has(copy.text) && NOUN_KEYS.has(keyBefore(source, copy.index)))
-	);
+	return copy.kind === 'jsx'
+		? options.jsx && forms.jsx.has(textOf(copy))
+		: isNounLiteral(copy, source, forms);
 }
+
+/**
+ * Whether a keyed literal writes a record's name, which is two questions.
+ *
+ * A title-cased plural names a list of records under any key. Every other form
+ * needs one of `NOUN_KEYS`, because `one` and `many` are what a discriminator
+ * collides with.
+ */
+const isNounLiteral = (copy, source, forms) =>
+	forms.keyFree.has(copy.text) ||
+	(forms.all.has(copy.text) && NOUN_KEYS.has(keyBefore(source, copy.index)));
 
 /** What a piece of copy says, with a run's surrounding indentation taken off. */
 const textOf = (copy) => (copy.kind === 'jsx' ? copy.text.replace(/\s+/g, ' ').trim() : copy.text);
