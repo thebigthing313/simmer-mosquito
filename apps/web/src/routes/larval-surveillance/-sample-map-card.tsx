@@ -20,6 +20,7 @@ import type { SampleStatus } from '../../hooks/queries/sample-view';
 import { useSample } from '../../hooks/queries/use-sample';
 import { useSampleIdentifications } from '../../hooks/queries/use-sample-identifications';
 import { habitatLabel } from '../../lib/coordinate-label';
+import { recordNoun } from '../../lib/record-nouns';
 
 const STATUS_META: Record<
 	SampleStatus,
@@ -53,7 +54,7 @@ export function SampleMapCard({
 
 	if (sample === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Sample">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('sample').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -95,7 +96,7 @@ export function SampleMapCard({
 					{meta.label}
 				</Badge>
 			}
-			eyebrow={<MapCardEyebrow date={sample.inspectionDate ?? undefined} type="Sample" />}
+			eyebrow={<MapCardEyebrow date={sample.inspectionDate ?? undefined} recordType="sample" />}
 			inset={inset}
 			onClose={onClose}
 			title={sample.name ?? `Sample ${sample.id.slice(0, 8)}`}

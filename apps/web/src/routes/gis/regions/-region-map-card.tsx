@@ -9,6 +9,7 @@ import { TagBadge } from '../../../components/tag-badge';
 import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { useRegion } from '../../../hooks/queries/use-region';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
+import { recordNoun } from '../../../lib/record-nouns';
 
 /**
  * The map focus card for a region. Reads the region through {@link useRegion},
@@ -53,7 +54,12 @@ export function RegionMapCard({
 
 	if (region === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Region">
+			<MapCard
+				className="max-w-[420px]"
+				inset={inset}
+				onClose={onClose}
+				title={recordNoun('region').title}
+			>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -70,7 +76,7 @@ export function RegionMapCard({
 				tags.length === 0 ? undefined : tags.map((tag) => <TagBadge key={tag.id} tag={tag} />)
 			}
 			className="max-w-[420px]"
-			eyebrow={<MapCardEyebrow type="Region" />}
+			eyebrow={<MapCardEyebrow recordType="region" />}
 			inset={inset}
 			onClose={onClose}
 			title={region.name}

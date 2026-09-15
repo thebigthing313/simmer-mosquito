@@ -6,8 +6,8 @@ import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-
 import {
 	type DrawGeometry,
 	WeatherStationFormPage,
@@ -99,7 +99,7 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 				canSubmit={mutations.canWrite}
 				defaultValues={formValuesFrom(station)}
 				header={{
-					title: 'Edit Weather Station',
+					title: `Edit ${recordNoun('weatherStation').title}`,
 					description: "Update this station's name, code, or location.",
 					backTo: '/gis/weather/$id',
 					backParams: { id: station.id },

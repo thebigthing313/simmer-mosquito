@@ -24,6 +24,7 @@ import {
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { noTechnicianValue } from '../../../lib/no-technician';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	SourceReductionFormPage,
@@ -178,7 +179,7 @@ function EditSourceReductionLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromSourceReduction(sourceReduction, personnel)}
 			header={{
-				title: 'Edit Source Reduction',
+				title: `Edit ${recordNoun('sourceReduction').title}`,
 				description: 'Update what was eliminated, who did it, when, or where.',
 				backTo: '/control-operations/source-reduction/$id',
 				backParams: { id: sourceReduction.id },

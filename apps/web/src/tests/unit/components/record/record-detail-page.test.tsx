@@ -36,7 +36,7 @@ interface Region {
 
 const header = {
 	icon: iconRegistry.entities.region.icon,
-	recordType: 'Region',
+	recordType: 'region',
 	title: 'North',
 } as const;
 

@@ -3,6 +3,7 @@ import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	MISSION_FIELD_PATHS,
@@ -73,7 +74,7 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 			errorTitle="Unable to Save Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{
-				title: 'Edit Mission',
+				title: `Edit ${recordNoun('mission').title}`,
 				description: 'Change what the mission is for, when it runs, or who is on it.',
 				backTo: '/operations/missions/$id',
 				backParams: { id: mission.id },

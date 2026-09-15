@@ -121,14 +121,13 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					name: name,
 					onDelete: () => mutations.remove(contact.id),
 					recordId: contact.id,
-					recordType: 'contact',
 					returnTo: '/public-engagement/contacts',
 				},
 				subtitle:
 					contact.title === null && contact.company === null
 						? undefined
 						: [contact.title, contact.company].filter(Boolean).join(' · '),
-				recordType: 'Contact',
+				recordType: 'contact',
 				tags: { recordId: contact.id },
 				title: name,
 			}}

@@ -9,6 +9,7 @@ import {
 } from '../../../hooks/queries/use-region-folders';
 import { type RegionRecord, useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-region-geometry';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -109,7 +110,7 @@ function EditRegionLoader({
 			canSubmit={mutations.canWrite}
 			defaultValues={formValuesFrom(region)}
 			header={{
-				title: 'Edit Region',
+				title: `Edit ${recordNoun('region').title}`,
 				description: "Update this region's name, folder, boundary, or details.",
 				backTo: '/gis/regions/$id',
 				backParams: { id: region.id },

@@ -21,6 +21,7 @@ import { resolveLinkedAddress } from '../../hooks/queries/address-view';
 import { useInspection } from '../../hooks/queries/use-inspection';
 import { addressCardLabel } from '../../lib/address-format';
 import { habitatLabel } from '../../lib/coordinate-label';
+import { recordNoun } from '../../lib/record-nouns';
 
 const StagesIcon = iconRegistry.domains.larvalSurveillance.icon;
 
@@ -47,7 +48,7 @@ export function InspectionMapCard({
 
 	if (inspection === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Inspection">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('inspection').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -81,7 +82,7 @@ export function InspectionMapCard({
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={inspection.inspectionDate} type="Inspection" />}
+			eyebrow={<MapCardEyebrow date={inspection.inspectionDate} recordType="inspection" />}
 			inset={inset}
 			onClose={onClose}
 			title={

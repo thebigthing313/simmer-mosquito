@@ -9,6 +9,7 @@ import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	NO_METHOD,
@@ -114,7 +115,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 			defaultValues={defaultsFromRequest(request)}
 			errorTitle="Unable to Save Request"
 			header={{
-				title: 'Edit Request for Control',
+				title: `Edit ${recordNoun('requestedControlAction').title}`,
 				description: 'Change what is being asked for, where it is, or what it hangs off.',
 				backTo: '/operations/requests-for-control/$id',
 				backParams: { id: request.id },

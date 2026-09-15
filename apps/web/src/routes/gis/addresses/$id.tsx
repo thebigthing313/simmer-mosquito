@@ -67,7 +67,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 				]),
 				edit: { minimum: 'manager', params: { id: address.id }, to: '/gis/addresses/$id/edit' },
 				icon: AddressIcon,
-				recordType: 'Address',
+				recordType: 'address',
 				/* Postal lines, as an envelope carries them: the header has the width,
 				   and a comma-run makes the reader find where the street ends before
 				   they can copy it. */
@@ -75,7 +75,6 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 					name: address.displayName,
 					onDelete: () => mutations.remove(address.id),
 					recordId: address.id,
-					recordType: 'address',
 					returnTo: '/gis/addresses',
 				},
 				subtitle:

@@ -33,6 +33,7 @@ import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-l
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	ApplicationFormPage,
@@ -246,7 +247,7 @@ function EditApplicationLoader({
 				defaultValues={defaultsFromApplication(application, personnel, batches)}
 				equipment={equipment}
 				header={{
-					title: 'Edit Chemical Application',
+					title: `Edit ${recordNoun('application').title}`,
 					description: 'Update this application’s product, amount, work details, or location.',
 					backTo: '/control-operations/chemical/$id',
 					backParams: { id: application.id },

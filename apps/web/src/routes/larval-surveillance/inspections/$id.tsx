@@ -193,13 +193,12 @@ function InspectionDetailContent({
 				 */
 				flags: <FindingsFlags inspection={inspection} />,
 				icon: InspectionIcon,
-				recordType: 'Larval inspection',
+				recordType: 'inspection',
 				remove: {
 					ask: askDelete,
 					name: breadcrumbLabel(inspection),
 					onDelete: (acknowledgements) => mutations.remove(inspection.id, acknowledgements),
 					recordId: inspection.id,
-					recordType: 'inspection',
 					returnTo: '/larval-surveillance/inspections',
 				},
 				subtitle: <InspectionSubtitle inspection={inspection} />,

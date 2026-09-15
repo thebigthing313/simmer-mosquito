@@ -23,6 +23,7 @@ import { type TrapOption, useTrapOptions } from '../../../hooks/queries/use-trap
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	CollectionFormPage,
@@ -160,7 +161,7 @@ function EditCollectionLoader({
 			collectionMethods={collectionMethods}
 			defaultValues={formValuesFrom(collection, personnel, timeZone)}
 			header={{
-				title: 'Edit Collection',
+				title: `Edit ${recordNoun('collection').title}`,
 				description: 'Update this collection’s method, timing, personnel, location, or result.',
 				backTo: '/adult-surveillance/collections/$id',
 				backParams: { id: collection.id },

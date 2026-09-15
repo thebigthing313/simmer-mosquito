@@ -187,7 +187,7 @@ function createPluralLabel(verb: string, recordType: RecordType): string {
  * The verb helpers above put the call site's own word in front of a register
  * form. This is the same read with no word in front, for the group headings and
  * the list entries under them, which name the records themselves. It is a
- * function rather than a bare `recordNoun(...).titleMany` at each of the fourteen
+ * function rather than a bare `recordNoun(...).titleMany` at each of the fifteen
  * so that the three shapes a sidebar label takes read as three named ideas.
  */
 function listLabel(recordType: RecordType): string {
@@ -468,7 +468,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'control-chemical',
-				label: 'Chemical',
+				label: listLabel('application'),
 				items: [
 					{
 						id: 'chemical-explorer',

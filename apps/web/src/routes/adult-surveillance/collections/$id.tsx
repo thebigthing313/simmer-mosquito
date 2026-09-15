@@ -213,13 +213,12 @@ function CollectionDetailContent({
 					/>
 				),
 				icon: CollectionIcon,
-				recordType: 'Collection',
+				recordType: 'collection',
 				remove: {
 					ask: askDelete,
 					name: title,
 					onDelete: (acknowledgements) => mutations.remove(collection.id, acknowledgements),
 					recordId: collection.id,
-					recordType: 'collection',
 					returnTo: '/adult-surveillance/collections',
 				},
 				subtitle: `${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`,

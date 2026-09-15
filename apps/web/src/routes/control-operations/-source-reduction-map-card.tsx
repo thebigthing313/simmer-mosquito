@@ -10,6 +10,7 @@ import {
 } from '../../components/map/map-card';
 import type { MapInset } from '../../components/map/map-inset';
 import { useSourceReduction } from '../../hooks/queries/use-source-reduction';
+import { recordNoun } from '../../lib/record-nouns';
 import { formatMeasure } from './-control-display';
 
 const UnitIcon = iconRegistry.entities.unit.icon;
@@ -33,7 +34,7 @@ export function SourceReductionMapCard({
 
 	if (action === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Source Reduction">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('sourceReduction').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -44,7 +45,7 @@ export function SourceReductionMapCard({
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={action.actionDate} type="Source reduction" />}
+			eyebrow={<MapCardEyebrow date={action.actionDate} recordType="sourceReduction" />}
 			inset={inset}
 			onClose={onClose}
 			title={action.methodName}

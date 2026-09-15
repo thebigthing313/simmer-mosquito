@@ -29,6 +29,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -253,7 +254,7 @@ function EditInspectionLoader({
 			defaultValues={defaultsFromInspection(inspection, personnelProfileIds)}
 			habitatTypes={habitatTypes}
 			header={{
-				title: 'Edit Inspection',
+				title: `Edit ${recordNoun('inspection').title}`,
 				description: 'Revise what this inspection found, or who recorded it.',
 				backTo: '/larval-surveillance/inspections/$id',
 				backParams: { id: inspection.id },

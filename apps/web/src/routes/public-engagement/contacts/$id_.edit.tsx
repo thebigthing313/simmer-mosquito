@@ -4,6 +4,7 @@ import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type ContactFormValues,
@@ -69,7 +70,7 @@ function EditContactLoader({ contact }: { readonly contact: Contact }) {
 			canSubmit={mutations.canWrite}
 			defaultValues={defaultsFromContact(contact)}
 			header={{
-				title: 'Edit Contact',
+				title: `Edit ${recordNoun('contact').title}`,
 				description: 'Update this contact’s identity, communication, or preferences.',
 				backTo: '/public-engagement/contacts/$id',
 				backParams: { id: contact.id },

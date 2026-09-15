@@ -62,12 +62,11 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 			header={{
 				edit: { minimum: 'manager', params: { id: region.id }, to: '/gis/regions/$id/edit' },
 				icon: RegionIcon,
-				recordType: 'Region',
+				recordType: 'region',
 				remove: {
 					name: region.name,
 					onDelete: () => mutations.remove(region.id),
 					recordId: region.id,
-					recordType: 'region',
 					returnTo: '/gis/regions',
 				},
 				subtitle: folderName ?? 'Unfiled',

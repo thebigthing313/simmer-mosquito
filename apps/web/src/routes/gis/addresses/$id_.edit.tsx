@@ -8,6 +8,7 @@ import {
 } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
@@ -114,7 +115,7 @@ function EditAddressLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromAddress(address)}
 			header={{
-				title: 'Edit Address',
+				title: `Edit ${recordNoun('address').title}`,
 				description: "Update this address's details or location.",
 				backTo: '/gis/addresses/$id',
 				backParams: { id: address.id },

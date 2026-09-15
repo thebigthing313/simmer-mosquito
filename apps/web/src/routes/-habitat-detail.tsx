@@ -245,13 +245,12 @@ function HabitatDetailContent({
 				edit: { params: { id: habitat.id }, to: '/larval-surveillance/habitats/$id/edit' },
 				flags: <HabitatStateBadges habitat={habitat} />,
 				icon: HabitatIcon,
-				recordType: 'Habitat',
+				recordType: 'habitat',
 				remove: {
 					ask: askDelete,
 					name: habitat.name,
 					onDelete: (acknowledgements) => mutations.remove(habitat.id, acknowledgements),
 					recordId: habitat.id,
-					recordType: 'habitat',
 					returnTo: '/larval-surveillance/habitats',
 				},
 				subtitle: (

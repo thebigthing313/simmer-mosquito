@@ -19,6 +19,7 @@ import { TagBadge } from '../components/tag-badge';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { useHabitat } from '../hooks/queries/use-habitat';
 import { useRecordTags } from '../hooks/queries/use-record-tags';
+import { recordNoun } from '../lib/record-nouns';
 
 /**
  * The map focus card for a Habitat.
@@ -45,7 +46,7 @@ export function HabitatMapCard({
 
 	if (habitat === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Habitat">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('habitat').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -70,7 +71,7 @@ export function HabitatMapCard({
 					))}
 				</>
 			}
-			eyebrow={<MapCardEyebrow type="Habitat" />}
+			eyebrow={<MapCardEyebrow recordType="habitat" />}
 			inset={inset}
 			onClose={onClose}
 			title={habitat.name}
