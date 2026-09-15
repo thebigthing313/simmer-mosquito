@@ -25,7 +25,7 @@ import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { noTechnicianValue } from '../../../lib/no-technician';
+import { noTechnicianValue, technicianOptions } from '../../../lib/no-technician';
 import { unitOptions } from '../../../lib/unit-options';
 import { HabitatPicker } from '../-control-pickers';
 
@@ -379,17 +379,6 @@ export function sourceReductionFieldsFrom(values: SourceReductionFormValues) {
 		unitId: values.sourcesEliminatedUnitId,
 		metadata: values.metadata,
 	};
-}
-
-function technicianOptions(profiles: readonly ProfileListing[]) {
-	return [
-		{ label: 'Unassigned', value: noTechnicianValue },
-		...lifecycleOptions(
-			profiles,
-			(profile) => profile.isActive,
-			(profile) => profile.displayName,
-		),
-	];
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

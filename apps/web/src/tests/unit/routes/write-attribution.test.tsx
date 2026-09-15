@@ -90,6 +90,7 @@ import { missions } from '../../../lib/collections/missions';
 import { organizations } from '../../../lib/collections/organizations';
 import { weather_sources } from '../../../lib/collections/weather_sources';
 import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
+import { signedInSnapshot } from './route-mock-stand-ins';
 
 /**
  * The one piece of state the `vi.mock` factories read.
@@ -251,28 +252,7 @@ const RECORD_ID = 'record-1';
 
 /** A signed-in snapshot whose actor Profile is there, or is not. */
 function snapshotWith(profileId: string | null): AuthMe {
-	return {
-		authenticated: true,
-		user: {
-			workosUserId: 'workos-user-1',
-			email: 'field@example.test',
-			firstName: 'Field',
-			lastName: 'Lead',
-			displayName: 'Field Lead',
-			emailVerified: true,
-			profilePictureUrl: null,
-		},
-		workosOrganizationId: 'workos-organization-1',
-		localIdentity: {
-			userId: 'user-1',
-			organizationId: ORGANIZATION_ID,
-			organizationName: 'Test Mosquito Control',
-			organizationSlug: 'test-mosquito-control',
-			profileId,
-			membershipId: 'membership-1',
-			role: 'admin',
-		},
-	};
+	return signedInSnapshot(ORGANIZATION_ID, profileId);
 }
 
 /** The route modules, imported after the mocks above are in place. */

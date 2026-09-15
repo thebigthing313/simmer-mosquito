@@ -25,7 +25,7 @@ import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { noTechnicianValue } from '../../../lib/no-technician';
+import { noTechnicianValue, technicianOptions } from '../../../lib/no-technician';
 import { unitOptions } from '../../../lib/unit-options';
 import { HabitatPicker } from '../-control-pickers';
 
@@ -179,14 +179,6 @@ export function BiocontrolFormPage({
 	// Biocontrol releases are counted, measured by volume, or weighed — the domain
 	// rejects any other unit type.
 	const releaseUnitOptions = unitOptions(units, isBiocontrolUnitType);
-	const technicianOptions = [
-		{ label: 'Unassigned', value: noTechnicianValue },
-		...lifecycleOptions(
-			profiles,
-			(profile) => profile.isActive,
-			(profile) => profile.displayName,
-		),
-	];
 
 	const form = useAppForm({
 		defaultValues,
@@ -245,7 +237,7 @@ export function BiocontrolFormPage({
 						{(field) => (
 							<field.SelectField
 								label="Technician"
-								options={technicianOptions}
+								options={technicianOptions(profiles)}
 								placeholder="Unassigned"
 							/>
 						)}

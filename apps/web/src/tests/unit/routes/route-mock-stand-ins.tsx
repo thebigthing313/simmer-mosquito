@@ -7,12 +7,44 @@
  * harness imports `use-map-extent-fit`, which imports `@simmer-mosquito/sync`:
  * a `sync` factory that awaited the harness would wait on itself, and the file
  * would sit until the watchdog in `vitest.shared.ts` named it (#663). React is
- * the one import, for the anchor `Link` becomes.
+ * the one runtime import, for the anchor `Link` becomes; `AuthMe` is a type and
+ * is erased.
  */
 
 import { type ReactNode, useSyncExternalStore } from 'react';
+import type { AuthMe } from '../../../auth';
 
 const listeners = new Set<() => void>();
+
+/**
+ * A signed-in snapshot for the route context and the auth store, whose actor
+ * Profile is there or is not. `organizationId` is what `useOrganizationWorkspace`
+ * looks the Organization up by, so a suite seeds an organization row under it.
+ */
+export function signedInSnapshot(organizationId: string, profileId: string | null): AuthMe {
+	return {
+		authenticated: true,
+		user: {
+			workosUserId: 'workos-user-1',
+			email: 'field@example.test',
+			firstName: 'Field',
+			lastName: 'Lead',
+			displayName: 'Field Lead',
+			emailVerified: true,
+			profilePictureUrl: null,
+		},
+		workosOrganizationId: 'workos-organization-1',
+		localIdentity: {
+			userId: 'user-1',
+			organizationId,
+			organizationName: 'Test Mosquito Control',
+			organizationSlug: 'test-mosquito-control',
+			profileId,
+			membershipId: 'membership-1',
+			role: 'admin',
+		},
+	};
+}
 
 function subscribe(listener: () => void): () => void {
 	listeners.add(listener);
