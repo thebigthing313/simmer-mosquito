@@ -20,7 +20,8 @@
  * beside the route suites, so no route tree is imported.
  */
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import { cleanup, type RenderResult, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { preloadRouteComponent } from './explorer-route-harness';
@@ -333,15 +334,38 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-function renderOverview(name: string): void {
+function renderOverview(name: string): RenderResult {
 	const Component = components.get(name);
 	if (Component === undefined) {
 		throw new Error(`The ${name} overview was not preloaded.`);
 	}
-	render(<Component />);
+	return render(<Component />);
+}
+
+/** The class `pageContainer` names for a measure, so the assertion cannot drift from the register. */
+function measureClass(measure: 'page' | 'record'): string {
+	const found = pageContainer({ measure })
+		.split(/\s+/)
+		.find((cls) => cls.startsWith('max-w-'));
+	if (found === undefined) {
+		throw new Error(`pageContainer names no ${measure} measure`);
+	}
+	return found;
 }
 
 describe.each(OVERVIEWS)('the $name overview', ({ name, panels }) => {
+	// The route-loading skeleton reserves the record measure, so an overview
+	// back in the 1200 column would arrive 416px narrower than the skeleton it
+	// replaces on a wide screen (#1043, #1049). The operations overview is held
+	// to the same in `operations/overview-measure.test.tsx`.
+	it('draws in the record measure the route-loading skeleton reserves', () => {
+		harness.state = 'empty';
+		const { container } = renderOverview(name);
+
+		expect(container.querySelector(`.${CSS.escape(measureClass('record'))}`)).not.toBeNull();
+		expect(container.querySelector(`.${CSS.escape(measureClass('page'))}`)).toBeNull();
+	});
+
 	it('says each panel is unavailable when its read fails, with no count', () => {
 		harness.state = 'error';
 		renderOverview(name);

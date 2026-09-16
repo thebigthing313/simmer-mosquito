@@ -66,8 +66,11 @@ function PublicEngagementOverviewRoute() {
 
 	const requests = useOrganizationServiceRequests();
 
+	// `record` is the measure the route-loading skeleton reserves, so the
+	// overview arrives at the width it stood in for (#1043, #1049). The panels
+	// keep their two-column grid; the frame is what widened.
 	return (
-		<OutletSimpleLayout>
+		<OutletSimpleLayout measure="record">
 			<div className="grid gap-6">
 				<PageHeader
 					description="Service requests reported by the public, the outreach your crews do, and the contacts behind both."

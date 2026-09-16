@@ -51,8 +51,11 @@ function AdultSurveillanceOverviewRoute() {
 	const today = todayInTimeZone(timeZone);
 	const since = addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1));
 
+	// `record` is the measure the route-loading skeleton reserves, so the
+	// overview arrives at the width it stood in for (#1043, #1049). The panels
+	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
+		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="Collection activity across your traps, the species composition in what they caught, and the collections still awaiting identification or flagged with a problem."
 				eyebrow="Surveillance & mapping"
