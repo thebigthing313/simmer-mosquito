@@ -100,7 +100,7 @@ components:
   page-container:
     backgroundColor: "{colors.app-stage}"
     padding: "24px 16px"
-    width: "1200px"
+    width: "112rem" # the `record` measure apps/web draws in; apps/admin draws in the 1200px `page` column
   sticky-header:
     backgroundColor: "{colors.app-bg}"
     textColor: "{colors.text}"
@@ -402,16 +402,60 @@ reused. If a custom pattern appears more than once, promote it into
 
 ### Page container
 
-Every non-map route page sits in one measure: a centred 1200px column on the
-App Stage surface. This is a `cva` in `packages/ui-web/src/components/page-container.tsx`
-with two axes: `gap` (how far apart stacked sections sit) and `padding` (framed
-page, record detail with bottom room, or trailing-only when a parent already
-pads). A `flow` axis switches between the section grid and a plain block column.
+Every non-map route page sits in a centred column on the App Stage surface, and
+each app draws in one of two measures. `pageContainer`, a `cva` in
+`packages/ui-web/src/components/page-container.tsx`, is where both are declared
+and where the decision lives. Its `measure` axis has two variants. `page` is a
+1200px column, the prose measure the file was written for, and it is the admin
+console's: `apps/admin` draws every page in it through `AdminPage` and its
+changelog through `ChangelogPage`. `record` is a 112rem cap, and it is the
+organization workspace's: every non-map route page in `apps/web` reads it since
+#1043, the detail pages that it was written for and the overviews, catalogs,
+tables, stubs, settings sections and tools that moved onto it. The cap is 112rem
+rather than none because past about that width a child-record table row gets
+long enough that the eye loses which row it is on, and the page header's title
+and its actions stop reading as one bar; the `page-container` docblock carries
+the measurement.
+
+The route-loading skeleton reads the same axis. `OutletContentFallback` takes a
+`measure` and each app names its own, so a page arrives at the width the
+skeleton stood in for with no horizontal jump when it lands (#1040). That is why
+`apps/web` has no page left in the 1200 column: one there would arrive narrower
+than its skeleton.
+
+**The Measure Prop Rule.** A shared component mounted by both consoles takes a
+`measure` prop rather than changing its default. `OutletSimpleLayout`,
+`ChangelogPage` and `OutletContentFallback` all default to `page`, so a mount
+in `apps/admin` draws where the console expects, and `apps/web` passes
+`record` at each mount. The prop is
+`measure?: NonNullable<PageContainerVariants['measure']>`, because cva reads
+`null` as no variant and skips the default, which would draw with no cap at
+all, a third width.
+
+**Widening the frame widens nothing inside it.** A form's fields, a stat card, a
+fact row and a paragraph keep the widths they have. Content that wants a
+narrower line than the frame carries its own measure: `DetailList` and
+`detailCardRowClass` on a detail page, and the changelog's release list, which
+caps itself at 38rem inside the `record` frame because release notes are prose.
+What a wider frame changes is the grid around the content, a card grid running
+four across, a table row running the length the cap is set against. The three
+control-methods catalogs kept the frame's measure with a table that draws
+Method, Custom Fields at 22% and Actions at 60px, so the name column runs about
+1164px on a 1920 screen; with three to five rows the eye keeps the row, and
+`CatalogSection` taking an optional measure is the fix if the rows grow.
+
+The other two axes are `gap` (how far apart stacked sections sit) and
+`padding` (framed page, record detail with bottom room, or trailing-only when a
+parent already pads). A `flow` axis switches between the section grid and a
+plain block column.
 
 The variants are not invented; they are the shapes ~20 route files had already
 converged on as literal class strings. The measure is decided there and nowhere
-else. A route that re-states `max-w-[1200px]` has taken a decision that isn't
-its to make.
+else. A route that writes `max-w-[1200px]`, or any other width, on its page
+column has taken a decision that isn't its to make. Three routes had, the search
+page at `max-w-5xl` and the weather import page and the service request
+loading state at `900px`, and all three read the register since #1055. No gate
+holds this today; it stays a judgement until a second copy appears.
 
 ### Sticky panel header
 
