@@ -162,7 +162,12 @@ function AssignmentCreateRoute() {
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
+			{/*
+			 * `record` is the measure the route-loading skeleton reserves, so the
+			 * page arrives at the width it stood in for (#1043, #1046). The form
+			 * carries its own 46rem below, so the frame is what widened.
+			 */}
+			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
 				<div className={stickyHeader({ gap: 'tight', padding: 'none' })}>
 					<Link
 						className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"

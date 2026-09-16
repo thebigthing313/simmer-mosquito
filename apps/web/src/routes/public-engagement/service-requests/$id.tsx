@@ -1,5 +1,6 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -152,11 +153,18 @@ function ServiceRequestDetailRoute() {
 	);
 }
 
-/** Full-height, back-linked frame for the loading / unavailable states. */
+/**
+ * Full-height, back-linked frame for the loading / unavailable states.
+ *
+ * `record` is the measure the route-loading skeleton reserves, so the state
+ * arrives at the width it stood in for rather than in a 900px column of its
+ * own, the third such column in the routes after search and weather import
+ * (#1043, #1046).
+ */
 function ServiceRequestStatePage({ children }: { readonly children: ReactNode }) {
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
-			<div className="mx-auto grid w-full max-w-[900px] content-start gap-5 px-4 py-6 md:px-8">
+			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
 				<BackLink />
 				{children}
 			</div>

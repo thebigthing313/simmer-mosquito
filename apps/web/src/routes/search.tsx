@@ -5,6 +5,7 @@ import {
 	type SearchResult,
 	searchResultValue,
 } from '@simmer-mosquito/domain';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -105,8 +106,12 @@ function SearchResultsRoute() {
 	const emptyResult =
 		urlQuery !== '' && !loading && !first.isError && !first.isFetching && total === 0;
 
+	// `record` is the measure the route-loading skeleton reserves, so the page
+	// arrives at the width it stood in for rather than under a `max-w-5xl` of its
+	// own (#1043, #1046). The input keeps its `max-w-xl`; the result rows are
+	// #1047's.
 	return (
-		<div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
+		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<div className="flex flex-col gap-2">
 				<h1 className="font-semibold text-2xl text-foreground">Search</h1>
 				<Input
