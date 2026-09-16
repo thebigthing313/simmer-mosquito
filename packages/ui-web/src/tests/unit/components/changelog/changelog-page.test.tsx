@@ -8,9 +8,11 @@
  * (#1043). These cases hold the width to the register the way
  * `simple-layout.test.tsx` does: the default is still the column, so
  * `apps/admin` is unchanged until it names a measure, and the record measure
- * is the same class the detail pages read. The third case is the one this
- * page adds: release notes are prose, so the list under the header carries a
- * cap of its own and a bullet does not run the width of the stage.
+ * is the same class the detail pages read. The two list cases are the ones
+ * this page adds: release notes are prose, so in the record frame the list
+ * under the header carries a cap of its own and a bullet does not run the
+ * width of the stage, while in the page column the list is the markup it was
+ * before the prop arrived, which is what `apps/admin` renders.
  *
  * What a release parses to and how it reads on screen is
  * `apps/web/src/tests/unit/components/changelog-page.test.tsx`'s. Rendered to
@@ -49,6 +51,14 @@ const frameOf = (markup: string): string[] => {
 	return frame;
 };
 
+const listClassOf = (markup: string): string => {
+	const lists = [...markup.matchAll(/<ol class="([^"]*)"/g)].map((match) => match[1] ?? '');
+	if (lists.length !== 1) {
+		throw new Error(`Expected one release list in: ${markup}`);
+	}
+	return lists[0] ?? '';
+};
+
 const renderPage = (measure?: 'page' | 'record'): string =>
 	renderToStaticMarkup(
 		<ChangelogPage
@@ -75,15 +85,18 @@ describe('the changelog frame', () => {
 		expect(frame).not.toContain(measureClass('page'));
 	});
 
-	it('caps the release list at a prose measure in either frame', () => {
-		for (const measure of ['page', 'record'] as const) {
-			const markup = renderPage(measure);
-			const list = [...markup.matchAll(/<ol class="([^"]*)"/g)].map((match) => match[1] ?? '');
+	it('leaves the release list uncapped in the page column, which is the prose measure already', () => {
+		const list = listClassOf(renderPage('page'));
 
-			expect(list).toHaveLength(1);
-			expect(list[0]).toMatch(/\bmax-w-\[\d+rem\]/);
-			expect(list[0]).not.toContain(measureClass(measure));
-		}
+		expect(list).toEqual(listClassOf(renderPage()));
+		expect(list).not.toMatch(/\bmax-w-/);
+	});
+
+	it('caps the release list at a prose measure in the record frame, which the frame no longer is', () => {
+		const list = listClassOf(renderPage('record'));
+
+		expect(list).toMatch(/\bmax-w-\[\d+rem\]/);
+		expect(list).not.toContain(measureClass('record'));
 	});
 
 	it('refuses a null measure, which cva would read as no cap at all', () => {

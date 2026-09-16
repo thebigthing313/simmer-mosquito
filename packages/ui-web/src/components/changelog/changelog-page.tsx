@@ -24,8 +24,9 @@ const HistoryIcon = iconRegistry.generic.history.icon;
  * route-loading skeleton reserves, so the page arrives at the width the
  * skeleton stood in for (#1043). Release notes are prose, the one kind of
  * content the column was written for, so widening the frame must not widen a
- * line: the release list carries `RELEASE_MEASURE` of its own, and a bullet
- * wraps at the same place in either app.
+ * line: in the `record` frame the release list carries `RELEASE_MEASURE` of
+ * its own, and at `page` it renders what it always has, the column being the
+ * measure.
  */
 export function ChangelogPage({
 	markdown,
@@ -47,6 +48,12 @@ export function ChangelogPage({
 	readonly measure?: NonNullable<PageContainerVariants['measure']>;
 }) {
 	const releases = parseChangelog(markdown);
+	/*
+	 * Only the `record` frame caps the list. At `page` the 1200 column is the
+	 * prose measure already, and `apps/admin` draws there and keeps the markup
+	 * it had before the prop arrived.
+	 */
+	const listClass = measure === 'record' ? `grid gap-8 ${RELEASE_MEASURE}` : 'grid gap-8';
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -55,7 +62,7 @@ export function ChangelogPage({
 				{releases.length === 0 ? (
 					<p className="text-muted-foreground text-sm">No releases have been published yet.</p>
 				) : (
-					<ol className={`grid gap-8 ${RELEASE_MEASURE}`}>
+					<ol className={listClass}>
 						{releases.map((release) => (
 							<ReleaseSection
 								currentVersion={currentVersion}
@@ -71,15 +78,15 @@ export function ChangelogPage({
 }
 
 /**
- * The measure the release entries wrap at, whatever frame they sit in.
+ * The measure the release entries wrap at in the `record` frame.
  *
  * A bullet is a sentence, and DESIGN.md caps prose at 65 to 75 characters a
  * line. In the `record` frame a line would otherwise run 1616px on a 1920
- * screen, so the list carries the cap itself. It sits on the list rather than
- * on each bullet so a release's version bar and its entries end at one edge,
- * and it is in rem rather than ch because a ch here would be measured in the
- * list's font size, not the `text-sm` the bullets are set in: 38rem is about
- * 75 characters of that.
+ * screen, so the list carries the cap the frame no longer does. It sits on
+ * the list rather than on each bullet so a release's version bar and its
+ * entries end at one edge, and it is in rem rather than ch because a ch here
+ * would be measured in the list's font size, not the `text-sm` the bullets
+ * are set in: 38rem is about 75 characters of that.
  */
 const RELEASE_MEASURE = 'max-w-[38rem]';
 
