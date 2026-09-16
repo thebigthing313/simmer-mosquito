@@ -1,5 +1,8 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
+import {
+	type PageContainerVariants,
+	pageContainer,
+} from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { type ChangelogRelease, parseChangelog } from '@simmer-mosquito/ui-web/lib/changelog';
@@ -11,31 +14,48 @@ const HistoryIcon = iconRegistry.generic.history.icon;
  *
  * Both consoles mount this with their own markdown and their own title; nothing
  * here knows which app it is drawing. The caller passes the file contents as a
- * string — the routes get it from Vite's `?raw` import, so the whole history is
+ * string: the routes get it from Vite's `?raw` import, so the whole history is
  * inlined at build time and the page needs no network at all.
+ *
+ * How wide the frame draws is the app's decision too, so `measure` is read off
+ * `pageContainer` and the caller names the variant, the shape #1040 gave
+ * `OutletContentFallback`. The default is `page`, the 1200px column, which is
+ * where `apps/admin` draws it. `apps/web` passes `record`, the 112rem cap its
+ * route-loading skeleton reserves, so the page arrives at the width the
+ * skeleton stood in for (#1043). Release notes are prose, the one kind of
+ * content the column was written for, so widening the frame must not widen a
+ * line: the release list carries `RELEASE_MEASURE` of its own, and a bullet
+ * wraps at the same place in either app.
  */
 export function ChangelogPage({
 	markdown,
 	title,
 	description,
 	currentVersion,
+	measure = 'page',
 }: {
 	readonly markdown: string;
 	readonly title: string;
 	readonly description: string;
 	/** The running build, badged against its entry so "what am I on" is answered on the page. */
 	readonly currentVersion: string;
+	/*
+	 * `NonNullable` because cva reads `null` as "no variant, skip the default",
+	 * which would draw the frame with no cap at all, the third width the
+	 * `page-container` docblock rejects.
+	 */
+	readonly measure?: NonNullable<PageContainerVariants['measure']>;
 }) {
 	const releases = parseChangelog(markdown);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'overview', padding: 'detail' })}>
+			<div className={pageContainer({ gap: 'overview', measure, padding: 'detail' })}>
 				<PageHeader description={description} icon={HistoryIcon} title={title} />
 				{releases.length === 0 ? (
 					<p className="text-muted-foreground text-sm">No releases have been published yet.</p>
 				) : (
-					<ol className="grid gap-8">
+					<ol className={`grid gap-8 ${RELEASE_MEASURE}`}>
 						{releases.map((release) => (
 							<ReleaseSection
 								currentVersion={currentVersion}
@@ -49,6 +69,19 @@ export function ChangelogPage({
 		</div>
 	);
 }
+
+/**
+ * The measure the release entries wrap at, whatever frame they sit in.
+ *
+ * A bullet is a sentence, and DESIGN.md caps prose at 65 to 75 characters a
+ * line. In the `record` frame a line would otherwise run 1616px on a 1920
+ * screen, so the list carries the cap itself. It sits on the list rather than
+ * on each bullet so a release's version bar and its entries end at one edge,
+ * and it is in rem rather than ch because a ch here would be measured in the
+ * list's font size, not the `text-sm` the bullets are set in: 38rem is about
+ * 75 characters of that.
+ */
+const RELEASE_MEASURE = 'max-w-[38rem]';
 
 function ReleaseSection({
 	release,
