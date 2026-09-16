@@ -184,8 +184,10 @@ function InspectionsTableRoute() {
 		setLoaded((current) => ({ ...current, limit: current.limit + WINDOW_STEP }));
 	};
 
+	// `record` is the measure the route-loading skeleton reserves, so the table
+	// arrives at the width it stood in for (#1043, #1047).
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
+		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={<InspectionSurfaceSwitch current="table" search={carried} />}
 				description="Every inspection your crews have recorded."

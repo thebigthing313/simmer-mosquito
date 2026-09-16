@@ -35,7 +35,9 @@ function EditContactRoute() {
 			recordType="contact"
 			reading={{ isError, isReady, record: contact }}
 			skeleton={
-				<OutletSimpleLayout>
+				// `record` is the measure the index and the route-loading skeleton draw
+				// in, so the wait for the record does not jump the column (#1043, #1047).
+				<OutletSimpleLayout measure="record">
 					<EditFormSkeleton
 						className="max-w-[640px]"
 						frame="plain"
