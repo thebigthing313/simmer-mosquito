@@ -338,10 +338,17 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 	const content = CONTENT[activePath];
 	const heading = content?.title ?? title ?? item?.label ?? domain.label;
 
+	// `record` is the measure the route-loading skeleton reserves, so a stub
+	// arrives at the width it stood in for (#1043, #1048). The frame widens and
+	// the prose does not: the heading, the summary and the list each carry the
+	// 46rem the page used to centre in, and they sit at the frame's left edge
+	// where the skeleton's heading sat, rather than 440px in on a 1920 screen.
+	// The links are the one part that reads better wide, so they take the room
+	// as columns.
 	return (
-		<OutletSimpleLayout>
-			<div className="mx-auto grid max-w-[46rem] content-start gap-8 py-6">
-				<header className="grid justify-items-start gap-3">
+		<OutletSimpleLayout measure="record">
+			<div className="grid content-start gap-8 py-6">
+				<header className="grid max-w-[46rem] justify-items-start gap-3">
 					<Badge variant="secondary">
 						<UpcomingIcon aria-hidden="true" />
 						Upcoming
@@ -356,7 +363,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 				</header>
 
 				{content === undefined ? null : (
-					<section className="grid gap-3">
+					<section className="grid max-w-[46rem] gap-3">
 						<h2 className="m-0 font-semibold text-foreground text-sm">What will land here</h2>
 						<ul className="m-0 grid list-none gap-2.5 p-0">
 							{content.willLand.map((capability) => (
@@ -380,7 +387,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 						<h2 className="m-0 font-semibold text-foreground text-sm">
 							Where to work in the meantime
 						</h2>
-						<ItemGroup className="gap-2">
+						<ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-2">
 							{content.elsewhere.map((destination) => {
 								const DestinationIcon = destination.icon;
 								return (
