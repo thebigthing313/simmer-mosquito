@@ -93,49 +93,11 @@ export function ActivityLog({
 					/>
 				))}
 			</ol>
-			<WhatThisDoesNotShow />
 		</>
 	);
 }
 
-/**
- * What the log cannot tell you, on the page rather than in a code comment.
- *
- * Each of these is a place where an operator could otherwise draw a confident
- * wrong conclusion — that somebody was at a site they only typed up, that a
- * quiet-looking morning is ordered, that a colleague assisted on nothing. They
- * are consequences of what the records hold, so they cannot be fixed here; the
- * honest move is to say so where the conclusion would be drawn.
- */
-function WhatThisDoesNotShow() {
-	return (
-		<details className="mx-3 mb-3 rounded-md border border-border/50 bg-muted/25 px-3 py-2">
-			<summary className="cursor-pointer font-medium text-muted-foreground text-xs">
-				What this log cannot show
-			</summary>
-			<ul className="mt-2 grid gap-1.5 text-muted-foreground text-xs">
-				<li>
-					Habitats and traps are listed as <span className="font-medium">Created</span>, which means
-					the record was entered, not that the person stood there. Every other kind of entry here
-					names someone who did the work.
-				</li>
-				<li>
-					Only three kinds of entry carry a time of day. The rest are dated to the day, so the order
-					within a day is partial and no route is drawn.
-				</li>
-				<li>
-					Assisting crew can only be recorded on inspections, collections, chemical applications,
-					source reduction, biocontrol, and outreach. Habitats, traps, and service requests have
-					nowhere to name them.
-				</li>
-				<li>
-					A trap recorded with a date and a duration, rather than exact timestamps, has no separate
-					set time. Both its visits fall on the collection date.
-				</li>
-			</ul>
-		</details>
-	);
-}
+
 
 /** The row cap bit, said out loud: a partial log must never read as a whole one. */
 function TruncationNotice({
