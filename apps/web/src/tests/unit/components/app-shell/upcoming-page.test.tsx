@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { ShellProvider } from '@simmer-mosquito/ui-web/components/app-shell';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -55,6 +56,30 @@ describe('UpcomingPage', () => {
 			expect(screen.getByText('What will land here')).toBeTruthy();
 			cleanup();
 		}
+	});
+
+	// One prop here is the measure of all sixteen stubs. The route-loading
+	// skeleton reserves the record measure and draws its heading at the frame's
+	// left edge, so a stub centred in the 1200 column arrived narrower than the
+	// skeleton with its heading 440px to the right of where the skeleton's sat
+	// (#1043, #1048). The prose keeps a measure of its own inside the frame.
+	it('draws in the record measure the route-loading skeleton reserves', () => {
+		const { container } = renderAt('/gis/data-explorer');
+		const measure = pageContainer({ measure: 'record' })
+			.split(/\s+/)
+			.find((cls) => cls.startsWith('max-w-'));
+		if (measure === undefined) {
+			throw new Error('pageContainer names no record measure');
+		}
+
+		expect(container.querySelector(`.${CSS.escape(measure)}`)).not.toBeNull();
+		expect(container.querySelector(`.${CSS.escape('max-w-[1200px]')}`)).toBeNull();
+		// The prose column sits at the frame's left edge, where the skeleton's
+		// heading sits, rather than centring itself in the wider frame.
+		const prose = container.querySelector('h1')?.closest(`.${CSS.escape('max-w-[46rem]')}`);
+		expect(prose).not.toBeNull();
+		expect(prose?.classList.contains('mx-auto')).toBe(false);
+		expect(prose?.parentElement?.classList.contains('mx-auto')).toBe(false);
 	});
 });
 
