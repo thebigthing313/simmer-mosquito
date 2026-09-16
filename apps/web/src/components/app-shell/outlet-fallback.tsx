@@ -7,8 +7,9 @@ import { OutletContentFallback } from '@simmer-mosquito/ui-web/components/app-sh
  * cannot name different measures.
  *
  * `record` is the 112rem cap the detail pages fill the stage under, and it is
- * the widest measure `pageContainer` has. Most routes here fill the stage, so
- * the 1200px default reserved a column the page then drew past (#1040).
+ * the widest measure `pageContainer` has. Every route here fills the stage
+ * since #1043, and the 1200px default reserved a column the page then drew
+ * past (#1040).
  */
 export function WebOutletFallback() {
 	return <OutletContentFallback measure="record" />;

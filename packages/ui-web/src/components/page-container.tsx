@@ -23,21 +23,32 @@ import { cva, type VariantProps } from 'class-variance-authority';
 export const pageContainer = cva('mx-auto w-full', {
 	variants: {
 		/*
-		 * How wide the column may get.
+		 * How wide the column may get. Each app draws in one of the two, and
+		 * the route-loading skeleton (`OutletContentFallback`) reads the same
+		 * one, so a page arrives at the width the skeleton stood in for.
 		 *
 		 * `page` is the 1200px measure this file was written for: a column of
 		 * prose, headings and stacked sections, where a longer line is a worse
-		 * line.
+		 * line. It is the admin console's measure now. `apps/admin` draws every
+		 * page in it through `AdminPage` and its changelog through
+		 * `ChangelogPage`, and it stays the default so a shared component
+		 * mounted without a `measure` draws where the console expects. No route
+		 * in `apps/web` reads it since #1043, and one that starts to is a route
+		 * that will arrive narrower than its skeleton.
 		 *
-		 * `record` is for the record detail frame, which holds almost no prose.
-		 * It holds fact rows, a map, child-record tables and a comments rail,
-		 * and those want different widths from each other rather than one
+		 * `record` is the measure every non-map route page in `apps/web` reads,
+		 * and it was written for the record detail frame, which holds almost no
+		 * prose. It holds fact rows, a map, child-record tables and a comments
+		 * rail, and those want different widths from each other rather than one
 		 * shared one. Measured on a 1920 screen: the stage inside the two rails
 		 * is 1616px, so the 1200 measure left 416px of it empty while a fact
 		 * row's value column ran 600px wide around 81px of ink. Widening the
 		 * page alone would have made that row worse, so the cards carry their
 		 * own measures now (see `DetailList` and `detailCardRowClass`) and the
-		 * page is free to fill the stage.
+		 * page is free to fill the stage. That is the rule the other pages moved
+		 * under: widening the frame widens nothing inside it, and content that
+		 * wants a narrower line carries its own measure, the way the changelog's
+		 * release list does.
 		 *
 		 * The cap is 112rem rather than none. Past about that width a child
 		 * record's table row gets long enough that the eye loses which row it

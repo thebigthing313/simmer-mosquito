@@ -18,15 +18,13 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
  * How wide it draws is the app's decision, so `measure` is read off
  * `pageContainer` and the app names the variant. The default is `page`, the
  * 1200px column, which is every page in the admin console. `apps/web` passes
- * `record`, the 112rem cap its detail pages fill the stage under, because the
- * column is the minority there: the explorers, the split forms and the
- * worklists fill the stage, and a 1200px skeleton ahead of one reserved a
- * column in the middle of the stage that the page then drew straight past
- * (#1040). The domain overviews and the catalog pages still sit in the column,
- * so a skeleton wider than them is the accepted mismatch; a skeleton shaped
- * per layout family is its own issue. It is `record` rather than a fourth,
- * uncapped variant because a skeleton wider than any page would be a third
- * width, and the widest page and the skeleton should share one number.
+ * `record`, the 112rem cap every non-map route page there draws under since
+ * #1043: the explorers, the split forms and the worklists fill the stage, and
+ * a 1200px skeleton ahead of one reserved a column in the middle of the stage
+ * that the page then drew straight past (#1040). A skeleton shaped per layout
+ * family is its own issue. It is `record` rather than a fourth, uncapped
+ * variant because a skeleton wider than any page would be a third width, and
+ * the widest page and the skeleton should share one number.
  *
  * `relative` is what the sweep positions against. Without it the hairline
  * escapes to the nearest positioned ancestor, which is the shell's `main`.
