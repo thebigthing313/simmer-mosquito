@@ -58,8 +58,11 @@ function OperationsOverviewRoute() {
 		profiles.map((profile) => [profile.id, profile.displayName] as const),
 	);
 
+	// `record` is the measure the route-loading skeleton reserves, so the
+	// overview arrives at the width it stood in for (#1043, #1049). The panels
+	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
+		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="Control work that has been requested, the worklists crews are running, and the missions dispatched against them."
 				eyebrow="Dispatch and crew work"
