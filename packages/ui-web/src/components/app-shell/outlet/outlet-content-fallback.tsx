@@ -34,7 +34,12 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 export function OutletContentFallback({
 	measure = 'page',
 }: {
-	readonly measure?: PageContainerVariants['measure'];
+	/*
+	 * `NonNullable` because cva reads `null` as "no variant, skip the default",
+	 * which would draw the skeleton with no cap at all, the fourth width the
+	 * docblock above rejects.
+	 */
+	readonly measure?: NonNullable<PageContainerVariants['measure']>;
 }) {
 	return (
 		<div aria-busy="true" aria-label="Loading page" className="relative" role="status">
