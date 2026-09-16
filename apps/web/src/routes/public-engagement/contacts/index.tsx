@@ -78,8 +78,10 @@ function ContactsExplorerRoute() {
 	}, [page, pageCount]);
 	const visible = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
+	// `record` is the measure the route-loading skeleton reserves, so the index
+	// arrives at the width it stood in for (#1043, #1047).
 	return (
-		<OutletSimpleLayout>
+		<OutletSimpleLayout measure="record">
 			<div className="grid gap-4">
 				<PageHeader
 					actions={

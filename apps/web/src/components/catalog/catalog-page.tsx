@@ -42,8 +42,13 @@ export function CatalogPage({
 	readonly emptyDescription: ReactNode;
 	readonly children: ReactNode;
 }) {
+	// `record` is the measure the route-loading skeleton reserves, so every
+	// catalog arrives at the width it stood in for (#1043, #1047). The tables
+	// fill it: their columns are proportional and the widest is a description,
+	// so a 1554px row reads as one row on a 1920 screen, well under the 112rem
+	// the `page-container` docblock warns about.
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
+		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={
 					<>
