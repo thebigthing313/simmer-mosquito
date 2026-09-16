@@ -1,6 +1,5 @@
 import {
 	BreadcrumbLabelProvider,
-	OutletContentFallback,
 	OutletShell,
 	SearchTriggerProvider,
 	type ShellOrganization,
@@ -26,6 +25,7 @@ import {
 	webStandalonePages,
 	withDailyWorkGroup,
 } from './navigation';
+import { WebOutletFallback } from './outlet-fallback';
 
 function formatRole(role: string | null | undefined): string {
 	if (role === null || role === undefined || role.trim() === '') {
@@ -132,7 +132,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 						    router builds from `defaultPendingComponent` (see main.tsx); this
 						    one catches anything that suspends outside a match. Deliberately
 						    unkeyed — keying it would remount every page on navigation. */}
-						<Suspense fallback={<OutletContentFallback />}>
+						<Suspense fallback={<WebOutletFallback />}>
 							<Outlet />
 						</Suspense>
 					</OutletShell>
