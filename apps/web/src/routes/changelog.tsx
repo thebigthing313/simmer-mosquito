@@ -15,6 +15,7 @@ function ChangelogRoute() {
 			currentVersion={__APP_VERSION__}
 			description="What has changed in SIMMER, newest first."
 			markdown={changelogMarkdown}
+			measure="record"
 			title="What's New"
 		/>
 	);
