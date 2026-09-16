@@ -26,6 +26,7 @@
  */
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -178,7 +179,13 @@ export function ImportWeatherPage({
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
-			<div className="mx-auto grid w-full max-w-[900px] content-start gap-5 px-4 py-6 pb-10 md:px-8">
+			{/*
+			 * `record` is the measure the route-loading skeleton reserves, so the
+			 * page arrives at the width it stood in for rather than in a 900px
+			 * column of its own (#1043, #1046). The cards inside carry their own
+			 * widths, so the frame is what widened.
+			 */}
+			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
 				<Link className={backLink()} params={{ id: station.id }} to="/gis/weather/$id">
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to {station.name}

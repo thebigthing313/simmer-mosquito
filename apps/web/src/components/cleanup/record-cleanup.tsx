@@ -119,8 +119,11 @@ export function RecordCleanup({
 		});
 	};
 
+	// `record` is the measure the route-loading skeleton reserves, so the tool
+	// arrives at the width it stood in for (#1043, #1046). The proposal sets
+	// below are cards, and how they lay out in the wider frame is #1049's.
 	return (
-		<div className={pageContainer({ gap: 'detail' })}>
+		<div className={pageContainer({ gap: 'detail', measure: 'record' })}>
 			<PageHeader
 				description={`Two records for one ${recordNoun(recordType).one} split its history in half. This proposes the sets that look like duplicates and folds them into whichever one you keep.`}
 				icon={MergeIcon}
