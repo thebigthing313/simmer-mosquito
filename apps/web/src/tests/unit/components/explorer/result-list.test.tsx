@@ -78,12 +78,10 @@ describe('ResultList', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
-	/*
-	 * Daily Work and Regions hand the rail a whole body rather than rows, and
-	 * that path drew a plain overflow container: the browser's scrollbar once
-	 * the content was in, under a loading skeleton that had already drawn the
-	 * styled one (#1081).
-	 */
+	// Daily Work and Regions hand the rail a whole body rather than rows, and
+	// that path drew a plain overflow container: the browser's scrollbar once
+	// the content was in, under a loading skeleton that had already drawn the
+	// styled one (#1081).
 	it('renders a caller-composed body inside the same Radix viewport as the rows', () => {
 		const { container } = render(
 			<ResultList emptyTitle="No regions" isEmpty={false} isLoading={false}>
