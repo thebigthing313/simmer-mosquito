@@ -202,7 +202,7 @@ export const iconRegistry = {
 		trap: icon('trap', 'Trap', 'entities', Box),
 		unit: icon('unit', 'Unit', 'entities', Ruler),
 		vehicle: icon('vehicle', 'Vehicle', 'entities', Truck),
-		weatherSource: icon('weatherSource', 'Weather source', 'entities', Thermometer),
+		weatherStation: icon('weatherStation', 'Weather station', 'entities', Thermometer),
 	},
 	actions: {
 		add: icon('add', 'Add', 'actions', Plus),
