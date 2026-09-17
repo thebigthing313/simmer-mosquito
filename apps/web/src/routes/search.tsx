@@ -5,11 +5,13 @@ import {
 	type SearchResult,
 	searchResultValue,
 } from '@simmer-mosquito/domain';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
+import { SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
@@ -108,12 +110,14 @@ function SearchResultsRoute() {
 
 	// `record` is the measure the route-loading skeleton reserves, so the page
 	// arrives at the width it stood in for rather than under a `max-w-5xl` of its
-	// own (#1043, #1046). The input keeps its `max-w-xl`; the result rows are
-	// #1047's.
+	// own (#1043, #1046), and the heading is a `PageHeader` so its title lands
+	// where the skeleton's title bar sat rather than a size below it (#1056).
+	// The input is the page's subject and stays under the header rather than in
+	// its action slot; it keeps its `max-w-xl`. The result rows are #1047's.
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
-			<div className="flex flex-col gap-2">
-				<h1 className="font-semibold text-2xl text-foreground">Search</h1>
+			<div className="flex flex-col gap-4">
+				<PageHeader icon={SearchIcon} title="Search" />
 				<Input
 					aria-label="Search"
 					className="max-w-xl"
