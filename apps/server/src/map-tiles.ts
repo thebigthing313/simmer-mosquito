@@ -28,11 +28,7 @@ import {
 	searchHabitatSites,
 	type TrapMapFilters,
 } from '@simmer-mosquito/db';
-import {
-	LARVAL_DENSITIES,
-	type LarvalDensity,
-	resolveOrganizationSettings,
-} from '@simmer-mosquito/domain';
+import { LARVAL_DENSITIES, resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -1004,7 +1000,7 @@ function parseFilterField(
 		case 'date':
 			return parseOptionalDateFilter(searchParams, field.param);
 		case 'density':
-			return parseOptionalDensityListFilter(searchParams, field.param);
+			return parseOptionalVocabularyListFilter(searchParams, field.param, LARVAL_DENSITIES);
 		case 'sampleStatus':
 			return parseOptionalSampleStatusFilter(searchParams, field.param);
 		case 'trapStatus':
@@ -1359,13 +1355,19 @@ function parseOptionalTextFilter(
 	);
 }
 
-const inspectionDensitySet = new Set<string>(LARVAL_DENSITIES);
-
-function parseOptionalDensityListFilter(
+/**
+ * A list of one vocabulary's members, repeated or comma-separated, absent, or
+ * the reason it is none of those. A present-but-empty param is refused rather
+ * than read as "none", because a caller that wrote the key meant to name
+ * something. Exported for the service request nearby route, whose `families`
+ * filter is this over the activity families.
+ */
+export function parseOptionalVocabularyListFilter<TMember extends string>(
 	searchParams: URLSearchParams,
 	param: string,
+	vocabulary: readonly TMember[],
 ):
-	| { readonly ok: true; readonly value: readonly LarvalDensity[] | undefined }
+	| { readonly ok: true; readonly value: readonly TMember[] | undefined }
 	| { readonly ok: false; readonly reason: string } {
 	const values = searchParams
 		.getAll(param)
@@ -1379,16 +1381,17 @@ function parseOptionalDensityListFilter(
 			: { ok: true, value: undefined };
 	}
 
+	const members = new Set<string>(vocabulary);
 	for (const value of values) {
-		if (!inspectionDensitySet.has(value)) {
+		if (!members.has(value)) {
 			return {
 				ok: false,
-				reason: `${param} must be one of: ${LARVAL_DENSITIES.join(', ')}.`,
+				reason: `${param} must be one of: ${vocabulary.join(', ')}.`,
 			};
 		}
 	}
 
-	return { ok: true, value: [...new Set(values)] as LarvalDensity[] };
+	return { ok: true, value: [...new Set(values)] as TMember[] };
 }
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;

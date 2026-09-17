@@ -6,6 +6,7 @@ import {
 	formatRadiusLabel,
 	type NearbyCategory,
 	type NearbyItem,
+	nearbyItemDate,
 	visibleNearbyItems,
 } from '../../../../../routes/public-engagement/service-requests/-service-request-nearby';
 
@@ -17,14 +18,24 @@ function item(
 ): NearbyItem {
 	return {
 		category,
+		family: 'larval',
 		id,
 		lat: 42,
 		lng: -71,
 		distanceMeters,
-		date: null,
+		date: '2026-08-01',
+		occurredAt: null,
 		label: null,
+		placeName: null,
 		refId: null,
-		status: null,
+		methodRefId: null,
+		amount: null,
+		unitId: null,
+		detail: null,
+		stages: null,
+		context: null,
+		hasBycatch: null,
+		tagIds: null,
 		...overrides,
 	};
 }
@@ -76,6 +87,25 @@ describe('visibleNearbyItems', () => {
 
 	it('returns nothing when every family is hidden', () => {
 		expect(visibleNearbyItems(ITEMS, new Set())).toEqual([]);
+	});
+});
+
+describe('nearbyItemDate', () => {
+	// The row dates a site by the day its record was created, which is the
+	// activity register's rule. Beside a request that day says nothing, so the
+	// list keeps drawing a site without one.
+	it.each(['habitat', 'trap'] as const)('leaves the date off a %s', (category) => {
+		expect(nearbyItemDate(item('a', category, 10))).toBeNull();
+	});
+
+	it.each([
+		'inspection',
+		'collection',
+		'application',
+		'sourceReduction',
+		'biocontrol',
+	] as const)('keeps the date on a %s', (category) => {
+		expect(nearbyItemDate(item('a', category, 10))).toBe('2026-08-01');
 	});
 });
 

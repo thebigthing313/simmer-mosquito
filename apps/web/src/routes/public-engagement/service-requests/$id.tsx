@@ -81,6 +81,7 @@ import {
 	type NearbyFamily,
 	type NearbyItem,
 	type NearbyResponse,
+	nearbyItemDate,
 	useServiceRequestNearby,
 	visibleNearbyItems,
 } from './-service-request-nearby';
@@ -625,10 +626,11 @@ function NearbyRow({
 	readonly unitCode: string;
 }) {
 	const { title, subtitle } = describeNearbyItem(item, nameById);
+	const date = nearbyItemDate(item);
 	const meta = [
 		NEARBY_CATEGORY_LABEL[item.category],
 		subtitle,
-		item.date === null ? null : formatRequestDate(item.date),
+		date === null ? null : formatRequestDate(date),
 		formatNearbyDistance(item.distanceMeters, unitCode),
 	]
 		.filter((part): part is string => part !== null)

@@ -1,3 +1,4 @@
+import type { ActivityCategory, ActivityFamily } from '@simmer-mosquito/domain';
 import {
 	circlePolygon,
 	type GeoJsonFeature,
@@ -6,31 +7,32 @@ import {
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../../auth';
+import type { ActivityEntry } from '../../-activity-data';
 
 // Data + display helpers for the service-request map context (nearby records).
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
-export type NearbyCategory =
-	| 'habitat'
-	| 'trap'
-	| 'inspection'
-	| 'collection'
-	| 'application'
-	| 'sourceReduction'
-	| 'biocontrol';
+/**
+ * The families this page asks the endpoint for. The endpoint can also answer
+ * `publicEngagement`, the other requests around this one, and the redesigned
+ * page will ask for it; until then the type below says what this page draws.
+ */
+const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = ['larval', 'adult', 'control'];
 
+/** The seven record kinds the three families above hold. */
+export type NearbyCategory = Exclude<ActivityCategory, 'outreach' | 'serviceRequest'>;
+
+/** The page's own grouping of those kinds, which is what its three toggles switch. */
 export type NearbyFamily = 'infrastructure' | 'surveillance' | 'control';
 
-export interface NearbyItem {
+/**
+ * One record near the request: the activity row for that record, less the two
+ * fields that say whose entry it is, plus how far away it is. One shape on
+ * both endpoints is what lets Daily Work's list row draw a nearby record too.
+ */
+export interface NearbyItem extends Omit<ActivityEntry, 'involvement' | 'role' | 'category'> {
 	readonly category: NearbyCategory;
-	readonly id: string;
-	readonly lat: number;
-	readonly lng: number;
 	readonly distanceMeters: number;
-	readonly date: string | null;
-	readonly label: string | null;
-	readonly refId: string | null;
-	readonly status: string | null;
 }
 
 export interface NearbyResponse {
@@ -44,6 +46,7 @@ export interface NearbyResponse {
 	readonly timeWindow: { readonly daysBefore: number; readonly daysAfter: number };
 	readonly dateFrom: string;
 	readonly dateTo: string;
+	readonly families: readonly ActivityFamily[];
 	readonly items: readonly NearbyItem[];
 }
 
@@ -108,14 +111,25 @@ export function useServiceRequestNearby(id: string) {
 }
 
 async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
-	const response = await sessionFetch(
-		new URL(`/map/service-requests/${id}/nearby`, getServerUrl()),
-		{ signal },
-	);
+	const url = new URL(`/map/service-requests/${id}/nearby`, getServerUrl());
+	url.searchParams.set('families', NEARBY_REQUEST_FAMILIES.join(','));
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`Nearby request failed (${response.status}).`);
 	}
 	return (await response.json()) as NearbyResponse;
+}
+
+/**
+ * The date the list shows beside a nearby record, or null for a site.
+ *
+ * The row dates a habitat or a trap by the day its record was created, which
+ * is the activity register's rule and what places a person on Daily Work. Next
+ * to a request it says nothing about the site, so the list leaves it off, as
+ * it did when the row carried no date for a site at all.
+ */
+export function nearbyItemDate(item: NearbyItem): string | null {
+	return NEARBY_FAMILY_OF[item.category] === 'infrastructure' ? null : item.date;
 }
 
 /** A title + optional subtitle for a nearby item, resolving lookup names where useful. */

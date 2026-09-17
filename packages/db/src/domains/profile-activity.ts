@@ -43,11 +43,17 @@ import {
 
 export type { ActivityCategory, ActivityFamily, ActivityInvolvement, ActivityRole };
 
-export interface ProfileActivityRow {
+/**
+ * The half of an activity row that describes the record rather than the
+ * person: which record it is, where it is, when its work is dated, and what a
+ * list row is titled and badged by. Every column here is read off the
+ * {@link RecordShape} register, so a second reader over the same nine tables
+ * answers with the same columns without writing them again; the service
+ * request nearby view is that reader, and adds a distance.
+ */
+export interface ActivityRecordRow {
 	readonly category: ActivityCategory;
 	readonly family: ActivityFamily;
-	readonly involvement: ActivityInvolvement;
-	readonly role: ActivityRole;
 	/** The record's id. Two entries can share one id — see the two-moment kinds. */
 	readonly id: string;
 	readonly lat: number;
@@ -100,6 +106,11 @@ export interface ProfileActivityRow {
 	 * synced catalog. Null on the categories that carry no Tags.
 	 */
 	readonly tagIds: readonly string[] | null;
+}
+
+export interface ProfileActivityRow extends ActivityRecordRow {
+	readonly involvement: ActivityInvolvement;
+	readonly role: ActivityRole;
 	/**
 	 * The Profile this entry is attributed to: the record's own attribution
 	 * column on a primary entry, the assisting link's Profile on an assisting
@@ -177,11 +188,23 @@ export const ACTIVITY_PERSONNEL_ENTITY_TYPES = [
  * happened, what to call it, what to resolve for a subtitle, and which family
  * it belongs to. Every branch aliases its record table `r`, so these are plain
  * expressions rather than functions of an alias.
+ *
+ * This is the register a second reader over these tables reads its select
+ * from. The service request nearby view used to carry a thinner copy of it,
+ * one label, one ref and one status per category, and the two had drifted by
+ * the time the activity row grew a place name and a life-stage strip (#1086).
  */
-interface RecordShape {
+export interface RecordShape {
 	readonly category: ActivityCategory;
 	readonly family: ActivityFamily;
 	readonly table: string;
+	/**
+	 * The record is a place rather than work done at one. It carries no
+	 * operational date, so `date` below is the day its record was created, and a
+	 * reader asking "what happened in this window" leaves such a record out of
+	 * the window rather than dating it by when somebody typed it in.
+	 */
+	readonly site?: true;
 	/**
 	 * The left joins this shape's site name needs. Every branch aliases its own
 	 * table `r`, so `h`, `ad` and `t` are free for the habitat, address and trap
@@ -223,9 +246,11 @@ const ADDRESS_NAME = `nullif(btrim(ad.display_name), '')`;
  *
  * Built per call rather than declared as constants because six of these date
  * expressions convert a `timestamptz`, and which calendar day that lands on is
- * the organization's question rather than the database server's.
+ * the organization's question rather than the database server's. The zone is
+ * taken as given: `activityBranches` has already run it through
+ * `assertIanaTimeZone`, and a second reader owes the same call.
  */
-function recordShapes(timeZone: string): {
+export function recordShapes(timeZone: string): {
 	readonly habitat: RecordShape;
 	readonly inspection: RecordShape;
 	readonly trap: RecordShape;
@@ -243,6 +268,7 @@ function recordShapes(timeZone: string): {
 			category: 'habitat',
 			family: 'larval',
 			table: 'habitats',
+			site: true,
 			date: localDate('r.created_at'),
 			occurredAt: 'r.created_at',
 			label: 'r.habitat_name',
@@ -272,6 +298,7 @@ function recordShapes(timeZone: string): {
 			category: 'trap',
 			family: 'adult',
 			table: 'traps',
+			site: true,
 			date: localDate('r.created_at'),
 			occurredAt: 'r.created_at',
 			label: trapLabelSql('r'),
@@ -371,7 +398,7 @@ function recordShapes(timeZone: string): {
 	};
 }
 
-type RecordShapes = ReturnType<typeof recordShapes>;
+export type RecordShapes = ReturnType<typeof recordShapes>;
 
 /** One branch of the union: a record shape, plus who it counts for and why. */
 interface PrimaryBranch {
@@ -608,11 +635,8 @@ function assistingSelect(
 }
 
 /**
- * The one row shape every branch normalises to.
- *
- * Every literal is cast: a `union all` takes its column types from the first
- * branch, and an uncast literal arrives as `unknown`, which makes the branch
- * order load-bearing for no reason.
+ * The one row shape every branch normalises to: the record's columns, then the
+ * four that say whose entry it is.
  */
 function projection(
 	shape: RecordShape,
@@ -626,16 +650,40 @@ function projection(
 	},
 ): RawBuilder<unknown> {
 	return sql`
-		${shape.category}::text as category,
-		${shape.family}::text as family,
+		${recordColumns(shape, entry)},
 		${entry.involvement}::text as involvement,
 		${entry.role}::text as role,
+		${entry.profileId}::text as "profileId",
+		to_char(
+			coalesce((${sql.raw(entry.occurredAt)}), r.created_at) at time zone 'UTC',
+			'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+		) as "recordedAt"
+	`;
+}
+
+/**
+ * The {@link ActivityRecordRow} columns of one shape, for a select whose record
+ * table is aliased `r` and whose `from` carries the shape's `joins`.
+ *
+ * Every literal is cast: a `union all` takes its column types from the first
+ * branch, and an uncast literal arrives as `unknown`, which makes the branch
+ * order load-bearing for no reason. The moment is a parameter rather than read
+ * off the shape because the two-moment kinds date one record two ways; a
+ * reader with one moment per record passes the shape's own.
+ */
+export function recordColumns(
+	shape: RecordShape,
+	moment: { readonly date: string; readonly occurredAt: string },
+): RawBuilder<unknown> {
+	return sql`
+		${shape.category}::text as category,
+		${shape.family}::text as family,
 		r.id::text as id,
 		r.lat,
 		r.lng,
-		to_char(${sql.raw(entry.date)}, 'YYYY-MM-DD') as date,
+		to_char(${sql.raw(moment.date)}, 'YYYY-MM-DD') as date,
 		to_char(
-			(${sql.raw(entry.occurredAt)}) at time zone 'UTC',
+			(${sql.raw(moment.occurredAt)}) at time zone 'UTC',
 			'YYYY-MM-DD"T"HH24:MI:SS"Z"'
 		) as "occurredAt",
 		${sql.raw(shape.label)} as label,
@@ -648,11 +696,6 @@ function projection(
 		${sql.raw(shape.stages ?? NO_TEXT)} as stages,
 		${sql.raw(shape.context ?? NO_TEXT)} as context,
 		${sql.raw(shape.hasBycatch ?? NO_FLAG)} as "hasBycatch",
-		${sql.raw(shape.tagIds ?? NO_TEXT_ARRAY)} as "tagIds",
-		${entry.profileId}::text as "profileId",
-		to_char(
-			coalesce((${sql.raw(entry.occurredAt)}), r.created_at) at time zone 'UTC',
-			'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-		) as "recordedAt"
+		${sql.raw(shape.tagIds ?? NO_TEXT_ARRAY)} as "tagIds"
 	`;
 }
