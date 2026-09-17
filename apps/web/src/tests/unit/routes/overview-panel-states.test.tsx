@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 /**
- * The four domain overviews rendered whole, each panel through the three states
+ * The five domain overviews rendered whole, each panel through the three states
  * that draw no rows: the read failed, the read has not answered, the read
  * answered with nothing.
  *
@@ -32,6 +32,12 @@ const harness = vi.hoisted(() => ({
 	state: 'loading' as ReadState,
 	/** Whether any collection method sets an action threshold, for the adult overview. */
 	thresholds: true,
+	/**
+	 * Whether the operations reads answer with one row each rather than none.
+	 * Read under `state: 'empty'` only, since a read that failed or has not
+	 * answered holds no rows whatever the flag says.
+	 */
+	operationsRows: false,
 }));
 
 /** What every `isReady`/`isError` hook answers for the harness state. */
@@ -150,6 +156,100 @@ vi.mock('../../../hooks/queries/use-service-request-feed', () => ({
 
 vi.mock('../../../hooks/queries/use-profile-names', () => ({
 	useProfileNames: () => new Map<string, string>(),
+}));
+
+// --- operations --------------------------------------------------------------
+
+/**
+ * One row per operations panel, each in the state its panel keeps: an
+ * unresolved request, an assignment not yet started, a mission still scheduled.
+ * The three panels filter on those states in memory, so a row in any other
+ * state would count as empty and prove nothing about the rows branch.
+ */
+const OPERATIONS_ROWS = vi.hoisted(() => {
+	const scheduled = new Date('2026-09-17T14:00:00.000Z');
+	return {
+		request: {
+			id: 'request-1',
+			controlType: 'larvicide',
+			summary: 'Standing water behind the depot',
+			recommendedMethodId: null,
+			requestedByProfileId: null,
+			requestedAt: scheduled,
+			resolvedAt: null,
+			lat: 0,
+			lng: 0,
+		},
+		assignment: {
+			id: 'assignment-1',
+			assignmentName: 'North ditch sweep',
+			assignmentDate: '2026-09-17',
+			assignedToProfileId: null,
+			dueAt: null,
+			startedAt: null,
+			completedAt: null,
+			cancelledAt: null,
+		},
+		mission: {
+			id: 'mission-1',
+			missionName: 'Evening fog run',
+			controlType: 'adulticide',
+			plannedMethodId: null,
+			assignedToProfileId: null,
+			scheduledStartAt: scheduled,
+			startedAt: null,
+			completedAt: null,
+			cancelledAt: null,
+		},
+	};
+});
+
+/** The operations reads expose `isLoading` beside `isReady`, so both are derived here. */
+function operationsReading<Row>(row: Row) {
+	const ready = harness.state === 'empty';
+	return {
+		rows: ready && harness.operationsRows ? [row] : [],
+		isLoading: harness.state === 'loading',
+		isReady: ready,
+		isError: harness.state === 'error',
+	};
+}
+
+vi.mock('../../../hooks/queries/use-profile-roster', () => ({
+	useProfileRoster: () => [],
+}));
+
+vi.mock('../../../components/explorer/use-control-method-options', () => ({
+	useControlMethodNames: () => new Map<string, string>(),
+}));
+
+vi.mock('../../../hooks/queries/use-requested-control-actions', () => ({
+	useRequestedControlActions: () => {
+		const { rows, ...rest } = operationsReading(OPERATIONS_ROWS.request);
+		return { requests: rows, ...rest };
+	},
+}));
+
+vi.mock('../../../hooks/queries/use-assignments', () => ({
+	useAssignments: () => {
+		const { rows, ...rest } = operationsReading(OPERATIONS_ROWS.assignment);
+		return { assignments: rows, ...rest };
+	},
+}));
+
+vi.mock('../../../hooks/queries/use-assignment-item-counts', () => ({
+	useAssignmentItemCounts: () => ({ countsById: new Map(), isReady: false }),
+}));
+
+vi.mock('../../../hooks/queries/use-missions', () => ({
+	useMissions: () => {
+		const { rows, ...rest } = operationsReading(OPERATIONS_ROWS.mission);
+		return { missions: rows, ...rest };
+	},
+}));
+
+vi.mock('../../../hooks/queries/use-mission-item-counts', () => ({
+	useMissionItemCounts: () => ({ countsById: new Map(), isReady: false }),
 }));
 
 // --- the register ------------------------------------------------------------
@@ -279,7 +379,35 @@ const OVERVIEWS: readonly OverviewWords[] = [
 			},
 		],
 	},
+	{
+		name: 'operations',
+		load: () => import('../../../routes/operations/index'),
+		panels: [
+			{
+				title: 'Open Requests for Control',
+				unavailable: 'Requests are unavailable right now.',
+				empty: 'No control work is waiting to be scheduled.',
+			},
+			{
+				title: 'Active Assignments',
+				unavailable: 'Assignments are unavailable right now.',
+				empty: 'No assignment is scheduled or running in this window.',
+			},
+			{
+				title: 'Scheduled Missions',
+				unavailable: 'Missions are unavailable right now.',
+				empty: 'No mission is scheduled or running in this window.',
+			},
+		],
+	},
 ];
+
+/** What each operations panel draws for the one row its read answers with. */
+const OPERATIONS_PANEL_ROWS = [
+	{ title: 'Open Requests for Control', primary: OPERATIONS_ROWS.request.summary },
+	{ title: 'Active Assignments', primary: OPERATIONS_ROWS.assignment.assignmentName },
+	{ title: 'Scheduled Missions', primary: OPERATIONS_ROWS.mission.missionName },
+] as const;
 
 /**
  * The adult overview's fifth branch, between the placeholder and the count: an
@@ -330,6 +458,7 @@ beforeAll(async () => {
 beforeEach(() => {
 	harness.state = 'loading';
 	harness.thresholds = true;
+	harness.operationsRows = false;
 });
 
 afterEach(cleanup);
@@ -356,8 +485,7 @@ function measureClass(measure: 'page' | 'record'): string {
 describe.each(OVERVIEWS)('the $name overview', ({ name, panels }) => {
 	// The route-loading skeleton reserves the record measure, so an overview
 	// back in the 1200 column would arrive 416px narrower than the skeleton it
-	// replaces on a wide screen (#1043, #1049). The operations overview is held
-	// to the same in `operations/overview-measure.test.tsx`.
+	// replaces on a wide screen (#1043, #1049).
 	it('draws in the record measure the route-loading skeleton reserves', () => {
 		harness.state = 'empty';
 		const { container } = renderOverview(name);
@@ -434,5 +562,32 @@ describe('the adult overview under no configured threshold', () => {
 		const card = panel('Over Action Threshold · Last 14 Days');
 		expect(saysExactly(card, NO_THRESHOLD)).toBe(false);
 		expect(drawsPlaceholder(card)).toBe(true);
+	});
+});
+
+/**
+ * The rows branch, asserted on the one overview whose panels filter their rows
+ * in memory: a request that is still open, an assignment not yet started and a
+ * mission still scheduled each reach the list, and the empty sentence goes.
+ */
+describe('the operations overview with one row per panel', () => {
+	it('lists each row under a count of one and says nothing else', () => {
+		harness.state = 'empty';
+		harness.operationsRows = true;
+		renderOverview('operations');
+
+		const register = OVERVIEWS.find((overview) => overview.name === 'operations')?.panels ?? [];
+		for (const words of OPERATIONS_PANEL_ROWS) {
+			const card = panel(words.title);
+			const list = card.querySelector('ul');
+			expect(list, words.title).not.toBeNull();
+			expect(within(list as HTMLElement).getAllByRole('listitem'), words.title).toHaveLength(1);
+			expect(saysExactly(card, words.primary), words.title).toBe(true);
+			expect(drawsPlaceholder(card), words.title).toBe(false);
+			expect(countPill(words.title), words.title).toBe('1');
+			const empty = register.find((entry) => entry.title === words.title)?.empty;
+			expect(empty, words.title).toBeDefined();
+			expect(saysExactly(card, empty ?? ''), words.title).toBe(false);
+		}
 	});
 });

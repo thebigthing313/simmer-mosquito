@@ -40,6 +40,7 @@ export function useRequestedControlActions(
 	readonly requests: readonly RequestListing[];
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
+	readonly isError: boolean;
 } {
 	const timeZone = useOrganizationTimeZone();
 	const fromBound = from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, timeZone);
@@ -73,5 +74,10 @@ export function useRequestedControlActions(
 		[fromBound, toBound],
 	);
 
-	return { requests: result.data, isLoading: result.isLoading, isReady: result.isReady };
+	return {
+		requests: result.data,
+		isLoading: result.isLoading,
+		isReady: result.isReady,
+		isError: result.isError,
+	};
 }

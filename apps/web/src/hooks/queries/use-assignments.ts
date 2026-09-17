@@ -34,6 +34,7 @@ export function useAssignments(
 	readonly assignments: readonly AssignmentListing[];
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
+	readonly isError: boolean;
 } {
 	const fromBound = from === '' ? EARLIEST_DATE : from;
 	const toBound = to === '' ? LATEST_DATE : to;
@@ -65,5 +66,10 @@ export function useAssignments(
 		[fromBound, toBound],
 	);
 
-	return { assignments: result.data, isLoading: result.isLoading, isReady: result.isReady };
+	return {
+		assignments: result.data,
+		isLoading: result.isLoading,
+		isReady: result.isReady,
+		isError: result.isError,
+	};
 }
