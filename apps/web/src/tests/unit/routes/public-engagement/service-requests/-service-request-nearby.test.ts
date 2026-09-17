@@ -13,6 +13,7 @@ import {
 	nearbyItemDate,
 	nearbyItemKey,
 	nearbyRow,
+	nearbySummary,
 	visibleNearbyItems,
 } from '../../../../../routes/public-engagement/service-requests/-service-request-nearby';
 
@@ -87,6 +88,7 @@ describe('buildNearbyMapData', () => {
 		timeWindow: { daysBefore: 30, daysAfter: 30 },
 		dateFrom: '2026-07-02',
 		dateTo: '2026-08-31',
+		dateToFrom: 'setting',
 		families: ['larval', 'adult', 'control'],
 		items: ITEMS,
 	};
@@ -345,5 +347,62 @@ describe('formatRadiusLabel', () => {
 
 	it('shows an unknown unit code as it stands rather than dropping it', () => {
 		expect(formatRadiusLabel(3, 'furlong')).toBe('3 furlong');
+	});
+});
+
+describe('nearbySummary', () => {
+	function response(overrides: Partial<NearbyResponse> = {}): NearbyResponse {
+		return {
+			request: { id: 'r', lat: 42, lng: -71, requestDate: '2026-08-15' },
+			radius: { amount: 0.25, unitCode: 'mile', meters: 402.336 },
+			timeWindow: { daysBefore: 14, daysAfter: 14 },
+			dateFrom: '2026-08-01',
+			dateTo: '2026-08-29',
+			dateToFrom: 'setting',
+			families: ['larval', 'adult', 'control'],
+			items: ITEMS,
+			...overrides,
+		};
+	}
+
+	it('names the settings while the fetch is out', () => {
+		expect(nearbySummary(undefined)).toBe(
+			'Records around this request, from your public-engagement settings.',
+		);
+	});
+
+	// The end of the window is a floor set by `daysAfter` and runs on to the
+	// close, or to today while the request is open (#1084). A range that ran
+	// past the setting used to send a reader to the settings for a number that
+	// says 14, so the sentence names the end that won (#1085).
+	it('reads count, radius and range when the setting set the end', () => {
+		expect(nearbySummary(response())).toBe('5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.');
+	});
+
+	it('names the close when the request closed after the setting', () => {
+		expect(nearbySummary(response({ dateTo: '2026-10-02', dateToFrom: 'close' }))).toBe(
+			'5 records within 0.25 mi, Aug 1, 2026–Oct 2, 2026, extended to the day it was closed.',
+		);
+	});
+
+	it('names today while an old request is still open', () => {
+		expect(nearbySummary(response({ dateTo: '2026-09-17', dateToFrom: 'today' }))).toBe(
+			'5 records within 0.25 mi, Aug 1, 2026–Sep 17, 2026, extended to today.',
+		);
+	});
+
+	it('names no end for a range the caller set', () => {
+		expect(nearbySummary(response({ dateTo: '2026-08-01', dateToFrom: 'query' }))).toBe(
+			'5 records within 0.25 mi, Aug 1, 2026–Aug 1, 2026.',
+		);
+	});
+
+	it('counts one record in the singular and none as No', () => {
+		expect(nearbySummary(response({ items: [item('trap', 'trap', 300)] }))).toBe(
+			'1 record within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
+		expect(nearbySummary(response({ items: [] }))).toBe(
+			'No records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
 	});
 });

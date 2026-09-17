@@ -579,6 +579,7 @@ describe('the nearby list', () => {
 					timeWindow: { daysBefore: 30, daysAfter: 30 },
 					dateFrom: '2026-07-05',
 					dateTo: '2026-09-03',
+					dateToFrom: 'setting',
 					families: ['larval', 'adult', 'control'],
 					items,
 				}}

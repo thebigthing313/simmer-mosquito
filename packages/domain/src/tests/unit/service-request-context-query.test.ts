@@ -118,6 +118,26 @@ describe('serviceRequestContextBounds', () => {
 		);
 	});
 
+	// The page says which end won, so a person reading a six-week range is
+	// not sent to the settings for a number that says 14 (#1085).
+	it('says the setting set the end when the anchor is earlier', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-07-30').dateToFrom).toBe(
+			'setting',
+		);
+	});
+
+	it('says the anchor set the end when it is later', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-09-04').dateToFrom).toBe(
+			'anchor',
+		);
+	});
+
+	it('credits the setting when the anchor sits exactly on it', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-08-06').dateToFrom).toBe(
+			'setting',
+		);
+	});
+
 	it('never moves the start, whichever end wins', () => {
 		expect(serviceRequestContextBounds('2026-07-23', context, '2026-09-04').dateFrom).toBe(
 			'2026-07-09',

@@ -33,12 +33,23 @@ export function distanceToMeters(amount: number, unitCode: string): number {
 	return amount * factor;
 }
 
+/**
+ * What set a nearby window's `dateTo`, named in the response so the page can
+ * say it: the setting's `daysAfter`, the day the request closed, today while it
+ * is open, or a `dateTo` the caller sent (#1085). A person reading a six-week
+ * range under a setting that says 14 is otherwise sent to the settings looking
+ * for a number that is not there.
+ */
+export type NearbyWindowEnd = 'setting' | 'close' | 'today' | 'query';
+
 export interface ServiceRequestContextBounds {
 	readonly radiusMeters: number;
 	/** Inclusive lower bound, `YYYY-MM-DD`. */
 	readonly dateFrom: string;
 	/** Inclusive upper bound, `YYYY-MM-DD`. */
 	readonly dateTo: string;
+	/** Which of the two ends `dateTo` is. */
+	readonly dateToFrom: 'setting' | 'anchor';
 }
 
 /**
@@ -55,6 +66,8 @@ export interface ServiceRequestContextBounds {
  * it (#1084). Which day the anchor is on is the caller's question, because it
  * is a calendar day in the Organization's zone (#154, #156) and this function
  * knows no zone, so the anchor arrives as a `YYYY-MM-DD` already read in it.
+ * For the same reason `dateToFrom` says `anchor` and not which anchor: a close
+ * and a today arrive as the same string, and the caller knows which it passed.
  *
  * Throws `DomainValidationError` when either date is not a readable calendar
  * date, naming `requestDate` or `endAnchor` so the issue points at the field
@@ -72,11 +85,14 @@ export function serviceRequestContextBounds(
 	);
 	const anchorPart = validatedDatePart(endAnchor, 'endAnchor', 'Window end anchor is invalid.');
 	const settingEnd = shiftUtcDays(datePart, context.timeWindow.daysAfter);
+	// `YYYY-MM-DD` orders as text the way it orders as a date. A tie is the
+	// setting's, because the setting alone would have ended the window there.
+	const anchorWins = anchorPart > settingEnd;
 	return {
 		radiusMeters: distanceToMeters(context.radius.amount, context.radius.unitCode),
 		dateFrom: shiftUtcDays(datePart, -context.timeWindow.daysBefore),
-		// `YYYY-MM-DD` orders as text the way it orders as a date.
-		dateTo: anchorPart > settingEnd ? anchorPart : settingEnd,
+		dateTo: anchorWins ? anchorPart : settingEnd,
+		dateToFrom: anchorWins ? 'anchor' : 'setting',
 	};
 }
 
