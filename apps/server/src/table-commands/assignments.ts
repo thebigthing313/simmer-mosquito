@@ -33,7 +33,11 @@
  *
  * `selfAssignRoute` takes no date, no name and no assignee: it is a technician
  * picking up a route now, so the server dates it today and assigns it to the
- * caller.
+ * caller. Today is the Organization's calendar day, read off the session's zone
+ * through `todayInTimeZone` here in the intent map, and handed to the writer in
+ * the command; the writer has a transaction and no zone, so it dates nothing.
+ * Reading the UTC day instead gave a Collector in a Pacific-zone Organization
+ * tomorrow's assignment from 17:00 on (#1092).
  *
  * ## Field names
  *
@@ -61,6 +65,7 @@ import {
 import { type CommandPayload, isRecord, readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate, readStringArray } from '../command-write.js';
+import { todayInTimeZone } from '../organization-day.js';
 import { writeAssignmentCommand } from '../writers/field-work/assignments.js';
 import type { AssignmentRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
@@ -128,11 +133,12 @@ export function assignmentTableCommands(
 					assignmentItemIds: assignmentItemSources(payload),
 				}),
 
-			'fieldWork.selfAssignRoute': ({ payload, organization, id }) =>
+			'fieldWork.selfAssignRoute': ({ payload, organization, authContext, id }) =>
 				selfAssignRouteCommand({
 					...organization,
 					assignmentId: id,
 					routeId: readText(payload.route_id) ?? '',
+					assignmentDate: todayInTimeZone(authContext.timeZone),
 					assignmentItemIds: assignmentItemSources(payload),
 				}),
 

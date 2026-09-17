@@ -73,9 +73,16 @@ export type CreateAssignmentFromRouteCommand = FieldWorkDomainCommand<
 	}
 >;
 
+/**
+ * A technician picking a route up now. The client sends no date: the server's
+ * intent map fills `assignmentDate` with the Organization's calendar day before
+ * the writer runs, and the builder holds it to the date shape the way it does
+ * for `createAssignmentFromRoute` (#1092).
+ */
 export interface SelfAssignRouteCommandInput extends FieldWorkCommandInput {
 	readonly assignmentId: DomainId;
 	readonly routeId: DomainId;
+	readonly assignmentDate: LocalDateString;
 	readonly assignmentItemIds: readonly RouteAssignmentItemIdMapping[];
 }
 
@@ -84,6 +91,7 @@ export type SelfAssignRouteCommand = FieldWorkDomainCommand<
 	FieldWorkCommandPayload & {
 		readonly assignmentId: DomainId;
 		readonly routeId: DomainId;
+		readonly assignmentDate: LocalDateString;
 		readonly assignmentItemIds: readonly RouteAssignmentItemIdMapping[];
 	}
 >;
@@ -294,6 +302,7 @@ export function selfAssignRouteCommand(input: SelfAssignRouteCommandInput): Self
 	validateBase(input, issues);
 	requireUuid(input.assignmentId, 'assignmentId', issues);
 	requireUuid(input.routeId, 'routeId', issues);
+	validateLocalDate(input.assignmentDate, 'assignmentDate', issues);
 	const assignmentItemIds = validateRouteAssignmentItemIdMappings(input.assignmentItemIds, issues);
 	throwIfIssues('Self-assign route command is invalid.', issues);
 
@@ -303,6 +312,7 @@ export function selfAssignRouteCommand(input: SelfAssignRouteCommandInput): Self
 			...basePayload(input),
 			assignmentId: normalizeRequiredId(input.assignmentId),
 			routeId: normalizeRequiredId(input.routeId),
+			assignmentDate: input.assignmentDate,
 			assignmentItemIds,
 		},
 	};

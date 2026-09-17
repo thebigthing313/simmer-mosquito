@@ -13,7 +13,6 @@ import {
 	assignmentPlacementRef,
 	type FieldWorkTransaction,
 	localDateColumn,
-	nowLocalDate,
 	softDelete,
 	updateRow,
 } from './shared.js';
@@ -44,7 +43,6 @@ export async function writeAssignmentCommand(
 		case 'fieldWork.selfAssignRoute': {
 			const assignment = await insertAssignment(trx, {
 				...command.payload,
-				assignmentDate: nowLocalDate(),
 				assignmentName: null,
 				assignedToProfileId: command.payload.actorProfileId,
 				dueAt: null,

@@ -16,7 +16,7 @@
  */
 
 import { DomainValidationError } from '@simmer-mosquito/domain';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WritableCommand } from '../../../command-write.js';
 import { assignmentItemTableCommands } from '../../../table-commands/assignment-items.js';
 import { assignmentTableCommands } from '../../../table-commands/assignments.js';
@@ -24,7 +24,7 @@ import { routeItemTableCommands } from '../../../table-commands/route-items.js';
 import { routeTableCommands } from '../../../table-commands/routes.js';
 import { ACTOR, ORGANIZATION, organizationHarness } from './command-harness.js';
 
-const { buildFor } = organizationHarness({ role: 'manager' });
+const { build, buildFor, requestFor } = organizationHarness({ role: 'manager' });
 
 const ROUTE = '33333333-3333-4333-8333-333333333333';
 const ROUTE_ITEM = '44444444-4444-4444-8444-444444444444';
@@ -284,17 +284,51 @@ describe('assignments intent map', () => {
 		).toThrow(DomainValidationError);
 	});
 
-	it('takes no date, name or assignee when a technician picks a route up', () => {
+	it('takes no name or assignee when a technician picks a route up', () => {
 		const command = buildFor(assignments, 'fieldWork.selfAssignRoute', ASSIGNMENT, {
 			route_id: ROUTE,
-			assignment_date: '2026-08-10',
 			assigned_to_profile_id: PROFILE,
 			assignment_items: [{ id: ASSIGNMENT_ITEM, route_item_id: ROUTE_ITEM }],
 		});
 
 		expect(command.payload).toMatchObject({ assignmentId: ASSIGNMENT, routeId: ROUTE });
-		expect(command.payload).not.toHaveProperty('assignmentDate');
 		expect(command.payload).not.toHaveProperty('assignedToProfileId');
+	});
+
+	describe('dating a self-assigned route', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		/**
+		 * One instant, two calendars. 06:00Z on the 15th is 20:00 on the 14th in
+		 * Honolulu and 18:00 on the 15th in Auckland. The writer used to read the
+		 * UTC day, so a Collector picking a route up in the evening got tomorrow's
+		 * assignment (#1092). A body carrying a date is ignored: the day is the
+		 * server's to state.
+		 */
+		it('reads today from the Organization zone rather than the server clock', () => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2026-06-15T06:00:00.000Z'));
+
+			const pickUp = (timeZone: string) =>
+				build(
+					assignments,
+					'fieldWork.selfAssignRoute',
+					requestFor(
+						ASSIGNMENT,
+						{
+							route_id: ROUTE,
+							assignment_date: '2026-01-01',
+							assignment_items: [{ id: ASSIGNMENT_ITEM, route_item_id: ROUTE_ITEM }],
+						},
+						{ timeZone },
+					),
+				);
+
+			expect(pickUp('Pacific/Honolulu').payload).toMatchObject({ assignmentDate: '2026-06-14' });
+			expect(pickUp('Pacific/Auckland').payload).toMatchObject({ assignmentDate: '2026-06-15' });
+		});
 	});
 
 	it('changes only the details the body named', () => {
