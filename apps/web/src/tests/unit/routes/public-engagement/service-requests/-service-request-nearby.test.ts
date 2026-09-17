@@ -12,9 +12,11 @@ import {
 	type NearbyResponse,
 	nearbyItemDate,
 	nearbyItemKey,
+	nearbyResponseFromWire,
 	nearbyRow,
 	nearbySummary,
 	visibleNearbyItems,
+	type WireNearbyResponse,
 } from '../../../../../routes/public-engagement/service-requests/-service-request-nearby';
 
 function item(
@@ -61,6 +63,16 @@ describe('countNearbyByFamily', () => {
 			infrastructure: 2,
 			surveillance: 1,
 			control: 2,
+			publicEngagement: 0,
+		});
+	});
+
+	it('counts the other requests under their own family', () => {
+		expect(countNearbyByFamily([...ITEMS, item('request', 'serviceRequest', 60)])).toEqual({
+			infrastructure: 2,
+			surveillance: 1,
+			control: 2,
+			publicEngagement: 1,
 		});
 	});
 
@@ -69,12 +81,38 @@ describe('countNearbyByFamily', () => {
 			infrastructure: 0,
 			surveillance: 0,
 			control: 0,
+			publicEngagement: 0,
 		});
 	});
 });
 
+describe('nearbyResponseFromWire', () => {
+	const wire: WireNearbyResponse = {
+		request: { id: 'sr-1', lat: 42, lng: -71, requestDate: '2026-08-01' },
+		radius: { amount: 500, unitCode: 'meter', meters: 500 },
+		timeWindow: { daysBefore: 30, daysAfter: 30 },
+		dateFrom: '2026-07-02',
+		dateTo: '2026-08-31',
+		dateToFrom: 'setting',
+		families: ['larval', 'adult', 'control', 'publicEngagement'],
+		items: [
+			item('habitat', 'habitat', 50),
+			{ ...item('request', 'serviceRequest', 60), family: 'publicEngagement' },
+			{ ...item('talk', 'habitat', 70), category: 'outreach', family: 'publicEngagement' },
+		],
+	};
+
+	// The endpoint's public-engagement family is the register's, so it carries
+	// the outreach actions too; the page reads the other requests out of it.
+	it('keeps the other requests and drops the outreach the same family carries', () => {
+		const read = nearbyResponseFromWire(wire);
+		expect(read.items.map((entry) => entry.id)).toEqual(['habitat', 'request']);
+		expect(read.families).toEqual(wire.families);
+	});
+});
+
 describe('nearbyItemKey', () => {
-	// Seven categories are seven tables, so the id alone cannot key a selection.
+	// Eight categories are eight tables, so the id alone cannot key a selection.
 	it('tells two records sharing an id apart by category', () => {
 		expect(nearbyItemKey(item('r-1', 'habitat', 10))).toBe('habitat:r-1');
 		expect(nearbyItemKey(item('r-1', 'inspection', 10))).toBe('inspection:r-1');
@@ -133,6 +171,26 @@ describe('buildNearbyMapData', () => {
 		);
 		const pins = data.features.filter((feature) => feature.properties?.role === 'nearby');
 		expect(pins.map((pin) => pin.properties?.id)).toEqual(ITEMS.map(nearbyItemKey));
+	});
+
+	it('draws the other requests under the public-engagement family', () => {
+		const data = buildNearbyMapData(
+			{ lat: 42, lng: -71 },
+			{ ...RESPONSE, items: [...ITEMS, item('request', 'serviceRequest', 60)] },
+			new Set(['publicEngagement']),
+		);
+		expect(data.features.map((feature) => feature.properties?.role)).toEqual([
+			'ring',
+			'nearby',
+			'center',
+		]);
+		expect(data.features[1]?.properties).toEqual({
+			role: 'nearby',
+			id: 'serviceRequest:request',
+			recordId: 'request',
+			family: 'publicEngagement',
+			category: 'serviceRequest',
+		});
 	});
 
 	it('draws the request and its radius alone when handed no family', () => {
@@ -395,6 +453,13 @@ describe('nearbySummary', () => {
 		expect(nearbySummary(response({ dateTo: '2026-08-01', dateToFrom: 'query' }))).toBe(
 			'5 records within 0.25 mi, Aug 1, 2026–Aug 1, 2026.',
 		);
+	});
+
+	// The other requests are in the response for the map, and no tab lists them.
+	it('leaves the other requests out of the count', () => {
+		expect(
+			nearbySummary(response({ items: [...ITEMS, item('request', 'serviceRequest', 60)] })),
+		).toBe('5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.');
 	});
 
 	it('counts one record in the singular and none as No', () => {
