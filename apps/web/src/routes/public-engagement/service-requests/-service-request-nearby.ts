@@ -18,15 +18,7 @@ import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import {
-	ACTIVITY_CATEGORY_LABEL,
-	ACTIVITY_DETAIL_ROUTE,
-	type ActivityLookups,
-	type ActivityRecord,
-	activityBadgeFacts,
-	activityTags,
-	describeActivityEntry,
-} from '../../-activity-data';
+import { type ActivityLookups, type ActivityRecord, activityRow } from '../../-activity-data';
 import type { RecordBadgeFacts } from '../../-record-badges';
 import { formatRequestDate } from '../-public-engagement-display';
 
@@ -224,36 +216,36 @@ export interface NearbyRow {
 /**
  * One nearby record, as its explorer's rail would draw it, plus the distance.
  *
- * The title and subtitle are Daily Work's describer's, so a habitat near a
- * request is titled the way the same habitat is titled in a Profile's log, and
- * the badges come from the register beside it for the same reason. What this
- * list adds over that log is the category ahead of the subtitle, because the
- * log's verb is what said "Inspection" there and there is no verb here: an
- * inspection's title is the place it was performed at, and beside a request a
- * reader has to be told it was a visit rather than the place.
+ * The title, the subtitle, the link, the badges and the Tags are the shared
+ * row's, so a habitat near a request is titled and badged the way the same
+ * habitat is in a Profile's log. What this list adds over that log is the
+ * category ahead of the subtitle, because the log's verb is what said
+ * "Inspection" there and there is no verb here: an inspection's title is the
+ * place it was performed at, and beside a request a reader has to be told it
+ * was a visit rather than the place. The distance, the date and the family
+ * colour are the other three parts that are this list's own.
  *
- * A pure resolution rather than a component, so the eight categories can be
+ * A pure resolution rather than a component, so the rule this list adds can be
  * asserted through one function and the row that draws it stays a mapping.
  */
 export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: string): NearbyRow {
-	const described = describeActivityEntry(item, lookups.nameById, lookups.formatQuantity);
-	const category = ACTIVITY_CATEGORY_LABEL[item.category];
+	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(item, lookups);
 	const family = NEARBY_FAMILY_OF[item.category];
 	const date = nearbyItemDate(item);
 	// A record with nothing to name it is titled by its category already, and a
 	// subtitle repeating the word under it says nothing twice.
-	const parts = [described.title === category ? null : category, described.subtitle].filter(
+	const parts = [title === categoryLabel ? null : categoryLabel, subtitle].filter(
 		(part): part is string => part !== null,
 	);
 	return {
-		title: described.title,
+		title,
 		subtitle: parts.length === 0 ? null : parts.join(' · '),
 		date: date === null ? null : formatListDate(date),
 		distance: formatNearbyDistance(item.distanceMeters, unitCode),
-		facts: activityBadgeFacts(item),
-		tags: activityTags(item, lookups.tagById),
+		facts,
+		tags,
 		swatch: { color: NEARBY_FAMILY_COLORS[family], label: NEARBY_FAMILY_LABEL[family] },
-		link: { to: ACTIVITY_DETAIL_ROUTE[item.category], params: { id: item.id } },
+		link,
 	};
 }
 

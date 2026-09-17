@@ -33,9 +33,12 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import type { ActivityEntry } from '../../routes/-activity-data';
+import { ActivityLog } from '../../routes/-activity-log';
 import type { DashboardResponse } from '../../routes/-dashboard-data';
 import { DashboardPage } from '../../routes/-dashboard-page';
 import { HabitatHistoryCard } from '../../routes/-habitat-detail';
+import { DAILY_WORK_COPY } from '../../routes/daily-work/-daily-work';
 import { InspectionSurfaceSwitch } from '../../routes/larval-surveillance/-inspection-surface-switch';
 import { sharedInspectionSearch } from '../../routes/larval-surveillance/-inspections-search';
 import { PeopleSection } from '../../routes/my-organization/-components/people';
@@ -609,5 +612,85 @@ describe('the nearby list', () => {
 				return [href, href];
 			}),
 		);
+	});
+});
+
+/**
+ * The Daily Work log, one row per record kind.
+ *
+ * The nine kinds through one row, keyed to the same detail routes the nearby
+ * list reads, since both rows resolve their link through `activityRow`. The
+ * chevron and the title are the row's two links, so each record answers twice,
+ * and the id is the assertion; the route suite for the page renders through a
+ * router stand-in whose `Link` has no href, which is why the case is here.
+ */
+describe('the Daily Work log', () => {
+	const CATEGORIES: readonly ActivityEntry['category'][] = [
+		'habitat',
+		'trap',
+		'inspection',
+		'collection',
+		'application',
+		'sourceReduction',
+		'biocontrol',
+		'outreach',
+		'serviceRequest',
+	];
+
+	const DETAIL_PATH: Readonly<Record<ActivityEntry['category'], string>> = {
+		habitat: '/larval-surveillance/habitats',
+		trap: '/adult-surveillance/traps',
+		inspection: '/larval-surveillance/inspections',
+		collection: '/adult-surveillance/collections',
+		application: '/control-operations/chemical',
+		sourceReduction: '/control-operations/source-reduction',
+		biocontrol: '/control-operations/biocontrol',
+		outreach: '/public-engagement/outreach',
+		serviceRequest: '/public-engagement/service-requests',
+	};
+
+	function activity(category: ActivityEntry['category'], index: number): ActivityEntry {
+		return {
+			category,
+			family: 'larval',
+			involvement: 'primary',
+			role: 'created',
+			id: `${category}-${index}`,
+			lat: 30,
+			lng: -90,
+			date: '2026-08-01',
+			occurredAt: null,
+			label: `Record ${index}`,
+			placeName: `Record ${index}`,
+			refId: null,
+			methodRefId: null,
+			amount: null,
+			unitId: null,
+			detail: null,
+			stages: null,
+			context: null,
+			hasBycatch: null,
+			tagIds: null,
+		};
+	}
+
+	it.each(CATEGORIES)('sends a %s to its own detail page', (category) => {
+		const index = CATEGORIES.indexOf(category);
+		renderWithRouter(
+			<ActivityLog
+				copy={DAILY_WORK_COPY}
+				families={[{ family: 'larval', entries: [activity(category, index)] }]}
+				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
+				message={null}
+				onSelect={() => {}}
+				selectedKey={null}
+				timeZone={undefined}
+				total={1}
+				truncated={false}
+			/>,
+		);
+
+		const href = `${DETAIL_PATH[category]}/${category}-${index}`;
+		expect(linkHrefs()).toEqual([href, href]);
 	});
 });

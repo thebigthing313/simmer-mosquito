@@ -1,7 +1,7 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Tag } from '../../../../../hooks/queries/tag-view';
-import type { ActivityLookups } from '../../../../../routes/-activity-data';
+import { type ActivityLookups, activityRow } from '../../../../../routes/-activity-data';
 import {
 	buildNearbyMapData,
 	countNearbyByFamily,
@@ -281,55 +281,51 @@ describe('nearbyRow', () => {
 		tagById: new Map([[PRIORITY.id, PRIORITY]]),
 	};
 
-	// The describer is Daily Work's, so each category is titled the way the same
-	// record is titled in a Profile's log; what this list adds is the category
-	// ahead of the subtitle, since there is no verb here to say what the record
-	// is. One case per category, so a kind the describer forgets fails here.
-	it.each([
-		[
-			'habitat',
-			{ label: 'Elm St basin', refId: 'type-1' },
-			{ title: 'Elm St basin', subtitle: 'Habitat · Catch basin' },
-		],
-		[
-			'trap',
-			{ label: 'Trap 14', refId: 'method-1' },
-			{ title: 'Trap 14', subtitle: 'Trap · CDC light trap' },
-		],
-		[
-			'inspection',
-			{ placeName: 'Elm St basin', refId: 'type-1' },
-			{ title: 'Elm St basin', subtitle: 'Inspection · Catch basin' },
-		],
-		[
-			'collection',
-			{ placeName: 'Trap 14', refId: 'method-1' },
-			{ title: 'Trap 14', subtitle: 'Collection · CDC light trap' },
-		],
-		[
-			'application',
-			{
-				refId: 'product-1',
-				methodRefId: 'method-2',
-				amount: 2,
-				unitId: 'gal',
-				placeName: 'Elm St basin',
-			},
-			{ title: 'VectoBac 12AS', subtitle: 'Application · 2 gal · Backpack sprayer · Elm St basin' },
-		],
-		[
-			'sourceReduction',
-			{ refId: 'method-2', placeName: 'Elm St basin' },
-			{ title: 'Backpack sprayer', subtitle: 'Source Reduction · Elm St basin' },
-		],
-		[
-			'biocontrol',
-			{ refId: 'method-2', amount: 40, placeName: 'Elm St basin' },
-			{ title: 'Backpack sprayer', subtitle: 'Biocontrol · 40 each · Elm St basin' },
-		],
-	] as const)('describes a %s the way Daily Work does, category first', (category, fields, expected) => {
-		const row = nearbyRow(item('a', category, 10, fields), LOOKUPS, 'meter');
-		expect({ title: row.title, subtitle: row.subtitle }).toEqual(expected);
+	// The title, the subtitle, the link, the badge facts and the Tags are the
+	// shared row's, so a habitat here is the habitat in a Profile's log. What
+	// this list adds is the category ahead of the subtitle, since there is no
+	// verb here to say what the record is, and the shared suite holds the nine
+	// categories; this holds the seam.
+	it('reads the shared parts off activityRow', () => {
+		const record = item('a', 'application', 10, {
+			refId: 'product-1',
+			methodRefId: 'method-2',
+			amount: 2,
+			unitId: 'gal',
+			placeName: 'Elm St basin',
+			tagIds: ['tag-1'],
+		});
+		const shared = activityRow(record, LOOKUPS);
+		const row = nearbyRow(record, LOOKUPS, 'meter');
+		expect({ title: row.title, link: row.link, facts: row.facts, tags: row.tags }).toEqual({
+			title: shared.title,
+			link: shared.link,
+			facts: shared.facts,
+			tags: shared.tags,
+		});
+		expect(row.subtitle).toBe(`${shared.categoryLabel} · ${shared.subtitle}`);
+	});
+
+	// An inspection's title is the place it was performed at, and beside a
+	// request a reader has to be told it was a visit rather than the place.
+	it('puts the category ahead of the subtitle', () => {
+		const row = nearbyRow(
+			item('a', 'inspection', 10, { placeName: 'Elm St basin', refId: 'type-1' }),
+			LOOKUPS,
+			'meter',
+		);
+		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
+			title: 'Elm St basin',
+			subtitle: 'Inspection · Catch basin',
+		});
+	});
+
+	it('names the category alone when the describer had no subtitle', () => {
+		const row = nearbyRow(item('a', 'habitat', 10, { label: 'Elm St basin' }), LOOKUPS, 'meter');
+		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
+			title: 'Elm St basin',
+			subtitle: 'Habitat',
+		});
 	});
 
 	// The category is the title then, and a subtitle repeating it says nothing.
@@ -359,26 +355,6 @@ describe('nearbyRow', () => {
 		['biocontrol', mapFamily.control, 'Control'],
 	] as const)('colours a %s in its family hue', (category, color, label) => {
 		expect(nearbyRow(item('a', category, 10), LOOKUPS, 'meter').swatch).toEqual({ color, label });
-	});
-
-	it('reads the badge facts and the Tags off the register the log reads', () => {
-		const row = nearbyRow(
-			item('a', 'inspection', 10, { detail: 'dry', tagIds: ['tag-1', 'unknown'] }),
-			LOOKUPS,
-			'meter',
-		);
-		expect(row.facts).toEqual({
-			category: 'inspection',
-			result: { isWet: false, density: null, stages: null },
-		});
-		expect(row.tags).toEqual([PRIORITY]);
-	});
-
-	it("links the chevron to the record's own detail page", () => {
-		expect(nearbyRow(item('sr-9', 'sourceReduction', 10), LOOKUPS, 'meter').link).toEqual({
-			to: '/control-operations/source-reduction/$id',
-			params: { id: 'sr-9' },
-		});
 	});
 });
 

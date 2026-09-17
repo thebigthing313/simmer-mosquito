@@ -26,14 +26,15 @@
  * `write-attribution.test.tsx` gives.
  */
 
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityLayerConfig } from '../../../../components/map/use-activity-layer';
 import { organizations } from '../../../../lib/collections/organizations';
 import { profiles } from '../../../../lib/collections/profiles';
+import { tags } from '../../../../lib/collections/tags';
 import type { MinimumRole } from '../../../../lib/write-access';
-import type { ActivityEntry } from '../../../../routes/-activity-data';
+import { type ActivityEntry, activityRow } from '../../../../routes/-activity-data';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 import { preloadRouteComponent, renderExplorer, stubPanelLayout } from '../explorer-route-harness';
 import { notifyRouterStandIn } from '../route-mock-stand-ins';
@@ -351,5 +352,46 @@ describe('selecting a row on the Daily Work log', () => {
 			'habitat:habitat-2:created',
 		]);
 		expect(headingStructure()).toEqual(['Larval Surveillance1 [open]']);
+	});
+});
+
+describe('a row on the Daily Work log', () => {
+	const PRIORITY = { id: 'tag-1', tag_name: 'Priority', color: null, description: null };
+	const ACCESS = { id: 'tag-2', tag_name: 'Access code', color: null, description: null };
+
+	// The title, the detail link and the Tags are the shared row's, the one the
+	// nearby list on a service request reads too, so a habitat here is the
+	// habitat beside a request. The row's own additions, the verb and the time
+	// of day, sit in the subtitle and are not what this pins. The link's href
+	// needs a real router and is `link-destinations.test.tsx`'s case.
+	it('draws the title and the Tags that activityRow answers', async () => {
+		seedRows(tags, [PRIORITY, ACCESS]);
+		const tagged = entry({
+			id: 'habitat-1',
+			category: 'habitat',
+			role: 'created',
+			label: 'Culvert 12',
+			tagIds: [ACCESS.id, PRIORITY.id],
+		});
+		harness.log = new Map([[DAY, [tagged]]]);
+		renderDailyWork();
+		await screen.findByText('Culvert 12');
+
+		// The lookups the page resolves off the seeded collections: no catalog
+		// names, and the two Tags.
+		const expected = activityRow(tagged, {
+			nameById: new Map(),
+			formatQuantity: String,
+			tagById: new Map(
+				[PRIORITY, ACCESS].map((tag) => [tag.id, { ...tag, name: tag.tag_name }] as const),
+			),
+		});
+		const row = selectButton(expected.title).closest('li') as HTMLElement;
+		expect(within(row).getByText(expected.title)).toBeTruthy();
+		// The chips in the order drawn, which is the order answered.
+		const chipRow = within(row).getByText(PRIORITY.tag_name).parentElement as HTMLElement;
+		expect(Array.from(chipRow.children, (chip) => chip.textContent)).toEqual(
+			expected.tags.map((tag) => tag.name),
+		);
 	});
 });

@@ -7,6 +7,7 @@ import {
 	activityEntryKey,
 	activityPanelMessage,
 	activityPanelState,
+	activityRow,
 	activityTags,
 	buildActivityMapData,
 	describeActivityEntry,
@@ -427,6 +428,127 @@ describe('activityTags', () => {
 	it('drops an id the catalog does not name', () => {
 		expect(activityTags(entry({ tagIds: ['tag-1', 'tag-missing'] }), catalog)).toHaveLength(1);
 		expect(activityTags(entry({ tagIds: null }), catalog)).toEqual([]);
+	});
+});
+
+// The parts of a row that Daily Work and the nearby list on a service request
+// both draw, answered once. Each surface adds its own on top: the log puts the
+// verb and the time of day around the subtitle, the nearby list puts the
+// category ahead of it. One case per category, so a kind either surface forgets
+// fails here rather than on whichever page a reader opens first.
+describe('activityRow', () => {
+	const priority: Tag = { id: 'tag-1', name: 'Priority', color: null, description: null };
+	const lookups = {
+		nameById: new Map([
+			['type-1', 'Catch basin'],
+			['method-1', 'CDC light trap'],
+			['product-1', 'VectoBac 12AS'],
+			['method-2', 'Backpack sprayer'],
+			['outreach-1', 'Door hanger'],
+		]),
+		formatQuantity: (amount: number, unitId: string | null) => `${amount} ${unitId ?? 'each'}`,
+		tagById: new Map([[priority.id, priority]]),
+	};
+
+	it.each([
+		[
+			'habitat',
+			{ label: 'Elm St basin', refId: 'type-1' },
+			{ title: 'Elm St basin', subtitle: 'Catch basin', categoryLabel: 'Habitat' },
+		],
+		[
+			'trap',
+			{ label: 'Trap 14', refId: 'method-1' },
+			{ title: 'Trap 14', subtitle: 'CDC light trap', categoryLabel: 'Trap' },
+		],
+		[
+			'inspection',
+			{ placeName: 'Elm St basin', refId: 'type-1' },
+			{ title: 'Elm St basin', subtitle: 'Catch basin', categoryLabel: 'Inspection' },
+		],
+		[
+			'collection',
+			{ placeName: 'Trap 14', refId: 'method-1' },
+			{ title: 'Trap 14', subtitle: 'CDC light trap', categoryLabel: 'Collection' },
+		],
+		[
+			'application',
+			{
+				refId: 'product-1',
+				methodRefId: 'method-2',
+				amount: 2,
+				unitId: 'gal',
+				placeName: 'Elm St basin',
+			},
+			{
+				title: 'VectoBac 12AS',
+				subtitle: '2 gal · Backpack sprayer · Elm St basin',
+				categoryLabel: 'Application',
+			},
+		],
+		[
+			'sourceReduction',
+			{ refId: 'method-2', placeName: 'Elm St basin' },
+			{ title: 'Backpack sprayer', subtitle: 'Elm St basin', categoryLabel: 'Source Reduction' },
+		],
+		[
+			'biocontrol',
+			{ refId: 'method-2', amount: 40, placeName: 'Elm St basin' },
+			{
+				title: 'Backpack sprayer',
+				subtitle: '40 each · Elm St basin',
+				categoryLabel: 'Biocontrol',
+			},
+		],
+		[
+			'outreach',
+			{ refId: 'outreach-1', amount: 30, detail: 'Block party' },
+			{
+				title: 'Door hanger',
+				subtitle: '30 people reached · Block party',
+				categoryLabel: 'Outreach',
+			},
+		],
+		[
+			'serviceRequest',
+			{ label: '#88', placeName: '12 Elm St' },
+			{ title: '#88', subtitle: '12 Elm St', categoryLabel: 'Service Request' },
+		],
+	] as const)('describes a %s the way its explorer does, and names its kind', (category, fields, expected) => {
+		const row = activityRow(entry({ category, ...fields }), lookups);
+		expect({ title: row.title, subtitle: row.subtitle, categoryLabel: row.categoryLabel }).toEqual(
+			expected,
+		);
+	});
+
+	// The subtitle is the describer's as it stands: a record with nothing to
+	// name it is titled by its category and has none, and what a surface does
+	// about that is the surface's.
+	it('hands over the category as the title and no subtitle for a record naming nothing', () => {
+		const row = activityRow(entry({ category: 'habitat' }), lookups);
+		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
+			title: 'Habitat',
+			subtitle: null,
+		});
+	});
+
+	it('reads the badge facts and the Tags off the register', () => {
+		const row = activityRow(
+			entry({ category: 'inspection', detail: 'dry', tagIds: ['tag-1', 'unknown'] }),
+			lookups,
+		);
+		expect(row.facts).toEqual({
+			category: 'inspection',
+			result: { isWet: false, density: null, stages: null },
+		});
+		expect(row.tags).toEqual([priority]);
+	});
+
+	it("links to the record's own detail page", () => {
+		expect(activityRow(entry({ category: 'sourceReduction', id: 'sr-9' }), lookups).link).toEqual({
+			to: '/control-operations/source-reduction/$id',
+			params: { id: 'sr-9' },
+		});
 	});
 });
 

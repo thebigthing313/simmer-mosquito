@@ -6,6 +6,7 @@ import {
 } from '@simmer-mosquito/domain';
 import { refusalSentence, sessionFetch } from '@simmer-mosquito/sync';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import type { LinkProps } from '@tanstack/react-router';
 import { getServerUrl } from '../auth';
 import { useTagOptions } from '../components/explorer';
 import type { LifeStageFlags } from '../components/larval-display';
@@ -100,7 +101,7 @@ export const ACTIVITY_FAMILY_LABELS: readonly {
 	{ key: 'publicEngagement', label: 'Public Engagement' },
 ];
 
-export const ACTIVITY_CATEGORY_LABEL: Readonly<Record<ActivityCategory, string>> = {
+const ACTIVITY_CATEGORY_LABEL: Readonly<Record<ActivityCategory, string>> = {
 	habitat: 'Habitat',
 	inspection: 'Inspection',
 	trap: 'Trap',
@@ -136,10 +137,11 @@ export const ACTIVITY_ROLE_LABEL: Readonly<Record<string, string>> = {
 /**
  * Where each record kind's detail page lives. Every one takes an `$id`.
  *
- * Read by the Daily Work log and by the nearby list on a service request, so
- * the chevron on a row goes to the same page whichever list drew it.
+ * Read through {@link activityRow} by the Daily Work log and by the nearby
+ * list on a service request, so the chevron on a row goes to the same page
+ * whichever list drew it.
  */
-export const ACTIVITY_DETAIL_ROUTE = {
+const ACTIVITY_DETAIL_ROUTE = {
 	habitat: '/larval-surveillance/habitats/$id',
 	inspection: '/larval-surveillance/inspections/$id',
 	trap: '/adult-surveillance/traps/$id',
@@ -547,6 +549,51 @@ export function activityTags(
 }
 
 const NO_TAGS: readonly Tag[] = [];
+
+/**
+ * The parts of a row that both surfaces drawing an activity record derive from
+ * it: Daily Work's log and the nearby list on a service request.
+ */
+export interface ActivityRowParts {
+	readonly title: string;
+	/** The describer's subtitle as it stands; what a surface puts around it is its own. */
+	readonly subtitle: string | null;
+	/** The record kind's name, for a dot's accessible name or a line ahead of the subtitle. */
+	readonly categoryLabel: string;
+	/** The record's own detail page. */
+	readonly link: LinkProps;
+	readonly facts: RecordBadgeFacts;
+	readonly tags: readonly Tag[];
+}
+
+/**
+ * One activity record, resolved to what both of its rows draw.
+ *
+ * The Daily Work row and the nearby row each read the describer, the category
+ * label, the detail route, the badge register and the Tags. This answers those
+ * once, so a habitat near a request is titled, linked and badged the way the
+ * same habitat is in a Profile's log by construction. What each surface adds stays with it: the log's verb and time
+ * of day around the subtitle, the nearby list's category ahead of it, and each
+ * one's own colour on the dot.
+ *
+ * A pure resolution rather than a hook or a component, so the nine categories
+ * can be asserted through one function.
+ */
+export function activityRow(record: ActivityRecord, lookups: ActivityLookups): ActivityRowParts {
+	const { title, subtitle } = describeActivityEntry(
+		record,
+		lookups.nameById,
+		lookups.formatQuantity,
+	);
+	return {
+		title,
+		subtitle,
+		categoryLabel: ACTIVITY_CATEGORY_LABEL[record.category],
+		link: { to: ACTIVITY_DETAIL_ROUTE[record.category], params: { id: record.id } },
+		facts: activityBadgeFacts(record),
+		tags: activityTags(record, lookups.tagById),
+	};
+}
 
 /** What one entry reads as: the explorer row's title and subtitle, minus date and personnel. */
 export interface ActivityDescription {
