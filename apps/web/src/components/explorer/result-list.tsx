@@ -265,10 +265,17 @@ export function ResultRows<TRow>({
 /**
  * A caller-composed body, for a panel whose records are not a flat list.
  *
- * A plain scroll container rather than the rows' ScrollArea: a tree and a
- * day-grouped log bring their own headers, sections and sticky bits, and the
- * Radix viewport's `display: table` wrapper sizes those to their widest child.
+ * The same ScrollArea the rows and the loading skeleton arrive into, so the
+ * Regions tree and the Daily Work log wear the styled scrollbar every other
+ * rail wears, and it does not change shape when the body replaces the
+ * skeleton. This was a plain `overflow-y-auto` container citing the Radix
+ * viewport's `display: table` wrapper, which the shared primitive had already
+ * overridden with `[&>div]:!block` a week before (#1081).
  */
 export function ResultBody({ children }: { readonly children: ReactNode }) {
-	return <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>;
+	return (
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			{children}
+		</ScrollArea>
+	);
 }

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ResultList } from '../../../../components/explorer/result-list';
+import { ResultBody, ResultList } from '../../../../components/explorer/result-list';
 
 // The rows arrive inside a Radix ScrollArea, which measures itself on mount.
 // jsdom has no ResizeObserver, and a list that never reports a size is still a
@@ -76,5 +76,24 @@ describe('ResultList', () => {
 
 		expect(screen.getByText('No habitats in view')).toBeTruthy();
 		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	/*
+	 * Daily Work and Regions hand the rail a whole body rather than rows, and
+	 * that path drew a plain overflow container: the browser's scrollbar once
+	 * the content was in, under a loading skeleton that had already drawn the
+	 * styled one (#1081).
+	 */
+	it('renders a caller-composed body inside the same Radix viewport as the rows', () => {
+		const { container } = render(
+			<ResultList emptyTitle="No regions" isEmpty={false} isLoading={false}>
+				<ResultBody>
+					<p>Ditches</p>
+				</ResultBody>
+			</ResultList>,
+		);
+
+		const viewport = container.querySelector('[data-slot="scroll-area-viewport"]');
+		expect(viewport?.contains(screen.getByText('Ditches'))).toBe(true);
 	});
 });
