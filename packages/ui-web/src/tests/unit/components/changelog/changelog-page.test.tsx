@@ -37,7 +37,7 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ChangelogPage } from '../../../../components/changelog/changelog-page';
 import { pageContainer } from '../../../../components/page-container';
 
@@ -166,12 +166,14 @@ describe('the changelog frame', () => {
 
 const DATED_RELEASE = '# app\n\n## 1.0.0 — 2026-08-13\n\n- Added: A release.\n';
 
+/** The text of the span that follows the first release's version heading. */
 const releaseDateOf = (markup: string): string => {
-	const match = markup.match(/<\/h2><span class="text-muted-foreground text-sm">([^<]*)<\/span>/);
-	if (match === null) {
+	const match = markup.match(/<\/h2><span[^>]*>([^<]*)<\/span>/);
+	const date = match?.[1];
+	if (date === undefined) {
 		throw new Error(`No release date in: ${markup}`);
 	}
-	return match[1] ?? '';
+	return date;
 };
 
 /**
@@ -179,24 +181,23 @@ const releaseDateOf = (markup: string): string => {
  * German machine's runtime does. A caller that names `en-US` is unaffected,
  * and `resolvedOptions` on a real formatter is how the stub is proved live.
  */
-const runUnderGermanDefaultLocale = <T,>(run: () => T): T => {
+const runUnderGermanDefaultLocale = (run: () => string): string => {
 	const RealDateTimeFormat = Intl.DateTimeFormat;
-	vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function stubbed(locale, options) {
+	const spy = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function stubbed(
+		locale,
+		options,
+	) {
 		return new RealDateTimeFormat(locale ?? 'de-DE', options);
 	} as typeof Intl.DateTimeFormat);
 	try {
 		return run();
 	} finally {
-		vi.restoreAllMocks();
+		spy.mockRestore();
 	}
 };
 
 describe('the release date', () => {
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it('reads the calendar date in en-US wording, which is what every other formatter draws', () => {
+	it('reads the calendar date in en-US wording, which is what the formatters in apps/web draw', () => {
 		expect(releaseDateOf(renderPage('page', DATED_RELEASE))).toBe('August 13, 2026');
 	});
 
