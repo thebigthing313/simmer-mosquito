@@ -182,6 +182,15 @@ interface DetailPageHeaderBase {
  * request page loads there too, since its split needs the request's
  * coordinates before it can draw the map.
  *
+ * So on that page the bar draws at the page measure while the request loads
+ * and at the panel measure once it lands, and that jump is accepted (#1099).
+ * The alternative was a stand-in map column under the skeleton, and it is one
+ * of two things. A live Mapbox instance with nothing to draw is a second GL
+ * context, and one the Suspense swap then destroys, which is the `isMapLive`
+ * trap over again. A grey block that swaps for the map when the request
+ * arrives moves more of the screen than the bar does. A page beside a map
+ * that can draw its split before its record arrives is what reopens this.
+ *
  * `panel` is a column that already has a measure of its own, the 40% the
  * service request page keeps beside its map. The `record` measure would be no
  * cap there, and the `header` padding steps up to 32px a side at `md`, which in
@@ -303,7 +312,11 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 /**
  * The bar's chrome and measure, shared with {@link DetailPageHeaderSkeleton} so
  * the pinned bar is the same height before the record arrives and the content
- * below it does not jump.
+ * below it does not jump. The same height and not the same width: the skeleton
+ * is always at `page`, and {@link DetailHeaderFrame} says what that costs on
+ * the one page whose bar arrives at `panel`. The bar names its frame in
+ * `data-frame`, so a suite can pin which one a page draws in without reading
+ * the padding classes back.
  */
 function DetailHeaderBar({
 	children,
@@ -313,7 +326,7 @@ function DetailHeaderBar({
 	readonly frame: DetailHeaderFrame;
 }) {
 	return (
-		<header className="sticky top-0 z-10 border-border border-b bg-background">
+		<header className="sticky top-0 z-10 border-border border-b bg-background" data-frame={frame}>
 			<div
 				className={
 					frame === 'panel'

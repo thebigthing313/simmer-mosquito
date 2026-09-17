@@ -232,8 +232,8 @@ function seedRequest(closedAt: Date | null): void {
 	]);
 }
 
-async function renderPage(closedAt: Date | null = null) {
-	seedRequest(closedAt);
+/** Mount the route over whatever the collections hold. */
+function renderRoute(): void {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
 		<QueryClientProvider client={client}>
@@ -244,6 +244,11 @@ async function renderPage(closedAt: Date | null = null) {
 			</TooltipProvider>
 		</QueryClientProvider>,
 	);
+}
+
+async function renderPage(closedAt: Date | null = null) {
+	seedRequest(closedAt);
+	renderRoute();
 	await screen.findByRole('heading', { level: 1, name: '#12' });
 }
 
@@ -357,6 +362,30 @@ describe('the service request detail page header', () => {
 
 		expect(screen.queryByLabelText('Edit')).toBeNull();
 		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+	});
+});
+
+/**
+ * The bar draws at the page measure while the request loads and at the panel
+ * measure once it lands, and both are pinned so a change to either fails here
+ * (#1099). `DetailHeaderFrame`'s docblock says why the jump is accepted.
+ */
+describe('the frame the service request header draws in', () => {
+	it('draws the skeleton at the page measure while the request loads', async () => {
+		// Held unsynced rather than empty: an empty collection is a request that
+		// is missing, and the page draws the unavailable state for that.
+		installMemoryCollections({ ready: false });
+		renderRoute();
+
+		const bar = await screen.findByRole('banner');
+		expect(bar.getAttribute('data-frame')).toBe('page');
+		expect(bar.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+	});
+
+	it('draws the live header in the panel beside the map', async () => {
+		await renderPage();
+
+		expect(screen.getByRole('banner').getAttribute('data-frame')).toBe('panel');
 	});
 });
 
