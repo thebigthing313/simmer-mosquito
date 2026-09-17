@@ -1,5 +1,5 @@
 /**
- * `hasBadges` is what a row asks before it passes `RecordBadges` in (#1107).
+ * `hasBadges` is what `recordBadges` asks before a row gets an element (#1107).
  *
  * `ExplorerRow` lays out a badge container on `badges !== undefined`, and an
  * empty fragment is not undefined, so a kind whose badges draw nothing still

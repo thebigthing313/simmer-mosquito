@@ -87,21 +87,20 @@ export type StatusPlacement = 'dot' | 'badge';
  * one of two different things depending on which page reached it, and neither
  * page said the other's.
  *
- * A caller asks {@link hasBadges} first and passes `undefined` to the row when
- * it says no. Rendering this for a kind with nothing to draw is not the same
- * as passing nothing: the row lays its container out on the prop being there,
- * and an empty one still spends a line under the subtitle.
+ * A row takes this through {@link recordBadges} rather than as an element,
+ * and that is the whole of #1107. `ExplorerRow` lays its badge container out
+ * on the prop being there, and an element is there whatever it draws, so a
+ * kind with nothing to draw still spent a line under its subtitle. The
+ * decision has to be made before the element exists, and one function making
+ * it is what keeps a sixth caller from writing the element bare.
  */
-export function RecordBadges({
+function RecordBadges({
 	facts,
 	status,
 }: {
 	readonly facts: RecordBadgeFacts;
 	readonly status: StatusPlacement;
 }): ReactNode {
-	if (!hasBadges(facts, status)) {
-		return null;
-	}
 	return (
 		<>
 			{status === 'badge' ? <RecordStateBadge facts={facts} /> : null}
@@ -111,14 +110,22 @@ export function RecordBadges({
 }
 
 /**
- * Whether {@link RecordBadges} draws anything for this record under this
+ * The badges a row passes to `ExplorerRow`, or `undefined` for a record that
+ * draws none, which is what the row reads as "no container".
+ */
+export function recordBadges(facts: RecordBadgeFacts, status: StatusPlacement): ReactNode {
+	return hasBadges(facts, status) ? <RecordBadges facts={facts} status={status} /> : undefined;
+}
+
+/**
+ * Whether the badge group draws anything for this record under this
  * placement.
  *
- * The one answer to "does this row have badges", asked by every row before it
- * passes the element in. An application or a source reduction has none under
- * either placement; a habitat's state is a pill under `'badge'` and the row's
- * dot under `'dot'`; a collected collection with no bycatch has none even as a
- * pill, because the log's verb already says it was collected.
+ * The one answer to "does this row have badges". An application or a source
+ * reduction has none under either placement; a habitat's state is a pill under
+ * `'badge'` and the row's dot under `'dot'`; a collected collection with no
+ * bycatch has none even as a pill, because the log's verb already says it was
+ * collected.
  */
 export function hasBadges(facts: RecordBadgeFacts, status: StatusPlacement): boolean {
 	return (status === 'badge' && hasStateBadge(facts)) || hasDetailBadges(facts);

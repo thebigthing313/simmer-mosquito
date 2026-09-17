@@ -38,7 +38,7 @@ import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
-import { hasBadges, type RecordBadgeFacts, RecordBadges } from '../../-record-badges';
+import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
 import {
 	DensityFilter,
 	type InspectionCatalogs,
@@ -453,9 +453,9 @@ function InspectionListItem({
 	/*
 	 * Life stages only. The density pill beside them repeated the dot at the
 	 * left of the row, which is already the density and already the colour the
-	 * map paints this site. What stages were found is the one thing neither the
-	 * dot nor the key says, and a site that found none passes nothing, so the
-	 * row lays out no line for it.
+	 * map paints this habitat. What stages were found is the one thing neither
+	 * the dot nor the key says, and an inspection that found none passes
+	 * nothing, so the row lays out no line for it.
 	 */
 	const facts: RecordBadgeFacts = {
 		category: 'inspection',
@@ -467,7 +467,7 @@ function InspectionListItem({
 	};
 	return (
 		<ExplorerRow
-			badges={hasBadges(facts, 'dot') ? <RecordBadges facts={facts} status="dot" /> : undefined}
+			badges={recordBadges(facts, 'dot')}
 			date={when}
 			detailLabel={`View details for the ${when} inspection of ${label}`}
 			detailLink={{ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } }}

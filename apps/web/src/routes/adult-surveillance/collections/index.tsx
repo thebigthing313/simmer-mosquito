@@ -45,7 +45,7 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { hasBadges, type RecordBadgeFacts, RecordBadges } from '../../-record-badges';
+import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
 import { collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
 import type { CollectionStatusValue } from './-legend';
@@ -370,7 +370,7 @@ function CollectionListItem({
 	};
 	return (
 		<ExplorerRow
-			badges={hasBadges(facts, 'dot') ? <RecordBadges facts={facts} status="dot" /> : undefined}
+			badges={recordBadges(facts, 'dot')}
 			date={effectiveDate === null ? null : formatListDate(effectiveDate)}
 			detailLabel={`View details for ${label}`}
 			detailLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}
