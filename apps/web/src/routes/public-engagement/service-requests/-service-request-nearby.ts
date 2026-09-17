@@ -297,7 +297,7 @@ export function buildNearbyMapData(
 	return { type: 'FeatureCollection', features };
 }
 
-/** The clause the summary adds when an anchor, and not the setting, ended the window. */
+/** The clause the window phrase adds when an anchor, and not the setting, ended the window. */
 const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
 	setting: '',
 	close: ', extended to the day it was closed',
@@ -312,9 +312,8 @@ const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
  * The summary and the map caption both read it, so the caption cannot draw a
  * six-week range under a setting that says 14 with nothing saying the close or
  * today passed it, which it did while it wrote the two dates itself (#1109).
- * The range is an unspaced en dash in one template, the shape the dash rule
- * allows and `check:copy-dashes` reads; the caption's own dash sat between two
- * JSX slots, where no gate could see it.
+ * The range is an unspaced en dash in one template, which is the shape
+ * `check:copy-dashes` reads.
  */
 export function nearbyWindowLabel(
 	response: Pick<NearbyResponse, 'dateFrom' | 'dateTo' | 'dateToFrom'>,

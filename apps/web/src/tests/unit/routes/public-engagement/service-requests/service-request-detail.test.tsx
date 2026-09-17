@@ -36,7 +36,7 @@
  * lazy stand-in would otherwise overrun the test timeout while it imports.
  */
 
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import type { NearbyWindowEnd, SimmerRole } from '@simmer-mosquito/domain';
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -68,7 +68,7 @@ const harness = vi.hoisted(() => ({
 	/** The nearby read fails with a 500 rather than answering. */
 	nearbyFails: false,
 	/** Where the nearby window ends, and which end set it. */
-	window: { dateTo: '2026-09-03', dateToFrom: 'setting' as 'setting' | 'close' | 'today' },
+	window: { dateTo: '2026-09-03', dateToFrom: 'setting' as NearbyWindowEnd },
 	/** What the canvas was last handed for the nearby layer. */
 	nearbyLayer: null as NearbyLayerConfig | null,
 }));
