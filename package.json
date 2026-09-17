@@ -46,6 +46,7 @@
 		"db:migrate": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql up",
 		"db:rollback": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql rollback",
 		"db:status": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql status",
+		"db:vacuum-catalogs": "node scripts/vacuum-catalogs.mjs",
 		"dev": "nx daemon --start && mprocs",
 		"dev:server": "nx dev @simmer-mosquito/server",
 		"dev:admin": "nx dev @simmer-mosquito/admin",
