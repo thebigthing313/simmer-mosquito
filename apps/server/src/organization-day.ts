@@ -4,13 +4,14 @@
  *
  * Here and not inside a weather module because "what day is the Organization
  * on" is not a fact about weather. The summary command handler and the import
- * each carried a private copy of this, and the service request nearby window
- * (#1084) is a third caller; one more private copy is the shape this
- * workspace's gates exist to refuse (#1083). It imports nothing, so a route, a
- * command handler and a writer can all reach it without a cycle.
+ * each carried a private copy of this, and neither had a test (#1083). It
+ * imports nothing, so a route, a command handler and a writer can all reach it
+ * without a cycle.
  *
- * `instant` names a moment other than now, which is what a test pins. A
- * caller answering "today" passes nothing.
+ * `instant` names a moment other than now: which calendar day some other
+ * instant falls on in the zone, the same question with a different subject.
+ * A caller answering "today" passes nothing. The web app's `todayInTimeZone`
+ * in `apps/web/src/lib/local-date.ts` has the same signature and the same pin.
  */
 export function todayInTimeZone(timeZone: string, instant: Date = new Date()): string {
 	// `en-CA` is a format shape rather than a display locale: it is the tag that
