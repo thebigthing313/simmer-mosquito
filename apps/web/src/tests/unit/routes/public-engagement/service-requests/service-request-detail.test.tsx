@@ -232,7 +232,7 @@ function seedRequest(closedAt: Date | null): void {
 	]);
 }
 
-/** Mount the route over whatever the collections hold, and wait for nothing. */
+/** Mount the route over whatever the collections hold. */
 function renderRoute(): void {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	render(
@@ -366,13 +366,9 @@ describe('the service request detail page header', () => {
 });
 
 /**
- * The bar draws at two widths on this page, and both are pinned so that moving
- * either is a decision rather than a drift (#1099).
- *
- * The skeleton draws at the page measure because the split needs the request's
- * coordinates before the map can draw, and the live bar draws in the column
- * beside the map. The jump between the two is the accepted cost, and
- * `DetailHeaderFrame`'s docblock says why a stand-in map was not drawn instead.
+ * The bar draws at the page measure while the request loads and at the panel
+ * measure once it lands, and both are pinned so a change to either fails here
+ * (#1099). `DetailHeaderFrame`'s docblock says why the jump is accepted.
  */
 describe('the frame the service request header draws in', () => {
 	it('draws the skeleton at the page measure while the request loads', async () => {

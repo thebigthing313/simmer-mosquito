@@ -182,14 +182,14 @@ interface DetailPageHeaderBase {
  * request page loads there too, since its split needs the request's
  * coordinates before it can draw the map.
  *
- * So on that page the bar draws at one width while the request loads and at
- * another once it lands, and that jump is accepted (#1099). A stand-in map
- * column under the skeleton was the alternative, and it is one of two things:
- * a live Mapbox instance with nothing to draw, which is a second GL context
- * and the `isMapLive` trap over again, or a grey block that swaps for the map
- * when the request arrives, which moves more of the screen than the bar does.
- * A page beside a map that can draw its split before its record arrives is
- * what reopens this.
+ * So on that page the bar draws at the page measure while the request loads
+ * and at the panel measure once it lands, and that jump is accepted (#1099).
+ * The alternative was a stand-in map column under the skeleton, and it is one
+ * of two things. A live Mapbox instance with nothing to draw is a second GL
+ * context, and one the Suspense swap then destroys, which is the `isMapLive`
+ * trap over again. A grey block that swaps for the map when the request
+ * arrives moves more of the screen than the bar does. A page beside a map
+ * that can draw its split before its record arrives is what reopens this.
  *
  * `panel` is a column that already has a measure of its own, the 40% the
  * service request page keeps beside its map. The `record` measure would be no
@@ -199,9 +199,6 @@ interface DetailPageHeaderBase {
  * under it is padded with. One prop rather than a second header, because
  * everything else about the bar, the eyebrow, the menu, the Tags and the rule
  * they sit under, is the same bar.
- *
- * The bar names its frame in `data-frame`, which is what lets a suite pin
- * which one a page draws in without reading the padding classes back.
  */
 type DetailHeaderFrame = 'page' | 'panel';
 
@@ -317,7 +314,9 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
  * the pinned bar is the same height before the record arrives and the content
  * below it does not jump. The same height and not the same width: the skeleton
  * is always at `page`, and {@link DetailHeaderFrame} says what that costs on
- * the one page whose bar arrives at `panel`.
+ * the one page whose bar arrives at `panel`. The bar names its frame in
+ * `data-frame`, so a suite can pin which one a page draws in without reading
+ * the padding classes back.
  */
 function DetailHeaderBar({
 	children,
