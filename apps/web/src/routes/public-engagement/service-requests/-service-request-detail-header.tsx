@@ -26,8 +26,9 @@ const ReopenIcon = iconRegistry.actions.reset.icon;
  * because this page keeps its column beside a map rather than spanning the
  * stage (#1088). What used to sit here was a bar of its own: a back link, an
  * Edit button and a Close button under the title, and a Danger zone card at the
- * foot of the column, which is the arrangement `DetailPageHeader`'s docblock
- * retired everywhere else.
+ * foot of the column. `DetailPageHeader`'s docblock says why the back link
+ * went and `DangerZoneCard`'s why the card did, on every other record page
+ * before this one.
  *
  * Close and reopen are one menu item, whichever the request's state allows.
  * Both write a comment on the request in the same transaction, so the reason

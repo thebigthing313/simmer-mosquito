@@ -37,8 +37,6 @@ import { recordNoun } from '../../../../../lib/record-nouns';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 
-const REQUEST_ID = 'sr-1';
-
 const harness = vi.hoisted(() => ({
 	/** The path params a match would carry. One object, since the stand-in reads it as a store. */
 	params: { id: 'sr-1' } as Record<string, string>,
@@ -121,6 +119,9 @@ vi.mock('../../../../../components/map', async (importOriginal) => ({
 	...(await importOriginal<typeof import('../../../../../components/map')>()),
 	MapCanvas: () => <p>map surface</p>,
 }));
+
+/** The request on screen, read off the params so a case cannot render one and assert another. */
+const REQUEST_ID = harness.params.id as string;
 
 let ServiceRequestDetail: () => ReactNode;
 

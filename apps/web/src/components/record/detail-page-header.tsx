@@ -42,8 +42,9 @@ import { TagBadge } from '../tag-badge';
  * page was a table with no name over it.
  *
  * It is `sticky` rather than `fixed`, which is what lets it share the scroll
- * box with the content and therefore share the `record` container the layout is
- * measured against. A fixed bar would be positioned against the viewport, so it
+ * box with the content and therefore share the container the layout is
+ * measured against, the `record` measure on a page and the column on a panel
+ * (see {@link DetailHeaderFrame}). A fixed bar would be positioned against the viewport, so it
  * would sit over the rails and need its own copy of the measure to line its
  * title up with the first card. It follows DESIGN.md's Opaque Pin Rule: an
  * opaque surface, a one-pixel bottom border, `z-10`, and no blur, since nothing
@@ -152,17 +153,19 @@ interface DetailPageHeaderBase {
  *
  * `page` is the record container: the bar spans the stage and its padding is
  * `pageContainer`'s `header`, so the title sits over the first card's edge.
- * That is every page on `DetailPageShell`, and the skeleton, which stands in
- * for those pages only.
+ * That is every page on `DetailPageShell`, and the skeleton, which draws at
+ * the page measure whatever frame the record will arrive in: the service
+ * request page loads there too, since its split needs the request's
+ * coordinates before it can draw the map.
  *
  * `panel` is a column that already has a measure of its own, the 40% the
  * service request page keeps beside its map. The `record` measure would be no
  * cap there, and the `header` padding steps up to 32px a side at `md`, which in
  * a 500px column is a bar whose title and pencil wrap before the flags do. So
- * the bar takes the column's padding instead, the `p-4` every pinned panel
- * header in the app reads through `stickyHeader`. One prop rather than a second
- * header, because everything else about the bar, the eyebrow, the menu, the
- * Tags and the rule they sit under, is the same bar.
+ * the bar takes the column's own padding, the same `p-4` the body scrolling
+ * under it is padded with. One prop rather than a second header, because
+ * everything else about the bar, the eyebrow, the menu, the Tags and the rule
+ * they sit under, is the same bar.
  */
 type DetailHeaderFrame = 'page' | 'panel';
 
