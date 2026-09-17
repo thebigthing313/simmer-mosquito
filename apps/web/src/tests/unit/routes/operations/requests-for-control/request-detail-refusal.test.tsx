@@ -43,14 +43,10 @@ const harness = vi.hoisted(() => ({
 	/** Every lifecycle write the page asked for, in order. */
 	writes: [] as ('resolve' | 'reopen')[],
 	toastError: vi.fn(),
-	toastSuccess: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
-	toast: {
-		error: (message: string) => harness.toastError(message),
-		success: (message: string) => harness.toastSuccess(message),
-	},
+	toast: { error: (message: string) => harness.toastError(message) },
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -152,7 +148,6 @@ beforeEach(() => {
 	harness.refusal = null;
 	harness.writes.length = 0;
 	harness.toastError.mockReset();
-	harness.toastSuccess.mockReset();
 });
 
 afterEach(cleanup);

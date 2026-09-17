@@ -12,6 +12,7 @@ import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-it
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { useMissionStopViews } from '../-operations-data';
 import { addStopDescription } from '../-operations-display';
 
@@ -75,7 +76,7 @@ export function AddMissionStopForm({
 			});
 			await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to add that stop.');
+			setError(errorMessageForSave(cause, 'Unable to add that stop.'));
 		}
 		setBusy(false);
 	};

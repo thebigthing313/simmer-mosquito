@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCommandRunner } from '../../../../routes/operations/-command-runner';
 
 /**
@@ -25,10 +25,6 @@ vi.mock('sonner', () => ({
 beforeEach(() => {
 	toastError.mockReset();
 	toastSuccess.mockReset();
-});
-
-afterEach(() => {
-	vi.restoreAllMocks();
 });
 
 describe('useCommandRunner', () => {

@@ -6,10 +6,10 @@
  * Start, Complete, Cancel and Reopen are buttons in the page's own header bar,
  * and the server refuses each on its preconditions: a Complete on an
  * assignment somebody else has already completed, a Start on one that has
- * been cancelled since the page loaded. The page used
- * to hold that refusal in a destructive `Alert` under the bar, and it was one
- * of three pages under operations doing so while every other record page
- * reported one as a toast (#1100). A refused start on a worklist is no more
+ * been cancelled since the page loaded. The page used to hold that refusal in
+ * a destructive `Alert` under the bar, and it was one of three pages under
+ * operations doing so while every other record page reported one as a toast
+ * (#1100). A refused start on a worklist is no more
  * correctable in place than a refused close from a record's menu, so it
  * follows the rule `DetailPageHeader`'s docblock carries, and what this
  * asserts is both halves: the toast is raised with the server's sentence, or
@@ -49,14 +49,10 @@ const harness = vi.hoisted(() => ({
 	/** Every lifecycle write the page asked for, in order. */
 	writes: [] as LifecycleWrite[],
 	toastError: vi.fn(),
-	toastSuccess: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
-	toast: {
-		error: (message: string) => harness.toastError(message),
-		success: (message: string) => harness.toastSuccess(message),
-	},
+	toast: { error: (message: string) => harness.toastError(message) },
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -150,7 +146,6 @@ beforeEach(() => {
 	harness.writes.length = 0;
 	harness.counts = { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 };
 	harness.toastError.mockReset();
-	harness.toastSuccess.mockReset();
 });
 
 afterEach(cleanup);

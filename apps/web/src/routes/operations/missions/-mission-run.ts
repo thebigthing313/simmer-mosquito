@@ -39,8 +39,8 @@ const stopKey = (stop: MissionStopView) => stop.missionItemId;
  * A mission page is two jobs at once — working the stops and planning them — and
  * between them they need a dozen pieces of state that only ever change together:
  * which stop the map has selected, which one a dialog is asking about, and
- * whether a write is in flight. Left inline they put more
- * than twenty hooks in the route component and buried the rendering.
+ * whether a write is in flight. Left inline they put more than twenty hooks in
+ * the route component and buried the rendering.
  *
  * `planEditable` folds the manager floor in, because the controls it gates —
  * adding, reordering, and removing stops — sit inside the stop list rather than
