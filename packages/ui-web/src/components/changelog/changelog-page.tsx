@@ -24,9 +24,9 @@ const HistoryIcon = iconRegistry.generic.history.icon;
  * route-loading skeleton reserves, so the page arrives at the width the
  * skeleton stood in for (#1043). Release notes are prose, the one kind of
  * content the column was written for, so widening the frame must not widen a
- * line: in the `record` frame the release list carries `RELEASE_MEASURE` of
- * its own, and at `page` it renders what it always has, the column being the
- * measure.
+ * line: in the `record` frame each release's entries carry `RELEASE_MEASURE`
+ * beside a version rail, `RELEASE_ROW` below, and at `page` the list renders
+ * what it always has, the column being the measure.
  */
 export function ChangelogPage({
 	markdown,
@@ -48,12 +48,6 @@ export function ChangelogPage({
 	readonly measure?: NonNullable<PageContainerVariants['measure']>;
 }) {
 	const releases = parseChangelog(markdown);
-	/*
-	 * Only the `record` frame caps the list. At `page` the 1200 column is the
-	 * prose measure already, and `apps/admin` draws there and keeps the markup
-	 * it had before the prop arrived.
-	 */
-	const listClass = measure === 'record' ? `grid gap-8 ${RELEASE_MEASURE}` : 'grid gap-8';
 
 	// No scroller of its own: the shell's `main` scrolls the page and reserves
 	// the gutter the route-loading skeleton stands in (#1053).
@@ -63,11 +57,12 @@ export function ChangelogPage({
 			{releases.length === 0 ? (
 				<p className="text-muted-foreground text-sm">No releases have been published yet.</p>
 			) : (
-				<ol className={listClass}>
+				<ol className="grid gap-8">
 					{releases.map((release) => (
 						<ReleaseSection
 							currentVersion={currentVersion}
 							key={release.version}
+							measure={measure}
 							release={release}
 						/>
 					))}
@@ -82,52 +77,89 @@ export function ChangelogPage({
  *
  * A bullet is a sentence, and DESIGN.md caps prose at 65 to 75 characters a
  * line. In the `record` frame a line would otherwise run 1616px on a 1920
- * screen, so the list carries the cap the frame no longer does. It sits on
- * the list rather than on each bullet so a release's version bar and its
- * entries end at one edge, and it is in rem rather than ch because a ch here
- * would be measured in the list's font size, not the `text-sm` the bullets
- * are set in: 38rem is about 75 characters of that.
+ * screen, so the entries cell carries the cap the frame no longer does. It
+ * sits on the cell rather than on each bullet so a release's groups end at
+ * one edge, and it is in rem rather than ch because a ch here would be
+ * measured in the cell's font size, not the `text-sm` the bullets are set
+ * in: 38rem is about 75 characters of that.
  */
 const RELEASE_MEASURE = 'max-w-[38rem]';
+
+/**
+ * The rail the `record` frame draws beside each release from `md:` up.
+ *
+ * The cap leaves about 1000px of a 1920 stage empty beside the entries, so a
+ * release becomes a row there: version, date and badge in a left cell, the
+ * groups in the right (#1065). The rail is a fixed 12rem rather than `auto`,
+ * because `auto` would size every rail on the page to the longest date and
+ * move every entries column with it. The grid's own gap is the only
+ * separator between releases; a rule under the version would run across the
+ * rail and the column and read as a table line. Below `md:` the row stacks,
+ * version, date and badge in one wrapping line over the entries, which is
+ * the my-organization sections' breakpoint too. The `page` column takes none of this and renders the markup
+ * it rendered before, which is what `apps/admin` draws.
+ */
+const RELEASE_ROW = {
+	page: {
+		row: 'grid gap-4',
+		rail: 'flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b pb-2',
+		badge: 'ml-auto',
+	},
+	record: {
+		row: 'grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-x-6',
+		// Sticky against the shell's `main`, so a long release keeps its version
+		// in view while its entries scroll past.
+		rail: 'flex flex-wrap items-baseline gap-x-3 gap-y-1 md:sticky md:top-4 md:flex-col md:items-start md:self-start',
+		badge: 'ml-auto md:ml-0',
+	},
+} as const;
 
 function ReleaseSection({
 	release,
 	currentVersion,
+	measure,
 }: {
 	readonly release: ChangelogRelease;
 	readonly currentVersion: string;
+	readonly measure: keyof typeof RELEASE_ROW;
 }) {
+	const classes = RELEASE_ROW[measure];
+	const entries =
+		release.groups.length === 0 && release.uncategorized.length === 0 ? (
+			<p className="text-muted-foreground text-sm">
+				Maintenance release with no user-facing changes.
+			</p>
+		) : (
+			<>
+				{release.uncategorized.length === 0 ? null : <EntryList entries={release.uncategorized} />}
+				{release.groups.map((group) => (
+					<section className="grid gap-2" key={group.label}>
+						<h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+							{group.label}
+						</h3>
+						<EntryList entries={group.entries} />
+					</section>
+				))}
+			</>
+		);
+
 	return (
-		<li className="grid gap-4">
-			<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b pb-2">
+		<li className={classes.row}>
+			<div className={classes.rail}>
 				<h2 className="font-semibold text-foreground text-lg leading-none">{release.version}</h2>
 				{release.date === null ? null : (
 					<span className="text-muted-foreground text-sm">{formatReleaseDate(release.date)}</span>
 				)}
 				{release.version === currentVersion ? (
-					<Badge className="ml-auto" variant="secondary">
+					<Badge className={classes.badge} variant="secondary">
 						You're on this version
 					</Badge>
 				) : null}
 			</div>
-			{release.groups.length === 0 && release.uncategorized.length === 0 ? (
-				<p className="text-muted-foreground text-sm">
-					Maintenance release with no user-facing changes.
-				</p>
+			{measure === 'record' ? (
+				<div className={`grid gap-4 ${RELEASE_MEASURE}`}>{entries}</div>
 			) : (
-				<>
-					{release.uncategorized.length === 0 ? null : (
-						<EntryList entries={release.uncategorized} />
-					)}
-					{release.groups.map((group) => (
-						<section className="grid gap-2" key={group.label}>
-							<h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-								{group.label}
-							</h3>
-							<EntryList entries={group.entries} />
-						</section>
-					))}
-				</>
+				entries
 			)}
 		</li>
 	);
