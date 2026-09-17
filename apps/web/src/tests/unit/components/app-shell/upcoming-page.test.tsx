@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AuthMe } from '../../../../auth';
 import { shellDomainsForRole } from '../../../../components/app-shell/navigation';
 import { UpcomingPage } from '../../../../components/app-shell/upcoming-page';
+import { stubItems } from './stub-items';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -164,11 +165,7 @@ function willLandLines(): readonly Element[] {
 }
 
 function stubPaths(): readonly string[] {
-	return domains()
-		.flatMap((domain) => domain.groups)
-		.flatMap((group) => group.items)
-		.filter((item) => item.stub === true)
-		.map((item) => String(item.to));
+	return stubItems(domains()).map((item) => String(item.to));
 }
 
 function domains() {

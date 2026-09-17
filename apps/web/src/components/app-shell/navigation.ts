@@ -1132,8 +1132,11 @@ export interface WebShellCandidate {
  * An item is in exactly one list. Carrying an `action` moves it out of the route
  * list, so a create form appears once rather than as both a place and a verb.
  *
- * Stubs are excluded from both: the sixteen `stub: true` items are unbuilt
+ * Stubs are excluded from both: the `stub: true` items are unbuilt
  * destinations, and offering one is offering a door that opens onto nothing.
+ * How many there are is read off the register and written nowhere, because a
+ * count here and one in `docs/dashboard-spec.md` had both drifted from the
+ * register by the time anyone compared the three (#1097).
  *
  * The Daily Work rows are excluded by reading the declared navigation rather
  * than the composed one: global search already finds people, and a route row per

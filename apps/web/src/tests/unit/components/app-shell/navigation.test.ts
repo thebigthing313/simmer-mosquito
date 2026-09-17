@@ -9,6 +9,7 @@ import {
 	withDailyWorkGroup,
 } from '../../../../components/app-shell/navigation';
 import { writeSurfaceFloor } from '../../../../lib/write-surfaces';
+import { stubItems } from './stub-items';
 
 /**
  * The sidebar's half of the role ladder.
@@ -155,11 +156,7 @@ describe('shellDomainsForRole', () => {
 		// A stub is a door onto nothing. The exclusion reads `stub` off the item
 		// rather than a list of paths, so the two new ones need no entry anywhere
 		// for this to hold, and the mark is what this pins.
-		const stubs = shellDomainsForRole(authWithRole('owner'))
-			.flatMap((domain) => domain.groups)
-			.flatMap((group) => group.items)
-			.filter((item) => item.stub === true)
-			.map((item) => item.id);
+		const stubs = stubItems(shellDomainsForRole(authWithRole('owner'))).map((item) => item.id);
 		const { routes, actions } = shellSearchCandidates(authWithRole('owner'));
 		const offered = new Set([...routes, ...actions].map((candidate) => candidate.id));
 
