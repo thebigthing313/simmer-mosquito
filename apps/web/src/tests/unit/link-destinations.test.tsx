@@ -517,10 +517,10 @@ describe('the service request header', () => {
 /**
  * The nearby list on a service request, one row per record kind.
  *
- * Seven kinds through one row, each keyed to its own detail route, which is the
+ * Eight kinds through one row, each keyed to its own detail route, which is the
  * shape #582 named: every `to` is well formed, and a category paired with its
  * neighbour's route compiles. The chevron and the title are the row's two links,
- * so each record answers twice, and the ids are the assertion.
+ * so each record answers twice, and the id is the assertion.
  */
 describe('the nearby list', () => {
 	// The rows are the rail's virtualised list in a Radix ScrollArea, which
@@ -536,6 +536,7 @@ describe('the nearby list', () => {
 		'application',
 		'sourceReduction',
 		'biocontrol',
+		'serviceRequest',
 	];
 
 	function nearby(category: NearbyCategory, index: number): NearbyItem {
@@ -562,40 +563,48 @@ describe('the nearby list', () => {
 		};
 	}
 
-	it('sends every record kind to its own detail page', () => {
-		const items = CATEGORIES.map((category, index) => nearby(category, index));
+	const DETAIL_PATH: Readonly<Record<NearbyCategory, string>> = {
+		habitat: '/larval-surveillance/habitats',
+		trap: '/adult-surveillance/traps',
+		inspection: '/larval-surveillance/inspections',
+		collection: '/adult-surveillance/collections',
+		application: '/control-operations/chemical',
+		sourceReduction: '/control-operations/source-reduction',
+		biocontrol: '/control-operations/biocontrol',
+		serviceRequest: '/public-engagement/service-requests',
+	};
+
+	// One render per kind rather than eight rows in one list: the rail mounts
+	// the rows a viewport of no height would show plus its overscan, which is
+	// seven, and the eighth kind fell off the end of a single render.
+	it.each(CATEGORIES)('sends a %s to its own detail page', (category) => {
+		const index = CATEGORIES.indexOf(category);
 		renderWithRouter(
 			<NearbyResultList
 				emptyTitle="Nothing nearby"
-				families={new Set(['infrastructure', 'surveillance', 'control'])}
-				isError={false}
-				isLoading={false}
+				families={new Set(['infrastructure', 'surveillance', 'control', 'publicEngagement'])}
 				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
-				onRetry={() => {}}
-				onSelect={() => {}}
-				response={{
-					request: { id: 'sr-1', lat: 30, lng: -90, requestDate: '2026-08-04' },
-					radius: { amount: 500, unitCode: 'meter', meters: 500 },
-					timeWindow: { daysBefore: 30, daysAfter: 30 },
-					dateFrom: '2026-07-05',
-					dateTo: '2026-09-03',
-					dateToFrom: 'setting',
-					families: ['larval', 'adult', 'control'],
-					items,
+				nearby={{
+					data: {
+						request: { id: 'sr-1', lat: 30, lng: -90, requestDate: '2026-08-04' },
+						radius: { amount: 500, unitCode: 'meter', meters: 500 },
+						timeWindow: { daysBefore: 30, daysAfter: 30 },
+						dateFrom: '2026-07-05',
+						dateTo: '2026-09-03',
+						dateToFrom: 'setting',
+						families: ['larval', 'adult', 'control', 'publicEngagement'],
+						items: [nearby(category, index)],
+					},
+					isLoading: false,
+					isError: false,
+					refetch: () => Promise.resolve(),
 				}}
+				onSelect={() => {}}
 				selectedKey={null}
 			/>,
 		);
 
-		const expected = [
-			'/larval-surveillance/habitats/habitat-0',
-			'/adult-surveillance/traps/trap-1',
-			'/larval-surveillance/inspections/inspection-2',
-			'/adult-surveillance/collections/collection-3',
-			'/control-operations/chemical/application-4',
-			'/control-operations/source-reduction/sourceReduction-5',
-			'/control-operations/biocontrol/biocontrol-6',
-		];
-		expect(linkHrefs()).toEqual(expected.flatMap((href) => [href, href]));
+		const href = `${DETAIL_PATH[category]}/${category}-${index}`;
+		expect(linkHrefs()).toEqual([href, href]);
 	});
 });

@@ -18,7 +18,9 @@
  * rail's own rows (#1087), with the distance in its slot. A row click hands
  * the map the selection under the record's composite key, the map is handed
  * only the active tab's family, and the rail's empty and failed states stand
- * in for the bespoke ones the page drew.
+ * in for the bespoke ones the page drew. Details and Comments hand the map the
+ * other service requests in the radius and window instead, and a pin click
+ * there opens the service request map card, which is the third part (#1090).
  *
  * What is faked is what `write-attribution.test.tsx` fakes, for the reasons its
  * docblock gives: the route module's `Route` hands back the params a match
@@ -111,7 +113,7 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 			dateFrom: '2026-07-05',
 			dateTo: '2026-09-03',
 			dateToFrom: 'setting',
-			families: ['larval', 'adult', 'control'],
+			families: ['larval', 'adult', 'control', 'publicEngagement'],
 			items: harness.nearby,
 		};
 	});
@@ -374,12 +376,19 @@ function mapRoles(): readonly unknown[] {
 
 /** The keys of the nearby pins the map was last handed. */
 function mapPinKeys(): readonly unknown[] {
+	return mapPins().map((feature) => feature.properties?.id);
+}
+
+/** The family each nearby pin the map was last handed is painted in. */
+function mapPinFamilies(): readonly unknown[] {
+	return mapPins().map((feature) => feature.properties?.family);
+}
+
+function mapPins() {
 	const data = harness.nearbyLayer?.data;
 	return data === null || data === undefined || !('features' in data)
 		? []
-		: data.features
-				.filter((feature) => feature.properties?.role === 'nearby')
-				.map((feature) => feature.properties?.id);
+		: data.features.filter((feature) => feature.properties?.role === 'nearby');
 }
 
 /** The thread's supporting line, which is what says the Comments tab is showing. */
@@ -459,22 +468,74 @@ describe('the tabs on the service request detail page', () => {
 		expect(activeTab()).toBe('Details');
 	});
 
-	it('hands the map the request and its radius alone on Details and Comments', async () => {
+	it('asks the endpoint for all four families', async () => {
+		await renderPage();
+
+		await waitFor(() => {
+			const sent = harness.sent.find((url) => url.pathname.endsWith('/nearby'));
+			expect(sent?.searchParams.get('families')).toBe('larval,adult,control,publicEngagement');
+		});
+	});
+
+	it('hands the map the other requests, and no operational record, on Details and Comments', async () => {
+		harness.nearby = [
+			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' }),
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
+		];
+		await renderPage();
+
+		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
+		expect(mapRoles()).toEqual(['ring', 'nearby', 'center']);
+		expect(mapPinFamilies()).toEqual(['publicEngagement']);
+
+		fireEvent.mouseDown(screen.getByRole('tab', { name: 'Comments' }));
+		await screen.findByText(COMMENTS_DESCRIPTION);
+		expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']);
+	});
+
+	it('hands the map the request and its radius alone when no other request is near', async () => {
 		harness.nearby = [nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' })];
 		await renderPage();
 
 		await waitFor(() => expect(mapRoles()).toEqual(['ring', 'center']));
-
-		fireEvent.mouseDown(screen.getByRole('tab', { name: 'Comments' }));
-		await screen.findByText(COMMENTS_DESCRIPTION);
-		expect(mapRoles()).toEqual(['ring', 'center']);
 	});
 
-	it("hands the map only the active tab's family", async () => {
+	// The requests are a map layer and not a list: the strip counts none of
+	// them and the column never names them.
+	it('lists the other requests nowhere and counts them on no tab', async () => {
+		harness.nearby = [
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
+		];
+		await renderPage();
+
+		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
+		expect(tabNames()).toEqual([
+			'Details',
+			'Infrastructure',
+			'Surveillance',
+			'Control',
+			'Comments',
+		]);
+		expect(screen.queryByRole('button', { name: /on the map$/ })).toBeNull();
+	});
+
+	// The outreach the same family carries is nobody's here: not a pin, not a row.
+	it('drops the outreach the public-engagement family carries', async () => {
+		harness.nearby = [
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
+			nearbyItem({ id: 'talk-1', category: 'outreach', family: 'publicEngagement' }),
+		];
+		await renderPage();
+
+		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
+	});
+
+	it("hands the map only the active tab's family, and never a request", async () => {
 		harness.nearby = [
 			nearbyItem({ id: 'habitat-1', category: 'habitat', label: 'Elm St basin' }),
 			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' }),
 			nearbyItem({ id: 'application-1', category: 'application', placeName: 'Elm St basin' }),
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
 		];
 		await renderPage();
 
@@ -484,6 +545,83 @@ describe('the tabs on the service request detail page', () => {
 
 		fireEvent.mouseDown(screen.getByRole('tab', { name: /Infrastructure/ }));
 		await waitFor(() => expect(mapPinKeys()).toEqual(['habitat:habitat-1']));
+	});
+});
+
+describe('the other requests on the map', () => {
+	function seedOtherRequest(): void {
+		seedRows(service_requests, [
+			{
+				id: 'sr-2',
+				organization_id: 'org-1',
+				display_name: 13,
+				intake_type: 'phone',
+				request_date: '2026-08-06',
+				details: 'Mosquitoes over the pool.',
+				contact_id: 'contact-1',
+				address_id: 'address-1',
+				received_by_profile_id: null,
+				closed_at: null,
+				lat: 30.001,
+				lng: -90.001,
+			},
+		]);
+	}
+
+	it('opens the service request card on a pin click, linking to that request', async () => {
+		seedOtherRequest();
+		harness.nearby = [
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
+		];
+		await renderPage();
+
+		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
+		act(() => harness.nearbyLayer?.onSelectFeature?.('serviceRequest:sr-2'));
+
+		expect(await screen.findByRole('heading', { name: '#13' })).toBeTruthy();
+		expect(screen.getByText('Mosquitoes over the pool.')).toBeTruthy();
+		// Where the card's link goes is `link-destinations`'; that it is drawn is this file's.
+		expect(screen.getByText('View Details')).toBeTruthy();
+		expect(harness.nearbyLayer?.selectedIds).toEqual(['serviceRequest:sr-2']);
+	});
+
+	it('clears the selection when the card closes', async () => {
+		seedOtherRequest();
+		harness.nearby = [
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
+		];
+		await renderPage();
+
+		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
+		act(() => harness.nearbyLayer?.onSelectFeature?.('serviceRequest:sr-2'));
+		await screen.findByRole('heading', { name: '#13' });
+
+		fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('heading', { name: '#13' })).toBeNull());
+		expect(harness.nearbyLayer?.selectedIds).toEqual([]);
+	});
+
+	// A request picked under Details is still on the map under Comments, since
+	// both tabs draw the same family, and goes with the tab that draws none.
+	it('keeps the picked request across Details and Comments and drops it on a family tab', async () => {
+		seedOtherRequest();
+		harness.nearby = [
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
+		];
+		await renderPage();
+
+		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
+		act(() => harness.nearbyLayer?.onSelectFeature?.('serviceRequest:sr-2'));
+		await screen.findByRole('heading', { name: '#13' });
+
+		fireEvent.mouseDown(screen.getByRole('tab', { name: 'Comments' }));
+		await screen.findByText(COMMENTS_DESCRIPTION);
+		expect(harness.nearbyLayer?.selectedIds).toEqual(['serviceRequest:sr-2']);
+		expect(screen.getByRole('heading', { name: '#13' })).toBeTruthy();
+
+		fireEvent.mouseDown(screen.getByRole('tab', { name: 'Control' }));
+		await waitFor(() => expect(harness.nearbyLayer?.selectedIds).toEqual([]));
+		expect(screen.queryByRole('heading', { name: '#13' })).toBeNull();
 	});
 });
 

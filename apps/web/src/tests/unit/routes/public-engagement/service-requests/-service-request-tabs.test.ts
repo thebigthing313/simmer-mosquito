@@ -58,10 +58,13 @@ describe('what the map is handed per tab', () => {
 		expect([...mapFamiliesForTab(family)]).toEqual([family]);
 	});
 
-	// The request and its radius are the whole picture on these two; the nearby
-	// requests they will add are #1090's.
-	it.each(['details', 'comments'] as const)('draws no nearby family on the %s tab', (tab) => {
+	// The other requests around this one are drawn beside the request's own
+	// facts and its thread, and no tab lists them (#1090).
+	it.each([
+		'details',
+		'comments',
+	] as const)('draws the other service requests, and no operational family, on the %s tab', (tab) => {
 		expect(tabFamily(tab)).toBeNull();
-		expect(mapFamiliesForTab(tab).size).toBe(0);
+		expect([...mapFamiliesForTab(tab)]).toEqual(['publicEngagement']);
 	});
 });

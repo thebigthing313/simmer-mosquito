@@ -5,7 +5,7 @@ import { RecordBadges } from '../../-record-badges';
 import {
 	type NearbyFamily,
 	type NearbyItem,
-	type NearbyResponse,
+	type NearbyRead,
 	nearbyItemKey,
 	nearbyRow,
 	visibleNearbyItems,
@@ -32,23 +32,18 @@ import {
  * scroller and gets the product's scrollbar the way every explorer's rail does.
  */
 export function NearbyResultList({
-	response,
+	nearby,
 	families,
-	isLoading,
-	isError,
-	onRetry,
 	selectedKey,
 	onSelect,
 	lookups,
 	emptyTitle,
 	emptyDescription,
 }: {
-	readonly response: NearbyResponse | undefined;
+	/** The read, whole: the rail draws its state and its answer off the one object. */
+	readonly nearby: NearbyRead;
 	/** Which of the response's families to draw, nearest first. */
 	readonly families: ReadonlySet<NearbyFamily>;
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly onRetry: () => void;
 	/** The selected record's `nearbyItemKey`, shared with the map's selection. */
 	readonly selectedKey: string | null;
 	readonly onSelect: (key: string | null) => void;
@@ -59,6 +54,7 @@ export function NearbyResultList({
 }) {
 	// The rows and the unit their distance is written in come off one response,
 	// so a row can never draw ahead of the radius that measures it.
+	const response = nearby.data;
 	const list =
 		response === undefined
 			? null
@@ -68,9 +64,9 @@ export function NearbyResultList({
 			emptyDescription={emptyDescription}
 			emptyTitle={emptyTitle}
 			isEmpty={list === null || list.items.length === 0}
-			isError={isError}
-			isLoading={isLoading}
-			onRetry={onRetry}
+			isError={nearby.isError}
+			isLoading={nearby.isLoading}
+			onRetry={() => void nearby.refetch()}
 		>
 			{list === null ? null : (
 				<ResultRows rows={list.items}>

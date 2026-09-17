@@ -20,8 +20,9 @@ import { isMapLive } from './use-mapbox-map';
  *
  * The caller supplies one FeatureCollection whose features carry a `role`
  * (`ring` | `center` | `nearby`); nearby points additionally carry `family`
- * (`infrastructure` | `surveillance` | `control`) and `id`. Toggling families is
- * done by the caller omitting those features from `data`.
+ * (`infrastructure` | `surveillance` | `control` | `publicEngagement`) and
+ * `id`. Toggling families is done by the caller omitting those features from
+ * `data`.
  */
 const SOURCE_ID = 'nearby-context';
 const RING_FILL_LAYER_ID = `${SOURCE_ID}-ring-fill`;
@@ -31,7 +32,7 @@ const SELECTED_LAYER_ID = `${SOURCE_ID}-selected`;
 const CENTER_LAYER_ID = `${SOURCE_ID}-center`;
 
 /**
- * This page's three groups, in the shared family hues.
+ * This page's four groups, in the shared family hues.
  *
  * The values used to be written out here under a comment calling them "hex
  * approximations" of the family tokens. They were not approximations: they were
@@ -43,7 +44,9 @@ const CENTER_LAYER_ID = `${SOURCE_ID}-center`;
  * register names. The three groups borrow three of the four family hues rather
  * than inventing a palette, so a habitat is one green on this map and on every
  * other; which group takes which hue says nothing beyond telling three groups
- * apart.
+ * apart. The fourth group is the other service requests in the radius (#1090),
+ * and it takes the fourth hue under its own name, because a request is that
+ * family's record wherever it is drawn.
  *
  * The dot on each nearby row of the service-request detail route reads this
  * same constant, so a swatch cannot describe a colour the layer is not painting.
@@ -52,6 +55,7 @@ export const NEARBY_FAMILY_COLORS = {
 	infrastructure: mapFamily.larval,
 	surveillance: mapFamily.adult,
 	control: mapFamily.control,
+	publicEngagement: mapFamily.publicEngagement,
 } as const;
 
 /**
@@ -64,7 +68,9 @@ export const NEARBY_FAMILY_COLORS = {
  *
  * The request is drawn in its own family mark, because that is what it is; the
  * radius is drawn as context, because it is ground rather than a record; and
- * selection is amber, like selection everywhere else.
+ * selection is amber, like selection everywhere else. The other requests near
+ * it wear the same hue at a point's size and stroke, so the one the ring is
+ * drawn around is the larger mark with the outreach line at its edge.
  */
 const colors = {
 	center: mapFamily.publicEngagement,
@@ -90,6 +96,8 @@ const familyColor: ExpressionSpecification = [
 	NEARBY_FAMILY_COLORS.surveillance,
 	'control',
 	NEARBY_FAMILY_COLORS.control,
+	'publicEngagement',
+	NEARBY_FAMILY_COLORS.publicEngagement,
 	mapInteraction.fallback,
 ];
 

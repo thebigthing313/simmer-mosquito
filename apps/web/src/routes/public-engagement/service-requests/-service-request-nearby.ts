@@ -1,8 +1,8 @@
 import {
+	ACTIVITY_FAMILIES,
 	type ActivityCategory,
 	type ActivityFamily,
 	type NearbyWindowEnd,
-	OPERATIONAL_ACTIVITY_FAMILIES,
 } from '@simmer-mosquito/domain';
 import {
 	circlePolygon,
@@ -16,6 +16,7 @@ import { getServerUrl } from '../../../auth';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { formatListDate } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	ACTIVITY_CATEGORY_LABEL,
 	ACTIVITY_DETAIL_ROUTE,
@@ -32,18 +33,27 @@ import { formatRequestDate } from '../-public-engagement-display';
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
- * The families this page asks the endpoint for, which are the endpoint's own
- * default, sent so the request says what the type below promises. The endpoint
- * can also answer `publicEngagement`, the outreach and the other requests
- * around this one, and the redesigned page will ask for it.
+ * The families this page asks the endpoint for: all four, since the endpoint's
+ * own default is the three operational ones and the Details and Comments tabs
+ * draw the other requests around this one (#1090). Those come under
+ * `publicEngagement`, which the endpoint reads off the activity register, so
+ * the answer carries the outreach actions in the radius too;
+ * {@link nearbyResponseFromWire} is where they come off.
  */
-const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = OPERATIONAL_ACTIVITY_FAMILIES;
+const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = ACTIVITY_FAMILIES;
 
-/** The seven record kinds the three families above hold. */
-export type NearbyCategory = Exclude<ActivityCategory, 'outreach' | 'serviceRequest'>;
+/** The eight record kinds the page reads: every activity category but outreach. */
+export type NearbyCategory = Exclude<ActivityCategory, 'outreach'>;
 
-/** The page's own grouping of those kinds, which is what its three family tabs list. */
-export type NearbyFamily = 'infrastructure' | 'surveillance' | 'control';
+/**
+ * The page's own grouping of those kinds. The first three are its family tabs,
+ * which list and draw the operational records; the fourth is the other service
+ * requests, which the map draws under Details and Comments and no tab lists.
+ */
+export type NearbyFamily = NearbyTabFamily | 'publicEngagement';
+
+/** The three families that are tabs on the page. */
+export type NearbyTabFamily = 'infrastructure' | 'surveillance' | 'control';
 
 /**
  * One record near the request: the activity row for that record, less the two
@@ -81,19 +91,31 @@ const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
 	application: 'control',
 	sourceReduction: 'control',
 	biocontrol: 'control',
+	serviceRequest: 'publicEngagement',
 };
 
-/** The family's name, as the tab strip and the row's dot spell it. */
+/**
+ * The family's name, as the tab strip and the row's dot spell it. The fourth
+ * reads the register because it names a record type rather than a group.
+ */
 export const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
 	infrastructure: 'Infrastructure',
 	surveillance: 'Surveillance',
 	control: 'Control',
+	publicEngagement: recordNoun('serviceRequest').titleMany,
 };
 
 /** The three families in the order the tabs draw them. */
-export const NEARBY_FAMILIES: readonly { readonly key: NearbyFamily; readonly label: string }[] = (
-	['infrastructure', 'surveillance', 'control'] as const
-).map((key) => ({ key, label: NEARBY_FAMILY_LABEL[key] }));
+export const NEARBY_FAMILIES: readonly {
+	readonly key: NearbyTabFamily;
+	readonly label: string;
+}[] = (['infrastructure', 'surveillance', 'control'] as const).map((key) => ({
+	key,
+	label: NEARBY_FAMILY_LABEL[key],
+}));
+
+/** The three tab families as a set, for the counts and the summary that cover what the tabs list. */
+const TAB_FAMILIES: ReadonlySet<NearbyFamily> = new Set(NEARBY_FAMILIES.map(({ key }) => key));
 
 /** How many nearby records fell in each family, for the count beside each tab. */
 export function countNearbyByFamily(
@@ -103,6 +125,7 @@ export function countNearbyByFamily(
 		infrastructure: 0,
 		surveillance: 0,
 		control: 0,
+		publicEngagement: 0,
 	};
 	for (const item of items) {
 		counts[NEARBY_FAMILY_OF[item.category]] += 1;
@@ -120,13 +143,25 @@ export function visibleNearbyItems(
 		.sort((first, second) => first.distanceMeters - second.distanceMeters);
 }
 
-/** Fetch the nearby operational records around a service request (server-scoped by radius + window). */
-export function useServiceRequestNearby(id: string) {
+/** Fetch the nearby records around a service request (server-scoped by radius + window). */
+export function useServiceRequestNearby(id: string): NearbyRead {
 	return useQuery({
 		queryKey: ['service-request-nearby', id],
 		queryFn: ({ signal }) => fetchNearby(id, signal),
 		staleTime: 30_000,
 	});
+}
+
+/**
+ * The read as the page's surfaces take it: the answer and the three facts the
+ * rail draws its states from. One object rather than four props, so a tab
+ * hands the query on whole and a suite can build one without a query client.
+ */
+export interface NearbyRead {
+	readonly data: NearbyResponse | undefined;
+	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly refetch: () => Promise<unknown>;
 }
 
 async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
@@ -136,7 +171,31 @@ async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyRespo
 	if (!response.ok) {
 		throw new Error(`Nearby request failed (${response.status}).`);
 	}
-	return (await response.json()) as NearbyResponse;
+	return nearbyResponseFromWire((await response.json()) as WireNearbyResponse);
+}
+
+/** The endpoint's answer as sent: every category the families asked for hold. */
+export interface WireNearbyResponse extends Omit<NearbyResponse, 'items'> {
+	readonly items: readonly (Omit<NearbyItem, 'category'> & {
+		readonly category: ActivityCategory;
+	})[];
+}
+
+/**
+ * The answer the page reads, which is the wire answer less the outreach.
+ *
+ * The endpoint's `publicEngagement` family is the register's, and the register
+ * puts outreach beside service requests there. What the page wants from that
+ * family is the other requests around this one, so the outreach actions come
+ * off here rather than each reader checking the category (#1090). Nothing else
+ * is dropped: the endpoint never answers with the request itself.
+ */
+export function nearbyResponseFromWire(body: WireNearbyResponse): NearbyResponse {
+	return { ...body, items: body.items.filter(isNearbyItem) };
+}
+
+function isNearbyItem(item: WireNearbyResponse['items'][number]): item is NearbyItem {
+	return item.category !== 'outreach';
 }
 
 /**
@@ -273,6 +332,11 @@ const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
 /**
  * What the panel says it is showing, before and after the fetch lands.
  *
+ * The count is of the records the family tabs list, so it is the three tab
+ * counts added up. The other requests around this one are in the response too,
+ * for the map under Details and Comments, and a count that took them in would
+ * be one no tab accounts for.
+ *
  * The range alone used to be the whole sentence, and it was enough while the
  * window ended `daysAfter` past the request date. That setting is a floor now,
  * and the window runs on to the close, or to today while the request is open
@@ -284,7 +348,7 @@ export function nearbySummary(response: NearbyResponse | undefined): string {
 	if (response === undefined) {
 		return 'Records around this request, from your public-engagement settings.';
 	}
-	const count = response.items.length;
+	const count = visibleNearbyItems(response.items, TAB_FAMILIES).length;
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
 	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
 	const end = NEARBY_WINDOW_END_CLAUSE[response.dateToFrom];

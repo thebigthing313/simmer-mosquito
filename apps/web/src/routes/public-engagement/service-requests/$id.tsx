@@ -52,6 +52,7 @@ import {
 	intakeTypeLabel,
 	serviceRequestTitle,
 } from '../-public-engagement-display';
+import { ServiceRequestMapCard } from '../-service-request-map-card';
 import { ServiceRequestDetailHeader } from './-service-request-detail-header';
 import {
 	buildNearbyMapData,
@@ -61,6 +62,7 @@ import {
 	type NearbyCategory,
 	type NearbyFamily,
 	type NearbyItem,
+	type NearbyRead,
 	type NearbyResponse,
 	nearbyItemKey,
 	nearbySummary,
@@ -302,7 +304,7 @@ function NearbyFamilyTab({
 }: {
 	readonly families: ReadonlySet<NearbyFamily>;
 	readonly label: string;
-	readonly nearby: ReturnType<typeof useServiceRequestNearby>;
+	readonly nearby: NearbyRead;
 	readonly selectedKey: string | null;
 	readonly onSelect: (key: string | null) => void;
 	readonly lookups: ActivityLookups;
@@ -316,12 +318,9 @@ function NearbyFamilyTab({
 				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
 				emptyTitle="Nothing nearby"
 				families={families}
-				isError={nearby.isError}
-				isLoading={nearby.isLoading}
 				lookups={lookups}
-				onRetry={() => void nearby.refetch()}
+				nearby={nearby}
 				onSelect={onSelect}
-				response={nearby.data}
 				selectedKey={selectedKey}
 			/>
 		</>
@@ -466,9 +465,11 @@ interface NearbyCardProps {
 
 /**
  * The same rich, self-fetching per-type card an explorer would show, keyed by
- * category — a habitat near a request shows the exact card the Habitats explorer
+ * category: a habitat near a request shows the exact card the Habitats explorer
  * shows, and so on for every family. Each card takes just the record id and
  * resolves its own content; the SR-relative distance stays in the nearby list.
+ * A request near this one shows the Service Requests explorer's card, whose
+ * detail link is the way from one request to the next (#1090).
  */
 const NEARBY_MAP_CARD: Readonly<Record<NearbyCategory, ComponentType<NearbyCardProps>>> = {
 	habitat: HabitatNearbyCard,
@@ -478,6 +479,7 @@ const NEARBY_MAP_CARD: Readonly<Record<NearbyCategory, ComponentType<NearbyCardP
 	application: ApplicationMapCard,
 	sourceReduction: SourceReductionMapCard,
 	biocontrol: BiocontrolMapCard,
+	serviceRequest: ServiceRequestMapCard,
 };
 
 function NearbyFocusCard({
