@@ -302,7 +302,6 @@ const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
 	setting: '',
 	close: ', extended to the day it was closed',
 	today: ', extended to today',
-	query: '',
 };
 
 /**
@@ -334,8 +333,7 @@ export function nearbyWindowLabel(
  * window ended `daysAfter` past the request date. That setting is a floor now,
  * and the window runs on to the close, or to today while the request is open
  * (#1084), so a six-week range beside a setting that says 14 needs the
- * sentence to say which end won. A range the caller set names no end, since
- * neither anchor set it.
+ * sentence to say which end won.
  */
 export function nearbySummary(response: NearbyResponse | undefined): string {
 	if (response === undefined) {

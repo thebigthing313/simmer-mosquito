@@ -19,12 +19,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
-import {
-	parseOptionalDateFilter,
-	parseOptionalPositiveNumber,
-	parseOptionalVocabularyListFilter,
-	uuidPattern,
-} from './map-tiles.js';
+import { parseOptionalVocabularyListFilter, uuidPattern } from './map-tiles.js';
 import { todayInTimeZone } from './organization-day.js';
 
 /**
@@ -42,9 +37,12 @@ type NearbyReaders = typeof defaultNearbyReaders;
 /**
  * Reads the map-context view for a service request: the records within the
  * org's configured radius + time window of the request, in the activity row
- * shape plus a distance. The radius and window default to
- * `settings.publicEngagement.serviceRequestContext` and may be overridden
- * per-request via query params so the UI can offer an "adjust" control.
+ * shape plus a distance. The radius and window are
+ * `settings.publicEngagement.serviceRequestContext`, and a person who wants a
+ * wider or narrower view changes them on the Organization's settings page. The
+ * route used to parse a `radiusMeters`, a `dateFrom` and a `dateTo` override
+ * beside them, for an adjust control nothing ever built (#1110); one sent now
+ * is an unknown key and is ignored the way any other is.
  * `families` names which of the four activity families to read; left out, it
  * is the three operational ones, and the public-engagement family is what
  * returns the outreach actions and the other requests around this one.
@@ -115,9 +113,9 @@ export function registerServiceRequestNearbyRoutes(
 		// empty and draws a map saying nothing happened near this request. A read
 		// that cannot answer says so instead. 500 rather than 400, because nothing
 		// the caller sent is wrong.
-		let defaults: ServiceRequestContextBounds;
+		let bounds: ServiceRequestContextBounds;
 		try {
-			defaults = serviceRequestContextBounds(
+			bounds = serviceRequestContextBounds(
 				request.requestDate,
 				requestContext,
 				request.closedDate ?? todayInTimeZone(settings.timezone, now()),
@@ -132,11 +130,7 @@ export function registerServiceRequestNearbyRoutes(
 			);
 		}
 
-		const query = readNearbyQuery(
-			new URL(context.req.url).searchParams,
-			defaults,
-			windowEndOf(defaults, request.closedDate),
-		);
+		const query = readNearbyQuery(new URL(context.req.url).searchParams);
 		if (!query.ok) {
 			return context.json({ error: 'invalid_query', reason: query.reason }, 400);
 		}
@@ -144,9 +138,9 @@ export function registerServiceRequestNearbyRoutes(
 		const items = await readers.listNearbyRecords(options.db, {
 			organizationId,
 			request: { id, lat: request.lat, lng: request.lng },
-			radiusMeters: query.radiusMeters,
-			dateFrom: query.dateFrom,
-			dateTo: query.dateTo,
+			radiusMeters: bounds.radiusMeters,
+			dateFrom: bounds.dateFrom,
+			dateTo: bounds.dateTo,
 			families: query.families,
 			categories: query.categories,
 			// The same settings the radius and window came from. A collection's
@@ -160,12 +154,12 @@ export function registerServiceRequestNearbyRoutes(
 			radius: {
 				amount: requestContext.radius.amount,
 				unitCode: requestContext.radius.unitCode,
-				meters: query.radiusMeters,
+				meters: bounds.radiusMeters,
 			},
 			timeWindow: requestContext.timeWindow,
-			dateFrom: query.dateFrom,
-			dateTo: query.dateTo,
-			dateToFrom: query.dateToFrom,
+			dateFrom: bounds.dateFrom,
+			dateTo: bounds.dateTo,
+			dateToFrom: windowEndOf(bounds, request.closedDate),
 			families: query.families,
 			items,
 		});
@@ -173,49 +167,20 @@ export function registerServiceRequestNearbyRoutes(
 }
 
 /**
- * What the read is asked: the radius, the window, the families and the
- * categories, each the caller's where the query names one and the default
- * where it does not. The categories have no default of their own: absent, the
- * reader takes every category of the families named.
- *
- * The radius and window defaults come from
- * `settings.publicEngagement.serviceRequestContext`; the UI offers an "adjust"
- * control, and the overrides are what it sends. They go through the same
- * parsers every other `/map/*` query uses. This module used to carry its own
- * `DATE_PATTERN` and a pair of parsers that answered the string `'invalid'`
- * instead of the `{ ok: false, reason }` union everything else returns, which
- * is two protocols on one path prefix.
+ * What the caller narrows the read to. The families are the caller's where the
+ * query names them and the three operational ones where it does not. The
+ * categories have no default of their own: absent, the reader takes every
+ * category of the families named. Both go through the same parser every other
+ * `/map/*` query uses. The radius and the window are not here, because they
+ * are the settings' and the request's rather than the caller's.
  */
-function readNearbyQuery(
-	searchParams: URLSearchParams,
-	defaults: ServiceRequestContextBounds,
-	defaultEnd: NearbyWindowEnd,
-):
+function readNearbyQuery(searchParams: URLSearchParams):
 	| {
 			readonly ok: true;
-			readonly radiusMeters: number;
-			readonly dateFrom: string;
-			readonly dateTo: string;
-			readonly dateToFrom: NearbyWindowEnd;
 			readonly families: readonly ActivityFamily[];
 			readonly categories: readonly ActivityCategory[] | undefined;
 	  }
 	| { readonly ok: false; readonly reason: string } {
-	const radiusMeters = parseOptionalPositiveNumber(searchParams, 'radiusMeters');
-	if (!radiusMeters.ok) {
-		return radiusMeters;
-	}
-
-	const dateFrom = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!dateFrom.ok) {
-		return dateFrom;
-	}
-
-	const dateTo = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!dateTo.ok) {
-		return dateTo;
-	}
-
 	const families = parseOptionalVocabularyListFilter(searchParams, 'families', ACTIVITY_FAMILIES);
 	if (!families.ok) {
 		return families;
@@ -232,23 +197,9 @@ function readNearbyQuery(
 
 	return {
 		ok: true,
-		radiusMeters: radiusMeters.value ?? defaults.radiusMeters,
-		dateFrom: dateFrom.value ?? defaults.dateFrom,
-		...resolvedWindowEnd(dateTo.value, defaults, defaultEnd),
 		families: families.value ?? DEFAULT_NEARBY_FAMILIES,
 		categories: categories.value,
 	};
-}
-
-/** The window's end and its name together. A caller's own end is nobody's anchor. */
-function resolvedWindowEnd(
-	override: string | undefined,
-	defaults: ServiceRequestContextBounds,
-	defaultEnd: NearbyWindowEnd,
-): { readonly dateTo: string; readonly dateToFrom: NearbyWindowEnd } {
-	return override === undefined
-		? { dateTo: defaults.dateTo, dateToFrom: defaultEnd }
-		: { dateTo: override, dateToFrom: 'query' };
 }
 
 /**
@@ -257,10 +208,10 @@ function resolvedWindowEnd(
  * was handed was the close day or today.
  */
 function windowEndOf(
-	defaults: ServiceRequestContextBounds,
+	bounds: ServiceRequestContextBounds,
 	closedDate: string | null,
 ): NearbyWindowEnd {
-	if (defaults.dateToFrom === 'setting') {
+	if (bounds.dateToFrom === 'setting') {
 		return 'setting';
 	}
 	return closedDate === null ? 'today' : 'close';

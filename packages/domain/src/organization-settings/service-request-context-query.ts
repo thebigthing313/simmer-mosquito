@@ -35,12 +35,12 @@ export function distanceToMeters(amount: number, unitCode: string): number {
 
 /**
  * What set a nearby window's `dateTo`, named in the response so the page can
- * say it: the setting's `daysAfter`, the day the request closed, today while it
- * is open, or a `dateTo` the caller sent (#1085). A person reading a six-week
- * range under a setting that says 14 is otherwise sent to the settings looking
- * for a number that is not there.
+ * say it: the setting's `daysAfter`, the day the request closed, or today while
+ * it is open (#1085). A person reading a six-week range under a setting that
+ * says 14 is otherwise sent to the settings looking for a number that is not
+ * there. A `query` member stood for an override nothing sent (#1110).
  */
-export type NearbyWindowEnd = 'setting' | 'close' | 'today' | 'query';
+export type NearbyWindowEnd = 'setting' | 'close' | 'today';
 
 export interface ServiceRequestContextBounds {
 	readonly radiusMeters: number;
