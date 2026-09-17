@@ -45,8 +45,8 @@ const CENTER_LAYER_ID = `${SOURCE_ID}-center`;
  * other; which group takes which hue says nothing beyond telling three groups
  * apart.
  *
- * The legend on the service-request detail route reads this same constant, so
- * a swatch cannot describe a colour the layer is not painting.
+ * The dot on each nearby row of the service-request detail route reads this
+ * same constant, so a swatch cannot describe a colour the layer is not painting.
  */
 export const NEARBY_FAMILY_COLORS = {
 	infrastructure: mapFamily.larval,

@@ -1,14 +1,15 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -19,7 +20,6 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { CommentsSection } from '../../../components/comments-section';
 import { MapCanvas } from '../../../components/map';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import {
 	detailBodyClass,
 	type RecordDetailLayout,
@@ -36,6 +36,7 @@ import {
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
 import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
 import { type ActivityLookups, useActivityLookups } from '../../-activity-data';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
@@ -61,17 +62,26 @@ import {
 	type NearbyFamily,
 	type NearbyItem,
 	type NearbyResponse,
+	nearbyItemKey,
 	nearbySummary,
 	useServiceRequestNearby,
 	visibleNearbyItems,
 } from './-service-request-nearby';
 import { NearbyResultList } from './-service-request-nearby-rows';
+import {
+	isServiceRequestTab,
+	mapFamiliesForTab,
+	SERVICE_REQUEST_TAB_CODECS,
+	SERVICE_REQUEST_TAB_DEFAULTS,
+	SERVICE_REQUEST_TAB_LABEL,
+	SERVICE_REQUEST_TABS,
+	tabFamily,
+} from './-service-request-tabs';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id')({
 	component: ServiceRequestDetailRoute,
+	validateSearch: searchValidator(SERVICE_REQUEST_TAB_CODECS),
 });
-
-const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
 /**
  * The placeholder, in the frame's shape rather than one written here.
@@ -151,71 +161,170 @@ function ServiceRequestDetailContent({
 
 	const nearby = useServiceRequestNearby(request.id);
 	const lookups = useActivityLookups();
-	const [visibleFamilies, setVisibleFamilies] = useState<ReadonlySet<NearbyFamily>>(
-		() => new Set(ALL_FAMILIES),
+	// The active tab is where the reader is, so it lives in the URL: a refresh
+	// and a shared link land on the same tab, and Details stays out of the
+	// search because it is the default. The count is switched off because a tab
+	// narrows nothing.
+	const { filters, setFilters } = useSearchFilters(
+		SERVICE_REQUEST_TAB_DEFAULTS,
+		SERVICE_REQUEST_TAB_CODECS,
+		{ uncounted: ['tab'] },
 	);
-	const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
+	const tab = filters.tab;
+	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
 	const profiles = useProfileRoster();
 	const receivedByName =
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
 
-	const toggleFamily = (family: NearbyFamily) => {
-		setVisibleFamilies((prev) => {
-			const next = new Set(prev);
-			if (next.has(family)) {
-				next.delete(family);
-			} else {
-				next.add(family);
-			}
-			return next;
-		});
+	const countsByFamily = countNearbyByFamily(nearby.data?.items ?? []);
+
+	const selectTab = (value: string) => {
+		if (isServiceRequestTab(value)) {
+			setFilters({ tab: value });
+		}
 	};
 
 	return (
 		<MapSplitPage
 			map={
 				<ContextMap
-					onSelect={setSelectedNearbyId}
+					families={mapFamiliesForTab(tab)}
+					onSelect={setSelectedKey}
 					request={request}
 					response={nearby.data}
-					selectedId={selectedNearbyId}
-					visibleFamilies={visibleFamilies}
+					selectedKey={selectedKey}
 				/>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
 				<ServiceRequestDetailHeader askDelete={askDelete} request={request} />
 
-				<div className="min-h-0 flex-1 overflow-y-auto">
-					<div className="grid content-start gap-5 p-4">
-						{/* The map pane is full height, so nothing sits under it: the band
-						    becomes the first item in the scrolling side panel instead. Not
-						    beside NearbyPanel, which would read as a subsection of
-						    nearby-context. Regions are a fixed boundary the record falls
-						    inside, and nearby is a live proximity query. */}
-						<RecordRegionsBand recordId={request.id} recordType="service_requests" />
-						<RequestDetailsCard receivedByName={receivedByName} request={request} />
-						<RequestPartiesCard addressId={request.addressId} contactId={request.contactId} />
-						<NearbyPanel
-							isError={nearby.isError}
-							isLoading={nearby.isLoading}
-							lookups={lookups}
-							onRetry={() => void nearby.refetch()}
-							onSelect={setSelectedNearbyId}
-							onToggleFamily={toggleFamily}
-							response={nearby.data}
-							selectedId={selectedNearbyId}
-							visibleFamilies={visibleFamilies}
-						/>
-						<CommentsSection
-							description="Follow-up, resolution notes, and field context for this request."
-							target={{ type: 'serviceRequest', id: request.id }}
-						/>
+				<Tabs className="min-h-0 flex-1 gap-0" onValueChange={selectTab} value={tab}>
+					<div className="shrink-0 border-border/40 border-b px-3 py-2">
+						<TabStrip aria-label="Service request sections">
+							{SERVICE_REQUEST_TABS.map((value) => {
+								const family = tabFamily(value);
+								return (
+									<TabStripTab key={value} value={value}>
+										{SERVICE_REQUEST_TAB_LABEL[value]}
+										{family === null ? null : <TabCount count={countsByFamily[family]} />}
+									</TabStripTab>
+								);
+							})}
+						</TabStrip>
 					</div>
-				</div>
+
+					<TabsContent className={TAB_CONTENT_CLASS} value="details">
+						<TabBody>
+							<RequestDetailsCard receivedByName={receivedByName} request={request} />
+							<div className="grid gap-4 @md:grid-cols-2">
+								<PartyCard label="Contact">
+									<ContactParty contactId={request.contactId} />
+								</PartyCard>
+								<PartyCard label="Address">
+									<AddressParty addressId={request.addressId} />
+								</PartyCard>
+							</div>
+							<RecordRegionsBand recordId={request.id} recordType="service_requests" />
+						</TabBody>
+					</TabsContent>
+
+					{NEARBY_FAMILIES.map((family) => (
+						<TabsContent className={TAB_CONTENT_CLASS} key={family.key} value={family.key}>
+							<NearbyFamilyTab
+								families={mapFamiliesForTab(family.key)}
+								label={family.label}
+								lookups={lookups}
+								nearby={nearby}
+								onSelect={setSelectedKey}
+								selectedKey={selectedKey}
+							/>
+						</TabsContent>
+					))}
+
+					<TabsContent className={TAB_CONTENT_CLASS} value="comments">
+						<TabBody>
+							<CommentsSection
+								description="Follow-up, resolution notes, and field context for this request."
+								target={{ type: 'serviceRequest', id: request.id }}
+							/>
+						</TabBody>
+					</TabsContent>
+				</Tabs>
 			</div>
 		</MapSplitPage>
+	);
+}
+
+/**
+ * A tab body is a column that hands its height on, so the scroller inside it,
+ * the rail's or `TabBody`'s, is what scrolls rather than the tab.
+ */
+const TAB_CONTENT_CLASS = 'flex min-h-0 flex-col';
+
+/** How many records a family tab lists, beside its label; nothing for none. */
+function TabCount({ count }: { readonly count: number }) {
+	return count === 0 ? null : (
+		<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
+	);
+}
+
+/**
+ * The scrolling body of a tab whose content is cards rather than a rail.
+ *
+ * The tab owns the column's remaining height, so the body scrolls inside the
+ * product's `ScrollArea` and the page never does. It is a container, so the
+ * Details tab can set two cards side by side once the column is wide enough,
+ * measured against the column rather than the window because the column is
+ * two fifths of the stage.
+ */
+function TabBody({ children }: { readonly children: ReactNode }) {
+	return (
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<div className="@container grid content-start gap-4 p-4">{children}</div>
+		</ScrollArea>
+	);
+}
+
+/**
+ * One family's nearby records: what the page says it is showing, then the
+ * rail's rows. The families are the tab's own, read off the same function the
+ * map reads, so a row is on the map exactly when it is in the list.
+ */
+function NearbyFamilyTab({
+	families,
+	label,
+	nearby,
+	selectedKey,
+	onSelect,
+	lookups,
+}: {
+	readonly families: ReadonlySet<NearbyFamily>;
+	readonly label: string;
+	readonly nearby: ReturnType<typeof useServiceRequestNearby>;
+	readonly selectedKey: string | null;
+	readonly onSelect: (key: string | null) => void;
+	readonly lookups: ActivityLookups;
+}) {
+	return (
+		<>
+			<p className="m-0 shrink-0 border-border/40 border-b px-4 py-2 text-muted-foreground text-xs">
+				{nearbySummary(nearby.data)}
+			</p>
+			<NearbyResultList
+				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
+				emptyTitle="Nothing nearby"
+				families={families}
+				isError={nearby.isError}
+				isLoading={nearby.isLoading}
+				lookups={lookups}
+				onRetry={() => void nearby.refetch()}
+				onSelect={onSelect}
+				response={nearby.data}
+				selectedKey={selectedKey}
+			/>
+		</>
 	);
 }
 
@@ -226,11 +335,10 @@ function RequestDetailsCard({
 	readonly request: ServiceRequestRecord;
 	readonly receivedByName: string | null;
 }) {
+	// No title: the tab it sits on is called Details, and a card saying it again
+	// under the strip named the same thing twice.
 	return (
 		<Card variant="surface">
-			<CardHeader padding="compact">
-				<CardTitle>Details</CardTitle>
-			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<p className="m-0 whitespace-pre-wrap text-foreground text-sm">{request.details}</p>
 				<DetailList className="border-border/50 border-t pt-4">
@@ -248,22 +356,24 @@ function RequestDetailsCard({
 function ContextMap({
 	request,
 	response,
-	visibleFamilies,
-	selectedId,
+	families,
+	selectedKey,
 	onSelect,
 }: {
 	readonly request: ServiceRequestRecord;
 	readonly response: NearbyResponse | undefined;
-	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string | null) => void;
+	/** The nearby families the active tab draws. */
+	readonly families: ReadonlySet<NearbyFamily>;
+	/** The selected record's `nearbyItemKey`, or null. */
+	readonly selectedKey: string | null;
+	readonly onSelect: (key: string | null) => void;
 }) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const mapData = buildNearbyMapData(
 		{ lat: request.latitude, lng: request.longitude },
 		response,
-		visibleFamilies,
+		families,
 	);
 
 	const handleReady = (instance: MapboxMap) => {
@@ -291,8 +401,17 @@ function ContextMap({
 		}
 	}, [map, radiusMeters, request.longitude, request.latitude]);
 
+	// The selection is only a selection while its family is on the map: a
+	// record picked on the Control tab stays picked for when the reader comes
+	// back, and is neither ringed nor flown to nor carded while the tab is
+	// Details.
+	const selectedItem =
+		selectedKey === null
+			? null
+			: (visibleNearbyItems(response?.items ?? [], families).find(
+					(item) => nearbyItemKey(item) === selectedKey,
+				) ?? null);
 	// Fly to the selected nearby record.
-	const selectedItem = response?.items.find((item) => item.id === selectedId) ?? null;
 	useEffect(() => {
 		if (map === null || selectedItem === null) {
 			return;
@@ -309,7 +428,7 @@ function ContextMap({
 			<MapCanvas
 				nearbyLayer={{
 					data: mapData,
-					selectedIds: selectedId === null ? [] : [selectedId],
+					selectedIds: selectedItem === null ? [] : [nearbyItemKey(selectedItem)],
 					onSelectFeature: onSelect,
 				}}
 				onMapReady={handleReady}
@@ -372,187 +491,23 @@ function NearbyFocusCard({
 	return <MapCardForCategory id={item.id} onClose={onClose} />;
 }
 
-// --- Nearby panel (left column) ----------------------------------------------
-
-function NearbyPanel({
-	response,
-	isLoading,
-	isError,
-	onRetry,
-	visibleFamilies,
-	onToggleFamily,
-	selectedId,
-	onSelect,
-	lookups,
-}: {
-	readonly response: NearbyResponse | undefined;
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly onRetry: () => void;
-	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
-	readonly onToggleFamily: (family: NearbyFamily) => void;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string | null) => void;
-	readonly lookups: ActivityLookups;
-}) {
-	const countsByFamily = countNearbyByFamily(response?.items ?? []);
-	const visibleItems = visibleNearbyItems(response?.items ?? [], visibleFamilies);
-
-	return (
-		<Card variant="surface">
-			<CardHeader padding="compact">
-				<CardTitle className="flex items-center gap-2">
-					<MapPinnedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-					Nearby Activity
-				</CardTitle>
-				<CardDescription>{nearbySummary(response)}</CardDescription>
-			</CardHeader>
-			<CardContent className="flex flex-wrap gap-2" padding="compact">
-				{NEARBY_FAMILIES.map((family) => (
-					<FamilyToggle
-						count={countsByFamily[family.key]}
-						family={family.key}
-						key={family.key}
-						label={family.label}
-						onToggle={onToggleFamily}
-						pressed={visibleFamilies.has(family.key)}
-					/>
-				))}
-			</CardContent>
-			{/* Unpadded, because each row carries the rail's own measure. Clipped to
-			    the card's corner, so the fill on a selected last row ends where the
-			    card does. */}
-			<CardContent
-				className="flex min-h-0 flex-col overflow-hidden rounded-b-[inherit] border-border/50 border-t"
-				padding="none"
-			>
-				<NearbyResultList
-					{...nearbyEmptyCopy(response, visibleItems.length)}
-					families={visibleFamilies}
-					isError={isError}
-					isLoading={isLoading}
-					lookups={lookups}
-					onRetry={onRetry}
-					onSelect={onSelect}
-					response={response}
-					selectedId={selectedId}
-				/>
-			</CardContent>
-		</Card>
-	);
-}
+// --- Contact & address -------------------------------------------------------
 
 /**
- * Why the list is empty, in the rail's two lines.
- *
- * Two reasons and they need telling apart: nothing fell inside the radius and
- * the window, or something did and every family holding it is toggled off.
- * The second used to read as the first before the toggles said their counts.
+ * One party to the request, as its own card. Two cards rather than one with
+ * two sections, so the Details tab can set them side by side where the column
+ * is wide enough and stack them where it is not.
  */
-function nearbyEmptyCopy(
-	response: NearbyResponse | undefined,
-	visibleCount: number,
-): { readonly emptyTitle: string; readonly emptyDescription: string } {
-	if (response !== undefined && response.items.length > 0 && visibleCount === 0) {
-		return {
-			emptyTitle: 'Every family is hidden',
-			emptyDescription: 'Turn one back on above to see its records.',
-		};
-	}
-	return {
-		emptyTitle: 'Nothing nearby',
-		emptyDescription: 'No records fell within this radius and time window.',
-	};
-}
-
-function FamilyToggle({
-	family,
-	label,
-	count,
-	pressed,
-	onToggle,
-}: {
-	readonly family: NearbyFamily;
-	readonly label: string;
-	readonly count: number;
-	readonly pressed: boolean;
-	readonly onToggle: (family: NearbyFamily) => void;
-}) {
-	return (
-		<button
-			aria-pressed={pressed}
-			className={cn(
-				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-				pressed
-					? 'border-border bg-muted/60 text-foreground'
-					: 'border-border/60 text-muted-foreground hover:bg-muted/40',
-			)}
-			onClick={() => onToggle(family)}
-			type="button"
-		>
-			<FamilyDot dimmed={!pressed} family={family} />
-			{label}
-			<span className={cn('tabular-nums text-muted-foreground', !pressed && 'opacity-70')}>
-				{count}
-			</span>
-		</button>
-	);
-}
-
-function FamilyDot({
-	family,
-	dimmed = false,
-}: {
-	readonly family: NearbyFamily;
-	readonly dimmed?: boolean;
-}) {
-	return (
-		<span
-			aria-hidden="true"
-			className={cn('size-2.5 shrink-0 rounded-full', dimmed && 'opacity-40')}
-			style={{ backgroundColor: NEARBY_FAMILY_COLORS[family] }}
-		/>
-	);
-}
-
-// --- Contact & address (unchanged behaviour) ---------------------------------
-
-function RequestPartiesCard({
-	contactId,
-	addressId,
-}: {
-	readonly contactId: string;
-	readonly addressId: string;
-}) {
+function PartyCard({ label, children }: { readonly label: string; readonly children: ReactNode }) {
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
-				<CardTitle>Contact &amp; Location</CardTitle>
+				<CardTitle>{label}</CardTitle>
 			</CardHeader>
-			<CardContent className="grid gap-5" padding="compact">
-				<PartySection label="Contact">
-					<ContactParty contactId={contactId} />
-				</PartySection>
-				<PartySection label="Address">
-					<AddressParty addressId={addressId} />
-				</PartySection>
+			<CardContent className="grid content-start gap-2" padding="compact">
+				{children}
 			</CardContent>
 		</Card>
-	);
-}
-
-function PartySection({
-	label,
-	children,
-}: {
-	readonly label: string;
-	readonly children: ReactNode;
-}) {
-	return (
-		<div className="grid gap-2">
-			<span className="font-semibold text-muted-foreground text-xs uppercase">{label}</span>
-			{children}
-		</div>
 	);
 }
 
