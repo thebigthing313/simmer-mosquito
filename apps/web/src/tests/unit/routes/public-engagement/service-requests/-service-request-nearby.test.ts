@@ -112,7 +112,7 @@ describe('nearbyResponseFromWire', () => {
 });
 
 describe('nearbyItemKey', () => {
-	// Seven categories are seven tables, so the id alone cannot key a selection.
+	// Eight categories are eight tables, so the id alone cannot key a selection.
 	it('tells two records sharing an id apart by category', () => {
 		expect(nearbyItemKey(item('r-1', 'habitat', 10))).toBe('habitat:r-1');
 		expect(nearbyItemKey(item('r-1', 'inspection', 10))).toBe('inspection:r-1');

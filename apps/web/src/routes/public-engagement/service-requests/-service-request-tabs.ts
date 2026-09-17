@@ -67,12 +67,11 @@ export function tabFamily(tab: ServiceRequestTab): NearbyTabFamily | null {
  * Which nearby families the map draws for a tab.
  *
  * A family tab draws its own family and nothing else, so the pins on the map
- * are the rows in the list. Details and Comments draw no operational family
- * and the other service requests in the radius and window instead (#1090):
- * what a reader wants beside the request's own facts and its thread is what
- * else was reported around it, and the operational records have a tab each.
- * Nothing lists those requests, so this is the one place they are drawn from.
- * This is the one function that decides what the map is handed per tab.
+ * are the rows in the list. Details and Comments draw the other service
+ * requests in the radius and window, and no operational family (#1090). What
+ * a reader wants beside the request's own facts and its thread is what else
+ * was reported around it, and the operational records have a tab each. No tab
+ * lists those requests, so this function is the one place they come from.
  */
 export function mapFamiliesForTab(tab: ServiceRequestTab): ReadonlySet<NearbyFamily> {
 	const family = tabFamily(tab);

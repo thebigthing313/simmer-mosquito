@@ -384,7 +384,7 @@ function mapPinFamilies(): readonly unknown[] {
 	return mapPins().map((feature) => feature.properties?.family);
 }
 
-function mapPins() {
+function mapPins(): readonly { readonly properties?: Record<string, unknown> | null }[] {
 	const data = harness.nearbyLayer?.data;
 	return data === null || data === undefined || !('features' in data)
 		? []

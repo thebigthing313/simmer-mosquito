@@ -114,9 +114,6 @@ export const NEARBY_FAMILIES: readonly {
 	label: NEARBY_FAMILY_LABEL[key],
 }));
 
-/** The three tab families as a set, for the counts and the summary that cover what the tabs list. */
-const TAB_FAMILIES: ReadonlySet<NearbyFamily> = new Set(NEARBY_FAMILIES.map(({ key }) => key));
-
 /** How many nearby records fell in each family, for the count beside each tab. */
 export function countNearbyByFamily(
 	items: readonly NearbyItem[],
@@ -201,7 +198,7 @@ function isNearbyItem(item: WireNearbyResponse['items'][number]): item is Nearby
 /**
  * The key one nearby record is selected by, on the list and on the map alike.
  *
- * The record id alone is not one: the seven categories are seven tables, and
+ * The record id alone is not one: the eight categories are eight tables, and
  * nothing stops a habitat and an inspection sharing a UUID. It is the shape
  * `activityEntryKey` gives Daily Work, less the role, because a record is near
  * a request once however many visits it took.
@@ -248,7 +245,7 @@ export interface NearbyRow {
  * inspection's title is the place it was performed at, and beside a request a
  * reader has to be told it was a visit rather than the place.
  *
- * A pure resolution rather than a component, so the seven categories can be
+ * A pure resolution rather than a component, so the eight categories can be
  * asserted through one function and the row that draws it stays a mapping.
  */
 export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: string): NearbyRow {
@@ -348,7 +345,8 @@ export function nearbySummary(response: NearbyResponse | undefined): string {
 	if (response === undefined) {
 		return 'Records around this request, from your public-engagement settings.';
 	}
-	const count = visibleNearbyItems(response.items, TAB_FAMILIES).length;
+	const counts = countNearbyByFamily(response.items);
+	const count = NEARBY_FAMILIES.reduce((sum, { key }) => sum + counts[key], 0);
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
 	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
 	const end = NEARBY_WINDOW_END_CLAUSE[response.dateToFrom];

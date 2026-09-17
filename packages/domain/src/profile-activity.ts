@@ -41,11 +41,10 @@ export type ActivityFamily = (typeof ACTIVITY_FAMILIES)[number];
 /**
  * The three families that are field work on the ground, which is every family
  * but public engagement. The service request context view reads these when a
- * caller names none. The page that draws it asked for the same three until
- * #1090, and asks for all four now, so that its map can draw the other
- * requests around the one on screen; the default stays the operational three,
- * because a caller that names no family is asking what was done near the
- * request rather than what else was reported.
+ * caller names none. The page that draws it asks for all four, since its map
+ * draws the other requests around the one on screen (#1090); the default stays
+ * the operational three, because a caller that names no family is asking what
+ * was done near the request rather than what else was reported.
  */
 export const OPERATIONAL_ACTIVITY_FAMILIES = [
 	'larval',
