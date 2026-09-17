@@ -555,10 +555,10 @@ describe('the nearby list', () => {
 		};
 	}
 
-	// The rows are the rail's virtualised list in a Radix ScrollArea, which
-	// measures itself with a ResizeObserver jsdom has not got, and mounts the
-	// rows its viewport holds plus overscan. The stub's docblock has the count;
-	// this height holds the whole list.
+	// The rows are the rail's virtualised list in a Radix ScrollArea. Radix
+	// constructs a ResizeObserver jsdom has not got, and the virtualiser mounts
+	// the rows the viewport's `offsetHeight` holds plus overscan. The stub's
+	// docblock has the count; this height holds the whole list.
 	let restoreViewport: () => void;
 	beforeAll(() => {
 		stubPanelLayout();

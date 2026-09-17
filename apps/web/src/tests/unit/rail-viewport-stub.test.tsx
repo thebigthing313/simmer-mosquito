@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ResultRows } from '../../components/explorer/result-list';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { stubPanelLayout } from './routes/explorer-route-harness';
@@ -34,9 +34,9 @@ function mountedRows(): readonly (string | null)[] {
  * lifts is measured rather than assumed, and the third render proves the
  * restore: a stub that leaked past it would read eight there.
  *
- * The two describes are two environments and their order is load-bearing.
- * `stubPanelLayout` redefines `offsetHeight` for the rest of the file and
- * nothing puts it back, so the plain-jsdom cases run first.
+ * The two describes are two environments. `stubPanelLayout` redefines
+ * `offsetHeight` and never puts it back, so the second describe does that
+ * itself and either can run first.
  */
 describe('stubRailViewportHeight under plain jsdom', () => {
 	// A zero-height viewport mounts nothing: the virtualiser's range is null
@@ -72,7 +72,13 @@ describe('stubRailViewportHeight under plain jsdom', () => {
 });
 
 describe('stubRailViewportHeight over stubPanelLayout', () => {
+	const plain = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
 	beforeAll(stubPanelLayout);
+	afterAll(() => {
+		if (plain !== undefined) {
+			Object.defineProperty(HTMLElement.prototype, 'offsetHeight', plain);
+		}
+	});
 
 	// One size for every element is a 700px viewport over 700px rows, which
 	// holds one row, and six of overscan make seven. This is the limit the
