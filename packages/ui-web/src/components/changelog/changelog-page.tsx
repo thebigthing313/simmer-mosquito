@@ -179,6 +179,12 @@ function EntryList({ entries }: { readonly entries: readonly string[] }) {
  * `YYYY-MM-DD` is a calendar date, not an instant. Parsing it through `Date`
  * would read it as UTC midnight and draw the day before for anyone west of
  * Greenwich, which is every organization we have.
+ *
+ * `en-US` is pinned the way every display formatter in `apps/web/src` pins it
+ * (#683): nothing offers a locale switch, so an unpinned formatter inherited
+ * the machine's and the same release read `13. August 2026` on one screen and
+ * `August 13, 2026` on the next, and no suite could assert either (#1066).
+ * The pin picks words only; the day is the one written in the changelog.
  */
 function formatReleaseDate(date: string): string {
 	const [year, month, day] = date.split('-').map(Number);
@@ -186,7 +192,7 @@ function formatReleaseDate(date: string): string {
 		return date;
 	}
 
-	return new Intl.DateTimeFormat(undefined, {
+	return new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
 		month: 'long',
 		day: 'numeric',
