@@ -12,7 +12,7 @@ import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-it
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useCommandRunner } from '../-command-runner';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { useMissionStopViews } from '../-operations-data';
 import { addStopDescription } from '../-operations-display';
 
@@ -24,6 +24,15 @@ import { addStopDescription } from '../-operations-display';
  * which is `canAttributeWrite` over the snapshot. This used to write the actor
  * half of that predicate itself, `actorProfileId === null`, and drop the
  * Organization half; #888 swept that shape out of sixteen other routes (#944).
+ *
+ * A refused save stays on the page, in the `Alert` above the location band,
+ * rather than going to the toast the mission page reports a refused lifecycle
+ * write through. That is the rule `DetailPageHeader`'s docblock carries: a
+ * form is something the person can fix and resubmit, and the refusal the
+ * server sends here can be one of those, a shape it will not store or an
+ * address it will not link. So this holds its own busy flag and message
+ * instead of calling `useCommandRunner`, which reports through the toast
+ * since #1100 and has nothing left for a form to draw.
  */
 export function AddMissionStopForm({
 	mission,
@@ -37,7 +46,8 @@ export function AddMissionStopForm({
 	// Reading the stops both warms the on-demand stream the insert confirms
 	// against and gives the new stop its place at the end of the order.
 	const { stops } = useMissionStopViews(mission.id);
-	const { busy, error, run } = useCommandRunner();
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const stopWrites = useMissionItemMutations();
 	const timeZone = useOrganizationTimeZone();
 
@@ -47,7 +57,7 @@ export function AddMissionStopForm({
 		missingMessage: 'Draw where the crew has to go.',
 	});
 
-	const submit = () => {
+	const submit = async () => {
 		if (!location.requireGeometry() || location.geometry === null) {
 			return;
 		}
@@ -55,7 +65,9 @@ export function AddMissionStopForm({
 			return;
 		}
 		const geometry = location.geometry;
-		void run(async () => {
+		setBusy(true);
+		setError(null);
+		try {
 			await stopWrites.addAtGeometry({
 				missionId: mission.id,
 				geometry,
@@ -63,7 +75,10 @@ export function AddMissionStopForm({
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 			});
 			await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
-		}, 'Unable to add that stop.');
+		} catch (cause) {
+			setError(errorMessageForSave(cause, 'Unable to add that stop.'));
+		}
+		setBusy(false);
 	};
 
 	return (
@@ -92,7 +107,7 @@ export function AddMissionStopForm({
 				backParams: { id: mission.id },
 				backLabel: 'Back to mission',
 			}}
-			onSubmit={submit}
+			onSubmit={() => void submit()}
 		>
 			{error === null ? null : (
 				<Alert variant="destructive">

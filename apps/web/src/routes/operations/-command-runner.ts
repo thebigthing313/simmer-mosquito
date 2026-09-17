@@ -1,34 +1,45 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { errorMessageForSave } from '../../lib/save-error';
 
 export interface CommandRunner {
 	/** A write is in flight; the page disables its controls rather than queueing. */
 	readonly busy: boolean;
-	readonly error: string | null;
+	/** Runs the write; `fallback` is what the toast says when the failure carries no sentence. */
 	readonly run: (work: () => Promise<void>, fallback: string) => Promise<void>;
 }
 
 /**
- * One gate over every write on a worklist page.
+ * One gate over every lifecycle write on the operations pages.
  *
- * Both worklists send lifecycle commands that the server refuses on their
- * preconditions, and a refusal arrives as prose worth showing rather than a
- * fault — "Some stops are still pending" is an answer, not an error. So every
- * write goes through here: one busy flag, one message, one banner.
+ * The two worklists and the request page send lifecycle commands that the
+ * server refuses on their preconditions, and a refusal arrives as prose worth
+ * showing rather than a fault: "Some stops are still pending" is an answer,
+ * not an error. So every write goes through here, one busy flag and one
+ * report.
+ *
+ * The report is a toast, the way `RecordDeleteDialog` and the record header
+ * menu report a refusal (#1100). It used to be a string the page drew in a
+ * destructive `Alert`, and those three pages were the only record pages
+ * reporting a refused start, complete, cancel or reopen anywhere else. The
+ * message is the server's sentence when the thrown error carries one and the
+ * caller's `fallback` when it does not, which is what the service request
+ * header does. A form keeps its refusal in-page, because a form is something
+ * the person can fix and resubmit; `DetailPageHeader`'s docblock carries the
+ * rule, and `AddMissionStopForm` is the caller that left this hook over it.
  */
 export function useCommandRunner(): CommandRunner {
 	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 
 	const run = async (work: () => Promise<void>, fallback: string) => {
 		setBusy(true);
-		setError(null);
 		try {
 			await work();
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : fallback);
+			toast.error(errorMessageForSave(cause, fallback));
 		}
 		setBusy(false);
 	};
 
-	return { busy, error, run };
+	return { busy, run };
 }

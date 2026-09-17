@@ -75,6 +75,30 @@ import { TagBadge } from '../tag-badge';
  * that cost a row of the page was the one that could be wrong: it named a fixed
  * destination, so a habitat opened from Daily Work offered "Back to habitats".
  *
+ * ## A refused write from the menu is a toast
+ *
+ * A refusal of a write the person cannot correct in place is a toast, and an
+ * in-page `Alert` is for a refusal the page can act on. The first shape is a
+ * lifecycle change chosen from the `...`, a close, a reopen, a start or a
+ * cancel, and the delete. The server refuses one on its preconditions, "Some
+ * stops are still pending", and there is nothing on the page to change before
+ * asking again. The second is a form, where the person fixes the field the
+ * refusal names and resubmits, so the sentence belongs beside the fields.
+ *
+ * The toast is what the shape of the menu decides rather than a preference. A
+ * menu item unmounts on the click that chooses it, so by the time the answer
+ * arrives there is no control on the page to report against, and a line
+ * reserved for it would be a slot the bar holds open for a message that is
+ * nearly always absent. `RecordDeleteDialog` already reports its refusal that
+ * way and for the same reason. The message is the same on both, the server's
+ * sentence when the thrown error carries one and the page's own fallback when
+ * it does not. `ServiceRequestDetailHeader` is the pattern for a menu command
+ * written by hand, and `useCommandRunner` under `routes/operations` is the
+ * same gate for the request for control page's menu and for the two worklist
+ * pages, which draw their lifecycle controls as buttons rather than a menu and
+ * follow the rule anyway, since a refused start on a worklist is no more
+ * correctable in place than a refused close is here (#1100).
+ *
  * ## The eyebrow reads the register
  *
  * `recordType` is the register's key and the eyebrow is `recordNoun(...).title`,

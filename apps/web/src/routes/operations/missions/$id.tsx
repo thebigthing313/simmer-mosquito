@@ -1,5 +1,4 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -141,12 +140,6 @@ function MissionPanel({
 					</div>
 				) : (
 					<MissionHeader mission={run.mission} run={run} />
-				)}
-
-				{run.error === null ? null : (
-					<Alert variant="destructive">
-						<AlertDescription>{run.error}</AlertDescription>
-					</Alert>
 				)}
 			</div>
 
