@@ -23,7 +23,7 @@ import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { memberships } from '../../lib/collections/memberships';
@@ -46,6 +46,7 @@ import type {
 } from '../../routes/public-engagement/service-requests/-service-request-nearby';
 import { NearbyResultList } from '../../routes/public-engagement/service-requests/-service-request-nearby-rows';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
+import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
 import { stubPanelLayout } from './routes/explorer-route-harness';
 
@@ -519,11 +520,6 @@ describe('the service request header', () => {
  * so each record answers twice, and the id is the assertion.
  */
 describe('the nearby list', () => {
-	// The rows are the rail's virtualised list in a Radix ScrollArea, which
-	// measures itself with a ResizeObserver jsdom has not got, and mounts only
-	// the rows a viewport of no height would show.
-	beforeAll(stubPanelLayout);
-
 	const CATEGORIES: readonly NearbyCategory[] = [
 		'habitat',
 		'trap',
@@ -559,6 +555,17 @@ describe('the nearby list', () => {
 		};
 	}
 
+	// The rows are the rail's virtualised list in a Radix ScrollArea, which
+	// measures itself with a ResizeObserver jsdom has not got, and mounts the
+	// rows its viewport holds plus overscan. The stub's docblock has the count;
+	// this height holds the whole list.
+	let restoreViewport: () => void;
+	beforeAll(() => {
+		stubPanelLayout();
+		restoreViewport = stubRailViewportHeight(CATEGORIES.length * STUB_ROW_HEIGHT);
+	});
+	afterAll(() => restoreViewport());
+
 	const DETAIL_PATH: Readonly<Record<NearbyCategory, string>> = {
 		habitat: '/larval-surveillance/habitats',
 		trap: '/adult-surveillance/traps',
@@ -570,11 +577,7 @@ describe('the nearby list', () => {
 		serviceRequest: '/public-engagement/service-requests',
 	};
 
-	// One render per kind rather than eight rows in one list: the rail mounts
-	// the rows a viewport of no height would show plus its overscan, which is
-	// seven, and the eighth kind fell off the end of a single render.
-	it.each(CATEGORIES)('sends a %s to its own detail page', (category) => {
-		const index = CATEGORIES.indexOf(category);
+	it('sends each kind to its own detail page', () => {
 		renderWithRouter(
 			<NearbyResultList
 				emptyTitle="Nothing nearby"
@@ -589,7 +592,7 @@ describe('the nearby list', () => {
 						dateTo: '2026-09-03',
 						dateToFrom: 'setting',
 						families: ['larval', 'adult', 'control', 'publicEngagement'],
-						items: [nearby(category, index)],
+						items: CATEGORIES.map(nearby),
 					},
 					isLoading: false,
 					isError: false,
@@ -600,7 +603,11 @@ describe('the nearby list', () => {
 			/>,
 		);
 
-		const href = `${DETAIL_PATH[category]}/${category}-${index}`;
-		expect(linkHrefs()).toEqual([href, href]);
+		expect(linkHrefs()).toEqual(
+			CATEGORIES.flatMap((category, index) => {
+				const href = `${DETAIL_PATH[category]}/${category}-${index}`;
+				return [href, href];
+			}),
+		);
 	});
 });
