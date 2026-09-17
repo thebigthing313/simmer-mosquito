@@ -1,5 +1,17 @@
 # @simmer-mosquito/admin
 
+## 0.7.0 — 2026-09-17
+
+### Minor Changes
+
+- Added: the date picker's month and year are buttons. The month opens a grid of twelve months, the year a grid of years paging a decade at a time, and a Today button sits under the days. Reaching a day three years back used to take 36 presses of the same arrow.
+
+### Patch Changes
+
+- Fixed: a save the server refuses says why in words and puts the message on the field it is about. Nine forms had put one sentence at the top of the page and left you to find the box it meant, some refusals showed a code such as "target_inactive", and the operator console replaced the server's reason with a stock sentence. The address form keeps Save and Reset pinned at the foot of the column, and the habitat form takes down its "draw the habitat geometry" message once you pick an address.
+
+- Fixed: the landing, sign-in, sign-up, invitation and password pages fill the window, instead of stopping part way down with dead space beneath.
+
 ## 0.6.0 — 2026-09-08
 
 ### Minor Changes
