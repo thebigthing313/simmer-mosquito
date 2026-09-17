@@ -21,13 +21,23 @@
  * before the rail, pasted whole, because "unchanged" is a claim a class
  * assertion cannot make and a byte comparison can.
  *
+ * The date cases are #1066's. `formatReleaseDate` used to hand
+ * `Intl.DateTimeFormat` no locale, so the release date read in whatever the
+ * runtime had, and the wording `apps/web`'s suite asserts held on an `en-US`
+ * machine and nowhere else. CLAUDE.md's rule that a display formatter pins
+ * `en-US` is scoped to `apps/web/src`, which is why #683's sweep did not reach
+ * this file. The second case is the one that fails without the pin: it makes
+ * the runtime's default locale `de-DE` and asserts the wording is still the
+ * `en-US` one, because a case asserting the wording alone passes on the
+ * machine that wrote it whatever the formatter does.
+ *
  * What a release parses to and how it reads on screen is
  * `apps/web/src/tests/unit/components/changelog-page.test.tsx`'s. Rendered to
  * a string rather than into a DOM, the trade `card.test.tsx` makes.
  */
 
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChangelogPage } from '../../../../components/changelog/changelog-page';
 import { pageContainer } from '../../../../components/page-container';
 
@@ -151,6 +161,52 @@ describe('the changelog frame', () => {
 
 		expect(entriesCellOf(markup)).toMatch(/^div\.(?=.*\bmax-w-\[\d+rem\])(?!.*\bmax-w-\[\d+px\])/);
 		expect(listClassOf(markup)).not.toMatch(/\bmax-w-/);
+	});
+});
+
+const DATED_RELEASE = '# app\n\n## 1.0.0 — 2026-08-13\n\n- Added: A release.\n';
+
+const releaseDateOf = (markup: string): string => {
+	const match = markup.match(/<\/h2><span class="text-muted-foreground text-sm">([^<]*)<\/span>/);
+	if (match === null) {
+		throw new Error(`No release date in: ${markup}`);
+	}
+	return match[1] ?? '';
+};
+
+/**
+ * Makes `de-DE` the locale a caller gets for passing none, which is what a
+ * German machine's runtime does. A caller that names `en-US` is unaffected,
+ * and `resolvedOptions` on a real formatter is how the stub is proved live.
+ */
+const runUnderGermanDefaultLocale = <T,>(run: () => T): T => {
+	const RealDateTimeFormat = Intl.DateTimeFormat;
+	vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function stubbed(locale, options) {
+		return new RealDateTimeFormat(locale ?? 'de-DE', options);
+	} as typeof Intl.DateTimeFormat);
+	try {
+		return run();
+	} finally {
+		vi.restoreAllMocks();
+	}
+};
+
+describe('the release date', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('reads the calendar date in en-US wording, which is what every other formatter draws', () => {
+		expect(releaseDateOf(renderPage('page', DATED_RELEASE))).toBe('August 13, 2026');
+	});
+
+	it('reads the same on a machine whose locale is not en-US', () => {
+		const wording = runUnderGermanDefaultLocale(() => {
+			expect(new Intl.DateTimeFormat().resolvedOptions().locale).toBe('de-DE');
+			return releaseDateOf(renderPage('page', DATED_RELEASE));
+		});
+
+		expect(wording).toBe('August 13, 2026');
 	});
 });
 
