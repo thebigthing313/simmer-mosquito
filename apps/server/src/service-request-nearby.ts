@@ -216,7 +216,7 @@ function readNearbyQuery(
 	};
 }
 
-/** The window's end and its name together: a caller's own end is nobody's anchor. */
+/** The window's end and its name together. A caller's own end is nobody's anchor. */
 function resolvedWindowEnd(
 	override: string | undefined,
 	defaults: ServiceRequestContextBounds,
@@ -228,7 +228,7 @@ function resolvedWindowEnd(
 }
 
 /**
- * Which end the computed window has, named for the response: the domain says
+ * Which end the computed window has, named for the response. The domain says
  * whether the anchor beat the setting, and the row says whether the anchor it
  * was handed was the close day or today.
  */

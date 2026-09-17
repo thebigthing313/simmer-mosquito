@@ -48,11 +48,7 @@ export interface ServiceRequestContextBounds {
 	readonly dateFrom: string;
 	/** Inclusive upper bound, `YYYY-MM-DD`. */
 	readonly dateTo: string;
-	/**
-	 * Which of the two ends `dateTo` is. This function cannot tell a close from
-	 * today, since both arrive as one `YYYY-MM-DD`; the caller knows which it
-	 * passed and names it.
-	 */
+	/** Which of the two ends `dateTo` is. */
 	readonly dateToFrom: 'setting' | 'anchor';
 }
 
@@ -70,6 +66,8 @@ export interface ServiceRequestContextBounds {
  * it (#1084). Which day the anchor is on is the caller's question, because it
  * is a calendar day in the Organization's zone (#154, #156) and this function
  * knows no zone, so the anchor arrives as a `YYYY-MM-DD` already read in it.
+ * For the same reason `dateToFrom` says `anchor` and not which anchor: a close
+ * and a today arrive as the same string, and the caller knows which it passed.
  *
  * Throws `DomainValidationError` when either date is not a readable calendar
  * date, naming `requestDate` or `endAnchor` so the issue points at the field
@@ -87,13 +85,14 @@ export function serviceRequestContextBounds(
 	);
 	const anchorPart = validatedDatePart(endAnchor, 'endAnchor', 'Window end anchor is invalid.');
 	const settingEnd = shiftUtcDays(datePart, context.timeWindow.daysAfter);
+	// `YYYY-MM-DD` orders as text the way it orders as a date. A tie is the
+	// setting's, because the setting alone would have ended the window there.
+	const anchorWins = anchorPart > settingEnd;
 	return {
 		radiusMeters: distanceToMeters(context.radius.amount, context.radius.unitCode),
 		dateFrom: shiftUtcDays(datePart, -context.timeWindow.daysBefore),
-		// `YYYY-MM-DD` orders as text the way it orders as a date. A tie is the
-		// setting's, because the setting alone would have ended the window there.
-		dateTo: anchorPart > settingEnd ? anchorPart : settingEnd,
-		dateToFrom: anchorPart > settingEnd ? 'anchor' : 'setting',
+		dateTo: anchorWins ? anchorPart : settingEnd,
+		dateToFrom: anchorWins ? 'anchor' : 'setting',
 	};
 }
 

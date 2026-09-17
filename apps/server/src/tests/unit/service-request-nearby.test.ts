@@ -130,7 +130,6 @@ describe('service request nearby window end', () => {
 
 		const response = await app.request(`${path}?dateTo=2026-08-01`);
 
-		// The caller's end is nobody's anchor, so the page does not name one.
 		await expect(response.json()).resolves.toMatchObject({
 			dateTo: '2026-08-01',
 			dateToFrom: 'query',

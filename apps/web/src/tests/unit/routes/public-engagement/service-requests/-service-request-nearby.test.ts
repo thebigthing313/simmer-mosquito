@@ -270,18 +270,16 @@ describe('nearbySummary', () => {
 
 	it('names the close when the request closed after the setting', () => {
 		expect(nearbySummary(response({ dateTo: '2026-10-02', dateToFrom: 'close' }))).toBe(
-			'5 records within 0.25 mi, Aug 1, 2026–Oct 2, 2026, through the day it was closed.',
+			'5 records within 0.25 mi, Aug 1, 2026–Oct 2, 2026, extended to the day it was closed.',
 		);
 	});
 
 	it('names today while an old request is still open', () => {
 		expect(nearbySummary(response({ dateTo: '2026-09-17', dateToFrom: 'today' }))).toBe(
-			'5 records within 0.25 mi, Aug 1, 2026–Sep 17, 2026, through today.',
+			'5 records within 0.25 mi, Aug 1, 2026–Sep 17, 2026, extended to today.',
 		);
 	});
 
-	// A caller's own end is nobody's anchor, so the sentence reads as it does
-	// on the setting.
 	it('names no end for a range the caller set', () => {
 		expect(nearbySummary(response({ dateTo: '2026-08-01', dateToFrom: 'query' }))).toBe(
 			'5 records within 0.25 mi, Aug 1, 2026–Aug 1, 2026.',

@@ -203,6 +203,14 @@ export function buildNearbyMapData(
 	return { type: 'FeatureCollection', features };
 }
 
+/** The clause the summary adds when an anchor, and not the setting, ended the window. */
+const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
+	setting: '',
+	close: ', extended to the day it was closed',
+	today: ', extended to today',
+	query: '',
+};
+
 /**
  * What the panel says it is showing, before and after the fetch lands.
  *
@@ -223,14 +231,6 @@ export function nearbySummary(response: NearbyResponse | undefined): string {
 	const end = NEARBY_WINDOW_END_CLAUSE[response.dateToFrom];
 	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}${end}.`;
 }
-
-/** The clause the summary adds when an anchor, and not the setting, ended the window. */
-const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
-	setting: '',
-	close: ', through the day it was closed',
-	today: ', through today',
-	query: '',
-};
 
 /** Distance shown in the family of the org's radius unit (feet/miles for imperial, m/km otherwise). */
 export function formatNearbyDistance(meters: number, unitCode: string): string {
