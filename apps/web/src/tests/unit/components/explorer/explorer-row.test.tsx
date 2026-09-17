@@ -80,6 +80,52 @@ describe('ExplorerRow', () => {
 		expect(container.textContent).toContain('Very heavy');
 	});
 
+	// A record kind with nothing to draw used to arrive as an empty fragment,
+	// which is not `undefined`, so a dated row still laid out the stacked line
+	// under its subtitle and an undated one the inline column beside the title.
+	// The caller passes nothing now, and nothing is what the row draws (#1107).
+	it('draws no badge container, stacked or inline, when there are no badges', () => {
+		const { rerender } = render(
+			<ul>
+				<li>
+					<ExplorerRow
+						date="Aug 12, 2026"
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						subtitle="Backpack sprayer"
+						title="Altosid"
+					/>
+				</li>
+			</ul>,
+		);
+		// The title block holds the title and the subtitle and no line under them.
+		const titleBlock = screen.getByText('Altosid').parentElement;
+		expect(titleBlock?.querySelector('div')).toBeNull();
+		expect(titleBlock?.lastElementChild?.textContent).toBe('Backpack sprayer');
+
+		rerender(
+			<ul>
+				<li>
+					<ExplorerRow
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						subtitle="Backpack sprayer"
+						title="Altosid"
+					/>
+				</li>
+			</ul>,
+		);
+		// Undated, the chevron follows the title block directly: no inline column
+		// sits between them.
+		const chevron = screen.getByLabelText('View details');
+		expect(chevron.previousElementSibling?.contains(screen.getByText('Altosid'))).toBe(true);
+		expect(screen.getByText('Altosid').parentElement?.querySelector('div')).toBeNull();
+	});
+
 	// `Aug 12, 2026` on one line needs 88px of a 380px rail to carry a year that
 	// is the same for every record in a 30-day window.
 	it('stacks the year under the day, and leaves a date with no year alone', () => {

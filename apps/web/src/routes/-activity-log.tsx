@@ -27,7 +27,7 @@ import {
 	formatActivityTime,
 } from './-activity-data';
 import { HabitatMapCard } from './-habitat-map-card';
-import { hasDetailBadges, RecordBadges, type StatusPlacement } from './-record-badges';
+import { hasBadges, hasDetailBadges, RecordBadges, type StatusPlacement } from './-record-badges';
 import { CollectionMapCard } from './adult-surveillance/-collection-map-card';
 import { TrapMapCard } from './adult-surveillance/-trap-map-card';
 import { ApplicationMapCard } from './control-operations/-application-map-card';
@@ -248,7 +248,13 @@ function ActivityRow({
 	return (
 		<li>
 			<ExplorerRow
-				badges={<RecordBadges facts={facts} status={ACTIVITY_STATUS_PLACEMENT} />}
+				// Nothing rather than an empty group for the kinds with no badge, so the
+				// row lays out no column for it.
+				badges={
+					hasBadges(facts, ACTIVITY_STATUS_PLACEMENT) ? (
+						<RecordBadges facts={facts} status={ACTIVITY_STATUS_PLACEMENT} />
+					) : undefined
+				}
 				detailLabel={`View details for ${title}`}
 				detailLink={link}
 				isSelected={isSelected}

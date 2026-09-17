@@ -45,7 +45,7 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { RecordBadges } from '../../-record-badges';
+import { hasBadges, type RecordBadgeFacts, RecordBadges } from '../../-record-badges';
 import { collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
 import type { CollectionStatusValue } from './-legend';
@@ -357,21 +357,20 @@ function CollectionListItem({
 	const label = trapName ?? 'Ad-hoc collection';
 	const timeZone = useOrganizationTimeZone();
 	const effectiveDate = collectionEffectiveDate(row, timeZone);
+	/*
+	 * Bycatch only. Trap out, Problem reported and Zero result are the
+	 * collection's status, which the dot at the left of the row draws in the
+	 * colour the map paints it and the key names. A collection with no bycatch
+	 * passes nothing, so the row lays out no line for it.
+	 */
+	const facts: RecordBadgeFacts = {
+		category: 'collection',
+		status: row.status,
+		hasBycatch: row.hasBycatch,
+	};
 	return (
 		<ExplorerRow
-			/*
-			 * Bycatch only. Trap out, Problem reported and Zero result are the
-			 * collection's status, which the dot at the left of the row now draws in
-			 * the colour the map paints it and the key names.
-			 */
-			badges={
-				<RecordBadges
-					facts={{ category: 'collection', status: row.status, hasBycatch: row.hasBycatch }}
-					// Trap out, Problem reported and Zero result are the collection's
-					// status, which the dot draws in the colour the map paints it.
-					status="dot"
-				/>
-			}
+			badges={hasBadges(facts, 'dot') ? <RecordBadges facts={facts} status="dot" /> : undefined}
 			date={effectiveDate === null ? null : formatListDate(effectiveDate)}
 			detailLabel={`View details for ${label}`}
 			detailLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}

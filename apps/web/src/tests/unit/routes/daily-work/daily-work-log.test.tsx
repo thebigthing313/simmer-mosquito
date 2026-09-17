@@ -285,6 +285,22 @@ describe('the Daily Work log', () => {
 		expect(screen.getByText('Culvert 12')).toBeTruthy();
 	});
 
+	// An application has no badge under either placement, and the row used to
+	// get an empty element anyway, which laid out a badge column with nothing in
+	// it (#1107).
+	it('passes an application row no badges', async () => {
+		renderDailyWork();
+		await screen.findByText('GT-04');
+
+		// The chevron follows the title block directly: no badge column between.
+		const chevron = screen.getByLabelText('View details for Application');
+		expect(chevron.previousElementSibling?.contains(screen.getByText('Application'))).toBe(true);
+		expect(screen.getByText('Application').parentElement?.querySelector('div')).toBeNull();
+		// A row with a state pill still draws it, so the absence above is the
+		// application's and not the page's.
+		expect(screen.getByText('Open')).toBeTruthy();
+	});
+
 	it('puts a family section first under the truncation notice', async () => {
 		harness.truncated = true;
 		harness.total = 640;

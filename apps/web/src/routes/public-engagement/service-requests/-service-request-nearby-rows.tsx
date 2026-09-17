@@ -1,7 +1,7 @@
 import { ExplorerRow } from '../../../components/explorer';
 import { ResultList, ResultRows } from '../../../components/explorer/result-list';
 import type { ActivityLookups } from '../../-activity-data';
-import { RecordBadges } from '../../-record-badges';
+import { hasBadges, RecordBadges } from '../../-record-badges';
 import {
 	type NearbyFamily,
 	type NearbyItem,
@@ -109,7 +109,11 @@ function NearbyExplorerRow({
 	const row = nearbyRow(item, lookups, unitCode);
 	return (
 		<ExplorerRow
-			badges={<RecordBadges facts={row.facts} status="badge" />}
+			badges={
+				hasBadges(row.facts, 'badge') ? (
+					<RecordBadges facts={row.facts} status="badge" />
+				) : undefined
+			}
 			date={row.date}
 			detailLabel={`View details for ${row.title}`}
 			detailLink={row.link}
