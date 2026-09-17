@@ -89,6 +89,7 @@ export function ContactFormPage({
 					</>
 				}
 				header={header}
+				measure="record"
 				onSubmit={() => {
 					void form.handleSubmit();
 				}}

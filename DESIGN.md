@@ -425,12 +425,15 @@ than its skeleton.
 
 **The Measure Prop Rule.** A shared component mounted by both consoles takes a
 `measure` prop rather than changing its default. `OutletSimpleLayout`,
-`ChangelogPage` and `OutletContentFallback` all default to `page`, so a mount
-in `apps/admin` draws where the console expects, and `apps/web` passes
-`record` at each mount. The prop is
+`ChangelogPage`, `OutletContentFallback` and `RecordFormPage` all default to
+`page`, so a mount in `apps/admin` draws where the console expects, and
+`apps/web` passes `record` at each mount. The prop is
 `measure?: NonNullable<PageContainerVariants['measure']>`, because cva reads
 `null` as no variant and skips the default, which would draw with no cap at
-all, a third width.
+all, a third width. `RecordFormPage` reads it only when mounted without an
+`aside`: a split form is `SplitPage`, a full-bleed two-column stage whose
+column is deliberately not the skeleton's shape, and the fourteen split forms
+in `apps/web` keep the markup they had (#1058).
 
 **Widening the frame widens nothing inside it.** A form's fields, a stat card, a
 fact row and a paragraph keep the widths they have. Content that wants a
