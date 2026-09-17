@@ -405,7 +405,7 @@ function isRefusal(error: Error): boolean {
  * One entry, as the shared badge register reads a record.
  *
  * The server sends short tokens rather than a column per kind, so this is where
- * they become the facts {@link RecordBadges} switches on. It is a pure
+ * they become the facts the badge register switches on. It is a pure
  * resolution rather than a chain of conditions inside the row, because the
  * wrong answers here are the silent ones: a density this build does not know
  * rendering nothing, or a token from a server that predates a column.

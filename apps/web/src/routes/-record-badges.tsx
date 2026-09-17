@@ -86,8 +86,15 @@ export type StatusPlacement = 'dot' | 'badge';
  * log and as a life-stage strip on its own map page, so the same record said
  * one of two different things depending on which page reached it, and neither
  * page said the other's.
+ *
+ * A row takes this through {@link recordBadges} rather than as an element,
+ * and that is the whole of #1107. `ExplorerRow` lays its badge container out
+ * on the prop being there, and an element is there whatever it draws, so a
+ * kind with nothing to draw still spent a line under its subtitle. The
+ * decision has to be made before the element exists, and one function making
+ * it is what keeps a sixth caller from writing the element bare.
  */
-export function RecordBadges({
+function RecordBadges({
 	facts,
 	status,
 }: {
@@ -103,6 +110,28 @@ export function RecordBadges({
 }
 
 /**
+ * The badges a row passes to `ExplorerRow`, or `undefined` for a record that
+ * draws none, which is what the row reads as "no container".
+ */
+export function recordBadges(facts: RecordBadgeFacts, status: StatusPlacement): ReactNode {
+	return hasBadges(facts, status) ? <RecordBadges facts={facts} status={status} /> : undefined;
+}
+
+/**
+ * Whether the badge group draws anything for this record under this
+ * placement.
+ *
+ * The one answer to "does this row have badges". An application or a source
+ * reduction has none under either placement; a habitat's state is a pill under
+ * `'badge'` and the row's dot under `'dot'`; a collected collection with no
+ * bycatch has none even as a pill, because the log's verb already says it was
+ * collected.
+ */
+export function hasBadges(facts: RecordBadgeFacts, status: StatusPlacement): boolean {
+	return (status === 'badge' && hasStateBadge(facts)) || hasDetailBadges(facts);
+}
+
+/**
  * The pill that says what state the record is in.
  *
  * Only drawn where the row's dot is spent on something else. A collection that
@@ -111,18 +140,41 @@ export function RecordBadges({
  * stands where an exception would be.
  */
 function RecordStateBadge({ facts }: { readonly facts: RecordBadgeFacts }): ReactNode {
+	if (!hasStateBadge(facts)) {
+		return null;
+	}
 	switch (facts.category) {
 		case 'habitat':
 		case 'trap':
+		case 'collection':
+		case 'serviceRequest':
 			return <StateBadge token={facts.status} />;
 		case 'inspection':
 			return inspectionStateBadge(facts.result);
-		case 'collection':
-			return facts.status === 'collected' ? null : <StateBadge token={facts.status} />;
-		case 'serviceRequest':
-			return <StateBadge token={facts.status} />;
 		default:
 			return null;
+	}
+}
+
+/**
+ * Whether this record has a state to draw as a pill.
+ *
+ * Guarded here rather than in the branches above, for the reason
+ * {@link hasDetailBadges} gives: "is there a pill" and "which pill" cannot
+ * answer differently. The collected collection is the one record with a state
+ * and no pill for it.
+ */
+function hasStateBadge(facts: RecordBadgeFacts): boolean {
+	switch (facts.category) {
+		case 'habitat':
+		case 'trap':
+		case 'inspection':
+		case 'serviceRequest':
+			return true;
+		case 'collection':
+			return facts.status !== 'collected';
+		default:
+			return false;
 	}
 }
 

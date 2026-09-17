@@ -45,7 +45,7 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { RecordBadges } from '../../-record-badges';
+import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';
 import { controlContext, formatAmount } from '../-control-display';
 
@@ -331,14 +331,10 @@ function BiocontrolListItem({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
+	const facts: RecordBadgeFacts = { category: 'biocontrol', context: controlContext(row) };
 	return (
 		<ExplorerRow
-			badges={
-				<RecordBadges
-					facts={{ category: 'biocontrol', context: controlContext(row) }}
-					status="dot"
-				/>
-			}
+			badges={recordBadges(facts, 'dot')}
 			date={formatListDate(row.biocontrolDate)}
 			detailLabel={`View details for ${methodName}`}
 			detailLink={{ to: '/control-operations/biocontrol/$id', params: { id: row.id } }}

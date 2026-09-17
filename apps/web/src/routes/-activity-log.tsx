@@ -27,7 +27,7 @@ import {
 	formatActivityTime,
 } from './-activity-data';
 import { HabitatMapCard } from './-habitat-map-card';
-import { hasDetailBadges, RecordBadges, type StatusPlacement } from './-record-badges';
+import { hasDetailBadges, recordBadges, type StatusPlacement } from './-record-badges';
 import { CollectionMapCard } from './adult-surveillance/-collection-map-card';
 import { TrapMapCard } from './adult-surveillance/-trap-map-card';
 import { ApplicationMapCard } from './control-operations/-application-map-card';
@@ -248,7 +248,7 @@ function ActivityRow({
 	return (
 		<li>
 			<ExplorerRow
-				badges={<RecordBadges facts={facts} status={ACTIVITY_STATUS_PLACEMENT} />}
+				badges={recordBadges(facts, ACTIVITY_STATUS_PLACEMENT)}
 				detailLabel={`View details for ${title}`}
 				detailLink={link}
 				isSelected={isSelected}

@@ -38,7 +38,7 @@ import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
-import { RecordBadges } from '../../-record-badges';
+import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
 import {
 	DensityFilter,
 	type InspectionCatalogs,
@@ -450,32 +450,24 @@ function InspectionListItem({
 		fallback: 'Ad-hoc inspection',
 	});
 	const when = formatListDate(inspection.inspectionDate);
+	/*
+	 * Life stages only. The density pill beside them repeated the dot at the
+	 * left of the row, which is already the density and already the colour the
+	 * map paints this habitat. What stages were found is the one thing neither
+	 * the dot nor the key says, and an inspection that found none passes
+	 * nothing, so the row lays out no line for it.
+	 */
+	const facts: RecordBadgeFacts = {
+		category: 'inspection',
+		result: {
+			isWet: inspection.isWet,
+			density: inspection.density,
+			stages: hasAnyLifeStage(inspection) ? inspection : null,
+		},
+	};
 	return (
 		<ExplorerRow
-			/*
-			 * Life stages only. The density pill beside them repeated the dot at the
-			 * left of the row, which is already the density and already the colour the
-			 * map paints this site. What stages were found is the one thing neither the
-			 * dot nor the key says.
-			 *
-			 * `null` rather than omitted on a site with no stages, so every row in the
-			 * rail keeps the same shape whether or not this one found anything.
-			 */
-			badges={
-				<RecordBadges
-					facts={{
-						category: 'inspection',
-						result: {
-							isWet: inspection.isWet,
-							density: inspection.density,
-							stages: hasAnyLifeStage(inspection) ? inspection : null,
-						},
-					}}
-					// The dot at the left of the row is already the density, and the key
-					// above the map names the colours it draws in.
-					status="dot"
-				/>
-			}
+			badges={recordBadges(facts, 'dot')}
 			date={when}
 			detailLabel={`View details for the ${when} inspection of ${label}`}
 			detailLink={{ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } }}
