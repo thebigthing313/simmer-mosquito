@@ -40,7 +40,7 @@ const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = OPERATIONAL_ACTIVITY_
 /** The seven record kinds the three families above hold. */
 export type NearbyCategory = Exclude<ActivityCategory, 'outreach' | 'serviceRequest'>;
 
-/** The page's own grouping of those kinds, which is what its three toggles switch. */
+/** The page's own grouping of those kinds, which is what its three family tabs list. */
 export type NearbyFamily = 'infrastructure' | 'surveillance' | 'control';
 
 /**
@@ -79,18 +79,19 @@ const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
 	biocontrol: 'control',
 };
 
-const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
+/** The family's name, as the tab strip, the row's dot and the legend spell it. */
+export const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
 	infrastructure: 'Infrastructure',
 	surveillance: 'Surveillance',
 	control: 'Control',
 };
 
-/** The three families in the order the toggles draw them. */
+/** The three families in the order the tabs draw them. */
 export const NEARBY_FAMILIES: readonly { readonly key: NearbyFamily; readonly label: string }[] = (
 	['infrastructure', 'surveillance', 'control'] as const
 ).map((key) => ({ key, label: NEARBY_FAMILY_LABEL[key] }));
 
-/** How many nearby records fell in each family, for the toggle counts. */
+/** How many nearby records fell in each family, for the count beside each tab. */
 export function countNearbyByFamily(
 	items: readonly NearbyItem[],
 ): Readonly<Record<NearbyFamily, number>> {
@@ -105,7 +106,7 @@ export function countNearbyByFamily(
 	return counts;
 }
 
-/** The records the visible-family toggles let through, nearest first. */
+/** The records in the given families, nearest first. */
 export function visibleNearbyItems(
 	items: readonly NearbyItem[],
 	visibleFamilies: ReadonlySet<NearbyFamily>,
@@ -132,6 +133,18 @@ async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyRespo
 		throw new Error(`Nearby request failed (${response.status}).`);
 	}
 	return (await response.json()) as NearbyResponse;
+}
+
+/**
+ * The key one nearby record is selected by, on the list and on the map alike.
+ *
+ * The record id alone is not one: the seven categories are seven tables, and
+ * nothing stops a habitat and an inspection sharing a UUID. It is the shape
+ * `activityEntryKey` gives Daily Work, less the role, because a record is near
+ * a request once however many visits it took.
+ */
+export function nearbyItemKey(item: Pick<NearbyItem, 'category' | 'id'>): string {
+	return `${item.category}:${item.id}`;
 }
 
 /**
@@ -199,8 +212,13 @@ export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: 
 
 /**
  * The map overlay for the context view: the proximity ring, the request's own
- * marker, and the nearby records (points) for the currently-visible families,
- * each tagged with the `role`/`family` properties the nearby layer paints on.
+ * marker, and the nearby records (points) for the families the active tab
+ * draws, each tagged with the `role`/`family` properties the nearby layer
+ * paints on.
+ *
+ * `id` is the item key rather than the record id, because that is what the
+ * layer hands back on a click and what selection is keyed on; the record id
+ * rides along as `recordId`.
  */
 export function buildNearbyMapData(
 	center: { readonly lat: number; readonly lng: number },
@@ -219,7 +237,13 @@ export function buildNearbyMapData(
 			}
 			features.push({
 				type: 'Feature',
-				properties: { role: 'nearby', id: item.id, family, category: item.category },
+				properties: {
+					role: 'nearby',
+					id: nearbyItemKey(item),
+					recordId: item.id,
+					family,
+					category: item.category,
+				},
 				geometry: { type: 'Point', coordinates: [item.lng, item.lat] },
 			});
 		}

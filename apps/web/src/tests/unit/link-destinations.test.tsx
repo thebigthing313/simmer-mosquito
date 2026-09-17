@@ -23,7 +23,7 @@ import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { memberships } from '../../lib/collections/memberships';
@@ -47,6 +47,7 @@ import type {
 import { NearbyResultList } from '../../routes/public-engagement/service-requests/-service-request-nearby-rows';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
+import { stubPanelLayout } from './routes/explorer-route-harness';
 
 const HABITAT = 'habitat-1';
 
@@ -522,6 +523,11 @@ describe('the service request header', () => {
  * so each record answers twice, and the ids are the assertion.
  */
 describe('the nearby list', () => {
+	// The rows are the rail's virtualised list in a Radix ScrollArea, which
+	// measures itself with a ResizeObserver jsdom has not got, and mounts only
+	// the rows a viewport of no height would show.
+	beforeAll(stubPanelLayout);
+
 	const CATEGORIES: readonly NearbyCategory[] = [
 		'habitat',
 		'trap',
@@ -576,7 +582,7 @@ describe('the nearby list', () => {
 					families: ['larval', 'adult', 'control'],
 					items,
 				}}
-				selectedId={null}
+				selectedKey={null}
 			/>,
 		);
 

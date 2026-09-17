@@ -1,19 +1,20 @@
 import { ExplorerRow } from '../../../components/explorer';
-import { ResultList } from '../../../components/explorer/result-list';
+import { ResultList, ResultRows } from '../../../components/explorer/result-list';
 import type { ActivityLookups } from '../../-activity-data';
 import { RecordBadges } from '../../-record-badges';
 import {
 	type NearbyFamily,
 	type NearbyItem,
 	type NearbyResponse,
+	nearbyItemKey,
 	nearbyRow,
 	visibleNearbyItems,
 } from './-service-request-nearby';
 
 // The nearby records around a service request, drawn as the rows an explorer's
 // results rail draws, with the distance from the request in a slot of its own.
-// Takes the families to show rather than a list, so a page that lists one
-// family per tab hands each tab its family and nothing else changes.
+// Takes the families to show rather than a list, so the page hands each family
+// tab its family and nothing else changes.
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
@@ -24,11 +25,11 @@ import {
  * own for each, and the sentence for a failed read told the reader to try
  * again shortly with nothing to try. The rail's failed state carries the retry.
  *
- * The rows are a plain list rather than the rail's virtualised one. The rail
- * scrolls its own viewport and mounts a page of fifty in a window; this list is
- * a card in a column that scrolls, bounded by the radius and the window rather
- * than by a page, and a second scroller inside the first is what the rail's
- * `ResultRows` would put here.
+ * The rows are the rail's own virtualised list, which scrolls itself. They were
+ * a plain list while the nearby panel was a card in a column that scrolled,
+ * because a second scroller inside the first is what `ResultRows` would have
+ * put there; a family tab owns the column's height now, so the list is the
+ * scroller and gets the product's scrollbar the way every explorer's rail does.
  */
 export function NearbyResultList({
 	response,
@@ -36,7 +37,7 @@ export function NearbyResultList({
 	isLoading,
 	isError,
 	onRetry,
-	selectedId,
+	selectedKey,
 	onSelect,
 	lookups,
 	emptyTitle,
@@ -48,8 +49,9 @@ export function NearbyResultList({
 	readonly isLoading: boolean;
 	readonly isError: boolean;
 	readonly onRetry: () => void;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string | null) => void;
+	/** The selected record's `nearbyItemKey`, shared with the map's selection. */
+	readonly selectedKey: string | null;
+	readonly onSelect: (key: string | null) => void;
 	readonly lookups: ActivityLookups;
 	/** What the rail says when nothing is drawn and nothing failed. */
 	readonly emptyTitle: string;
@@ -71,22 +73,17 @@ export function NearbyResultList({
 			onRetry={onRetry}
 		>
 			{list === null ? null : (
-				<ul className="grid">
-					{list.items.map((item) => (
-						<li
-							className="border-border/40 border-t first:border-t-0"
-							key={`${item.category}:${item.id}`}
-						>
-							<NearbyExplorerRow
-								isSelected={item.id === selectedId}
-								item={item}
-								lookups={lookups}
-								onSelect={onSelect}
-								unitCode={list.unitCode}
-							/>
-						</li>
-					))}
-				</ul>
+				<ResultRows rows={list.items}>
+					{(item) => (
+						<NearbyExplorerRow
+							isSelected={nearbyItemKey(item) === selectedKey}
+							item={item}
+							lookups={lookups}
+							onSelect={onSelect}
+							unitCode={list.unitCode}
+						/>
+					)}
+				</ResultRows>
 			)}
 		</ResultList>
 	);
@@ -109,7 +106,7 @@ function NearbyExplorerRow({
 }: {
 	readonly item: NearbyItem;
 	readonly isSelected: boolean;
-	readonly onSelect: (id: string | null) => void;
+	readonly onSelect: (key: string | null) => void;
 	readonly lookups: ActivityLookups;
 	readonly unitCode: string;
 }) {
@@ -124,7 +121,7 @@ function NearbyExplorerRow({
 			isSelected={isSelected}
 			// A second click on the selected row clears it, which is how the focus
 			// card over the map closes from the list.
-			onSelect={() => onSelect(isSelected ? null : item.id)}
+			onSelect={() => onSelect(isSelected ? null : nearbyItemKey(item))}
 			selectLabel={`Show ${row.title} on the map`}
 			subtitle={row.subtitle}
 			swatch={row.swatch}

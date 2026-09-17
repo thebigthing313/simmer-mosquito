@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import type { Tag } from '../../../../../hooks/queries/tag-view';
 import type { ActivityLookups } from '../../../../../routes/-activity-data';
 import {
+	buildNearbyMapData,
 	countNearbyByFamily,
 	formatNearbyDistance,
 	formatRadiusLabel,
 	type NearbyCategory,
 	type NearbyItem,
+	type NearbyResponse,
 	nearbyItemDate,
+	nearbyItemKey,
 	nearbyRow,
 	visibleNearbyItems,
 } from '../../../../../routes/public-engagement/service-requests/-service-request-nearby';
@@ -66,6 +69,78 @@ describe('countNearbyByFamily', () => {
 			surveillance: 0,
 			control: 0,
 		});
+	});
+});
+
+describe('nearbyItemKey', () => {
+	// Seven categories are seven tables, so the id alone cannot key a selection.
+	it('tells two records sharing an id apart by category', () => {
+		expect(nearbyItemKey(item('r-1', 'habitat', 10))).toBe('habitat:r-1');
+		expect(nearbyItemKey(item('r-1', 'inspection', 10))).toBe('inspection:r-1');
+	});
+});
+
+describe('buildNearbyMapData', () => {
+	const RESPONSE: NearbyResponse = {
+		request: { id: 'sr-1', lat: 42, lng: -71, requestDate: '2026-08-01' },
+		radius: { amount: 500, unitCode: 'meter', meters: 500 },
+		timeWindow: { daysBefore: 30, daysAfter: 30 },
+		dateFrom: '2026-07-02',
+		dateTo: '2026-08-31',
+		families: ['larval', 'adult', 'control'],
+		items: ITEMS,
+	};
+
+	it('draws the ring, the centre and the pins of the families it is handed', () => {
+		const data = buildNearbyMapData({ lat: 42, lng: -71 }, RESPONSE, new Set(['control']));
+		expect(data.features.map((feature) => feature.properties?.role)).toEqual([
+			'ring',
+			'nearby',
+			'nearby',
+			'center',
+		]);
+		expect(
+			data.features
+				.filter((feature) => feature.properties?.role === 'nearby')
+				.map((f) => f.properties),
+		).toEqual([
+			{
+				role: 'nearby',
+				id: 'application:application',
+				recordId: 'application',
+				family: 'control',
+				category: 'application',
+			},
+			{
+				role: 'nearby',
+				id: 'biocontrol:biocontrol',
+				recordId: 'biocontrol',
+				family: 'control',
+				category: 'biocontrol',
+			},
+		]);
+	});
+
+	// The pin's `id` is what the layer hands back on a click, so it is the
+	// selection key and not the record id.
+	it('keys every pin by the item key the list selects on', () => {
+		const data = buildNearbyMapData(
+			{ lat: 42, lng: -71 },
+			RESPONSE,
+			new Set(['infrastructure', 'surveillance', 'control']),
+		);
+		const pins = data.features.filter((feature) => feature.properties?.role === 'nearby');
+		expect(pins.map((pin) => pin.properties?.id)).toEqual(ITEMS.map(nearbyItemKey));
+	});
+
+	it('draws the request and its radius alone when handed no family', () => {
+		const data = buildNearbyMapData({ lat: 42, lng: -71 }, RESPONSE, new Set());
+		expect(data.features.map((feature) => feature.properties?.role)).toEqual(['ring', 'center']);
+	});
+
+	it('draws the centre alone before the response lands', () => {
+		const data = buildNearbyMapData({ lat: 42, lng: -71 }, undefined, new Set(['control']));
+		expect(data.features.map((feature) => feature.properties?.role)).toEqual(['center']);
 	});
 });
 
