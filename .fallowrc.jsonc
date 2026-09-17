@@ -4,12 +4,23 @@
 	// Nx/pnpm monorepo. Both globs are already in pnpm-workspace.yaml; fallow
 	// discovers them on its own, but stating them keeps the scope explicit.
 	//
-	// `scripts` is a third pnpm workspace package since #665 and is deliberately
-	// not listed. fallow already reads it: the entry points below name two
-	// modules under it, and the dependency check answers against the package.json
-	// beside them. Adding the pattern would move the gate scripts into the
-	// duplication corpus, which is a measurement of its own rather than a
-	// bookkeeping edit.
+	// `scripts` is a third pnpm workspace package since #665 and is not listed,
+	// because listing it changes nothing. fallow discovers it from
+	// pnpm-workspace.yaml the way it discovers the other two: the entry points
+	// below name two modules under it, the dependency check answers against the
+	// package.json beside them, and `fallow dupes` reads every gate script
+	// already. This comment used to say the opposite, that adding the pattern
+	// would move the gate scripts into the duplication corpus, and #988 was
+	// filed from that sentence. Measured on develop at 08c10fcf with fallow
+	// 3.14.0: `fallow dupes` reports 15,870 lines (4.7%) across 432 files with
+	// this list as checked in, and the same 15,870 lines across the same 432
+	// files with `"scripts"` added. A copy of `scripts/check-map-palette.mjs`
+	// placed beside it, under the checked-in list, reports a 307-line clone
+	// group naming both files (`180-486`, the docblock and imports above being
+	// what the scan skips by design). No `scripts/` file is in the report
+	// because no gate carries a clone above the minimum size, which is what
+	// `scripts/lib/` exists to keep true, not because the directory is out of
+	// the corpus.
 	"workspaces": {
 		"patterns": ["apps/*", "packages/*"]
 	},
