@@ -68,6 +68,7 @@ describe('service request nearby window end', () => {
 		await expect(response.json()).resolves.toMatchObject({
 			dateFrom: '2026-08-01',
 			dateTo: '2026-08-29',
+			dateToFrom: 'setting',
 		});
 		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-08-29' })]);
 	});
@@ -80,6 +81,7 @@ describe('service request nearby window end', () => {
 		await expect(response.json()).resolves.toMatchObject({
 			dateFrom: '2026-08-01',
 			dateTo: '2026-10-02',
+			dateToFrom: 'close',
 		});
 		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-10-02' })]);
 	});
@@ -100,6 +102,7 @@ describe('service request nearby window end', () => {
 		await expect(response.json()).resolves.toMatchObject({
 			dateFrom: '2026-06-17',
 			dateTo: '2026-08-19',
+			dateToFrom: 'today',
 		});
 		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-08-19' })]);
 	});
@@ -127,7 +130,10 @@ describe('service request nearby window end', () => {
 
 		const response = await app.request(`${path}?dateTo=2026-08-01`);
 
-		await expect(response.json()).resolves.toMatchObject({ dateTo: '2026-08-01' });
+		await expect(response.json()).resolves.toMatchObject({
+			dateTo: '2026-08-01',
+			dateToFrom: 'query',
+		});
 		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-08-01' })]);
 	});
 });
