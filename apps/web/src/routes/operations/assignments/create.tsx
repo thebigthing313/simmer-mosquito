@@ -160,96 +160,96 @@ function AssignmentCreateRoute() {
 		}
 	};
 
+	/*
+	 * `record` is the measure the route-loading skeleton reserves, so the page
+	 * arrives at the width it stood in for (#1043, #1046). The form carries
+	 * its own 46rem below, so the frame is what widened. No scroller of its
+	 * own: the shell's `main` scrolls the page and reserves the gutter the
+	 * skeleton stands in (#1053), and the sticky header pins to `main`.
+	 */
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			{/*
-			 * `record` is the measure the route-loading skeleton reserves, so the
-			 * page arrives at the width it stood in for (#1043, #1046). The form
-			 * carries its own 46rem below, so the frame is what widened.
-			 */}
-			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
-				<div className={stickyHeader({ gap: 'tight', padding: 'none' })}>
-					<Link
-						className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-						to="/operations/assignments"
-					>
-						<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-						Back to assignments
-					</Link>
-					<PageHeader
-						description="Start empty and add stops, or snapshot the stops of an existing route."
-						title={createLabel('assignment')}
+		<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
+			<div className={stickyHeader({ gap: 'tight', padding: 'none' })}>
+				<Link
+					className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+					to="/operations/assignments"
+				>
+					<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
+					Back to assignments
+				</Link>
+				<PageHeader
+					description="Start empty and add stops, or snapshot the stops of an existing route."
+					title={createLabel('assignment')}
+				/>
+			</div>
+
+			<form
+				className="grid max-w-[46rem] gap-6"
+				onSubmit={(event) => {
+					event.preventDefault();
+					void submit();
+				}}
+			>
+				<div className="flex gap-2">
+					<ModeButton
+						active={mode === 'blank'}
+						label="Blank"
+						onClick={() => settle('blank', route, values)}
+					/>
+					<ModeButton
+						active={mode === 'route'}
+						label="From a route"
+						onClick={() => settle('route', route, values)}
 					/>
 				</div>
 
-				<form
-					className="grid max-w-[46rem] gap-6"
-					onSubmit={(event) => {
-						event.preventDefault();
-						void submit();
-					}}
-				>
-					<div className="flex gap-2">
-						<ModeButton
-							active={mode === 'blank'}
-							label="Blank"
-							onClick={() => settle('blank', route, values)}
+				{mode === 'route' ? (
+					<div className="grid gap-2">
+						<RoutePicker
+							onSelect={(picked) => settle(mode, picked, values)}
+							routes={allRoutes}
+							stopCountById={countByRouteId}
+							value={routeId}
 						/>
-						<ModeButton
-							active={mode === 'route'}
-							label="From a route"
-							onClick={() => settle('route', route, values)}
-						/>
+						{routeId === null ? null : (
+							<p className="m-0 text-muted-foreground text-xs">
+								{routeItemsReady
+									? `${routeStopCount === 1 ? '1 stop' : `${routeStopCount} stops`} will be copied in order.`
+									: 'Loading this route’s stops…'}
+							</p>
+						)}
 					</div>
+				) : null}
 
-					{mode === 'route' ? (
-						<div className="grid gap-2">
-							<RoutePicker
-								onSelect={(picked) => settle(mode, picked, values)}
-								routes={allRoutes}
-								stopCountById={countByRouteId}
-								value={routeId}
-							/>
-							{routeId === null ? null : (
-								<p className="m-0 text-muted-foreground text-xs">
-									{routeItemsReady
-										? `${routeStopCount === 1 ? '1 stop' : `${routeStopCount} stops`} will be copied in order.`
-										: 'Loading this route’s stops…'}
-								</p>
-							)}
-						</div>
-					) : null}
+				<AssignmentDetailFields
+					assigneeOptions={assigneeOptions}
+					disabled={saving}
+					onChange={(next) =>
+						// Only a moved date regenerates. Running the rule on every
+						// keystroke would refill a field the person had just cleared.
+						next.assignmentDate === values.assignmentDate
+							? setValues(next)
+							: settle(mode, route, next)
+					}
+					values={values}
+				/>
 
-					<AssignmentDetailFields
-						assigneeOptions={assigneeOptions}
-						disabled={saving}
-						onChange={(next) =>
-							// Only a moved date regenerates. Running the rule on every
-							// keystroke would refill a field the person had just cleared.
-							next.assignmentDate === values.assignmentDate
-								? setValues(next)
-								: settle(mode, route, next)
-						}
-						values={values}
-					/>
+				{error === null ? null : (
+					<Alert variant="destructive">
+						<AlertDescription>{error}</AlertDescription>
+					</Alert>
+				)}
 
-					{error === null ? null : (
-						<Alert variant="destructive">
-							<AlertDescription>{error}</AlertDescription>
-						</Alert>
-					)}
-
-					<div className="flex justify-end gap-2 border-border/50 border-t pt-5">
-						<Button asChild size="sm" variant="ghost">
-							<Link to="/operations/assignments">Cancel</Link>
-						</Button>
-						<Button disabled={!canSubmit} size="sm" type="submit">
-							{saving ? <Spinner /> : null}
-							Save
-						</Button>
-					</div>
-				</form>
-			</div>
+				<div className="flex justify-end gap-2 border-border/50 border-t pt-5">
+					<Button asChild size="sm" variant="ghost">
+						<Link to="/operations/assignments">Cancel</Link>
+					</Button>
+					<Button disabled={!canSubmit} size="sm" type="submit">
+						{saving ? <Spinner /> : null}
+						Save
+					</Button>
+				</div>
+			</form>
 		</div>
 	);
 }

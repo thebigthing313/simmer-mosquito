@@ -23,6 +23,17 @@ import type { ReactNode } from 'react';
  * for its position rather than its contents because this frame lives in
  * `ui-web` and knows nothing about maps; the organization workspace passes a
  * `MapCanvas`, and the operator console passes a geometry-file preview.
+ *
+ * Which box scrolls depends on the branch. A split form scrolls its field
+ * region, because the `SplitPage` beside a full-height map is `h-full` and
+ * never scrolls itself. A column form scrolls in the shell's `main`, which
+ * reserves its scrollbar gutter so the page and the route-loading skeleton
+ * share one frame (#1053): a scroller of its own inside that `main` would
+ * reserve a second gutter and land the form one scrollbar narrower than the
+ * skeleton. The header and footer stay `sticky`, and sticky pins to the
+ * nearest scrolling ancestor, so in the column branch they pin to `main`; the
+ * form is `min-h-full` there so a short form still pins its actions at the
+ * foot of the stage rather than under its last field.
  */
 
 /**
@@ -57,9 +68,10 @@ export function RecordFormPage({
 	readonly gap?: 'default' | 'tight';
 	readonly children: ReactNode;
 }) {
+	const split = aside !== undefined;
 	const column = (
 		<form
-			className="flex h-full min-h-0 flex-col"
+			className={cn('flex flex-col', split ? 'h-full min-h-0' : 'min-h-full')}
 			onSubmit={(event) => {
 				event.preventDefault();
 				onSubmit();
@@ -81,7 +93,7 @@ export function RecordFormPage({
 				</div>
 			</header>
 
-			<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+			<div className={split ? 'min-h-0 flex-1 overflow-y-auto px-5 py-5' : 'flex-1 px-5 py-5'}>
 				<div className={cn('grid', gap === 'tight' ? 'gap-5' : 'gap-6')}>{children}</div>
 			</div>
 
@@ -89,10 +101,7 @@ export function RecordFormPage({
 		</form>
 	);
 
-	if (aside === undefined) {
-		return <div className="h-full min-h-0">{column}</div>;
-	}
-	return <SplitPage aside={aside}>{column}</SplitPage>;
+	return split ? <SplitPage aside={aside}>{column}</SplitPage> : column;
 }
 
 /**

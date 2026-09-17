@@ -60,9 +60,28 @@ export function OutletShell({
 						 * stretched the page: a form long enough put a scrollbar on the
 						 * browser window itself. Positioning `main` closes the chain here, so
 						 * an outlet's overflow can never reach the document again.
+						 *
+						 * This is the one scroll container between the stage and a route
+						 * page, and `scrollbar-gutter: stable` makes it reserve the gutter
+						 * whether or not anything scrolls. The route-loading skeleton fits
+						 * the stage and the page that replaces it does not, so without the
+						 * reservation a classic scrollbar arrived with the page and the
+						 * frame drew 15px narrower than the skeleton's (#1053). The
+						 * reservation only holds if nothing between here and the page
+						 * scrolls too, since an inner scroller adds its own gutter inside
+						 * this one; a page scrolls in `main`, and the whole-page
+						 * `overflow-y-auto` wrappers that used to do it themselves are
+						 * plain blocks now. `SplitPage` is the exception, because its
+						 * aside is a full-height map, and its column keeps a scroller of
+						 * its own. Overlay scrollbars take no room, so the property is
+						 * inert on macOS; on Windows a page that fits without scrolling
+						 * draws 15px narrower than it did, which is the price of matching
+						 * the skeleton. Tailwind ships no utility for the property, so it
+						 * is written as an arbitrary property here rather than as a rule
+						 * in the stylesheet keyed on this element.
 						 */}
 						<main
-							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage)"
+							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage) [scrollbar-gutter:stable]"
 							id="main-content"
 							tabIndex={-1}
 						>

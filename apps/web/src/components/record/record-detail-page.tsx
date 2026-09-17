@@ -107,16 +107,22 @@ export function RecordDetailPage<TRecord>(
 
 	return (
 		/*
-		 * The scroll box is also the `record` container every split on this page
-		 * is measured against: see `detail-page-shell.tsx`. It is the stage, the
-		 * window less the two rails, which is the box the page has to divide.
+		 * The `record` container every split on this page is measured against:
+		 * see `detail-page-shell.tsx`. It is the stage, the window less the two
+		 * rails and the scrollbar gutter, which is the box the page has to
+		 * divide.
 		 *
-		 * The header is `sticky` and a header only sticks to the box it scrolls
-		 * in, so nothing may sit between this element and the one the page draws
-		 * its bar as. That is why the fork's states each render their own frame
-		 * rather than being wrapped in one here.
+		 * It is not the scroll box. The shell's `main` scrolls the page and
+		 * reserves its gutter, so a scroller here would reserve a second one
+		 * inside it and land the page a scrollbar narrower than the
+		 * route-loading skeleton (#1053). The header is `sticky` and sticks to
+		 * the nearest scrolling ancestor, which is `main`, and it is bounded by
+		 * its own parent's box, so nothing between this element and the frame
+		 * the page draws its bar in may carry a height of its own. That is why
+		 * the fork's states each render their own frame rather than being
+		 * wrapped in one here.
 		 */
-		<div className="@container/record h-full min-h-0 overflow-y-auto">
+		<div className="@container/record">
 			{props.body === undefined ? (
 				<Fork askDelete={run} layout={layout} reading={props.reading} recordType={recordType}>
 					{props.children}
