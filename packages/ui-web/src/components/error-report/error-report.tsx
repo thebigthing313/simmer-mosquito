@@ -91,12 +91,18 @@ function ErrorHeadline({ title }: { readonly title: string }) {
 	);
 }
 
-/** The context a support thread needs and the reader cannot be expected to know. */
+/**
+ * The context a support thread needs and the reader cannot be expected to know.
+ *
+ * The time is worded in `en-US` so the row reads the same in every thread it
+ * is pasted into. It is still the machine's zone; the copied report carries
+ * the ISO instant for anyone who needs the exact moment.
+ */
 function ErrorFacts({ version }: { readonly version: string }) {
 	const facts = [
 		{ label: 'Page', value: `${window.location.pathname}${window.location.search}` },
 		{ label: 'Version', value: `SIMMER ${version}` },
-		{ label: 'Time', value: new Date().toLocaleString() },
+		{ label: 'Time', value: new Date().toLocaleString('en-US') },
 	];
 
 	return (
