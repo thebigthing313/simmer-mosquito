@@ -45,13 +45,10 @@ export type NearbyCategory = Exclude<ActivityCategory, 'outreach'>;
 
 /**
  * The categories it asks for beside the families, which are the eight it
- * draws. `publicEngagement` is the register's family and holds outreach
- * beside the other requests, and the page used to take the family whole and
- * drop the outreach off the answer. The endpoint caps the union at 2000 rows
- * nearest-first before any of that, so in a dense radius the outreach could
- * fill the cap and cut a nearer request with nothing on the page saying so
- * (#1114). Naming the categories narrows the read itself, and the cap counts
- * only what the page draws.
+ * draws. The page used to take `publicEngagement` whole and drop the outreach
+ * off the answer, and the endpoint's cap ran before that, so dense outreach
+ * could cut a nearer request (#1114). `NearbyRecordsInput.categories` in
+ * `packages/db` carries the mechanism.
  */
 const NEARBY_REQUEST_CATEGORIES: readonly NearbyCategory[] = ACTIVITY_CATEGORIES.filter(
 	(category): category is NearbyCategory => category !== 'outreach',
@@ -173,11 +170,7 @@ export interface NearbyRead {
 	readonly refetch: () => Promise<unknown>;
 }
 
-/**
- * The read itself, exported for the suite that asserts what it sends. The
- * answer is read as it arrives: the endpoint answers only the categories asked
- * for, and it never answers with the request itself.
- */
+/** The read itself, exported for the suite that asserts what it sends. */
 export async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
 	const url = new URL(`/map/service-requests/${id}/nearby`, getServerUrl());
 	url.searchParams.set('families', NEARBY_REQUEST_FAMILIES.join(','));

@@ -211,7 +211,7 @@ describe('service request nearby', () => {
 	// draws rather than dropping a category off the answer (#1114). Absent, the
 	// reader takes every category of the families named, which is what it did
 	// before the filter existed.
-	it('passes the categories named to the reader, and none when none are named', async () => {
+	it('passes the categories named, comma-separated or repeated, and none when none are named', async () => {
 		const { app, calls } = createApp();
 
 		const first = await app.request(path);

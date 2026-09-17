@@ -66,7 +66,8 @@ export interface NearbyRecordsInput {
 	 * Which categories to read, inside `families`; absent means every category
 	 * of the families named. The two compose as an intersection, so a category
 	 * outside every family asked for reads nothing, and an empty list reads
-	 * nothing the way an empty `families` does.
+	 * nothing the way an empty `families` does, which only a direct caller can
+	 * ask: the route refuses an empty `categories=` with a 400.
 	 *
 	 * It is here because of the cap. `limit` runs over the whole union, so a
 	 * caller that asks for a family and drops one of its shapes afterwards can

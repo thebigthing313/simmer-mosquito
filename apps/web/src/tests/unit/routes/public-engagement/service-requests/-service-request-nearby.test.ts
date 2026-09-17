@@ -101,11 +101,9 @@ describe('fetchNearby', () => {
 		items: [item('habitat', 'habitat', 50), item('request', 'serviceRequest', 60)],
 	};
 
-	// The endpoint caps the union nearest-first before anything is dropped, and
-	// the register's `publicEngagement` family holds outreach beside requests,
-	// so the page names the categories it draws rather than asking for the
-	// family and dropping outreach afterwards (#1114). What comes back is what
-	// was asked for, and nothing is filtered on the way in.
+	// The page names the categories it draws rather than dropping outreach off
+	// the answer, so the endpoint's cap counts only those (#1114). What comes
+	// back is read whole.
 	it('asks for every family and the eight categories it draws, and keeps the answer whole', async () => {
 		const requests: string[] = [];
 		vi.stubGlobal('fetch', (url: URL | string) => {
