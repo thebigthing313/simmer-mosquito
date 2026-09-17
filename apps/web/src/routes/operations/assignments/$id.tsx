@@ -1,5 +1,4 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
@@ -95,7 +94,7 @@ function AssignmentRunRoute() {
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const [skipTarget, setSkipTarget] = useState<AssignmentStopView | null>(null);
 	const [cancelOpen, setCancelOpen] = useState(false);
-	const { busy, error, run } = useCommandRunner();
+	const { busy, run } = useCommandRunner();
 
 	const assigneeName =
 		assignment?.assignedToProfileId == null
@@ -230,12 +229,6 @@ function AssignmentRunRoute() {
 									</p>
 								) : null}
 							</>
-						)}
-
-						{error === null ? null : (
-							<Alert variant="destructive">
-								<AlertDescription>{error}</AlertDescription>
-							</Alert>
 						)}
 					</div>
 

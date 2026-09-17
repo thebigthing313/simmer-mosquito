@@ -1,6 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	Card,
 	CardContent,
@@ -107,7 +106,7 @@ function RequestDetailContent({
 }) {
 	const habitatName = useLinkedHabitatName(request.habitatId);
 	const requestWrites = useRequestedControlActionMutations();
-	const { busy, error, run } = useCommandRunner();
+	const { busy, run } = useCommandRunner();
 	const timeZone = useOrganizationTimeZone();
 	const isOpen = request.status === 'open';
 
@@ -169,11 +168,6 @@ function RequestDetailContent({
 				</div>
 			}
 		>
-			{error === null ? null : (
-				<Alert variant="destructive">
-					<AlertDescription>{error}</AlertDescription>
-				</Alert>
-			)}
 			<RequestMissionsCard requestId={request.id} />
 		</DetailPageShell>
 	);

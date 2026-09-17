@@ -38,8 +38,8 @@ const stopKey = (stop: MissionStopView) => stop.missionItemId;
  *
  * A mission page is two jobs at once — working the stops and planning them — and
  * between them they need a dozen pieces of state that only ever change together:
- * which stop the map has selected, which one a dialog is asking about, whether a
- * write is in flight, and what went wrong if one did. Left inline they put more
+ * which stop the map has selected, which one a dialog is asking about, and
+ * whether a write is in flight. Left inline they put more
  * than twenty hooks in the route component and buried the rendering.
  *
  * `planEditable` folds the manager floor in, because the controls it gates —
@@ -65,7 +65,6 @@ export interface MissionRun extends MissionSelection, MissionActions {
 	readonly organizationId: string | null;
 
 	readonly busy: boolean;
-	readonly error: string | null;
 
 	readonly canStart: boolean;
 	readonly canComplete: boolean;
@@ -136,7 +135,6 @@ export function useMissionRun(missionId: string): MissionRun {
 		organizationId,
 
 		busy: runner.busy,
-		error: runner.error,
 
 		...missionCapabilities({
 			status: mission?.status ?? null,
