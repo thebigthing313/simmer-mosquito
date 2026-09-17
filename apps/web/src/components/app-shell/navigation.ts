@@ -213,8 +213,8 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		groups: [
 			{
 				id: 'overview-main',
-				// The built page leads. The three behind it are review periods, each
-				// a stub until its own issue builds it (#1082).
+				// The built page leads. The three behind it read the day, the month
+				// and the year, each a stub until its own issue builds it (#1082).
 				items: [
 					{
 						id: 'dashboard',

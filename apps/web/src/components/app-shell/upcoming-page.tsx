@@ -179,18 +179,18 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	'/monthly': {
 		title: 'Monthly',
 		summary:
-			'The operational month in review: effort and findings across surveillance and control over a calendar month, beside the month before.',
+			'Effort and findings across surveillance and control for one calendar month, read beside the month before.',
 		willLand: [
 			'Inspections, collections, applications, and source reductions logged in the month, against the month before',
 			'Larvae-positive inspections and catch per trap night for the month, by region',
-			'Product applied and sources eliminated in the month, in a single unit each',
+			'Product applied and sources eliminated in the month, each totalled in one unit',
 		],
 		elsewhere: [larvalOverview, adultOverview, applications],
 	},
 	'/annual': {
 		title: 'Annual',
 		summary:
-			'The season in review: program totals and trends over a year, the material an annual report is written from.',
+			'Program totals and trends for a season or a year, the material an annual report is written from.',
 		willLand: [
 			'Season totals for inspections, collections, applications, and outreach, against the seasons before',
 			'Species abundance and larval density trended across the season, by region',
