@@ -12,18 +12,14 @@ import { type ComponentType, type ReactNode, useState } from 'react';
 import { ExplorerRow } from '../components/explorer';
 import type { MapInset } from '../components/map/map-inset';
 import {
-	ACTIVITY_CATEGORY_LABEL,
-	ACTIVITY_DETAIL_ROUTE,
 	ACTIVITY_FAMILY_LABELS,
 	ACTIVITY_ROLE_LABEL,
 	type ActivityCopy,
 	type ActivityEntry,
 	type ActivityFamilyGroup,
 	type ActivityLookups,
-	activityBadgeFacts,
 	activityEntryKey,
-	activityTags,
-	describeActivityEntry,
+	activityRow,
 	formatActivityTime,
 } from './-activity-data';
 import { HabitatMapCard } from './-habitat-map-card';
@@ -211,7 +207,8 @@ function CollapsibleSection({
  * One entry, as its own explorer would list it.
  *
  * `ExplorerRow` is the shared list item every explorer already uses, and the
- * badges come from the shared register beside it, so a row here reads the way
+ * title, the link, the badges and the Tags are {@link activityRow}'s, the same
+ * parts the nearby list on a service request draws, so a row here reads the way
  * the same record reads on the page it lives on: the same title, the same
  * subtitle, the same life-stage strip. Date and personnel are the two things it
  * omits, and they are the two things this page already knows — the stepper is
@@ -235,15 +232,8 @@ function ActivityRow({
 	readonly onSelect: (key: string) => void;
 }) {
 	const key = activityEntryKey(entry);
-	const { title, subtitle } = describeActivityEntry(
-		entry,
-		lookups.nameById,
-		lookups.formatQuantity,
-	);
-	const noun = ACTIVITY_CATEGORY_LABEL[entry.category];
+	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(entry, lookups);
 	const verb = ACTIVITY_ROLE_LABEL[entry.role] ?? entry.role;
-	const link = { to: ACTIVITY_DETAIL_ROUTE[entry.category], params: { id: entry.id } };
-	const facts = activityBadgeFacts(entry);
 
 	return (
 		<li>
@@ -269,9 +259,9 @@ function ActivityRow({
 					.join(' · ')}
 				swatch={{
 					color: mapFamily[entry.family],
-					label: `${noun}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
+					label: `${categoryLabel}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
 				}}
-				tags={activityTags(entry, lookups.tagById)}
+				tags={tags}
 				title={title}
 				titleLink={link}
 			/>
