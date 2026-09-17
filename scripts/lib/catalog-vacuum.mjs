@@ -8,24 +8,31 @@
  * ## One session
  *
  * The backend check, the vacuum and both measurements go down one psql
- * connection as one script. The check is a `\gset` into a boolean and a
- * `\if` that quits, so nothing is vacuumed on a run that found company, and
- * the gap between the check and the first `vacuum full` is a few statements
- * on the same backend rather than a second process start. A suite can still
- * connect inside that gap; what the rule buys is that a run never starts on
- * top of one that is already there.
+ * connection as one script. The check is one query, `\gset` into a list and
+ * a boolean read off the same rows, and a `\if` that quits, so nothing is
+ * vacuumed on a run that found company and the list printed is the list the
+ * decision was made on. The gap between the check and the first `vacuum full`
+ * is a few statements on the same backend rather than a second process
+ * start. A suite can still connect inside that gap; what the rule buys is
+ * that a run never starts on top of one that is already there.
  *
  * ## What is vacuumed
  *
  * `CATALOGS` is the register. It is the catalogs a throwaway schema build
  * writes rows into, tables, columns, types, constraints, triggers, indexes,
  * defaults, enums, functions, dependencies, view rules, comments and
- * statistics, plus the shared dependency catalog. Measured on the compose
- * container on 2026-09-17, after months of `simmer_test_*` builds, the first
- * five held 149, 79, 69, 41 and 36 MB for zero live rows, and every other
- * catalog in `pg_catalog` was under 300 kB. A catalog off the list costs
- * nothing to add and a bloated one off the list is the whole failure, so the
- * list is wide.
+ * statistics, plus the shared dependency catalog the issue named. Measured
+ * on the compose container on 2026-09-17, after months of `simmer_test_*`
+ * builds, against a database created fresh on the same server: `pg_depend`
+ * 149 MB against 280 kB, `pg_attribute` 79 MB against 680 kB, `pg_trigger`
+ * 69 MB against 32 kB, `pg_constraint` 41 MB against 144 kB, `pg_class` 36 MB
+ * against 232 kB, `pg_attrdef` 6.9 MB against 24 kB, `pg_index` 6.2 MB
+ * against 96 kB, `pg_type` 3.9 MB against 232 kB, `pg_proc` 2.7 MB against
+ * 1.2 MB, `pg_enum` 2.4 MB against 24 kB, `pg_statistic` 1.6 MB against
+ * 360 kB and `pg_namespace` 188 kB against 80 kB. `pg_rewrite` and
+ * `pg_description` had grown by a tenth and `pg_shdepend` not at all; they
+ * stay because a `vacuum full` over 16 kB costs nothing and `pg_enum` at a
+ * hundred times its fresh size is the kind of entry nobody would guess.
  */
 
 /** The catalogs vacuumed, in the order a schema build fills them. */
@@ -47,8 +54,12 @@ export const CATALOGS = [
 	'pg_shdepend',
 ];
 
-const OTHER_BACKENDS =
+/** The `from` clause of the backend check; a `walsender` is not a client backend. */
+const OTHER_BACKENDS_CLAUSE =
 	"from pg_stat_activity where datname = current_database() and backend_type = 'client backend' and pid <> pg_backend_pid()";
+
+/** One `pid|address|application|state` row per other backend. */
+const BACKEND_ROWS = `select pid, coalesce(host(client_addr), 'socket'), coalesce(nullif(application_name, ''), '-'), state ${OTHER_BACKENDS_CLAUSE}`;
 
 const SIZES = `select relname, pg_total_relation_size(oid) from pg_class where relnamespace = 'pg_catalog'::regnamespace and relname in (${CATALOGS.map((name) => `'${name}'`).join(', ')}) order by relname;`;
 
@@ -60,8 +71,8 @@ export function sessionSql() {
 	return [
 		'\\set ON_ERROR_STOP on',
 		'\\echo == backends',
-		`select pid, coalesce(host(client_addr), 'socket'), coalesce(nullif(application_name, ''), '-'), state ${OTHER_BACKENDS} order by backend_start;`,
-		`select count(*) > 0 as busy ${OTHER_BACKENDS} \\gset`,
+		`select count(*) > 0 as busy, coalesce(string_agg(format('%s|%s|%s|%s', pid, address, application, state), E'\\n' order by pid), '') as rows from (${BACKEND_ROWS}) as backends(pid, address, application, state) \\gset`,
+		'\\echo :rows',
 		'\\if :busy',
 		'\\quit',
 		'\\endif',
@@ -97,8 +108,8 @@ function sections(stdout) {
 
 /**
  * `relname|bytes` rows as a `{ [relname]: bytes }` object. A row of any other
- * shape is refused by name: psql prints a command tag per statement unless it
- * runs quiet, and a tag read as a row is a catalog called VACUUM weighing NaN.
+ * shape is refused by name: psql prints a `VACUUM` tag per statement unless
+ * it runs quiet, and the first run read one as a catalog weighing NaN.
  */
 function sizes(rows) {
 	return Object.fromEntries(
@@ -133,48 +144,54 @@ export function parseSession(stdout) {
 	return { backends, before, after };
 }
 
-/** Whether an address is the compose network's gateway, which is this machine. */
-const isGateway = (address) => /\.1$/.test(address);
+/**
+ * Who holds a connection, read off its address. `socket` is the `coalesce`
+ * in `BACKEND_ROWS` for a null `client_addr`, which is a session inside the
+ * container, and a `docker exec psql` held open is how the issue verifies the
+ * refusal. The compose network's gateway is this machine. Any other address
+ * inside the network is another compose service, which here is the electric
+ * service's pool.
+ */
+function holderOf(address) {
+	if (address === 'socket') return 'container';
+	if (/\.1$/.test(address)) return 'host';
+	return 'service';
+}
+
+const HOLDER_HINTS = {
+	container: (addresses) =>
+		`${addresses}: a session inside the container, such as a docker exec psql left open.`,
+	host: (addresses) =>
+		`${addresses}: the compose network's gateway, so a process on this machine, a dev API server, a psql or a test run.`,
+	service: (addresses) =>
+		`${addresses}: inside the compose network, which is the electric service's own pool. docker compose stop electric clears it, and docker compose start electric afterwards costs one re-snapshot.`,
+};
 
 /**
  * The message a refused run prints. It names the lock rule, lists what it
- * found, and says which of the two usual holders each address is, because
- * twenty idle connections from one address inside the network is the local
- * Electric's pool and a person reading a pid list would not know that.
+ * found, and says who holds each address, because twenty idle connections
+ * from one address inside the network is the local Electric's pool and a
+ * person reading a pid list would not know that.
  */
 export function refusal(backends, database) {
-	const inside = backends.filter((backend) => !isGateway(backend.address));
-	const gateway = backends.find((backend) => isGateway(backend.address));
+	const byHolder = new Map();
+	for (const backend of backends) {
+		const holder = holderOf(backend.address);
+		byHolder.set(holder, (byHolder.get(holder) ?? new Set()).add(backend.address));
+	}
 
-	const lines = [
+	return [
 		`Refusing to vacuum: ${backends.length} other backends are connected to ${database}.`,
-		'vacuum full takes an access exclusive lock on each catalog, so anything connected sits',
-		'on that lock for the whole rewrite, and a test suite building a schema queues on every',
-		'statement. Stop what holds these connections and run again.',
+		'vacuum full takes an access exclusive lock on each catalog for the whole rewrite.',
+		'Anything connected sits on that lock, and a test suite building a schema queues on',
+		'every statement. Stop what holds these connections and run again.',
 		'',
 		...backends.map(
 			(backend) => `  ${backend.pid}  ${backend.address}  ${backend.application}  ${backend.state}`,
 		),
-	];
-
-	if (inside.length > 0) {
-		const addresses = [...new Set(inside.map((backend) => backend.address))].join(', ');
-		lines.push(
-			'',
-			`${addresses} is inside the compose network, which is the electric service's own pool.`,
-			'docker compose stop electric clears it; docker compose start electric brings it back',
-			'afterwards and costs one re-snapshot.',
-		);
-	}
-	if (gateway) {
-		lines.push(
-			'',
-			`${gateway.address} is the compose network's gateway, so those connections are processes`,
-			'on this machine: a dev API server, a psql, or a test run.',
-		);
-	}
-
-	return lines.join('\n');
+		'',
+		...[...byHolder].map(([holder, addresses]) => HOLDER_HINTS[holder]([...addresses].join(', '))),
+	].join('\n');
 }
 
 /**
@@ -188,7 +205,8 @@ export function sessionFailure(session, database) {
 	if (session.before === null || session.after === null) {
 		return 'The session found no other backend and still printed no sizes.';
 	}
-	const missing = CATALOGS.filter((name) => !(name in session.before));
+	const { before, after } = session;
+	const missing = CATALOGS.filter((name) => !(name in before && name in after));
 	if (missing.length > 0) {
 		return `Measured ${CATALOGS.length - missing.length} of the ${CATALOGS.length} catalogs CATALOGS names; not in pg_catalog on this server: ${missing.join(', ')}.`;
 	}
@@ -213,12 +231,12 @@ export function formatBytes(bytes) {
 export function report(before, after) {
 	const names = Object.keys(before).sort((a, b) => before[b] - before[a]);
 	const width = Math.max(...names.map((name) => name.length)) + 2;
-	const reclaimed = names.reduce((sum, name) => sum + (before[name] - (after[name] ?? 0)), 0);
+	const reclaimed = names.reduce((sum, name) => sum + (before[name] - after[name]), 0);
 
 	return [
 		...names.map(
 			(name) =>
-				`${name.padEnd(width)}${formatBytes(before[name]).padStart(9)}  ->  ${formatBytes(after[name] ?? 0).padStart(9)}`,
+				`${name.padEnd(width)}${formatBytes(before[name]).padStart(9)}  ->  ${formatBytes(after[name]).padStart(9)}`,
 		),
 		'',
 		`Reclaimed ${formatBytes(reclaimed)} across ${names.length} catalogs.`,

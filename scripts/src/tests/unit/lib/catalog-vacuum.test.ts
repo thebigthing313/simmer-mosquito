@@ -61,6 +61,17 @@ describe('sessionSql', () => {
 		expect(sql).toContain("backend_type = 'client backend'");
 		expect(sql).toContain('pid <> pg_backend_pid()');
 	});
+
+	it('reads the list it prints and the boolean it quits on off one query', () => {
+		// Two queries would let a backend leave between them, so the run vacuums
+		// and then reports a refusal off the list it printed first.
+		const sql = sessionSql();
+		const gsets = sql.split('\n').filter((line) => line.includes('\\gset'));
+		expect(gsets).toHaveLength(1);
+		expect(gsets[0]).toContain('as busy');
+		expect(gsets[0]).toContain('as rows');
+		expect(sql).toContain('\\echo :rows');
+	});
 });
 
 describe('parseSession', () => {
@@ -87,8 +98,6 @@ describe('parseSession', () => {
 	});
 
 	it('refuses a size row it cannot read rather than reporting NaN', () => {
-		// psql prints a VACUUM command tag per statement unless it runs quiet, and
-		// the first run read one as a catalog named VACUUM weighing NaN bytes.
 		const tagged = CLEAN_RUN.replace('== after', 'VACUUM\n== after');
 		expect(() => parseSession(tagged)).toThrow(/VACUUM/);
 	});
@@ -104,8 +113,9 @@ describe('refusal', () => {
 
 	it('says which connections are the local Electric and which are this machine', () => {
 		const message = refusal(parseSession(REFUSED_RUN).backends, 'simmer_mosquito');
+		expect(message).toContain('172.18.0.3: inside the compose network');
 		expect(message).toContain('docker compose stop electric');
-		expect(message).toContain('172.18.0.1 is the compose network');
+		expect(message).toContain("172.18.0.1: the compose network's gateway");
 	});
 
 	it('leaves the Electric hint out when no connection comes from inside the network', () => {
@@ -113,6 +123,17 @@ describe('refusal', () => {
 			[{ pid: 1, address: '172.18.0.1', application: 'psql', state: 'active' }],
 			'simmer_mosquito',
 		);
+		expect(message).not.toContain('docker compose stop electric');
+	});
+
+	it('reads a socket connection as a session inside the container, not as Electric', () => {
+		// A docker exec psql held open is how the issue verifies the refusal, and
+		// its client_addr is null.
+		const message = refusal(
+			[{ pid: 1, address: 'socket', application: 'psql', state: 'active' }],
+			'simmer_mosquito',
+		);
+		expect(message).toContain('socket: a session inside the container');
 		expect(message).not.toContain('docker compose stop electric');
 	});
 });
@@ -128,6 +149,14 @@ describe('sessionFailure', () => {
 		expect(failure).toContain(`Measured 2 of the ${CATALOGS.length} catalogs`);
 		expect(failure).toContain('pg_class');
 		expect(failure).not.toContain('pg_depend');
+	});
+
+	it('names a catalog measured before the vacuum and not after', () => {
+		const rows = CATALOGS.map((name) => `${name}|1024`).join('\n');
+		const short = `== backends\n== before\n${rows}\n== after\npg_depend|1024\n`;
+		const failure = sessionFailure(parseSession(short), 'simmer_mosquito');
+		expect(failure).toContain(`Measured 1 of the ${CATALOGS.length} catalogs`);
+		expect(failure).toContain('pg_attribute');
 	});
 
 	it('fails a run that found nobody and printed no sizes', () => {
