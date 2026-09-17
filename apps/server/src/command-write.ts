@@ -126,11 +126,6 @@ export function readNumberOrNull(value: unknown): number | null {
 	return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-/** Today, as the calendar date the operational columns are keyed by. */
-export function nowLocalDate(): string {
-	return new Date().toISOString().slice(0, 10);
-}
-
 // ===========================================================================
 // The write tail
 // ===========================================================================

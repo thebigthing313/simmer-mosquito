@@ -149,10 +149,38 @@ describe('field-work support commands', () => {
 				actorProfileId,
 				assignmentId,
 				routeId,
+				assignmentDate: '2026-05-11',
 				assignmentItemIds: [
 					{ routeItemId, assignmentItemId },
 					{ routeItemId, assignmentItemId: assignmentItemId2 },
 				],
+			}),
+		).toThrow(DomainValidationError);
+	});
+
+	it('dates a self-assigned route on the day the server hands it', () => {
+		// The day is the Organization's, resolved on the server from the session's
+		// zone (#1092). The builder carries it and holds it to the date shape; it
+		// has no clock of its own.
+		expect(
+			selfAssignRouteCommand({
+				organizationId,
+				actorProfileId,
+				assignmentId,
+				routeId,
+				assignmentDate: '2026-05-11',
+				assignmentItemIds: [{ routeItemId, assignmentItemId }],
+			}).payload,
+		).toMatchObject({ assignmentDate: '2026-05-11', routeId });
+
+		expect(() =>
+			selfAssignRouteCommand({
+				organizationId,
+				actorProfileId,
+				assignmentId,
+				routeId,
+				assignmentDate: '11/05/2026',
+				assignmentItemIds: [{ routeItemId, assignmentItemId }],
 			}),
 		).toThrow(DomainValidationError);
 	});

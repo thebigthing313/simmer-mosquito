@@ -1,10 +1,10 @@
 import { localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
 import type { AssignmentItemPlacement, RouteItemPlacement } from '@simmer-mosquito/domain';
-import { type CommandTransaction, nowLocalDate, readDate } from '../../command-write.js';
+import { type CommandTransaction, readDate } from '../../command-write.js';
 import type { CommandRow } from '../../return-columns.js';
 
 export type FieldWorkTransaction = CommandTransaction;
-export { localDateColumn, nowLocalDate, readDate, softDelete, updateRow };
+export { localDateColumn, readDate, softDelete, updateRow };
 
 // ===========================================================================
 // Ordering helpers

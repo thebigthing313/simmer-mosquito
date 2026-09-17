@@ -1705,10 +1705,14 @@ differ. It requires:
 - `routeId`
 - generated assignment item ids mapped to route item ids
 
-It does not accept `assignmentDate`. The server resolves today in the
-organization timezone and sets:
+The request body carries no `assignmentDate`, and one it does carry is ignored.
+The intent map resolves today in the Organization's zone, from
+`AuthContext.timeZone` through `todayInTimeZone`, and fills the command's
+`assignmentDate` with it before the writer runs. The writer reads the day off
+the command, as it does for `createAssignmentFromRoute`, and never reads a
+clock (#1092). The server sets:
 
-- `assignment_date`
+- `assignment_date`, to that day
 - `assigned_to_profile_id = actorProfileId`
 - `assigned_by_profile_id = actorProfileId`
 
