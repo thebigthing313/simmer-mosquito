@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AuthMe } from '../../../../../auth';
 import type { PersonListing } from '../../../../../hooks/queries/use-people-directory';
+import type { SimmerRole } from '../../../../../routes/my-organization/-components/types';
 
 /**
  * The width the People rows draw at.
@@ -131,7 +132,7 @@ describe('PeopleSection', () => {
 
 function renderSection() {
 	// `role` is the Membership role, not an ARIA one. Biome's `useValidAriaRole`
-	// reads a literal on any element, so it comes off the auth snapshot.
-	const role = OWNER.authenticated ? OWNER.localIdentity.role : 'viewer';
+	// reads a literal on any element, so it goes through a typed variable.
+	const role: SimmerRole = 'owner';
 	return render(<PeopleSection auth={OWNER} canManage={true} role={role} />);
 }
