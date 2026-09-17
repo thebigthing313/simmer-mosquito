@@ -398,9 +398,9 @@ every `Link` destination in the app is asserted.
 
 The `dashboard` item in `apps/web/src/components/app-shell/navigation.ts`
 drops `stub: true`, which puts it in `shellSearchCandidates` and takes it off
-the list of fifteen unbuilt destinations that docblock counts. The `'/'` entry
-in `upcoming-page.tsx` goes with it, and `routes/index.tsx` mounts the page.
-The item keeps its label and its icon.
+the list of unbuilt destinations. The `'/'` entry in `upcoming-page.tsx` goes
+with it, and `routes/index.tsx` mounts the page. The item keeps its label and
+its icon.
 
 ## Build order
 
