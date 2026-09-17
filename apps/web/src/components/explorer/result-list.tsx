@@ -220,13 +220,13 @@ export function ResultRows<TRow>({
 
 	return (
 		/*
-		 * `w-full` on the list, because the Radix viewport wraps its children in a
-		 * `display: table` element that otherwise shrink-wraps to the widest row
-		 * and stops every `truncate` in the rows from having a width to truncate
-		 * against. `auto`, not the Radix default of `hover`: the rail is nearly
-		 * always longer than its panel, and a reader who cannot see a scrollbar
-		 * until they happen to move the pointer over the list has no sign there
-		 * are more rows.
+		 * `w-full` on the list, because each row is absolutely positioned and takes
+		 * its width from the list rather than from the viewport, so the list states
+		 * its own. The Radix `display: table` wrapper that once shrink-wrapped it to
+		 * the widest row is overridden in the shared primitive, not here. `auto`,
+		 * not the Radix default of `hover`: the rail is nearly always longer than
+		 * its panel, and a reader who cannot see a scrollbar until they happen to
+		 * move the pointer over the list has no sign there are more rows.
 		 */
 		<ScrollArea className="min-h-0 flex-1" type="auto" viewportRef={setViewport}>
 			<ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -265,10 +265,17 @@ export function ResultRows<TRow>({
 /**
  * A caller-composed body, for a panel whose records are not a flat list.
  *
- * A plain scroll container rather than the rows' ScrollArea: a tree and a
- * day-grouped log bring their own headers, sections and sticky bits, and the
- * Radix viewport's `display: table` wrapper sizes those to their widest child.
+ * The same ScrollArea the rows and the loading skeleton arrive into, so the
+ * Regions tree and the Daily Work log draw the styled scrollbar every other
+ * rail draws, and it does not change shape when the body replaces the
+ * skeleton. This was a plain `overflow-y-auto` container citing the Radix
+ * viewport's `display: table` wrapper, which the shared primitive had already
+ * overridden with `[&>div]:!block` a week before (#1081).
  */
 export function ResultBody({ children }: { readonly children: ReactNode }) {
-	return <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>;
+	return (
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			{children}
+		</ScrollArea>
+	);
 }
