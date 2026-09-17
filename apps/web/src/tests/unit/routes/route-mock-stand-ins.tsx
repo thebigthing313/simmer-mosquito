@@ -7,12 +7,13 @@
  * harness imports `use-map-extent-fit`, which imports `@simmer-mosquito/sync`:
  * a `sync` factory that awaited the harness would wait on itself, and the file
  * would sit until the watchdog in `vitest.shared.ts` named it (#663). React is
- * the one runtime import, for the anchor `Link` becomes; `AuthMe` is a type and
- * is erased.
+ * the one runtime import, for the anchor `Link` becomes; `AuthenticatedMe`
+ * and `SimmerRole` are types and are erased.
  */
 
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import { type ReactNode, useSyncExternalStore } from 'react';
-import type { AuthMe } from '../../../auth';
+import type { AuthenticatedMe } from '../../../auth';
 
 const listeners = new Set<() => void>();
 
@@ -21,7 +22,10 @@ const listeners = new Set<() => void>();
  * Profile is there or is not. `organizationId` is what `useOrganizationWorkspace`
  * looks the Organization up by, so a suite seeds an organization row under it.
  */
-export function signedInSnapshot(organizationId: string, profileId: string | null): AuthMe {
+export function signedInSnapshot(
+	organizationId: string,
+	profileId: string | null,
+): AuthenticatedMe {
 	return {
 		authenticated: true,
 		user: {
@@ -44,6 +48,20 @@ export function signedInSnapshot(organizationId: string, profileId: string | nul
 			role: 'admin',
 		},
 	};
+}
+
+/**
+ * {@link signedInSnapshot} with the Membership's role set, for a suite gating
+ * on a role floor. The role is the domain's vocabulary rather than a string,
+ * so a suite cannot sign in as a role the ladder does not have.
+ */
+export function signedInSnapshotAs(
+	role: SimmerRole,
+	organizationId = 'org-1',
+	profileId: string | null = 'profile-1',
+): AuthenticatedMe {
+	const snapshot = signedInSnapshot(organizationId, profileId);
+	return { ...snapshot, localIdentity: { ...snapshot.localIdentity, role } };
 }
 
 function subscribe(listener: () => void): () => void {

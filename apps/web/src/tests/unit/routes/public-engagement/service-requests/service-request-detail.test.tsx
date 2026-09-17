@@ -36,6 +36,7 @@
  * lazy stand-in would otherwise overrun the test timeout while it imports.
  */
 
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -57,7 +58,7 @@ const harness = vi.hoisted(() => ({
 	/** The search params a match would carry: the active tab, when it is not Details. */
 	search: {} as Record<string, unknown>,
 	/** Who is signed in, for the two floors the header reads. */
-	role: 'manager' as string,
+	role: 'manager' as SimmerRole,
 	/** Every request the page sent, in order. */
 	sent: [] as URL[],
 	/** What the page handed the mutation hook. */
@@ -131,15 +132,8 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 });
 
 vi.mock('../../../../../hooks/use-auth-snapshot', async () => {
-	const { signedInSnapshot } = await import('../../route-mock-stand-ins');
-	return {
-		useAuthSnapshot: () => {
-			const snapshot = signedInSnapshot('org-1', 'profile-1');
-			return snapshot.authenticated === true
-				? { ...snapshot, localIdentity: { ...snapshot.localIdentity, role: harness.role } }
-				: snapshot;
-		},
-	};
+	const { signedInSnapshotAs } = await import('../../route-mock-stand-ins');
+	return { useAuthSnapshot: () => signedInSnapshotAs(harness.role) };
 });
 
 vi.mock('../../../../../hooks/mutations/use-service-request-mutations', () => ({

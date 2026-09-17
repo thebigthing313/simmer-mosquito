@@ -60,12 +60,8 @@ const HABITAT = 'habitat-1';
  * dashboard, the history card and the surface switch gate nothing.
  */
 vi.mock('../../hooks/use-auth-snapshot', async () => {
-	const { signedInSnapshot } = await import('./routes/route-mock-stand-ins');
-	const snapshot = signedInSnapshot('org-1', 'profile-1');
-	const manager =
-		snapshot.authenticated === true
-			? { ...snapshot, localIdentity: { ...snapshot.localIdentity, role: 'manager' } }
-			: snapshot;
+	const { signedInSnapshotAs } = await import('./routes/route-mock-stand-ins');
+	const manager = signedInSnapshotAs('manager');
 	return { useAuthSnapshot: () => manager };
 });
 
