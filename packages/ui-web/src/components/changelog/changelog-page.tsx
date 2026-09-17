@@ -55,24 +55,24 @@ export function ChangelogPage({
 	 */
 	const listClass = measure === 'record' ? `grid gap-8 ${RELEASE_MEASURE}` : 'grid gap-8';
 
+	// No scroller of its own: the shell's `main` scrolls the page and reserves
+	// the gutter the route-loading skeleton stands in (#1053).
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'overview', measure, padding: 'detail' })}>
-				<PageHeader description={description} icon={HistoryIcon} title={title} />
-				{releases.length === 0 ? (
-					<p className="text-muted-foreground text-sm">No releases have been published yet.</p>
-				) : (
-					<ol className={listClass}>
-						{releases.map((release) => (
-							<ReleaseSection
-								currentVersion={currentVersion}
-								key={release.version}
-								release={release}
-							/>
-						))}
-					</ol>
-				)}
-			</div>
+		<div className={pageContainer({ gap: 'overview', measure, padding: 'detail' })}>
+			<PageHeader description={description} icon={HistoryIcon} title={title} />
+			{releases.length === 0 ? (
+				<p className="text-muted-foreground text-sm">No releases have been published yet.</p>
+			) : (
+				<ol className={listClass}>
+					{releases.map((release) => (
+						<ReleaseSection
+							currentVersion={currentVersion}
+							key={release.version}
+							release={release}
+						/>
+					))}
+				</ol>
+			)}
 		</div>
 	);
 }

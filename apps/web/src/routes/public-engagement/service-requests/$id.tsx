@@ -163,11 +163,9 @@ function ServiceRequestDetailRoute() {
  */
 function ServiceRequestStatePage({ children }: { readonly children: ReactNode }) {
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
-				<BackLink />
-				{children}
-			</div>
+		<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
+			<BackLink />
+			{children}
 		</div>
 	);
 }

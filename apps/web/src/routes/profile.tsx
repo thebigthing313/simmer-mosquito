@@ -36,17 +36,17 @@ function ProfileRoute() {
 		return null;
 	}
 
+	/*
+	 * `record` is the measure the route-loading skeleton reserves, so the page
+	 * arrives at the width it stood in for (#1043). The cards fill the frame
+	 * the way a detail page's do, and the fact rows inside them keep the 34rem
+	 * `DetailList` carries, so the frame is what widened. No scroller of its
+	 * own: the shell's `main` scrolls the page and reserves the gutter the
+	 * skeleton stands in (#1053).
+	 */
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			{/*
-			 * `record` is the measure the route-loading skeleton reserves, so the
-			 * page arrives at the width it stood in for (#1043). The cards fill
-			 * the frame the way a detail page's do, and the fact rows inside them
-			 * keep the 34rem `DetailList` carries, so the frame is what widened.
-			 */}
-			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
-				<ProfileContent me={snapshot} />
-			</div>
+		<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
+			<ProfileContent me={snapshot} />
 		</div>
 	);
 }

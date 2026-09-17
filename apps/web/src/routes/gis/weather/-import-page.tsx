@@ -177,52 +177,51 @@ export function ImportWeatherPage({
 	const navigate = useNavigate();
 	const upload = useWeatherUpload(station.id, canSubmit);
 
+	/*
+	 * `record` is the measure the route-loading skeleton reserves, so the page
+	 * arrives at the width it stood in for rather than in a 900px column of
+	 * its own (#1043, #1046). The cards inside carry their own widths, so the
+	 * frame is what widened. No scroller of its own: the shell's `main`
+	 * scrolls the page and reserves the gutter the skeleton stands in (#1053).
+	 */
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			{/*
-			 * `record` is the measure the route-loading skeleton reserves, so the
-			 * page arrives at the width it stood in for rather than in a 900px
-			 * column of its own (#1043, #1046). The cards inside carry their own
-			 * widths, so the frame is what widened.
-			 */}
-			<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
-				<Link className={backLink()} params={{ id: station.id }} to="/gis/weather/$id">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to {station.name}
-				</Link>
+		<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
+			<Link className={backLink()} params={{ id: station.id }} to="/gis/weather/$id">
+				<ArrowLeftIcon aria-hidden="true" />
+				Back to {station.name}
+			</Link>
 
-				<PageHeader
-					description={`Load a CSV or Excel file of readings for ${station.name}.`}
-					title="Import Readings"
+			<PageHeader
+				description={`Load a CSV or Excel file of readings for ${station.name}.`}
+				title="Import Readings"
+			/>
+
+			<FilePickerCard isBusy={upload.isBusy} onFile={upload.chooseFile} />
+
+			{upload.error === null ? null : (
+				<Alert variant="destructive">
+					<AlertTitle>Unable to Import</AlertTitle>
+					<AlertDescription>{upload.error}</AlertDescription>
+				</Alert>
+			)}
+
+			{upload.parsed === null || upload.assessment === null ? null : (
+				<ParsedFileCard
+					assessment={upload.assessment}
+					canCommit={upload.canCommit}
+					fileName={upload.fileName ?? 'the file'}
+					onCommit={upload.commit}
+					parsed={upload.parsed}
 				/>
+			)}
 
-				<FilePickerCard isBusy={upload.isBusy} onFile={upload.chooseFile} />
-
-				{upload.error === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Import</AlertTitle>
-						<AlertDescription>{upload.error}</AlertDescription>
-					</Alert>
-				)}
-
-				{upload.parsed === null || upload.assessment === null ? null : (
-					<ParsedFileCard
-						assessment={upload.assessment}
-						canCommit={upload.canCommit}
-						fileName={upload.fileName ?? 'the file'}
-						onCommit={upload.commit}
-						parsed={upload.parsed}
-					/>
-				)}
-
-				{upload.result === null ? null : (
-					<ImportResultCard
-						onDone={() => void navigate({ to: '/gis/weather/$id', params: { id: station.id } })}
-						result={upload.result}
-						stationName={station.name}
-					/>
-				)}
-			</div>
+			{upload.result === null ? null : (
+				<ImportResultCard
+					onDone={() => void navigate({ to: '/gis/weather/$id', params: { id: station.id } })}
+					result={upload.result}
+					stationName={station.name}
+				/>
+			)}
 			{upload.dialog}
 		</div>
 	);
