@@ -161,11 +161,11 @@ describeDbIntegration('service-request nearby', () => {
 			});
 			expect(inspection?.distanceMeters).toBeGreaterThan(0);
 
-			// A site is dated by the day its record was created, which is the
+			// A place is dated by the day its record was created, which is the
 			// activity register's rule; a bare `null` here would be a second rule.
-			const site = rows.find((row) => row.category === 'habitat');
-			expect(site).toMatchObject({ family: 'larval', label: 'Culvert 12', detail: 'active' });
-			expect(site?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+			const place = rows.find((row) => row.category === 'habitat');
+			expect(place).toMatchObject({ family: 'larval', label: 'Culvert 12', detail: 'active' });
+			expect(place?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		});
 	});
 
@@ -218,7 +218,8 @@ describeDbIntegration('service-request nearby', () => {
 
 	// Which families come back is the caller's, and the default is the three
 	// operational ones, which is what the endpoint answered before it could
-	// return requests at all.
+	// return requests at all. Public engagement is outreach as well as requests,
+	// because the family is read off the register rather than a list of tables.
 	it('reads only the families asked for', async () => {
 		await withTestDb(async ({ db }) => {
 			const organizationId = await createOrganization(db);
@@ -228,6 +229,21 @@ describeDbIntegration('service-request nearby', () => {
 				display_name: 2,
 				request_date: new Date('2026-07-20T12:00:00'),
 			});
+			const outreachMethod = await db
+				.insertInto('outreach_methods')
+				.values({ organization_id: organizationId, name: 'Door hanger' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.insertInto('outreach_actions')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					outreach_method_id: outreachMethod.id,
+					outreach_date: new Date('2026-07-22T12:00:00'),
+					reach: 40,
+				})
+				.execute();
 
 			const categories = async (families: NearbyRecordsInput['families']) =>
 				(await listNearbyRecords(db, nearby(organizationId, { families }))).map(
@@ -237,6 +253,7 @@ describeDbIntegration('service-request nearby', () => {
 			expect(await categories(DEFAULT_NEARBY_FAMILIES)).toEqual(['habitat']);
 			expect(await categories(['larval', 'publicEngagement'])).toEqual([
 				'habitat',
+				'outreach',
 				'serviceRequest',
 			]);
 			expect(await categories(['adult'])).toEqual([]);

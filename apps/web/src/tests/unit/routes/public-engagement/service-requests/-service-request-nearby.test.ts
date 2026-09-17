@@ -91,9 +91,9 @@ describe('visibleNearbyItems', () => {
 });
 
 describe('nearbyItemDate', () => {
-	// The row dates a site by the day its record was created, which is the
+	// The row dates a place by the day its record was created, which is the
 	// activity register's rule. Beside a request that day says nothing, so the
-	// list keeps drawing a site without one.
+	// list keeps drawing a habitat or a trap without one.
 	it.each(['habitat', 'trap'] as const)('leaves the date off a %s', (category) => {
 		expect(nearbyItemDate(item('a', category, 10))).toBeNull();
 	});

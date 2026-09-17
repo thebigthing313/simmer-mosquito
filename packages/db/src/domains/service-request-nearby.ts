@@ -1,4 +1,4 @@
-import type { ActivityFamily } from '@simmer-mosquito/domain';
+import { type ActivityFamily, OPERATIONAL_ACTIVITY_FAMILIES } from '@simmer-mosquito/domain';
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { SimmerDatabase } from '../index.js';
@@ -28,9 +28,11 @@ export interface NearbyRecordRow extends ActivityRecordRow {
 
 /**
  * The families the view reads when a caller names none: the three operational
- * ones, which is what it answered before it could return other requests.
+ * ones, which is what it answered before it could return other requests. The
+ * fourth, `publicEngagement`, is the outreach actions and the other requests
+ * around this one.
  */
-export const DEFAULT_NEARBY_FAMILIES: readonly ActivityFamily[] = ['larval', 'adult', 'control'];
+export const DEFAULT_NEARBY_FAMILIES: readonly ActivityFamily[] = OPERATIONAL_ACTIVITY_FAMILIES;
 
 export interface NearbyRecordsInput {
 	readonly organizationId: string;
@@ -106,10 +108,10 @@ export async function listNearbyRecords(
 
 /** One branch of the union: a shape's columns, its distance, and the radius predicate. */
 function nearbySelect(shape: RecordShape, input: NearbyRecordsInput): RawBuilder<NearbyRecordRow> {
-	// A site is within the radius whenever it exists, so the window is over the
-	// dated kinds only. The register dates a site by the day its record was
+	// A place is within the radius whenever it exists, so the window is over the
+	// dated kinds only. The register dates a place by the day its record was
 	// created, and that day still rides along on the row.
-	const windowed = shape.site !== true;
+	const windowed = shape.place !== true;
 	return sql<NearbyRecordRow>`
 		select ${recordColumns(shape, { date: shape.date, occurredAt: shape.occurredAt })},
 			st_distance(r.geom::geography, center.g) as "distanceMeters"

@@ -1,4 +1,8 @@
-import type { ActivityCategory, ActivityFamily } from '@simmer-mosquito/domain';
+import {
+	type ActivityCategory,
+	type ActivityFamily,
+	OPERATIONAL_ACTIVITY_FAMILIES,
+} from '@simmer-mosquito/domain';
 import {
 	circlePolygon,
 	type GeoJsonFeature,
@@ -13,11 +17,12 @@ import type { ActivityEntry } from '../../-activity-data';
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
- * The families this page asks the endpoint for. The endpoint can also answer
- * `publicEngagement`, the other requests around this one, and the redesigned
- * page will ask for it; until then the type below says what this page draws.
+ * The families this page asks the endpoint for, which are the endpoint's own
+ * default, sent so the request says what the type below promises. The endpoint
+ * can also answer `publicEngagement`, the outreach and the other requests
+ * around this one, and the redesigned page will ask for it.
  */
-const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = ['larval', 'adult', 'control'];
+const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = OPERATIONAL_ACTIVITY_FAMILIES;
 
 /** The seven record kinds the three families above hold. */
 export type NearbyCategory = Exclude<ActivityCategory, 'outreach' | 'serviceRequest'>;
@@ -121,12 +126,12 @@ async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyRespo
 }
 
 /**
- * The date the list shows beside a nearby record, or null for a site.
+ * The date the list shows beside a nearby record, or null for a place.
  *
  * The row dates a habitat or a trap by the day its record was created, which
  * is the activity register's rule and what places a person on Daily Work. Next
- * to a request it says nothing about the site, so the list leaves it off, as
- * it did when the row carried no date for a site at all.
+ * to a request it says nothing about the place, so the list leaves it off, as
+ * it did when the row carried no date for a place at all.
  */
 export function nearbyItemDate(item: NearbyItem): string | null {
 	return NEARBY_FAMILY_OF[item.category] === 'infrastructure' ? null : item.date;

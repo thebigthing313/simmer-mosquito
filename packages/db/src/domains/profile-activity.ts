@@ -204,7 +204,7 @@ export interface RecordShape {
 	 * reader asking "what happened in this window" leaves such a record out of
 	 * the window rather than dating it by when somebody typed it in.
 	 */
-	readonly site?: true;
+	readonly place?: true;
 	/**
 	 * The left joins this shape's site name needs. Every branch aliases its own
 	 * table `r`, so `h`, `ad` and `t` are free for the habitat, address and trap
@@ -268,7 +268,7 @@ export function recordShapes(timeZone: string): {
 			category: 'habitat',
 			family: 'larval',
 			table: 'habitats',
-			site: true,
+			place: true,
 			date: localDate('r.created_at'),
 			occurredAt: 'r.created_at',
 			label: 'r.habitat_name',
@@ -298,7 +298,7 @@ export function recordShapes(timeZone: string): {
 			category: 'trap',
 			family: 'adult',
 			table: 'traps',
-			site: true,
+			place: true,
 			date: localDate('r.created_at'),
 			occurredAt: 'r.created_at',
 			label: trapLabelSql('r'),

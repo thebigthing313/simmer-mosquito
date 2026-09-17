@@ -43,7 +43,8 @@ type NearbyReaders = typeof defaultNearbyReaders;
  * date) and may be overridden per-request via query params so the UI can offer
  * an "adjust" control. `families` names which of the four activity families to
  * read; left out, it is the three operational ones, and the public-engagement
- * family is what returns the other requests around this one.
+ * family is what returns the outreach actions and the other requests around
+ * this one.
  */
 export function registerServiceRequestNearbyRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -138,7 +139,7 @@ export function registerServiceRequestNearbyRoutes(
  * The radius and window defaults come from
  * `settings.publicEngagement.serviceRequestContext`; the UI offers an "adjust"
  * control, and the overrides are what it sends. They go through the same
- * parsers every other `/map/*` query uses — this module used to carry its own
+ * parsers every other `/map/*` query uses. This module used to carry its own
  * `DATE_PATTERN` and a pair of parsers that answered the string `'invalid'`
  * instead of the `{ ok: false, reason }` union everything else returns, which
  * is two protocols on one path prefix.
