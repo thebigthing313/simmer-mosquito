@@ -6,23 +6,35 @@ import type { AuthVariables } from '../../auth-middleware.js';
 import { registerServiceRequestNearbyRoutes } from '../../service-request-nearby.js';
 
 // The route's own decisions, which need no database: which families reach the
-// reader, what the reader is asked, and what is refused before it is asked.
-// The reader's answer is `packages/db`'s and is covered by its integration
-// suite.
+// reader, what the reader is asked, where the window ends, and what is refused
+// before anything is asked. The reader's answer is `packages/db`'s and is
+// covered by its integration suite.
 
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
 const requestId = 'c2a0e1d4-6b3f-4e8a-9d17-5f0b2c8a4e61';
+const timeZone = 'America/New_York';
 
 const authContext = { organization: { id: organizationId } } as AuthContext;
 
 type Readers = NonNullable<Parameters<typeof registerServiceRequestNearbyRoutes>[1]['readers']>;
 
-/** An app whose three reads are fakes; the reader records what it was asked. */
-function createApp(overrides: Partial<Readers> = {}) {
+/**
+ * An app whose three reads are fakes; the reader records what it was asked.
+ *
+ * The request is open unless a case closes it, and the clock is pinned to
+ * 01:30Z on 20 August, the evening of the 19th in New York and inside the
+ * default window, so a case that says nothing about the end gets the setting's.
+ */
+function createApp(overrides: Partial<Readers> = {}, closedDate: string | null = null) {
 	const calls: unknown[] = [];
 	const readers: Readers = {
-		getServiceRequestCenter: async () => ({ lat: 35.5, lng: -90.5, requestDate: '2026-08-15' }),
-		getOrganizationSettings: async () => ({ timezone: 'America/New_York' }),
+		getServiceRequestCenter: async () => ({
+			lat: 35.5,
+			lng: -90.5,
+			requestDate: '2026-08-15',
+			closedDate,
+		}),
+		getOrganizationSettings: async () => ({ timezone: timeZone }),
 		listNearbyRecords: async (_db, input) => {
 			calls.push(input);
 			return [];
@@ -37,11 +49,88 @@ function createApp(overrides: Partial<Readers> = {}) {
 			await next();
 		}),
 		readers,
+		now: () => new Date('2026-08-20T01:30:00.000Z'),
 	});
 	return { app, calls };
 }
 
 const path = `/map/service-requests/${requestId}/nearby`;
+
+// The end of the window is the later of the setting's `daysAfter` and the
+// request's end anchor, the close day or today, each a day in the
+// Organization's zone (#1084).
+describe('service request nearby window end', () => {
+	it('ends on the setting when the request closed inside it', async () => {
+		const { app, calls } = createApp({}, '2026-08-20');
+
+		const response = await app.request(path);
+
+		await expect(response.json()).resolves.toMatchObject({
+			dateFrom: '2026-08-01',
+			dateTo: '2026-08-29',
+		});
+		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-08-29' })]);
+	});
+
+	it('ends on the close day when the request closed after the setting', async () => {
+		const { app, calls } = createApp({}, '2026-10-02');
+
+		const response = await app.request(path);
+
+		await expect(response.json()).resolves.toMatchObject({
+			dateFrom: '2026-08-01',
+			dateTo: '2026-10-02',
+		});
+		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-10-02' })]);
+	});
+
+	it("ends on the Organization's today while an old request is open", async () => {
+		const { app, calls } = createApp({
+			getServiceRequestCenter: async () => ({
+				lat: 35.5,
+				lng: -90.5,
+				requestDate: '2026-07-01',
+				closedDate: null,
+			}),
+		});
+
+		const response = await app.request(path);
+
+		// 01:30Z on 20 August is the evening of the 19th in New York.
+		await expect(response.json()).resolves.toMatchObject({
+			dateFrom: '2026-06-17',
+			dateTo: '2026-08-19',
+		});
+		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-08-19' })]);
+	});
+
+	it("reads the close day in the Organization's zone", async () => {
+		const getServiceRequestCenter = vi.fn(async () => ({
+			lat: 35.5,
+			lng: -90.5,
+			requestDate: '2026-08-15',
+			closedDate: null,
+		}));
+		const { app } = createApp({ getServiceRequestCenter });
+
+		await app.request(path);
+
+		expect(getServiceRequestCenter).toHaveBeenCalledWith(expect.anything(), {
+			organizationId,
+			id: requestId,
+			timeZone,
+		});
+	});
+
+	it('lets an explicit dateTo override the computed end', async () => {
+		const { app, calls } = createApp({}, '2026-10-02');
+
+		const response = await app.request(`${path}?dateTo=2026-08-01`);
+
+		await expect(response.json()).resolves.toMatchObject({ dateTo: '2026-08-01' });
+		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-08-01' })]);
+	});
+});
 
 describe('service request nearby', () => {
 	it('reads the three operational families when none are named', async () => {

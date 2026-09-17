@@ -1,8 +1,65 @@
 import { expect, it } from 'vitest';
 import type { DbExecutor, NearbyRecordsInput } from '../../index.js';
-import { DEFAULT_NEARBY_FAMILIES, listNearbyRecords, sql } from '../../index.js';
+import {
+	DEFAULT_NEARBY_FAMILIES,
+	getServiceRequestCenter,
+	listNearbyRecords,
+	sql,
+} from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
 import { createOrganization } from '../../test-support/row-fixtures.js';
+
+describeDbIntegration('service-request center', () => {
+	// The close is the end anchor of the nearby window, so it is a day in the
+	// Organization's zone the way every operational date is: 10:30pm on 20
+	// August in New York is 21 August in UTC, and the window must end on the
+	// day the person who closed it was on.
+	it("reads the close as a day in the Organization's zone", async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const id = await insertServiceRequest(db, organizationId, {
+				geom: point(-90.5, 35.5),
+				display_name: 1,
+				request_date: new Date('2026-08-02T12:00:00'),
+				closed_at: new Date('2026-08-21T02:30:00.000Z'),
+			});
+
+			const eastern = await getServiceRequestCenter(db, {
+				organizationId,
+				id,
+				timeZone: 'America/New_York',
+			});
+			expect(eastern).toEqual({
+				lat: 35.5,
+				lng: -90.5,
+				requestDate: '2026-08-02',
+				closedDate: '2026-08-20',
+			});
+
+			const utc = await getServiceRequestCenter(db, { organizationId, id, timeZone: 'UTC' });
+			expect(utc?.closedDate).toBe('2026-08-21');
+		});
+	});
+
+	it('reads no close day for an open request', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const id = await insertServiceRequest(db, organizationId, {
+				geom: point(-90.5, 35.5),
+				display_name: 1,
+				request_date: new Date('2026-08-02T12:00:00'),
+			});
+
+			const center = await getServiceRequestCenter(db, {
+				organizationId,
+				id,
+				timeZone: 'America/New_York',
+			});
+			expect(center?.requestDate).toBe('2026-08-02');
+			expect(center?.closedDate).toBeNull();
+		});
+	});
+});
 
 // The request every case is centred on. Nothing here reads it as a row: it is
 // the point the radius is drawn around and the id the public-engagement family

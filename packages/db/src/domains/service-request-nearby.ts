@@ -8,7 +8,7 @@ import {
 	recordColumns,
 	recordShapes,
 } from './profile-activity.js';
-import { assertIanaTimeZone } from './record-display-sql.js';
+import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
 /**
  * One record near a service request: the same columns the profile-activity
@@ -133,21 +133,30 @@ function nearbySelect(shape: RecordShape, input: NearbyRecordsInput): RawBuilder
 export interface ServiceRequestCenter {
 	readonly lat: number;
 	readonly lng: number;
-	/** The request's operational date (`YYYY-MM-DD`), the time-window anchor. */
+	/** The request's operational date (`YYYY-MM-DD`), the time-window's start anchor. */
 	readonly requestDate: string;
+	/**
+	 * The day the request was closed (`YYYY-MM-DD`) in the Organization's zone,
+	 * or null while it is open. The time-window's end anchor: `closed_at` is an
+	 * instant, and which day it fell on is the Organization's question (#154).
+	 */
+	readonly closedDate: string | null;
 }
 
-/** The center point + request date for one org-owned service request, or undefined. */
+/** The center point, request date and close day for one org-owned service request, or undefined. */
 export async function getServiceRequestCenter(
 	db: Kysely<SimmerDatabase>,
-	input: { readonly organizationId: string; readonly id: string },
+	input: { readonly organizationId: string; readonly id: string; readonly timeZone: string },
 ): Promise<ServiceRequestCenter | undefined> {
+	const closedDate = sql.raw(localDateSql('r.closed_at', assertIanaTimeZone(input.timeZone)));
 	const result = await sql<{
 		readonly lat: number;
 		readonly lng: number;
 		readonly requestDate: string;
+		readonly closedDate: string | null;
 	}>`
-		select r.lat, r.lng, to_char(r.request_date, 'YYYY-MM-DD') as "requestDate"
+		select r.lat, r.lng, to_char(r.request_date, 'YYYY-MM-DD') as "requestDate",
+			to_char(${closedDate}, 'YYYY-MM-DD') as "closedDate"
 		from service_requests r
 		where r.id = ${input.id}
 			and r.organization_id = ${input.organizationId}
@@ -158,7 +167,12 @@ export async function getServiceRequestCenter(
 	const row = result.rows[0];
 	return row === undefined
 		? undefined
-		: { lat: Number(row.lat), lng: Number(row.lng), requestDate: row.requestDate };
+		: {
+				lat: Number(row.lat),
+				lng: Number(row.lng),
+				requestDate: row.requestDate,
+				closedDate: row.closedDate,
+			};
 }
 
 /** The raw JSONB settings document for an organization (resolved by the domain layer). */

@@ -22,6 +22,7 @@ import {
 	parseOptionalVocabularyListFilter,
 	uuidPattern,
 } from './map-tiles.js';
+import { todayInTimeZone } from './organization-day.js';
 
 /**
  * The three reads the route makes, injectable so a suite can drive it without
@@ -39,12 +40,19 @@ type NearbyReaders = typeof defaultNearbyReaders;
  * Reads the map-context view for a service request: the records within the
  * org's configured radius + time window of the request, in the activity row
  * shape plus a distance. The radius and window default to
- * `settings.publicEngagement.serviceRequestContext` (anchored on the request
- * date) and may be overridden per-request via query params so the UI can offer
- * an "adjust" control. `families` names which of the four activity families to
- * read; left out, it is the three operational ones, and the public-engagement
- * family is what returns the outreach actions and the other requests around
- * this one.
+ * `settings.publicEngagement.serviceRequestContext` and may be overridden
+ * per-request via query params so the UI can offer an "adjust" control.
+ * `families` names which of the four activity families to read; left out, it
+ * is the three operational ones, and the public-engagement family is what
+ * returns the outreach actions and the other requests around this one.
+ *
+ * The window starts `daysBefore` ahead of the request date and ends on the
+ * later of `daysAfter` past it and the request's end anchor: the day it was
+ * closed, or today while it is open (#1084). Both anchor days are the
+ * Organization's calendar days, which is the rule every operational date
+ * follows (#154, #156), so the close is read back through the same zone the
+ * collections in the window are dated in, and today is read through
+ * `todayInTimeZone` rather than the server's clock.
  */
 export function registerServiceRequestNearbyRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -52,9 +60,12 @@ export function registerServiceRequestNearbyRoutes(
 		readonly db: Kysely<SimmerDatabase>;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly readers?: Partial<NearbyReaders>;
+		/** The clock behind "today", injectable for the reason the readers are. */
+		readonly now?: () => Date;
 	},
 ): void {
 	const readers: NearbyReaders = { ...defaultNearbyReaders, ...options.readers };
+	const now = options.now ?? (() => new Date());
 
 	app.get('/map/service-requests/:id/nearby', options.authContextMiddleware, async (context) => {
 		const organizationId = context.get('authContext').organization.id;
@@ -68,15 +79,21 @@ export function registerServiceRequestNearbyRoutes(
 			);
 		}
 
-		const request = await readers.getServiceRequestCenter(options.db, { organizationId, id });
-		if (request === undefined) {
-			return context.json({ error: 'not_found', reason: 'Service request not found.' }, 404);
-		}
-
+		// Settings ahead of the request, because the close day is read in the
+		// Organization's zone and the zone is a setting.
 		const settings = resolveOrganizationSettings(
 			await readers.getOrganizationSettings(options.db, { organizationId }),
 		).settings;
 		const requestContext = settings.publicEngagement.serviceRequestContext;
+
+		const request = await readers.getServiceRequestCenter(options.db, {
+			organizationId,
+			id,
+			timeZone: settings.timezone,
+		});
+		if (request === undefined) {
+			return context.json({ error: 'not_found', reason: 'Service request not found.' }, 404);
+		}
 
 		// The window is anchored on the stored request date, and `request_date` is a
 		// `date NOT NULL` read back through `to_char`, so there is no row this can
@@ -87,7 +104,11 @@ export function registerServiceRequestNearbyRoutes(
 		// the caller sent is wrong.
 		let defaults: ServiceRequestContextBounds;
 		try {
-			defaults = serviceRequestContextBounds(request.requestDate, requestContext);
+			defaults = serviceRequestContextBounds(
+				request.requestDate,
+				requestContext,
+				request.closedDate ?? todayInTimeZone(settings.timezone, now()),
+			);
 		} catch (error) {
 			if (!(error instanceof DomainValidationError)) {
 				throw error;
