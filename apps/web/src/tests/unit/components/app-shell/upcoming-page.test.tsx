@@ -81,6 +81,23 @@ describe('UpcomingPage', () => {
 		expect(prose?.classList.contains('mx-auto')).toBe(false);
 		expect(prose?.parentElement?.classList.contains('mx-auto')).toBe(false);
 	});
+
+	// The frame pads the page and the skeleton reads the same `page` padding,
+	// so the stub's badge lands where the skeleton's title bar sat only if the
+	// grid inside the frame adds no vertical padding of its own. It carried
+	// `py-6` on top of the frame's `py-6 md:py-8`, which put the badge 56px
+	// below the stage top on a desktop screen against the skeleton's 32px
+	// (#1060).
+	it('adds no vertical padding inside the frame the skeleton shares', () => {
+		const { container } = renderAt('/gis/data-explorer');
+		const frame = container.firstElementChild;
+		const grid = container.querySelector('h1')?.closest('header')?.parentElement;
+		expect(frame?.className).toBe(
+			pageContainer({ flow: 'block', gap: 'none', measure: 'record', padding: 'page' }),
+		);
+		expect(grid?.parentElement).toBe(frame);
+		expect(grid?.className.split(/\s+/).filter((cls) => /^-?(p|py|pt|pb)-/.test(cls))).toEqual([]);
+	});
 });
 
 function renderAt(activePath: string) {

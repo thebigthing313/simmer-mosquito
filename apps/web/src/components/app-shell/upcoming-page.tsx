@@ -344,10 +344,12 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 	// 46rem the page used to centre in, and they sit at the frame's left edge
 	// where the skeleton's heading sat, rather than 440px in on a 1920 screen.
 	// The links are the one part that reads better wide, so they take the room
-	// as columns.
+	// as columns. The frame's padding is the only vertical padding, because the
+	// skeleton reads the same `page` variant: a `py-6` on this grid put the
+	// badge 24px below where the skeleton's title bar sat (#1060).
 	return (
 		<OutletSimpleLayout measure="record">
-			<div className="grid content-start gap-8 py-6">
+			<div className="grid content-start gap-8">
 				<header className="grid max-w-[46rem] justify-items-start gap-3">
 					<Badge variant="secondary">
 						<UpcomingIcon aria-hidden="true" />
