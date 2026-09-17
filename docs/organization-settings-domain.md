@@ -407,12 +407,22 @@ context shown around service requests.
 The default is:
 
 - records within `0.25 mile`
-- control actions within 14 days before through 14 days after the request date
+- control actions within 14 days before through at least 14 days after the
+  request date
 
 The radius amount must be strictly positive. The radius unit is stored as a
 `units.code` and server save validation must ensure it is a distance unit.
 `daysBefore` and `daysAfter` are nonnegative integers; zero means the request
 date only for that side of the window.
+
+`daysBefore` is the start of the window. `daysAfter` is a floor on its end
+rather than the end: the window runs to the later of `requestDate + daysAfter`
+and the request's end anchor, which is the day it was closed, or today while it
+is open. A closed request stops growing at its close. Both anchor days are
+calendar days in the Organization's timezone, the rule every operational date
+follows (#154, #156), so `closed_at` becomes a day in that zone and today is the
+day the Organization is currently on. An explicit `dateTo` on the nearby
+request still overrides the computed end.
 
 This setting drives default queries for nearby habitats, traps, surveillance
 actions, control actions, and possibly other service requests. It does not

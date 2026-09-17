@@ -14,21 +14,37 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { parseOptionalDateFilter, parseOptionalPositiveNumber, uuidPattern } from './map-tiles.js';
+import { todayInTimeZone } from './organization-day.js';
 
 /**
  * Reads the map-context view for a service request: the operational records
  * within the org's configured radius + time window of the request. The radius
  * and window default to `settings.publicEngagement.serviceRequestContext`
- * (anchored on the request date) and may be overridden per-request via query
- * params so the UI can offer an "adjust" control.
+ * and may be overridden per-request via query params so the UI can offer an
+ * "adjust" control.
+ *
+ * The window starts `daysBefore` ahead of the request date and ends on the
+ * later of `daysAfter` past it and the request's end anchor: the day it was
+ * closed, or today while it is open (#1084). Both anchor days are the
+ * Organization's calendar days, which is the rule every operational date
+ * follows (#154, #156), so the close is read back through the same zone the
+ * collections in the window are dated in, and today is read through
+ * `todayInTimeZone` rather than the server's clock.
  */
 export function registerServiceRequestNearbyRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
 		readonly db: Kysely<SimmerDatabase>;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
+		/** The reads, injectable so the route has an HTTP test with no database. */
+		readonly readers?: Partial<ServiceRequestNearbyReaders>;
+		/** The clock behind "today", injectable for the same reason. */
+		readonly now?: () => Date;
 	},
 ): void {
+	const readers: ServiceRequestNearbyReaders = { ...defaultReaders, ...options.readers };
+	const now = options.now ?? (() => new Date());
+
 	app.get('/map/service-requests/:id/nearby', options.authContextMiddleware, async (context) => {
 		const organizationId = context.get('authContext').organization.id;
 		const id = context.req.param('id');
@@ -41,15 +57,21 @@ export function registerServiceRequestNearbyRoutes(
 			);
 		}
 
-		const request = await getServiceRequestCenter(options.db, { organizationId, id });
+		// Settings ahead of the request, because the close day is read in the
+		// Organization's zone and the zone is a setting.
+		const settings = resolveOrganizationSettings(
+			await readers.getOrganizationSettingsRaw(options.db, { organizationId }),
+		).settings;
+		const requestContext = settings.publicEngagement.serviceRequestContext;
+
+		const request = await readers.getServiceRequestCenter(options.db, {
+			organizationId,
+			id,
+			timeZone: settings.timezone,
+		});
 		if (request === undefined) {
 			return context.json({ error: 'not_found', reason: 'Service request not found.' }, 404);
 		}
-
-		const settings = resolveOrganizationSettings(
-			await getOrganizationSettingsRaw(options.db, { organizationId }),
-		).settings;
-		const requestContext = settings.publicEngagement.serviceRequestContext;
 
 		// The window is anchored on the stored request date, and `request_date` is a
 		// `date NOT NULL` read back through `to_char`, so there is no row this can
@@ -60,7 +82,11 @@ export function registerServiceRequestNearbyRoutes(
 		// the caller sent is wrong.
 		let defaults: ServiceRequestContextBounds;
 		try {
-			defaults = serviceRequestContextBounds(request.requestDate, requestContext);
+			defaults = serviceRequestContextBounds(
+				request.requestDate,
+				requestContext,
+				request.closedDate ?? todayInTimeZone(settings.timezone, now()),
+			);
 		} catch (error) {
 			if (!(error instanceof DomainValidationError)) {
 				throw error;
@@ -80,7 +106,7 @@ export function registerServiceRequestNearbyRoutes(
 		const dateFrom = overrides.dateFrom ?? defaults.dateFrom;
 		const dateTo = overrides.dateTo ?? defaults.dateTo;
 
-		const items = await listNearbyRecords(options.db, {
+		const items = await readers.listNearbyRecords(options.db, {
 			organizationId,
 			center: { lat: request.lat, lng: request.lng },
 			radiusMeters,
@@ -106,6 +132,18 @@ export function registerServiceRequestNearbyRoutes(
 		});
 	});
 }
+
+export interface ServiceRequestNearbyReaders {
+	readonly getOrganizationSettingsRaw: typeof getOrganizationSettingsRaw;
+	readonly getServiceRequestCenter: typeof getServiceRequestCenter;
+	readonly listNearbyRecords: typeof listNearbyRecords;
+}
+
+const defaultReaders: ServiceRequestNearbyReaders = {
+	getOrganizationSettingsRaw,
+	getServiceRequestCenter,
+	listNearbyRecords,
+};
 
 /**
  * The per-request overrides for the radius and time window.

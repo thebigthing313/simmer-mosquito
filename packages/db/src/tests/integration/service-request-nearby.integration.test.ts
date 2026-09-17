@@ -1,7 +1,52 @@
 import { expect, it } from 'vitest';
-import { listNearbyRecords, sql } from '../../index.js';
+import { type DbExecutor, getServiceRequestCenter, listNearbyRecords, sql } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
 import { createOrganization } from '../../test-support/row-fixtures.js';
+
+describeDbIntegration('service-request center', () => {
+	// The close is the end anchor of the nearby window, so it is a day in the
+	// organization's zone the way every operational date is: 10:30pm on 20
+	// August in New York is 21 August in UTC, and the window must end on the
+	// day the person who closed it was on.
+	it('reads the close as a day in the organization’s zone', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const id = await insertServiceRequest(db, organizationId, {
+				closedAt: new Date('2026-08-21T02:30:00.000Z'),
+			});
+
+			const eastern = await getServiceRequestCenter(db, {
+				organizationId,
+				id,
+				timeZone: 'America/New_York',
+			});
+			expect(eastern).toEqual({
+				lat: 35.5,
+				lng: -90.5,
+				requestDate: '2026-08-02',
+				closedDate: '2026-08-20',
+			});
+
+			const utc = await getServiceRequestCenter(db, { organizationId, id, timeZone: 'UTC' });
+			expect(utc?.closedDate).toBe('2026-08-21');
+		});
+	});
+
+	it('reads no close day for an open request', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const id = await insertServiceRequest(db, organizationId, { closedAt: null });
+
+			const center = await getServiceRequestCenter(db, {
+				organizationId,
+				id,
+				timeZone: 'America/New_York',
+			});
+			expect(center?.requestDate).toBe('2026-08-02');
+			expect(center?.closedDate).toBeNull();
+		});
+	});
+});
 
 describeDbIntegration('service-request nearby', () => {
 	// One call exercises the full seven-branch union, so this validates the SQL
@@ -97,3 +142,47 @@ describeDbIntegration('service-request nearby', () => {
 		});
 	});
 });
+
+/**
+ * One request at the nearby suite's center, received on 2 August.
+ *
+ * The request date goes in at noon rather than midnight because the driver
+ * serializes a `Date` in the client's zone, and a UTC midnight reaches a
+ * `date` column as the day before anywhere west of Greenwich.
+ */
+async function insertServiceRequest(
+	db: DbExecutor,
+	organizationId: string,
+	input: { readonly closedAt: Date | null },
+): Promise<string> {
+	const point = sql<string>`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`;
+	const address = await db
+		.insertInto('addresses')
+		.values({
+			organization_id: organizationId,
+			geom: point,
+			display_name: '100 Main St',
+			country: 'US',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const contact = await db
+		.insertInto('contacts')
+		.values({ organization_id: organizationId, contact_name: 'A. Caller' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const request = await db
+		.insertInto('service_requests')
+		.values({
+			organization_id: organizationId,
+			geom: point,
+			request_date: new Date('2026-08-02T12:00:00'),
+			address_id: address.id,
+			contact_id: contact.id,
+			closed_at: input.closedAt,
+			details: 'Standing water behind the property.',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return request.id;
+}

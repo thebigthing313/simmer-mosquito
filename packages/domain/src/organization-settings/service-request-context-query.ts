@@ -44,27 +44,40 @@ export interface ServiceRequestContextBounds {
 /**
  * Resolve the concrete proximity + time-window bounds a nearby query needs from
  * the org's service-request context setting, anchored on a request's date:
- * radius → meters, and timeWindow → an inclusive
- * `[requestDate - daysBefore, requestDate + daysAfter]` date range. Date math is
- * UTC so it never drifts a day at a timezone boundary.
+ * radius → meters, and timeWindow → an inclusive date range starting at
+ * `requestDate - daysBefore`. Date math is UTC so it never drifts a day at a
+ * timezone boundary.
  *
- * Throws `DomainValidationError` when the request date is not a readable
- * calendar date, naming `requestDate` so the issue points at the field the
- * caller passed rather than at `addUtcDays`'s argument.
+ * The end is the later of `requestDate + daysAfter` and `endAnchor`, which is
+ * the day the request closed, or today while it is still open. `daysAfter` is
+ * a floor on the end rather than the end: a request open for six weeks used to
+ * show two weeks of what happened after it and nothing of the work that closed
+ * it (#1084). Which day the anchor is on is the caller's question, because it
+ * is a calendar day in the Organization's zone (#154, #156) and this function
+ * knows no zone; it reads the day off whatever it is handed, so a timestamp
+ * arrives as its first ten characters the way the request date does.
+ *
+ * Throws `DomainValidationError` when either date is not a readable calendar
+ * date, naming `requestDate` or `endAnchor` so the issue points at the field
+ * the caller passed rather than at `addUtcDays`'s argument.
  */
 export function serviceRequestContextBounds(
 	requestDate: string,
 	context: ServiceRequestContextSettings,
+	endAnchor: string,
 ): ServiceRequestContextBounds {
 	const datePart = validatedDatePart(
 		requestDate,
 		'requestDate',
 		'Service request date is invalid.',
 	);
+	const anchorPart = validatedDatePart(endAnchor, 'endAnchor', 'Window end anchor is invalid.');
+	const settingEnd = shiftUtcDays(datePart, context.timeWindow.daysAfter);
 	return {
 		radiusMeters: distanceToMeters(context.radius.amount, context.radius.unitCode),
 		dateFrom: shiftUtcDays(datePart, -context.timeWindow.daysBefore),
-		dateTo: shiftUtcDays(datePart, context.timeWindow.daysAfter),
+		// `YYYY-MM-DD` orders as text the way it orders as a date.
+		dateTo: anchorPart > settingEnd ? anchorPart : settingEnd,
 	};
 }
 
