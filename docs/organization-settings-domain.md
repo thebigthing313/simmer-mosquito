@@ -415,7 +415,7 @@ The radius amount must be strictly positive. The radius unit is stored as a
 date only for that side of the window.
 
 This setting drives default queries for nearby habitats, traps, surveillance
-actions, control actions, and possibly other service requests. It does not
+actions, control actions, and other service requests. It does not
 prevent users from manually widening or narrowing a view later.
 
 ## Mobile and sync

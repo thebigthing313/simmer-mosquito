@@ -39,6 +39,19 @@ export const ACTIVITY_FAMILIES = ['larval', 'adult', 'control', 'publicEngagemen
 export type ActivityFamily = (typeof ACTIVITY_FAMILIES)[number];
 
 /**
+ * The three families that are field work on the ground, which is every family
+ * but public engagement. The service request context view reads these when a
+ * caller names none, and the page that draws it asks for the same three, so
+ * the list is declared here and read from both sides rather than spelled in
+ * each.
+ */
+export const OPERATIONAL_ACTIVITY_FAMILIES = [
+	'larval',
+	'adult',
+	'control',
+] as const satisfies readonly ActivityFamily[];
+
+/**
  * Whether the Profile is named on the record itself, or was recorded as
  * assisting on it via `additional_personnel`.
  */
