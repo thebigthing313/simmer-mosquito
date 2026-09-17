@@ -33,12 +33,27 @@ export function distanceToMeters(amount: number, unitCode: string): number {
 	return amount * factor;
 }
 
+/**
+ * What set a nearby window's `dateTo`, named in the response so the page can
+ * say it: the setting's `daysAfter`, the day the request closed, today while it
+ * is open, or a `dateTo` the caller sent (#1085). A person reading a six-week
+ * range under a setting that says 14 is otherwise sent to the settings looking
+ * for a number that is not there.
+ */
+export type NearbyWindowEnd = 'setting' | 'close' | 'today' | 'query';
+
 export interface ServiceRequestContextBounds {
 	readonly radiusMeters: number;
 	/** Inclusive lower bound, `YYYY-MM-DD`. */
 	readonly dateFrom: string;
 	/** Inclusive upper bound, `YYYY-MM-DD`. */
 	readonly dateTo: string;
+	/**
+	 * Which of the two ends `dateTo` is. This function cannot tell a close from
+	 * today, since both arrive as one `YYYY-MM-DD`; the caller knows which it
+	 * passed and names it.
+	 */
+	readonly dateToFrom: 'setting' | 'anchor';
 }
 
 /**
@@ -75,8 +90,10 @@ export function serviceRequestContextBounds(
 	return {
 		radiusMeters: distanceToMeters(context.radius.amount, context.radius.unitCode),
 		dateFrom: shiftUtcDays(datePart, -context.timeWindow.daysBefore),
-		// `YYYY-MM-DD` orders as text the way it orders as a date.
+		// `YYYY-MM-DD` orders as text the way it orders as a date. A tie is the
+		// setting's, because the setting alone would have ended the window there.
 		dateTo: anchorPart > settingEnd ? anchorPart : settingEnd,
+		dateToFrom: anchorPart > settingEnd ? 'anchor' : 'setting',
 	};
 }
 

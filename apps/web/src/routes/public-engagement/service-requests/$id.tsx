@@ -67,6 +67,7 @@ import {
 	type NearbyItem,
 	type NearbyResponse,
 	nearbyItemDate,
+	nearbySummary,
 	useServiceRequestNearby,
 	visibleNearbyItems,
 } from './-service-request-nearby';
@@ -434,17 +435,6 @@ function NearbyPanel({
 			</CardContent>
 		</Card>
 	);
-}
-
-/** What the panel says it is showing, before and after the fetch lands. */
-function nearbySummary(response: NearbyResponse | undefined): string {
-	if (response === undefined) {
-		return 'Records around this request, from your public-engagement settings.';
-	}
-	const count = response.items.length;
-	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
-	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
-	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
 }
 
 /** The list, or the one line standing in for it. `items` is already family-filtered. */

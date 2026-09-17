@@ -99,7 +99,7 @@ function ServiceRequestContextGuide({ settings }: { readonly settings: Organizat
 					value={String(context.timeWindow.daysBefore)}
 				/>
 				<PublicSettingTile
-					detail="How many days after the request date are included."
+					detail="At least this many days after the request date. The window runs on to the day the request is closed, or to today while it is open."
 					label="Days after"
 					value={String(context.timeWindow.daysAfter)}
 				/>

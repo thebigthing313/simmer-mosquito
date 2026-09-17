@@ -1,6 +1,7 @@
 import {
 	type ActivityCategory,
 	type ActivityFamily,
+	type NearbyWindowEnd,
 	OPERATIONAL_ACTIVITY_FAMILIES,
 } from '@simmer-mosquito/domain';
 import {
@@ -12,6 +13,7 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../../auth';
 import type { ActivityEntry } from '../../-activity-data';
+import { formatRequestDate } from '../-public-engagement-display';
 
 // Data + display helpers for the service-request map context (nearby records).
 // Dash-prefixed so TanStack Router ignores this file as a route.
@@ -51,6 +53,8 @@ export interface NearbyResponse {
 	readonly timeWindow: { readonly daysBefore: number; readonly daysAfter: number };
 	readonly dateFrom: string;
 	readonly dateTo: string;
+	/** Which end set `dateTo`: the setting is a floor, and the close or today can pass it. */
+	readonly dateToFrom: NearbyWindowEnd;
 	readonly families: readonly ActivityFamily[];
 	readonly items: readonly NearbyItem[];
 }
@@ -198,6 +202,35 @@ export function buildNearbyMapData(
 
 	return { type: 'FeatureCollection', features };
 }
+
+/**
+ * What the panel says it is showing, before and after the fetch lands.
+ *
+ * The range alone used to be the whole sentence, and it was enough while the
+ * window ended `daysAfter` past the request date. That setting is a floor now,
+ * and the window runs on to the close, or to today while the request is open
+ * (#1084), so a six-week range beside a setting that says 14 needs the
+ * sentence to say which end won. A range the caller set names no end, since
+ * neither anchor set it.
+ */
+export function nearbySummary(response: NearbyResponse | undefined): string {
+	if (response === undefined) {
+		return 'Records around this request, from your public-engagement settings.';
+	}
+	const count = response.items.length;
+	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
+	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
+	const end = NEARBY_WINDOW_END_CLAUSE[response.dateToFrom];
+	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}${end}.`;
+}
+
+/** The clause the summary adds when an anchor, and not the setting, ended the window. */
+const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
+	setting: '',
+	close: ', through the day it was closed',
+	today: ', through today',
+	query: '',
+};
 
 /** Distance shown in the family of the org's radius unit (feet/miles for imperial, m/km otherwise). */
 export function formatNearbyDistance(meters: number, unitCode: string): string {

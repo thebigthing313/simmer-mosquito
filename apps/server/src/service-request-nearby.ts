@@ -10,6 +10,7 @@ import {
 	ACTIVITY_FAMILIES,
 	type ActivityFamily,
 	DomainValidationError,
+	type NearbyWindowEnd,
 	resolveOrganizationSettings,
 	type ServiceRequestContextBounds,
 	serviceRequestContextBounds,
@@ -52,7 +53,9 @@ type NearbyReaders = typeof defaultNearbyReaders;
  * Organization's calendar days, which is the rule every operational date
  * follows (#154, #156), so the close is read back through the same zone the
  * collections in the window are dated in, and today is read through
- * `todayInTimeZone` rather than the server's clock.
+ * `todayInTimeZone` rather than the server's clock. The response names which
+ * of the three set `dateTo`, so the page can say so beside a range that runs
+ * past the setting (#1085).
  */
 export function registerServiceRequestNearbyRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -119,7 +122,11 @@ export function registerServiceRequestNearbyRoutes(
 			);
 		}
 
-		const query = readNearbyQuery(new URL(context.req.url).searchParams, defaults);
+		const query = readNearbyQuery(
+			new URL(context.req.url).searchParams,
+			defaults,
+			windowEndOf(defaults, request.closedDate),
+		);
 		if (!query.ok) {
 			return context.json({ error: 'invalid_query', reason: query.reason }, 400);
 		}
@@ -147,6 +154,7 @@ export function registerServiceRequestNearbyRoutes(
 			timeWindow: requestContext.timeWindow,
 			dateFrom: query.dateFrom,
 			dateTo: query.dateTo,
+			dateToFrom: query.dateToFrom,
 			families: query.families,
 			items,
 		});
@@ -168,12 +176,14 @@ export function registerServiceRequestNearbyRoutes(
 function readNearbyQuery(
 	searchParams: URLSearchParams,
 	defaults: ServiceRequestContextBounds,
+	defaultEnd: NearbyWindowEnd,
 ):
 	| {
 			readonly ok: true;
 			readonly radiusMeters: number;
 			readonly dateFrom: string;
 			readonly dateTo: string;
+			readonly dateToFrom: NearbyWindowEnd;
 			readonly families: readonly ActivityFamily[];
 	  }
 	| { readonly ok: false; readonly reason: string } {
@@ -201,7 +211,33 @@ function readNearbyQuery(
 		ok: true,
 		radiusMeters: radiusMeters.value ?? defaults.radiusMeters,
 		dateFrom: dateFrom.value ?? defaults.dateFrom,
-		dateTo: dateTo.value ?? defaults.dateTo,
+		...resolvedWindowEnd(dateTo.value, defaults, defaultEnd),
 		families: families.value ?? DEFAULT_NEARBY_FAMILIES,
 	};
+}
+
+/** The window's end and its name together: a caller's own end is nobody's anchor. */
+function resolvedWindowEnd(
+	override: string | undefined,
+	defaults: ServiceRequestContextBounds,
+	defaultEnd: NearbyWindowEnd,
+): { readonly dateTo: string; readonly dateToFrom: NearbyWindowEnd } {
+	return override === undefined
+		? { dateTo: defaults.dateTo, dateToFrom: defaultEnd }
+		: { dateTo: override, dateToFrom: 'query' };
+}
+
+/**
+ * Which end the computed window has, named for the response: the domain says
+ * whether the anchor beat the setting, and the row says whether the anchor it
+ * was handed was the close day or today.
+ */
+function windowEndOf(
+	defaults: ServiceRequestContextBounds,
+	closedDate: string | null,
+): NearbyWindowEnd {
+	if (defaults.dateToFrom === 'setting') {
+		return 'setting';
+	}
+	return closedDate === null ? 'today' : 'close';
 }
