@@ -58,7 +58,7 @@ describe('UpcomingPage', () => {
 		}
 	});
 
-	// One prop here is the measure of all sixteen stubs. The route-loading
+	// One prop here is the measure of all fourteen stubs. The route-loading
 	// skeleton reserves the record measure and draws its heading at the frame's
 	// left edge, so a stub centred in the 1200 column arrived narrower than the
 	// skeleton with its heading 440px to the right of where the skeleton's sat
