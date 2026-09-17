@@ -135,6 +135,38 @@ describe('shellDomainsForRole', () => {
 		]);
 	});
 
+	it('leads Overview with the Dashboard and marks the three review pages as stubs', () => {
+		// The Dashboard is built and Today, Monthly and Annual are not, so the built
+		// page goes first and each of the other three carries the stub mark that
+		// draws the badge and keeps it out of the palette (#1082).
+		const overview = shellDomainsForRole(authWithRole('owner')).find(
+			(domain) => domain.id === 'overview',
+		);
+
+		expect(overview?.groups[0]?.items.map((item) => [item.label, item.stub ?? false])).toEqual([
+			['Dashboard', false],
+			['Today', true],
+			['Monthly', true],
+			['Annual', true],
+		]);
+	});
+
+	it('offers the palette no stub', () => {
+		// A stub is a door onto nothing. The exclusion reads `stub` off the item
+		// rather than a list of paths, so the two new ones need no entry anywhere
+		// for this to hold, and the mark is what this pins.
+		const stubs = shellDomainsForRole(authWithRole('owner'))
+			.flatMap((domain) => domain.groups)
+			.flatMap((group) => group.items)
+			.filter((item) => item.stub === true)
+			.map((item) => item.id);
+		const { routes, actions } = shellSearchCandidates(authWithRole('owner'));
+		const offered = new Set([...routes, ...actions].map((candidate) => candidate.id));
+
+		expect(stubs).toEqual(expect.arrayContaining(['today', 'monthly', 'annual']));
+		expect(stubs.filter((id) => offered.has(id))).toEqual([]);
+	});
+
 	it('drops no group or domain to an empty heading', () => {
 		for (const role of ['owner', 'manager', 'collector', 'viewer'] as const) {
 			for (const domain of shellDomainsForRole(authWithRole(role))) {

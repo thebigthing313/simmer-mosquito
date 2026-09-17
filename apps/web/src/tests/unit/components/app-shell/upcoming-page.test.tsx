@@ -27,8 +27,10 @@ afterEach(cleanup);
  *
  * Its copy is keyed by route path, and a key that does not match its route is
  * not an error: the page falls back to a generic line under whatever the
- * sidebar calls the item, and looks finished. So both tests here are about the
- * key matching, one for the Data Map and one for every stub at once.
+ * sidebar calls the item, and looks finished. So the copy tests here are about
+ * the key matching, one for the Data Map, one for the two Overview stubs and
+ * one for every stub at once, and the link test is the register's own rule
+ * read back off the page.
  */
 describe('UpcomingPage', () => {
 	it('names what the Data Map will do and where to work meanwhile', () => {
@@ -58,9 +60,44 @@ describe('UpcomingPage', () => {
 		}
 	});
 
-	// One prop here is the measure of all fourteen stubs. The route-loading
-	// skeleton reserves the record measure and draws its heading at the frame's
-	// left edge, so a stub centred in the 1200 column arrived narrower than the
+	it('names what Monthly and Annual will hold and where to work meanwhile', () => {
+		renderAt('/monthly');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Monthly');
+		expect(screen.getByText(/for one calendar month/i)).toBeTruthy();
+		expect(willLandLines()).toHaveLength(3);
+		expect(hrefs()).toEqual([
+			'/larval-surveillance',
+			'/adult-surveillance',
+			'/control-operations/chemical',
+		]);
+		cleanup();
+
+		renderAt('/annual');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Annual');
+		expect(screen.getByText(/the material an annual report is written from/i)).toBeTruthy();
+		expect(willLandLines()).toHaveLength(3);
+		expect(hrefs()).toEqual(['/control-operations', '/gis/regions', '/gis/weather']);
+	});
+
+	it('links every stub to built routes only', () => {
+		// Linking one unbuilt section to another is how a placeholder becomes a
+		// maze, and every `/stats` route is a stub too. The rule is written in the
+		// docblock over `CONTENT`; this is the rule read back off the rendered page.
+		const stubs = new Set(stubPaths());
+
+		for (const path of stubs) {
+			renderAt(path);
+			for (const href of hrefs()) {
+				expect(stubs.has(href), `${path} links ${href}`).toBe(false);
+				expect(href.endsWith('/stats'), `${path} links ${href}`).toBe(false);
+			}
+			cleanup();
+		}
+	});
+
+	// One prop here is the measure of every stub. The route-loading skeleton
+	// reserves the record measure and draws its heading at the frame's left
+	// edge, so a stub centred in the 1200 column arrived narrower than the
 	// skeleton with its heading 440px to the right of where the skeleton's sat
 	// (#1043, #1048). The prose keeps a measure of its own inside the frame.
 	it('draws in the record measure the route-loading skeleton reserves', () => {
@@ -118,6 +155,12 @@ function renderAt(activePath: string) {
 
 function hrefs(): readonly string[] {
 	return screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
+}
+
+function willLandLines(): readonly Element[] {
+	return Array.from(
+		screen.getByText('What will land here').parentElement?.querySelectorAll('li') ?? [],
+	);
 }
 
 function stubPaths(): readonly string[] {

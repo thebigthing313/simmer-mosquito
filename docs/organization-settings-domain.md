@@ -425,7 +425,7 @@ day the Organization is currently on. An explicit `dateTo` on the nearby
 request still overrides the computed end.
 
 This setting drives default queries for nearby habitats, traps, surveillance
-actions, control actions, and possibly other service requests. It does not
+actions, control actions, and other service requests. It does not
 prevent users from manually widening or narrowing a view later.
 
 ## Mobile and sync

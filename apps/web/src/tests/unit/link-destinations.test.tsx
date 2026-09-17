@@ -19,6 +19,7 @@
  * different href and fails here.
  */
 
+import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
@@ -38,10 +39,29 @@ import { HabitatHistoryCard } from '../../routes/-habitat-detail';
 import { InspectionSurfaceSwitch } from '../../routes/larval-surveillance/-inspection-surface-switch';
 import { sharedInspectionSearch } from '../../routes/larval-surveillance/-inspections-search';
 import { PeopleSection } from '../../routes/my-organization/-components/people';
+import { ServiceRequestDetailHeader } from '../../routes/public-engagement/service-requests/-service-request-detail-header';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
 
 const HABITAT = 'habitat-1';
+
+/**
+ * A manager, for the one component here that hides a link below a floor.
+ *
+ * The service request header draws its pencil through `hasAtLeastRole`, and the
+ * app's controller holds no snapshot outside a session. Nothing else rendered
+ * in this file reads the snapshot: the roster takes its role as a prop, and the
+ * dashboard, the history card and the surface switch gate nothing.
+ */
+vi.mock('../../hooks/use-auth-snapshot', async () => {
+	const { signedInSnapshot } = await import('./routes/route-mock-stand-ins');
+	const snapshot = signedInSnapshot('org-1', 'profile-1');
+	const manager =
+		snapshot.authenticated === true
+			? { ...snapshot, localIdentity: { ...snapshot.localIdentity, role: 'manager' } }
+			: snapshot;
+	return { useAuthSnapshot: () => manager };
+});
 
 beforeEach(() => {
 	installMemoryCollections();
@@ -445,5 +465,45 @@ describe('the Dashboard', () => {
 
 		expect(linkHref(/5 untreated habitats/)).toBe('/larval-surveillance/habitats?untreated=true');
 		expect(linkHref('Dana Okafor')).toBe('/daily-work/profile-1?date=2026-09-15');
+	});
+});
+
+/**
+ * The service request header's pencil (#1088).
+ *
+ * The page keeps its own header module rather than reading `DetailPageShell`,
+ * because its column sits beside a map, so the edit destination is declared
+ * there and nowhere the shell's pages are asserted. The contact and address ids
+ * on the row are the neighbouring strings a `params` reading the wrong field
+ * would resolve to.
+ */
+describe('the service request header', () => {
+	it('sends the pencil to the edit form for the request on screen', () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		renderWithRouter(
+			<QueryClientProvider client={client}>
+				<TooltipProvider>
+					<ServiceRequestDetailHeader
+						askDelete={async (write) => write({})}
+						request={{
+							id: 'service-request-1',
+							organizationId: 'org-1',
+							displayName: 12,
+							intakeType: 'phone',
+							requestDate: '2026-08-04',
+							details: 'Standing water behind the garage.',
+							contactId: 'contact-1',
+							addressId: 'address-1',
+							receivedByProfileId: 'profile-1',
+							closedAt: null,
+							latitude: 30,
+							longitude: -90,
+						}}
+					/>
+				</TooltipProvider>
+			</QueryClientProvider>,
+		);
+
+		expect(linkHref('Edit')).toBe('/public-engagement/service-requests/service-request-1/edit');
 	});
 });

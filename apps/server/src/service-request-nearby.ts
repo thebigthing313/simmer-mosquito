@@ -1,4 +1,5 @@
 import {
+	DEFAULT_NEARBY_FAMILIES,
 	getOrganizationSettingsRaw,
 	getServiceRequestCenter,
 	type Kysely,
@@ -6,6 +7,8 @@ import {
 	type SimmerDatabase,
 } from '@simmer-mosquito/db';
 import {
+	ACTIVITY_FAMILIES,
+	type ActivityFamily,
 	DomainValidationError,
 	resolveOrganizationSettings,
 	type ServiceRequestContextBounds,
@@ -13,15 +16,35 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
-import { parseOptionalDateFilter, parseOptionalPositiveNumber, uuidPattern } from './map-tiles.js';
+import {
+	parseOptionalDateFilter,
+	parseOptionalPositiveNumber,
+	parseOptionalVocabularyListFilter,
+	uuidPattern,
+} from './map-tiles.js';
 import { todayInTimeZone } from './organization-day.js';
 
 /**
- * Reads the map-context view for a service request: the operational records
- * within the org's configured radius + time window of the request. The radius
- * and window default to `settings.publicEngagement.serviceRequestContext`
- * and may be overridden per-request via query params so the UI can offer an
- * "adjust" control.
+ * The three reads the route makes, injectable so a suite can drive it without
+ * a database, the way `registerMapTileRoutes` takes its `readers`.
+ */
+const defaultNearbyReaders = {
+	getServiceRequestCenter,
+	getOrganizationSettings: getOrganizationSettingsRaw,
+	listNearbyRecords,
+};
+
+type NearbyReaders = typeof defaultNearbyReaders;
+
+/**
+ * Reads the map-context view for a service request: the records within the
+ * org's configured radius + time window of the request, in the activity row
+ * shape plus a distance. The radius and window default to
+ * `settings.publicEngagement.serviceRequestContext` and may be overridden
+ * per-request via query params so the UI can offer an "adjust" control.
+ * `families` names which of the four activity families to read; left out, it
+ * is the three operational ones, and the public-engagement family is what
+ * returns the outreach actions and the other requests around this one.
  *
  * The window starts `daysBefore` ahead of the request date and ends on the
  * later of `daysAfter` past it and the request's end anchor: the day it was
@@ -36,13 +59,12 @@ export function registerServiceRequestNearbyRoutes(
 	options: {
 		readonly db: Kysely<SimmerDatabase>;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
-		/** The reads, injectable so the route has an HTTP test with no database. */
-		readonly readers?: Partial<ServiceRequestNearbyReaders>;
-		/** The clock behind "today", injectable for the same reason. */
+		readonly readers?: Partial<NearbyReaders>;
+		/** The clock behind "today", injectable for the reason the readers are. */
 		readonly now?: () => Date;
 	},
 ): void {
-	const readers: ServiceRequestNearbyReaders = { ...defaultNearbyReaders, ...options.readers };
+	const readers: NearbyReaders = { ...defaultNearbyReaders, ...options.readers };
 	const now = options.now ?? (() => new Date());
 
 	app.get('/map/service-requests/:id/nearby', options.authContextMiddleware, async (context) => {
@@ -60,7 +82,7 @@ export function registerServiceRequestNearbyRoutes(
 		// Settings ahead of the request, because the close day is read in the
 		// Organization's zone and the zone is a setting.
 		const settings = resolveOrganizationSettings(
-			await readers.getOrganizationSettingsRaw(options.db, { organizationId }),
+			await readers.getOrganizationSettings(options.db, { organizationId }),
 		).settings;
 		const requestContext = settings.publicEngagement.serviceRequestContext;
 
@@ -97,21 +119,18 @@ export function registerServiceRequestNearbyRoutes(
 			);
 		}
 
-		const overrides = readNearbyOverrides(new URL(context.req.url).searchParams);
-		if (!overrides.ok) {
-			return context.json({ error: 'invalid_query', reason: overrides.reason }, 400);
+		const query = readNearbyQuery(new URL(context.req.url).searchParams, defaults);
+		if (!query.ok) {
+			return context.json({ error: 'invalid_query', reason: query.reason }, 400);
 		}
-
-		const radiusMeters = overrides.radiusMeters ?? defaults.radiusMeters;
-		const dateFrom = overrides.dateFrom ?? defaults.dateFrom;
-		const dateTo = overrides.dateTo ?? defaults.dateTo;
 
 		const items = await readers.listNearbyRecords(options.db, {
 			organizationId,
-			center: { lat: request.lat, lng: request.lng },
-			radiusMeters,
-			dateFrom,
-			dateTo,
+			request: { id, lat: request.lat, lng: request.lng },
+			radiusMeters: query.radiusMeters,
+			dateFrom: query.dateFrom,
+			dateTo: query.dateTo,
+			families: query.families,
 			// The same settings the radius and window came from. A collection's
 			// `collected_at` becomes a day in this zone, so the window here means the
 			// same days the operator picked.
@@ -123,44 +142,39 @@ export function registerServiceRequestNearbyRoutes(
 			radius: {
 				amount: requestContext.radius.amount,
 				unitCode: requestContext.radius.unitCode,
-				meters: radiusMeters,
+				meters: query.radiusMeters,
 			},
 			timeWindow: requestContext.timeWindow,
-			dateFrom,
-			dateTo,
+			dateFrom: query.dateFrom,
+			dateTo: query.dateTo,
+			families: query.families,
 			items,
 		});
 	});
 }
 
-export interface ServiceRequestNearbyReaders {
-	readonly getOrganizationSettingsRaw: typeof getOrganizationSettingsRaw;
-	readonly getServiceRequestCenter: typeof getServiceRequestCenter;
-	readonly listNearbyRecords: typeof listNearbyRecords;
-}
-
-const defaultNearbyReaders: ServiceRequestNearbyReaders = {
-	getOrganizationSettingsRaw,
-	getServiceRequestCenter,
-	listNearbyRecords,
-};
-
 /**
- * The per-request overrides for the radius and time window.
+ * What the read is asked: the radius, the window and the families, each the
+ * caller's where the query names one and the default where it does not.
  *
- * The defaults come from `settings.publicEngagement.serviceRequestContext`; the
- * UI offers an "adjust" control, and these are what it sends. They go through
- * the same parsers every other `/map/*` query uses — this module used to carry
- * its own `DATE_PATTERN` and a pair of parsers that answered the string
- * `'invalid'` instead of the `{ ok: false, reason }` union everything else
- * returns, which is two protocols on one path prefix.
+ * The radius and window defaults come from
+ * `settings.publicEngagement.serviceRequestContext`; the UI offers an "adjust"
+ * control, and the overrides are what it sends. They go through the same
+ * parsers every other `/map/*` query uses. This module used to carry its own
+ * `DATE_PATTERN` and a pair of parsers that answered the string `'invalid'`
+ * instead of the `{ ok: false, reason }` union everything else returns, which
+ * is two protocols on one path prefix.
  */
-function readNearbyOverrides(searchParams: URLSearchParams):
+function readNearbyQuery(
+	searchParams: URLSearchParams,
+	defaults: ServiceRequestContextBounds,
+):
 	| {
 			readonly ok: true;
-			readonly radiusMeters: number | undefined;
-			readonly dateFrom: string | undefined;
-			readonly dateTo: string | undefined;
+			readonly radiusMeters: number;
+			readonly dateFrom: string;
+			readonly dateTo: string;
+			readonly families: readonly ActivityFamily[];
 	  }
 	| { readonly ok: false; readonly reason: string } {
 	const radiusMeters = parseOptionalPositiveNumber(searchParams, 'radiusMeters');
@@ -178,10 +192,16 @@ function readNearbyOverrides(searchParams: URLSearchParams):
 		return dateTo;
 	}
 
+	const families = parseOptionalVocabularyListFilter(searchParams, 'families', ACTIVITY_FAMILIES);
+	if (!families.ok) {
+		return families;
+	}
+
 	return {
 		ok: true,
-		radiusMeters: radiusMeters.value,
-		dateFrom: dateFrom.value,
-		dateTo: dateTo.value,
+		radiusMeters: radiusMeters.value ?? defaults.radiusMeters,
+		dateFrom: dateFrom.value ?? defaults.dateFrom,
+		dateTo: dateTo.value ?? defaults.dateTo,
+		families: families.value ?? DEFAULT_NEARBY_FAMILIES,
 	};
 }
