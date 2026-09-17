@@ -11,6 +11,7 @@ import {
 import type { MapInset } from '../../components/map/map-inset';
 import { useApplication } from '../../hooks/queries/use-application';
 import { useApplicationBatchNames } from '../../hooks/queries/use-application-batch-names';
+import { recordNoun } from '../../lib/record-nouns';
 import { formatMeasure } from './-control-display';
 
 const UnitIcon = iconRegistry.entities.unit.icon;
@@ -37,7 +38,7 @@ export function ApplicationMapCard({
 
 	if (application === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Application">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('application').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -51,7 +52,7 @@ export function ApplicationMapCard({
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={application.actionDate} type="Application" />}
+			eyebrow={<MapCardEyebrow date={application.actionDate} recordType="application" />}
 			inset={inset}
 			onClose={onClose}
 			title={application.productName}

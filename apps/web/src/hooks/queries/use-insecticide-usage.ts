@@ -13,7 +13,6 @@
  */
 
 import { coalesce, eq, gte, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { applications } from '../../lib/collections/applications';
 import { insecticides } from '../../lib/collections/insecticides';
 import { activityGcTimeMs } from './shared';
@@ -55,28 +54,38 @@ export function useInsecticideUsage(sinceDate: string): {
 
 	const rows = result.data;
 
-	const usage = useMemo<readonly InsecticideUsage[]>(() => {
-		const byInsecticide = new Map<
-			string,
-			{ name: string; totals: Map<string, number>; count: number }
-		>();
-		for (const row of rows) {
-			const entry = byInsecticide.get(row.insecticideId) ?? {
-				name: row.name,
-				totals: new Map<string, number>(),
-				count: 0,
-			};
-			entry.totals.set(row.unitId, (entry.totals.get(row.unitId) ?? 0) + row.amountApplied);
-			entry.count += 1;
-			byInsecticide.set(row.insecticideId, entry);
-		}
-		return [...byInsecticide.entries()].map(([insecticideId, entry]) => ({
-			insecticideId,
-			name: entry.name,
-			totalsByUnitId: entry.totals,
-			applicationCount: entry.count,
-		}));
-	}, [rows]);
+	const usage = usageByInsecticide(rows);
 
 	return { usage, isReady: result.isReady, isError: result.isError };
+}
+
+/** The window's applications rolled up per insecticide, one total per unit. */
+function usageByInsecticide(
+	rows: readonly {
+		readonly insecticideId: string;
+		readonly name: string;
+		readonly amountApplied: number;
+		readonly unitId: string;
+	}[],
+): readonly InsecticideUsage[] {
+	const byInsecticide = new Map<
+		string,
+		{ name: string; totals: Map<string, number>; count: number }
+	>();
+	for (const row of rows) {
+		const entry = byInsecticide.get(row.insecticideId) ?? {
+			name: row.name,
+			totals: new Map<string, number>(),
+			count: 0,
+		};
+		entry.totals.set(row.unitId, (entry.totals.get(row.unitId) ?? 0) + row.amountApplied);
+		entry.count += 1;
+		byInsecticide.set(row.insecticideId, entry);
+	}
+	return [...byInsecticide.entries()].map(([insecticideId, entry]) => ({
+		insecticideId,
+		name: entry.name,
+		totalsByUnitId: entry.totals,
+		applicationCount: entry.count,
+	}));
 }

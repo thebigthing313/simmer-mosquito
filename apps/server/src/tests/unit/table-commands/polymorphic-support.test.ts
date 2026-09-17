@@ -21,17 +21,13 @@
 
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthContext } from '../../../auth-context.js';
-import type { CommandTable } from '../../../command-payload.js';
-import type { OrganizationCommandType } from '../../../command-permissions.js';
-import type { WritableCommand } from '../../../command-write.js';
 import { additionalPersonnelTableCommands } from '../../../table-commands/additional-personnel.js';
 import { commentTableCommands } from '../../../table-commands/comments.js';
-import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { tagItemTableCommands } from '../../../table-commands/tag-items.js';
+import { ACTOR, ORGANIZATION, organizationHarness } from './command-harness.js';
 
-const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
-const ACTOR = '22222222-2222-4222-8222-222222222222';
+const { buildFor } = organizationHarness({ role: 'manager' });
+
 const COMMENT = '33333333-3333-4333-8333-333333333333';
 const TAG_ITEM = '44444444-4444-4444-8444-444444444444';
 const ADDITIONAL_PERSONNEL = '55555555-5555-4555-8555-555555555555';
@@ -47,38 +43,9 @@ const comments = commentTableCommands(undefined as never);
 const tagItems = tagItemTableCommands(undefined as never);
 const additionalPersonnel = additionalPersonnelTableCommands(undefined as never);
 
-function request(
-	id: string,
-	payload: Record<string, unknown>,
-): IntentRequest<CommandTable, string> {
-	return {
-		payload,
-		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
-		authContext: {
-			organization: { id: ORGANIZATION, settings: null },
-			profile: { id: ACTOR },
-			role: 'manager',
-		} as unknown as AuthContext,
-		id,
-	};
-}
-
-function build<TCommand extends WritableCommand>(
-	spec: TableCommands<CommandTable, TCommand, unknown, string>,
-	intent: OrganizationCommandType,
-	id: string,
-	payload: Record<string, unknown>,
-): TCommand {
-	const builder = spec.intents[intent];
-	if (builder === undefined) {
-		throw new Error(`${spec.table} does not accept ${intent}.`);
-	}
-	return builder(request(id, payload));
-}
-
 describe('comments intent map', () => {
 	it('reads a Comment off column names, target included', () => {
-		const command = build(comments, 'fieldWork.addComment', COMMENT, {
+		const command = buildFor(comments, 'fieldWork.addComment', COMMENT, {
 			entity_type: 'source_reduction',
 			entity_id: SOURCE_REDUCTION,
 			comment_text: 'Culvert cleared, ditch still holding water',
@@ -100,7 +67,7 @@ describe('comments intent map', () => {
 		// The target would read as a pair of empty strings and the text as absent,
 		// so the refusal would name three fields the request actually carried.
 		expect(() =>
-			build(comments, 'fieldWork.addComment', COMMENT, {
+			buildFor(comments, 'fieldWork.addComment', COMMENT, {
 				entityType: 'sourceReduction',
 				entityId: SOURCE_REDUCTION,
 				commentText: 'Culvert cleared',
@@ -112,7 +79,7 @@ describe('comments intent map', () => {
 		// `commented_at` is when the Comment was left rather than when the row was
 		// written, so one keyed in after the fact carries its own and one left now
 		// carries none, which the writer stamps.
-		const command = build(comments, 'fieldWork.addComment', COMMENT, {
+		const command = buildFor(comments, 'fieldWork.addComment', COMMENT, {
 			entity_type: 'habitat',
 			entity_id: HABITAT,
 			comment_text: 'Access gate code changed',
@@ -124,8 +91,8 @@ describe('comments intent map', () => {
 	it('pins by name rather than by reading is_pinned', () => {
 		// Both bodies point the boolean the wrong way. Which way a pin moved is the
 		// command's to say, and the column is never read to decide it.
-		const pinned = build(comments, 'fieldWork.pinComment', COMMENT, { is_pinned: false });
-		const unpinned = build(comments, 'fieldWork.unpinComment', COMMENT, { is_pinned: true });
+		const pinned = buildFor(comments, 'fieldWork.pinComment', COMMENT, { is_pinned: false });
+		const unpinned = buildFor(comments, 'fieldWork.unpinComment', COMMENT, { is_pinned: true });
 
 		expect(pinned.type).toBe('fieldWork.pinComment');
 		expect(unpinned.type).toBe('fieldWork.unpinComment');
@@ -146,8 +113,8 @@ describe('comments intent map', () => {
 		// names two commands over one body. Only `updateComment` reads a field, so neither
 		// can take the other's by mistake.
 		const body = { comment_text: 'Corrected: ditch drains to the north' };
-		const updated = build(comments, 'fieldWork.updateComment', COMMENT, body);
-		const pinned = build(comments, 'fieldWork.pinComment', COMMENT, body);
+		const updated = buildFor(comments, 'fieldWork.updateComment', COMMENT, body);
+		const pinned = buildFor(comments, 'fieldWork.pinComment', COMMENT, body);
 
 		expect(updated.payload).toMatchObject({
 			commentId: COMMENT,
@@ -157,13 +124,13 @@ describe('comments intent map', () => {
 	});
 
 	it('refuses a correction that carried no text', () => {
-		expect(() => build(comments, 'fieldWork.updateComment', COMMENT, {})).toThrow(
+		expect(() => buildFor(comments, 'fieldWork.updateComment', COMMENT, {})).toThrow(
 			DomainValidationError,
 		);
 	});
 
 	it('deletes by id alone', () => {
-		const command = build(comments, 'fieldWork.deleteComment', COMMENT, {
+		const command = buildFor(comments, 'fieldWork.deleteComment', COMMENT, {
 			entity_type: 'habitat',
 			entity_id: HABITAT,
 		});
@@ -185,7 +152,7 @@ describe('comments intent map', () => {
 
 describe('tag items intent map', () => {
 	it('reads the link row off column names', () => {
-		const command = build(tagItems, 'fieldWork.assignTag', TAG_ITEM, {
+		const command = buildFor(tagItems, 'fieldWork.assignTag', TAG_ITEM, {
 			tag_id: TAG,
 			entity_type: 'service_request',
 			entity_id: SERVICE_REQUEST,
@@ -203,7 +170,7 @@ describe('tag items intent map', () => {
 		// A Trap Collection takes comments and takes a crew. It does not take Tags,
 		// and that narrower list is the domain's, not the reader's.
 		expect(() =>
-			build(tagItems, 'fieldWork.assignTag', TAG_ITEM, {
+			buildFor(tagItems, 'fieldWork.assignTag', TAG_ITEM, {
 				tag_id: TAG,
 				entity_type: 'collection',
 				entity_id: COLLECTION,
@@ -215,7 +182,7 @@ describe('tag items intent map', () => {
 		// Read under the wrong key the tag id is absent, which would otherwise be a
 		// link row pointing at a record and at nothing.
 		expect(() =>
-			build(tagItems, 'fieldWork.assignTag', TAG_ITEM, {
+			buildFor(tagItems, 'fieldWork.assignTag', TAG_ITEM, {
 				tagId: TAG,
 				entity_type: 'habitat',
 				entity_id: HABITAT,
@@ -226,7 +193,7 @@ describe('tag items intent map', () => {
 	it('unassigns by the link row id alone', () => {
 		// Which record the Tag was on is what the server looks up, and it is how the
 		// ownership check reaches it.
-		const command = build(tagItems, 'fieldWork.unassignTag', TAG_ITEM, {
+		const command = buildFor(tagItems, 'fieldWork.unassignTag', TAG_ITEM, {
 			tag_id: TAG,
 			entity_type: 'habitat',
 			entity_id: HABITAT,
@@ -250,7 +217,7 @@ describe('tag items intent map', () => {
 
 describe('additional personnel intent map', () => {
 	it('reads an Additional Personnel row off column names', () => {
-		const command = build(
+		const command = buildFor(
 			additionalPersonnel,
 			'fieldWork.addAdditionalPersonnel',
 			ADDITIONAL_PERSONNEL,
@@ -273,7 +240,7 @@ describe('additional personnel intent map', () => {
 		// The crew is attached to field work. A Habitat is a place, not a record of
 		// somebody having been there.
 		expect(() =>
-			build(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', ADDITIONAL_PERSONNEL, {
+			buildFor(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', ADDITIONAL_PERSONNEL, {
 				entity_type: 'habitat',
 				entity_id: HABITAT,
 				personnel_profile_id: PROFILE,
@@ -283,7 +250,7 @@ describe('additional personnel intent map', () => {
 
 	it('refuses an Additional Personnel row naming nobody', () => {
 		expect(() =>
-			build(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', ADDITIONAL_PERSONNEL, {
+			buildFor(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', ADDITIONAL_PERSONNEL, {
 				entity_type: 'collection',
 				entity_id: COLLECTION,
 				personnelProfileId: PROFILE,
@@ -292,7 +259,7 @@ describe('additional personnel intent map', () => {
 	});
 
 	it('removes by the link row id alone', () => {
-		const command = build(
+		const command = buildFor(
 			additionalPersonnel,
 			'fieldWork.removeAdditionalPersonnel',
 			ADDITIONAL_PERSONNEL,

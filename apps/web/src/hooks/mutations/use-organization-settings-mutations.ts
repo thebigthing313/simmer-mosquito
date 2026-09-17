@@ -35,7 +35,7 @@ import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { CommandError, settleWrite } from '@simmer-mosquito/sync';
 import { useLiveQuery } from '@tanstack/react-db';
-import { useCallback, useRef } from 'react';
+import { useRef } from 'react';
 import { getServerUrl } from '../../auth';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { organizations } from '../../lib/collections/organizations';
@@ -168,161 +168,137 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 	 */
 	const lastCommittedAt = useRef<string | null>(null);
 
-	const expectedUpdatedAt = useCallback((): string | null => {
+	const expectedUpdatedAt = (): string | null => {
 		const synced = row?.updated_at?.toISOString() ?? null;
 		const committed = lastCommittedAt.current;
 		if (synced === null) {
 			return committed;
 		}
 		return committed !== null && committed > synced ? committed : synced;
-	}, [row]);
+	};
 
 	/** Apply one sub-document locally, send it to its route, and remember what committed. */
-	const writeSettings = useCallback(
-		async (
-			route: SettingsRoute,
-			payload: Record<string, unknown>,
-			next: (settings: OrganizationSettings) => OrganizationSettings,
-		) => {
-			if (row === undefined) {
-				throw new Error('Organization details are still loading.');
+	const writeSettings = async (
+		route: SettingsRoute,
+		payload: Record<string, unknown>,
+		next: (settings: OrganizationSettings) => OrganizationSettings,
+	) => {
+		if (row === undefined) {
+			throw new Error('Organization details are still loading.');
+		}
+
+		const organizationId = row.id;
+		const settings = resolveOrganizationSettings(row.settings).settings;
+		const result = await writeOrganization({
+			url: `${getServerUrl()}/organization-settings/${route}`,
+			body: { ...payload, expectedUpdatedAt: expectedUpdatedAt() },
+			apply: () => {
+				organizations().update(organizationId, (draft) => {
+					draft.settings = next(settings);
+				});
+			},
+		});
+
+		// Absent when nothing moved, and then there is no new stamp to remember.
+		if (result !== null) {
+			lastCommittedAt.current = result.updatedAt;
+		}
+	};
+
+	const saveOrganizationDetails = async (fields: OrganizationDetailsFields) => {
+		if (row === undefined) {
+			throw new Error('Organization details are still loading.');
+		}
+
+		const organizationId = row.id;
+		const settings = resolveOrganizationSettings(row.settings).settings;
+		const plan = organizationDetailsPlan(fields, row, settings.timezone);
+
+		if (plan.details !== null) {
+			const details = plan.details;
+			try {
+				await settleWrite(
+					mutateCollection(organizations(), {
+						operation: 'update',
+						intent: 'identity.updateOrganizationDetails',
+						key: organizationId,
+						// All nine, and the library sends only the ones that differ.
+						// `organizationDetailsPlan` decided whether to write at all; the diff
+						// decides what the body says.
+						changes: {
+							name: details.name,
+							main_contact_email: details.mainContactEmail,
+							phone_number: details.phoneNumber,
+							mailing_country: details.mailingCountry,
+							mailing_address_line_1: details.mailingAddressLine1,
+							mailing_address_line_2: details.mailingAddressLine2,
+							mailing_locality: details.mailingLocality,
+							mailing_region: details.mailingRegion,
+							mailing_postal_code: details.mailingPostalCode,
+						},
+						arguments: { expectedUpdatedAt: expectedUpdatedAt() },
+					}),
+				);
+			} catch (error) {
+				// The settings routes raise `OrganizationConflictError` themselves,
+				// inside `organizationRefusalFor`. The command path has no such hook
+				// and every refusal arrives as a `CommandError`, so the one refusal
+				// worth naming is recognized here by the error the server sent.
+				throw error instanceof CommandError && error.body.error === 'organization_conflict'
+					? new OrganizationConflictError()
+					: error;
 			}
 
-			const organizationId = row.id;
-			const settings = resolveOrganizationSettings(row.settings).settings;
-			const result = await writeOrganization({
-				url: `${getServerUrl()}/organization-settings/${route}`,
-				body: { ...payload, expectedUpdatedAt: expectedUpdatedAt() },
-				apply: () => {
-					organizations().update(organizationId, (draft) => {
-						draft.settings = next(settings);
-					});
-				},
-			});
+			// The stamp the timezone write has to state, read back off the row the
+			// command just streamed in rather than off the closure's copy, which is
+			// the render's and predates the write.
+			lastCommittedAt.current =
+				organizations().get(organizationId)?.updated_at?.toISOString() ?? null;
+		}
 
-			// Absent when nothing moved, and then there is no new stamp to remember.
-			if (result !== null) {
-				lastCommittedAt.current = result.updatedAt;
-			}
-		},
-		[row, expectedUpdatedAt],
-	);
+		// Second, and only if it moved: `expectedUpdatedAt` now reads the stamp
+		// the write above produced rather than the one sync last delivered.
+		if (plan.timezone !== null) {
+			const timezone = plan.timezone;
+			await writeSettings('timezone', { timezone }, (current) => ({ ...current, timezone }));
+		}
+	};
 
-	const saveOrganizationDetails = useCallback(
-		async (fields: OrganizationDetailsFields) => {
-			if (row === undefined) {
-				throw new Error('Organization details are still loading.');
-			}
+	const setUnitDefaults = (unitDefaults: UnitDefaults) =>
+		writeSettings('unit-defaults', { unitDefaults }, (current) => ({
+			...current,
+			unitDefaults,
+		}));
 
-			const organizationId = row.id;
-			const settings = resolveOrganizationSettings(row.settings).settings;
-			const plan = organizationDetailsPlan(fields, row, settings.timezone);
+	const setAdultCollectionTimingMode = (collectionTimingMode: AdultCollectionTimingMode) =>
+		writeSettings('adult-collection-timing-mode', { collectionTimingMode }, (current) => ({
+			...current,
+			adultSurveillance: { ...current.adultSurveillance, collectionTimingMode },
+		}));
 
-			if (plan.details !== null) {
-				const details = plan.details;
-				try {
-					await settleWrite(
-						mutateCollection(organizations(), {
-							operation: 'update',
-							intent: 'identity.updateOrganizationDetails',
-							key: organizationId,
-							// All nine, and the library sends only the ones that differ.
-							// `organizationDetailsPlan` decided whether to write at all; the diff
-							// decides what the body says.
-							changes: {
-								name: details.name,
-								main_contact_email: details.mainContactEmail,
-								phone_number: details.phoneNumber,
-								mailing_country: details.mailingCountry,
-								mailing_address_line_1: details.mailingAddressLine1,
-								mailing_address_line_2: details.mailingAddressLine2,
-								mailing_locality: details.mailingLocality,
-								mailing_region: details.mailingRegion,
-								mailing_postal_code: details.mailingPostalCode,
-							},
-							arguments: { expectedUpdatedAt: expectedUpdatedAt() },
-						}),
-					);
-				} catch (error) {
-					// The settings routes raise `OrganizationConflictError` themselves,
-					// inside `organizationRefusalFor`. The command path has no such hook
-					// and every refusal arrives as a `CommandError`, so the one refusal
-					// worth naming is recognized here by the error the server sent.
-					throw error instanceof CommandError && error.body.error === 'organization_conflict'
-						? new OrganizationConflictError()
-						: error;
-				}
+	const setLarvalInspectionEntryPolicy = (policy: ResolvedLarvalInspectionEntryPolicy) =>
+		writeSettings('larval-inspection-entry-policy', { policy }, (current) => ({
+			...current,
+			larvalSurveillance: { ...current.larvalSurveillance, inspectionEntryPolicy: policy },
+		}));
 
-				// The stamp the timezone write has to state, read back off the row the
-				// command just streamed in rather than off the closure's copy, which is
-				// the render's and predates the write.
-				lastCommittedAt.current =
-					organizations().get(organizationId)?.updated_at?.toISOString() ?? null;
-			}
+	const setInsecticideBatchTracking = (trackInsecticideBatches: boolean) =>
+		writeSettings('insecticide-batch-tracking', { trackInsecticideBatches }, (current) => ({
+			...current,
+			controlOperations: { ...current.controlOperations, trackInsecticideBatches },
+		}));
 
-			// Second, and only if it moved: `expectedUpdatedAt` now reads the stamp
-			// the write above produced rather than the one sync last delivered.
-			if (plan.timezone !== null) {
-				const timezone = plan.timezone;
-				await writeSettings('timezone', { timezone }, (current) => ({ ...current, timezone }));
-			}
-		},
-		[row, expectedUpdatedAt, writeSettings],
-	);
+	const setServiceRequestContext = (serviceRequestContext: ServiceRequestContextSettings) =>
+		writeSettings('service-request-context', { serviceRequestContext }, (current) => ({
+			...current,
+			publicEngagement: { ...current.publicEngagement, serviceRequestContext },
+		}));
 
-	const setUnitDefaults = useCallback(
-		(unitDefaults: UnitDefaults) =>
-			writeSettings('unit-defaults', { unitDefaults }, (current) => ({
-				...current,
-				unitDefaults,
-			})),
-		[writeSettings],
-	);
-
-	const setAdultCollectionTimingMode = useCallback(
-		(collectionTimingMode: AdultCollectionTimingMode) =>
-			writeSettings('adult-collection-timing-mode', { collectionTimingMode }, (current) => ({
-				...current,
-				adultSurveillance: { ...current.adultSurveillance, collectionTimingMode },
-			})),
-		[writeSettings],
-	);
-
-	const setLarvalInspectionEntryPolicy = useCallback(
-		(policy: ResolvedLarvalInspectionEntryPolicy) =>
-			writeSettings('larval-inspection-entry-policy', { policy }, (current) => ({
-				...current,
-				larvalSurveillance: { ...current.larvalSurveillance, inspectionEntryPolicy: policy },
-			})),
-		[writeSettings],
-	);
-
-	const setInsecticideBatchTracking = useCallback(
-		(trackInsecticideBatches: boolean) =>
-			writeSettings('insecticide-batch-tracking', { trackInsecticideBatches }, (current) => ({
-				...current,
-				controlOperations: { ...current.controlOperations, trackInsecticideBatches },
-			})),
-		[writeSettings],
-	);
-
-	const setServiceRequestContext = useCallback(
-		(serviceRequestContext: ServiceRequestContextSettings) =>
-			writeSettings('service-request-context', { serviceRequestContext }, (current) => ({
-				...current,
-				publicEngagement: { ...current.publicEngagement, serviceRequestContext },
-			})),
-		[writeSettings],
-	);
-
-	const setSpeciesKeyBindings = useCallback(
-		(bindings: readonly SpeciesKeyBinding[]) =>
-			writeSettings('species-key-bindings', { speciesKeyBindings: { bindings } }, (current) => ({
-				...current,
-				speciesKeyBindings: { bindings },
-			})),
-		[writeSettings],
-	);
+	const setSpeciesKeyBindings = (bindings: readonly SpeciesKeyBinding[]) =>
+		writeSettings('species-key-bindings', { speciesKeyBindings: { bindings } }, (current) => ({
+			...current,
+			speciesKeyBindings: { bindings },
+		}));
 
 	return {
 		saveOrganizationDetails,

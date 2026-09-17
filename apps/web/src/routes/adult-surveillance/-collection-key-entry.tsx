@@ -1,5 +1,5 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import {
 	type CommitBaseline,
 	flushedKeysAfter,
@@ -19,13 +19,13 @@ import {
 } from '../../hooks/queries/use-collection-identifications';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
+import { todayInTimeZone } from '../../lib/local-date';
 import {
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
 	speciesSexLabel,
 	speciesStatusLabel,
 } from './-adult-display';
-import { todayInTimeZone } from './-overview-data';
 
 /**
  * Adult identification defaults to females with no status recorded — the counts a
@@ -70,62 +70,63 @@ export function CollectionKeyEntryDialog({
 	const insertedRef = useRef<Map<string, string>>(new Map());
 	const flushedRef = useRef<ReadonlySet<string>>(new Set());
 
-	const rowsRef = useRef(identifications);
-	rowsRef.current = identifications;
+	// The rows are read when the modal opens and must not re-run the effect, which
+	// is what a latest-value ref written during render used to buy. That write is
+	// a render-phase ref access the compiler refuses (#779, group A).
+	const captureBaseline = useEffectEvent(() => {
+		baselineRef.current = baselineFrom(identifications);
+		insertedRef.current = new Map();
+		flushedRef.current = new Set();
+	});
 
 	useEffect(() => {
 		if (!open) {
 			return;
 		}
-		baselineRef.current = baselineFrom(rowsRef.current);
-		insertedRef.current = new Map();
-		flushedRef.current = new Set();
+		captureBaseline();
 	}, [open]);
 
-	const commit = useCallback(
-		async (entries: readonly TallyEntry[]) => {
-			const steps = planCommit({
-				entries,
-				baseline: baselineRef.current,
-				inserted: insertedRef.current,
-				flushed: flushedRef.current,
-			});
+	const commit = async (entries: readonly TallyEntry[]) => {
+		const steps = planCommit({
+			entries,
+			baseline: baselineRef.current,
+			inserted: insertedRef.current,
+			flushed: flushedRef.current,
+		});
 
-			const writes = steps.map((step) => {
-				if (step.kind === 'update') {
-					return mutations.save(step.rowId, { count: step.count });
-				}
-				if (step.kind === 'delete') {
-					insertedRef.current.delete(step.entryKey);
-					return mutations.remove(step.rowId);
-				}
+		const writes = steps.map((step) => {
+			if (step.kind === 'update') {
+				return mutations.save(step.rowId, { count: step.count });
+			}
+			if (step.kind === 'delete') {
+				insertedRef.current.delete(step.entryKey);
+				return mutations.remove(step.rowId);
+			}
 
-				const collectionSpeciesId = newRecordId();
-				// Remember the id only once the insert sticks. A rejected insert is rolled
-				// back out of the collection, so recording it up front would leave the next
-				// flush trying to update a row that no longer exists.
-				return mutations
-					.add({
-						collectionId,
-						collectionSpeciesId,
-						identifiedDate: todayInTimeZone(timeZone),
-						fields: {
-							speciesId: step.speciesId,
-							count: step.count,
-							sex: step.variant.sex as SpeciesSex | null,
-							status: step.variant.status as SpeciesStatus | null,
-						},
-					})
-					.then(() => {
-						insertedRef.current.set(step.entryKey, collectionSpeciesId);
-					});
-			});
+			const collectionSpeciesId = newRecordId();
+			// Remember the id only once the insert sticks. A rejected insert is rolled
+			// back out of the collection, so recording it up front would leave the next
+			// flush trying to update a row that no longer exists.
+			return mutations
+				.add({
+					collectionId,
+					collectionSpeciesId,
+					identifiedDate: todayInTimeZone(timeZone),
+					fields: {
+						speciesId: step.speciesId,
+						count: step.count,
+						sex: step.variant.sex as SpeciesSex | null,
+						status: step.variant.status as SpeciesStatus | null,
+					},
+				})
+				.then(() => {
+					insertedRef.current.set(step.entryKey, collectionSpeciesId);
+				});
+		});
 
-			await Promise.all(writes);
-			flushedRef.current = flushedKeysAfter(entries);
-		},
-		[collectionId, timeZone, mutations],
-	);
+		await Promise.all(writes);
+		flushedRef.current = flushedKeysAfter(entries);
+	};
 
 	return (
 		<KeyEntryDialog

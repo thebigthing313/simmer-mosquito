@@ -2,8 +2,9 @@ import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -12,15 +13,19 @@ import {
 	MultiSelectFilter,
 	toggle,
 	useExplorerPanel,
-	useRegionMembership,
+	useExplorerResource,
 	useRegionOptions,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
 import {
-	type AddressListing,
-	useOrganizationAddresses,
-} from '../../../hooks/queries/use-organization-addresses';
+	type AddressTileFilters,
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	type MapTileLayer,
+} from '../../../components/map';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	type FilterCodecs,
 	idSetParam,
@@ -30,6 +35,25 @@ import {
 	useSearchFilters,
 } from '../../../lib/search-filters';
 import { AddressMapCard } from './-address-map-card';
+
+/**
+ * An address as `/map/addresses` lists it: what the row shows, and where on
+ * the map it sits. The whole postal address rides along because the row's
+ * subtitle is what the title has not said, and `country` because the rail
+ * surfaces it only when it is something other than the US default.
+ */
+interface AddressListing {
+	readonly id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly displayName: string;
+	readonly country: string;
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+}
 
 interface AddressFilters {
 	readonly search: string;
@@ -48,13 +72,10 @@ export const Route = createFileRoute('/gis/addresses/')({
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
-const RESULT_NOUN = { one: 'address', many: 'addresses' };
-const _addressesGcTimeMs = 30_000;
-const PAGE_SIZE = 25;
+const RECORD_TYPE: RecordType = 'address';
+const PATH = '/map/addresses';
 
 function AddressesExplorerRoute() {
-	const { addresses, isReady } = useOrganizationAddresses();
-
 	// The search term lives in the URL, so a shared link and Back out of an
 	// address both land on the list the operator had narrowed to.
 	const {
@@ -64,80 +85,45 @@ function AddressesExplorerRoute() {
 	} = useSearchFilters(ADDRESS_FILTER_DEFAULTS, ADDRESS_FILTER_CODECS);
 	const search = query.search;
 	const regionIds = query.regions;
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const { searchInput, setSearch, clearSearch } = useAddressSearch(search, commitSearch);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const regions = useRegionOptions();
-	// The map narrows by region server-side; the list is built from synced rows, so
-	// it asks the same question of the boundaries directly.
-	const regionMembership = useRegionMembership(regionIds);
-	const [page, setPage] = useState(0);
-	const [focusedId, setFocusedId] = useState<string | null>(null);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
 
-	const filtered = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		return addresses.filter((address) => {
-			const point = { lng: address.longitude ?? Number.NaN, lat: address.latitude ?? Number.NaN };
-			if (!regionMembership.contains(point)) {
-				return false;
-			}
-			if (query.length === 0) {
-				return true;
-			}
-			return [
-				address.displayName,
-				address.addressLine1,
-				address.locality,
-				address.region,
-				address.postalCode,
-			].some((part) => (part ?? '').toLowerCase().includes(query));
+	// The tiles and the page read one filter shape off one server predicate, so
+	// the map and the rail stay in lockstep. The rail used to filter and page the
+	// whole address book out of the sync collection beside a map drawing one
+	// viewport, so the two showed different sets (#962).
+	const filters: AddressTileFilters = {
+		...whenText('search', search.trim()),
+		...whenAny('regionIds', regionIds),
+	};
+	const layer: MapTileLayer = {
+		kind: 'addresses',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<AddressListing>({
+			path: PATH,
+			rowsKey: 'addresses',
+			rowKey: 'address',
+			recordType: RECORD_TYPE,
+			params: { search: filters.search, regionId: filters.regionIds },
+			layer,
+			map,
+			selectedId,
 		});
-	}, [addresses, search, regionMembership]);
 
-	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-	const regionKey = [...regionIds].sort().join(',');
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset to the first page on a new narrowing.
-	useEffect(() => {
-		setPage(0);
-	}, [search, regionKey]);
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
-	const visible = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-
-	// The map's point layer narrows server-side by the same search, so the visible
-	// points and the list stay in lockstep as the query changes.
-	const serverUrl = getServerUrl();
-	const trimmedSearch = search.trim();
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'addresses',
-				serverUrl,
-				selectedId: focusedId,
-				filters: {
-					...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
-					...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
-				},
-				onSelectFeature: (id: string | null) => setFocusedId(id),
-			},
-		],
-		[serverUrl, focusedId, trimmedSearch, regionKey],
-	);
-	const clearAll = useCallback(() => {
+	const clearAll = () => {
 		setFilters({ search: '', regions: new Set() });
-	}, [setFilters]);
-
-	// The rows come from synced records rather than a paged request, so the frame
-	// is told "loading" only until the collection and the boundaries are both in.
-	const isLoading = !isReady || !regionMembership.isReady;
+	};
 
 	return (
 		<ExplorerMapPage
@@ -177,23 +163,25 @@ function AddressesExplorerRoute() {
 				</>
 			}
 			footer={
-				pageCount > 1 ? (
-					<ExplorerPagination
-						noun={{ one: 'address', many: 'addresses' }}
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={filtered.length}
-					/>
-				) : undefined
+				<ExplorerPagination
+					noun={recordNoun(RECORD_TYPE)}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
+				/>
 			}
 			heading={{
+				// Not the register's `Addresses`, and deliberately. CONTEXT.md glosses an
+				// Address as an "Organization-owned address book entry", so this surface
+				// is the book those entries are in, which is a place rather than a second
+				// spelling of the record. The sidebar entry that opens it says the same
+				// words; the group heading above that entry names the records (#985).
 				title: 'Address Book',
 				icon: AddressIcon,
-				total: filtered.length,
+				total,
 				isLoading,
-				noun: RESULT_NOUN,
-				create: { to: '/gis/addresses/create', label: 'Create Address' },
+				create: { to: '/gis/addresses/create', label: createLabel('address') },
 			}}
 			onResetFilters={clearAll}
 			map={
@@ -207,30 +195,28 @@ function AddressesExplorerRoute() {
 						onMapReady={setMap}
 						searchWidth={panel.width}
 					/>
-					{focusedId === null ? null : (
+					{selected === null ? null : (
 						<AddressMapCard
-							id={focusedId}
+							id={selected.id}
 							inset={panel.inset}
 							map={map}
-							onClose={() => setFocusedId(null)}
+							onClose={() => setSelectedId(null)}
 						/>
 					)}
 				</>
 			}
 			panel={panel}
 			results={{
-				rows: visible,
-				emptyTitle: activeFilterCount > 0 ? 'No addresses match' : 'No addresses yet',
-				emptyDescription:
-					activeFilterCount > 0
-						? 'Try a different search term or region.'
-						: 'Create an address to build the shared address book.',
+				rows,
+				isError,
+				onRetry: retry,
+				empty,
 				renderRow: (address) => (
 					<AddressRowItem
 						address={address}
-						isFocused={address.id === focusedId}
+						isFocused={address.id === selectedId}
 						key={address.id}
-						onFocus={() => setFocusedId(address.id)}
+						onFocus={() => setSelectedId(address.id)}
 					/>
 				),
 			}}
@@ -252,10 +238,10 @@ function useAddressSearch(
 	readonly clearSearch: () => void;
 } {
 	const { input, setInput, clear } = useDebouncedTextFilter(urlSearch, commitSearch);
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clear();
 		commitSearch('');
-	}, [clear, commitSearch]);
+	};
 
 	return { searchInput: input, setSearch: setInput, clearSearch };
 }
@@ -274,7 +260,7 @@ function AddressRowItem({
 	// over "1 11th Street · Monroe Township, NJ 08831" and spent its second line
 	// repeating its first. The subtitle carries what the title has not said.
 	const line = fullAddress(address);
-	const name = address.displayName?.trim() || line || 'Unnamed address';
+	const name = address.displayName.trim() || line || 'Unnamed address';
 	const rest = line.startsWith(name) ? line.slice(name.length).replace(/^\s*·\s*/, '') : line;
 	return (
 		<ExplorerRow

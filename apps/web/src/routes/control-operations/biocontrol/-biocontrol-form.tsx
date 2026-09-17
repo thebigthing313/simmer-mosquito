@@ -1,19 +1,14 @@
 import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
 import {
-	customFieldCount,
-	customSchemaFor,
 	FormSection,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
@@ -22,17 +17,17 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { noTechnicianValue, technicianOptions } from '../../../lib/no-technician';
 import { unitOptions } from '../../../lib/unit-options';
-import { AddressPicker, HabitatPicker } from '../-control-pickers';
-
-/** Non-empty sentinel: Radix Select forbids empty-string item values. */
-export const noTechnicianValue = 'none';
+import { HabitatPicker } from '../-control-pickers';
 
 /** Domain issue path → the form field holding it. */
 const BIOCONTROL_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -44,6 +39,39 @@ const BIOCONTROL_FIELD_PATHS: Readonly<Record<string, string>> = {
 	addressId: 'addressId',
 	metadata: 'metadata',
 };
+
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * The builder is the only channel: it holds the method, the amount, the unit and
+ * the date, and every issue it raises comes back attributed to the field that
+ * holds it. A second pass over the same four rules used to run in `onSubmit` and
+ * throw a bare string into the page alert, which told an operator a save had
+ * failed without saying where to look.
+ */
+export function validateBiocontrol(
+	value: BiocontrolFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+) {
+	return domainValidator(
+		() =>
+			recordBiocontrolActionCommand({
+				...FORM_VALIDATION_CONTEXT,
+				biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
+				locationSource: validationLocationSource(geometry, requireLocation),
+				biocontrolMethodId: value.biocontrolMethodId,
+				amountReleased: value.amountReleased as number,
+				releaseUnitId: value.releaseUnitId,
+				biocontrolDate: value.biocontrolDate,
+				technicianProfileId:
+					value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
+				addressId: value.addressId,
+				metadata: value.metadata,
+			}),
+		BIOCONTROL_FIELD_PATHS,
+	)({ value });
+}
 
 export interface BiocontrolFormValues {
 	/**
@@ -95,7 +123,6 @@ export interface BiocontrolFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: BiocontrolFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: BiocontrolFormValues;
 		/** The action's geometry. Always set on create; may be unchanged on edit. */
@@ -131,7 +158,6 @@ export function BiocontrolFormPage({
 	requireLocation = true,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: BiocontrolFormPageProps) {
 	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
@@ -143,67 +169,25 @@ export function BiocontrolFormPage({
 		missingMessage: 'Map where the agents were released.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
+	const { draw, geometry, geometryType, referenceGeometry } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				biocontrolMethods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[biocontrolMethods],
+	const methodOptions = lifecycleOptions(
+		biocontrolMethods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 	// Biocontrol releases are counted, measured by volume, or weighed — the domain
 	// rejects any other unit type.
-	const releaseUnitOptions = useMemo(() => unitOptions(units, isBiocontrolUnitType), [units]);
-	const technicianOptions = useMemo(
-		() => [
-			{ label: 'Unassigned', value: noTechnicianValue },
-			...lifecycleOptions(
-				profiles,
-				(profile) => profile.isActive,
-				(profile) => profile.displayName,
-			),
-		],
-		[profiles],
-	);
+	const releaseUnitOptions = unitOptions(units, isBiocontrolUnitType);
 
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: BiocontrolFormValues }) =>
-					recordBiocontrolActionCommand({
-						...FORM_VALIDATION_CONTEXT,
-						biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: validationLocationSource(geometry, requireLocation),
-						biocontrolMethodId: value.biocontrolMethodId,
-						amountReleased: value.amountReleased as number,
-						releaseUnitId: value.releaseUnitId,
-						biocontrolDate: value.biocontrolDate,
-						technicianProfileId:
-							value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
-						addressId: value.addressId,
-						metadata: value.metadata,
-					}),
-				BIOCONTROL_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: BiocontrolFormValues }) =>
+				validateBiocontrol(value, geometry, requireLocation),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			if (value.biocontrolMethodId === '') {
-				throw new Error('Select the biocontrol method that was used.');
-			}
-			if (value.amountReleased === null || !(value.amountReleased > 0)) {
-				throw new Error('Enter how much was released.');
-			}
-			if (value.releaseUnitId === '') {
-				throw new Error('Select the unit the release was measured in.');
-			}
-			if (value.biocontrolDate === '') {
-				throw new Error('Enter the date the agents were released.');
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -217,7 +201,7 @@ export function BiocontrolFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -253,7 +237,7 @@ export function BiocontrolFormPage({
 						{(field) => (
 							<field.SelectField
 								label="Technician"
-								options={technicianOptions}
+								options={technicianOptions(profiles)}
 								placeholder="Unassigned"
 							/>
 						)}
@@ -277,63 +261,48 @@ export function BiocontrolFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection
+				<LocationBand
+					below={
+						<form.AppField name="habitatId">
+							{(field) => (
+								<HabitatPicker
+									label="Habitat"
+									organizationId={organizationId}
+									onSelect={(habitat) => {
+										field.handleChange(habitat?.id ?? null);
+										// The habitat is larval context, not the action's location, but
+										// framing the map on it (and seeding unplaced geometry) saves the
+										// crew a pan across the county.
+										location.selectReference(
+											habitat === null ? null : { lat: habitat.latitude, lng: habitat.longitude },
+										);
+									}}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+					}
 					description={locationDescription({
 						geometryKind: 'controlAction',
 						subject: 'The geometry is where the agents were released.',
 						habitat: true,
 					})}
-					error={location.locationError}
+					geometryKind="controlAction"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="controlAction"
-						label="Geometry"
-						required={requireLocation}
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						onTypeChange={location.changeType}
-						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-
-					<form.AppField name="habitatId">
-						{(field) => (
-							<HabitatPicker
-								label="Habitat"
-								organizationId={organizationId}
-								onSelect={(habitat) => {
-									field.handleChange(habitat?.id ?? null);
-									// The habitat is larval context, not the action's location, but
-									// framing the map on it (and seeding unplaced geometry) saves the
-									// crew a pan across the county.
-									location.selectReference(
-										habitat === null ? null : { lat: habitat.latitude, lng: habitat.longitude },
-									);
-								}}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Release">
 					<form.AppField name="biocontrolMethodId">
@@ -370,31 +339,11 @@ export function BiocontrolFormPage({
 					</div>
 				</FormSection>
 
-				{/* Organizations attach their own fields to a method; render whichever
-							    the selected one declares, and nothing when it declares none. */}
-				<form.Subscribe selector={(state) => state.values.biocontrolMethodId}>
-					{(methodId) => {
-						const schema = customSchemaFor(biocontrolMethods, methodId);
-						if (customFieldCount(schema) === 0) {
-							return null;
-						}
-						return (
-							<FormSection title="Custom Fields">
-								<form.AppField
-									name="metadata"
-									validators={{ onSubmit: validateSchemaMetadata(schema) }}
-								>
-									{(field) => (
-										<field.MetadataField
-											description="Extra details you collect for this method."
-											mode={{ kind: 'schema', schema }}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-						);
-					}}
-				</form.Subscribe>
+				<CustomFieldsSection
+					catalog={biocontrolMethods}
+					form={form}
+					schemaField="biocontrolMethodId"
+				/>
 
 				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>

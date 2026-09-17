@@ -67,6 +67,9 @@ export function createFakeMap() {
 	// A flat 0.001 degrees per pixel from the origin: enough for a test to say
 	// which pixels were unprojected, which is the whole question.
 	const DEGREES_PER_PIXEL = 0.001;
+	// Where the canvas's top-left corner sits. `moveTo` shifts it, which is how
+	// a suite gives the map a different viewport without replacing `unproject`.
+	const origin = { lng: 0, lat: 0 };
 	const filterCalls: string[] = [];
 	let removed = false;
 	let doubleClickZoomEnabled = true;
@@ -131,18 +134,19 @@ export function createFakeMap() {
 		getZoom: () => 10,
 		unproject([x, y]: [number, number]) {
 			assertLive();
-			return { lng: x * DEGREES_PER_PIXEL, lat: -y * DEGREES_PER_PIXEL };
+			return { lng: origin.lng + x * DEGREES_PER_PIXEL, lat: origin.lat - y * DEGREES_PER_PIXEL };
 		},
 		/**
 		 * Deliberately narrower than the canvas, the way mapbox answers once the
 		 * map carries viewport padding. Anything reading the viewport off this
-		 * rather than off the canvas gets the padded strip.
+		 * rather than off the canvas gets the padded strip. It follows the origin
+		 * the way the canvas does, so a `moveTo` moves both readings together.
 		 */
 		getBounds: () => ({
-			getEast: () => 0.4,
-			getNorth: () => 0,
-			getSouth: () => -0.8,
-			getWest: () => 0.2,
+			getEast: () => origin.lng + 0.4,
+			getNorth: () => origin.lat,
+			getSouth: () => origin.lat - 0.8,
+			getWest: () => origin.lng + 0.2,
 		}),
 		flyTo(options: CameraOptions) {
 			assertLive();
@@ -217,6 +221,17 @@ export function createFakeMap() {
 		},
 		move(lng: number, lat: number) {
 			this.emit('mousemove', { lngLat: { lng, lat }, point: { x: 0, y: 0 } });
+		},
+		/**
+		 * Put the canvas's top-left corner somewhere else and fire `moveend`, the
+		 * way a finished camera animation does. `fitBounds` and `flyTo` above
+		 * record the call and move nothing, so a suite whose sequence depends on
+		 * the move landing calls this where the real map would fire the event.
+		 */
+		moveTo(lng: number, lat: number) {
+			origin.lng = lng;
+			origin.lat = lat;
+			this.emit('moveend');
 		},
 		/**
 		 * A double-click, as the browser delivers one: both clicks land first, then

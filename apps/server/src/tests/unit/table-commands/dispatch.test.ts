@@ -1,3 +1,4 @@
+import { DomainValidationError } from '@simmer-mosquito/domain';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -46,7 +47,10 @@ interface Recorded {
  * only the database is not. That keeps the ordering, the txid and the response
  * shape under test rather than mocked.
  */
-function testApp(role: string): {
+function testApp(
+	role: string,
+	buildError?: unknown,
+): {
 	readonly app: Hono<{ Variables: AuthVariables }>;
 	readonly recorded: Recorded;
 } {
@@ -72,6 +76,9 @@ function testApp(role: string): {
 		},
 		intents: {
 			'larvalSurveillance.createHabitat': (request) => {
+				if (buildError !== undefined) {
+					throw buildError;
+				}
 				built.push(request);
 				return { type: 'larvalSurveillance.createHabitat', payload: request.payload };
 			},
@@ -128,6 +135,28 @@ describe('table command dispatch', () => {
 		expect(body.error).toBe('unknown_command');
 		expect(body.reason).toContain('habitats');
 		expect(recorded.built).toHaveLength(0);
+	});
+
+	// #928: the sentence sat in `message` here while every other refusal this
+	// surface answers put it in `reason`, so a caller reading one field read
+	// every refusal but this one. `issues` keeps its own per-path `message`.
+	it('carries a refused build sentence in reason, beside the issues', async () => {
+		const { app, recorded } = testApp(
+			OWNER,
+			new DomainValidationError('Create Habitat command is invalid.', [
+				{ path: 'habitat_name', message: 'habitat_name is required.' },
+			]),
+		);
+
+		const response = await post(app, { intents: ['larvalSurveillance.createHabitat'] });
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({
+			error: 'invalid_command',
+			reason: 'Create Habitat command is invalid.',
+			issues: [{ path: 'habitat_name', message: 'habitat_name is required.' }],
+		});
+		expect(recorded.ran).toHaveLength(0);
 	});
 
 	it('runs every named command over one payload, in the order given', async () => {

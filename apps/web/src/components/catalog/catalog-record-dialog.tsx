@@ -10,7 +10,7 @@ import {
 	DialogTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useEffectEvent, useState } from 'react';
 
 const CloseIcon = iconRegistry.actions.close.icon;
 
@@ -113,13 +113,18 @@ export function useCatalogDialogOpen(
  * menu keeps its form instance across every row it edits.
  */
 export function useResetOnOpen(open: boolean, record: unknown, reset: () => void): void {
-	const latest = useRef(reset);
-	latest.current = reset;
+	// `reset` is read at effect time and must not re-run the effect, which is
+	// what a latest-value ref written during render used to buy. That write is
+	// a render-phase ref access the compiler refuses, and `useEffectEvent` is
+	// the hook that shape predates (#779, group A).
+	const refill = useEffectEvent(() => {
+		reset();
+	});
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `record` is the trigger, not a read — a row that changes under an open dialog refills it.
 	useEffect(() => {
 		if (open) {
-			latest.current();
+			refill();
 		}
 	}, [open, record]);
 }

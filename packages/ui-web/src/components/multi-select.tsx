@@ -11,7 +11,7 @@ import {
 	ComboboxList,
 } from '@simmer-mosquito/ui-web/components/ui/combobox';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 
 export interface MultiSelectOption {
 	readonly value: string;
@@ -52,10 +52,8 @@ export function MultiSelect({
 	const anchorRef = useRef<HTMLDivElement | null>(null);
 	// A value with no matching option still gets a chip — labelled by its raw
 	// value — so a selection is never silently dropped from the control.
-	const selected = useMemo(() => {
-		const byValue = new Map(options.map((option) => [option.value, option]));
-		return value.map((entry) => byValue.get(entry) ?? { value: entry, label: entry });
-	}, [options, value]);
+	const byValue = new Map(options.map((option) => [option.value, option]));
+	const selected = value.map((entry) => byValue.get(entry) ?? { value: entry, label: entry });
 
 	return (
 		<Combobox

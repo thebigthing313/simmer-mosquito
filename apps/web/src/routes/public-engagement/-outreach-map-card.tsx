@@ -10,6 +10,7 @@ import {
 } from '../../components/map/map-card';
 import type { MapInset } from '../../components/map/map-inset';
 import { useOutreachAction } from '../../hooks/queries/use-outreach-action';
+import { recordNoun } from '../../lib/record-nouns';
 import { formatReach } from './-public-engagement-display';
 
 const ReachIcon = iconRegistry.entities.outreachAction.icon;
@@ -32,7 +33,7 @@ export function OutreachMapCard({
 
 	if (action === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Outreach">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('outreachAction').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -43,7 +44,7 @@ export function OutreachMapCard({
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={action.outreachDate} type="Outreach" />}
+			eyebrow={<MapCardEyebrow date={action.outreachDate} recordType="outreachAction" />}
 			inset={inset}
 			onClose={onClose}
 			title={action.methodName}

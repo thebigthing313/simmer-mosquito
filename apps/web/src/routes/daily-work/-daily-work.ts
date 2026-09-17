@@ -1,3 +1,4 @@
+import { addCalendarDays } from '../../lib/local-date';
 import type { ActivityCopy } from '../-activity-data';
 
 // The three rules Daily Work is: which day it is showing, what that day sends to
@@ -15,6 +16,18 @@ import type { ActivityCopy } from '../-activity-data';
  */
 export function dailyWorkDay(requested: string, today: string): string {
 	return requested === '' || requested > today ? today : requested;
+}
+
+/**
+ * The day either side of the one on screen, for the stepper's two arrows.
+ *
+ * Forward stops at today, the same bound the picker refuses to cross, so the
+ * arrow at today returns the day it was given rather than a tomorrow the page
+ * would draw as a quiet day. Backward has no floor: a Profile's field work goes
+ * back as far as the organization's records do.
+ */
+export function dailyWorkStep(day: string, days: number, today: string): string {
+	return dailyWorkDay(addCalendarDays(day, days), today);
 }
 
 /**

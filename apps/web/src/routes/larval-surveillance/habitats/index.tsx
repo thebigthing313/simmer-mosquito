@@ -1,10 +1,10 @@
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { ComponentIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -12,17 +12,17 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	SegmentedFilter,
+	ToggleFilter,
 	toggle,
 	useEntityTags,
 	useExplorerPanel,
-	useFlyToSelection,
+	useExplorerResource,
 	useHabitatTypeOptions,
-	useMapBoundsParam,
-	usePagedMapResource,
 	useRegionOptions,
 	useTagOptions,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -33,10 +33,11 @@ import {
 	type MapTileLayer,
 } from '../../../components/map';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { habitats } from '../../../lib/collections/habitats';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
+	flagParam,
 	idSetParam,
 	searchValidator,
 	textParam,
@@ -57,6 +58,11 @@ interface HabitatFilters {
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;
 	readonly regions: ReadonlySet<string>;
+	/**
+	 * Untreated: heavy in the last 7 days with no control action since. The
+	 * server's rule, which the Dashboard's banner counts by and links here with.
+	 */
+	readonly untreated: boolean;
 }
 
 const HABITAT_FILTER_DEFAULTS: HabitatFilters = {
@@ -66,6 +72,7 @@ const HABITAT_FILTER_DEFAULTS: HabitatFilters = {
 	typeIds: new Set(),
 	tagIds: new Set(),
 	regions: new Set(),
+	untreated: false,
 };
 
 const HABITAT_FILTER_CODECS: FilterCodecs<HabitatFilters> = {
@@ -75,6 +82,7 @@ const HABITAT_FILTER_CODECS: FilterCodecs<HabitatFilters> = {
 	typeIds: idSetParam,
 	tagIds: idSetParam,
 	regions: idSetParam,
+	untreated: flagParam,
 };
 
 export const Route = createFileRoute('/larval-surveillance/habitats/')({
@@ -86,14 +94,16 @@ const PATH = '/map/habitats';
 
 const NO_TAGS: readonly Tag[] = [];
 
+const HabitatIcon = iconRegistry.entities.habitat.icon;
+
 /**
  * A Habitat as this list shows one.
  *
  * Named here rather than reused from the row types, because the rows arrive from
- * `/map/habitats` — a REST read that aliases its columns to camelCase — and this
- * is exactly the six fields the list, the badges and the map fly-to need. The
- * collection projects into the same shape (see {@link useSelectedHabitat}), so
- * both sources satisfy one type and the page never asks which it is holding.
+ * `/map/habitats`, a REST read that aliases its columns to camelCase, and this is
+ * exactly the six fields the list, the badges and the map fly-to need. A selection
+ * the page is not holding is read back from `/map/habitats/{id}`, which answers in
+ * the same shape, so the page never asks where a row came from.
  */
 interface HabitatListRow {
 	readonly id: string;
@@ -112,27 +122,19 @@ function HabitatsExplorerRoute() {
 		reset,
 		activeCount: activeFilterCount,
 	} = useSearchFilters(HABITAT_FILTER_DEFAULTS, HABITAT_FILTER_CODECS);
-	const { search, status, access, typeIds, tagIds, regions: regionIds } = query;
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const { search, status, access, typeIds, tagIds, regions: regionIds, untreated } = query;
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: searchInput,
 		setInput: setSearchInput,
 		clear: clearSearchInput,
 	} = useDebouncedTextFilter(search, commitSearch);
-	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
-	const setAccess = useCallback((next: AccessFilter) => setFilters({ access: next }), [setFilters]);
-	const setTypeIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ typeIds: next }),
-		[setFilters],
-	);
-	const setTagIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ tagIds: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setAccess = (next: AccessFilter) => setFilters({ access: next });
+	const setTypeIds = (next: ReadonlySet<string>) => setFilters({ typeIds: next });
+	const setTagIds = (next: ReadonlySet<string>) => setFilters({ tagIds: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
+	const setUntreated = (next: boolean) => setFilters({ untreated: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -141,77 +143,72 @@ function HabitatsExplorerRoute() {
 	const { options: tags, byId: tagById } = useTagOptions();
 	const regions = useRegionOptions();
 
-	const filters = useMemo<HabitatTileFilters>(
-		() => ({
-			...(status === 'all' ? {} : { isActive: status === 'active' }),
-			...(access === 'all' ? {} : { isInaccessible: access === 'inaccessible' }),
-			...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
-			...(tagIds.size > 0 ? { tagIds: [...tagIds] } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(search.length > 0 ? { search } : {}),
-		}),
-		[status, access, typeIds, tagIds, regionIds, search],
-	);
+	const filters: HabitatTileFilters = {
+		...(status === 'all' ? {} : { isActive: status === 'active' }),
+		...(access === 'all' ? {} : { isInaccessible: access === 'inaccessible' }),
+		...whenAny('habitatTypeIds', typeIds),
+		...whenAny('tagIds', tagIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('search', search),
+		...(untreated ? { untreatedOnly: true } : {}),
+	};
 
-	const legend = useMemo(() => habitatLegend(status, access), [status, access]);
+	const legend = habitatLegend(status, access);
 
-	const bbox = useMapBoundsParam(map);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				bbox,
-				isActive: filters.isActive,
-				isInaccessible: filters.isInaccessible,
-				habitatTypeId: filters.habitatTypeIds,
-				tagId: filters.tagIds,
-				regionId: filters.regionIds,
-				search: filters.search,
-			}),
-		[bbox, filters],
-	);
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<HabitatListRow>({
-			path: PATH,
-			rowsKey: 'habitats',
-			label: 'Habitats',
-			params,
-			enabled: bbox !== null,
-		});
+	const layer: MapTileLayer = {
+		kind: 'habitats',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const {
+		rows,
+		total,
+		isLoading,
+		isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+		selected: selectedHabitat,
+		empty,
+	} = useExplorerResource<HabitatListRow>({
+		path: PATH,
+		rowsKey: 'habitats',
+		rowKey: 'habitat',
+		recordType: 'habitat',
+		params: {
+			isActive: filters.isActive,
+			isInaccessible: filters.isInaccessible,
+			habitatTypeId: filters.habitatTypeIds,
+			tagId: filters.tagIds,
+			regionId: filters.regionIds,
+			search: filters.search,
+			untreated: filters.untreatedOnly,
+		},
+		layer,
+		map,
+		selectedId,
+	});
 	// Tags for the rows actually on screen, so the subset request stays small.
-	const pageHabitatIds = useMemo(() => rows.map((habitat) => habitat.id), [rows]);
+	const pageHabitatIds = rows.map((habitat) => habitat.id);
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
 
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
-	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
-	const selectedHabitat =
-		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-	useFlyToSelection(map, selectedHabitat);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'habitats',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
-
-	const clearAll = useCallback(() => {
+	const clearAll = () => {
 		clearSearchInput();
 		reset();
-	}, [clearSearchInput, reset]);
+	};
 	// Both halves: the field the operator is looking at, and the committed term
 	// on the URL that is actually cutting the list. Clearing only the field
 	// leaves the chip up and the results filtered.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 
 	return (
 		<ExplorerMapPage
@@ -263,6 +260,7 @@ function HabitatsExplorerRoute() {
 							selected={regionIds}
 							onChange={setRegionIds}
 						/>
+						<ToggleFilter label="Untreated" onChange={setUntreated} value={untreated} />
 					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
@@ -273,6 +271,7 @@ function HabitatsExplorerRoute() {
 							typeIds={typeIds}
 							tagIds={tagIds}
 							regionIds={regionIds}
+							untreated={untreated}
 							typeNameById={typeNameById}
 							tagById={tagById}
 							regionNameById={regions.nameById}
@@ -282,6 +281,7 @@ function HabitatsExplorerRoute() {
 							onToggleType={(id) => setTypeIds(toggle(typeIds, id))}
 							onToggleTag={(id) => setTagIds(toggle(tagIds, id))}
 							onToggleRegion={(id) => setRegionIds(toggle(regionIds, id))}
+							onClearUntreated={() => setUntreated(false)}
 							onClearAll={clearAll}
 						/>
 					) : null}
@@ -289,7 +289,7 @@ function HabitatsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'habitat', many: 'habitats' }}
+					noun={recordNoun('habitat')}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -297,11 +297,11 @@ function HabitatsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Habitats',
-				icon: ComponentIcon,
+				title: recordNoun('habitat').titleMany,
+				icon: HabitatIcon,
 				total,
 				isLoading,
-				create: { to: '/larval-surveillance/habitats/create', label: 'Create Habitat' },
+				create: { to: '/larval-surveillance/habitats/create', label: createLabel('habitat') },
 			}}
 			onResetFilters={clearAll}
 			map={
@@ -332,9 +332,7 @@ function HabitatsExplorerRoute() {
 				isError,
 				onRetry: retry,
 				skeletonClassName: 'h-[58px]',
-				emptyTitle: 'No habitats in view',
-				emptyDescription:
-					'Pan or zoom the map, or loosen the filters to bring habitats into range.',
+				empty,
 				renderRow: (habitat) => (
 					<HabitatListItem
 						habitat={habitat}
@@ -369,6 +367,7 @@ function ActiveFilters({
 	typeIds,
 	tagIds,
 	regionIds,
+	untreated,
 	typeNameById,
 	tagById,
 	regionNameById,
@@ -378,6 +377,7 @@ function ActiveFilters({
 	onToggleType,
 	onToggleTag,
 	onToggleRegion,
+	onClearUntreated,
 	onClearAll,
 }: {
 	readonly search: string;
@@ -386,6 +386,7 @@ function ActiveFilters({
 	readonly typeIds: ReadonlySet<string>;
 	readonly tagIds: ReadonlySet<string>;
 	readonly regionIds: ReadonlySet<string>;
+	readonly untreated: boolean;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly tagById: ReadonlyMap<string, Tag>;
 	readonly regionNameById: ReadonlyMap<string, string>;
@@ -395,6 +396,7 @@ function ActiveFilters({
 	readonly onToggleType: (id: string) => void;
 	readonly onToggleTag: (id: string) => void;
 	readonly onToggleRegion: (id: string) => void;
+	readonly onClearUntreated: () => void;
 	readonly onClearAll: () => void;
 }) {
 	return (
@@ -402,6 +404,7 @@ function ActiveFilters({
 			{search.length > 0 ? (
 				<FilterChip label={`Search: ${search}`} onRemove={onClearSearch} />
 			) : null}
+			{untreated ? <FilterChip label="Untreated" onRemove={onClearUntreated} /> : null}
 			{status !== 'active' ? (
 				<FilterChip
 					label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}
@@ -491,62 +494,6 @@ function habitatSwatch(habitat: HabitatListRow): {
 	return habitat.isActive
 		? { color: HABITAT_STATUS_COLORS.active, label: 'Active' }
 		: { color: HABITAT_STATUS_COLORS.inactive, label: 'Inactive' };
-}
-
-// --- data hooks -------------------------------------------------------------
-
-// `habitats` is on-demand; keep the selected-habitat subset warm briefly on unmount.
-const selectedHabitatGcTimeMs = 30_000;
-// A syntactically valid uuid that matches no row — keeps the single-id subset live
-// (and empty) when nothing needs the fallback fetch.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
-/**
- * Fallback for a selection outside the current bbox list.
- *
- * Every field this page shows lives on the synced `habitats` row, so a selection
- * the list does not hold is resolved from a single-id on-demand subset rather than
- * a `/map/habitats/{id}` fetch. Geometry is not needed — only the centroid, which
- * syncs on the row.
- *
- * This is where the two read paths meet, and the projection below is the seam. The
- * list rows come from `/map/habitats`, which aliases every column to camelCase
- * server-side; the collection speaks Postgres. Naming {@link HabitatListRow} is
- * what lets one page hold both: the REST rows satisfy it structurally, and the
- * query is projected into it. When `/map/*` is settled one of the two sides goes
- * away, and this projection is the thing to delete.
- */
-function useSelectedHabitat(
-	selectedId: string | null,
-	visibleById: ReadonlyMap<string, HabitatListRow>,
-): HabitatListRow | null {
-	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
-	const result = useLiveQuery(
-		{
-			gcTime: selectedHabitatGcTimeMs,
-			// An unmatchable id keeps the subset live (and empty) when the selection is
-			// already in the visible list or nothing is selected.
-			query: (query) =>
-				query
-					.from({ habitat: habitats() })
-					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : UNMATCHABLE_ID))
-					.select(({ habitat }) => ({
-						id: habitat.id,
-						habitatName: habitat.habitat_name,
-						habitatTypeId: habitat.habitat_type_id,
-						isActive: habitat.is_active,
-						isInaccessible: habitat.is_inaccessible,
-						lat: habitat.lat,
-						lng: habitat.lng,
-					})),
-		},
-		[needsFetch ? selectedId : null],
-	);
-
-	if (!needsFetch) {
-		return null;
-	}
-	return result.data[0] ?? null;
 }
 
 // --- helpers ----------------------------------------------------------------

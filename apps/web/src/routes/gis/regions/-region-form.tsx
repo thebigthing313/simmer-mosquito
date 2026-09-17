@@ -1,17 +1,14 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import { createRegionCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
+import { createRegionCommand } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import {
-	LocationSection,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
+import { LocationBand } from '../../../forms/location-band';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
 
@@ -25,23 +22,6 @@ const REGION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	regionFolderId: 'regionFolderId',
 	metadata: 'metadata',
 };
-
-/** What a Region stores, read off the register rather than named here. */
-const REGION_BOUNDARY_SHAPES = getOwnedGeometryPolicy('region').allowedTypes;
-
-/**
- * Whether a drawn shape is one a Region stores.
- *
- * The draw control takes the same `region` policy and offers nothing else, so
- * this narrows what the routes hold to what the write seam takes rather than
- * gating a second time. Both halves read the register: `allowedTypes` for the
- * check, `DrawGeometryFor` for the type, so a widened policy moves them
- * together. Naming the pair here would be a second copy of the matrix, and
- * naming it in the assertion alone was one the compiler could not see.
- */
-export function isRegionBoundary(geometry: DrawGeometry): geometry is DrawGeometryFor<'region'> {
-	return REGION_BOUNDARY_SHAPES.includes(geometry.type);
-}
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noRegionFolderValue = 'none';
@@ -69,7 +49,6 @@ export interface RegionFormPageProps {
 	/** The region's boundary to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
 	readonly header: RegionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: RegionFormValues;
 		/** The boundary. Always set on create; may be unchanged on edit. */
@@ -112,7 +91,6 @@ export function RegionFormPage({
 	defaultValues,
 	initialGeometry = null,
 	header,
-	submitLabel,
 	onSave,
 }: RegionFormPageProps) {
 	const location = useDrawLocation({
@@ -122,10 +100,7 @@ export function RegionFormPage({
 	});
 	const { draw, geometry, geometryType } = location;
 
-	const activeFolders = useMemo(
-		() => [...regionFolders].sort((a, b) => a.name.localeCompare(b.name)),
-		[regionFolders],
-	);
+	const activeFolders = [...regionFolders].sort((a, b) => a.name.localeCompare(b.name));
 
 	const form = useAppForm({
 		defaultValues,
@@ -159,7 +134,7 @@ export function RegionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -197,22 +172,13 @@ export function RegionFormPage({
 					</form.AppField>
 				</div>
 
-				<LocationSection
+				<LocationBand
 					description="Draw the region's area on the map."
-					error={location.locationError}
+					geometryKind="region"
+					label="Boundary"
+					location={location}
 					title="Region boundary"
-				>
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="region"
-						label="Boundary"
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						required
-					/>
-				</LocationSection>
+				/>
 
 				<form.AppField name="description">
 					{(field) => (
@@ -225,15 +191,11 @@ export function RegionFormPage({
 					)}
 				</form.AppField>
 
-				<form.AppField name="metadata">
-					{(field) => (
-						<field.MetadataField
-							description="Optional structured notes for region details of your own."
-							label="Metadata"
-							mode={{ kind: 'manual' }}
-						/>
-					)}
-				</form.AppField>
+				<CustomFieldsSection
+					description="Optional structured notes for region details of your own."
+					form={form}
+					framed={false}
+				/>
 			</RecordFormPage>
 		</form.AppForm>
 	);

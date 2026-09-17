@@ -1,6 +1,3 @@
-import { RecordFormPage } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
 	EmptyDescription,
@@ -8,23 +5,12 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
-import { MapCanvas } from '../../../components/map';
-import { DrawToolbar } from '../../../components/map/geometry-control';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import { AddressPicker } from '../../../components/pickers/address-picker';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-item-mutations';
-import { missionDisplayName } from '../../../hooks/queries/operations-view';
-import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useMission } from '../../../hooks/queries/use-mission';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { useCommandRunner } from '../-command-runner';
-import { LocationSection } from '../-location-section';
-import { canEditMissionPlan, useMissionStopViews } from '../-operations-data';
-import { addStopDescription } from '../-operations-display';
+import { canEditMissionPlan } from '../-operations-data';
+import { AddMissionStopForm } from './-add-stop-form';
 
 export const Route = createFileRoute('/operations/missions/$id_/add-stop')({
 	beforeLoad: async ({ context, params }) => {
@@ -51,6 +37,9 @@ export const Route = createFileRoute('/operations/missions/$id_/add-stop')({
 function AddMissionStopRoute() {
 	const { id } = Route.useParams();
 	const { mission, isReady } = useMission(id);
+	// Read here so the route is what hands the form its attribution, the shape
+	// the create routes have; the form reads the hook again for the write.
+	const { canWrite: canSubmit } = useMissionItemMutations();
 
 	if (mission === undefined) {
 		return isReady ? (
@@ -64,105 +53,7 @@ function AddMissionStopRoute() {
 			<StopUnavailable description="This mission is finished. Reopen it on the mission page before changing what it covers." />
 		);
 	}
-	return <AddMissionStopForm mission={mission} />;
-}
-
-function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
-	const navigate = useNavigate();
-	const auth = useAuthSnapshot();
-	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
-
-	// Reading the stops both warms the on-demand stream the insert confirms
-	// against and gives the new stop its place at the end of the order.
-	const { stops } = useMissionStopViews(mission.id);
-	const { busy, error, run } = useCommandRunner();
-	const stopWrites = useMissionItemMutations();
-	const timeZone = useOrganizationTimeZone();
-
-	const [addressId, setAddressId] = useState<string | null>(null);
-	const location = useDrawLocation({
-		geometryKind: 'missionItem',
-		missingMessage: 'Draw where the crew has to go.',
-	});
-
-	const submit = useCallback(() => {
-		if (!location.requireGeometry() || location.geometry === null) {
-			return;
-		}
-		if (actorProfileId === null) {
-			return;
-		}
-		const geometry = location.geometry;
-		void run(async () => {
-			await stopWrites.addAtGeometry({
-				missionId: mission.id,
-				geometry,
-				addressId,
-				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
-			});
-			await navigate({ to: '/operations/missions/$id', params: { id: mission.id } });
-		}, 'Unable to add that stop.');
-	}, [location, actorProfileId, mission.id, stopWrites, addressId, stops, run, navigate]);
-
-	return (
-		<RecordFormPage
-			actions={
-				<Button disabled={busy || actorProfileId === null} type="submit">
-					{busy ? <Spinner /> : null}
-					Add Stop
-				</Button>
-			}
-			aside={
-				<>
-					<MapCanvas geoJson={location.referenceGeometry} onMapReady={location.onMapReady} />
-					<DrawToolbar
-						geometryKind="missionItem"
-						controller={location.draw}
-						geometryType={location.geometryType}
-					/>
-				</>
-			}
-			gap="tight"
-			header={{
-				title: 'Add a Stop',
-				description: addStopDescription(missionDisplayName(mission, timeZone)),
-				backTo: '/operations/missions/$id',
-				backParams: { id: mission.id },
-				backLabel: 'Back to mission',
-			}}
-			onSubmit={submit}
-		>
-			{error === null ? null : (
-				<Alert variant="destructive">
-					<AlertTitle>Unable to Add Stop</AlertTitle>
-					<AlertDescription>{error}</AlertDescription>
-				</Alert>
-			)}
-
-			<LocationSection
-				geometryKind="missionItem"
-				description="A point for one spot, a line for a run, an area for a block. The stop stores the shape as drawn."
-				location={location}
-				organizationId={mission.organizationId}
-			>
-				<AddressPicker
-					create={{ requestMapPoint: location.requestMapPoint }}
-					label="Address"
-					onSelect={(address) => {
-						setAddressId(address?.id ?? null);
-						location.clearError();
-						location.selectAddress(address);
-					}}
-					organizationId={mission.organizationId}
-					value={addressId}
-				/>
-			</LocationSection>
-
-			<p className="m-0 text-muted-foreground text-sm">
-				The stop goes on the end of the mission. Reorder it from the mission page.
-			</p>
-		</RecordFormPage>
-	);
+	return <AddMissionStopForm canSubmit={canSubmit} mission={mission} />;
 }
 
 function AddStopSkeleton() {

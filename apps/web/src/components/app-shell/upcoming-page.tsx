@@ -14,6 +14,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/item';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
+import { recordNoun } from '../../lib/record-nouns';
 
 type RegistryIcon = typeof iconRegistry.generic.component.icon;
 
@@ -53,7 +54,7 @@ const controlOverview: Elsewhere = {
 	icon: iconRegistry.domains.controlOperations.icon,
 };
 const serviceRequests: Elsewhere = {
-	label: 'Service Requests',
+	label: recordNoun('serviceRequest').titleMany,
 	description: 'Requests from the public, on the map',
 	to: '/public-engagement/service-requests',
 	icon: iconRegistry.entities.serviceRequest.icon,
@@ -71,7 +72,7 @@ const operations: Elsewhere = {
 	icon: iconRegistry.entities.vehicle.icon,
 };
 const collections: Elsewhere = {
-	label: 'Collections',
+	label: recordNoun('collection').titleMany,
 	description: 'What your traps caught, by species and trap night',
 	to: '/adult-surveillance/collections',
 	icon: iconRegistry.domains.adultSurveillance.icon,
@@ -83,61 +84,61 @@ const insecticides: Elsewhere = {
 	icon: iconRegistry.entities.insecticide.icon,
 };
 const regions: Elsewhere = {
-	label: 'Regions',
+	label: recordNoun('region').titleMany,
 	description: 'The boundaries you work and report by',
 	to: '/gis/regions',
 	icon: iconRegistry.entities.region.icon,
 };
 const weatherStations: Elsewhere = {
-	label: 'Weather Stations',
+	label: recordNoun('weatherStation').titleMany,
 	description: 'Stations on the map, with the summaries recorded against each',
 	to: '/gis/weather',
 	icon: iconRegistry.domains.weather.icon,
 };
 const habitats: Elsewhere = {
-	label: 'Habitats',
+	label: recordNoun('habitat').titleMany,
 	description: 'The habitats you inspect, on the map',
 	to: '/larval-surveillance/habitats',
 	icon: iconRegistry.generic.droplet.icon,
 };
 const inspections: Elsewhere = {
-	label: 'Inspections',
+	label: recordNoun('inspection').titleMany,
 	description: 'What crews found at a habitat, by date and density',
 	to: '/larval-surveillance/inspections',
 	icon: iconRegistry.entities.inspection.icon,
 };
 const samples: Elsewhere = {
-	label: 'Samples',
+	label: recordNoun('sample').titleMany,
 	description: 'Larvae taken for identification, and what came back',
 	to: '/larval-surveillance/samples',
 	icon: iconRegistry.entities.sample.icon,
 };
 const traps: Elsewhere = {
-	label: 'Traps',
+	label: recordNoun('trap').titleMany,
 	description: 'Traps and their collection methods, on the map',
 	to: '/adult-surveillance/traps',
 	icon: iconRegistry.entities.trap.icon,
 };
 const applications: Elsewhere = {
-	label: 'Applications',
+	label: recordNoun('application').titleMany,
 	description: 'Product, amount, and method for every treatment logged',
 	to: '/control-operations/chemical',
 	icon: iconRegistry.entities.application.icon,
 };
 const sourceReduction: Elsewhere = {
-	label: 'Source Reduction',
+	label: recordNoun('sourceReduction').titleMany,
 	description: 'Sources eliminated, by method and technician',
 	to: '/control-operations/source-reduction',
-	icon: iconRegistry.entities.sourceReductionAction.icon,
+	icon: iconRegistry.entities.sourceReduction.icon,
 };
 const biocontrol: Elsewhere = {
-	label: 'Biocontrol',
+	label: recordNoun('biocontrolAction').titleMany,
 	description: 'Releases logged by method, amount, and habitat',
 	to: '/control-operations/biocontrol',
 	icon: iconRegistry.entities.biocontrolAction.icon,
 };
 const outreach: Elsewhere = {
-	label: 'Outreach',
+	label: recordNoun('outreachAction').titleMany,
 	description: 'Outreach actions and the reach recorded against each',
 	to: '/public-engagement/outreach',
 	icon: iconRegistry.entities.outreachAction.icon,
@@ -164,17 +165,6 @@ const collectionMethods: Elsewhere = {
  * unbuilt section to another is how a placeholder becomes a maze.
  */
 const CONTENT: Readonly<Record<string, UpcomingContent>> = {
-	'/': {
-		title: 'Dashboard',
-		summary:
-			'A single view of where the work stands: recent field activity, records that need a decision, and the operational picture across surveillance and control.',
-		willLand: [
-			'Cross-domain activity for the current period',
-			'Records flagged for attention, each linking straight to the record',
-			'Entry points into the day’s work without hunting through domains',
-		],
-		elsewhere: [larvalOverview, adultOverview, controlOverview],
-	},
 	'/today': {
 		title: 'Today',
 		summary:
@@ -348,10 +338,19 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 	const content = CONTENT[activePath];
 	const heading = content?.title ?? title ?? item?.label ?? domain.label;
 
+	// `record` is the measure the route-loading skeleton reserves, so a stub
+	// arrives at the width it stood in for (#1043, #1048). The frame widens and
+	// the prose does not: the heading, the summary and the list each carry the
+	// 46rem the page used to centre in, and they sit at the frame's left edge
+	// where the skeleton's heading sat, rather than 440px in on a 1920 screen.
+	// The links are the one part that reads better wide, so they take the room
+	// as columns. The frame's padding is the only vertical padding, because the
+	// skeleton reads the same `page` variant: a `py-6` on this grid put the
+	// badge 24px below where the skeleton's title bar sat (#1060).
 	return (
-		<OutletSimpleLayout>
-			<div className="mx-auto grid max-w-[46rem] content-start gap-8 py-6">
-				<header className="grid justify-items-start gap-3">
+		<OutletSimpleLayout measure="record">
+			<div className="grid content-start gap-8">
+				<header className="grid max-w-[46rem] justify-items-start gap-3">
 					<Badge variant="secondary">
 						<UpcomingIcon aria-hidden="true" />
 						Upcoming
@@ -366,7 +365,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 				</header>
 
 				{content === undefined ? null : (
-					<section className="grid gap-3">
+					<section className="grid max-w-[46rem] gap-3">
 						<h2 className="m-0 font-semibold text-foreground text-sm">What will land here</h2>
 						<ul className="m-0 grid list-none gap-2.5 p-0">
 							{content.willLand.map((capability) => (
@@ -390,7 +389,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 						<h2 className="m-0 font-semibold text-foreground text-sm">
 							Where to work in the meantime
 						</h2>
-						<ItemGroup className="gap-2">
+						<ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-2">
 							{content.elsewhere.map((destination) => {
 								const DestinationIcon = destination.icon;
 								return (

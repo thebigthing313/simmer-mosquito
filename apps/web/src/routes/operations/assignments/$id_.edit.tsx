@@ -13,14 +13,10 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
-import {
-	ArrowLeftIcon,
-	ChevronRightIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
@@ -63,6 +59,7 @@ import {
 	type AssignmentDetailValues,
 	assigneeOrNull,
 	assignmentNameOrNull,
+	deadlineHalfEntered,
 	sameAssignmentDetails,
 	toAssignmentDetails,
 	toDueAt,
@@ -71,8 +68,6 @@ import {
 	AssignmentTargetPicker,
 	type AssignmentTargetSelection,
 } from './-assignment-target-picker';
-
-const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 /** Module-level so the ordering hook's identity stays stable across renders. */
 const stopKey = (stop: AssignmentStopView) => stop.assignmentItemId;
@@ -105,7 +100,12 @@ function AssignmentPlanRoute() {
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
-	const { updateDetails, remove: removeAssignment, moveStops } = useAssignmentMutations();
+	const {
+		updateDetails,
+		remove: removeAssignment,
+		moveStops,
+		canWrite: canWriteAssignment,
+	} = useAssignmentMutations();
 	// Held on the route itself, and rendered on both of its branches. The delete
 	// is optimistic, so the assignment leaves the collection the moment the button
 	// is pressed and the card unmounts before the registry's refusal comes back.
@@ -114,6 +114,11 @@ function AssignmentPlanRoute() {
 		ask: true,
 	});
 	const items = useAssignmentItemMutations();
+	// No single submit: the details save, the stop picker, the reorder controls
+	// and the directions each write on their own, so `editable` below carries
+	// this to every one of them. Both hooks publish `canAttributeWrite` over the
+	// snapshot, and both are read because the page writes through both (#944).
+	const canSubmit = canWriteAssignment && items.canWrite;
 
 	const { assignment, isReady, isError } = useAssignment(id);
 	const { stops, isLoading } = useAssignmentStops(id);
@@ -133,17 +138,14 @@ function AssignmentPlanRoute() {
 	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
 	useBreadcrumbLabel(id, displayName);
 
-	const savedDetails = useMemo(
-		() => (assignment === null ? null : toAssignmentDetails(assignment, timeZone)),
-		[assignment, timeZone],
-	);
+	const savedDetails = assignment === null ? null : toAssignmentDetails(assignment, timeZone);
 	const values = detailDraft ?? savedDetails;
 	const isDirty =
 		detailDraft !== null &&
 		savedDetails !== null &&
 		!sameAssignmentDetails(detailDraft, savedDetails);
 
-	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
+	const commitMove = (plan: MovePlan) => moveStops(id, plan);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -152,35 +154,38 @@ function AssignmentPlanRoute() {
 
 	// Ordinals come off the *pending* order, not the synced one, so a reorder
 	// renumbers the pins on the same frame the list rearranges.
-	const features = useMemo<RouteStopFeature[]>(
-		() =>
-			orderedStops
-				.map((stop, index) => ({ stop, ordinal: index + 1 }))
-				.filter((entry) => entry.stop.hasLocation)
-				.map((entry) => ({
-					id: entry.stop.assignmentItemId,
-					lng: entry.stop.target?.lng as number,
-					lat: entry.stop.target?.lat as number,
-					ordinal: entry.ordinal,
-					tone: assignmentStopTone(entry.stop),
-				})),
-		[orderedStops],
+	const features: RouteStopFeature[] = orderedStops
+		.map((stop, index) => ({ stop, ordinal: index + 1 }))
+		.filter((entry) => entry.stop.hasLocation)
+		.map((entry) => ({
+			id: entry.stop.assignmentItemId,
+			lng: entry.stop.target?.lng as number,
+			lat: entry.stop.target?.lat as number,
+			ordinal: entry.ordinal,
+			tone: assignmentStopTone(entry.stop),
+		}));
+
+	const existingKeys = new Set(
+		stops
+			.filter((stop) => stop.entityType !== null)
+			.map((stop) => `${stop.entityType}:${stop.entityId}`),
 	);
 
-	const existingKeys = useMemo(
-		() =>
-			new Set(
-				stops
-					.filter((stop) => stop.entityType !== null)
-					.map((stop) => `${stop.entityType}:${stop.entityId}`),
-			),
-		[stops],
-	);
+	// Two questions with two answers on screen. `planOpen` is the assignment's
+	// lifecycle, and the alert below says so when it is closed; `editable` adds
+	// whether this session can attribute a write, which the alert must not read,
+	// since "this assignment is cancelled" would be the wrong sentence for it.
+	const planOpen = assignment !== null && canEditPlan(assignment.status);
+	const editable = planOpen && canSubmit;
 
-	const editable = assignment !== null && canEditPlan(assignment.status);
+	// A date with no time, or a time with no date, is not a deadline and is not
+	// saved as one: refused here rather than written as null, which would drop a
+	// deadline the operator was halfway through changing.
+	const detailsSaveable =
+		values !== null && values.assignmentDate !== '' && !deadlineHalfEntered(values);
 
-	const saveDetails = useCallback(async () => {
-		if (detailDraft === null || detailDraft.assignmentDate === '') {
+	const saveDetails = async () => {
+		if (detailDraft === null || !detailsSaveable) {
 			return;
 		}
 		setSavingDetails(true);
@@ -195,58 +200,47 @@ function AssignmentPlanRoute() {
 			setDetailDraft(null);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save these details.');
-		} finally {
-			setSavingDetails(false);
 		}
-	}, [detailDraft, id, timeZone, updateDetails]);
+		setSavingDetails(false);
+	};
 
-	const addStop = useCallback(
-		async (selection: AssignmentTargetSelection) => {
-			setError(null);
-			try {
-				await items.addStop({
-					assignmentId: id,
-					// The picker speaks the page's vocabulary; the row speaks the
-					// column's. `serviceRequest` is the only member the two spell
-					// differently, which is why this conversion has to be explicit.
-					target: {
-						type: selection.type === 'serviceRequest' ? 'service_request' : selection.type,
-						id: selection.id,
-					},
-					position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
-				});
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
-			}
-		},
-		[items, id, stops],
-	);
+	const addStop = async (selection: AssignmentTargetSelection) => {
+		setError(null);
+		// The picker speaks the page's vocabulary; the row speaks the column's.
+		// `serviceRequest` is the only member the two spell differently, which is
+		// why this conversion has to be explicit, and it sits above the try because
+		// the React Compiler bails on a component whose try block branches (#856).
+		const targetType = selection.type === 'serviceRequest' ? 'service_request' : selection.type;
+		try {
+			await items.addStop({
+				assignmentId: id,
+				target: { type: targetType, id: selection.id },
+				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+		}
+	};
 
-	const move = useCallback(
-		async (index: number, action: MoveAction) => {
-			setError(null);
-			try {
-				await moveStop(index, action);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to reorder the assignment.');
-			}
-		},
-		[moveStop],
-	);
+	const move = async (index: number, action: MoveAction) => {
+		setError(null);
+		try {
+			await moveStop(index, action);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to reorder the assignment.');
+		}
+	};
 
-	const saveDirections = useCallback(
-		async (assignmentItemId: string, value: string) => {
-			setError(null);
-			try {
-				await items.setDirections(assignmentItemId, value);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
-			}
-		},
-		[items],
-	);
+	const saveDirections = async (assignmentItemId: string, value: string) => {
+		setError(null);
+		try {
+			await items.setDirections(assignmentItemId, value);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+		}
+	};
 
-	const confirmRemove = useCallback(async () => {
+	const confirmRemove = async () => {
 		const target = removeTarget;
 		setRemoveTarget(null);
 		if (target === null) {
@@ -258,7 +252,7 @@ function AssignmentPlanRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
 		}
-	}, [removeTarget, items]);
+	};
 
 	const body = (
 		<>
@@ -268,7 +262,7 @@ function AssignmentPlanRoute() {
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
-						noun="assignment"
+						recordType="assignment"
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
 						selectedId={selectedStopId}
@@ -290,7 +284,7 @@ function AssignmentPlanRoute() {
 							{assignment === null ? null : <AssignmentStatusBadge status={assignment.status} />}
 						</div>
 
-						{assignment !== null && !editable ? (
+						{assignment !== null && !planOpen ? (
 							<Alert>
 								<AlertDescription>
 									{`This assignment is ${assignment.status === 'completed' ? 'completed' : 'cancelled'}. Reopen it on the run page to change the plan.`}
@@ -314,7 +308,7 @@ function AssignmentPlanRoute() {
 								{isDirty ? (
 									<div className="flex items-center gap-2">
 										<Button
-											disabled={savingDetails || values.assignmentDate === ''}
+											disabled={!canSubmit || savingDetails || !detailsSaveable}
 											onClick={() => void saveDetails()}
 											size="sm"
 											type="button"
@@ -364,12 +358,11 @@ function AssignmentPlanRoute() {
 						stops={orderedStops}
 					/>
 
-					{assignment === null ? null : (
+					{assignment === null || !canSubmit ? null : (
 						<div className="shrink-0 border-border/40 border-t p-3">
 							<DangerZoneCard
 								ask={askDelete}
 								name={displayName ?? 'this assignment'}
-								noun="assignment"
 								onDelete={(acknowledgements) => removeAssignment(assignment.id, acknowledgements)}
 								recordId={assignment.id}
 								recordType="assignment"
@@ -409,7 +402,7 @@ function AssignmentPlanRoute() {
 	return (
 		<>
 			<RecordEditFrame
-				noun="assignment"
+				recordType="assignment"
 				reading={{ isError, isReady, record: assignment }}
 				skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
 			>

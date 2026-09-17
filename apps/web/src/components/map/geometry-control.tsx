@@ -113,8 +113,8 @@ export function GeometryControl({
 	const hasGeometry = geometry !== null;
 	const isBusy = controller.isDrawing || controller.isRequestingPoint;
 	// Read off the shape this control is showing rather than off the controller,
-	// because the address form drives the controller for its "place on map" path
-	// alone and holds its point itself.
+	// so the rows are the parts of the geometry the caller passed and cannot
+	// disagree with the badge and the label above them.
 	const parts = drawParts(geometry);
 	// One piece is what puts Continue and Cut hole on the control at all. At two
 	// they move onto the rows, where the piece each belongs to is the row it sits

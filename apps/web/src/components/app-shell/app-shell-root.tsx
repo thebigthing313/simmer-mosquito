@@ -1,6 +1,5 @@
 import {
 	BreadcrumbLabelProvider,
-	OutletContentFallback,
 	OutletShell,
 	SearchTriggerProvider,
 	type ShellOrganization,
@@ -11,7 +10,7 @@ import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environmen
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense, useMemo, useRef, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
@@ -26,6 +25,7 @@ import {
 	webStandalonePages,
 	withDailyWorkGroup,
 } from './navigation';
+import { WebOutletFallback } from './outlet-fallback';
 
 function formatRole(role: string | null | undefined): string {
 	if (role === null || role === undefined || role.trim() === '') {
@@ -62,17 +62,11 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const organizationResult = useLiveQuery((query) => query.from({ row: organizations() }), []);
 	const profileNameById = useProfileNames();
 	const timeZone = useOrganizationTimeZone();
-	// The first navigation built at render time. Memoised because it rebuilds a
-	// row per Profile, and the shell's context value is keyed on the array.
+	// The first navigation built at render time: a row per Profile on daily work,
+	// folded into the shell's domain list.
 	const dailyWork = useDailyWorkRoster();
-	const domains = useMemo(
-		() => withDailyWorkGroup(shellDomainsForRole(auth), dailyWork.listed),
-		[auth, dailyWork.listed],
-	);
-	const resolutionDomains = useMemo(
-		() => withDailyWorkGroup(webShellDomains, dailyWork.routable),
-		[dailyWork.routable],
-	);
+	const domains = withDailyWorkGroup(shellDomainsForRole(auth), dailyWork.listed);
+	const resolutionDomains = withDailyWorkGroup(webShellDomains, dailyWork.routable);
 
 	const organization = (organizationResult.data ?? []).find(
 		(row) => row.id === localIdentity?.organizationId,
@@ -99,10 +93,10 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 
 	return (
 		<SearchTriggerProvider
+			triggerRef={searchTriggerRef}
 			value={{
 				isOpen: searchOpen,
 				onOpen: () => setSearchOpen(true),
-				triggerRef: searchTriggerRef,
 			}}
 		>
 			<ShellProvider
@@ -138,7 +132,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 						    router builds from `defaultPendingComponent` (see main.tsx); this
 						    one catches anything that suspends outside a match. Deliberately
 						    unkeyed — keying it would remount every page on navigation. */}
-						<Suspense fallback={<OutletContentFallback />}>
+						<Suspense fallback={<WebOutletFallback />}>
 							<Outlet />
 						</Suspense>
 					</OutletShell>

@@ -1,9 +1,10 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
 import { useRecordExtras } from '../../../forms/record-extras';
-import { newRecordId } from '../../../hooks/mutations/shared';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -11,11 +12,12 @@ import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { noTechnicianValue } from '../../../lib/no-technician';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultOutreachFormValues,
-	noTechnicianValue,
 	OutreachFormPage,
 	type OutreachFormValues,
 } from './-outreach-form';
@@ -51,7 +53,7 @@ function CreateOutreachActionRoute() {
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
 
 	// Minted up front so the crew rows can be written the moment the action lands
 	// — and so their on-demand stream is already warm when the save fires.
@@ -60,75 +62,69 @@ function CreateOutreachActionRoute() {
 	const recordExtras = useRecordExtras();
 	const { record } = useOutreachActionMutations();
 
-	const onSave = useCallback(
-		async (input: {
-			readonly values: OutreachFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) =>
-			mission.run(async (acknowledgements) => {
-				const { values, geometry } = input;
-				if (organization === null) {
-					throw new Error('Organization details are still loading.');
-				}
-				if (actorProfileId === null) {
-					throw new Error('Your profile is still loading.');
-				}
-				if (values.reach === null) {
-					throw new Error('Enter how many people were reached.');
-				}
+	const onSave = async (input: {
+		readonly values: OutreachFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) =>
+		mission.run(async (acknowledgements) => {
+			const { values, geometry } = input;
+			if (actorProfileId === null) {
+				throw new Error('Your profile is still loading.');
+			}
+			if (values.reach === null) {
+				throw new Error('Enter how many people were reached.');
+			}
 
-				// The geometry is the action's authoritative location; the address (if any)
-				// is reference only. Off a mission stop it is required; on one it is an
-				// override the crew may not have drawn, and the server falls back to the
-				// stop's own ground.
-				const location = mission.resolveLocation(geometry, {
-					missing: 'Place the outreach location on the map.',
-					unresolvable: 'Unable to determine the outreach location.',
-				});
+			// The geometry is the action's authoritative location; the address (if any)
+			// is reference only. Off a mission stop it is required; on one it is an
+			// override the crew may not have drawn, and the server falls back to the
+			// stop's own ground.
+			const location = mission.resolveLocation(geometry, {
+				missing: 'Place the outreach location on the map.',
+				unresolvable: 'Unable to determine the outreach location.',
+			});
 
-				const trimmedDescription = values.reachDescription.trim();
+			const trimmedDescription = values.reachDescription.trim();
 
-				// Off a stop this is `missionDispatch.recordOutreachActionForMissionItem`
-				// and links the stop; on its own it is
-				// `controlOperations.recordOutreachAction`. The hook reads the stop id
-				// rather than making this form say which command it meant.
-				await record({
-					outreachActionId,
-					values: {
-						methodId: values.outreachMethodId,
-						technicianProfileId:
-							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-						actionDate: values.outreachDate,
-						addressId: values.addressId,
-						reach: values.reach,
-						reachDescription: trimmedDescription === '' ? null : trimmedDescription,
-						metadata: values.metadata,
-					},
-					location: {
-						lat: location.lat,
-						lng: location.lng,
-						geomType: location.geomType,
-						locationSource: location.locationSource,
-					},
-					missionItemId: mission.missionItemId,
-					acknowledgements,
+			// Off a stop this is `missionDispatch.recordOutreachActionForMissionItem`
+			// and links the stop; on its own it is
+			// `controlOperations.recordOutreachAction`. The hook reads the stop id
+			// rather than making this form say which command it meant.
+			await record({
+				outreachActionId,
+				values: {
+					methodId: values.outreachMethodId,
+					technicianProfileId:
+						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+					actionDate: values.outreachDate,
+					addressId: values.addressId,
+					reach: values.reach,
+					reachDescription: trimmedDescription === '' ? null : trimmedDescription,
+					metadata: values.metadata,
+				},
+				location: {
+					lat: location.lat,
+					lng: location.lng,
+					geomType: location.geomType,
+					locationSource: location.locationSource,
+				},
+				missionItemId: mission.missionItemId,
+				acknowledgements,
+			});
+			// Crew rows reference the action, so they can only be written once it exists.
+			await recordExtras.attach({
+				target: { type: 'outreachAction', id: outreachActionId },
+				profileIds: values.additionalPersonnelIds,
+				commentText: values.comment,
+			});
+			await mission.navigateAfterSave(async () => {
+				await navigate({
+					to: '/public-engagement/outreach/$id',
+					params: { id: outreachActionId },
 				});
-				// Crew rows reference the action, so they can only be written once it exists.
-				await recordExtras.attach({
-					target: { type: 'outreachAction', id: outreachActionId },
-					profileIds: values.additionalPersonnelIds,
-					commentText: values.comment,
-				});
-				await mission.navigateAfterSave(async () => {
-					await navigate({
-						to: '/public-engagement/outreach/$id',
-						params: { id: outreachActionId },
-					});
-				});
-			}),
-		[organization, actorProfileId, outreachActionId, navigate, mission, record, recordExtras],
-	);
+			});
+		});
 
 	return (
 		<>
@@ -137,19 +133,18 @@ function CreateOutreachActionRoute() {
 				mode="create"
 				defaultValues={defaultOutreachFormValues(timeZone)}
 				header={{
-					title: 'Record Outreach',
+					title: createLabel('outreachAction'),
 					description:
 						'Place where the outreach happened, then record the method, how many were reached, and the date.',
 					backTo: '/public-engagement/outreach',
-					backLabel: 'Outreach',
+					backLabel: recordNoun('outreachAction').titleMany,
 				}}
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				outreachMethods={methods}
 				profiles={profiles}
-				submitLabel="Record Outreach"
 			/>
 			{mission.dialog}
 		</>

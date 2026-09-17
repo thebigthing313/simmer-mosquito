@@ -1,6 +1,4 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -8,18 +6,17 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { AddressSurveillanceCard } from '../../../components/address-surveillance';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	createItems,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { formatAddressLines } from '../../../lib/address-format';
@@ -30,14 +27,10 @@ export const Route = createFileRoute('/gis/addresses/$id')({
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
-
-const _addressGcTimeMs = 30_000;
 
 const layout: RecordDetailLayout = {
-	aside: 'wide',
 	mainGap: 'tight',
-	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-64'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-40'] },
 };
 
 function RouteComponent() {
@@ -48,9 +41,8 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to Address Book', to: '/gis/addresses' }}
 			layout={layout}
-			noun="address"
+			recordType="address"
 			reading={{ isError: result.isError, isReady: result.isReady, record: result.address }}
 		>
 			{(record) => <AddressDetailContent address={record} />}
@@ -65,60 +57,50 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 	const addressLines = formatAddressLines(address);
 
 	return (
-		<RecordDetailColumns
-			aside={
-				<>
-					<AddressDetailsCard address={address} />
-					<DangerZoneCard
-						name={address.displayName}
-						noun="address"
-						onDelete={() => mutations.remove(address.id)}
-						recordId={address.id}
-						recordType="address"
-						returnTo="/gis/addresses"
-					/>
-				</>
-			}
-			header={
-				<PageHeader
-					actions={
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					}
-					eyebrow="Address"
-					icon={AddressIcon}
-					description={
-						/* Postal lines, as an envelope carries them — the header has the
-						   width, and a comma-run makes the reader find where the street
-						   ends before they can copy it. */
-						addressLines.length === 0 ? (
-							<p className="m-0">No street address</p>
-						) : (
-							addressLines.map((line) => (
-								<p className="m-0" key={line}>
-									{line}
-								</p>
-							))
-						)
-					}
-					title={address.displayName}
+		<DetailPageShell
+			facts={<AddressDetailsCard address={address} />}
+			header={{
+				actions: createItems('addressId', address.id, [
+					'/larval-surveillance/habitats/create',
+					'/adult-surveillance/traps/create',
+					'/public-engagement/service-requests/create',
+				]),
+				edit: { minimum: 'manager', params: { id: address.id }, to: '/gis/addresses/$id/edit' },
+				icon: AddressIcon,
+				recordType: 'address',
+				/* Postal lines, as an envelope carries them: the header has the width,
+				   and a comma-run makes the reader find where the street ends before
+				   they can copy it. */
+				remove: {
+					name: address.displayName,
+					onDelete: () => mutations.remove(address.id),
+					recordId: address.id,
+					returnTo: '/gis/addresses',
+				},
+				subtitle:
+					addressLines.length === 0 ? (
+						<p className="m-0">No street address</p>
+					) : (
+						addressLines.map((line) => (
+							<p className="m-0" key={line}>
+								{line}
+							</p>
+						))
+					),
+				tags: { recordId: address.id },
+				title: address.displayName,
+			}}
+			layout={layout}
+			lead={
+				<AddressLocationCard
+					geometry={geometryQuery.data ?? null}
+					isLoading={geometryQuery.isLoading}
 				/>
 			}
-			layout={layout}
 		>
-			<AddressLocationCard
-				geometry={geometryQuery.data ?? null}
-				isLoading={geometryQuery.isLoading}
-			/>
-			<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
+			<RecordRegionsBand recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 

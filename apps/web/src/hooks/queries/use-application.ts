@@ -17,7 +17,7 @@
  * this query rather than after it.
  */
 
-import { caseWhen, coalesce, eq, isNull, useLiveQuery } from '@tanstack/react-db';
+import { caseWhen, coalesce, eq, isNull } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { application_methods } from '../../lib/collections/application_methods';
 import { applications } from '../../lib/collections/applications';
@@ -27,7 +27,7 @@ import { profiles } from '../../lib/collections/profiles';
 import { units } from '../../lib/collections/units';
 import { vehicles } from '../../lib/collections/vehicles';
 import type { ChemicalApplication } from './control-action-view';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { addressSelect, useRecordById } from './shared';
 
 export function useApplication(
 	applicationId: string | null,
@@ -37,65 +37,58 @@ export function useApplication(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: options?.gcTime ?? mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: applications() })
-					.where(({ application }) => eq(application.id, applicationId ?? unmatchableId))
-					// `left` throughout: an application need not name a method or an
-					// applicator, and most name no address. An `inner` join would drop the
-					// row entirely rather than leave a field blank.
-					.join(
-						{ product: insecticides() },
-						({ application, product }) => eq(application.insecticide_id, product.id),
-						'left',
-					)
-					.join(
-						{ method: application_methods() },
-						({ application, method }) => eq(application.application_method_id, method.id),
-						'left',
-					)
-					.join(
-						{ unit: units() },
-						({ application, unit }) => eq(application.application_unit_id, unit.id),
-						'left',
-					)
-					.join(
-						{ applicator: profiles() },
-						({ application, applicator }) => eq(application.applicator_profile_id, applicator.id),
-						'left',
-					)
-					.join(
-						{ address: addresses() },
-						({ application, address }) => eq(application.address_id, address.id),
-						'left',
-					)
-					// The rig, which the detail page names and the map card does not. Both
-					// catalogs are eager, so joining them costs nothing either surface was
-					// not already paying.
-					.join(
-						{ vehicle: vehicles() },
-						({ application, vehicle }) => eq(application.vehicle_id, vehicle.id),
-						'left',
-					)
-					.join(
-						{ rig: equipmentCollection() },
-						({ application, rig }) => eq(application.equipment_id, rig.id),
-						'left',
-					)
-					.select(({ application, product, method, unit, applicator, address, vehicle, rig }) => ({
+	const result = useRecordById({
+		collection: applications(),
+		id: applicationId,
+		gcTime: options?.gcTime,
+		query: (query) =>
+			query
+				// `left` throughout: an application need not name a method or an
+				// applicator, and most name no address. An `inner` join would drop the
+				// row entirely rather than leave a field blank.
+				.join(
+					{ product: insecticides() },
+					({ record: application, product }) => eq(application.insecticide_id, product.id),
+					'left',
+				)
+				.join(
+					{ method: application_methods() },
+					({ record: application, method }) => eq(application.application_method_id, method.id),
+					'left',
+				)
+				.join(
+					{ unit: units() },
+					({ record: application, unit }) => eq(application.application_unit_id, unit.id),
+					'left',
+				)
+				.join(
+					{ applicator: profiles() },
+					({ record: application, applicator }) =>
+						eq(application.applicator_profile_id, applicator.id),
+					'left',
+				)
+				.join(
+					{ address: addresses() },
+					({ record: application, address }) => eq(application.address_id, address.id),
+					'left',
+				)
+				// The rig, which the detail page names and the map card does not. Both
+				// catalogs are eager, so joining them costs nothing either surface was
+				// not already paying.
+				.join(
+					{ vehicle: vehicles() },
+					({ record: application, vehicle }) => eq(application.vehicle_id, vehicle.id),
+					'left',
+				)
+				.join(
+					{ rig: equipmentCollection() },
+					({ record: application, rig }) => eq(application.equipment_id, rig.id),
+					'left',
+				)
+				.select(
+					({ record: application, product, method, unit, applicator, address, vehicle, rig }) => ({
 						id: application.id,
-						address: {
-							id: address.id,
-							displayName: address.display_name,
-							addressLine1: address.address_line_1,
-							addressLine2: address.address_line_2,
-							locality: address.locality,
-							region: address.region,
-							postalCode: address.postal_code,
-						},
+						address: addressSelect(address),
 						actionDate: application.application_date,
 
 						insecticideId: application.insecticide_id,
@@ -137,10 +130,9 @@ export function useApplication(
 						updatedAt: application.updated_at,
 						createdByProfileId: application.created_by_profile_id,
 						updatedByProfileId: application.updated_by_profile_id,
-					})),
-		},
-		[applicationId],
-	);
+					}),
+				),
+	});
 
-	return { application: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { application: result.record, isReady: result.isReady, isError: result.isError };
 }

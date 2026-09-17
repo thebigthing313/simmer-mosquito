@@ -5,6 +5,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import type { ReactNode } from 'react';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
 /**
  * Why a record page has nothing to show.
@@ -27,23 +28,26 @@ export type RecordUnavailableReason = 'error' | 'not-found';
  * per route, and the choice between them was made per route too — the same
  * state was vertically centred on some and top-aligned on others with nothing
  * deciding which. Now the layout follows from what kind of route it is.
+ *
+ * The heading and the sentence both come from the register in
+ * `lib/record-nouns.ts`, keyed by `recordType`. There is no override, because a
+ * second way to say the same heading is a second place for it to drift, and a
+ * free-text noun was exactly that: the same record read `Request Unavailable`
+ * on one route and `Request For Control Unavailable` on the next.
  */
 export function RecordUnavailable({
-	noun,
+	recordType,
 	reason,
-	title,
 	description,
 	layout = 'inline',
 }: {
-	/** Lowercase, as it appears mid-sentence: "collection", "service request". */
-	readonly noun: string;
+	readonly recordType: RecordType;
 	readonly reason: RecordUnavailableReason;
-	/** Overrides the derived "<Noun> Unavailable". */
-	readonly title?: string;
 	/** Overrides the derived copy, for the states that are more specific. */
 	readonly description?: ReactNode;
 	readonly layout?: 'inline' | 'centered';
 }) {
+	const { one, title } = recordNoun(recordType);
 	const body = (
 		<Empty
 			className={
@@ -53,8 +57,8 @@ export function RecordUnavailable({
 			}
 		>
 			<EmptyHeader>
-				<EmptyTitle>{title ?? `${titleCase(noun)} Unavailable`}</EmptyTitle>
-				<EmptyDescription>{description ?? defaultDescription(noun, reason)}</EmptyDescription>
+				<EmptyTitle>{`${title} Unavailable`}</EmptyTitle>
+				<EmptyDescription>{description ?? defaultDescription(one, reason)}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
 	);
@@ -69,11 +73,4 @@ function defaultDescription(noun: string, reason: RecordUnavailableReason): stri
 	return reason === 'error'
 		? `This ${noun} could not be loaded. Try again shortly.`
 		: `This ${noun} could not be found, or you do not have access to it.`;
-}
-
-function titleCase(noun: string): string {
-	return noun
-		.split(' ')
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(' ');
 }

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	MISSION_FIELD_PATHS,
 	type MissionFormValues,
+	missionFormValidator,
 	missionFormValuesFrom,
 	readMissionPlan,
+	validateMissionPlan,
 } from '../../../../../routes/operations/missions/-mission-form';
 
 /**
@@ -70,5 +73,49 @@ describe('a mission schedule, out of the form and back', () => {
 
 	it('leaves an open-ended mission open-ended', () => {
 		expect(readMissionPlan(values({ endTime: '' }), ORGANIZATION_ZONE).endAt).toBeNull();
+	});
+});
+
+/**
+ * Where a refused mission save puts its message.
+ *
+ * A start the form cannot read arrives as null, and the builder reports it
+ * against `scheduledStartAt`, which the field map lands on the start date. The
+ * form used to throw a bare string about the same missing start from `onSubmit`,
+ * so the operator read it in the page alert with no field named.
+ */
+describe('a mission the domain refuses', () => {
+	const validate = missionFormValidator(
+		validateMissionPlan,
+		MISSION_FIELD_PATHS,
+		'America/New_York',
+	);
+
+	function values(overrides: Partial<MissionFormValues> = {}): MissionFormValues {
+		return {
+			controlType: 'application',
+			startDate: '2026-08-04',
+			startTime: '06:00',
+			endTime: '10:30',
+			rainDate: '',
+			missionName: '',
+			// The three optional selects hold the same 'none' sentinel Radix needs,
+			// which `readMissionPlan` turns back into an absent id.
+			plannedMethodId: 'none',
+			assignedToProfileId: 'none',
+			notificationTypeId: 'none',
+			...overrides,
+		};
+	}
+
+	it('passes a scheduled mission', () => {
+		expect(validate({ value: values() })).toBeUndefined();
+	});
+
+	it('names a missing start on the start date field', () => {
+		const result = validate({ value: values({ startDate: '' }) });
+
+		expect(result?.fields?.startDate).toBeDefined();
+		expect(result?.form).toBeUndefined();
 	});
 });

@@ -1,12 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../components/pickers/entity-picker';
 import { type TrapName, trapDisplayName } from '../../hooks/queries/trap-view';
 
-// The adult forms pick an address (shared, on-demand subset search) or a trap.
 // The trap picker searches the eager `traps` set client-side, over whatever set
-// the caller handed it.
-
-export { AddressPicker } from '../../components/pickers/address-picker';
+// the caller handed it. Picking an address is `LocationAddressField`'s, in
+// `forms/location-band.tsx`, because that pick also moves the map.
 
 /**
  * The three things this picker reads off a trap.
@@ -21,6 +19,18 @@ export { AddressPicker } from '../../components/pickers/address-picker';
  */
 export interface PickableTrap extends TrapName {
 	readonly description: string | null;
+}
+
+/** The first eight traps whose display name holds the search, or the first eight. */
+function trapMatches<TTrap extends PickableTrap>(
+	traps: readonly TTrap[],
+	normalized: string,
+): readonly TTrap[] {
+	const filtered =
+		normalized.length === 0
+			? traps
+			: traps.filter((trap) => trapDisplayName(trap).toLowerCase().includes(normalized));
+	return filtered.slice(0, 8);
 }
 
 export function TrapPicker<TTrap extends PickableTrap>({
@@ -54,13 +64,7 @@ export function TrapPicker<TTrap extends PickableTrap>({
 	// collection form passes `useTrapOptions`, which carries them. The habitat
 	// picker on the inspection form settles the same question the same way, and
 	// marks nothing in the list, so neither does this.
-	const matches = useMemo(() => {
-		const filtered =
-			normalized.length === 0
-				? traps
-				: traps.filter((trap) => trapDisplayName(trap).toLowerCase().includes(normalized));
-		return filtered.slice(0, 8);
-	}, [traps, normalized]);
+	const matches = trapMatches(traps, normalized);
 
 	return (
 		<PickerFrame

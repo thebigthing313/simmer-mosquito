@@ -408,14 +408,26 @@ export function normalizeOwnedGeometry<Kind extends OwnedGeometryKind>(
  * cast would be one more place naming a shape by hand, which is the bug this
  * closes.
  *
- * Exported for `location-intent.ts`, whose flow validator asks the same question
- * of a hand-drawn location source. A second copy of the test there would be the
- * thing this predicate exists to prevent.
+ * One predicate for every caller, and `Geometry` is what makes that possible.
+ * Five record forms each held a four-line copy of this question because the
+ * value they were asking about was the draw control's geometry rather than the
+ * domain's: the same six shapes over the app's own position type. Answering
+ * about whatever was passed in, rather than about `SupportedGeoJsonGeometry`,
+ * hands each caller its own vocabulary back narrowed, so the five copies had
+ * nothing left to do. The shape names are the constraint, which is all the
+ * question needs and all any of the copies read.
+ *
+ * `normalizeOwnedGeometry` is the domain's own caller, `location-intent.ts` asks
+ * it of a hand-drawn location source, and the web's render seam asks it of a
+ * geometry parsed out of an HTTP body.
  */
-export function isOwnedGeometry<Kind extends OwnedGeometryKind>(
+export function isOwnedGeometry<
+	Kind extends OwnedGeometryKind,
+	Geometry extends { readonly type: SupportedGeometryType },
+>(
 	kind: Kind,
-	geometry: SupportedGeoJsonGeometry,
-): geometry is OwnedGeoJsonGeometryFor<Kind> {
+	geometry: Geometry,
+): geometry is Extract<Geometry, { readonly type: OwnedGeometryTypeFor<Kind> }> {
 	return getOwnedGeometryPolicy(kind).allowedTypes.includes(geometry.type);
 }
 

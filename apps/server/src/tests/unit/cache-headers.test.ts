@@ -83,8 +83,16 @@ describe('private read headers', () => {
 		app.get('/map/habitats', (context) => context.json({}));
 		app.get('/records/:recordType/:recordId/delete-impact', (context) => context.json({}));
 		app.get('/search', (context) => context.json({}));
+		app.get('/dashboard', (context) => context.json({}));
+		app.get('/larval-surveillance/samples/awaiting', (context) => context.json({}));
 
-		for (const path of ['/map/habitats', '/records/habitat/abc/delete-impact', '/search?q=elm']) {
+		for (const path of [
+			'/map/habitats',
+			'/records/habitat/abc/delete-impact',
+			'/search?q=elm',
+			'/dashboard',
+			'/larval-surveillance/samples/awaiting?since=2026-08-01',
+		]) {
 			const response = await app.request(path);
 			expect(response.headers.get('cache-control'), path).toBe('private, no-store');
 			expect(response.headers.get('vary'), path).toBe('cookie');
@@ -95,7 +103,13 @@ describe('private read headers', () => {
 	// PATCHes, which are not cached, and adding the middleware there would only
 	// make the list longer to read.
 	it('covers the read prefixes and nothing else', () => {
-		expect([...PRIVATE_READ_PREFIXES]).toEqual(['/map/*', '/records/*', '/search']);
+		expect([...PRIVATE_READ_PREFIXES]).toEqual([
+			'/map/*',
+			'/records/*',
+			'/search',
+			'/dashboard',
+			'/larval-surveillance/samples/awaiting',
+		]);
 	});
 });
 

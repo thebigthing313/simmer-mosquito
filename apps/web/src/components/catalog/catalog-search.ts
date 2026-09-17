@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 /** Show the filter only once the list is large enough to be worth scanning. */
 const SEARCH_THRESHOLD = 6;
@@ -33,14 +33,8 @@ export function useCatalogSearch<Row>(
 	const [search, setSearch] = useState('');
 	const query = search.trim().toLowerCase();
 
-	const filteredActive = useMemo(
-		() => filterRows(activeRows, query, matches),
-		[activeRows, query, matches],
-	);
-	const filteredInactive = useMemo(
-		() => filterRows(inactiveRows, query, matches),
-		[inactiveRows, query, matches],
-	);
+	const filteredActive = filterRows(activeRows, query, matches);
+	const filteredInactive = filterRows(inactiveRows, query, matches);
 
 	const total = activeRows.length + inactiveRows.length;
 

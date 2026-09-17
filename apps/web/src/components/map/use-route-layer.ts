@@ -9,7 +9,7 @@ import type {
 	MapMouseEvent,
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { toMapboxGeometry } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
@@ -326,19 +326,28 @@ export function useRouteLayer(
 	const highlightId = config?.highlightId ?? null;
 
 	const stopsRef = useRef(stops);
-	stopsRef.current = stops;
 	const onSelectRef = useRef(config?.onSelectStop);
-	onSelectRef.current = config?.onSelectStop;
 	const onHoverRef = useRef(config?.onHoverStop);
-	onHoverRef.current = config?.onHoverStop;
 	const selectedRef = useRef(selectedId);
 	const highlightRef = useRef(highlightId);
 
-	// The stop set as one value, rebuilt only when the signature says the stops
-	// actually changed — the primitive pushes a new `data` identity through
-	// `setData`, and an unmemoized build would do that on every render.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: signature is the change key for the ref-read stops.
-	const data = useMemo(() => (enabled ? buildData(stopsRef.current) : null), [enabled, signature]);
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox event, so the value each one sees is unchanged. The
+	// effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		stopsRef.current = stops;
+		onSelectRef.current = config?.onSelectStop;
+		onHoverRef.current = config?.onHoverStop;
+	});
+
+	// The stop set as one value. The primitive pushes a new `data` identity through
+	// `setData`, so this is built from the stops themselves rather than from
+	// `stopsSignature`: that signature carries a shape's type and vertex count and
+	// not its coordinates, so building against it drew a stale shape whenever a
+	// stop's geometry moved without gaining or losing a vertex.
+	const data = enabled ? buildData(stops) : null;
 
 	useGeoJsonSource({
 		map,

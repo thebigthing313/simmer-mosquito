@@ -2,7 +2,7 @@
  * The HTTP half of a collection write.
  *
  * Every organization command endpoint answers the same way — a JSON body
- * carrying a `txid` on success, a `reason`/`message` on refusal — so the
+ * carrying a `txid` on success, a `reason` on refusal — so the
  * request, the refusal, and the txid read are the same three lines for every
  * table. What differs per table is the URL and the body, and both are
  * arguments.
@@ -18,12 +18,76 @@ import { sessionFetch } from './session-fetch.js';
 /**
  * What a refusal body may carry. Every field optional because the shape is the
  * server's to choose, and a caller reading one has to cope with any of them.
+ *
+ * The three fields say three different things and #795 is where that was
+ * settled:
+ *
+ * - `error` is the category a caller branches on, `merge_refused` and
+ *   `reference_refused` among them. It never changes for a refusal that
+ *   already has one.
+ * - `reason` is **a sentence**, and it is what {@link writeCommand} puts in
+ *   `CommandError.message`, which is the form kit's save-failure text. Every
+ *   server producer writes prose here. Seven of them used to write a
+ *   snake_case token instead, and a caller had no way to tell which it got, so
+ *   `apps/admin` kept a register of sentences of its own (#689).
+ * - `code` is a per-refusal discriminator, present only where one refusal has
+ *   several shapes a client acts on differently: `target_inactive` against
+ *   `source_not_found` on a merge, `inactive` against `missing` on a
+ *   reference. Branch on `error` first, then on `code`.
+ *
+ * `message` is the fallback for a body no server wrote: {@link readBody} puts
+ * an unparseable response's text there, so a proxy's HTML reaches a caller as
+ * something rather than as nothing. No command endpoint sets it, which #928 is
+ * what made true: `invalid_command` wrote its sentence there until then, so
+ * this field carried two unrelated things and the fallback below read like a
+ * second name for `reason`. It is not one, and the two refusals that still
+ * write `message` are `delete_blocked` and `acknowledgement_required`, which
+ * reach a caller through the same fallback.
  */
 export interface CommandRefusal {
 	readonly error?: string;
 	readonly reason?: string;
+	readonly code?: string;
 	readonly message?: string;
 	readonly blockers?: readonly unknown[];
+}
+
+/**
+ * The sentence a refusal reads as on screen, or `fallback` when it has none.
+ *
+ * `reason` first, then `message`, then the caller's own sentence. That order is
+ * the docblock above turned into code: `reason` is what a server producer
+ * writes for a person, and `message` is only ever the fallback {@link readBody}
+ * puts an unparseable response's text into.
+ *
+ * Eight places carried this rule before #929 and they disagreed on what counts
+ * as empty. Three tested `!== ''`, three tested `.trim() !== ''`, and two used a
+ * bare `??`, which takes an empty string as an answer. So `reason: '   '`
+ * rendered as a blank red box through some of them and fell through to the
+ * fallback in others. The strictest rule is the one kept here, because a
+ * sentence of spaces tells a person nothing and the fallback names the record.
+ * No server producer sends that shape today, which is why #929 was filed as
+ * duplication and not as a bug.
+ *
+ * `body` is `unknown` for {@link CommandError}'s reason: a proxy answers with
+ * HTML, a gateway with nothing, and a caller handed either still needs a
+ * sentence.
+ *
+ * `packages/auth`'s `readReason` is deliberately not a caller. It reads a
+ * session-layer body that carries no `message`, and folding it in would put an
+ * edge from `packages/auth` to this package and its Electric and TanStack DB
+ * dependencies to share four lines that already agree with this rule.
+ */
+export function refusalSentence(body: unknown, fallback: string): string {
+	if (typeof body !== 'object' || body === null) {
+		return fallback;
+	}
+	const refusal = body as CommandRefusal;
+	return sentenceOrNull(refusal.reason) ?? sentenceOrNull(refusal.message) ?? fallback;
+}
+
+function sentenceOrNull(value: unknown): string | null {
+	return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
 /**
@@ -84,11 +148,7 @@ export async function writeCommand(
 	const parsed: CommandRefusal & { readonly txid?: unknown } = await readBody(response);
 
 	if (!response.ok || typeof parsed.txid !== 'number') {
-		throw new CommandError(
-			parsed.reason ?? parsed.message ?? fallbackMessage,
-			response.status,
-			parsed,
-		);
+		throw new CommandError(refusalSentence(parsed, fallbackMessage), response.status, parsed);
 	}
 
 	return parsed.txid;

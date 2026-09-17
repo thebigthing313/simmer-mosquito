@@ -1,13 +1,13 @@
-import type { ControlType } from '@simmer-mosquito/domain';
+import { type ControlType, createMissionCommand } from '@simmer-mosquito/domain';
 import {
 	FormSection,
 	type RecordFormHeader,
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { DateControl } from '../../../components/date-control';
-import { domainValidator } from '../../../forms/domain-validation';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useNotificationTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -79,6 +79,35 @@ export interface MissionPlan {
 	readonly plannedMethodId: string | null;
 	readonly assignedToProfileId: string | null;
 	readonly notificationTypeId: string | null;
+}
+
+/**
+ * The plan's rules, straight from the domain builder.
+ *
+ * The five update builders the server runs on an edit each validate a slice of
+ * these fields; `createMissionCommand` covers all of them in one pass, which is
+ * what a form needs: it validates the whole thing at once rather than whichever
+ * slice happens to have changed. So both surfaces run this one, and the server
+ * still runs the real builders.
+ *
+ * A start the form could not read arrives as null and the builder reports it
+ * against `scheduledStartAt`, which the field map lands on the start date. The
+ * form used to throw a bare string about the same missing start from `onSubmit`,
+ * putting it in the page alert instead.
+ */
+export function validateMissionPlan(plan: MissionPlan): unknown {
+	return createMissionCommand({
+		...FORM_VALIDATION_CONTEXT,
+		missionId: FORM_VALIDATION_CONTEXT.organizationId,
+		controlType: plan.controlType,
+		scheduledStartAt: plan.startAt as Date,
+		scheduledEndAt: plan.endAt,
+		rainDate: plan.rainDate,
+		missionName: plan.missionName,
+		plannedMethodId: plan.plannedMethodId,
+		assignedToProfileId: plan.assignedToProfileId,
+		notificationTypeId: plan.notificationTypeId,
+	});
 }
 
 export function defaultMissionFormValues(timeZone: string): MissionFormValues {
@@ -195,7 +224,6 @@ export function MissionFormPage({
 	validate,
 	fieldPaths,
 	canSubmit,
-	submitLabel,
 	errorTitle,
 	onSave,
 }: {
@@ -206,7 +234,6 @@ export function MissionFormPage({
 	/** Domain issue path → the form field holding it. */
 	readonly fieldPaths: Readonly<Record<string, string>>;
 	readonly canSubmit: boolean;
-	readonly submitLabel: string;
 	readonly errorTitle: string;
 	readonly onSave: (plan: MissionPlan) => Promise<void>;
 }) {
@@ -218,14 +245,10 @@ export function MissionFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidatorFor(validate, fieldPaths, timeZone),
+			onSubmit: missionFormValidator(validate, fieldPaths, timeZone),
 		},
 		onSubmit: async ({ value }) => {
-			const plan = readMissionPlan(value, timeZone);
-			if (plan.startAt === null) {
-				throw new Error('Enter the date and time the mission is scheduled to start.');
-			}
-			await onSave(plan);
+			await onSave(readMissionPlan(value, timeZone));
 		},
 	});
 
@@ -235,11 +258,12 @@ export function MissionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				gap="tight"
 				header={header}
+				measure="record"
 				onSubmit={() => {
 					void form.handleSubmit();
 				}}
@@ -362,44 +386,35 @@ function useMissionFormOptions(controlType: ControlType) {
 	const notificationTypes = useNotificationTypeRoster();
 
 	return {
-		methods: useMemo(
-			() => [
-				{ label: 'No planned method', value: NO_METHOD },
-				...lifecycleOptions(
-					methods,
-					(method) => method.isActive,
-					(method) => method.name,
-				),
-			],
-			[methods],
-		),
-		assignees: useMemo(
-			() => [
-				{ label: 'Unassigned', value: NO_ASSIGNEE },
-				...lifecycleOptions(
-					profiles,
-					(profile) => profile.isActive,
-					(profile) => profile.displayName,
-				),
-			],
-			[profiles],
-		),
-		notificationTypes: useMemo(
-			() => [
-				{ label: 'No notifications', value: NO_NOTIFICATION_TYPE },
-				...lifecycleOptions(
-					notificationTypes,
-					(type) => type.isActive,
-					(type) => type.name,
-				),
-			],
-			[notificationTypes],
-		),
+		methods: [
+			{ label: 'No planned method', value: NO_METHOD },
+			...lifecycleOptions(
+				methods,
+				(method) => method.isActive,
+				(method) => method.name,
+			),
+		],
+		assignees: [
+			{ label: 'Unassigned', value: NO_ASSIGNEE },
+			...lifecycleOptions(
+				profiles,
+				(profile) => profile.isActive,
+				(profile) => profile.displayName,
+			),
+		],
+		notificationTypes: [
+			{ label: 'No notifications', value: NO_NOTIFICATION_TYPE },
+			...lifecycleOptions(
+				notificationTypes,
+				(type) => type.isActive,
+				(type) => type.name,
+			),
+		],
 	};
 }
 
 /** Adapts the caller's builder to the form's `{ value }` validator signature. */
-function domainValidatorFor(
+export function missionFormValidator(
 	validate: (plan: MissionPlan) => unknown,
 	fieldPaths: Readonly<Record<string, string>>,
 	timeZone: string,

@@ -205,6 +205,16 @@ export async function resolveAuthContext(options: {
  * It also holds {@link AuthContextError} to the three refusals the clients
  * name: a fourth kind, or a renamed one, fails here rather than reaching a
  * client as a string nothing matches.
+ *
+ * `reason` is a sentence, one per arm, and `error` stays the code a caller
+ * branches on. Two of the three arms used to copy `error.type` into `reason`
+ * and the third forwarded WorkOS's own `no_session_cookie_provided`, so a
+ * client rendering `reason` showed a person a snake_case token and a client
+ * wanting a sentence had to keep a register of its own, which is what
+ * `apps/admin` did (#689, #795). The machine string the session layer answered
+ * with is kept on `detail`, which is for a log rather than a screen:
+ * `/auth/me` reads it to tell a caller with no cookie apart from a session
+ * that was presented and could not be renewed.
  */
 export function toAuthFailureBody(
 	result: Extract<AuthContextResult, { ok: false }>,
@@ -212,9 +222,25 @@ export function toAuthFailureBody(
 	return {
 		authenticated: false,
 		error: result.error.type,
-		reason: result.error.type === 'unauthenticated' ? result.error.reason : result.error.type,
+		reason: AUTH_REFUSAL_SENTENCES[result.error.type],
+		...(result.error.type === 'unauthenticated' ? { detail: result.error.reason } : {}),
 	};
 }
+
+/**
+ * What each refusal says to the person who met it.
+ *
+ * One sentence per arm, and each names the fix, because the three have
+ * different ones: sign in again, choose an Organization, or ask somebody who
+ * can grant access. Held to {@link AuthContextError}'s kinds by the key type,
+ * so a fourth refusal owes a sentence here rather than arriving bare.
+ */
+export const AUTH_REFUSAL_SENTENCES: Record<AuthContextError['type'], string> = {
+	unauthenticated: 'Your session has ended. Sign in again to continue.',
+	organization_required: 'This session has no Organization selected. Choose one to continue.',
+	membership_required:
+		'This Account holds no active Membership in the selected Organization. Ask an Organization owner for access.',
+};
 
 /**
  * The `/auth/me` body with every field of it present.

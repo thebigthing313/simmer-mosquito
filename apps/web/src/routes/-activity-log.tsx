@@ -1,7 +1,6 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
 import type { ActivityFamily } from '@simmer-mosquito/domain';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -11,43 +10,40 @@ import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type ComponentType, type ReactNode, useState } from 'react';
 import { ExplorerRow } from '../components/explorer';
-import { DensityBadge, WetnessBadge } from '../components/larval-display';
 import type { MapInset } from '../components/map/map-inset';
 import {
 	ACTIVITY_CATEGORY_LABEL,
 	ACTIVITY_FAMILY_LABELS,
 	ACTIVITY_ROLE_LABEL,
 	type ActivityCopy,
-	type ActivityDayGroup,
 	type ActivityEntry,
-	type ActivityStateToken,
+	type ActivityFamilyGroup,
+	type ActivityLookups,
+	activityBadgeFacts,
 	activityEntryKey,
-	activityStatus,
+	activityTags,
 	describeActivityEntry,
 	formatActivityTime,
-	type useActivityLookups,
 } from './-activity-data';
 import { HabitatMapCard } from './-habitat-map-card';
+import { hasDetailBadges, RecordBadges, type StatusPlacement } from './-record-badges';
 import { CollectionMapCard } from './adult-surveillance/-collection-map-card';
 import { TrapMapCard } from './adult-surveillance/-trap-map-card';
 import { ApplicationMapCard } from './control-operations/-application-map-card';
 import { BiocontrolMapCard } from './control-operations/-biocontrol-map-card';
 import { SourceReductionMapCard } from './control-operations/-source-reduction-map-card';
 import { InspectionMapCard } from './larval-surveillance/-inspection-map-card';
-import { formatListDate } from './larval-surveillance/-overview-data';
 import { OutreachMapCard } from './public-engagement/-outreach-map-card';
 import { ServiceRequestMapCard } from './public-engagement/-service-request-map-card';
 
-// One Profile's field work as a log, and the card that opens on the record a row
-// or a pin names. Daily Work reads it over one day; the grouping below still
-// takes a window, because the endpoint behind it answers one.
+// One day of one Profile's field work as a log, and the card that opens on the
+// record a row or a pin names. The log is a list of family sections and nothing
+// above them: the date is the stepper's, in the panel header, and Daily Work is
+// the one caller.
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
-/** The resolved lookup names + unit formatter every row's description needs. */
-export type ActivityLookups = ReturnType<typeof useActivityLookups>;
-
 export function ActivityLog({
-	days,
+	families,
 	message,
 	truncated,
 	total,
@@ -57,24 +53,25 @@ export function ActivityLog({
 	selectedKey,
 	onSelect,
 }: {
-	readonly days: readonly ActivityDayGroup[];
+	/** The day's entries, split into families. Empty families are already left out. */
+	readonly families: readonly ActivityFamilyGroup[];
 	/**
-	 * A reason the frame's empty copy cannot carry: a refusal naming the window
-	 * the server declined, or an outage. Loading and an empty window are the
-	 * frame's, so they never arrive here.
+	 * A reason the frame's empty copy cannot carry: a refusal naming the day the
+	 * server declined, or an outage. Loading and an empty day are the frame's,
+	 * so they never arrive here.
 	 */
 	readonly message: { readonly title: string; readonly body: string } | null;
 	readonly truncated: boolean;
 	/** What the response reports for the whole question, cap ignored. */
 	readonly total: number;
-	/** The wording that differs between a window of days and a single day. */
+	/** What the page says around the log: the refusal title and the truncation advice. */
 	readonly copy: ActivityCopy;
 	readonly lookups: ActivityLookups;
 	readonly selectedKey: string | null;
 	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
-	const shownCount = days.reduce((running, day) => running + day.entries.length, 0);
+	const shownCount = families.reduce((running, group) => running + group.entries.length, 0);
 	if (message !== null) {
 		return <PanelMessage title={message.title}>{message.body}</PanelMessage>;
 	}
@@ -84,11 +81,11 @@ export function ActivityLog({
 			{truncated ? (
 				<TruncationNotice advice={copy.truncationAdvice} shown={shownCount} total={total} />
 			) : null}
-			<ol className="grid gap-4 p-3">
-				{days.map((day) => (
-					<ActivityDaySection
-						day={day}
-						key={day.date}
+			<ol className="grid gap-1 p-3">
+				{families.map((group) => (
+					<ActivityFamilySection
+						group={group}
+						key={group.family}
 						lookups={lookups}
 						onSelect={onSelect}
 						selectedKey={selectedKey}
@@ -96,47 +93,7 @@ export function ActivityLog({
 					/>
 				))}
 			</ol>
-			<WhatThisDoesNotShow />
 		</>
-	);
-}
-
-/**
- * What the log cannot tell you, on the page rather than in a code comment.
- *
- * Each of these is a place where an operator could otherwise draw a confident
- * wrong conclusion — that somebody was at a site they only typed up, that a
- * quiet-looking morning is ordered, that a colleague assisted on nothing. They
- * are consequences of what the records hold, so they cannot be fixed here; the
- * honest move is to say so where the conclusion would be drawn.
- */
-function WhatThisDoesNotShow() {
-	return (
-		<details className="mx-3 mb-3 rounded-md border border-border/50 bg-muted/25 px-3 py-2">
-			<summary className="cursor-pointer font-medium text-muted-foreground text-xs">
-				What this log cannot show
-			</summary>
-			<ul className="mt-2 grid gap-1.5 text-muted-foreground text-xs">
-				<li>
-					Habitats and traps are listed as <span className="font-medium">Created</span>, which means
-					the record was entered, not that the person stood there. Every other kind of entry here
-					names someone who did the work.
-				</li>
-				<li>
-					Only three kinds of entry carry a time of day. The rest are dated to the day, so the order
-					within a day is partial and no route is drawn.
-				</li>
-				<li>
-					Assisting crew can only be recorded on inspections, collections, chemical applications,
-					source reduction, biocontrol, and outreach. Habitats, traps, and service requests have
-					nowhere to name them.
-				</li>
-				<li>
-					A trap recorded with a date and a duration, rather than exact timestamps, has no separate
-					set time. Both its visits fall on the collection date.
-				</li>
-			</ul>
-		</details>
 	);
 }
 
@@ -163,21 +120,27 @@ function TruncationNotice({
 }
 
 /**
- * One day of the log, collapsible.
+ * One family of the day's work, collapsible.
  *
- * A month-wide range is a page of days, and a supervisor scanning for the one
- * they care about should not have to scroll past four hundred rows to reach it.
- * Open by default — the common case is a single day, where a closed section
- * would be one click of pure ceremony.
+ * The families are the top level of the log. A day heading used to sit over
+ * them, carried from the surface this page replaced, which read a window of
+ * days and needed a way past four hundred rows; this page reads one day and the
+ * stepper already names it, so the heading repeated the header and the fold hid
+ * the whole log behind one click (#1003). Do not put it back: the way to scan
+ * past days here is the stepper.
+ *
+ * A family still folds, because a day where one family did forty things and the
+ * rest did two is common, and a reader after the two should not scroll the
+ * forty. Open by default, so the usual day is read without a click.
  */
-function ActivityDaySection({
-	day,
+function ActivityFamilySection({
+	group,
 	selectedKey,
 	lookups,
 	timeZone,
 	onSelect,
 }: {
-	readonly day: ActivityDayGroup;
+	readonly group: ActivityFamilyGroup;
 	readonly selectedKey: string | null;
 	readonly lookups: ActivityLookups;
 	readonly timeZone: string | undefined;
@@ -185,30 +148,19 @@ function ActivityDaySection({
 }) {
 	return (
 		<li>
-			<CollapsibleSection count={day.entries.length} level="day" title={formatListDate(day.date)}>
-				<div className="grid gap-1 pt-1 pb-2">
-					{day.families.map((group) => (
-						<CollapsibleSection
-							count={group.entries.length}
-							key={group.family}
-							level="family"
-							title={familyLabel(group.family)}
-						>
-							<ul className="grid pb-1">
-								{group.entries.map((entry) => (
-									<ActivityRow
-										entry={entry}
-										isSelected={activityEntryKey(entry) === selectedKey}
-										key={activityEntryKey(entry)}
-										lookups={lookups}
-										onSelect={onSelect}
-										timeZone={timeZone}
-									/>
-								))}
-							</ul>
-						</CollapsibleSection>
+			<CollapsibleSection count={group.entries.length} title={familyLabel(group.family)}>
+				<ul className="grid pb-1">
+					{group.entries.map((entry) => (
+						<ActivityRow
+							entry={entry}
+							isSelected={activityEntryKey(entry) === selectedKey}
+							key={activityEntryKey(entry)}
+							lookups={lookups}
+							onSelect={onSelect}
+							timeZone={timeZone}
+						/>
 					))}
-				</div>
+				</ul>
 			</CollapsibleSection>
 		</li>
 	);
@@ -219,56 +171,34 @@ function familyLabel(family: ActivityFamily): string {
 }
 
 /**
- * A day, or one family within a day, collapsed to its heading and its count.
+ * A heading with its count, folding the rows under it.
  *
- * Both levels fold, because a range wide enough to need folding is usually wide
- * in both directions: a month of days, and a day where one family did forty
- * things and the rest did two. Open by default at both levels — the common case
- * is a single day, where anything closed is a click of pure ceremony.
- *
- * The two levels differ only in weight, so the nesting reads as nesting rather
- * than as two lists that happen to be indented.
+ * One weight, flush with the panel edge, because the log has one level: the
+ * indent and the lighter type that once marked a family as nested under a day
+ * went with the day (#1003).
  */
 function CollapsibleSection({
 	title,
 	count,
-	level,
 	children,
 }: {
 	readonly title: string;
 	readonly count: number;
-	readonly level: 'day' | 'family';
 	readonly children: ReactNode;
 }) {
 	const [open, setOpen] = useState(true);
-	const isDay = level === 'day';
 
 	return (
 		<Collapsible onOpenChange={setOpen} open={open}>
-			<CollapsibleTrigger
-				className={cn(
-					'flex w-full items-center gap-2 rounded-md py-1.5 text-left hover:bg-muted/50',
-					isDay ? 'px-2' : 'px-2 pl-6',
-				)}
-			>
+			<CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted/50">
 				<ChevronRightIcon
 					aria-hidden="true"
 					className={cn(
-						'shrink-0 text-muted-foreground transition-transform',
-						isDay ? 'size-4' : 'size-3.5',
+						'size-4 shrink-0 text-muted-foreground transition-transform',
 						open && 'rotate-90',
 					)}
 				/>
-				<span
-					className={cn(
-						'flex-1',
-						isDay
-							? 'font-medium text-foreground text-sm'
-							: 'font-medium text-muted-foreground text-xs',
-					)}
-				>
-					{title}
-				</span>
+				<span className="flex-1 font-medium text-foreground text-sm">{title}</span>
 				<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
 			</CollapsibleTrigger>
 			<CollapsibleContent>{children}</CollapsibleContent>
@@ -279,11 +209,16 @@ function CollapsibleSection({
 /**
  * One entry, as its own explorer would list it.
  *
- * `ExplorerRow` is the shared list item every explorer already uses, so a row
- * here reads the way the same record reads on the page it lives on — the same
- * title, the same subtitle, the same status pill. Date and personnel are the
- * two things it omits, and they are the two things this page already knows: the
- * section is the date, and the page is the person.
+ * `ExplorerRow` is the shared list item every explorer already uses, and the
+ * badges come from the shared register beside it, so a row here reads the way
+ * the same record reads on the page it lives on: the same title, the same
+ * subtitle, the same life-stage strip. Date and personnel are the two things it
+ * omits, and they are the two things this page already knows — the stepper is
+ * the date, and the page is the person.
+ *
+ * The state arrives as a pill rather than as the dot, because this page paints
+ * nine record kinds on one map and spends the dot on which family the work
+ * belongs to. See {@link StatusPlacement}.
  */
 function ActivityRow({
 	entry,
@@ -307,24 +242,27 @@ function ActivityRow({
 	const noun = ACTIVITY_CATEGORY_LABEL[entry.category];
 	const verb = ACTIVITY_ROLE_LABEL[entry.role] ?? entry.role;
 	const link = { to: ACTIVITY_DETAIL_ROUTE[entry.category], params: { id: entry.id } };
+	const facts = activityBadgeFacts(entry);
 
 	return (
 		<li>
 			<ExplorerRow
-				// One badge, and only where the record has a state worth a pill. The
-				// panel is half a page wide, and a second one pushed the row into a
-				// horizontal scroll.
-				badges={<ActivityStatusBadge entry={entry} />}
+				badges={<RecordBadges facts={facts} status={ACTIVITY_STATUS_PLACEMENT} />}
 				detailLabel={`View details for ${title}`}
 				detailLink={link}
 				isSelected={isSelected}
 				onSelect={() => onSelect(key)}
 				selectLabel={`Show ${title} on the map`}
+				// A line of their own where the record draws more than its state, with
+				// no date rail here to decide it. A state pill alone stays beside the
+				// title and keeps the row short, which is what a 107-entry day needs.
+				stackBadges={hasDetailBadges(facts)}
 				// The verb leads, because what the person did to the record is the one
 				// thing this page adds over the record's own explorer — and it says
 				// "Assisted" in words rather than resting on the hollow pin alone. The
-				// date rail is omitted: the day heading above already carries the date,
-				// so the time of day rides at the end for the three kinds that have one.
+				// date rail is omitted: the stepper in the panel header already carries
+				// the date, so the time of day rides at the end for the three kinds that
+				// have one.
 				subtitle={[verb, subtitle, formatActivityTime(entry.occurredAt, timeZone)]
 					.filter((part) => part !== null && part !== '')
 					.join(' · ')}
@@ -332,6 +270,7 @@ function ActivityRow({
 					color: mapFamily[entry.family],
 					label: `${noun}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
 				}}
+				tags={activityTags(entry, lookups.tagById)}
 				title={title}
 				titleLink={link}
 			/>
@@ -340,51 +279,10 @@ function ActivityRow({
 }
 
 /**
- * The one status each category reads by, in the badge its explorer uses.
- *
- * The server sends a single token per category rather than a column per kind,
- * so this is where it becomes the right pill.
+ * The dot is the family this work belongs to, so the record's own state has
+ * nowhere to go but a pill. Every explorer answers the other way.
  */
-function ActivityStatusBadge({ entry }: { readonly entry: ActivityEntry }) {
-	const status = activityStatus(entry);
-	if (status === null) {
-		return null;
-	}
-	if (status.kind === 'density') {
-		return <DensityBadge density={status.density} />;
-	}
-	if (status.kind === 'wetness') {
-		return <WetnessBadge isWet={status.isWet} />;
-	}
-
-	return (
-		<Badge tone={ACTIVITY_DETAIL_TONE[status.token]} variant="outline">
-			{ACTIVITY_DETAIL_LABEL[status.token]}
-		</Badge>
-	);
-}
-
-const ACTIVITY_DETAIL_LABEL: Readonly<Record<ActivityStateToken, string>> = {
-	active: 'Active',
-	inactive: 'Inactive',
-	inaccessible: 'Inaccessible',
-	problem: 'Problem',
-	zero: 'Zero Result',
-	open: 'Open',
-	closed: 'Closed',
-};
-
-const ACTIVITY_DETAIL_TONE: Readonly<
-	Record<ActivityStateToken, 'success' | 'neutral' | 'warning' | 'info'>
-> = {
-	active: 'success',
-	inactive: 'neutral',
-	inaccessible: 'warning',
-	problem: 'warning',
-	zero: 'neutral',
-	open: 'info',
-	closed: 'neutral',
-};
+const ACTIVITY_STATUS_PLACEMENT: StatusPlacement = 'badge';
 
 function PanelMessage({
 	title,

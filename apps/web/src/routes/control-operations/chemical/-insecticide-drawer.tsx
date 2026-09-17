@@ -11,7 +11,7 @@ import { useAppForm, validateMetadataValue } from '@simmer-mosquito/ui-web/compo
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	CatalogDeleteDialog,
@@ -55,7 +55,7 @@ export function InsecticideDrawer({
 }) {
 	const [open, setOpen] = useState(false);
 	const defaultValues = insecticideFormValues(insecticide, units[0]?.id ?? '');
-	const unitChoices = useMemo(() => units.map(unitOption), [units]);
+	const unitChoices = units.map(unitOption);
 	// Held on the drawer component rather than inside the drawer's content, which
 	// unmounts: `commitCatalogSave` closes on the way past, before the server has
 	// answered, so a question raised here has to outlive the close.

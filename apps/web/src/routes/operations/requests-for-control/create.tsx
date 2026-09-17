@@ -1,8 +1,16 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import { useRequestedControlAction } from '../../../hooks/queries/use-requested-control-action';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { recordNoun } from '../../../lib/record-nouns';
+import {
+	addressSeedSearchSchema,
+	habitatSeedSearchSchema,
+	seededValues,
+} from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	defaultRequestFormValues,
@@ -12,6 +20,13 @@ import {
 } from './-request-form';
 
 export const Route = createFileRoute('/operations/requests-for-control/create')({
+	// Ahead of `beforeLoad`: the options object is read in order, and a guard
+	// declared first is typed against a route whose search schema is not known
+	// yet, which erases the seeds from `Route.useSearch()`.
+	validateSearch: (search) => ({
+		...habitatSeedSearchSchema.parse(search),
+		...addressSeedSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/operations/requests-for-control/create')) {
 			throw redirect({ replace: true, to: '/operations/requests-for-control' });
@@ -22,6 +37,7 @@ export const Route = createFileRoute('/operations/requests-for-control/create')(
 
 function CreateRequestForControlRoute() {
 	const { auth } = Route.useRouteContext();
+	const search = Route.useSearch();
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const actorProfileId =
@@ -30,50 +46,48 @@ function CreateRequestForControlRoute() {
 	// Minted up front so the on-demand stream is already warm when the save fires
 	// — a write to a cold collection waits out its txid confirmation, which reads
 	// as a frozen save.
-	const [requestId] = useState(() => crypto.randomUUID());
+	const [requestId] = useState(() => newRecordId());
 	useRequestedControlAction(requestId);
 
-	const organizationId = organization?.id ?? null;
 	const requestWrites = useRequestedControlActionMutations();
 
-	const onSave = useCallback(
-		async ({ values, geometry }: RequestSaveInput) => {
-			if (organizationId === null || actorProfileId === null) {
-				throw new Error('Your organization and profile are still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Map where the control work is needed.');
-			}
-			await requestWrites.create(
-				requestId,
-				{
-					controlType: values.controlType,
-					...readRequestFields(values),
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-				},
-				geometry,
-			);
-			await navigate({ to: '/operations/requests-for-control' });
-		},
-		[organizationId, actorProfileId, requestId, requestWrites, navigate],
-	);
+	const onSave = async ({ values, geometry }: RequestSaveInput) => {
+		if (actorProfileId === null) {
+			throw new Error('Your profile is still loading.');
+		}
+		if (geometry === null) {
+			throw new Error('Map where the control work is needed.');
+		}
+		await requestWrites.create(
+			requestId,
+			{
+				controlType: values.controlType,
+				...readRequestFields(values),
+				addressId: values.addressId,
+				habitatId: values.habitatId,
+			},
+			geometry,
+		);
+		await navigate({ to: '/operations/requests-for-control' });
+	};
 
 	return (
 		<RequestFormPage
-			canSubmit={organizationId !== null && actorProfileId !== null}
-			defaultValues={useMemo(() => defaultRequestFormValues(), [])}
+			canSubmit={canAttributeWrite({ organization, actorProfileId })}
+			defaultValues={{
+				...defaultRequestFormValues(),
+				...seededValues({ addressId: search.addressId, habitatId: search.habitatId }),
+			}}
 			errorTitle="Unable to Raise Request"
 			header={{
-				title: 'New Request for Control',
+				title: createLabel('requestedControlAction'),
 				description:
 					'Map where control work is needed and say what kind. Missions draw their stops from this queue.',
 				backTo: '/operations/requests-for-control',
-				backLabel: 'Requests for Control',
+				backLabel: recordNoun('requestedControlAction').titleMany,
 			}}
 			onSave={onSave}
-			organizationId={organizationId ?? ''}
-			submitLabel="Raise Request"
+			organizationId={organization.id}
 		/>
 	);
 }

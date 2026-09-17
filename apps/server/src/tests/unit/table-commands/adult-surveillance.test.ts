@@ -11,17 +11,13 @@
 
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthContext } from '../../../auth-context.js';
-import type { CommandTable } from '../../../command-payload.js';
-import type { OrganizationCommandType } from '../../../command-permissions.js';
-import type { WritableCommand } from '../../../command-write.js';
 import { collectionSpeciesTableCommands } from '../../../table-commands/collection-species.js';
 import { collectionTableCommands } from '../../../table-commands/collections.js';
-import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { trapTableCommands } from '../../../table-commands/traps.js';
+import { ACTOR, organizationHarness } from './command-harness.js';
 
-const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
-const ACTOR = '22222222-2222-4222-8222-222222222222';
+const { requestFor, build } = organizationHarness({ role: 'manager' });
+
 const TRAP = '33333333-3333-4333-8333-333333333333';
 const COLLECTION = '44444444-4444-4444-8444-444444444444';
 const COLLECTION_SPECIES = '55555555-5555-4555-8555-555555555555';
@@ -38,40 +34,12 @@ const traps = trapTableCommands(undefined as never);
 const collections = collectionTableCommands(undefined as never);
 const collectionSpecies = collectionSpeciesTableCommands(undefined as never);
 
-function request(
-	id: string,
-	payload: Record<string, unknown>,
-): IntentRequest<CommandTable, string> {
-	return {
-		payload,
-		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
-		authContext: {
-			organization: { id: ORGANIZATION, settings: null },
-			profile: { id: ACTOR },
-			role: 'manager',
-		} as unknown as AuthContext,
-		id,
-	};
-}
-
-function build<TCommand extends WritableCommand>(
-	spec: TableCommands<CommandTable, TCommand, unknown, string>,
-	intent: OrganizationCommandType,
-	intentRequest: IntentRequest<CommandTable, string>,
-): TCommand {
-	const builder = spec.intents[intent];
-	if (builder === undefined) {
-		throw new Error(`${spec.table} does not accept ${intent}.`);
-	}
-	return builder(intentRequest);
-}
-
 describe('traps intent map', () => {
 	it('reads a new trap off column names', () => {
 		const command = build(
 			traps,
 			'adultSurveillance.createTrap',
-			request(TRAP, {
+			requestFor(TRAP, {
 				locationSource: { kind: 'geometry', geometry: { type: 'Point', coordinates: [-81, 28] } },
 				collection_method_id: METHOD,
 				collection_lure_id: LURE,
@@ -95,12 +63,12 @@ describe('traps intent map', () => {
 		const retired = build(
 			traps,
 			'adultSurveillance.retireTrap',
-			request(TRAP, { is_active: true }),
+			requestFor(TRAP, { is_active: true }),
 		);
 		const reactivated = build(
 			traps,
 			'adultSurveillance.reactivateTrap',
-			request(TRAP, { is_active: false }),
+			requestFor(TRAP, { is_active: false }),
 		);
 
 		expect([retired.type, reactivated.type]).toEqual([
@@ -113,12 +81,12 @@ describe('traps intent map', () => {
 		const assumed = build(
 			traps,
 			'adultSurveillance.updateTrapDetails',
-			request(TRAP, { trap_code: 'CR-15' }),
+			requestFor(TRAP, { trap_code: 'CR-15' }),
 		);
 		const withheld = build(
 			traps,
 			'adultSurveillance.updateTrapDetails',
-			request(TRAP, { trap_code: 'CR-15', acknowledgedHistoricalLabelChange: false }),
+			requestFor(TRAP, { trap_code: 'CR-15', acknowledgedHistoricalLabelChange: false }),
 		);
 
 		expect(assumed.payload).toMatchObject({ acknowledgedHistoricalLabelChange: true });
@@ -134,7 +102,7 @@ describe('collections intent map', () => {
 		const command = build(
 			collections,
 			'adultSurveillance.setTrapCollection',
-			request(COLLECTION, {
+			requestFor(COLLECTION, {
 				trap_id: TRAP,
 				started_at: SET_AT,
 				collected_at: EMPTIED_AT,
@@ -155,7 +123,7 @@ describe('collections intent map', () => {
 		const command = build(
 			collections,
 			'adultSurveillance.recordCollectedTrapCollection',
-			request(COLLECTION, {
+			requestFor(COLLECTION, {
 				trap_id: TRAP,
 				started_at: SET_AT,
 				collected_at: EMPTIED_AT,
@@ -183,7 +151,7 @@ describe('collections intent map', () => {
 		const command = build(
 			collections,
 			'adultSurveillance.recordCollectedTrapCollection',
-			request(COLLECTION, {
+			requestFor(COLLECTION, {
 				trap_id: TRAP,
 				collection_timing_mode: 'collection_date_duration',
 				collection_date: '2026-08-11',
@@ -209,7 +177,7 @@ describe('collections intent map', () => {
 		const command = build(
 			collections,
 			'fieldWork.setTrapCollectionForAssignmentItem',
-			request(COLLECTION, {
+			requestFor(COLLECTION, {
 				assignmentItemId: ASSIGNMENT_ITEM,
 				trap_id: TRAP,
 				started_at: SET_AT,
@@ -229,7 +197,7 @@ describe('collections intent map', () => {
 		const command = build(
 			collections,
 			'adultSurveillance.collectCollection',
-			request(COLLECTION, { collected_at: EMPTIED_AT, collected_by_profile_id: ACTOR }),
+			requestFor(COLLECTION, { collected_at: EMPTIED_AT, collected_by_profile_id: ACTOR }),
 		);
 
 		expect(command.payload).toMatchObject({
@@ -243,7 +211,7 @@ describe('collections intent map', () => {
 			build(
 				collections,
 				'adultSurveillance.setTrapCollection',
-				request(COLLECTION, { trapId: TRAP, startedAt: SET_AT }),
+				requestFor(COLLECTION, { trapId: TRAP, startedAt: SET_AT }),
 			),
 		).toThrow(DomainValidationError);
 	});
@@ -254,7 +222,7 @@ describe('collections intent map', () => {
 		const command = build(
 			collections,
 			'adultSurveillance.updateCollectionFieldDetails',
-			request(COLLECTION, { collected_at: EMPTIED_AT, started_at: SET_AT }),
+			requestFor(COLLECTION, { collected_at: EMPTIED_AT, started_at: SET_AT }),
 		);
 
 		expect(command.payload).toMatchObject({
@@ -267,12 +235,12 @@ describe('collections intent map', () => {
 		const marked = build(
 			collections,
 			'adultSurveillance.markCollectionZeroResult',
-			request(COLLECTION, { is_zero_result: false }),
+			requestFor(COLLECTION, { is_zero_result: false }),
 		);
 		const cleared = build(
 			collections,
 			'adultSurveillance.clearCollectionZeroResult',
-			request(COLLECTION, { is_zero_result: true }),
+			requestFor(COLLECTION, { is_zero_result: true }),
 		);
 
 		expect([marked.type, cleared.type]).toEqual([
@@ -285,12 +253,12 @@ describe('collections intent map', () => {
 		const cancelled = build(
 			collections,
 			'adultSurveillance.cancelPendingCollection',
-			request(COLLECTION, {}),
+			requestFor(COLLECTION, {}),
 		);
 		const deleted = build(
 			collections,
 			'adultSurveillance.deleteCollection',
-			request(COLLECTION, { acknowledgedSpeciesCountDeletion: false }),
+			requestFor(COLLECTION, { acknowledgedSpeciesCountDeletion: false }),
 		);
 
 		expect(cancelled.payload).toMatchObject({ collectionId: COLLECTION });
@@ -303,7 +271,7 @@ describe('collection_species intent map', () => {
 		const command = build(
 			collectionSpecies,
 			'adultSurveillance.addCollectionSpeciesCount',
-			request(COLLECTION_SPECIES, {
+			requestFor(COLLECTION_SPECIES, {
 				collection_id: COLLECTION,
 				species_id: SPECIES,
 				count: 40,
@@ -327,7 +295,7 @@ describe('collection_species intent map', () => {
 		const command = build(
 			collectionSpecies,
 			'adultSurveillance.addCollectionSpeciesCount',
-			request(COLLECTION_SPECIES, {
+			requestFor(COLLECTION_SPECIES, {
 				collection_id: COLLECTION,
 				species_id: SPECIES,
 				count: 40,

@@ -76,7 +76,7 @@ import {
 	densityKeyForSettings,
 	densityLabel,
 	densityRangeFormValues,
-	densityRangesFromFormValues,
+	densityRangesOrNull,
 	formatDensityRange,
 	safeDensityRangesFromFormValues,
 	watchWrite,
@@ -235,7 +235,7 @@ export function LarvalSettingsDrawer({
 			// and a save that never left should not look like one that did.
 			const policyToSave = {
 				mode,
-				densityRanges: densityEnabled ? densityRangesFromFormValues(ranges) : null,
+				densityRanges: densityRangesOrNull(densityEnabled, ranges),
 			};
 			setOpen(false);
 			watchWrite(setLarvalInspectionEntryPolicy(policyToSave), 'Unable to save larval settings.');

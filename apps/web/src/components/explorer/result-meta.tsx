@@ -14,9 +14,11 @@ export function ResultMeta({
 	readonly total: number;
 	readonly isLoading: boolean;
 	/**
-	 * Singular and plural forms of what is being counted. Omitted on the
-	 * viewport-driven explorers, which count what the map is showing rather than
-	 * a set of records and read "n in view".
+	 * Singular and plural forms of what is being counted. Omitted on all nine
+	 * paged explorers, which list what the viewport holds rather than a set of
+	 * records and read "n in view" (#920). A noun is what the surfaces that page
+	 * by something other than a box still pass: the trap directory, a Profile's
+	 * day of work, and the explorers that hold their whole set at once.
 	 */
 	readonly noun?: CountNoun | undefined;
 }) {

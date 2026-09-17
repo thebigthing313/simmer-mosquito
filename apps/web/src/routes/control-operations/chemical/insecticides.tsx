@@ -11,7 +11,6 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo } from 'react';
 import {
 	CatalogGroupHeader,
 	CatalogInactiveDisclosure,
@@ -49,18 +48,14 @@ function InsecticidesRoute() {
 	const batchMutations = useInsecticideBatchMutations();
 	const { all: unitRows } = useUnitLabels();
 
-	const units = useMemo(
-		() =>
-			unitRows
-				.filter((unit) => USAGE_UNIT_TYPES.has(unit.unitType))
-				.slice()
-				.sort(
-					(first, second) =>
-						first.unitType.localeCompare(second.unitType) ||
-						first.unitName.localeCompare(second.unitName),
-				),
-		[unitRows],
-	);
+	const units = unitRows
+		.filter((unit) => USAGE_UNIT_TYPES.has(unit.unitType))
+		.slice()
+		.sort(
+			(first, second) =>
+				first.unitType.localeCompare(second.unitType) ||
+				first.unitName.localeCompare(second.unitName),
+		);
 	const activeInsecticides = insecticides.filter((row) => row.isActive);
 	const inactiveInsecticides = insecticides.filter((row) => !row.isActive);
 	const batchTrackingEnabled = settings.controlOperations.trackInsecticideBatches;

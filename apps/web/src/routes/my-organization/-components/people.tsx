@@ -113,7 +113,13 @@ export function PeopleSection({
 					meta="Profile records, current access, and field history"
 					title="People"
 				/>
-				<div className="grid gap-3">
+				{/* The list carries its own measure, 46rem, the width the assignments
+				    create form carries. The shell draws the section at the `record`
+				    measure (#1045), and a row's name column grows to fill everything
+				    up to the actions, so without this the two ends of one row sat
+				    about 1400px apart on a 1920 screen (#1054). The invite controls
+				    in the header stay at the frame's width. */}
+				<div className="grid max-w-[46rem] gap-3">
 					<article className="grid min-w-0 items-center gap-3 rounded-md border border-border/40 bg-muted/40 p-2.5 md:grid-cols-[minmax(240px,1fr)_auto]">
 						<div className="min-w-0">
 							<span className="font-medium wrap-anywhere text-sm text-foreground">
@@ -394,20 +400,15 @@ function InviteProfileSheet({
 		event.preventDefault();
 		setError(null);
 		setIsSaving(true);
+		const linkedProfileId = profileId === 'new' ? null : profileId;
 		try {
-			await invite({
-				displayName,
-				email,
-				role,
-				profileId: profileId === 'new' ? null : profileId,
-			});
+			await invite({ displayName, email, role, profileId: linkedProfileId });
 			toast.success('Invitation sent.');
 			updateOpen(false);
 		} catch (saveError) {
 			setError(saveFailureMessage(saveError, 'The invitation was not sent.'));
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	}
 
 	return (
@@ -522,22 +523,24 @@ function EditProfileSheet({
 		event.preventDefault();
 		setError(null);
 		setIsSaving(true);
+		const membershipId = person.membershipId ?? null;
 		try {
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
 			const plan = profileSavePlan({ displayName: nextDisplayName, isActive, role }, person);
 			// The role first, and only if it moved: it is a different command with a
 			// different floor (owner, not admin), and a refusal there must not leave
 			// the profile half saved and the sheet closed.
-			if (plan.roleChange !== null && person.membershipId != null) {
-				await changeRole(person.membershipId, plan.roleChange);
+			if (plan.roleChange !== null) {
+				if (membershipId !== null) {
+					await changeRole(membershipId, plan.roleChange);
+				}
 			}
 			updateOpen(false);
 			watchWrite(save(person.profileId, plan.changes), 'Unable to save profile.');
 		} catch (saveError) {
 			setError(saveFailureMessage(saveError, 'The changes were not saved.'));
-		} finally {
-			setIsSaving(false);
 		}
+		setIsSaving(false);
 	}
 
 	return (

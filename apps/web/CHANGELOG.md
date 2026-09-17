@@ -1,5 +1,55 @@
 # @simmer-mosquito/web
 
+## 0.8.0 — 2026-09-17
+
+### Minor Changes
+
+- Added: an assignment copied from a route is named after the route and its date, such as "North loop, Sep 15, 2026", until you type a name of your own. Changing the route or the date keeps that name current, and a name you typed is never overwritten.
+
+- Added: a record's "..." menu offers the records that hang off it, and the form opens with the parent filled in. A habitat offers an inspection and the three control actions, a trap a collection, an inspection the three control actions, an address a habitat, a trap and a service request, and a contact a service request.
+
+- Added: a Dashboard on the home page. Two panels count the pending work in Surveillance and Operations, such as samples awaiting identification, open service requests and assignments started but not finished, and each count opens the explorer filtered to those rows. A banner counts the habitats found heavy in the last 7 days with no control action since. A strip compares the last 7 days against the week before, and a list shows who logged field work today. To reach the same rows by hand, the Collections explorer gains an Awaiting identification filter, the Requests for Control explorer a Not yet assigned filter, and the Habitats explorer an Untreated filter.
+
+- Added: the date picker's month and year are buttons. The month opens a grid of twelve months, the year a grid of years paging a decade at a time, and a Today button sits under the days. Reaching a day three years back used to take 36 presses of the same arrow.
+
+- Changed: every map explorer's list shows the records inside the current map view, 50 at a time, and its count reads "n in view". Traps, Collections, Chemical Applications, Source Reductions, Biocontrol Actions, Outreach Actions, Service Requests and the Address Book join Habitats, Inspections and Samples, which already worked this way. Filters narrow the map and the list together, and changing a filter no longer moves the map when every match is already on screen. The Address Book search matches street, locality, region and postal code as well as the name.
+
+### Patch Changes
+
+- Changed: the activity log no longer ends in a "What this log cannot show" section.
+
+- Fixed: an assignment's deadline is a date and a time under one Due label. It used to be a time on the assignment date only, so a deadline on another day moved to the assignment date whenever the assignment was edited.
+
+- Changed: Daily Work sets the day from its panel header, with an arrow either side for the day before and the day after, and the date reads out in full. The log opens on the record families rather than behind a collapsible date heading. Rows carry the badges the record's own explorer draws: life stages and density on an inspection, Trap out, Zero result, Problem reported or Bycatch on a collection, what a control action was performed against, and Tags on habitats and service requests.
+
+- Changed: deleting a record is the last item in its "..." menu, and the delete block at the foot of every record page is gone. The confirmation names what goes with the record, what survives with its link cleared and what still references it, and its Delete button stays off while something blocks the delete.
+
+- Changed: an empty explorer list says why it is empty. When matches sit outside the view it asks you to pan or zoom. When nothing matches the filters it offers Reset filters, or Show filters when the default status or date window is what narrowed it. When the Organization has no records of that kind yet, it points at the Create entry in the More actions menu.
+
+- Fixed: a trap, collection or region page whose read failed says so, where it used to say the record could not be found. The three panels on the Operations overview say when their read failed instead of showing the loading placeholder for good.
+
+- Fixed: an edit form opened on a record with a habitat shows that habitat in the picker, rather than an empty field.
+
+- Fixed: an inspection or sample whose habitat has not loaded yet is titled "Habitat" and the first eight characters of its id, rather than a bare comma.
+
+- Changed: a habitat carries the same worm icon on every screen, where it had been three different icons, and source reduction takes a struck-through droplet rather than sharing the Delete icon.
+
+- Changed: each record type is called one thing on every screen: sidebar entries and group headings, page titles, list counts, map cards, back links, delete confirmations and unavailable pages. Chemical Application, Source Reduction, Biocontrol Action, Outreach Action, Request for Control and Service Request had each been spelled two or more ways depending on the screen. A sample taken at no habitat reads "Ad-hoc sample" rather than "Ad-hoc inspection", and the two cleanup tools read Cleanup Contacts and Cleanup Addresses rather than both reading Cleanup Tools.
+
+- Changed: creating a record uses one verb per kind, in the sidebar, the page title, the explorer header and the map's right-click menu. Record is for work performed (Inspection, Collection, Chemical Application, Biocontrol Action, Source Reduction, Outreach Action), Create is for a record that stands on its own (Habitat, Trap, Address, Region, Contact, Mission, Assignment, Request for Control, Service Request, Weather Station), and Add is for a child under an existing parent. New is gone. Every create and edit form's submit button reads Save.
+
+- Changed: pages fill the width of the window on a wide screen instead of sitting in a centred column, and a page lands where its loading skeleton stood rather than jumping sideways or down as it arrives. Record pages put the facts beside the map and keep the comments in the side rail. Tab strips look the same on every page. What's New shows each release's version and date in a rail beside its entries.
+
+- Changed: a record's facts card says each fact once. The Geometry and Coordinates rows that repeated the map are gone and the Location line carries the coordinates, a habitat's Tags no longer appear twice, and an inspection's density, life stages, larvae and dips read in its Details card. A missing value is the same dash on every card, and a record titled by its date writes the month out, so a collection reads "August 20, 2026".
+
+- Changed: every record page opens with the same header: the record's icon and type over its name, a pencil and a "..." menu beside the name, and its flags and Tags on the right. Actions other than editing, such as merging a habitat or resolving a request for control, live in the menu. The "Back to ..." link and the "View habitat" and "View inspection" buttons are gone, because the breadcrumb and the fact card already lead to the same places.
+
+- Fixed: a save the server refuses says why in words and puts the message on the field it is about. Nine forms had put one sentence at the top of the page and left you to find the box it meant, some refusals showed a code such as "target_inactive", and the operator console replaced the server's reason with a stock sentence. The address form keeps Save and Reset pinned at the foot of the column, and the habitat form takes down its "draw the habitat geometry" message once you pick an address.
+
+- Fixed: a route or worklist map redraws a stop whose shape was moved. A shape edited into a new position with the same number of vertices used to stay drawn where it was.
+
+- Fixed: the landing, sign-in, sign-up, invitation and password pages fill the window, instead of stopping part way down with dead space beneath.
+
 ## 0.7.0 — 2026-09-08
 
 ### Minor Changes

@@ -2,7 +2,6 @@ import {
 	resolveEffectiveSpeciesKeyBindings,
 	type SpeciesKeyBindings,
 } from '@simmer-mosquito/domain';
-import { useMemo } from 'react';
 import { useOrganizationSettings } from './queries/use-organization-settings';
 import { useSpeciesNames } from './queries/use-species-names';
 
@@ -34,27 +33,26 @@ export function useSpeciesKeyBindings(): SpeciesKeyBindingsView {
 	const { speciesKeyBindings } = useOrganizationSettings();
 	const nameById = useSpeciesNames();
 
-	return useSpeciesKeyBindingsView(speciesKeyBindings, nameById);
+	return speciesKeyBindingsView(speciesKeyBindings, nameById);
 }
 
-function useSpeciesKeyBindingsView(
+/** The view the hook returns, joined to the species names it was handed. */
+function speciesKeyBindingsView(
 	organizationBindings: SpeciesKeyBindings,
 	nameById: ReadonlyMap<string, string>,
 ): SpeciesKeyBindingsView {
-	return useMemo(() => {
-		const effective = resolveEffectiveSpeciesKeyBindings({ organization: organizationBindings });
+	const effective = resolveEffectiveSpeciesKeyBindings({ organization: organizationBindings });
 
-		const bindings = effective.bindings.map((binding) => ({
-			key: binding.key,
-			speciesId: binding.speciesId,
-			speciesName: nameById.get(binding.speciesId) ?? null,
-		}));
+	const bindings = effective.bindings.map((binding) => ({
+		key: binding.key,
+		speciesId: binding.speciesId,
+		speciesName: nameById.get(binding.speciesId) ?? null,
+	}));
 
-		return {
-			bindings,
-			byKey: new Map(bindings.map((binding) => [binding.key, binding] as const)),
-			keyBySpeciesId: new Map(bindings.map((binding) => [binding.speciesId, binding.key] as const)),
-			hasBindings: bindings.length > 0,
-		};
-	}, [organizationBindings, nameById]);
+	return {
+		bindings,
+		byKey: new Map(bindings.map((binding) => [binding.key, binding] as const)),
+		keyBySpeciesId: new Map(bindings.map((binding) => [binding.speciesId, binding.key] as const)),
+		hasBindings: bindings.length > 0,
+	};
 }

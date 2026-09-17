@@ -53,7 +53,14 @@ import type { MiddlewareHandler } from 'hono';
  * Write endpoints are absent: a request body is not a response, and these are
  * POSTs whose answers are an id and a status.
  */
-export const COMPRESSED_READ_PREFIXES = ['/map/*', '/records/*', '/search', '/sync/*'] as const;
+export const COMPRESSED_READ_PREFIXES = [
+	'/map/*',
+	'/records/*',
+	'/search',
+	'/dashboard',
+	'/larval-surveillance/samples/awaiting',
+	'/sync/*',
+] as const;
 
 /**
  * Below this, the gzip header and trailer cost more than the saving, and the

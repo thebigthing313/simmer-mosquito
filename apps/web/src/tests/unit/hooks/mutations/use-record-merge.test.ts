@@ -140,10 +140,11 @@ describe('recordMergeRequest', () => {
 });
 
 describe('mergeRefusalReason', () => {
-	it('reads the reason off a merge refusal', () => {
+	it('reads the code off a merge refusal', () => {
 		const error = new CommandError('Retired.', 409, {
 			error: 'merge_refused',
-			reason: 'target_inactive',
+			code: 'target_inactive',
+			reason: 'That habitat is retired.',
 		});
 
 		expect(mergeRefusalReason(error)).toBe('target_inactive');
@@ -155,13 +156,25 @@ describe('mergeRefusalReason', () => {
 		expect(mergeRefusalReason(error)).toBeNull();
 	});
 
-	it('is null for a reason it does not recognise, rather than passing it on', () => {
+	it('is null for a code it does not recognise, rather than passing it on', () => {
 		// The dialog switches on this to decide which sentence to show, and an
-		// unknown reason has no sentence. Falling through to the server's own
+		// unknown code has no sentence. Falling through to the server's own
 		// message says more than a branch that renders nothing.
 		const error = new CommandError('Nope.', 409, {
 			error: 'merge_refused',
-			reason: 'something_new',
+			code: 'something_new',
+			reason: 'That merge was refused.',
+		});
+
+		expect(mergeRefusalReason(error)).toBeNull();
+	});
+
+	it('is null for a refusal whose sentence happens to be a code, since only `code` counts', () => {
+		// The shape #795 removed: `reason` used to carry the discriminator. A body
+		// still written that way names no code, so nothing is read off it.
+		const error = new CommandError('Retired.', 409, {
+			error: 'merge_refused',
+			reason: 'target_inactive',
 		});
 
 		expect(mergeRefusalReason(error)).toBeNull();

@@ -19,12 +19,16 @@ function entry(family: ActivityEntry['family']): ActivityEntry {
 		date: '2026-08-05',
 		occurredAt: null,
 		label: null,
-		siteName: null,
+		placeName: null,
 		refId: null,
 		methodRefId: null,
 		amount: null,
 		unitId: null,
 		detail: null,
+		stages: null,
+		context: null,
+		hasBycatch: null,
+		tagIds: null,
 	};
 }
 

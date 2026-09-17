@@ -19,7 +19,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -31,7 +31,7 @@ import {
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
 import {
 	type InspectionTableRow,
-	inspectionSiteLabel,
+	inspectionHabitatLabel,
 	inspectionTypeLabel,
 } from '../../../hooks/queries/larval-activity-view';
 import {
@@ -45,6 +45,8 @@ import {
 	type SortDirection,
 	useInspectionTable,
 } from '../../../hooks/queries/use-inspection-table';
+import { formatListDate } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -64,7 +66,6 @@ import {
 } from '../-inspection-filters';
 import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
 import { inspectionFilterCodecs, sharedInspectionSearch } from '../-inspections-search';
-import { formatListDate } from '../-overview-data';
 
 /**
  * The sort lives in the URL, so a sorted table is a link somebody can send.
@@ -127,7 +128,7 @@ const WINDOW_STEP = 50;
  *
  * A header sorts the whole set for the same reason, not the rows already down.
  * Four of the nine columns carry the control. `INSPECTION_SORT_KEYS` says which
- * four and why Site, Habitat type, Inspector and Density are not among them;
+ * four and why Habitat, Habitat type, Inspector and Density are not among them;
  * Life stages is six boolean columns drawn as one strip, so there is no column
  * under it to sort by at all.
  *
@@ -140,10 +141,7 @@ const WINDOW_STEP = 50;
  */
 function InspectionsTableRoute() {
 	const { filters: sortSearch, setFilters: setSort } = useSearchFilters(SORT_DEFAULTS, SORT_CODECS);
-	const sort: InspectionSort = useMemo(
-		() => ({ key: sortSearch.sort, direction: sortSearch.direction }),
-		[sortSearch.direction, sortSearch.sort],
-	);
+	const sort: InspectionSort = { key: sortSearch.sort, direction: sortSearch.direction };
 
 	// The filter set is the explorer's, read through the explorer's codecs, so
 	// the two surfaces answer the same address. Both hooks patch the same search
@@ -152,7 +150,7 @@ function InspectionsTableRoute() {
 	// on it opens on every inspection.
 	const binding = useInspectionFilterState(INSPECTION_TABLE_COUNTING, 'all-time');
 	const catalogs = useInspectionCatalogs();
-	const filters = useMemo(() => inspectionTableFilters(binding.state), [binding.state]);
+	const filters = inspectionTableFilters(binding.state);
 
 	// A window belongs to the query that loaded it. A new sort reorders the whole
 	// set and a new filter changes which rows are in it, so either one starts at
@@ -177,25 +175,24 @@ function InspectionsTableRoute() {
 	const { rows, isReady, isError } = useInspectionTable(sort, limit, filters);
 	const shown = useHeldRows(rows, isReady, windowKey);
 
-	const sortBy = useCallback(
-		(key: InspectionSortKey) => {
-			const next = nextSort(sort, key);
-			setSort({ direction: next.direction, sort: next.key });
-		},
-		[setSort, sort],
-	);
+	const sortBy = (key: InspectionSortKey) => {
+		const next = nextSort(sort, key);
+		setSort({ direction: next.direction, sort: next.key });
+	};
 
-	const loadMore = useCallback(() => {
+	const loadMore = () => {
 		setLoaded((current) => ({ ...current, limit: current.limit + WINDOW_STEP }));
-	}, []);
+	};
 
+	// `record` is the measure the route-loading skeleton reserves, so the table
+	// arrives at the width it stood in for (#1043, #1047).
 	return (
-		<OutletSimpleLayout className="grid content-start gap-5">
+		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={<InspectionSurfaceSwitch current="table" search={carried} />}
 				description="Every inspection your crews have recorded."
 				icon={InspectionIcon}
-				title="Inspections"
+				title={recordNoun('inspection').titleMany}
 			/>
 			<InspectionsFilterBar binding={binding} catalogs={catalogs} />
 			{shown.length === 0 ? (
@@ -245,10 +242,7 @@ function InspectionsFilterBar({
 		today,
 		setFilters,
 	});
-	const resetDates = useCallback(
-		() => setFilters({ from: defaults.from, to: defaults.to }),
-		[setFilters, defaults.from, defaults.to],
-	);
+	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
 
 	return (
 		<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">
@@ -408,6 +402,9 @@ function useHeldRows(
 	isReady: boolean,
 	windowKey: string,
 ): readonly InspectionTableRow[] {
+	// no-memo-reason: a render-phase ref read is the cache, and no compiler release makes that compilable.
+	'use no memo';
+
 	const held = useRef({ rows, windowKey });
 	if (isReady) {
 		held.current = { rows, windowKey };
@@ -513,12 +510,12 @@ function SortableHead({
 
 function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 	const when = formatListDate(row.inspectionDate);
-	const site = inspectionSiteLabel(row, row.address);
+	const label = inspectionHabitatLabel(row, row.address);
 	return (
 		<TableRow>
 			<TableCell className="tabular-nums">{when}</TableCell>
-			<TableCell className="max-w-[22rem] truncate font-medium" title={site}>
-				{site}
+			<TableCell className="max-w-[22rem] truncate font-medium" title={label}>
+				{label}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
 				{inspectionTypeLabel(row) ?? <AbsentValue />}
@@ -541,7 +538,7 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 			</TableCell>
 			<TableCell className="text-right">
 				<Button
-					aria-label={`View the ${when} inspection of ${site}`}
+					aria-label={`View the ${when} inspection of ${label}`}
 					asChild
 					size="icon-sm"
 					variant="ghost"

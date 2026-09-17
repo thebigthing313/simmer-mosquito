@@ -4,14 +4,15 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
@@ -28,6 +29,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -52,8 +54,6 @@ export const Route = createFileRoute('/larval-surveillance/inspections/$id_/edit
 	component: EditInspectionRoute,
 });
 
-const inspectionGcTimeMs = 30_000;
-
 function EditInspectionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
@@ -71,7 +71,7 @@ function EditInspectionRoute() {
 	const personnel = useAdditionalPersonnel({ type: 'inspection', id });
 	useLiveQuery(
 		{
-			gcTime: inspectionGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
 		},
@@ -84,18 +84,18 @@ function EditInspectionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="inspection"
+			recordType="inspection"
 			reading={{ isError, isReady, record: inspection }}
 			skeleton={skeleton}
 		>
 			{(record) =>
 				personnel.isReady ? (
 					<EditInspectionLoader
-						canSubmit={organization !== null && actorProfileId !== null}
+						canSubmit={canAttributeWrite({ organization, actorProfileId })}
 						existingPersonnel={personnel.rows}
 						habitatTypes={habitatTypes}
 						inspection={record}
-						organizationId={organization?.id ?? ''}
+						organizationId={organization.id}
 						personnelProfileIds={personnel.profileIds}
 						policy={settings.larvalSurveillance.inspectionEntryPolicy}
 						profiles={profiles}
@@ -147,112 +147,99 @@ function EditInspectionLoader({
 	const geojson = geometryQuery.data ?? null;
 	const initialAdhocGeometry = isAdhoc ? toDrawGeometry(geojson) : null;
 
-	const onSave = useCallback(
-		async ({
-			values,
-			adhocGeometry,
-		}: {
-			readonly values: InspectionFormValues;
-			readonly adhocGeometry: DrawGeometry | null;
-			readonly habitatGeometry: GeoJsonGeometry | null;
-		}) => {
-			// Only an ad-hoc inspection owns its geometry; a habitat one inherits the
-			// habitat's, which this form cannot move it off.
-			const redrawn =
-				isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry)
-					? adhocGeometry
-					: null;
-			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
-			if (redrawn !== null && centroid === null) {
-				throw new Error('Unable to determine the inspection location from the drawn geometry.');
-			}
+	const onSave = async ({
+		values,
+		adhocGeometry,
+	}: {
+		readonly values: InspectionFormValues;
+		readonly adhocGeometry: DrawGeometry | null;
+		readonly habitatGeometry: GeoJsonGeometry | null;
+	}) => {
+		// Only an ad-hoc inspection owns its geometry; a habitat one inherits the
+		// habitat's, which this form cannot move it off.
+		const redrawn =
+			isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry)
+				? adhocGeometry
+				: null;
+		const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
+		if (redrawn !== null && centroid === null) {
+			throw new Error('Unable to determine the inspection location from the drawn geometry.');
+		}
 
-			// The habitat type and the address belong to the location command rather
-			// than to the field details, so they are compared as part of the placement
-			// — naming `updateInspectionFieldDetails` for them would send a command
-			// with no reader for either.
-			await inspectionMutations.save({
-				inspectionId: inspection.id,
-				result: inspectionResultOf(values),
-				current: {
-					inspectionDate: inspection.inspectionDate,
-					inspectedByProfileId: inspection.inspectedByProfileId,
-					isWet: inspection.isWet,
-					dipCount: inspection.dipCount,
-					density: inspection.density,
-					larvaeCount: inspection.larvaeCount,
-					hasEggs: inspection.hasEggs,
-					hasFirstInstar: inspection.hasFirstInstar,
-					hasSecondInstar: inspection.hasSecondInstar,
-					hasThirdInstar: inspection.hasThirdInstar,
-					hasFourthInstar: inspection.hasFourthInstar,
-					hasPupae: inspection.hasPupae,
-				},
-				adhoc: isAdhoc
-					? {
-							next: {
-								geometry: redrawn,
-								addressId: values.addressId,
-								habitatTypeId:
-									values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
-							},
-							current: {
-								geometry: null,
-								addressId: inspection.addressId,
-								habitatTypeId: inspection.habitatTypeId,
-							},
-						}
-					: null,
-				centroid,
-			});
-
-			// The rest reference the inspection and cannot fail a save that already
-			// landed, so each is reported rather than thrown (see attachLinksBestEffort).
-			await attachLinksBestEffort('the additional personnel', () =>
-				setPersonnel({
-					target: { type: 'inspection', id: inspection.id },
-					existing: existingPersonnel,
-					profileIds: values.additionalPersonnelIds,
-				}),
-			);
-
-			if (values.samples.length > 0) {
-				await attachLinksBestEffort('the samples', async () => {
-					for (const sample of values.samples) {
-						const label = sample.label.trim();
-						await sampleMutations.add({
-							sampleId: sample.id,
-							inspectionId: inspection.id,
-							displayName: label === '' ? null : label,
-						});
+		// The habitat type and the address belong to the location command rather
+		// than to the field details, so they are compared as part of the placement
+		// — naming `updateInspectionFieldDetails` for them would send a command
+		// with no reader for either.
+		await inspectionMutations.save({
+			inspectionId: inspection.id,
+			result: inspectionResultOf(values),
+			current: {
+				inspectionDate: inspection.inspectionDate,
+				inspectedByProfileId: inspection.inspectedByProfileId,
+				isWet: inspection.isWet,
+				dipCount: inspection.dipCount,
+				density: inspection.density,
+				larvaeCount: inspection.larvaeCount,
+				hasEggs: inspection.hasEggs,
+				hasFirstInstar: inspection.hasFirstInstar,
+				hasSecondInstar: inspection.hasSecondInstar,
+				hasThirdInstar: inspection.hasThirdInstar,
+				hasFourthInstar: inspection.hasFourthInstar,
+				hasPupae: inspection.hasPupae,
+			},
+			adhoc: isAdhoc
+				? {
+						next: {
+							geometry: redrawn,
+							addressId: values.addressId,
+							habitatTypeId:
+								values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+						},
+						current: {
+							geometry: null,
+							addressId: inspection.addressId,
+							habitatTypeId: inspection.habitatTypeId,
+						},
 					}
-				});
-			}
+				: null,
+			centroid,
+		});
 
-			// The detail page reads the inspection over HTTP, so its cached copy would
-			// still hold the pre-edit values on arrival.
-			await queryClient.invalidateQueries({ queryKey: ['inspection-detail', inspection.id] });
-			await navigate({ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } });
-		},
-		[
-			inspection,
-			isAdhoc,
-			initialAdhocGeometry,
-			existingPersonnel,
-			navigate,
-			queryClient,
-			setPersonnel,
-			inspectionMutations,
-			sampleMutations,
-		],
-	);
+		// The rest reference the inspection and cannot fail a save that already
+		// landed, so each is reported rather than thrown (see attachLinksBestEffort).
+		await attachLinksBestEffort('the additional personnel', () =>
+			setPersonnel({
+				target: { type: 'inspection', id: inspection.id },
+				existing: existingPersonnel,
+				profileIds: values.additionalPersonnelIds,
+			}),
+		);
+
+		if (values.samples.length > 0) {
+			await attachLinksBestEffort('the samples', async () => {
+				for (const sample of values.samples) {
+					const label = sample.label.trim();
+					await sampleMutations.add({
+						sampleId: sample.id,
+						inspectionId: inspection.id,
+						displayName: label === '' ? null : label,
+					});
+				}
+			});
+		}
+
+		// The detail page reads the inspection over HTTP, so its cached copy would
+		// still hold the pre-edit values on arrival.
+		await queryClient.invalidateQueries({ queryKey: ['inspection-detail', inspection.id] });
+		await navigate({ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } });
+	};
 
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
 				description="This inspection's location could not be loaded."
 				layout="centered"
-				noun="inspection"
+				recordType="inspection"
 				reason="error"
 			/>
 		);
@@ -267,7 +254,7 @@ function EditInspectionLoader({
 			defaultValues={defaultsFromInspection(inspection, personnelProfileIds)}
 			habitatTypes={habitatTypes}
 			header={{
-				title: 'Edit Inspection',
+				title: `Edit ${recordNoun('inspection').title}`,
 				description: 'Revise what this inspection found, or who recorded it.',
 				backTo: '/larval-surveillance/inspections/$id',
 				backParams: { id: inspection.id },
@@ -280,7 +267,6 @@ function EditInspectionLoader({
 			organizationId={organizationId}
 			policy={policy}
 			profiles={profiles}
-			submitLabel="Save changes"
 		/>
 	);
 }

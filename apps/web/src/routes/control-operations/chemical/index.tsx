@@ -1,8 +1,9 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -11,17 +12,16 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	toggle,
 	useApplicationMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
+	useExplorerResource,
 	useInsecticideOptions,
-	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -32,6 +32,8 @@ import {
 } from '../../../components/map';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -40,12 +42,10 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { ApplicationMapCard } from '../-application-map-card';
 import { formatAmount } from '../-control-display';
-import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 
-interface ApplicationSite {
+interface ApplicationRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -86,29 +86,23 @@ export const Route = createFileRoute('/control-operations/chemical/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'application', many: 'applications' };
+const RECORD_TYPE: RecordType = 'application';
 const PATH = '/map/chemical';
 
 function ApplicationsExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults = useMemo<ApplicationFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			insecticides: new Set(),
-			people: new Set(),
-			methods: new Set(),
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: ApplicationFilters = {
+		from: defaultFrom,
+		to: today,
+		insecticides: new Set(),
+		people: new Set(),
+		methods: new Set(),
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -121,22 +115,10 @@ function ApplicationsExplorerRoute() {
 	const personIds = query.people;
 	const methodIds = query.methods;
 	const regionIds = query.regions;
-	const setInsecticideIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ insecticides: next }),
-		[setFilters],
-	);
-	const setPersonIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ people: next }),
-		[setFilters],
-	);
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setInsecticideIds = (next: ReadonlySet<string>) => setFilters({ insecticides: next });
+	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -150,61 +132,43 @@ function ApplicationsExplorerRoute() {
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
-	const filters = useMemo<ChemicalTileFilters>(
-		() => ({
-			...(insecticideIds.size > 0 ? { insecticideIds: [...insecticideIds] } : {}),
-			...(methodIds.size > 0 ? { applicationMethodIds: [...methodIds] } : {}),
-			...(personIds.size > 0 ? { applicatorProfileIds: [...personIds] } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[insecticideIds, methodIds, personIds, regionIds, dateFrom, dateTo],
-	);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
+	const filters: ChemicalTileFilters = {
+		...whenAny('insecticideIds', insecticideIds),
+		...whenAny('applicationMethodIds', methodIds),
+		...whenAny('applicatorProfileIds', personIds),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
+	};
+	const layer: MapTileLayer = {
+		kind: 'chemical',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<ApplicationRow>({
+			path: PATH,
+			rowsKey: 'applications',
+			rowKey: 'application',
+			recordType: 'application',
+			params: {
 				insecticideId: filters.insecticideIds,
 				applicationMethodId: filters.applicationMethodIds,
 				applicator: filters.applicatorProfileIds,
 				regionId: filters.regionIds,
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
-			}),
-		[filters],
-	);
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<ApplicationSite>({
-			path: PATH,
-			rowsKey: 'applications',
-			label: 'Applications',
-			params,
+			},
+			layer,
+			map,
+			selectedId,
 			normalizeRow: normalizeApplication,
 		});
 
-	const selected = useSelectedMapRecord<ApplicationSite>({
-		path: PATH,
-		rowKey: 'application',
-		rows,
-		selectedId,
-		normalizeRow: normalizeApplication,
-	});
-	useFlyToSelection(map, selected);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'chemical',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
 	const clearAll = reset;
 
@@ -282,7 +246,7 @@ function ApplicationsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'application', many: 'applications' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -290,12 +254,11 @@ function ApplicationsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Applications',
+				title: recordNoun('application').titleMany,
 				icon: ApplicationEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
-				create: { to: '/control-operations/chemical/create', label: 'Record Application' },
+				create: { to: '/control-operations/chemical/create', label: createLabel('application') },
 			}}
 			onResetFilters={clearAll}
 			map={
@@ -323,9 +286,7 @@ function ApplicationsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No applications in range',
-				emptyDescription:
-					'Widen the time window or loosen the filters to bring treatments into range.',
+				empty,
 				renderRow: (row) => (
 					<ApplicationListItem
 						amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}
@@ -348,7 +309,7 @@ function ApplicationsExplorerRoute() {
 
 // The applicator + batch fields are newer than some deployed servers; default
 // them so a row that predates them can never crash the list/card render.
-function normalizeApplication(row: ApplicationSite): ApplicationSite {
+function normalizeApplication(row: ApplicationRow): ApplicationRow {
 	return {
 		...row,
 		applicatorName: row.applicatorName ?? null,
@@ -364,7 +325,7 @@ function ApplicationListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: ApplicationSite;
+	readonly row: ApplicationRow;
 	readonly productName: string;
 	readonly methodName: string | null;
 	readonly amount: string;

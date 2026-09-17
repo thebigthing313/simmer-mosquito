@@ -5,7 +5,6 @@ import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { useMemo } from 'react';
 
 function FieldSet({ className, ...props }: React.ComponentProps<'fieldset'>) {
 	return (
@@ -182,7 +181,7 @@ function FieldError({
 }: React.ComponentProps<'div'> & {
 	errors?: Array<{ message?: string } | undefined>;
 }) {
-	const content = useMemo(() => {
+	const renderContent = () => {
 		if (children) {
 			return children;
 		}
@@ -202,7 +201,8 @@ function FieldError({
 				{uniqueErrors.map((error, index) => error?.message && <li key={index}>{error.message}</li>)}
 			</ul>
 		);
-	}, [children, errors]);
+	};
+	const content = renderContent();
 
 	if (!content) {
 		return null;

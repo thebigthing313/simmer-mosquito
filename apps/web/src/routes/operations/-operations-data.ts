@@ -2,7 +2,6 @@ import type { ControlType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
 import { resolveLinkedAddress } from '../../hooks/queries/address-view';
 import type {
@@ -36,26 +35,6 @@ import { unreadable } from '../../lib/unreadable-input';
  * against a different set of tables, and the only thing the two share is the
  * navigation group they sit in.
  */
-
-// `missions`, `mission_items`, and `requested_control_actions` are all on-demand
-// shapes (docs/sync.md); hold their rows briefly after unmount so map → create →
-// back reuses the stream rather than refetching it.
-const _operationsGcTimeMs = 30_000;
-
-/** A syntactically valid uuid no row matches — keeps a subset predicate live and empty. */
-const _UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
-/**
- * Timestamps are validated against the server's clock with no tolerance, so a
- * client running even slightly fast has its writes rejected as "in the future"
- * (issue #37). Backdating by a couple of seconds costs nothing on a provenance
- * timestamp — see the same margin in `-assignment-data`.
- */
-const CLOCK_SKEW_MARGIN_MS = 2_000;
-
-function _nowTimestamp(): string {
-	return new Date(Date.now() - CLOCK_SKEW_MARGIN_MS).toISOString();
-}
 
 // --- derived state ----------------------------------------------------------
 
@@ -235,14 +214,10 @@ function useMissionItemShapes(
 	missionId: string | null,
 	items: readonly { readonly id: string; readonly updatedAt: Date }[],
 ): ReadonlyMap<string, GeoJsonGeometry> {
-	const version = useMemo(
-		() =>
-			items
-				.map((item) => `${item.id}:${item.updatedAt.getTime()}`)
-				.sort()
-				.join('|'),
-		[items],
-	);
+	const version = items
+		.map((item) => `${item.id}:${item.updatedAt.getTime()}`)
+		.sort()
+		.join('|');
 
 	const query = useQuery({
 		queryKey: ['mission-item-geometry', missionId ?? 'none', version],
@@ -254,10 +229,7 @@ function useMissionItemShapes(
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 
-	return useMemo(
-		() => new Map((query.data ?? []).map((row) => [row.id, row.geojson] as const)),
-		[query.data],
-	);
+	return new Map((query.data ?? []).map((row) => [row.id, row.geojson] as const));
 }
 
 interface MissionItemGeometryRow {
@@ -308,12 +280,11 @@ export function useMissionStopViews(missionId: string | null): {
 	const { stops: rows, isLoading, isReady } = useMissionStops(missionId);
 	const shapeById = useMissionItemShapes(missionId, rows);
 
-	const stops = useMemo<readonly MissionStopView[]>(
-		() => rows.map((row, index) => toMissionStop(row, index, shapeById, isReady)),
-		[rows, shapeById, isReady],
+	const stops: readonly MissionStopView[] = rows.map((row, index) =>
+		toMissionStop(row, index, shapeById, isReady),
 	);
 
-	const counts = useMemo(() => missionProgressCounts(stops), [stops]);
+	const counts = missionProgressCounts(stops);
 
 	return { stops, counts, isLoading };
 }
@@ -357,6 +328,30 @@ function toMissionStop(
 	};
 }
 
+/** Which of the four rosters a control type's method id points into. */
+function methodsForControlType(
+	controlType: ControlType | '',
+	rosters: {
+		readonly applicationMethods: readonly SchemaCatalogListing[];
+		readonly sourceReductionMethods: readonly SchemaCatalogListing[];
+		readonly biocontrolMethods: readonly SchemaCatalogListing[];
+		readonly outreachMethods: readonly SchemaCatalogListing[];
+	},
+): readonly SchemaCatalogListing[] {
+	switch (controlType) {
+		case 'application':
+			return rosters.applicationMethods;
+		case 'source_reduction':
+			return rosters.sourceReductionMethods;
+		case 'biocontrol':
+			return rosters.biocontrolMethods;
+		case 'outreach':
+			return rosters.outreachMethods;
+		default:
+			return [];
+	}
+}
+
 /**
  * The method catalog for a control type.
  *
@@ -372,22 +367,14 @@ export function useMethodsForControlType(controlType: ControlType | ''): {
 	const biocontrolMethods = useBiocontrolMethodRoster();
 	const outreachMethods = useOutreachMethodRoster();
 
-	const methods = useMemo(() => {
-		switch (controlType) {
-			case 'application':
-				return applicationMethods;
-			case 'source_reduction':
-				return sourceReductionMethods;
-			case 'biocontrol':
-				return biocontrolMethods;
-			case 'outreach':
-				return outreachMethods;
-			default:
-				return [];
-		}
-	}, [controlType, applicationMethods, sourceReductionMethods, biocontrolMethods, outreachMethods]);
-
-	return { methods };
+	return {
+		methods: methodsForControlType(controlType, {
+			applicationMethods,
+			sourceReductionMethods,
+			biocontrolMethods,
+			outreachMethods,
+		}),
+	};
 }
 
 // --- writes -----------------------------------------------------------------

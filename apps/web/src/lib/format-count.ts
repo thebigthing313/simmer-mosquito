@@ -42,6 +42,24 @@ export interface CountNoun {
 }
 
 /**
+ * `0 habitats`, `1 habitat`, `14,245 habitats`.
+ *
+ * The number and the noun that agrees with it, and nothing else. Every count
+ * naming something a person reads is built here, so the singular fork is
+ * written once: a surface that forks on the number itself is the shape that
+ * gave one rail `1 habitat` at the top and `1 habitats` at the bottom.
+ *
+ * Zero is a plural and stays one. What to draw for an empty set is the
+ * surface's question rather than this function's, and the two surfaces answer
+ * it differently: {@link countLabel} says `None` because an explorer's count
+ * sits beside a heading, and a toast reporting what was just written never
+ * reaches zero.
+ */
+export function countPhrase(total: number, noun: CountNoun): string {
+	return `${formatCount(total)} ${total === 1 ? noun.one : noun.many}`;
+}
+
+/**
  * `1 habitat`, `14,245 habitats`, `None`.
  *
  * The rail's header and its footer were counting the same rows with two
@@ -50,8 +68,5 @@ export interface CountNoun {
  * record read `1 habitat` at the top and `1 habitats` at the bottom.
  */
 export function countLabel(total: number, noun: CountNoun): string {
-	if (total === 0) {
-		return 'None';
-	}
-	return total === 1 ? `1 ${noun.one}` : `${formatCount(total)} ${noun.many}`;
+	return total === 0 ? 'None' : countPhrase(total, noun);
 }

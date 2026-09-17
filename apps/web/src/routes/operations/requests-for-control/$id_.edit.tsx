@@ -1,16 +1,15 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
 	type RequestRecord,
 	useRequestedControlAction,
 } from '../../../hooks/queries/use-requested-control-action';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	NO_METHOD,
@@ -42,7 +41,7 @@ function EditRequestRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="request"
+			recordType="requestedControlAction"
 			reading={{ isError, isReady, record: request }}
 			skeleton={<EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />}
 		>
@@ -61,8 +60,6 @@ function EditRequestRoute() {
  */
 function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 	const navigate = useNavigate();
-	const auth = useAuthSnapshot();
-	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const requestWrites = useRequestedControlActionMutations();
 
 	const geometryQuery = useOwnedGeometry(
@@ -71,42 +68,39 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 		request.updatedAt.toISOString(),
 	);
 
-	const onSave = useCallback(
-		async ({ values, geometry, geometryChanged }: RequestSaveInput) => {
-			// The request as it stands goes with the edit: the details and the
-			// location-and-context are separate commands with separate guards, and
-			// which of them this save means is decided by what actually moved.
-			await requestWrites.update(
-				request.id,
-				{
-					controlType: values.controlType,
-					...readRequestFields(values),
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-				},
-				{
-					controlType: request.controlType,
-					summary: request.summary,
-					recommendedMethodId: request.recommendedMethodId,
-					addressId: request.addressId,
-					habitatId: request.habitatId,
-				},
-				// Only a redrawn shape travels: the server re-resolves `geom` from
-				// whatever source it is handed, so re-sending the stored one would be a
-				// write with no edit behind it.
-				geometryChanged && geometry !== null ? geometry : null,
-			);
-			await navigate({ to: '/operations/requests-for-control/$id', params: { id: request.id } });
-		},
-		[request, requestWrites, navigate],
-	);
+	const onSave = async ({ values, geometry, geometryChanged }: RequestSaveInput) => {
+		// The request as it stands goes with the edit: the details and the
+		// location-and-context are separate commands with separate guards, and
+		// which of them this save means is decided by what actually moved.
+		await requestWrites.update(
+			request.id,
+			{
+				controlType: values.controlType,
+				...readRequestFields(values),
+				addressId: values.addressId,
+				habitatId: values.habitatId,
+			},
+			{
+				controlType: request.controlType,
+				summary: request.summary,
+				recommendedMethodId: request.recommendedMethodId,
+				addressId: request.addressId,
+				habitatId: request.habitatId,
+			},
+			// Only a redrawn shape travels: the server re-resolves `geom` from
+			// whatever source it is handed, so re-sending the stored one would be a
+			// write with no edit behind it.
+			geometryChanged && geometry !== null ? geometry : null,
+		);
+		await navigate({ to: '/operations/requests-for-control/$id', params: { id: request.id } });
+	};
 
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
-				description="This request's geometry could not be loaded."
+				description="The geometry for this request for control could not be loaded."
 				layout="centered"
-				noun="request"
+				recordType="requestedControlAction"
 				reason="error"
 			/>
 		);
@@ -117,11 +111,11 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 
 	return (
 		<RequestFormPage
-			canSubmit={actorProfileId !== null}
+			canSubmit={requestWrites.canWrite}
 			defaultValues={defaultsFromRequest(request)}
 			errorTitle="Unable to Save Request"
 			header={{
-				title: 'Edit Request for Control',
+				title: `Edit ${recordNoun('requestedControlAction').title}`,
 				description: 'Change what is being asked for, where it is, or what it hangs off.',
 				backTo: '/operations/requests-for-control/$id',
 				backParams: { id: request.id },
@@ -130,7 +124,6 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 			initialGeometry={geometryQuery.geometry}
 			onSave={onSave}
 			organizationId={request.organizationId}
-			submitLabel="Save Changes"
 		/>
 	);
 }

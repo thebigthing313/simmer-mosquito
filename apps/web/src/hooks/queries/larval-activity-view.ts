@@ -1,10 +1,10 @@
 /**
- * One Habitat Inspection, with the site it was made at already attached.
+ * One Habitat Inspection, with the Habitat it was made at already attached.
  *
  * Not a hook, so not a `use-` file: the two larval activity hooks return this, and
  * they differ only in which inspections they ask for.
  *
- * ## Why the site travels with the row
+ * ## Why the Habitat travels with the row
  *
  * A Habitat Inspection is shown with the name of the Habitat it inspected, and the
  * Habitat's name lives on another table. Reading the inspections first and then
@@ -25,7 +25,7 @@
 import type { Inspection } from '@simmer-mosquito/sync';
 import type { LifeStageFlags } from '../../components/larval-display';
 import { addressCardLabel } from '../../lib/address-format';
-import { adhocLabel } from '../../lib/coordinate-label';
+import { habitatLabel } from '../../lib/coordinate-label';
 import { type LinkedAddress, resolveLinkedAddress } from './address-view';
 
 export interface LarvalActivityRow extends LifeStageFlags {
@@ -106,12 +106,12 @@ export interface InspectionTableRow extends LarvalActivityRow {
  * What names an inspection: the Habitat, then the Address, then the centroid.
  *
  * An inspection has no name of its own, so it is identified by where it was
- * made. The Habitat is the usual answer, by name or by its own coordinates when
- * it has none, which is what `habitatName` already carries. An Ad Hoc Inspection
- * has no Habitat at all, and falls back to the Address it was linked to and then
- * to its own centroid, which is the only thing left that tells one ad-hoc row
- * from the next. "Ad-hoc inspection" named the category every such row already
- * belonged to.
+ * made. `habitatLabel` is that question, asked once for every surface that asks
+ * it; what is here is the row shape and the Address, which are this reader's.
+ * The row speaks `latitude` and `longitude` and the label speaks `lat` and
+ * `lng`, so the pair is mapped at the call the way #907 mapped the others, and
+ * the Address is resolved to its full postal line rather than handed over as a
+ * display name.
  *
  * `address` is optional because the two day panels do not join one. They show a
  * day's work at Habitats, so they reach the ad-hoc branch only for a row that
@@ -120,13 +120,20 @@ export interface InspectionTableRow extends LarvalActivityRow {
  * Not a compiled `select`: the coordinate fallback rounds to five places and the
  * address label drops its empty parts, and the expression language can do
  * neither.
+ *
+ * The name is `habitat` and not `site`, which `CONTEXT.md` lists as not a term
+ * (#954).
  */
-export function inspectionSiteLabel(row: LarvalActivityRow, address?: LinkedAddress): string {
+export function inspectionHabitatLabel(row: LarvalActivityRow, address?: LinkedAddress): string {
 	const linked = address === undefined ? undefined : resolveLinkedAddress(address);
-	return (
-		row.habitatName?.trim() ||
-		addressCardLabel(linked)?.trim() ||
-		adhocLabel(row.latitude, row.longitude)
+	return habitatLabel(
+		{
+			habitatId: row.habitatId,
+			habitatName: row.habitatName,
+			lat: row.latitude,
+			lng: row.longitude,
+		},
+		{ addressName: addressCardLabel(linked), fallback: 'Ad-hoc inspection' },
 	);
 }
 

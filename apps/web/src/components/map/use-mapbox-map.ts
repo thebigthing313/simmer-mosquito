@@ -91,11 +91,18 @@ export function useMapboxMap({
 	// Initial camera / basemap are read from refs so the create effect only
 	// re-runs when the container or token changes — never on a basemap toggle.
 	const cameraRef = useRef(camera);
-	cameraRef.current = camera;
 	const basemapRef = useRef(basemapId);
-	basemapRef.current = basemapId;
 	const attributionRef = useRef(attribution);
-	attributionRef.current = attribution;
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		cameraRef.current = camera;
+		basemapRef.current = basemapId;
+		attributionRef.current = attribution;
+	});
 	const appliedBasemap = useRef<BasemapId | null>(null);
 
 	useEffect(() => {

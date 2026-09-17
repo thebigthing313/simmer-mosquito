@@ -1,5 +1,4 @@
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { profiles } from '../../lib/collections/profiles';
 import type { FilterOption } from './multi-select-filter';
 
@@ -10,9 +9,9 @@ import type { FilterOption } from './multi-select-filter';
  * technician — and "what did this crew member do" is a question every explorer
  * gets asked. Profiles are eagerly synced, so this needs no fetch.
  *
- * The sort is in the query rather than the memo: `orderBy` is part of the compiled
- * pipeline, so the rows arrive ordered and the memo only has to shape them. What
- * is left in the memo is the id→name lookup, which a query cannot return.
+ * The sort is in the query rather than in the hook: `orderBy` is part of the
+ * compiled pipeline, so the rows arrive ordered and all that is left to build is
+ * the id→name lookup, which a query cannot return.
  *
  * That does drop `localeCompare` for the pipeline's ordering, which differs on
  * accented names — Ángela sorts before Alan rather than between Alan and Beth. It
@@ -34,11 +33,8 @@ export function usePersonnelOptions(): {
 
 	const people = result.data;
 
-	return useMemo(
-		() => ({
-			options: people,
-			nameById: new Map(people.map((profile) => [profile.id, profile.label] as const)),
-		}),
-		[people],
-	);
+	return {
+		options: people,
+		nameById: new Map(people.map((profile) => [profile.id, profile.label] as const)),
+	};
 }

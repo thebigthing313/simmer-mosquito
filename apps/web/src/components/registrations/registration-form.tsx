@@ -3,7 +3,7 @@ import { FormSection, LocationSection } from '@simmer-mosquito/ui-web/components
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useId, useMemo } from 'react';
+import { useId } from 'react';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../forms/domain-validation';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
 import { unitOptions } from '../../lib/unit-options';
@@ -133,10 +133,7 @@ export function RegistrationFormFields({
 	// Distance only. The domain checks this server-side too, but a select that
 	// offers gallons is a select somebody eventually picks gallons from, and the
 	// refusal it causes blocks generation for every mission in the organization.
-	const bufferUnitOptions = useMemo(
-		() => unitOptions(units, (unitType) => unitType === 'distance'),
-		[units],
-	);
+	const bufferUnitOptions = unitOptions(units, (unitType) => unitType === 'distance');
 
 	return (
 		<>

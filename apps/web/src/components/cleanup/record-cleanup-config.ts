@@ -6,13 +6,14 @@ import type {
 	DuplicateRecordType,
 	MergeableRecordType,
 } from '../../hooks/use-merge-candidates';
-import { todayInTimeZone } from '../../lib/local-date';
-import { formatListDate } from '../../routes/larval-surveillance/-overview-data';
+import { formatListDate, todayInTimeZone } from '../../lib/local-date';
+import { recordNoun } from '../../lib/record-nouns';
 
 type RegistryIcon = typeof iconRegistry.entities.address.icon;
 
 /**
- * What one cleanup page needs beyond its record type.
+ * What one cleanup page needs: its record type, and the icon and routes that go
+ * with it.
  *
  * Three routes render the same component, so everything that differs between an
  * address, a habitat and a contact is here rather than in three copies of the
@@ -21,14 +22,30 @@ type RegistryIcon = typeof iconRegistry.entities.address.icon;
  * or "no duplicates" reads as "this tool does nothing".
  */
 export interface RecordCleanupConfig {
-	readonly noun: { readonly one: string; readonly many: string };
+	/**
+	 * Which record this page is about, as `RECORD_NOUNS` keys it.
+	 *
+	 * The name and not the noun. Three entries used to carry a `noun: { one,
+	 * many }` pair and an `unnamed` string of their own, which is the register
+	 * written a second time for three of its twenty record types, and #948 made
+	 * the split visible rather than creating it: the page heading read the
+	 * register while the body beside it read the pair, so one page named its
+	 * record two ways with nothing holding them together.
+	 *
+	 * It is a field and not only the key this config is filed under, because
+	 * every consumer takes the config and none of them takes the key.
+	 * `recordCountLabel`, `MergeConfirmDialog` and `MergeRecordBuilder` are
+	 * handed a `RecordCleanupConfig` and nothing else, so a config that cannot
+	 * say what it names would need the record type threaded beside it through
+	 * every one of them. {@link RecordCleanupConfigs} is what keeps the field
+	 * and the key in step.
+	 */
+	readonly recordType: MergeableRecordType;
 	readonly icon: RegistryIcon;
 	/** The detail route, for the link out of a candidate row. */
 	readonly detailTo: NonNullable<LinkProps['to']>;
 	/** Where a user goes to look at the whole set instead. */
 	readonly listTo: NonNullable<LinkProps['to']>;
-	/** What the label falls back to for a record that has no name. */
-	readonly unnamed: string;
 }
 
 /**
@@ -36,7 +53,7 @@ export interface RecordCleanupConfig {
  *
  * Separate because habitats have no cleanup page. They merge the same way as an
  * address and are found a different way, from one habitat's own detail page, so
- * they carry the nouns and the routes above and nothing here.
+ * they carry the record type and the routes above and nothing here.
  */
 export interface DuplicatePageConfig {
 	/** How the server groups this record type, for the empty state. */
@@ -52,29 +69,39 @@ export interface DuplicatePageConfig {
 	readonly reasons: readonly DuplicateReason[];
 }
 
-export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupConfig> = {
+/**
+ * Every cleanup config, each filed under the record type it names.
+ *
+ * The record type is written twice, once as the key and once in the entry, and
+ * the mapped type is what makes that safe: an entry whose `recordType`
+ * disagrees with the key above it fails `tsc`. So the field a consumer reads
+ * and the key a caller looks up under cannot drift, which is the guarantee that
+ * lets the field exist at all.
+ */
+export type RecordCleanupConfigs = {
+	readonly [Type in MergeableRecordType]: RecordCleanupConfig & { readonly recordType: Type };
+};
+
+export const RECORD_CLEANUP_CONFIGS: RecordCleanupConfigs = {
 	address: {
-		noun: { one: 'address', many: 'addresses' },
+		recordType: 'address',
 		icon: iconRegistry.entities.address.icon,
 		detailTo: '/gis/addresses/$id',
 		listTo: '/gis/addresses',
-		unnamed: 'Unnamed address',
 	},
 
 	habitat: {
-		noun: { one: 'habitat', many: 'habitats' },
+		recordType: 'habitat',
 		icon: iconRegistry.entities.habitat.icon,
 		detailTo: '/larval-surveillance/habitats/$id',
 		listTo: '/larval-surveillance/habitats',
-		unnamed: 'Unnamed habitat',
 	},
 
 	contact: {
-		noun: { one: 'contact', many: 'contacts' },
+		recordType: 'contact',
 		icon: iconRegistry.entities.contact.icon,
 		detailTo: '/public-engagement/contacts/$id',
 		listTo: '/public-engagement/contacts',
-		unnamed: 'Unnamed contact',
 	},
 };
 
@@ -158,12 +185,13 @@ export function recordLabel(
 	record: { readonly label: string },
 	config: RecordCleanupConfig,
 ): string {
-	return record.label.trim() === '' ? config.unnamed : record.label;
+	return record.label.trim() === '' ? `Unnamed ${recordNoun(config.recordType).one}` : record.label;
 }
 
 /** `3 addresses`, `1 address`. */
 export function recordCountLabel(count: number, config: RecordCleanupConfig): string {
-	return `${count} ${count === 1 ? config.noun.one : config.noun.many}`;
+	const noun = recordNoun(config.recordType);
+	return `${count} ${count === 1 ? noun.one : noun.many}`;
 }
 
 /**

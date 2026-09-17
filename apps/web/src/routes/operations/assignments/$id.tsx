@@ -18,7 +18,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
@@ -38,6 +38,7 @@ import {
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
@@ -103,47 +104,38 @@ function AssignmentRunRoute() {
 	const displayName = assignment === null ? null : assignmentDisplayName(assignment, assigneeName);
 	useBreadcrumbLabel(id, displayName);
 
-	const itemAction = useCallback(
-		(stop: AssignmentStopView, action: ItemAction) => {
-			if (action === 'skip') {
-				setSkipTarget(stop);
-				return;
-			}
-			void run(
-				() =>
-					action === 'complete'
-						? items.complete(stop.assignmentItemId)
-						: action === 'unskip'
-							? items.unskip(stop.assignmentItemId)
-							: items.reopen(stop.assignmentItemId),
-				'Unable to update that stop.',
-			);
-		},
-		[items, run],
-	);
+	const itemAction = (stop: AssignmentStopView, action: ItemAction) => {
+		if (action === 'skip') {
+			setSkipTarget(stop);
+			return;
+		}
+		void run(
+			() =>
+				action === 'complete'
+					? items.complete(stop.assignmentItemId)
+					: action === 'unskip'
+						? items.unskip(stop.assignmentItemId)
+						: items.reopen(stop.assignmentItemId),
+			'Unable to update that stop.',
+		);
+	};
 
-	const confirmSkip = useCallback(
-		(reason: string) => {
-			const target = skipTarget;
-			setSkipTarget(null);
-			if (target === null) {
-				return;
-			}
-			void run(() => items.skip(target.assignmentItemId, reason), 'Unable to skip that stop.');
-		},
-		[skipTarget, items, run],
-	);
+	const confirmSkip = (reason: string) => {
+		const target = skipTarget;
+		setSkipTarget(null);
+		if (target === null) {
+			return;
+		}
+		void run(() => items.skip(target.assignmentItemId, reason), 'Unable to skip that stop.');
+	};
 
-	const confirmCancel = useCallback(
-		(reason: string) => {
-			setCancelOpen(false);
-			void run(
-				() => cancel(id, reason.trim().length === 0 ? null : reason.trim()),
-				'Unable to cancel this assignment.',
-			);
-		},
-		[id, run, cancel],
-	);
+	const confirmCancel = (reason: string) => {
+		setCancelOpen(false);
+		void run(
+			() => cancel(id, reason.trim().length === 0 ? null : reason.trim()),
+			'Unable to cancel this assignment.',
+		);
+	};
 
 	if (isReady && assignment === null) {
 		return <AssignmentNotFound />;
@@ -161,7 +153,7 @@ function AssignmentRunRoute() {
 						features={features}
 						fitKey={id}
 						highlightId={highlightId}
-						noun="assignment"
+						recordType="assignment"
 						onHoverStop={setHighlightId}
 						onSelectStop={setSelectedStopId}
 						selectedId={selectedStopId}
@@ -176,7 +168,7 @@ function AssignmentRunRoute() {
 							to="/operations/assignments"
 						>
 							<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-							Assignments
+							{recordNoun('assignment').titleMany}
 						</Link>
 
 						{assignment === null ? (

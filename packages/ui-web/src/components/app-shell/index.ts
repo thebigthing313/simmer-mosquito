@@ -23,6 +23,7 @@ export {
 	SearchTriggerProvider,
 	type SearchTriggerValue,
 	useSearchTrigger,
+	useSearchTriggerRef,
 } from './header/search-trigger-context';
 export { OutletContentFallback } from './outlet/outlet-content-fallback';
 export { OutletShell } from './outlet/outlet-shell';

@@ -16,7 +16,6 @@
 
 import type { Collection } from '@tanstack/db';
 import { useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { habitat_types } from '../../lib/collections/habitat_types';
@@ -40,24 +39,14 @@ export function useLookupNames(): ReadonlyMap<string, string> {
 	);
 	const productRows = productResult.data;
 
-	return useMemo(
-		() =>
-			new Map(
-				[
-					...habitatTypeRows,
-					...collectionMethodRows,
-					...sourceReductionMethodRows,
-					...biocontrolMethodRows,
-					...productRows,
-				].map((row) => [row.id, row.name] as const),
-			),
+	return new Map(
 		[
-			habitatTypeRows,
-			collectionMethodRows,
-			sourceReductionMethodRows,
-			biocontrolMethodRows,
-			productRows,
-		],
+			...habitatTypeRows,
+			...collectionMethodRows,
+			...sourceReductionMethodRows,
+			...biocontrolMethodRows,
+			...productRows,
+		].map((row) => [row.id, row.name] as const),
 	);
 }
 

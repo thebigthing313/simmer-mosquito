@@ -31,7 +31,6 @@
 
 import { type OrganizationSettings, resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { organizations } from '../../lib/collections/organizations';
 
 export function useOrganizationSettings(): OrganizationSettings {
@@ -44,5 +43,5 @@ export function useOrganizationSettings(): OrganizationSettings {
 	);
 
 	const stored = result.data[0]?.settings;
-	return useMemo(() => resolveOrganizationSettings(stored).settings, [stored]);
+	return resolveOrganizationSettings(stored).settings;
 }

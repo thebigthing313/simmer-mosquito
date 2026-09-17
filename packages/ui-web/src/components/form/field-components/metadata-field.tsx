@@ -4,7 +4,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useFieldContext } from '../form-contexts';
 import {
 	customFieldDescriptors,
@@ -76,15 +76,23 @@ export function MetadataField({
 	// schema changes (the user picked a different method). Own edits commit both
 	// at once, so they never round-trip through this effect.
 	const modeKey = mode.kind === 'schema' ? `schema:${jsonKey(mode.schema)}` : 'manual';
-	const modeRef = useRef(mode);
-	modeRef.current = mode;
 	const committedKey = useRef(`${modeKey}:${jsonKey(field.state.value)}`);
+
+	// `mode` is read at effect time and is not what decides whether to re-derive:
+	// `modeKey` is, and an object identity that changes every render would re-run
+	// this on every render. It used to be held in a ref written during render,
+	// which the React Compiler refuses; an effect event reads the latest `mode`
+	// without joining the dependency list, which is the same behaviour with none
+	// of the render-phase write (#779, group A).
+	const resetRows = useEffectEvent(() => {
+		setRows(metadataRowsFromValue(field.state.value, mode));
+	});
 
 	useEffect(() => {
 		const nextKey = `${modeKey}:${jsonKey(field.state.value)}`;
 		if (nextKey !== committedKey.current) {
 			committedKey.current = nextKey;
-			setRows(metadataRowsFromValue(field.state.value, modeRef.current));
+			resetRows();
 		}
 	}, [field.state.value, modeKey]);
 

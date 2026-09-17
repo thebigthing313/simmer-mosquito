@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { WriteOnly } from '../../../components/write-only';
 import {
@@ -36,6 +36,17 @@ import {
  * retired notification type and an unpriceable buffer unit are conditions
  * somebody has to go and fix, and a toast is gone before they have read it.
  */
+/**
+ * What the toast says after a generation run added rows.
+ *
+ * Named rather than interpolated at the call site because that call site is
+ * inside a try block, where the React Compiler cannot lower the conditional and
+ * bails the whole component (#856).
+ */
+function addedNotifications(count: number): string {
+	return `Added ${count} ${count === 1 ? 'notification' : 'notifications'}.`;
+}
+
 export function MissionNotificationsCard({ missionId }: { readonly missionId: string }) {
 	const { notifications, isReady, isError } = useMissionNotifications(missionId);
 	const { contacts } = useContactDirectory();
@@ -48,16 +59,14 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 		contacts.map((contact) => [contact.id, contact.contactName ?? 'Unnamed contact']),
 	);
 
-	const run = useCallback(async () => {
+	const run = async () => {
 		setIsGenerating(true);
 		setStanding(null);
 		try {
 			const outcome = await generate(missionId);
 			switch (outcome.kind) {
 				case 'created':
-					toast.success(
-						`Added ${outcome.count} ${outcome.count === 1 ? 'notification' : 'notifications'}.`,
-					);
+					toast.success(addedNotifications(outcome.count));
 					break;
 				case 'nothing_new':
 					toast.success('Nothing new. Everyone in range is already on the list.');
@@ -71,10 +80,9 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 			}
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to work out who to notify.');
-		} finally {
-			setIsGenerating(false);
 		}
-	}, [generate, missionId]);
+		setIsGenerating(false);
+	};
 
 	return (
 		<Card variant="surface">
@@ -138,7 +146,7 @@ export function StandingAlert({ message }: { readonly message: StandingMessage }
 	}
 
 	const { refusal } = message;
-	if (refusal.reason === 'buffer_unit_not_convertible') {
+	if (refusal.code === 'buffer_unit_not_convertible') {
 		return (
 			<Alert variant="destructive">
 				<AlertTitle>A buffer unit cannot be measured in metres</AlertTitle>
@@ -152,7 +160,7 @@ export function StandingAlert({ message }: { readonly message: StandingMessage }
 					 */}
 					<span>
 						{refusal.unitCodes.length === 0
-							? refusal.message
+							? refusal.reason
 							: `Registrations are using ${refusal.unitCodes.join(', ')} as a buffer unit, which cannot be converted to metres. Generation is blocked for every mission until those buffers use a distance unit.`}
 					</span>
 					{refusal.registrations.length === 0 ? null : (
@@ -186,14 +194,14 @@ export function StandingAlert({ message }: { readonly message: StandingMessage }
 
 	return (
 		<Alert variant="destructive">
-			<AlertTitle>{refusalTitle(refusal.reason)}</AlertTitle>
-			<AlertDescription>{refusal.message}</AlertDescription>
+			<AlertTitle>{refusalTitle(refusal.code)}</AlertTitle>
+			<AlertDescription>{refusal.reason}</AlertDescription>
 		</Alert>
 	);
 }
 
-function refusalTitle(reason: GenerationRefusal['reason']): string {
-	switch (reason) {
+function refusalTitle(code: GenerationRefusal['code']): string {
+	switch (code) {
 		case 'mission_completed':
 			return 'This mission is already complete';
 		case 'mission_cancelled':

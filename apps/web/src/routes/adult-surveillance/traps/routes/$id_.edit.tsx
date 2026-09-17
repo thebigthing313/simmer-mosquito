@@ -22,7 +22,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
@@ -71,10 +71,19 @@ function EditTrapRouteRoute() {
 	const [error, setError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 
-	const { rename, remove: removeRoute, moveStops } = useRouteMutations();
-	const { addStop: addRouteItem, setDirections, removeStop } = useRouteItemMutations();
+	const { rename, remove: removeRoute, moveStops, canWrite: canWriteRoute } = useRouteMutations();
+	const {
+		addStop: addRouteItem,
+		setDirections,
+		removeStop,
+		canWrite: canWriteStops,
+	} = useRouteItemMutations();
+	// No single submit: every control on this page writes as it is used, so each
+	// one reads this. Both hooks publish `canAttributeWrite` over the snapshot,
+	// and both are read because the page writes through both (#944).
+	const canSubmit = canWriteRoute && canWriteStops;
 
-	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
+	const commitMove = (plan: MovePlan) => moveStops(id, plan);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -83,70 +92,46 @@ function EditTrapRouteRoute() {
 
 	// Numbered off the displayed order, so the map renumbers with the list while a
 	// move is still in flight rather than showing the last synced sequence.
-	const features = useMemo<readonly RouteStopFeature[]>(
-		() =>
-			orderedStops
-				.map((stop, index) => ({ stop, ordinal: index + 1 }))
-				.filter((entry) => entry.stop.hasLocation)
-				.map((entry) => ({
-					id: entry.stop.routeItemId,
-					lat: entry.stop.lat as number,
-					lng: entry.stop.lng as number,
-					ordinal: entry.ordinal,
-					tone: entry.stop.isActive ? ('default' as const) : ('inactive' as const),
-				})),
-		[orderedStops],
-	);
+	const features: readonly RouteStopFeature[] = orderedStops
+		.map((stop, index) => ({ stop, ordinal: index + 1 }))
+		.filter((entry) => entry.stop.hasLocation)
+		.map((entry) => ({
+			id: entry.stop.routeItemId,
+			lat: entry.stop.lat as number,
+			lng: entry.stop.lng as number,
+			ordinal: entry.ordinal,
+			tone: entry.stop.isActive ? ('default' as const) : ('inactive' as const),
+		}));
 
-	const onRoute = useMemo(() => new Set(stops.map((stop) => stop.trapId)), [stops]);
-	const availableTraps = useMemo(
-		() => traps.filter((trap) => !onRoute.has(trap.id)),
-		[traps, onRoute],
-	);
+	const onRoute = new Set(stops.map((stop) => stop.trapId));
+	const availableTraps = traps.filter((trap) => !onRoute.has(trap.id));
 
-	const renameRoute = useCallback(
-		(name: string) => {
-			const trimmed = name.trim();
-			if (route === null || trimmed.length === 0 || trimmed === route.routeName) {
-				return;
-			}
-			void rename(id, trimmed);
-		},
-		[id, route, rename],
-	);
+	const addStop = (trap: TrapListing | null) => {
+		if (trap === null || route === null) {
+			return;
+		}
+		setError(null);
+		try {
+			void addRouteItem({
+				routeId: id,
+				target: { type: 'trap', id: trap.id },
+				position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+		}
+	};
 
-	const addStop = useCallback(
-		(trap: TrapListing | null) => {
-			if (trap === null || route === null) {
-				return;
-			}
-			setError(null);
-			try {
-				void addRouteItem({
-					routeId: id,
-					target: { type: 'trap', id: trap.id },
-					position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
-				});
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
-			}
-		},
-		[id, route, stops, addRouteItem],
-	);
+	const move = async (index: number, action: MoveAction) => {
+		setError(null);
+		try {
+			await moveStop(index, action);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
+		}
+	};
 
-	const move = useCallback(
-		async (index: number, action: MoveAction) => {
-			setError(null);
-			try {
-				await moveStop(index, action);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
-			}
-		},
-		[moveStop],
-	);
-
-	const deleteRoute = useCallback(async () => {
+	const deleteRoute = async () => {
 		setConfirmDelete(false);
 		try {
 			await removeRoute(id);
@@ -154,7 +139,7 @@ function EditTrapRouteRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
 		}
-	}, [id, navigate, removeRoute]);
+	};
 
 	const body = (
 		<>
@@ -170,31 +155,15 @@ function EditTrapRouteRoute() {
 				}
 			>
 				<div className="flex h-full min-h-0 flex-col">
-					<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-						<button
-							className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							onClick={() =>
-								void navigate({ to: '/adult-surveillance/traps/routes/$id', params: { id } })
-							}
-							type="button"
-						>
-							<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-							Back to route
-						</button>
-
-						<div className="flex items-center gap-2">
-							<RouteIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-							<Input
-								aria-label="Route name"
-								className="font-medium"
-								defaultValue={route?.routeName ?? ''}
-								key={route?.id ?? 'route'}
-								onBlur={(event) => renameRoute(event.target.value)}
-								placeholder="Route name"
-							/>
-						</div>
-						<p className="text-muted-foreground text-xs">{stopCountLabel(itemCount)}</p>
-					</div>
+					<RouteHeader
+						canSubmit={canSubmit}
+						itemCount={itemCount}
+						onBack={() =>
+							void navigate({ to: '/adult-surveillance/traps/routes/$id', params: { id } })
+						}
+						onRename={(name) => void rename(id, name)}
+						route={route}
+					/>
 
 					<div className="min-h-0 flex-1 overflow-y-auto">
 						<div className="grid gap-4 p-4">
@@ -204,12 +173,15 @@ function EditTrapRouteRoute() {
 								</Alert>
 							) : null}
 
-							<div className="grid gap-1.5">
-								<span className="font-medium text-foreground text-sm">Add a stop</span>
-								<TrapPicker onSelect={addStop} traps={availableTraps} value={null} />
-							</div>
+							{canSubmit ? (
+								<div className="grid gap-1.5">
+									<span className="font-medium text-foreground text-sm">Add a stop</span>
+									<TrapPicker onSelect={addStop} traps={availableTraps} value={null} />
+								</div>
+							) : null}
 
 							<StopEditor
+								canSubmit={canSubmit}
 								isLoading={isLoading}
 								onMove={move}
 								onRemove={removeStop}
@@ -219,6 +191,7 @@ function EditTrapRouteRoute() {
 
 							<div className="border-border/50 border-t pt-4">
 								<Button
+									disabled={!canSubmit}
 									onClick={() => setConfirmDelete(true)}
 									size="sm"
 									type="button"
@@ -233,27 +206,19 @@ function EditTrapRouteRoute() {
 				</div>
 			</MapSplitPage>
 
-			<AlertDialog onOpenChange={setConfirmDelete} open={confirmDelete}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete This Route?</AlertDialogTitle>
-						<AlertDialogDescription>
-							{route?.routeName} and its {itemCount === 1 ? 'stop' : 'stops'} will be removed. The
-							traps themselves aren't deleted.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => void deleteRoute()}>Delete Route</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<DeleteRouteDialog
+				itemCount={itemCount}
+				onConfirm={() => void deleteRoute()}
+				onOpenChange={setConfirmDelete}
+				open={confirmDelete}
+				routeName={route?.routeName ?? ''}
+			/>
 		</>
 	);
 
 	return (
 		<RecordEditFrame
-			noun="route"
+			recordType="route"
 			reading={{ isError, isReady, record: route }}
 			skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
 		>
@@ -262,14 +227,104 @@ function EditTrapRouteRoute() {
 	);
 }
 
+/**
+ * The back link, the name and the stop count.
+ *
+ * The rename writes on blur, so the guard against writing nothing, or writing
+ * the name the route already has, sits with the field rather than in the route
+ * component, which only ever hears a name worth sending.
+ */
+function RouteHeader({
+	route,
+	itemCount,
+	canSubmit,
+	onBack,
+	onRename,
+}: {
+	readonly route: { readonly id: string; readonly routeName: string } | null;
+	readonly itemCount: number;
+	readonly canSubmit: boolean;
+	readonly onBack: () => void;
+	readonly onRename: (name: string) => void;
+}) {
+	const renameRoute = (name: string) => {
+		const trimmed = name.trim();
+		if (route === null || trimmed.length === 0 || trimmed === route.routeName) {
+			return;
+		}
+		onRename(trimmed);
+	};
+
+	return (
+		<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
+			<button
+				className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				onClick={onBack}
+				type="button"
+			>
+				<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
+				Back to route
+			</button>
+
+			<div className="flex items-center gap-2">
+				<RouteIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+				<Input
+					aria-label="Route name"
+					className="font-medium"
+					defaultValue={route?.routeName ?? ''}
+					disabled={!canSubmit}
+					key={route?.id ?? 'route'}
+					onBlur={(event) => renameRoute(event.target.value)}
+					placeholder="Route name"
+				/>
+			</div>
+			<p className="text-muted-foreground text-xs">{stopCountLabel(itemCount)}</p>
+		</div>
+	);
+}
+
+function DeleteRouteDialog({
+	open,
+	onOpenChange,
+	routeName,
+	itemCount,
+	onConfirm,
+}: {
+	readonly open: boolean;
+	readonly onOpenChange: (open: boolean) => void;
+	readonly routeName: string;
+	readonly itemCount: number;
+	readonly onConfirm: () => void;
+}) {
+	return (
+		<AlertDialog onOpenChange={onOpenChange} open={open}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete This Route?</AlertDialogTitle>
+					<AlertDialogDescription>
+						{routeName} and its {itemCount === 1 ? 'stop' : 'stops'} will be removed. The traps
+						themselves aren't deleted.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction onClick={onConfirm}>Delete Route</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}
+
 function StopEditor({
 	stops,
+	canSubmit,
 	isLoading,
 	onMove,
 	onRemove,
 	onSetDirections,
 }: {
 	readonly stops: readonly RouteStopView[];
+	readonly canSubmit: boolean;
 	readonly isLoading: boolean;
 	readonly onMove: (index: number, action: MoveAction) => void;
 	readonly onRemove: (routeItemId: string) => void;
@@ -308,23 +363,29 @@ function StopEditor({
 						<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
 							{stop.name}
 						</span>
-						<StopReorderControls
-							extraActions={
-								<DropdownMenuItem onClick={() => onRemove(stop.routeItemId)} variant="destructive">
-									Remove from route
-								</DropdownMenuItem>
-							}
-							index={index}
-							isFirst={index === 0}
-							isLast={index === stops.length - 1}
-							onMove={onMove}
-						/>
+						{canSubmit ? (
+							<StopReorderControls
+								extraActions={
+									<DropdownMenuItem
+										onClick={() => onRemove(stop.routeItemId)}
+										variant="destructive"
+									>
+										Remove from route
+									</DropdownMenuItem>
+								}
+								index={index}
+								isFirst={index === 0}
+								isLast={index === stops.length - 1}
+								onMove={onMove}
+							/>
+						) : null}
 					</div>
 					{index < stops.length - 1 ? (
 						<Input
 							aria-label={`Directions from ${stop.name} to the next stop`}
 							className="h-8 text-xs"
 							defaultValue={stop.directionsToNextItem ?? ''}
+							disabled={!canSubmit}
 							key={stop.routeItemId}
 							onBlur={(event) => onSetDirections(stop.routeItemId, event.target.value)}
 							placeholder="Directions to the next stop"

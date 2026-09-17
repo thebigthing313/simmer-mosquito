@@ -1,25 +1,18 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import { createWeatherStationCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
+import { createWeatherStationCommand } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import {
-	LocationSection as LocationBand,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
+import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type {
-	DrawGeometry,
-	DrawGeometryFor,
-	DrawGeometryType,
-	MapDrawController,
-} from '../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
 	FORM_VALIDATION_GEOMETRY,
 } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
+import { LocationBand } from '../../../forms/location-band';
 import type { WeatherStationFields } from '../../../hooks/mutations/use-weather-station-mutations';
 
 /**
@@ -31,26 +24,6 @@ const STATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	stationCode: 'code',
 	metadata: 'metadata',
 };
-
-/** What a weather station stores, read off the register rather than named here. */
-const STATION_LOCATION_SHAPES = getOwnedGeometryPolicy('weatherStation').allowedTypes;
-
-/**
- * Whether a placed shape is one a weather station stores.
- *
- * The draw control takes the same `weatherStation` policy and offers nothing
- * else, so this narrows what the routes hold to what the write seam takes rather
- * than gating a second time. Both halves read the register, for the same reason
- * the Region predicate does: the routes used to ask `type === 'Point'`, which is
- * a copy of the matrix that goes stale the day the policy widens, and on Regions
- * that copy refused a boundary the user could see on the map. `Point` written
- * into the assertion was the last of that copy left.
- */
-export function isStationLocation(
-	geometry: DrawGeometry,
-): geometry is DrawGeometryFor<'weatherStation'> {
-	return STATION_LOCATION_SHAPES.includes(geometry.type);
-}
 
 export interface WeatherStationFormValues {
 	readonly name: string;
@@ -73,7 +46,6 @@ export interface WeatherStationFormPageProps {
 	/** The station's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
 	readonly header: WeatherStationFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: WeatherStationFormValues;
 		readonly geometry: DrawGeometry | null;
@@ -116,7 +88,6 @@ export function WeatherStationFormPage({
 	defaultValues,
 	initialGeometry = null,
 	header,
-	submitLabel,
 	onSave,
 }: WeatherStationFormPageProps) {
 	const location = useDrawLocation({
@@ -162,7 +133,7 @@ export function WeatherStationFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -204,68 +175,26 @@ export function WeatherStationFormPage({
 					</form.AppField>
 				</div>
 
-				<LocationSection
-					controller={draw}
-					error={location.locationError}
-					geometry={geometry}
-					geometryType={geometryType}
-					onClear={location.clear}
-					onDraw={location.startDraw}
+				{/*
+				 * Point-only, by the domain's rule, and stated on the map rather than
+				 * typed: a station is a thermometer on a post, and the coordinates it
+				 * stores are the ones somebody placed.
+				 */}
+				<LocationBand
+					description="Place the station where it stands."
+					geometryKind="weatherStation"
+					label="Location"
+					location={location}
+					title="Station location"
 				/>
 
-				<form.AppField name="metadata">
-					{(field) => (
-						<field.MetadataField
-							description="Optional structured notes, like the gauge model or who maintains it."
-							label="Metadata"
-							mode={{ kind: 'manual' }}
-						/>
-					)}
-				</form.AppField>
+				<CustomFieldsSection
+					description="Optional structured notes, like the gauge model or who maintains it."
+					form={form}
+					framed={false}
+				/>
 			</RecordFormPage>
 		</form.AppForm>
-	);
-}
-
-/**
- * Where the station stands.
- *
- * Point-only, by the domain's rule, and stated on the map rather than typed:
- * a station is a thermometer on a post, and the coordinates it stores are the
- * ones somebody placed.
- */
-function LocationSection({
-	geometry,
-	geometryType,
-	controller,
-	error,
-	onDraw,
-	onClear,
-}: {
-	readonly geometry: DrawGeometry | null;
-	readonly geometryType: DrawGeometryType;
-	readonly controller: MapDrawController;
-	readonly error: string | null;
-	readonly onDraw: () => void;
-	readonly onClear: () => void;
-}) {
-	return (
-		<LocationBand
-			description="Place the station where it stands."
-			error={error}
-			title="Station location"
-		>
-			<GeometryControl
-				controller={controller}
-				geometry={geometry}
-				geometryType={geometryType}
-				geometryKind="weatherStation"
-				label="Location"
-				onClear={onClear}
-				onDraw={onDraw}
-				required
-			/>
-		</LocationBand>
 	);
 }
 

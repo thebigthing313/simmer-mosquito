@@ -15,8 +15,9 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useHasRole } from '../../hooks/use-can-write';
+import { createLabel } from '../app-shell/navigation';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../map';
 import { WriteOnly } from '../write-only';
@@ -35,6 +36,31 @@ export interface SelectedRouteStops {
 	readonly itemCount: number;
 }
 
+/** The selected route, and the setter that changes it. */
+export interface RouteSelection {
+	readonly effectiveRouteId: string | null;
+	readonly select: (routeId: string) => void;
+}
+
+/**
+ * The selected route, defaulted to the first and kept valid as the list moves.
+ *
+ * Lifted out of {@link RoutesIndexPage} so each domain can call its own stops
+ * hook with the id. The page used to take that hook as a prop and call it,
+ * which is a hook reached through a value rather than a static reference, and
+ * the React Compiler refuses it (`Hooks`, #823). Two callers share the fallback
+ * rule from here rather than copying it.
+ */
+export function useRouteSelection(routes: readonly RouteSummary[]): RouteSelection {
+	const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+	// Default to the first route; fall back if the selection filtered/deleted away.
+	const effectiveRouteId =
+		selectedRouteId !== null && routes.some((route) => route.id === selectedRouteId)
+			? selectedRouteId
+			: (routes[0]?.id ?? null);
+	return { effectiveRouteId, select: setSelectedRouteId };
+}
+
 /**
  * The route list: every route on the left, the selected one drawn on the right.
  *
@@ -47,39 +73,33 @@ export function RoutesIndexPage({
 	isLoading,
 	countByRouteId,
 	countsLoading,
-	useSelectedStops,
+	selectedStops,
+	selection,
 }: {
 	readonly surface: RoutePlanningSurface;
 	readonly routes: readonly RouteSummary[];
 	readonly isLoading: boolean;
 	readonly countByRouteId: ReadonlyMap<string, number>;
 	readonly countsLoading: boolean;
-	/** Reads the selected route's stops. A hook, so each domain keeps its own. */
-	readonly useSelectedStops: (routeId: string | null) => SelectedRouteStops;
+	/** The selected route's stops, read by the caller's own domain hook. */
+	readonly selectedStops: SelectedRouteStops;
+	/** The selection this page drives, from {@link useRouteSelection}. */
+	readonly selection: RouteSelection;
 }) {
 	const [searchInput, setSearchInput] = useState('');
-	const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+	const { effectiveRouteId, select } = selection;
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const [createOpen, setCreateOpen] = useState(false);
 
 	const search = searchInput.trim().toLowerCase();
-	const filtered = useMemo(
-		() =>
-			search.length === 0
-				? routes
-				: routes.filter((route) => route.routeName.toLowerCase().includes(search)),
-		[routes, search],
-	);
+	const filtered =
+		search.length === 0
+			? routes
+			: routes.filter((route) => route.routeName.toLowerCase().includes(search));
 
-	// Default to the first route; fall back if the selection filtered/deleted away.
-	const effectiveRouteId =
-		selectedRouteId !== null && routes.some((route) => route.id === selectedRouteId)
-			? selectedRouteId
-			: (routes[0]?.id ?? null);
 	const selectedRoute = routes.find((route) => route.id === effectiveRouteId) ?? null;
-
-	const { stops, features, itemCount } = useSelectedStops(effectiveRouteId);
+	const { stops, features, itemCount } = selectedStops;
 
 	return (
 		<>
@@ -136,7 +156,7 @@ export function RoutesIndexPage({
 							<WriteOnly minimum="manager">
 								<Button onClick={() => setCreateOpen(true)} size="sm">
 									<PlusIcon aria-hidden="true" />
-									New Route
+									{createLabel('route')}
 								</Button>
 							</WriteOnly>
 						</div>
@@ -158,7 +178,7 @@ export function RoutesIndexPage({
 						isLoading={isLoading}
 						onCreate={() => setCreateOpen(true)}
 						onSelect={(id) => {
-							setSelectedRouteId(id);
+							select(id);
 							setSelectedStopId(null);
 							setHighlightId(null);
 						}}
@@ -226,7 +246,7 @@ function RouteResults({
 						<WriteOnly minimum="manager">
 							<Button onClick={onCreate}>
 								<PlusIcon aria-hidden="true" />
-								New Route
+								{createLabel('route')}
 							</Button>
 						</WriteOnly>
 					</EmptyContent>

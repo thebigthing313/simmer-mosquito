@@ -198,11 +198,11 @@ const SEARCH_ICONS: Record<SearchIconKey, RegistryIcon> = {
 	missions: iconRegistry.entities.mission.icon,
 	requested_control_actions: iconRegistry.entities.requestedControlAction.icon,
 	samples: iconRegistry.entities.sample.icon,
-	weather_sources: iconRegistry.entities.weatherSource.icon,
+	weather_sources: iconRegistry.entities.weatherStation.icon,
 	inspections: iconRegistry.entities.inspection.icon,
 	collections: iconRegistry.entities.collection.icon,
 	applications: iconRegistry.entities.application.icon,
-	source_reductions: iconRegistry.entities.sourceReductionAction.icon,
+	source_reductions: iconRegistry.entities.sourceReduction.icon,
 	biocontrol_actions: iconRegistry.entities.biocontrolAction.icon,
 	outreach_actions: iconRegistry.entities.outreachAction.icon,
 };

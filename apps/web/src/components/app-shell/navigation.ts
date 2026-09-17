@@ -7,6 +7,7 @@ import type {
 } from '@simmer-mosquito/ui-web/components/app-shell';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { AuthMe } from '../../auth';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { hasAtLeastRole } from '../../lib/write-access';
 import { writeSurfaceFloor } from '../../lib/write-surfaces';
 import type { SeedableTable } from '../search/search-seeds';
@@ -89,6 +90,111 @@ export interface WebShellDomain extends ShellDomain {
 }
 
 /**
+ * The verb a create surface puts in front of a record type's name, one per
+ * kind of record. `CONTEXT.md` carries the rule under Core language, and this
+ * is that rule as a register, so a surface reads its verb rather than choosing
+ * one.
+ *
+ * **Record** is work performed: an inspection, a collection, a control action.
+ * It happened in the field and the form writes down what happened. **Create**
+ * is a thing brought into existence, a root record with an `organization_id`
+ * and no parent it cannot open without: a habitat, a trap, a request. **Add**
+ * is a child attached to a parent that already exists, whose form cannot open
+ * without the parent's id: samples under an inspection, a stop under a mission.
+ * `New` is not used.
+ *
+ * Trap takes `Create` by the root-record test, and so does a weather station:
+ * `/gis/weather/create` opens with no source and no parent, and the station is
+ * placed on the map from nothing. A route is `Create` for the same reason, and
+ * a registration is `Add` because it is drawn under the contact or address it
+ * notifies. Four verbs named one act on `develop` before #949, `Create` on six
+ * kinds, `Record` on five, `Add` on three and `New` on three, with Mission and
+ * Assignment each carrying two on different surfaces.
+ *
+ * Every record type is in here, the kinds with no create surface included,
+ * because the rule classifies the record and not the surface, and a
+ * `Record<RecordType, CreateVerb>` is what lets the compiler refuse a kind
+ * nobody has classified (#644).
+ */
+type CreateVerb = 'Record' | 'Create' | 'Add';
+
+const CREATE_VERBS: Record<RecordType, CreateVerb> = {
+	address: 'Create',
+	application: 'Record',
+	assignment: 'Create',
+	biocontrolAction: 'Record',
+	collection: 'Record',
+	contact: 'Create',
+	habitat: 'Create',
+	inspection: 'Record',
+	mission: 'Create',
+	missionItem: 'Add',
+	notificationRegistration: 'Add',
+	outreachAction: 'Record',
+	region: 'Create',
+	requestedControlAction: 'Create',
+	route: 'Create',
+	sample: 'Add',
+	serviceRequest: 'Create',
+	sourceReduction: 'Record',
+	trap: 'Create',
+	weatherStation: 'Create',
+};
+
+/**
+ * The label of a create surface: the record type's verb, then its full noun.
+ * `Create Habitat`, `Record Inspection`.
+ *
+ * The noun comes from `RECORD_NOUNS` rather than being written here, so the
+ * sidebar cannot spell a record type a second way. Four of these labels leaned
+ * on the group heading above them instead of carrying the noun, and every one
+ * of the four was a record type whose `CONTEXT.md` term is two words: `Record
+ * Application` under `Chemical`, `Record Release` under `Biocontrol`, `Record
+ * Outreach` under `Outreach Actions` and `New Request` under `Service
+ * Requests`. Read on its own, in the palette or on a narrow rail where the
+ * heading is not beside it, each named nothing in particular, and `Record
+ * Application` was landing on a page headed `Record Chemical Application`
+ * (#910).
+ *
+ * The verb comes from {@link CREATE_VERBS} rather than the call site since
+ * #949. It used to be the entry's own word, and the eight explorer headers
+ * and the map's context menu each carried their own copy of it, agreeing with
+ * the sidebar by copy rather than by mechanism: `Create Inspection` in the
+ * sidebar over a page headed `Record Inspection`, `Add Station` in a header
+ * over a page headed `Add Weather Station`. Now the sidebar entry, the header
+ * control, the empty state that points at it, the map menu item and the page
+ * title all call this and read one string. It is exported for that reason.
+ *
+ * Three entries want the plural rather than the singular and read `titleMany`
+ * through {@link createPluralLabel}: `Import Regions`, and the two cleanup
+ * tools. The cleanup pair both said `Cleanup Tools` until #948, one name on two
+ * entries in two different groups, so the palette listed the same words twice
+ * and neither said which records it tidied. Their verbs are not create verbs,
+ * so they stay the call site's word.
+ */
+export function createLabel(recordType: RecordType): string {
+	return `${CREATE_VERBS[recordType]} ${recordNoun(recordType).title}`;
+}
+
+/** The same label over a record type's title-cased plural: `Import Regions`. */
+function createPluralLabel(verb: string, recordType: RecordType): string {
+	return `${verb} ${recordNoun(recordType).titleMany}`;
+}
+
+/**
+ * An entry that names a list of records and nothing else: `Habitats`.
+ *
+ * The verb helpers above put the call site's own word in front of a register
+ * form. This is the same read with no word in front, for the group headings and
+ * the list entries under them, which name the records themselves. It is a
+ * function rather than a bare `recordNoun(...).titleMany` at each of the fifteen
+ * so that the three shapes a sidebar label takes read as three named ideas.
+ */
+function listLabel(recordType: RecordType): string {
+	return recordNoun(recordType).titleMany;
+}
+
+/**
  * The product's operational domains, expressed fresh from the SIMMER domain
  * vocabulary. Each domain is one icon in the primary rail; its groups populate
  * the secondary sidebar. Paths point at the live route table.
@@ -119,7 +225,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						id: 'dashboard',
 						label: 'Dashboard',
 						to: '/',
-						stub: true,
 						icon: iconRegistry.generic.component.icon,
 					},
 				],
@@ -145,7 +250,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'larval-habitats',
-				label: 'Habitats',
+				label: listLabel('habitat'),
 				items: [
 					{
 						id: 'habitats-explorer',
@@ -155,7 +260,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'habitats-create',
-						label: 'Create Habitat',
+						label: createLabel('habitat'),
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
 						// vocabulary-ignore site: a search keyword matches what a person types, not what SIMMER calls the record.
@@ -184,7 +289,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'larval-inspections',
-				label: 'Inspections',
+				label: listLabel('inspection'),
 				items: [
 					{
 						id: 'inspections-explorer',
@@ -200,7 +305,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'inspections-create',
-						label: 'Create Inspection',
+						label: createLabel('inspection'),
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -219,7 +324,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'larval-samples',
-				label: 'Samples',
+				label: listLabel('sample'),
 				items: [
 					{
 						id: 'samples-explorer',
@@ -263,7 +368,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'adult-traps',
-				label: 'Traps',
+				label: listLabel('trap'),
 				items: [
 					{
 						id: 'traps-explorer',
@@ -279,7 +384,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'traps-create',
-						label: 'Add Trap',
+						label: createLabel('trap'),
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'station', 'adult'] },
@@ -301,7 +406,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'adult-collections',
-				label: 'Collections',
+				label: listLabel('collection'),
 				items: [
 					{
 						id: 'collections-explorer',
@@ -311,7 +416,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'collections-create',
-						label: 'Record Collection',
+						label: createLabel('collection'),
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -362,7 +467,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'control-chemical',
-				label: 'Chemical',
+				label: listLabel('application'),
 				items: [
 					{
 						id: 'chemical-explorer',
@@ -372,7 +477,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'chemical-create',
-						label: 'Record Application',
+						label: createLabel('application'),
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
 						action: {
@@ -408,7 +513,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'control-source-reduction',
-				label: 'Source Reduction',
+				label: listLabel('sourceReduction'),
 				items: [
 					{
 						id: 'source-reduction-explorer',
@@ -418,7 +523,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'source-reduction-create',
-						label: 'Record Source Reduction',
+						label: createLabel('sourceReduction'),
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'habitat', 'removal', 'drainage'] },
@@ -440,7 +545,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'control-biocontrol',
-				label: 'Biocontrol',
+				label: listLabel('biocontrolAction'),
 				items: [
 					{
 						id: 'biocontrol-explorer',
@@ -450,7 +555,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'biocontrol-create',
-						label: 'Record Release',
+						label: createLabel('biocontrolAction'),
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'fish', 'gambusia', 'stocking'] },
@@ -504,7 +609,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'public-service-requests',
-				label: 'Service Requests',
+				label: listLabel('serviceRequest'),
 				items: [
 					{
 						id: 'service-requests-explorer',
@@ -514,7 +619,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'service-requests-create',
-						label: 'New Request',
+						label: createLabel('serviceRequest'),
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'complaint', 'call', 'resident', 'public'] },
@@ -523,7 +628,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'public-outreach',
-				label: 'Outreach Actions',
+				label: listLabel('outreachAction'),
 				items: [
 					{
 						id: 'outreach-explorer',
@@ -533,7 +638,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'outreach-create',
-						label: 'Record Outreach',
+						label: createLabel('outreachAction'),
 						to: '/public-engagement/outreach/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'log', 'education', 'event', 'public'] },
@@ -555,7 +660,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'public-contacts',
-				label: 'Contacts',
+				label: listLabel('contact'),
 				items: [
 					{
 						id: 'contacts-explorer',
@@ -565,14 +670,14 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'contacts-create',
-						label: 'New Contact',
+						label: createLabel('contact'),
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'person', 'resident', 'caller'] },
 					},
 					{
 						id: 'contacts-cleanup',
-						label: 'Cleanup Tools',
+						label: createPluralLabel('Cleanup', 'contact'),
 						to: '/public-engagement/contacts/cleanup',
 						icon: iconRegistry.actions.merge.icon,
 						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
@@ -605,24 +710,24 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'gis-regions',
-				label: 'Regions',
+				label: listLabel('region'),
 				items: [
 					{
 						id: 'regions',
-						label: 'Regions',
+						label: listLabel('region'),
 						to: '/gis/regions',
 						icon: iconRegistry.entities.region.icon,
 					},
 					{
 						id: 'regions-create',
-						label: 'Create Region',
+						label: createLabel('region'),
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'zone', 'boundary', 'district'] },
 					},
 					{
 						id: 'regions-import',
-						label: 'Import Regions',
+						label: createPluralLabel('Import', 'region'),
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
 						action: { keywords: ['upload', 'load', 'shapefile', 'geojson', 'boundaries'] },
@@ -631,7 +736,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			},
 			{
 				id: 'gis-addresses',
-				label: 'Addresses',
+				label: listLabel('address'),
 				items: [
 					{
 						id: 'addresses',
@@ -641,14 +746,14 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'addresses-create',
-						label: 'Create Address',
+						label: createLabel('address'),
 						to: '/gis/addresses/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'street', 'parcel', 'property', 'location'] },
 					},
 					{
 						id: 'addresses-cleanup',
-						label: 'Cleanup Tools',
+						label: createPluralLabel('Cleanup', 'address'),
 						to: '/gis/addresses/cleanup',
 						icon: iconRegistry.actions.merge.icon,
 						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
@@ -670,7 +775,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'weather-create',
-						label: 'Add Weather Station',
+						label: createLabel('weatherStation'),
 						to: '/gis/weather/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'sensor', 'gauge', 'met', 'station'] },
@@ -713,7 +818,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 			// to look, a mission sends them to treat.
 			{
 				id: 'operations-requests',
-				label: 'Requests for Control',
+				label: listLabel('requestedControlAction'),
 				items: [
 					{
 						id: 'requests-for-control-explorer',
@@ -723,7 +828,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'requests-for-control-create',
-						label: 'New Request for Control',
+						label: createLabel('requestedControlAction'),
 						to: '/operations/requests-for-control/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'add', 'treatment', 'work', 'ask'] },
@@ -742,7 +847,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'assignments-create',
-						label: 'New Assignment',
+						label: createLabel('assignment'),
 						to: '/operations/assignments/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'route', 'surveillance'] },
@@ -761,7 +866,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 					{
 						id: 'missions-create',
-						label: 'New Mission',
+						label: createLabel('mission'),
 						to: '/operations/missions/create',
 						icon: iconRegistry.actions.add.icon,
 						action: { keywords: ['new', 'create', 'crew', 'worklist', 'treatment', 'control'] },
@@ -1011,7 +1116,7 @@ export interface WebShellCandidate {
  * An item is in exactly one list. Carrying an `action` moves it out of the route
  * list, so a create form appears once rather than as both a place and a verb.
  *
- * Stubs are excluded from both: the fifteen `stub: true` items are unbuilt
+ * Stubs are excluded from both: the fourteen `stub: true` items are unbuilt
  * destinations, and offering one is offering a door that opens onto nothing.
  *
  * The Daily Work rows are excluded by reading the declared navigation rather

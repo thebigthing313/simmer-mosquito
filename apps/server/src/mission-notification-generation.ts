@@ -106,7 +106,7 @@ export function registerMissionNotificationGenerationRoute(
 					throw error;
 				}
 				return context.json(
-					{ error: 'invalid_command', message: error.message, issues: error.issues },
+					{ error: 'invalid_command', reason: error.message, issues: error.issues },
 					400,
 				);
 			}

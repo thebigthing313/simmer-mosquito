@@ -11,16 +11,11 @@
  * `trapId` decides which kind of collection this is — an ad hoc one owns its
  * point and its address, a trap one inherits both — so it is here even though
  * the form locks that choice rather than offering it.
- *
- * `collections` is on-demand, so this uses the status-gated `useLiveQuery`
- * rather than the suspense variant, which sticks after a navigation unmount over
- * an on-demand collection.
  */
 
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { collections } from '../../lib/collections/collections';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { useRecordById } from './shared';
 
 /** An Adult Collection as its edit form holds one. */
 export interface CollectionRecord {
@@ -55,38 +50,31 @@ export function useCollectionRecord(collectionId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = collectionId ?? unmatchableId;
+	const result = useRecordById({
+		collection: collections(),
+		id: collectionId ?? null,
+		query: (query) =>
+			query.select(({ record: collection }) => ({
+				id: collection.id,
+				organizationId: collection.organization_id,
+				trapId: collection.trap_id,
+				collectionMethodId: collection.collection_method_id,
+				collectionLureId: collection.collection_lure_id,
+				addressId: collection.address_id,
+				collectionTimingMode: collection.collection_timing_mode,
+				startedAt: collection.started_at,
+				collectedAt: collection.collected_at,
+				collectionDate: collection.collection_date,
+				durationAmount: collection.duration_amount,
+				durationUnitId: collection.duration_unit_id,
+				setByProfileId: collection.set_by_profile_id,
+				collectedByProfileId: collection.collected_by_profile_id,
+				hasProblem: collection.has_problem,
+				metadata: collection.metadata,
+				latitude: collection.lat,
+				longitude: collection.lng,
+			})),
+	});
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: collections() })
-					.where(({ collection }) => eq(collection.id, id))
-					.select(({ collection }) => ({
-						id: collection.id,
-						organizationId: collection.organization_id,
-						trapId: collection.trap_id,
-						collectionMethodId: collection.collection_method_id,
-						collectionLureId: collection.collection_lure_id,
-						addressId: collection.address_id,
-						collectionTimingMode: collection.collection_timing_mode,
-						startedAt: collection.started_at,
-						collectedAt: collection.collected_at,
-						collectionDate: collection.collection_date,
-						durationAmount: collection.duration_amount,
-						durationUnitId: collection.duration_unit_id,
-						setByProfileId: collection.set_by_profile_id,
-						collectedByProfileId: collection.collected_by_profile_id,
-						hasProblem: collection.has_problem,
-						metadata: collection.metadata,
-						latitude: collection.lat,
-						longitude: collection.lng,
-					})),
-		},
-		[id],
-	);
-
-	return { collection: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { collection: result.record, isReady: result.isReady, isError: result.isError };
 }

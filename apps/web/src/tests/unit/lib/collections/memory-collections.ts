@@ -242,6 +242,17 @@ export function seedRows<TRow extends SyncedRow>(
 	controls.markReady();
 }
 
+/**
+ * Put a collection in the state a failed shape leaves it in.
+ *
+ * A live query reading it goes to `error` too, which is what a read hook reports
+ * as `isError`. There is no public call for this: the library's own live query
+ * reaches for `_lifecycle` the same way when a source collection fails under it.
+ */
+export function markFailed<TRow extends SyncedRow>(collection: CollectionResolver<TRow>): void {
+	collection()._lifecycle.setStatus('error');
+}
+
 /** Report a collection synced and empty, without seeding anything. */
 export function markSynced<TRow extends SyncedRow>(collection: CollectionResolver<TRow>): void {
 	controlsFor(collection).markReady();

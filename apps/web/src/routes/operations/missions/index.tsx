@@ -12,7 +12,8 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	activeDatePresetId,
@@ -45,6 +46,7 @@ import { useMissionItemCounts } from '../../../hooks/queries/use-mission-item-co
 import { useMissions } from '../../../hooks/queries/use-missions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceSetParam,
 	dateParam,
@@ -108,17 +110,14 @@ const DEFAULT_DAYS_AHEAD = 14;
 
 function MissionsRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const filterDefaults = useMemo<MissionFilters>(
-		() => ({
-			from: addCalendarDays(today, -DEFAULT_DAYS_BACK),
-			to: addCalendarDays(today, DEFAULT_DAYS_AHEAD),
-			statuses: new Set<MissionStatus>(),
-			types: new Set(),
-			people: new Set(),
-		}),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const filterDefaults: MissionFilters = {
+		from: addCalendarDays(today, -DEFAULT_DAYS_BACK),
+		to: addCalendarDays(today, DEFAULT_DAYS_AHEAD),
+		statuses: new Set<MissionStatus>(),
+		types: new Set(),
+		people: new Set(),
+	};
 	const { filters, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -129,17 +128,14 @@ function MissionsRoute() {
 	const { options: personnelOptions, nameById } = usePersonnelOptions();
 	const methodNameById = useControlMethodNames();
 
-	const assigneeOptions = useMemo<readonly FilterOption[]>(
-		() => [{ id: UNASSIGNED, label: 'Unassigned' }, ...personnelOptions],
-		[personnelOptions],
-	);
+	const assigneeOptions: readonly FilterOption[] = [
+		{ id: UNASSIGNED, label: 'Unassigned' },
+		...personnelOptions,
+	];
 
-	const visible = useMemo(
-		() => missions.filter((mission) => matchesFilters(mission, filters)),
-		[missions, filters],
-	);
+	const visible = missions.filter((mission) => matchesFilters(mission, filters));
 
-	const visibleIds = useMemo(() => visible.map((mission) => mission.id), [visible]);
+	const visibleIds = visible.map((mission) => mission.id);
 	const { countsById } = useMissionItemCounts(visibleIds);
 
 	// Default to the first row, and self-heal when a filter or delete removes it.
@@ -153,43 +149,31 @@ function MissionsRoute() {
 	// selected mission's stops, in dispatch order and as the shapes they were
 	// drawn as.
 	const { stops } = useMissionStopViews(effectiveId);
-	const features = useMemo(() => missionStopFeatures(stops), [stops]);
+	const features = missionStopFeatures(stops);
 
-	const handleFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
-			});
-		},
-		[setFilters, filters.to],
-	);
-	const handleToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
-			});
-		},
-		[setFilters, filters.from],
-	);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-	const activePresetId = useMemo(
-		() => activeDatePresetId(filters.from, filters.to, today),
-		[filters.from, filters.to, today],
-	);
+	const handleFromChange = (next: string) => {
+		setFilters({
+			from: next,
+			...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
+		});
+	};
+	const handleToChange = (next: string) => {
+		setFilters({
+			to: next,
+			...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
+		});
+	};
+	const applyPreset = (preset: DatePreset) => {
+		const range = datePresetRange(preset, today);
+		setFilters({ from: range.from, to: range.to });
+	};
+	const activePresetId = activeDatePresetId(filters.from, filters.to, today);
 
-	const handleSelect = useCallback((id: string) => {
+	const handleSelect = (id: string) => {
 		setSelectedId(id);
 		setSelectedStopId(null);
 		setHighlightId(null);
-	}, []);
+	};
 
 	const hasChips = filters.statuses.size > 0 || filters.types.size > 0 || filters.people.size > 0;
 
@@ -200,7 +184,7 @@ function MissionsRoute() {
 					features={features}
 					fitKey={effectiveId ?? undefined}
 					highlightId={highlightId}
-					noun="mission"
+					recordType="mission"
 					onHoverStop={setHighlightId}
 					onSelectStop={setSelectedStopId}
 					selectedId={selectedStopId}
@@ -224,7 +208,9 @@ function MissionsRoute() {
 				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 					<div className="flex items-center justify-between gap-3">
 						<div className="flex items-baseline gap-2">
-							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Missions</h1>
+							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
+								{recordNoun('mission').titleMany}
+							</h1>
 							<span className="text-muted-foreground text-sm">
 								{visible.length === 1 ? '1 mission' : `${visible.length} missions`}
 							</span>
@@ -233,7 +219,7 @@ function MissionsRoute() {
 							<Button asChild size="sm">
 								<Link to="/operations/missions/create">
 									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									New Mission
+									{createLabel('mission')}
 								</Link>
 							</Button>
 						</WriteOnly>
@@ -433,7 +419,7 @@ function MissionResults({
 								<Button asChild size="sm">
 									<Link to="/operations/missions/create">
 										<PlusIcon aria-hidden="true" data-icon="inline-start" />
-										New Mission
+										{createLabel('mission')}
 									</Link>
 								</Button>
 							</WriteOnly>

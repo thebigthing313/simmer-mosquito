@@ -1,6 +1,5 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import {
-	getOwnedGeometryPolicy,
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
@@ -9,25 +8,24 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
-	customFieldCount,
-	customSchemaFor,
 	FormSection,
 	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField } from '../../../forms/location-band';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type {
 	CatalogListing,
@@ -39,7 +37,7 @@ import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
 import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
-import { AddressPicker, TrapPicker } from '../-adult-pickers';
+import { TrapPicker } from '../-adult-pickers';
 import { collectionTimingStamps } from './-collection-timing';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
@@ -47,26 +45,6 @@ export type CollectionSourceMode = 'trap' | 'adhoc';
 /** Non-empty sentinels: Radix Select forbids empty-string item values. */
 export const noLureValue = 'none';
 export const noUnitValue = 'none';
-
-/** What a collection stores, read off the register rather than named here. */
-const COLLECTION_LOCATION_SHAPES = getOwnedGeometryPolicy('collection').allowedTypes;
-
-/**
- * Whether a placed shape is one an ad hoc collection stores.
- *
- * `useDrawLocation` below takes the same `collection` policy and offers nothing
- * else, so this narrows what the two routes hold to what the optimistic centroid
- * takes rather than gating a second time. Both halves read the register, for the
- * same reason the station and Region predicates do: both routes used to ask
- * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
- * widens, and on Regions that copy refused a boundary the user could see on the
- * map. `Point` written into the assertion was the last of that copy left.
- */
-export function isCollectionLocation(
-	geometry: DrawGeometry,
-): geometry is DrawGeometryFor<'collection'> {
-	return COLLECTION_LOCATION_SHAPES.includes(geometry.type);
-}
 
 /**
  * Domain issue path → the form field holding it. Timing issues nest under the
@@ -82,6 +60,9 @@ const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	collectedByProfileId: 'collectedByProfileId',
 	'timing.collectedAt': 'collectedAt',
 	'timing.startedAt': 'startedAt',
+	// The two set commands take `startedAt` directly rather than a timing, so the
+	// same field is reported under a second path and needs both entries.
+	startedAt: 'startedAt',
 	'timing.collectionDate': 'collectionDate',
 	'timing.durationAmount': 'durationAmount',
 	'timing.durationUnitId': 'durationUnitId',
@@ -107,7 +88,7 @@ function isPendingCollection(value: CollectionFormValues): boolean {
  * the same one the save will, so the rules an operator is held to match what
  * actually runs.
  */
-function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
+export function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
 	const pending = isPendingCollection(value);
 	const timing =
 		value.timingMode === 'exact_timestamps'
@@ -233,7 +214,6 @@ export interface CollectionFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: CollectionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: CollectionSaveInput) => Promise<void>;
 }
 
@@ -277,7 +257,6 @@ export function CollectionFormPage({
 	initialGeometry = null,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: CollectionFormPageProps) {
 	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
@@ -295,20 +274,13 @@ export function CollectionFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				collectionMethods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[collectionMethods],
+	const methodOptions = lifecycleOptions(
+		collectionMethods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 
-	const methodNameById = useMemo(
-		() => new Map(collectionMethods.map((method) => [method.id, method.name])),
-		[collectionMethods],
-	);
+	const methodNameById = new Map(collectionMethods.map((method) => [method.id, method.name]));
 
 	const form = useAppForm({
 		defaultValues,
@@ -318,10 +290,6 @@ export function CollectionFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const error = validate(value);
-			if (error !== null) {
-				throw new Error(error);
-			}
 			if (value.sourceMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
@@ -340,7 +308,7 @@ export function CollectionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -482,14 +450,9 @@ export function CollectionFormPage({
 								<>
 									<form.AppField name="addressId">
 										{(field) => (
-											<AddressPicker
-												create={{ requestMapPoint: location.requestMapPoint }}
-												label="Address"
-												onSelect={(address) => {
-													field.handleChange(address?.id ?? null);
-													location.clearError();
-													location.selectAddress(address);
-												}}
+											<LocationAddressField
+												location={location}
+												onChange={field.handleChange}
 												organizationId={organizationId}
 												value={field.state.value}
 											/>
@@ -552,32 +515,12 @@ export function CollectionFormPage({
 					</form.AppField>
 				</FormSection>
 
-				{/* Organizations attach their own fields to a collection method;
-							    render whichever the method on this collection declares — whether
-							    it was picked directly or inherited from the trap. */}
-				<form.Subscribe selector={(state) => state.values.collectionMethodId}>
-					{(methodId) => {
-						const schema = customSchemaFor(collectionMethods, methodId);
-						if (customFieldCount(schema) === 0) {
-							return null;
-						}
-						return (
-							<FormSection title="Custom Fields">
-								<form.AppField
-									name="metadata"
-									validators={{ onSubmit: validateSchemaMetadata(schema) }}
-								>
-									{(field) => (
-										<field.MetadataField
-											description="Extra details you collect for this method."
-											mode={{ kind: 'schema', schema }}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-						);
-					}}
-				</form.Subscribe>
+				{/* The method here may have been picked directly or inherited from the trap. */}
+				<CustomFieldsSection
+					catalog={collectionMethods}
+					form={form}
+					schemaField="collectionMethodId"
+				/>
 
 				<FormSection title="Results">
 					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-muted-foreground text-sm">
@@ -604,10 +547,7 @@ function TimingSection({
 }) {
 	// A date-plus-duration collection is saying how long the trap ran, so the only
 	// units that carry meaning are times.
-	const durationUnitOptions = useMemo(
-		() => unitOptions(units, isCollectionDurationUnitType),
-		[units],
-	);
+	const durationUnitOptions = unitOptions(units, isCollectionDurationUnitType);
 
 	return (
 		<FormSection title="Timing">
@@ -713,24 +653,6 @@ function TimingSection({
 // --- controls ---------------------------------------------------------------
 
 // --- validation + helpers ---------------------------------------------------
-
-function validate(values: CollectionFormValues): string | null {
-	if (values.sourceMode === 'trap' && values.trapId === null) {
-		return 'Select the trap this collection came from.';
-	}
-	if (values.collectionMethodId === '') {
-		return 'A collection method is required.';
-	}
-	// No collected date means the trap is still out, which is a state the record
-	// can legally be in — but only if it says when it was set.
-	if (isPendingCollection(values) && values.startedAt === null) {
-		return 'Enter the date this trap was set.';
-	}
-	if (values.timingMode === 'collection_date_duration' && values.collectionDate === null) {
-		return 'Enter the collection date.';
-	}
-	return null;
-}
 
 /**
  * What the form holds, as the write seam takes it.

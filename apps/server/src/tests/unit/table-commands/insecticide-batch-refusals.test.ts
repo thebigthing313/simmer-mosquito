@@ -41,9 +41,12 @@ describe('insecticide batch writes against an insecticide the organization does 
 		// carried became the shared reference gate, which every writer that names
 		// a catalog or another record now runs. The status and the reasoning are
 		// unchanged.
+		// `code` carries the discriminator and `reason` the sentence, which is
+		// #795's rule for every refusal body.
 		await expect(response.json()).resolves.toMatchObject({
 			error: 'reference_refused',
-			reason: 'missing',
+			code: 'missing',
+			reason: 'That insecticide is not available.',
 			reference: 'insecticide',
 		});
 	});

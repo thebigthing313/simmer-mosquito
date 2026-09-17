@@ -34,10 +34,15 @@ export function LandingPage({
 	// the reason `OutletShell` grew a slot in #380: the split is `lg:h-svh`, so a
 	// strip added as a sibling row pushes the page off the bottom of the window.
 	// The brand stage loses the strip's height instead.
+	//
+	// A flex column and not a two-row grid, which is `OutletShell`'s shape for
+	// the same reason: the banner renders `null` everywhere but staging, so a
+	// grid row of its own leaves the split in the `auto` row and hands the empty
+	// `1fr` row the rest of the window. `flex-1` measures what is there.
 	return (
-		<div className="grid min-h-svh grid-rows-[auto_1fr] lg:h-svh">
+		<div className="flex min-h-svh flex-col lg:h-svh">
 			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
-			<div className="grid grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
+			<div className="grid flex-1 grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
 				<LandingStage />
 				<LandingEntry authReason={authReason} redirectPath={redirectPath} />
 			</div>

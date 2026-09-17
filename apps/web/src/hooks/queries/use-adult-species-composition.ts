@@ -14,16 +14,10 @@
  */
 
 import { gte, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
+import type { SpeciesTotal } from '../../components/species-composition-panel';
 import { collection_species } from '../../lib/collections/collection_species';
 import { activityGcTimeMs } from './shared';
 import { useSpeciesNames } from './use-species-names';
-
-export interface SpeciesTotal {
-	readonly speciesId: string;
-	readonly name: string;
-	readonly total: number;
-}
 
 export function useAdultSpeciesComposition(sinceDate: string): {
 	readonly totals: readonly SpeciesTotal[];
@@ -50,28 +44,34 @@ export function useAdultSpeciesComposition(sinceDate: string): {
 
 	const rows = result.data;
 
-	const { totals, grandTotal } = useMemo(() => {
-		const byId = new Map<string, number>();
-		let sum = 0;
-		for (const row of rows) {
-			const count = row.count ?? 0;
-			// Non-positive counts are ignored, so a zero row neither inflates the
-			// total nor claims the species was present.
-			if (count <= 0) {
-				continue;
-			}
-			byId.set(row.speciesId, (byId.get(row.speciesId) ?? 0) + count);
-			sum += count;
-		}
-		const ranked: SpeciesTotal[] = [...byId.entries()]
-			.map(([speciesId, total]) => ({
-				speciesId,
-				total,
-				name: nameById.get(speciesId) ?? 'Unknown species',
-			}))
-			.sort((first, second) => second.total - first.total);
-		return { totals: ranked, grandTotal: sum };
-	}, [rows, nameById]);
+	const { totals, grandTotal } = rankedComposition(rows, nameById);
 
 	return { totals, grandTotal, isReady: result.isReady, isError: result.isError };
+}
+
+/** The window's specimens rolled up by species, high to low, with the total. */
+function rankedComposition(
+	rows: readonly { readonly speciesId: string; readonly count: number | null }[],
+	nameById: ReadonlyMap<string, string>,
+): { readonly totals: readonly SpeciesTotal[]; readonly grandTotal: number } {
+	const byId = new Map<string, number>();
+	let sum = 0;
+	for (const row of rows) {
+		const count = row.count ?? 0;
+		// Non-positive counts are ignored, so a zero row neither inflates the total
+		// nor claims the species was present.
+		if (count <= 0) {
+			continue;
+		}
+		byId.set(row.speciesId, (byId.get(row.speciesId) ?? 0) + count);
+		sum += count;
+	}
+	const ranked: SpeciesTotal[] = [...byId.entries()]
+		.map(([speciesId, total]) => ({
+			speciesId,
+			total,
+			name: nameById.get(speciesId) ?? 'Unknown species',
+		}))
+		.sort((first, second) => second.total - first.total);
+	return { totals: ranked, grandTotal: sum };
 }

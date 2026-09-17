@@ -1,8 +1,8 @@
-// --- the eleven layer names --------------------------------------------------
+// --- the twelve layer names --------------------------------------------------
 //
 // `/map/tiles/:tileset/{z}/{x}/{y}.mvt` carries a tileset name in the path, and
 // that name is also the layer inside the vector tile the client's style draws.
-// Three lists spell those eleven strings: the keys of `MAP_SURFACES` in
+// Three lists spell those twelve strings: the keys of `MAP_SURFACES` in
 // `map-surface-register.ts`, the keys `apps/server` registers tilesets under, and
 // `TILE_LAYER_BINDINGS` in `apps/web`. A name that disagrees answers 200 with a
 // layer the style does not draw, so the map is an empty basemap with nothing on
@@ -15,7 +15,7 @@
 // it is served on are one literal. `pnpm check:tileset-keys` reads all three
 // lists as text, which is what reaches `apps/web`: it has no dependency on this
 // package, and giving the browser app an edge to the Kysely package to type
-// eleven strings is a worse trade than a regex. Neither catches two surfaces
+// twelve strings is a worse trade than a regex. Neither catches two surfaces
 // trading entries in the register, since both names stay spelled everywhere; the
 // gate's header says so.
 //
@@ -36,4 +36,5 @@ export type MapTilesetLayer =
 	| 'biocontrol'
 	| 'outreach'
 	| 'traps'
-	| 'collections';
+	| 'collections'
+	| 'service-requests';

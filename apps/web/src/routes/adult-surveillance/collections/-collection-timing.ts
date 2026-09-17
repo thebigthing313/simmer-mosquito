@@ -41,8 +41,11 @@ export interface CollectionTimingStamps {
  *
  * The two timing modes store the day in different columns: `exact_timestamps`
  * keeps instants in both, `collection_date_duration` keeps the day in
- * `collection_date` and still carries `collected_at` for the surfaces that read
- * an effective date off it.
+ * `collection_date` and nothing in `collected_at`: the `collections_timing_shape`
+ * CHECK holds that column null under it, and the server's `collectionTiming`
+ * reads no `collected_at` off a date-plus-duration payload. What this returns
+ * as `collectedAt` in that mode is the typed day as an instant for the
+ * optimistic row, and it stops at the server.
  */
 export function collectionTimingStamps(
 	values: CollectionTimingValues,

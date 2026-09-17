@@ -1,8 +1,9 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -11,17 +12,17 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useBiocontrolMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -33,7 +34,8 @@ import {
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
+import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -43,12 +45,11 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { formatListDate } from '../../larval-surveillance/-overview-data';
+import { RecordBadges } from '../../-record-badges';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';
-import { ContextBadge, formatAmount } from '../-control-display';
-import { addDaysToDateString } from '../-overview-data';
+import { controlContext, formatAmount } from '../-control-display';
 
-interface BiocontrolSite {
+interface BiocontrolRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -87,29 +88,23 @@ export const Route = createFileRoute('/control-operations/biocontrol/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'release', many: 'releases' };
+const RECORD_TYPE: RecordType = 'biocontrolAction';
 const PATH = '/map/biocontrol';
 
 function BiocontrolExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults = useMemo<BiocontrolFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			people: new Set(),
-			methods: new Set(),
-			habitat: false,
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: BiocontrolFilters = {
+		from: defaultFrom,
+		to: today,
+		people: new Set(),
+		methods: new Set(),
+		habitat: false,
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -122,22 +117,10 @@ function BiocontrolExplorerRoute() {
 	const methodIds = query.methods;
 	const regionIds = query.regions;
 	const habitatOnly = query.habitat;
-	const setPersonIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ people: next }),
-		[setFilters],
-	);
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
-	const setHabitatOnly = useCallback(
-		(next: boolean) => setFilters({ habitat: next }),
-		[setFilters],
-	);
+	const setPersonIds = (next: ReadonlySet<string>) => setFilters({ people: next });
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
+	const setHabitatOnly = (next: boolean) => setFilters({ habitat: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -150,67 +133,47 @@ function BiocontrolExplorerRoute() {
 	// rail stay in lockstep. Omitted keys (empty range / no toggle) drop out.
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
-	const filters = useMemo<BiocontrolTileFilters>(
-		() => ({
-			...(methodIds.size > 0 ? { biocontrolMethodIds: [...methodIds] } : {}),
-			...(personIds.size > 0 ? { technicianProfileIds: [...personIds] } : {}),
-			...(habitatOnly ? { habitatLinkedOnly: true } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[methodIds, habitatOnly, personIds, regionIds, dateFrom, dateTo],
-	);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
+	const filters: BiocontrolTileFilters = {
+		...whenAny('biocontrolMethodIds', methodIds),
+		...whenAny('technicianProfileIds', personIds),
+		...whenOn('habitatLinkedOnly', habitatOnly),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
+	};
+	const layer: MapTileLayer = {
+		kind: 'biocontrol',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<BiocontrolRow>({
+			path: PATH,
+			rowsKey: 'biocontrolActions',
+			rowKey: 'biocontrolAction',
+			recordType: 'biocontrolAction',
+			params: {
 				biocontrolMethodId: filters.biocontrolMethodIds,
 				technician: filters.technicianProfileIds,
 				regionId: filters.regionIds,
 				habitatLinked: filters.habitatLinkedOnly,
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
-			}),
-		[filters],
-	);
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<BiocontrolSite>({
-			path: PATH,
-			rowsKey: 'biocontrolActions',
-			label: 'Biocontrol',
-			params,
+			},
+			layer,
+			map,
+			selectedId,
 		});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
-	const habitatIds = useMemo(
-		() => rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId])),
-		[rows],
-	);
+	const habitatIds = rows.flatMap((row) => (row.habitatId === null ? [] : [row.habitatId]));
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const selected = useSelectedMapRecord<BiocontrolSite>({
-		path: PATH,
-		rowKey: 'biocontrolAction',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'biocontrol',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
 	const clearAll = reset;
 
@@ -282,7 +245,7 @@ function BiocontrolExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'release', many: 'releases' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -290,12 +253,14 @@ function BiocontrolExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Biocontrol',
+				title: recordNoun(RECORD_TYPE).titleMany,
 				icon: BiocontrolEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
-				create: { to: '/control-operations/biocontrol/create', label: 'Record Release' },
+				create: {
+					to: '/control-operations/biocontrol/create',
+					label: createLabel('biocontrolAction'),
+				},
 			}}
 			onResetFilters={clearAll}
 			map={
@@ -323,9 +288,7 @@ function BiocontrolExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No releases in range',
-				emptyDescription:
-					'Widen the time window or loosen the filters to bring biocontrol releases into range.',
+				empty,
 				renderRow: (row) => (
 					<BiocontrolListItem
 						amount={formatAmount(row.amountReleased, unitById.get(row.releaseUnitId))}
@@ -360,7 +323,7 @@ function BiocontrolListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: BiocontrolSite;
+	readonly row: BiocontrolRow;
 	readonly methodName: string;
 	readonly amount: string;
 	readonly habitatName: string | null;
@@ -370,7 +333,12 @@ function BiocontrolListItem({
 }) {
 	return (
 		<ExplorerRow
-			badges={<ContextBadge habitatId={row.habitatId} inspectionId={row.inspectionId} />}
+			badges={
+				<RecordBadges
+					facts={{ category: 'biocontrol', context: controlContext(row) }}
+					status="dot"
+				/>
+			}
 			date={formatListDate(row.biocontrolDate)}
 			detailLabel={`View details for ${methodName}`}
 			detailLink={{ to: '/control-operations/biocontrol/$id', params: { id: row.id } }}

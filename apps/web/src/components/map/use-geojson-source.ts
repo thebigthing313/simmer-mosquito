@@ -35,6 +35,29 @@ import { isMapLive } from './use-mapbox-map';
  * imperatively and pass that same repaint as `onEnsure`, which is what puts a
  * half-drawn shape back after a restyle.
  */
+/**
+ * Takes this source's layers and then the source itself back off the map.
+ *
+ * Module level rather than inline in the cleanup, because that loop sits inside
+ * a try block and the React Compiler cannot lower a `for` there: one such loop
+ * bails the whole hook, which compiles nothing (#856). The try stays at the
+ * call site, since what it guards is a map that has already been removed.
+ */
+function removeAddedLayers(
+	activeMap: MapboxMap,
+	layerIds: readonly string[],
+	sourceId: string,
+): void {
+	for (const id of layerIds) {
+		if (activeMap.getLayer(id) !== undefined) {
+			activeMap.removeLayer(id);
+		}
+	}
+	if (activeMap.getSource(sourceId) !== undefined) {
+		activeMap.removeSource(sourceId);
+	}
+}
+
 export function useGeoJsonSource({
 	map,
 	isLoaded,
@@ -88,17 +111,24 @@ export function useGeoJsonSource({
 	// Everything the setup effect reads but must not re-run for. Re-adding the
 	// source on a data change would drop and rebuild layers on every tick.
 	const dataRef = useRef(data);
-	dataRef.current = data;
 	const layersRef = useRef(layers);
-	layersRef.current = layers;
 	const onEnsureRef = useRef(onEnsure);
-	onEnsureRef.current = onEnsure;
 	const sourceOptionsRef = useRef(sourceOptions);
-	sourceOptionsRef.current = sourceOptions;
 	const onSelectRef = useRef(interactive?.onSelectFeature);
-	onSelectRef.current = interactive?.onSelectFeature;
 	const interactiveLayerIdsRef = useRef(interactive?.layerIds ?? []);
-	interactiveLayerIdsRef.current = interactive?.layerIds ?? [];
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		dataRef.current = data;
+		layersRef.current = layers;
+		onEnsureRef.current = onEnsure;
+		sourceOptionsRef.current = sourceOptions;
+		onSelectRef.current = interactive?.onSelectFeature;
+		interactiveLayerIdsRef.current = interactive?.layerIds ?? [];
+	});
 
 	// The ids actually added, so teardown removes what this hook put there even
 	// if `layers()` would answer differently by then.
@@ -183,14 +213,7 @@ export function useGeoJsonSource({
 				if (isInteractive) {
 					activeMap.getCanvas().style.cursor = '';
 				}
-				for (const id of addedLayerIdsRef.current) {
-					if (activeMap.getLayer(id) !== undefined) {
-						activeMap.removeLayer(id);
-					}
-				}
-				if (activeMap.getSource(sourceId) !== undefined) {
-					activeMap.removeSource(sourceId);
-				}
+				removeAddedLayers(activeMap, addedLayerIdsRef.current, sourceId);
 			} catch {
 				// Map already removed; nothing left to clean up.
 			}
@@ -207,7 +230,9 @@ export function useGeoJsonSource({
 		}
 		try {
 			const source = map.getSource(sourceId) as GeoJSONSource | undefined;
-			source?.setData(toMapboxGeoJson(data));
+			if (source !== undefined) {
+				source.setData(toMapboxGeoJson(data));
+			}
 		} catch {
 			// Map style not available; nothing to update.
 		}

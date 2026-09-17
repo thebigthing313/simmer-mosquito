@@ -33,7 +33,7 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 
 // --- what the map surfaces actually answer -----------------------------------
 //
-// `map-surface-sql.test.ts` compiles all forty-one map reads and pins the SQL,
+// `map-surface-sql.test.ts` compiles all forty-seven map reads and pins the SQL,
 // which proves ADR 0008's organization and soft-delete predicates are written.
 // It pins text, not execution: no read in this package has ever been run
 // against Postgres, so a predicate on the wrong alias, a join that outlives its
@@ -43,7 +43,7 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 // This runs every one of them. The seed puts each surface's live record on top
 // of a deleted one and a neighbouring organization's, so a read that lost its
 // scope answers with three where one was seeded — the returned id set is the
-// whole assertion, and it is compared for all twelve surfaces at once so a
+// whole assertion, and it is compared for all fourteen surfaces at once so a
 // broken predicate shows up as a diff naming its surface rather than one
 // failure that stops the loop.
 //
@@ -65,12 +65,7 @@ interface SurfaceUnderTest {
 		db: Kysely<SimmerDatabase>,
 		input: { organizationId: string; timeZone: string },
 	) => Promise<MapExtent | null>;
-	/** The unbounded paged list, however the surface spells it. */
-	readonly page?: (
-		db: Kysely<SimmerDatabase>,
-		input: { organizationId: string; timeZone: string; limit: number; offset: number },
-	) => Promise<{ total: number; rows: ReadonlyArray<{ id: string }> }>;
-	/** The paged list inside an explicit bounding box. */
+	/** The paged list, which every surface with a result rail reads by box. */
 	readonly boundsPage?: (
 		db: Kysely<SimmerDatabase>,
 		input: {
@@ -129,7 +124,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'traps',
 		tile: MAP_SURFACES.traps.getTile,
 		extent: MAP_SURFACES.traps.getExtent,
-		page: MAP_SURFACES.traps.listPage,
+		boundsPage: MAP_SURFACES.traps.listByBounds,
 		byId: MAP_SURFACES.traps.getById,
 	},
 	{
@@ -137,7 +132,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'collections',
 		tile: MAP_SURFACES.collections.getTile,
 		extent: MAP_SURFACES.collections.getExtent,
-		page: MAP_SURFACES.collections.listPage,
+		boundsPage: MAP_SURFACES.collections.listByBounds,
 		byId: MAP_SURFACES.collections.getById,
 	},
 	{
@@ -145,7 +140,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'chemical',
 		tile: MAP_SURFACES.chemical.getTile,
 		extent: MAP_SURFACES.chemical.getExtent,
-		page: MAP_SURFACES.chemical.listPage,
+		boundsPage: MAP_SURFACES.chemical.listByBounds,
 		byId: MAP_SURFACES.chemical.getById,
 	},
 	{
@@ -153,7 +148,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'source-reduction',
 		tile: MAP_SURFACES['source-reduction'].getTile,
 		extent: MAP_SURFACES['source-reduction'].getExtent,
-		page: MAP_SURFACES['source-reduction'].listPage,
+		boundsPage: MAP_SURFACES['source-reduction'].listByBounds,
 		byId: MAP_SURFACES['source-reduction'].getById,
 	},
 	{
@@ -161,7 +156,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'biocontrol',
 		tile: MAP_SURFACES.biocontrol.getTile,
 		extent: MAP_SURFACES.biocontrol.getExtent,
-		page: MAP_SURFACES.biocontrol.listPage,
+		boundsPage: MAP_SURFACES.biocontrol.listByBounds,
 		byId: MAP_SURFACES.biocontrol.getById,
 	},
 	{
@@ -169,7 +164,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'outreach',
 		tile: MAP_SURFACES.outreach.getTile,
 		extent: MAP_SURFACES.outreach.getExtent,
-		page: MAP_SURFACES.outreach.listPage,
+		boundsPage: MAP_SURFACES.outreach.listByBounds,
 		byId: MAP_SURFACES.outreach.getById,
 	},
 	// No explorer, no tile, no list — the queue is read from the Electric shape
@@ -184,6 +179,8 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		layer: 'addresses',
 		tile: MAP_SURFACES.addresses.getTile,
 		extent: MAP_SURFACES.addresses.getExtent,
+		boundsPage: MAP_SURFACES.addresses.listByBounds,
+		byId: MAP_SURFACES.addresses.getById,
 	},
 	{
 		name: 'region',
@@ -191,6 +188,14 @@ const surfaces: readonly SurfaceUnderTest[] = [
 		tile: MAP_SURFACES.regions.getTile,
 		extent: MAP_SURFACES.regions.getExtent,
 		padding: boxPadding,
+	},
+	{
+		name: 'serviceRequest',
+		layer: 'service-requests',
+		tile: MAP_SURFACES['service-requests'].getTile,
+		extent: MAP_SURFACES['service-requests'].getExtent,
+		boundsPage: MAP_SURFACES['service-requests'].listByBounds,
+		byId: MAP_SURFACES['service-requests'].getById,
 	},
 ];
 
@@ -219,7 +224,7 @@ const page = { limit: 50, offset: 0 };
 // `st_isvalid` or `st_area` can be asked of it. The cost is that the transform
 // and the envelope around the call are a second copy of `readMapTile`'s. What
 // holds those to each other is `map-surface-sql.test.ts`, which pins the shipped
-// query text for all forty-one reads, so a changed SRID or envelope there is a
+// query text for all forty-seven reads, so a changed SRID or envelope there is a
 // snapshot diff rather than a case that stays green while the map breaks.
 //
 // The case below it seeds the same two shapes as habitats and reads them back
@@ -360,30 +365,9 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
-	it('lists this organization’s live records, viewport-bounded or not', async () => {
+	it('lists this organization’s live records inside the box, and no others', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
-
-			const paged = await mapSurfaces(
-				(surface) => surface.page !== undefined,
-				async (surface) => {
-					const result = await surface.page?.(db, {
-						organizationId: mapSurfaceOrganizationIds.own,
-						timeZone: mapSurfaceTimeZone,
-						...page,
-					});
-					return { ids: sortedIds(result?.rows), total: result?.total };
-				},
-			);
-
-			// Unbounded: `outside` belongs in the result rail even though it is off
-			// screen. Deleted and the other organization's never do.
-			expect(paged).toEqual(
-				expectedPerSurface(
-					(ids) => ({ ids: [ids.inside, ids.outside].sort(), total: 2 }),
-					(surface) => surface.page !== undefined,
-				),
-			);
 
 			const bounded = await mapSurfaces(
 				(surface) => surface.boundsPage !== undefined,
@@ -398,6 +382,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				},
 			);
 
+			// `inside` and nothing else: `outside` is this organization's live record
+			// off screen, which is the half the six control and adult surfaces used
+			// to list behind a map that could not draw it (#920). Deleted and the
+			// other organization's sit on top of `inside` and never come back.
 			expect(bounded).toEqual(
 				expectedPerSurface(
 					(ids) => ({ ids: [ids.inside], total: 1 }),
@@ -448,6 +436,113 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
+	// The one filtered read here, because the address search is the predicate
+	// the explorer's list used to apply in the browser over five fields and the
+	// tiles applied over one. Both go through this predicate now (#962), so what
+	// it matches is what the map draws and the rail lists. The seed's display
+	// name is `100 Main St`, with every other line null: a match on it comes
+	// back, a term nothing carries does not, and a null line does not null the
+	// whole because `concat_ws` skips it.
+	it('pages the addresses in the box that match the search', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = mapSurfaceRowIds.address;
+			const read = async (search: string) =>
+				MAP_SURFACES.addresses.listByBounds(db, {
+					organizationId: mapSurfaceOrganizationIds.own,
+					timeZone: mapSurfaceTimeZone,
+					bounds: mapSurfacePlace.bounds,
+					filters: { search },
+					...page,
+				});
+
+			const matched = await read('main');
+			const unmatched = await read('elm');
+
+			expect({ ids: sortedIds(matched.rows), total: matched.total }).toEqual({
+				ids: [ids.inside],
+				total: 1,
+			});
+			expect({ ids: sortedIds(unmatched.rows), total: unmatched.total }).toEqual({
+				ids: [],
+				total: 0,
+			});
+		});
+	});
+
+	// The three filters the service-request explorer used to apply in the browser
+	// over the whole Organization's rows, run against Postgres on one row (#963).
+	// The seed's request has no number, so the title half of the search has
+	// nothing to match until this case gives it one; `#12` then finds it the way
+	// typing that into the rail did, a word from its details does too, and a
+	// term nothing carries does not. Status reads `closed_at`, so the same row is
+	// the answer to `isOpen: true` and then to `isOpen: false` once it is
+	// stamped. The tag filter reads `tag_items` under the snake_case
+	// `service_request`, and a tag the row does not carry matches nothing.
+	it('pages the service requests in the box that match the status, search and tag', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = mapSurfaceRowIds.serviceRequest;
+			const tagId = '00000000-0000-4000-8000-000000009901';
+			const otherTagId = '00000000-0000-4000-8000-000000009902';
+			await db
+				.updateTable('service_requests')
+				.set({ display_name: 12 })
+				.where('id', '=', ids.inside)
+				.execute();
+			await db
+				.insertInto('tags')
+				.values([
+					{ id: tagId, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Drainage' },
+					{ id: otherTagId, organization_id: mapSurfaceOrganizationIds.own, tag_name: 'Noise' },
+				])
+				.execute();
+			await db
+				.insertInto('tag_items')
+				.values({
+					tag_id: tagId,
+					organization_id: mapSurfaceOrganizationIds.own,
+					entity_type: 'service_request',
+					entity_id: ids.inside,
+				})
+				.execute();
+
+			const read = async (filters: {
+				readonly isOpen?: boolean;
+				readonly search?: string;
+				readonly tagIds?: readonly string[];
+			}) => {
+				const result = await MAP_SURFACES['service-requests'].listByBounds(db, {
+					organizationId: mapSurfaceOrganizationIds.own,
+					timeZone: mapSurfaceTimeZone,
+					bounds: mapSurfacePlace.bounds,
+					filters,
+					...page,
+				});
+				return { ids: sortedIds(result.rows), total: result.total };
+			};
+			const found = { ids: [ids.inside], total: 1 };
+			const nothing = { ids: [], total: 0 };
+
+			expect(await read({ isOpen: true })).toEqual(found);
+			expect(await read({ isOpen: false })).toEqual(nothing);
+			expect(await read({ search: '#12' })).toEqual(found);
+			expect(await read({ search: 'garage' })).toEqual(found);
+			expect(await read({ search: 'elm' })).toEqual(nothing);
+			expect(await read({ tagIds: [tagId] })).toEqual(found);
+			expect(await read({ tagIds: [otherTagId] })).toEqual(nothing);
+
+			await db
+				.updateTable('service_requests')
+				.set({ closed_at: new Date('2026-03-20T15:00:00.000Z') })
+				.where('id', '=', ids.inside)
+				.execute();
+
+			expect(await read({ isOpen: true })).toEqual(nothing);
+			expect(await read({ isOpen: false })).toEqual(found);
+		});
+	});
+
 	// A `timestamptz` becomes a calendar date in whichever zone does the
 	// converting, and the database server's is not the organization's. This is
 	// worse than a mislabelled row: at the edge of a window the collection falls
@@ -460,9 +555,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// A one-day window on the day New York says the collection happened.
 			const onTheOrganizationsDay = async (timeZone: string): Promise<readonly string[]> => {
 				const day = mapSurfaceLateCollectionDates['America/New_York'];
-				const result = await MAP_SURFACES.collections.listPage(db, {
+				const result = await MAP_SURFACES.collections.listByBounds(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
 					timeZone,
+					bounds: mapSurfacePlace.bounds,
 					limit: 50,
 					offset: 0,
 					filters: { dateFrom: day, dateTo: day },
@@ -486,9 +582,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			await seedMapSurfaces(db);
 			await seedStampedCollections(db);
 
-			const onTheTypedDay = await MAP_SURFACES.collections.listPage(db, {
+			const onTheTypedDay = await MAP_SURFACES.collections.listByBounds(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceStampedTimeZone,
+				bounds: mapSurfacePlace.bounds,
 				limit: 50,
 				offset: 0,
 				filters: { dateFrom: mapSurfaceStampedTypedDay, dateTo: mapSurfaceStampedTypedDay },
@@ -508,9 +605,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			// The zone is spliced into the SQL rather than bound, so the only thing
 			// standing between a bad value and the query is this check.
 			await expect(
-				MAP_SURFACES.collections.listPage(db, {
+				MAP_SURFACES.collections.listByBounds(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
 					timeZone: "UTC'; drop table collections --",
+					bounds: mapSurfacePlace.bounds,
 					limit: 1,
 					offset: 0,
 					filters: {},
@@ -534,9 +632,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceTimeZone,
 			});
-			const listed = await MAP_SURFACES.collections.listPage(db, {
+			const listed = await MAP_SURFACES.collections.listByBounds(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
 				timeZone: mapSurfaceTimeZone,
+				bounds: mapSurfacePlace.bounds,
 				...page,
 				filters: {},
 			});
@@ -802,7 +901,7 @@ function expectedPerSurface<T>(
  * An extent at four decimal places — about eleven metres, and far finer than the
  * degrees between the seeded records.
  *
- * Compared by value rather than with `toBeCloseTo` so all eleven surfaces' boxes
+ * Compared by value rather than with `toBeCloseTo` so all twelve surfaces' boxes
  * can be asserted in one diff; PostGIS answers in float8 and the corners come
  * back a few ulps off the literals they were built from.
  */

@@ -1,9 +1,5 @@
-import {
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
 import { CommentsSection } from '../../components/comments-section';
@@ -39,19 +35,19 @@ export function WorklistTabs({
 	return (
 		<Tabs className="min-h-0 flex-1 gap-0" defaultValue="stops">
 			<div className="shrink-0 border-border/40 border-b px-3 py-2">
-				<TabsList>
-					<TabsTrigger value="stops">
+				<TabStrip>
+					<TabStripTab value="stops">
 						<MapPinnedIcon aria-hidden="true" />
 						Stops
 						{stopCount === 0 ? null : (
 							<span className="text-muted-foreground text-xs tabular-nums">{stopCount}</span>
 						)}
-					</TabsTrigger>
-					<TabsTrigger value="comments">
+					</TabStripTab>
+					<TabStripTab value="comments">
 						<CommentIcon aria-hidden="true" />
 						Comments
-					</TabsTrigger>
-				</TabsList>
+					</TabStripTab>
+				</TabStrip>
 			</div>
 
 			<TabsContent className="flex min-h-0 flex-col" value="stops">

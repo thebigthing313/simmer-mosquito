@@ -6,9 +6,10 @@ import {
 } from '@simmer-mosquito/mapping';
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { MapCanvas, type RouteStopFeature } from '../../components/map';
 import { MapControlButton, MapControlGroup } from '../../components/map/map-control';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
 /**
  * The worklist map: numbered stops in sequence, auto-framed when the worklist
@@ -18,8 +19,9 @@ import { MapControlButton, MapControlGroup } from '../../components/map/map-cont
  * Both ordered worklists in this section render through it. An assignment's
  * stops are typed entity targets and a mission's are owned geometry, but by the
  * time either reaches a map it is the same thing: a place in the order, a
- * progress tone, and — where the stop owns one — a shape. `noun` is the only
- * thing that differs, and it only ever reaches the operator-facing strings.
+ * progress tone, and, where the stop owns one, a shape. The record type is the
+ * only thing that differs, and it only ever reaches the operator-facing
+ * strings, through the noun register.
  *
  * Bounds come straight off the features rather than a domain view model, because
  * everything the frame needs is already on them.
@@ -27,7 +29,7 @@ import { MapControlButton, MapControlGroup } from '../../components/map/map-cont
 export function WorklistMap({
 	features,
 	stopCount,
-	noun,
+	recordType,
 	selectedId,
 	highlightId,
 	onSelectStop,
@@ -38,8 +40,8 @@ export function WorklistMap({
 	readonly features: readonly RouteStopFeature[];
 	/** Total stops including unmapped ones, so "none mapped" can be told apart from "none". */
 	readonly stopCount: number;
-	/** What the worklist is called, lowercase — "assignment", "mission". */
-	readonly noun: string;
+	/** Which worklist this is. Its noun comes from `lib/record-nouns.ts`. */
+	readonly recordType: RecordType;
 	readonly selectedId?: string | null | undefined;
 	readonly highlightId?: string | null | undefined;
 	readonly onSelectStop?: ((id: string | null) => void) | undefined;
@@ -49,29 +51,7 @@ export function WorklistMap({
 	readonly children?: ReactNode;
 }) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
-	const featuresRef = useRef(features);
-	featuresRef.current = features;
 	const lastFitRef = useRef<string | null>(null);
-
-	const fitToWorklist = useCallback((instance: MapboxMap, animate: boolean) => {
-		const bounds = boundsOfFeatures(featuresRef.current);
-		if (bounds === null) {
-			return;
-		}
-		const [[west, south], [east, north]] = bounds;
-		const duration = animate ? 650 : 0;
-		if (west === east && south === north) {
-			instance.easeTo({ center: [west, south], zoom: Math.max(instance.getZoom(), 15), duration });
-			return;
-		}
-		instance.fitBounds(
-			[
-				[west, south],
-				[east, north],
-			],
-			{ padding: 72, maxZoom: 16, duration },
-		);
-	}, []);
 
 	// Fit once per worklist, and only once coordinates have actually resolved —
 	// the targets stream in separately, so an early fit would frame an empty set.
@@ -84,14 +64,14 @@ export function WorklistMap({
 			return;
 		}
 		lastFitRef.current = key;
-		fitToWorklist(map, true);
-	}, [map, fitKey, features, fitToWorklist]);
+		fitToWorklist(map, features, true);
+	}, [map, fitKey, features]);
 
-	const handleZoom = useCallback(() => {
+	const handleZoom = () => {
 		if (map !== null) {
-			fitToWorklist(map, true);
+			fitToWorklist(map, features, true);
 		}
-	}, [map, fitToWorklist]);
+	};
 
 	const hasMappedStops = features.length > 0;
 
@@ -114,7 +94,11 @@ export function WorklistMap({
 			{hasMappedStops ? (
 				<div className="absolute bottom-4 left-4">
 					<MapControlGroup>
-						<MapControlButton label={`Zoom to ${noun}`} onClick={handleZoom} side="right">
+						<MapControlButton
+							label={`Zoom to ${recordNoun(recordType).one}`}
+							onClick={handleZoom}
+							side="right"
+						>
 							<LocateFixedIcon aria-hidden="true" className="size-4" />
 						</MapControlButton>
 					</MapControlGroup>
@@ -124,7 +108,7 @@ export function WorklistMap({
 			{!hasMappedStops && stopCount > 0 ? (
 				<div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
 					<span className="rounded-full border border-border/70 bg-background/85 px-3 py-1 text-muted-foreground text-xs shadow-sm backdrop-blur-sm">
-						No mapped stops on this {noun} yet
+						No mapped stops on this {recordNoun(recordType).one} yet
 					</span>
 				</div>
 			) : null}
@@ -139,6 +123,39 @@ export function WorklistMap({
  * at its centroid: fitting a treated block on its centre point zooms past three
  * of its four edges.
  */
+/**
+ * Frame a map on a worklist's targets. It takes the features as an argument
+ * rather than closing over them so the auto-fit effect can depend on the
+ * features themselves.
+ */
+function fitToWorklist(
+	instance: MapboxMap,
+	features: readonly RouteStopFeature[],
+	animate: boolean,
+): void {
+	const bounds = boundsOfFeatures(features);
+	if (bounds === null) {
+		return;
+	}
+	const [[west, south], [east, north]] = bounds;
+	const duration = animate ? 650 : 0;
+	if (west === east && south === north) {
+		instance.easeTo({
+			center: [west, south],
+			zoom: Math.max(instance.getZoom(), 15),
+			duration,
+		});
+		return;
+	}
+	instance.fitBounds(
+		[
+			[west, south],
+			[east, north],
+		],
+		{ padding: 72, maxZoom: 16, duration },
+	);
+}
+
 function boundsOfFeatures(
 	features: readonly RouteStopFeature[],
 ): [[number, number], [number, number]] | null {

@@ -26,7 +26,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import {
@@ -39,6 +39,7 @@ import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { regions } from '../../../lib/collections/regions';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { RegionFolderDialog } from './-folder-dialog';
 import { MAX_REGIONS, parseRegionsFromFile, type RegionBoundary } from './-import-parse';
@@ -56,6 +57,7 @@ const UploadIcon = iconRegistry.actions.upload.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const ShowOnMapIcon = iconRegistry.actions.locate.icon;
 const UNFILED = 'unfiled';
+const RECORD_TYPE: RecordType = 'region';
 
 /** How many region writes to keep in flight at once during an import. */
 const IMPORT_CONCURRENCY = 6;
@@ -116,9 +118,13 @@ function ImportRegionsRoute() {
 	const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+	// `mutations.canWrite` is `canAttributeWrite` over the snapshot, the same
+	// predicate the create routes hand their form as `canSubmit`, so an import,
+	// which is one create per feature, is gated on it here under the surface's
+	// own two conditions (#944).
 	const canImport = items.length > 0 && mutations.canWrite && !isImporting;
 
-	const handleFile = useCallback(async (file: File) => {
+	const handleFile = async (file: File) => {
 		setParseError(null);
 		setImportErrors([]);
 		setPendingSync(0);
@@ -140,72 +146,71 @@ function ImportRegionsRoute() {
 				setItems([]);
 				return;
 			}
-			setItems(
-				result.regions.map((region) => ({
-					id: crypto.randomUUID(),
-					name: region.name,
-					geometry: region.geometry,
-					note: region.note,
-				})),
-			);
+			const parsed = result.regions.map((region) => ({
+				// A preview list key, not a record id: the import mints each Region's own
+				// id with newRecordId() where it writes the row.
+				id: crypto.randomUUID(),
+				name: region.name,
+				geometry: region.geometry,
+				note: region.note,
+			}));
+			setItems(parsed);
+			fitToItems(parsed);
 		} catch (error) {
 			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
 			setItems([]);
 		}
-	}, []);
+	};
 
-	const previewGeoJson = useMemo<GeoJSON.GeoJSON>(
-		() => ({
-			type: 'FeatureCollection',
-			features: items.map((item, index) => ({
-				type: 'Feature',
-				id: index,
-				properties: { name: item.name },
-				geometry: item.geometry,
-			})),
-		}),
-		[items],
-	);
+	const previewGeoJson: GeoJSON.GeoJSON = {
+		type: 'FeatureCollection',
+		features: items.map((item, index) => ({
+			type: 'Feature',
+			id: index,
+			properties: { name: item.name },
+			geometry: item.geometry,
+		})),
+	};
 
-	const fitAll = useCallback(
-		(instance: MapboxMap) => {
-			setMap(instance);
-			fitMapToItems(instance, items);
-		},
-		[items],
-	);
+	const fitAll = (instance: MapboxMap) => {
+		setMap(instance);
+		fitMapToItems(instance, items);
+	};
 
-	// Re-fit whenever the item set changes (new upload, deletion).
-	const lastFitCount = useRef(0);
-	if (map !== null && items.length !== lastFitCount.current) {
-		lastFitCount.current = items.length;
-		fitMapToItems(map, items);
-	}
+	// Called where the item set changes rather than watched from render. It used
+	// to be a counting ref read during render, which is a side effect in the
+	// render pass and bailed the whole route out of the React Compiler (#856); an
+	// effect keyed on the count is the other shape, and Biome refuses it, since
+	// what the effect reads and what should retrigger it are different things.
+	const fitToItems = (next: readonly ImportItem[]) => {
+		if (map !== null) {
+			fitMapToItems(map, next);
+		}
+	};
 
-	const renameItem = useCallback((id: string, name: string) => {
+	const renameItem = (id: string, name: string) => {
 		setItems((prev) => prev.map((item) => (item.id === id ? { ...item, name } : item)));
-	}, []);
+	};
 
-	const deleteItem = useCallback((id: string) => {
-		setItems((prev) => prev.filter((item) => item.id !== id));
+	const deleteItem = (id: string) => {
+		const remaining = items.filter((item) => item.id !== id);
+		setItems(remaining);
 		setSelectedId((current) => (current === id ? null : current));
-	}, []);
+		fitToItems(remaining);
+	};
 
-	const selectItem = useCallback(
-		(id: string | null) => {
-			setSelectedId(id);
-			if (id === null || map === null) {
-				return;
-			}
-			const item = items.find((entry) => entry.id === id);
-			if (item !== undefined) {
-				fitMapToItems(map, [item]);
-			}
-		},
-		[items, map],
-	);
+	const selectItem = (id: string | null) => {
+		setSelectedId(id);
+		if (id === null || map === null) {
+			return;
+		}
+		const item = items.find((entry) => entry.id === id);
+		if (item !== undefined) {
+			fitMapToItems(map, [item]);
+		}
+	};
 
-	const runImport = useCallback(async () => {
+	const runImport = async () => {
 		if (!mutations.canWrite) {
 			return;
 		}
@@ -223,12 +228,7 @@ function ImportRegionsRoute() {
 			try {
 				const transaction = mutations.create(
 					newRecordId(),
-					{
-						name: item.name.trim().length === 0 ? 'Region' : item.name.trim(),
-						description: null,
-						folderId: folderId === UNFILED ? null : folderId,
-						metadata: null,
-					},
+					regionFieldsFor(item, folderId),
 					item.geometry,
 				);
 				// Fold persistence into a promise that never rejects, so once the
@@ -256,10 +256,9 @@ function ImportRegionsRoute() {
 				}
 			} catch (error) {
 				errors.push(`${item.name}: ${error instanceof Error ? error.message : 'failed to import'}`);
-			} finally {
-				done += 1;
-				setProgress({ done, total });
 			}
+			done += 1;
+			setProgress({ done, total });
 		});
 
 		setIsImporting(false);
@@ -272,7 +271,7 @@ function ImportRegionsRoute() {
 		if (errors.length === 0 && pending === 0) {
 			await navigate({ to: '/gis/regions' });
 		}
-	}, [mutations, items, folderId, navigate]);
+	};
 
 	return (
 		<MapSplitPage
@@ -291,11 +290,11 @@ function ImportRegionsRoute() {
 				<header className={stickyHeader({ gap: 'tight', padding: 'roomy' })}>
 					<Link className={backLink()} to="/gis/regions">
 						<ArrowLeftIcon aria-hidden="true" />
-						Regions
+						{recordNoun('region').titleMany}
 					</Link>
 					<div className="grid gap-1">
 						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">
-							Import Regions
+							{`Import ${recordNoun(RECORD_TYPE).titleMany}`}
 						</h1>
 						<p className="m-0 text-muted-foreground text-sm">
 							Upload a KML, KMZ, or GeoJSON file. Each feature in it becomes one region you can
@@ -374,7 +373,7 @@ function ImportRegionsRoute() {
 											variant="outline"
 										>
 											<PlusIcon aria-hidden="true" data-icon="inline-start" />
-											New Folder
+											Create Folder
 										</Button>
 									</div>
 								</div>
@@ -564,6 +563,23 @@ async function forEachWithConcurrency<T>(
 		}
 	});
 	await Promise.all(runners);
+}
+
+/**
+ * The Region one imported shape is saved as.
+ *
+ * A module function rather than an object literal at the call site, because the
+ * call site is inside a try block and the React Compiler cannot lower a
+ * conditional there: one bails the whole route (#856).
+ */
+function regionFieldsFor(item: ImportItem, folderId: string) {
+	const name = item.name.trim();
+	return {
+		name: name.length === 0 ? 'Region' : name,
+		description: null,
+		folderId: folderId === UNFILED ? null : folderId,
+		metadata: null,
+	};
 }
 
 /**

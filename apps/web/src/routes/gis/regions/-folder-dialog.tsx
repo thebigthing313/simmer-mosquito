@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionFolderMutations } from '../../../hooks/mutations/use-region-folder-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
@@ -37,7 +37,7 @@ export function RegionFolderDialog({
 
 	const canSave = mutations.canWrite && name.trim().length > 0;
 
-	const onSave = useCallback(async () => {
+	const onSave = async () => {
 		if (!canSave) {
 			return;
 		}
@@ -60,14 +60,15 @@ export function RegionFolderDialog({
 					description: folder.description,
 				});
 			}
-			onSaved?.(savedId);
+			if (onSaved !== undefined) {
+				onSaved(savedId);
+			}
 			onClose();
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save folder.');
-		} finally {
-			setIsSaving(false);
 		}
-	}, [canSave, name, description, folder, mutations, onClose, onSaved]);
+		setIsSaving(false);
+	};
 
 	const isEdit = folder !== null;
 
@@ -82,7 +83,7 @@ export function RegionFolderDialog({
 		>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>{isEdit ? 'Edit Region Folder' : 'New Region Folder'}</DialogTitle>
+					<DialogTitle>{isEdit ? 'Edit Region Folder' : 'Create Region Folder'}</DialogTitle>
 					<DialogDescription>Group related regions under a named folder.</DialogDescription>
 				</DialogHeader>
 				<div className="grid gap-4">
@@ -111,7 +112,7 @@ export function RegionFolderDialog({
 						Cancel
 					</Button>
 					<Button disabled={!canSave || isSaving} onClick={onSave} type="button">
-						{isEdit ? 'Save Folder' : 'Create Folder'}
+						Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>

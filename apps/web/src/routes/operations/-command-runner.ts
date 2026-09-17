@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 export interface CommandRunner {
 	/** A write is in flight; the page disables its controls rather than queueing. */
@@ -19,17 +19,16 @@ export function useCommandRunner(): CommandRunner {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const run = useCallback(async (work: () => Promise<void>, fallback: string) => {
+	const run = async (work: () => Promise<void>, fallback: string) => {
 		setBusy(true);
 		setError(null);
 		try {
 			await work();
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : fallback);
-		} finally {
-			setBusy(false);
 		}
-	}, []);
+		setBusy(false);
+	};
 
 	return { busy, error, run };
 }

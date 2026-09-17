@@ -1,10 +1,9 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
 import {
 	type MoveAction,
@@ -22,8 +21,6 @@ import {
 	missionItemActionsFor,
 } from '../-operations-data';
 import { MissionItemProgressBadge, missionStopTone } from '../-operations-display';
-
-const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
 	complete: 'Done',
@@ -354,7 +351,7 @@ export function RequestStopPicker({
 	// No organization argument: the shape is scoped to the caller's organization
 	// server-side, so a client-side predicate on it is redundant.
 	const { requests, isReady } = useOpenRequestedControlActions();
-	const matches = useRequestMatches(requests, existingRequestIds, search);
+	const matches = requestMatches(requests, existingRequestIds, search);
 
 	return (
 		<div className="grid gap-2">
@@ -420,22 +417,20 @@ export function RequestStopPicker({
 }
 
 /** Open requests not already on this mission, narrowed by the search box. */
-function useRequestMatches(
+function requestMatches(
 	requests: readonly OpenRequest[],
 	existingRequestIds: ReadonlySet<string>,
 	search: string,
 ): readonly OpenRequest[] {
 	const normalized = search.trim().toLowerCase();
-	return useMemo(() => {
-		const available = requests.filter((request) => !existingRequestIds.has(request.id));
-		const filtered =
-			normalized.length === 0
-				? available
-				: available.filter((request) =>
-						requestDisplayName(request).toLowerCase().includes(normalized),
-					);
-		return filtered.slice(0, PICKER_RESULT_LIMIT);
-	}, [requests, existingRequestIds, normalized]);
+	const available = requests.filter((request) => !existingRequestIds.has(request.id));
+	const filtered =
+		normalized.length === 0
+			? available
+			: available.filter((request) =>
+					requestDisplayName(request).toLowerCase().includes(normalized),
+				);
+	return filtered.slice(0, PICKER_RESULT_LIMIT);
 }
 
 const PICKER_RESULT_LIMIT = 8;

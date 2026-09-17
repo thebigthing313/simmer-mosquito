@@ -14,7 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	type InspectionTableRow,
-	inspectionSiteLabel,
+	inspectionHabitatLabel,
 } from '../../../../hooks/queries/larval-activity-view';
 import {
 	DEFAULT_INSPECTION_SORT,
@@ -37,6 +37,7 @@ import {
 	subsetPredicate,
 	subsetRequests,
 } from '../../lib/collections/memory-collections';
+import { inspection, UNSTREAMED_HABITAT_ID } from './larval-rows';
 import { renderRead } from './read-harness';
 
 /** Every filter off: the whole set, in the sort's order. */
@@ -49,56 +50,6 @@ const NO_FILTERS: InspectionTableFilters = {
 	habitatTypeIds: new Set(),
 	inspectedByProfileIds: new Set(),
 };
-
-function inspection(
-	id: string,
-	overrides: {
-		readonly inspection_date?: string;
-		readonly created_at?: Date;
-		readonly habitat_id?: string | null;
-		readonly habitat_type_id?: string | null;
-		readonly address_id?: string | null;
-		readonly inspected_by_profile_id?: string | null;
-		readonly is_wet?: boolean;
-		readonly density?: string | null;
-		readonly dip_count?: number | null;
-		readonly larvae_count?: number | null;
-		readonly has_eggs?: boolean;
-		readonly has_first_instar?: boolean;
-		readonly has_second_instar?: boolean;
-		readonly has_third_instar?: boolean;
-		readonly has_fourth_instar?: boolean;
-		readonly has_pupae?: boolean;
-		readonly lat?: number;
-		readonly lng?: number;
-	} = {},
-) {
-	return {
-		id,
-		organization_id: 'org-1',
-		lat: 34.05213,
-		lng: -118.24368,
-		geom_type: 'ST_Point',
-		habitat_id: 'h1',
-		habitat_type_id: 't1',
-		address_id: null,
-		inspected_by_profile_id: 'p1',
-		assignment_item_id: null,
-		inspection_date: '2026-08-12',
-		is_wet: true,
-		dip_count: 10,
-		density: 'light',
-		larvae_count: 4,
-		has_eggs: false,
-		has_first_instar: true,
-		has_second_instar: false,
-		has_third_instar: false,
-		has_fourth_instar: false,
-		has_pupae: false,
-		created_at: new Date('2026-08-12T10:00:00Z'),
-		...overrides,
-	};
-}
 
 beforeEach(() => {
 	installMemoryCollections();
@@ -343,13 +294,13 @@ describe('nextSort', () => {
 	});
 });
 
-describe('inspectionSiteLabel', () => {
+describe('inspectionHabitatLabel', () => {
 	it('names the habitat when there is one', async () => {
 		seedRows(inspections, [inspection('i1')]);
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('Alder catch basin');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('Alder catch basin');
 	});
 
 	it('falls back to the linked address', async () => {
@@ -368,7 +319,7 @@ describe('inspectionSiteLabel', () => {
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('123 Main St, Edison, NJ 08817');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('123 Main St, Edison, NJ 08817');
 	});
 
 	it('falls back to the centroid when there is neither', async () => {
@@ -376,7 +327,7 @@ describe('inspectionSiteLabel', () => {
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('34.05213, -118.24368');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('34.05213, -118.24368');
 	});
 
 	it('names an unnamed habitat by the habitat, not by the linked address', async () => {
@@ -400,14 +351,30 @@ describe('inspectionSiteLabel', () => {
 
 		const result = await renderTable(10);
 
-		expect(siteLabelOf(result.current.rows[0])).toBe('40.1, -74.4');
+		expect(habitatLabelOf(result.current.rows[0])).toBe('40.1, -74.4');
+	});
+
+	it('reads a habitat whose row has not arrived by its id', async () => {
+		// This case asserted a bare comma until #998, which is what the seam did: a
+		// habitat the collection has not streamed has no row to coalesce, so the
+		// `concat` ran over absent columns and produced its separator alone, and
+		// `habitatName` was the non-empty string `,` that no fallback below it
+		// could get past. The projection guards on the joined row now, so the
+		// name is `null`, `habitatId` is set, and the id arm of `habitatLabel`
+		// runs. `habitat-view.ts` carries the rule.
+		seedRows(inspections, [inspection('i1', { habitat_id: UNSTREAMED_HABITAT_ID })]);
+
+		const result = await renderTable(10);
+
+		expect(result.current.rows[0]?.habitatName).toBeNull();
+		expect(habitatLabelOf(result.current.rows[0])).toBe('Habitat 1a2b3c4d');
 	});
 });
 
-function siteLabelOf(row: InspectionTableRow | undefined): string {
+function habitatLabelOf(row: InspectionTableRow | undefined): string {
 	expect(row, 'the hook returned no row to label').toBeDefined();
 	const found = row as InspectionTableRow;
-	return inspectionSiteLabel(found, found.address);
+	return inspectionHabitatLabel(found, found.address);
 }
 
 /** A visit that found nothing, for the cases about the life-stage columns. */

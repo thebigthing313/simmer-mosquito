@@ -1,5 +1,4 @@
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { organization_species } from '../../lib/collections/organization_species';
 import { species } from '../../lib/collections/species';
@@ -49,14 +48,13 @@ export function useSpeciesOptions(): {
 	const catalogOptions = catalog.data;
 	const adoptions = adopted.data;
 
-	return useMemo(() => {
-		const adoptedIds = new Set(adoptions.map((row) => row.speciesId));
-		return {
-			nameById,
-			options:
-				adoptedIds.size === 0
-					? catalogOptions
-					: catalogOptions.filter((option) => adoptedIds.has(option.id)),
-		};
-	}, [catalogOptions, adoptions, nameById]);
+	const adoptedIds = new Set(adoptions.map((row) => row.speciesId));
+
+	return {
+		nameById,
+		options:
+			adoptedIds.size === 0
+				? catalogOptions
+				: catalogOptions.filter((option) => adoptedIds.has(option.id)),
+	};
 }

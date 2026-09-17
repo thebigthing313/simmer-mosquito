@@ -133,19 +133,64 @@ describeDbIntegration('profile activity', () => {
 			// The habitat the inspection was performed at, joined here because
 			// habitats do not stream to the client.
 			expect(pick(rows, (row) => row.category === 'inspection')).toMatchObject({
-				siteName: 'Culvert 12',
+				placeName: 'Culvert 12',
 				refId: world.habitatTypeId,
 				detail: 'light',
 			});
 			// The trap the collection came out of.
 			expect(pick(rows, (row) => row.id === world.spanningCollectionId)).toMatchObject({
-				siteName: 'T-1 - North gate',
+				placeName: 'T-1 - North gate',
 				refId: world.collectionMethodId,
 			});
 			expect(pick(rows, (row) => row.role === 'received')).toMatchObject({
 				label: 'Request 42',
-				siteName: '100 Main St',
+				placeName: '100 Main St',
 				detail: 'closed',
+			});
+		});
+	});
+
+	// The badges an explorer's list item draws, which the log could not draw at
+	// all until the endpoint carried them: a row here read as a bare density pill
+	// where the same inspection read as a life-stage strip on its own map page.
+	it('carries the badges each record kind reads by', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedActivityWorld(db);
+
+			const rows = await activityFor(db, world.ownOrganizationId, world.danaProfileId);
+
+			// Codes rather than positions: a gap in the middle is what a positional
+			// reader gets wrong, and this inspection has one.
+			expect(pick(rows, (row) => row.category === 'inspection')).toMatchObject({
+				detail: 'light',
+				stages: 'E3',
+			});
+			// All four states rather than the two exceptional ones, so the log and
+			// the map's own dot answer from one resolution.
+			expect(pick(rows, (row) => row.id === world.spanningCollectionId)).toMatchObject({
+				detail: 'collected',
+				hasBycatch: true,
+			});
+			// A trap still out. The column is null under exact timestamps alone,
+			// which is the distinction `collectionStatusSql` carries.
+			expect(pick(rows, (row) => row.id === world.openCollectionId)).toMatchObject({
+				detail: 'pending',
+			});
+		});
+	});
+
+	// Ids rather than names: the Tag catalog syncs eagerly, so the client already
+	// holds the name, the colour and the description a chip draws.
+	it('carries the Tags on a record, and not the ones taken off it', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedActivityWorld(db);
+
+			const rows = await activityFor(db, world.ownOrganizationId, world.danaProfileId);
+
+			// One id, not two: the same Tag was linked and unlinked, and the removed
+			// link must leave the log while the record itself stays.
+			expect(pick(rows, (row) => row.id === world.habitatId)).toMatchObject({
+				tagIds: [world.tagId],
 			});
 		});
 	});
@@ -313,6 +358,8 @@ interface ActivityWorld {
 	readonly collectionMethodId: string;
 	readonly sourceReductionMethodId: string;
 	readonly unitId: string;
+	readonly habitatId: string;
+	readonly tagId: string;
 }
 
 function point(lng: number, lat: number) {
@@ -394,9 +441,41 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 			habitat_name: 'Culvert 12',
 			description: '',
 			metadata: null,
+			created_by_profile_id: dana,
+			created_at: new Date('2026-08-03T14:00:00.000Z'),
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
+
+	// One Tag on the habitat, so the log's chips can be asserted against the
+	// catalog the client already holds.
+	const tag = await db
+		.insertInto('tags')
+		.values({ organization_id: own, tag_name: 'Priority', color: null, description: null })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	await db
+		.insertInto('tag_items')
+		.values({
+			organization_id: own,
+			tag_id: tag.id,
+			// The snake_case spelling the column holds. A camelCase value here
+			// matches nothing and reads exactly like an untagged record.
+			entity_type: 'habitat',
+			entity_id: habitat.id,
+		})
+		.execute();
+	// Removed from the record, so it must not reach the log.
+	await db
+		.insertInto('tag_items')
+		.values({
+			organization_id: own,
+			tag_id: tag.id,
+			entity_type: 'habitat',
+			entity_id: habitat.id,
+			deleted_at: new Date('2026-08-09T12:00:00.000Z'),
+		})
+		.execute();
 
 	const trap = await db
 		.insertInto('traps')
@@ -434,6 +513,9 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		createdBy: casey,
 		habitatId: habitat.id,
 		habitatTypeId: habitatType.id,
+		// Two stages with a gap between them, so a reader that goes by position
+		// rather than by code puts one of them in the wrong cell.
+		stages: ['has_eggs', 'has_third_instar'],
 	});
 	// Dana typed this one up; Casey was the one at the ditch.
 	await insertInspection(db, {
@@ -511,6 +593,7 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		collectedBy: dana,
 		startedAt: new Date('2026-08-10T14:00:00.000Z'),
 		collectedAt: new Date('2026-08-13T13:00:00.000Z'),
+		hasBycatch: true,
 	});
 	const open = await insertCollection(db, {
 		organizationId: own,
@@ -582,6 +665,8 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		collectionMethodId: collectionMethod.id,
 		sourceReductionMethodId: sourceReductionMethod.id,
 		unitId: unit.id,
+		habitatId: habitat.id,
+		tagId: tag.id,
 	};
 }
 
@@ -607,6 +692,7 @@ async function insertInspection(
 		readonly deleted?: boolean;
 		readonly habitatId?: string;
 		readonly habitatTypeId?: string;
+		readonly stages?: readonly ('has_eggs' | 'has_third_instar')[];
 	},
 ): Promise<string> {
 	const row = await db
@@ -622,6 +708,8 @@ async function insertInspection(
 			is_wet: true,
 			dip_count: 8,
 			density: 'light' as const,
+			has_eggs: input.stages?.includes('has_eggs') ?? false,
+			has_third_instar: input.stages?.includes('has_third_instar') ?? false,
 			deleted_at: input.deleted === true ? new Date('2026-08-09T12:00:00.000Z') : null,
 		})
 		.returning(['id'])
@@ -664,6 +752,7 @@ async function insertCollection(
 		readonly collectedAt?: Date | null;
 		readonly collectionDate?: string;
 		readonly durationUnitId?: string;
+		readonly hasBycatch?: boolean;
 	},
 ): Promise<string> {
 	const exact = input.collectionDate === undefined;
@@ -676,6 +765,7 @@ async function insertCollection(
 			trap_id: input.trapId ?? null,
 			set_by_profile_id: input.setBy,
 			collected_by_profile_id: input.collectedBy,
+			has_bycatch: input.hasBycatch ?? false,
 			...(exact
 				? {
 						collection_timing_mode: 'exact_timestamps' as const,

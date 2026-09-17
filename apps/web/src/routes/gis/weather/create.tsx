@@ -1,12 +1,14 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultWeatherStationFormValues,
-	isStationLocation,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
@@ -31,37 +33,33 @@ function CreateWeatherStationRoute() {
 	// already watching.
 	const [stationId] = useState(() => newRecordId());
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
-			readonly values: WeatherStationFormValues;
-			readonly geometry: DrawGeometry | null;
-		}) => {
-			if (geometry === null || !isStationLocation(geometry)) {
-				throw new Error('Place the station on the map before saving.');
-			}
-			await mutations.create(stationId, weatherStationFieldsFrom(values), geometry);
-			await navigate({ to: '/gis/weather/$id', params: { id: stationId } });
-		},
-		[mutations, navigate, stationId],
-	);
+	const onSave = async ({
+		values,
+		geometry,
+	}: {
+		readonly values: WeatherStationFormValues;
+		readonly geometry: DrawGeometry | null;
+	}) => {
+		if (geometry === null || !isOwnedGeometry('weatherStation', geometry)) {
+			throw new Error('Place the station on the map before saving.');
+		}
+		await mutations.create(stationId, weatherStationFieldsFrom(values), geometry);
+		await navigate({ to: '/gis/weather/$id', params: { id: stationId } });
+	};
 
 	return (
 		<WeatherStationFormPage
 			canSubmit={mutations.canWrite}
 			defaultValues={defaultWeatherStationFormValues()}
 			header={{
-				title: 'Add Weather Station',
+				title: createLabel('weatherStation'),
 				description: 'Place a station and name it, then record its readings against it.',
 				backTo: '/gis/weather',
-				backLabel: 'Weather Stations',
+				backLabel: recordNoun('weatherStation').titleMany,
 			}}
 			initialGeometry={null}
 			mode="create"
 			onSave={onSave}
-			submitLabel="Add Station"
 		/>
 	);
 }

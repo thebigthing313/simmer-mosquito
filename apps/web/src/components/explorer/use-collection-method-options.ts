@@ -1,5 +1,4 @@
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import type { FilterOption } from './multi-select-filter';
 
@@ -35,11 +34,8 @@ export function useCollectionMethodOptions(): {
 
 	const options = result.data;
 
-	return useMemo(
-		() => ({
-			options,
-			nameById: new Map(options.map((method) => [method.id, method.label] as const)),
-		}),
-		[options],
-	);
+	return {
+		options,
+		nameById: new Map(options.map((method) => [method.id, method.label] as const)),
+	};
 }

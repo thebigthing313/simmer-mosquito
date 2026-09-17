@@ -175,7 +175,14 @@ export function MapCanvas({
 	useMapExtentFit(map, isLoaded, resolveExtentFitSource(fitToData, layers), clear);
 
 	const onMapReadyRef = useRef(onMapReady);
-	onMapReadyRef.current = onMapReady;
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		onMapReadyRef.current = onMapReady;
+	});
 	const readySignaledFor = useRef<MapboxMap | null>(null);
 	useEffect(() => {
 		// `isMapLive`, not `!== null`: a reconnect after a Suspense hide re-runs

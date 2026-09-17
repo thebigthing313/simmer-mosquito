@@ -1,11 +1,12 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -22,16 +23,15 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { noTechnicianValue } from '../../../lib/no-technician';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
-	noTechnicianValue,
 	SourceReductionFormPage,
 	type SourceReductionFormValues,
 	type SourceReductionSaveInput,
 	sourceReductionFieldsFrom,
 } from './-source-reduction-form';
-
-const sourceReductionGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -58,23 +58,22 @@ function EditSourceReductionRoute() {
 		action: sourceReduction,
 		isReady,
 		isError,
-	} = useSourceReduction(id, { gcTime: sourceReductionGcTimeMs });
+	} = useSourceReduction(id, { gcTime: activityGcTimeMs });
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
 		<RecordEditFrame
-			noun="source reduction action"
+			recordType="sourceReduction"
 			reading={{ isError, isReady, record: sourceReduction }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
-			unavailableTitle="Source Reduction Unavailable"
 		>
 			{(record) => (
 				<EditSourceReductionLoader
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					methods={methods}
-					organizationId={organization?.id ?? ''}
+					organizationId={organization.id}
 					profiles={profiles}
 					sourceReduction={record}
 					units={units}
@@ -114,54 +113,50 @@ function EditSourceReductionLoader({
 	const personnel = useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReduction.id });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 
-	const onSave = useCallback(
-		async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
-			if (values.sourcesEliminatedAmount === null) {
-				throw new Error('Enter how many sources were eliminated.');
-			}
-			// The point and the address/habitat are independent: only state a location
-			// when the user actually refined the point. Absent means "leave it", which
-			// is not the same request as re-sending the shape it already has.
-			const refinedShape = geometryChanged && geometry !== null ? geometry : null;
-			const centroid = refinedShape === null ? null : ownedCentroidFromGeoJson(refinedShape);
+	const onSave = async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
+		if (values.sourcesEliminatedAmount === null) {
+			throw new Error('Enter how many sources were eliminated.');
+		}
+		// The point and the address/habitat are independent: only state a location
+		// when the user actually refined the point. Absent means "leave it", which
+		// is not the same request as re-sending the shape it already has.
+		const refinedShape = geometryChanged && geometry !== null ? geometry : null;
+		const centroid = refinedShape === null ? null : ownedCentroidFromGeoJson(refinedShape);
 
-			// Which commands this save means is worked out by the hook, from what
-			// actually moved — the field details and the placement are different
-			// builders, and naming one with nothing to read is refused.
-			await update(sourceReduction, {
-				values: sourceReductionFieldsFrom(values),
-				...(centroid === null || refinedShape === null
-					? {}
-					: {
-							location: {
-								lat: centroid.lat,
-								lng: centroid.lng,
-								geomType: centroid.geomType,
-								locationSource: { kind: 'geometry', geometry: refinedShape },
-							},
-						}),
-			});
-			await setPersonnel({
-				target: { type: 'sourceReduction', id: sourceReduction.id },
-				existing: personnel.rows,
-				profileIds: values.additionalPersonnelIds,
-			});
-			await navigate({
-				to: '/control-operations/source-reduction/$id',
-				params: { id: sourceReduction.id },
-			});
-		},
-		[sourceReduction, personnel.rows, navigate, update, setPersonnel],
-	);
+		// Which commands this save means is worked out by the hook, from what
+		// actually moved — the field details and the placement are different
+		// builders, and naming one with nothing to read is refused.
+		await update(sourceReduction, {
+			values: sourceReductionFieldsFrom(values),
+			...(centroid === null || refinedShape === null
+				? {}
+				: {
+						location: {
+							lat: centroid.lat,
+							lng: centroid.lng,
+							geomType: centroid.geomType,
+							locationSource: { kind: 'geometry', geometry: refinedShape },
+						},
+					}),
+		});
+		await setPersonnel({
+			target: { type: 'sourceReduction', id: sourceReduction.id },
+			existing: personnel.rows,
+			profileIds: values.additionalPersonnelIds,
+		});
+		await navigate({
+			to: '/control-operations/source-reduction/$id',
+			params: { id: sourceReduction.id },
+		});
+	};
 
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
 				description="This source reduction's geometry could not be loaded."
 				layout="centered"
-				noun="source reduction action"
+				recordType="sourceReduction"
 				reason="error"
-				title="Source Reduction Unavailable"
 			/>
 		);
 	}
@@ -170,9 +165,8 @@ function EditSourceReductionLoader({
 			<RecordUnavailable
 				description="This source reduction's personnel could not be loaded."
 				layout="centered"
-				noun="source reduction action"
+				recordType="sourceReduction"
 				reason="error"
-				title="Source Reduction Unavailable"
 			/>
 		);
 	}
@@ -185,7 +179,7 @@ function EditSourceReductionLoader({
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromSourceReduction(sourceReduction, personnel)}
 			header={{
-				title: 'Edit Source Reduction',
+				title: `Edit ${recordNoun('sourceReduction').title}`,
 				description: 'Update what was eliminated, who did it, when, or where.',
 				backTo: '/control-operations/source-reduction/$id',
 				backParams: { id: sourceReduction.id },
@@ -198,7 +192,6 @@ function EditSourceReductionLoader({
 			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
-			submitLabel="Save changes"
 			units={units}
 		/>
 	);

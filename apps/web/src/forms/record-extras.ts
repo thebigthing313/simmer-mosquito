@@ -20,7 +20,6 @@
  * every time someone corrected a dip count.
  */
 
-import { useCallback } from 'react';
 import { useAdditionalPersonnelMutations } from '../hooks/mutations/use-additional-personnel-mutations';
 import { useCommentMutations } from '../hooks/mutations/use-comment-mutations';
 import type { AdditionalPersonnelTarget } from '../hooks/queries/use-additional-personnel';
@@ -51,39 +50,33 @@ export function useRecordExtras(): RecordExtras {
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const { add: addComment } = useCommentMutations();
 
-	const attachComment = useCallback(
-		async (target: RecordExtrasTarget, commentText: string) => {
-			const text = commentText.trim();
-			if (text.length === 0) {
-				return;
-			}
-			// The record is already saved, so a failed note cannot fail the save. But
-			// the text the user typed is not on the record, so it is reported rather
-			// than dropped.
-			await attachLinksBestEffort('the note', async () => {
-				await addComment(target, text);
-			});
-		},
-		[addComment],
-	);
+	const attachComment = async (target: RecordExtrasTarget, commentText: string) => {
+		const text = commentText.trim();
+		if (text.length === 0) {
+			return;
+		}
+		// The record is already saved, so a failed note cannot fail the save. But
+		// the text the user typed is not on the record, so it is reported rather
+		// than dropped.
+		await attachLinksBestEffort('the note', async () => {
+			await addComment(target, text);
+		});
+	};
 
-	const attach = useCallback(
-		async ({
-			target,
-			profileIds,
-			commentText,
-		}: {
-			readonly target: RecordExtrasTarget;
-			readonly profileIds: readonly string[];
-			readonly commentText: string;
-		}) => {
-			await attachLinksBestEffort('the additional personnel', () =>
-				setPersonnel({ target, existing: [], profileIds }),
-			);
-			await attachComment(target, commentText);
-		},
-		[setPersonnel, attachComment],
-	);
+	const attach = async ({
+		target,
+		profileIds,
+		commentText,
+	}: {
+		readonly target: RecordExtrasTarget;
+		readonly profileIds: readonly string[];
+		readonly commentText: string;
+	}) => {
+		await attachLinksBestEffort('the additional personnel', () =>
+			setPersonnel({ target, existing: [], profileIds }),
+		);
+		await attachComment(target, commentText);
+	};
 
 	return { attach, attachComment };
 }

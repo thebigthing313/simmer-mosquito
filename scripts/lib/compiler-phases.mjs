@@ -17,10 +17,17 @@
  *
  * What the build filters is a resolved absolute module id, and this is a
  * Windows checkout, so the separator is a backslash there and a forward slash
- * in CI. Every pattern therefore writes its separators as `[\\/]` and anchors
- * on nothing, which makes the same pattern true of an absolute id and of a
- * repo-relative POSIX path. The gate tests the second, the build tests the
- * first, and neither needs a translation step.
+ * in CI. Every pattern therefore writes its separators as `[\\/]`, which makes
+ * the same pattern true of both. The gate tests a repo-relative POSIX path and
+ * the build tests an absolute id, so neither needs a translation step.
+ *
+ * The leading `(?:^|[\\/])` is the half that was missing until #820. A
+ * pattern opening on `[\\/]apps` demands a separator in front of `apps`,
+ * which an absolute id has and `pathFrom`'s `apps/admin/src/main.tsx` does not,
+ * so the gate read every module as outside the allowlist from the day phase 1
+ * shipped. Nothing failed, because admin's one finding is a `Todo` and that
+ * category is counted apart from both halves. Anchoring on start-or-separator is
+ * what makes the sentence above true rather than only intended.
  *
  * ## Adding a phase
  *
@@ -46,7 +53,122 @@ const COMPILER_PHASES = [
 		phase: 1,
 		name: 'apps/admin',
 		issue: 657,
-		include: [/[\\/]apps[\\/]admin[\\/]src[\\/]/],
+		include: [/(?:^|[\\/])apps[\\/]admin[\\/]src[\\/]/],
+	},
+	{
+		phase: 2,
+		name: 'packages/ui-web',
+		issue: 820,
+		include: [/(?:^|[\\/])packages[\\/]ui-web[\\/]src[\\/]/],
+	},
+	{
+		phase: 3,
+		name: 'apps/web lib and hooks',
+		issue: 821,
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]lib[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]hooks[\\/]/,
+		],
+	},
+	{
+		phase: 4,
+		name: 'apps/web components, except the map',
+		issue: 822,
+		/*
+		 * One pattern with a lookahead rather than ten subdirectory entries. The
+		 * phase is "components except the map", and a lookahead says that once,
+		 * so phase 6 deletes two names instead of merging two lists. The cost is
+		 * that a new folder under `components/` is compiled the day it lands
+		 * rather than when somebody lists it, which is the right default here:
+		 * the gate holds it to a hard zero either way, and the alternative is a
+		 * surface silently left out of the rollout.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/](?!map[\\/]|route-planning[\\/])/,
+		],
+	},
+	{
+		phase: 5,
+		name: 'apps/web routes',
+		issue: 823,
+		/*
+		 * `operations/-worklist-map.tsx` is the one exclusion, held to phase 6
+		 * because it is a map surface. `routeTree.gen.ts` needs none: it sits at
+		 * `src/routeTree.gen.ts` rather than under `routes/`, so this pattern
+		 * never reaches it.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/](?!operations[\\/]-worklist-map[.]tsx$)/,
+		],
+	},
+	{
+		phase: 6,
+		name: 'apps/web map surfaces',
+		issue: 824,
+		/*
+		 * The last phase, and the three paths phases 4 and 5 held back. It is an
+		 * appended entry rather than the two lookahead deletions the phase 4
+		 * comment predicted, because the header rule is that a phase is one entry,
+		 * and an entry is also the record of which phase turned a path on. The two
+		 * spellings compile exactly the same set; only this one leaves the ordering
+		 * #656 §4 wrote readable afterwards.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/]map[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/]route-planning[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/]operations[\\/]-worklist-map[.]tsx$/,
+		],
+	},
+	{
+		phase: 7,
+		name: 'apps/web forms',
+		issue: 838,
+		/*
+		 * The surface no phase named. `forms/` sits beside `lib`, `hooks`,
+		 * `components` and `routes` under `apps/web/src`, and phases 3 to 6
+		 * between them reach every one of those but this. Nothing failed,
+		 * because the gate's two halves are complementary and a compile-clean
+		 * module outside the allowlist sits quietly on the ratcheted side.
+		 *
+		 * A seventh entry rather than collapsing phases 3 to 7 into one
+		 * `apps/web[\\/]src[\\/]` pattern, which now compiles the same set. The
+		 * header rule is that a phase is one entry, and an entry is the record
+		 * of which phase turned a path on; collapsing would compile the same
+		 * modules and lose the ordering #656 §4 wrote.
+		 */
+		include: [/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]forms[\\/]/],
+	},
+	{
+		phase: 8,
+		name: 'apps/web entry point and sync seam',
+		issue: 842,
+		/*
+		 * The last two React modules in `apps/web` that sat in no directory a
+		 * phase named: `main.tsx` at the root of `src`, and the one `.tsx` in
+		 * `sync/` beside three modules holding no React. #838 found `forms/` by
+		 * reading and these two were still there afterwards, which is what says
+		 * the register cannot audit itself.
+		 *
+		 * So this entry ships beside `check:compiler-coverage`, which parses
+		 * every module in the workspace and refuses one that holds React and is
+		 * on neither this list nor its own exemption register. The gate is what
+		 * makes this the last such entry rather than the next-to-last.
+		 *
+		 * `sync/` names the directory and `main.tsx` names the file, because
+		 * `sync/` is a seam that will grow React and `src/` itself is not: the
+		 * other things directly under it are `app-auth.ts`, `auth.ts`, a
+		 * `globals.d.ts` and a generated route tree.
+		 *
+		 * #838's rule is that an edit here cannot move `check:compiler-bailouts`
+		 * counts, so a pattern is proved matched by `isOptedIn` over the three
+		 * path spellings and by a build diff. Both were run: the two modules
+		 * compile clean, and `apps/web`'s boot payload is 259 raw bytes and 72
+		 * gzipped larger than the same build with these two patterns deleted.
+		 */
+		include: [
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]sync[\\/]/,
+			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]main[.]tsx$/,
+		],
 	},
 ];
 

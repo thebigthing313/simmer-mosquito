@@ -23,11 +23,10 @@
  */
 
 import { type Contact, settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { contacts } from '../../lib/collections/contacts';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
-import { optimisticStamp } from './shared';
+import { canAttributeWrite, optimisticStamp } from './shared';
 
 /** A Contact as its forms hold one: every field the two update commands take. */
 export interface ContactFields {
@@ -127,66 +126,60 @@ export function useContactMutations(): ContactMutations {
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
 
-	const create = useCallback(
-		async (contactId: string, fields: ContactFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const create = async (contactId: string, fields: ContactFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			await settleWrite(
-				mutateCollection(contacts(), {
-					operation: 'insert',
-					intent: 'publicEngagement.createContact',
-					row: {
-						id: contactId,
-						organization_id: organizationId,
-						contact_name: fields.contactName,
-						company: fields.company,
-						department: fields.department,
-						title: fields.title,
-						preferred_phone: fields.preferredPhone,
-						alternate_phone: fields.alternatePhone,
-						email: fields.email,
-						wants_email: fields.wantsEmail,
-						wants_sms: fields.wantsSms,
-						wants_phone: fields.wantsPhone,
-						metadata: null,
-						created_by_profile_id: actorProfileId,
-						updated_by_profile_id: actorProfileId,
-						created_at: now,
-						updated_at: now,
-					} satisfies Contact,
-				}),
-			);
-		},
-		[organizationId, actorProfileId],
-	);
+		const now = optimisticStamp();
+		await settleWrite(
+			mutateCollection(contacts(), {
+				operation: 'insert',
+				intent: 'publicEngagement.createContact',
+				row: {
+					id: contactId,
+					organization_id: organizationId,
+					contact_name: fields.contactName,
+					company: fields.company,
+					department: fields.department,
+					title: fields.title,
+					preferred_phone: fields.preferredPhone,
+					alternate_phone: fields.alternatePhone,
+					email: fields.email,
+					wants_email: fields.wantsEmail,
+					wants_sms: fields.wantsSms,
+					wants_phone: fields.wantsPhone,
+					metadata: null,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+					created_at: now,
+					updated_at: now,
+				} satisfies Contact,
+			}),
+		);
+	};
 
-	const save = useCallback(
-		async (contactId: string, fields: ContactFields, current: ContactFields) => {
-			const plan = contactUpdatePlan(fields, current);
-			if (plan === null) {
-				return;
-			}
+	const save = async (contactId: string, fields: ContactFields, current: ContactFields) => {
+		const plan = contactUpdatePlan(fields, current);
+		if (plan === null) {
+			return;
+		}
 
-			await settleWrite(
-				mutateCollection(contacts(), {
-					operation: 'update',
-					intent: plan.intents,
-					key: contactId,
-					changes: {
-						...plan.changes,
-						updated_by_profile_id: actorProfileId,
-						updated_at: optimisticStamp(),
-					},
-				}),
-			);
-		},
-		[actorProfileId],
-	);
+		await settleWrite(
+			mutateCollection(contacts(), {
+				operation: 'update',
+				intent: plan.intents,
+				key: contactId,
+				changes: {
+					...plan.changes,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
+			}),
+		);
+	};
 
-	const remove = useCallback(async (contactId: string) => {
+	const remove = async (contactId: string) => {
 		await settleWrite(
 			mutateCollection(contacts(), {
 				operation: 'delete',
@@ -194,12 +187,12 @@ export function useContactMutations(): ContactMutations {
 				key: contactId,
 			}),
 		);
-	}, []);
+	};
 
 	return {
 		create,
 		save,
 		remove,
-		canWrite: organizationId !== null && actorProfileId !== null,
+		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
 	};
 }

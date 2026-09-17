@@ -14,7 +14,6 @@
  */
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { application_batches } from '../../lib/collections/application_batches';
 import type { ApplicationBatchLink } from '../mutations/use-application-mutations';
 import { unmatchableId } from './shared';
@@ -53,10 +52,7 @@ export function useApplicationBatches(applicationId: string | null): Application
 
 	// Deduplicated: two link rows naming the same lot are one selection to a form,
 	// and reconciling against the raw list would try to add what is already there.
-	const insecticideBatchIds = useMemo(
-		() => [...new Set(rows.map((row) => row.insecticideBatchId))],
-		[rows],
-	);
+	const insecticideBatchIds = [...new Set(rows.map((row) => row.insecticideBatchId))];
 
 	return {
 		rows,

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useControlMethodNames, usePersonnelOptions } from '../../../components/explorer';
 import type { RouteStopFeature } from '../../../components/map';
 import { type MoveAction, type MovePlan, useStopOrder } from '../../../components/stop-order';
@@ -100,10 +100,7 @@ export function useMissionRun(missionId: string): MissionRun {
 	// The whole plan, not just the moved id: the write mirrors the server's own
 	// renumbering onto the stop rows, and a caller writing optimistic positions
 	// needs the order to write them in.
-	const commitMove = useCallback(
-		(plan: MovePlan) => missionWrites.moveStops(missionId, plan),
-		[missionWrites, missionId],
-	);
+	const commitMove = (plan: MovePlan) => missionWrites.moveStops(missionId, plan);
 	const { ordered, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
@@ -121,8 +118,10 @@ export function useMissionRun(missionId: string): MissionRun {
 		stopWrites: useMissionItemMutations(),
 	});
 
-	const features = useOrderedFeatures(ordered);
-	const existingRequestIds = useExistingRequestIds(stops);
+	// The map numbers the stops by the *pending* order rather than the synced one,
+	// so a reorder renumbers the pins on the same frame the list rearranges.
+	const features = missionStopFeatures(ordered);
+	const existingRequestIds = requestedActionIds(stops);
 
 	return {
 		mission: missionOrNull,
@@ -307,113 +306,90 @@ function useMissionActions({
 	const { skipTarget, setSkipTarget, removeTarget, setRemoveTarget, setCancelOpen, setReopenOpen } =
 		selection;
 
-	const itemAction = useCallback(
-		(stop: MissionStopView, action: MissionItemAction) => {
-			if (action === 'skip') {
-				setSkipTarget(stop);
-				return;
-			}
-			void run(
-				() => progressStop(stopWrites, stop.missionItemId, action),
-				'Unable to update that stop.',
-			);
-		},
-		[stopWrites, run, setSkipTarget],
-	);
+	const itemAction = (stop: MissionStopView, action: MissionItemAction) => {
+		if (action === 'skip') {
+			setSkipTarget(stop);
+			return;
+		}
+		void run(
+			() => progressStop(stopWrites, stop.missionItemId, action),
+			'Unable to update that stop.',
+		);
+	};
 
-	const confirmSkip = useCallback(
-		(reason: string) => {
-			const target = skipTarget;
-			setSkipTarget(null);
-			if (target === null) {
-				return;
-			}
-			void run(() => stopWrites.skip(target.missionItemId, reason), 'Unable to skip that stop.');
-		},
-		[skipTarget, setSkipTarget, stopWrites, run],
-	);
+	const confirmSkip = (reason: string) => {
+		const target = skipTarget;
+		setSkipTarget(null);
+		if (target === null) {
+			return;
+		}
+		void run(() => stopWrites.skip(target.missionItemId, reason), 'Unable to skip that stop.');
+	};
 
-	const confirmRemove = useCallback(() => {
+	const confirmRemove = () => {
 		const target = removeTarget;
 		setRemoveTarget(null);
 		if (target === null) {
 			return;
 		}
 		void run(() => stopWrites.removeStop(target.missionItemId), 'Unable to remove that stop.');
-	}, [removeTarget, setRemoveTarget, stopWrites, run]);
+	};
 
-	const confirmCancel = useCallback(
-		(reason: string) => {
-			setCancelOpen(false);
-			// The command requires a reason and the dialog does not, so an empty box
-			// is sent as the plain fact rather than as a validation failure.
-			const trimmed = reason.trim();
-			void run(
-				() => missionWrites.cancel(missionId, trimmed.length === 0 ? 'Cancelled' : trimmed),
-				'Unable to cancel this mission.',
-			);
-		},
-		[missionId, setCancelOpen, missionWrites, run],
-	);
+	const confirmCancel = (reason: string) => {
+		setCancelOpen(false);
+		// The command requires a reason and the dialog does not, so an empty box
+		// is sent as the plain fact rather than as a validation failure.
+		const trimmed = reason.trim();
+		void run(
+			() => missionWrites.cancel(missionId, trimmed.length === 0 ? 'Cancelled' : trimmed),
+			'Unable to cancel this mission.',
+		);
+	};
 
-	const confirmReopen = useCallback(
-		(reason: string) => {
-			setReopenOpen(false);
-			// Same bargain as cancelling: the command requires text and the dialog does
-			// not, so an empty box becomes the plain fact rather than a refused reopen.
-			const trimmed = reason.trim();
-			void run(
-				() => missionWrites.reopen(missionId, trimmed.length === 0 ? 'Reopened' : trimmed),
-				'Unable to reopen this mission.',
-			);
-		},
-		[missionId, setReopenOpen, missionWrites, run],
-	);
+	const confirmReopen = (reason: string) => {
+		setReopenOpen(false);
+		// Same bargain as cancelling: the command requires text and the dialog does
+		// not, so an empty box becomes the plain fact rather than a refused reopen.
+		const trimmed = reason.trim();
+		void run(
+			() => missionWrites.reopen(missionId, trimmed.length === 0 ? 'Reopened' : trimmed),
+			'Unable to reopen this mission.',
+		);
+	};
 
-	const addStop = useCallback(
-		(request: OpenRequest) => {
-			if (organizationId === null) {
-				return;
-			}
-			void run(
-				() =>
-					stopWrites.addFromRequest({
-						missionId,
-						request: {
-							requestedControlActionId: request.id,
-							lat: request.latitude,
-							lng: request.longitude,
-							geomType: request.geometryKind,
-						},
-						position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
-					}),
-				'Unable to add that stop.',
-			);
-		},
-		[organizationId, stopWrites, missionId, stops, run],
-	);
+	const addStop = (request: OpenRequest) => {
+		if (organizationId === null) {
+			return;
+		}
+		void run(
+			() =>
+				stopWrites.addFromRequest({
+					missionId,
+					request: {
+						requestedControlActionId: request.id,
+						lat: request.latitude,
+						lng: request.longitude,
+						geomType: request.geometryKind,
+					},
+					position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
+				}),
+			'Unable to add that stop.',
+		);
+	};
 
 	return {
-		start: useCallback(
-			() => void run(() => missionWrites.start(missionId), 'Unable to start this mission.'),
-			[missionId, missionWrites, run],
-		),
-		complete: useCallback(
-			() => void run(() => missionWrites.complete(missionId), 'Unable to complete this mission.'),
-			[missionId, missionWrites, run],
-		),
-		reopen: useCallback(() => setReopenOpen(true), [setReopenOpen]),
+		start: () => void run(() => missionWrites.start(missionId), 'Unable to start this mission.'),
+		complete: () =>
+			void run(() => missionWrites.complete(missionId), 'Unable to complete this mission.'),
+		reopen: () => setReopenOpen(true),
 		confirmCancel,
 		confirmReopen,
 		itemAction,
 		confirmSkip,
 		confirmRemove,
-		move: useCallback(
-			(index: number, action: MoveAction) => {
-				void run(() => moveStop(index, action), 'Unable to reorder the mission.');
-			},
-			[moveStop, run],
-		),
+		move: (index: number, action: MoveAction) => {
+			void run(() => moveStop(index, action), 'Unable to reorder the mission.');
+		},
 		addStop,
 	};
 }
@@ -432,23 +408,13 @@ function progressStop(
 
 // --- derived ----------------------------------------------------------------
 
-/**
- * The map's view of the stops, numbered by the *pending* order rather than the
- * synced one, so a reorder renumbers the pins on the same frame the list
- * rearranges.
- */
-function useOrderedFeatures(ordered: readonly MissionStopView[]): readonly RouteStopFeature[] {
-	return useMemo(() => missionStopFeatures(ordered), [ordered]);
-}
-
-function useExistingRequestIds(stops: readonly MissionStopView[]): ReadonlySet<string> {
-	return useMemo(() => {
-		const ids = new Set<string>();
-		for (const stop of stops) {
-			if (stop.requestedControlActionId !== null) {
-				ids.add(stop.requestedControlActionId);
-			}
+/** The control actions the stops have already requested. */
+function requestedActionIds(stops: readonly MissionStopView[]): ReadonlySet<string> {
+	const ids = new Set<string>();
+	for (const stop of stops) {
+		if (stop.requestedControlActionId !== null) {
+			ids.add(stop.requestedControlActionId);
 		}
-		return ids;
-	}, [stops]);
+	}
+	return ids;
 }

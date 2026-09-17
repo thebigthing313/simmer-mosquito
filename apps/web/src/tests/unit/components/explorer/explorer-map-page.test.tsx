@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { act, StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ExplorerEmptyReason } from '../../../../components/explorer/explorer-empty-state';
 import type { MinimumRole } from '../../../../lib/write-access';
 
 // The role floor the create control is drawn against. `useHasRole` reads the
@@ -149,6 +150,8 @@ function Page({
 	hasCreate = true,
 	hasPager = true,
 	hasReset = true,
+	emptyReason,
+	onResetFilters = () => {},
 	create = { to: '/larval-surveillance/habitats/create', label: 'Add Habitat' } as
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined,
@@ -161,6 +164,12 @@ function Page({
 	readonly hasCreate?: boolean;
 	readonly hasPager?: boolean;
 	readonly hasReset?: boolean;
+	/**
+	 * Hand over the paged shape instead of two sentences, which is what the nine
+	 * viewport-paged explorers do, and let the frame write the copy.
+	 */
+	readonly emptyReason?: ExplorerEmptyReason | null;
+	readonly onResetFilters?: () => void;
 	readonly create?:
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined;
@@ -175,28 +184,34 @@ function Page({
 				title: 'Habitats',
 				total: rows.length,
 				isLoading,
-				noun: { one: 'habitat', many: 'habitats' },
+				counts: 'habitat',
 				create: (hasCreate ? create : undefined) as never,
 			}}
 			map={<p>map surface</p>}
-			onResetFilters={hasReset ? () => {} : undefined}
+			onResetFilters={hasReset ? onResetFilters : undefined}
 			panel={panel}
 			results={
-				body === undefined
+				emptyReason !== undefined
 					? {
 							rows,
-							emptyTitle: 'No habitats in view',
-							emptyDescription: 'Loosen the filters to bring habitats into range.',
-							// The list item belongs to the rail, which positions and measures
-							// it. A caller renders the row's contents.
+							empty: { recordType: 'habitat', reason: emptyReason },
 							renderRow: (row) => <span key={row.id}>{row.name}</span>,
 						}
-					: {
-							body,
-							isEmpty: bodyIsEmpty,
-							emptyTitle: 'No habitats in view',
-							emptyDescription: 'Loosen the filters to bring habitats into range.',
-						}
+					: body === undefined
+						? {
+								rows,
+								emptyTitle: 'No habitats in view',
+								emptyDescription: 'Loosen the filters to bring habitats into range.',
+								// The list item belongs to the rail, which positions and measures
+								// it. A caller renders the row's contents.
+								renderRow: (row) => <span key={row.id}>{row.name}</span>,
+							}
+						: {
+								body,
+								isEmpty: bodyIsEmpty,
+								emptyTitle: 'No habitats in view',
+								emptyDescription: 'Loosen the filters to bring habitats into range.',
+							}
 			}
 		/>
 	);
@@ -357,6 +372,79 @@ describe('ExplorerMapPage', () => {
 
 		expect(screen.getByText('No habitats in view')).toBeTruthy();
 		expect(screen.getByText('Loosen the filters to bring habitats into range.')).toBeTruthy();
+	});
+
+	/*
+	 * The nine viewport-paged explorers hand over why the page is empty rather
+	 * than two sentences, and the frame writes the copy from what it holds: the
+	 * register's noun, the create action, the filter count and the filter card
+	 * (#958). Three branches, one sentence each, asserted as a reader sees them.
+	 */
+	describe('the paged empty state', () => {
+		it('says to pan when matches exist somewhere outside the viewport', () => {
+			render(<Page emptyReason="viewport" rows={[]} />);
+
+			expect(screen.getByText('No habitats in view')).toBeTruthy();
+			expect(
+				screen.getByText(
+					'Pan or zoom the map, or loosen the filters to bring habitats into range.',
+				),
+			).toBeTruthy();
+		});
+
+		it('offers the reset when a filter is set and nothing matches anywhere', () => {
+			const onResetFilters = vi.fn();
+			render(
+				<Page
+					activeFilterCount={2}
+					emptyReason="filters"
+					onResetFilters={onResetFilters}
+					rows={[]}
+				/>,
+			);
+
+			expect(screen.getByText('No habitats match these filters')).toBeTruthy();
+			fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+			expect(onResetFilters).toHaveBeenCalledTimes(1);
+		});
+
+		// At the defaults there is nothing to reset, and what narrowed the request
+		// is in the filter card, so the control opens it.
+		it('opens the filter card when the defaults are what excluded everything', () => {
+			render(<Page activeFilterCount={0} emptyReason="filters" rows={[]} />);
+
+			expect(screen.getByText('No habitats match these filters')).toBeTruthy();
+			expect(screen.queryByRole('button', { name: 'Reset filters' })).toBeNull();
+			expect(screen.queryByText('filter controls')).toBeNull();
+
+			fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+			expect(screen.getByText('filter controls')).toBeTruthy();
+		});
+
+		it('points at the create control, by the label it draws, when there are none yet', () => {
+			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
+
+			expect(screen.getByText('No habitats yet')).toBeTruthy();
+			expect(screen.getByText('Create Habitat is in the More actions menu.')).toBeTruthy();
+		});
+
+		// The pointer sits behind the same floor the control does. A reader who
+		// cannot add one is not sent to a menu item they cannot see.
+		it('leaves the create pointer out below the floor the control needs', () => {
+			signedInRole = 'viewer';
+			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
+
+			expect(screen.getByText('No habitats yet')).toBeTruthy();
+			expect(screen.queryByText('Create Habitat is in the More actions menu.')).toBeNull();
+		});
+
+		it('draws placeholders rather than a reason while the extent is still out', () => {
+			render(<Page emptyReason={null} isLoading rows={[]} />);
+
+			expect(skeletonCount()).toBeGreaterThan(0);
+			expect(screen.queryByText('No habitats in view')).toBeNull();
+			expect(screen.queryByText('No habitats yet')).toBeNull();
+		});
 	});
 
 	it('keeps the rows on screen while a later page loads', () => {

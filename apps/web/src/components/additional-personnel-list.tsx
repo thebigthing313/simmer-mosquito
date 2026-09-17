@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import {
 	type AdditionalPersonnelTarget,
 	useAdditionalPersonnel,
@@ -22,13 +21,9 @@ export function AdditionalPersonnelList({
 	// who has since left still worked it. Service status is a picker's question.
 	const nameById = useProfileNames();
 
-	const names = useMemo(
-		() =>
-			profileIds
-				.map((profileId) => nameById.get(profileId) ?? 'Unknown profile')
-				.sort((first, second) => first.localeCompare(second)),
-		[nameById, profileIds],
-	);
+	const names = profileIds
+		.map((profileId) => nameById.get(profileId) ?? 'Unknown profile')
+		.sort((first, second) => first.localeCompare(second));
 
 	if (!isReady || names.length === 0) {
 		return null;

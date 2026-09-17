@@ -20,15 +20,17 @@ import type { MapInset } from '../../components/map/map-inset';
 import { resolveLinkedAddress } from '../../hooks/queries/address-view';
 import { useInspection } from '../../hooks/queries/use-inspection';
 import { addressCardLabel } from '../../lib/address-format';
-import { adhocLabel } from '../../lib/coordinate-label';
+import { habitatLabel } from '../../lib/coordinate-label';
+import { recordNoun } from '../../lib/record-nouns';
 
 const StagesIcon = iconRegistry.domains.larvalSurveillance.icon;
 
 /**
  * The map focus card for a Habitat Inspection.
  *
- * Everything about the inspection arrives in one row from `useInspection` — the
- * site, the type and the inspector are joined rather than looked up in sequence.
+ * Everything about the inspection arrives in one row from `useInspection`: the
+ * habitat, the type and the inspector are joined rather than looked up in
+ * sequence.
  * The Address is the exception, resolved here because {@link MapCardAddress}
  * resolves it too and one hook against one collection is one subset.
  */
@@ -46,7 +48,7 @@ export function InspectionMapCard({
 
 	if (inspection === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Inspection">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('inspection').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -55,32 +57,44 @@ export function InspectionMapCard({
 		);
 	}
 
-	// `habitatName` is null only for an Ad Hoc Inspection — a Habitat with no name
-	// of its own already reads out its coordinates. So the fallbacks below are what
-	// titles an inspection that happened at no Habitat: the Address it was linked
-	// to, or failing that its own centroid.
-	const siteLabel =
-		inspection.habitatName ??
-		addressCardLabel(resolveLinkedAddress(inspection.address)) ??
-		adhocLabel(inspection.latitude, inspection.longitude);
+	// The row is mapped at the call rather than renamed at the seam: `lat` and
+	// `lng` are what every other reader of this label speaks, and `useInspection`
+	// answers in `latitude` and `longitude` because that is what the rest of the
+	// card reads (#907).
+	//
+	// The Address is the card's own full postal line rather than the row's
+	// `display_name`, which is the one thing this surface asks for that the
+	// explorer does not.
+	const label = habitatLabel(
+		{
+			habitatId: inspection.habitatId,
+			habitatName: inspection.habitatName,
+			lat: inspection.latitude,
+			lng: inspection.longitude,
+		},
+		{
+			addressName: addressCardLabel(resolveLinkedAddress(inspection.address)),
+			fallback: 'Ad-hoc inspection',
+		},
+	);
 	const typeName =
 		inspection.habitatTypeId === null ? 'Unassigned type' : (inspection.typeName ?? 'Unknown type');
 
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={inspection.inspectionDate} type="Inspection" />}
+			eyebrow={<MapCardEyebrow date={inspection.inspectionDate} recordType="inspection" />}
 			inset={inset}
 			onClose={onClose}
 			title={
 				inspection.habitatId === null ? (
-					<span className="tabular-nums">{siteLabel}</span>
+					<span className="tabular-nums">{label}</span>
 				) : (
 					<Link
 						className={recordLink({ tone: 'inherit' })}
 						params={{ id: inspection.habitatId }}
 						to="/larval-surveillance/habitats/$id"
 					>
-						{siteLabel}
+						{label}
 					</Link>
 				)
 			}

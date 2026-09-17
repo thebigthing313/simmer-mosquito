@@ -57,8 +57,12 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  * The status set is the union of what the domains raise: `400` for a payload
  * the domain could not use, `403` for a row the actor may not reach, `404` for
  * one that is not theirs to see, and `409` for a row the database itself
- * refuses to remove. `reason` is set where the client can act on the
- * distinction; the four surveillance domains never set it.
+ * refuses to remove. `reason` is **a sentence a person reads**, set where the
+ * client can say more than "that was refused"; the four surveillance domains
+ * never set it. It is never a code: `error` is the code, and a refusal with
+ * several shapes a client acts on differently carries the discriminator on
+ * `code`, which is the rule #795 settled and `CommandRefusal` in
+ * `packages/sync` states.
  *
  * `409` is the global catalogs' case. An organization delete that other rows
  * block is decided before the delete runs, by `applyRecordDeletion`, and
@@ -156,11 +160,11 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 	// A merge names rows the caller has to have seen to name, so a refusal is
 	// either that one of them is gone, which is a 404 and the same answer as a
 	// row of another organization, or that the survivor is retired, which is a
-	// state the caller can fix, so 409. `reason` is the discriminator, and is
+	// state the caller can fix, so 409. `code` is the discriminator, and is
 	// what the form maps to a message about the right field.
 	if (error instanceof RecordMergeRefusedError) {
 		return context.json(
-			{ error: 'merge_refused', reason: error.reason, message: error.message },
+			{ error: 'merge_refused', code: error.reason, reason: error.message },
 			error.reason === 'target_inactive' ? 409 : 404,
 		);
 	}
@@ -173,9 +177,9 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		return context.json(
 			{
 				error: 'reference_refused',
-				reason: error.reason,
+				code: error.reason,
 				reference: error.reference,
-				message: error.message,
+				reason: error.message,
 			},
 			error.reason === 'inactive' ? 409 : 404,
 		);
@@ -189,8 +193,8 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		return context.json(
 			{
 				error: 'mission_notifications_refused',
-				reason: error.reason,
-				message: error.message,
+				code: error.reason,
+				reason: error.message,
 				unitCodes: error.unitCodes,
 				registrations: error.registrations,
 				registrationsNotShown: error.registrationsNotShown,
@@ -205,10 +209,18 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 // Building commands
 // ===========================================================================
 
-/** The 400 body a domain builder's rejection becomes. */
+/**
+ * The 400 body a domain builder's rejection becomes.
+ *
+ * `reason` and not `message`, which is #795's rule reaching the last refusal
+ * that had not moved (#928): a refusal's sentence is `reason` everywhere, so a
+ * caller reading that one field reads every refusal. `message` inside `issues`
+ * is a different field and stays, being the sentence for one path rather than
+ * for the command.
+ */
 export type InvalidCommandBody = {
 	readonly error: 'invalid_command';
-	readonly message: string;
+	readonly reason: string;
 	readonly issues: readonly { readonly path: string; readonly message: string }[];
 };
 
@@ -223,7 +235,7 @@ export type CommandsResult<TCommand> =
 	| { readonly ok: false; readonly body: InvalidCommandBody };
 
 function invalidCommandBody(error: DomainValidationError): InvalidCommandBody {
-	return { error: 'invalid_command', message: error.message, issues: error.issues };
+	return { error: 'invalid_command', reason: error.message, issues: error.issues };
 }
 
 /** The two fields every organization command carries, read off the resolved session. */

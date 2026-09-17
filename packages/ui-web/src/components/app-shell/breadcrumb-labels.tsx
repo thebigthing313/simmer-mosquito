@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 /**
  * A small registry of human labels for path segments the breadcrumb trail would
@@ -30,26 +30,23 @@ const BreadcrumbLabelApiContext = createContext<LabelApi | null>(null);
 export function BreadcrumbLabelProvider({ children }: { readonly children: React.ReactNode }) {
 	const [labels, setLabels] = useState<BreadcrumbLabelMap>(EMPTY_LABELS);
 
-	// Created once: the setters close over the state updater, never over `labels`,
-	// so this object's identity is stable for the provider's lifetime.
-	const api = useMemo<LabelApi>(
-		() => ({
-			setLabel: (segment, label) =>
-				setLabels((current) =>
-					current.get(segment) === label ? current : new Map(current).set(segment, label),
-				),
-			clearLabel: (segment) =>
-				setLabels((current) => {
-					if (!current.has(segment)) {
-						return current;
-					}
-					const next = new Map(current);
-					next.delete(segment);
-					return next;
-				}),
-		}),
-		[],
-	);
+	// The setters close over the state updater, never over `labels`, so nothing
+	// here reads a value that changes between renders.
+	const api: LabelApi = {
+		setLabel: (segment, label) =>
+			setLabels((current) =>
+				current.get(segment) === label ? current : new Map(current).set(segment, label),
+			),
+		clearLabel: (segment) =>
+			setLabels((current) => {
+				if (!current.has(segment)) {
+					return current;
+				}
+				const next = new Map(current);
+				next.delete(segment);
+				return next;
+			}),
+	};
 
 	return (
 		<BreadcrumbLabelApiContext.Provider value={api}>

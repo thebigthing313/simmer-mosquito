@@ -75,16 +75,16 @@ function ReinviteAction({
 		setConfirmOpen(false);
 		setIsSending(true);
 		setFailure(null);
+		const recipient = email ?? name;
 		try {
 			await reinvite(membershipId, role);
-			toast.success(`New invitation sent to ${email ?? name}.`);
+			toast.success(`New invitation sent to ${recipient}.`);
 		} catch (sendError) {
 			const message = saveFailureMessage(sendError, 'The new invitation was not sent.');
 			setFailure(message);
 			toast.error(message);
-		} finally {
-			setIsSending(false);
 		}
+		setIsSending(false);
 	}
 
 	return (

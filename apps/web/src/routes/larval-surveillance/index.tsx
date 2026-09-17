@@ -1,35 +1,31 @@
-import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import {
-	AlertTriangleIcon,
-	ChevronDownIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useState } from 'react';
 import {
 	DensityBadge,
 	hasAnyLifeStage,
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../components/larval-display';
+import { PersonGroupBlock } from '../../components/person-group-block';
 import {
-	inspectionSiteLabel,
+	SPECIES_WINDOWS,
+	SpeciesCompositionPanel,
+	type SpeciesWindow,
+	speciesWindowSince,
+} from '../../components/species-composition-panel';
+import { WeekDayStrip } from '../../components/week-day-strip';
+import {
+	inspectionHabitatLabel,
 	inspectionTypeLabel,
 	type LarvalActivityRow,
 } from '../../hooks/queries/larval-activity-view';
@@ -37,25 +33,20 @@ import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-act
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../lib/coordinate-label';
+import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
+import { groupRows, type RowGroup } from '../../lib/row-groups';
 import type { InspectionsSearch } from './-inspections-search';
-import {
-	ACTIVITY_WINDOW_DAYS,
-	addDaysToDateString,
-	buildWeek,
-	dayOfMonth,
-	formatMonthDay,
-	type SpeciesTotal,
-	startOfWeek,
-	todayInTimeZone,
-	useSamplesAwaiting,
-	useSpeciesComposition,
-	weekdayLabel,
-} from './-overview-data';
+import { useSamplesAwaiting, useSpeciesComposition } from './-overview-data';
+
+/** How far back the recent-window queries (heavy list, open samples) reach. */
+const ACTIVITY_WINDOW_DAYS = 14;
+
+/** Both inspection panels read the same activity, so a failure says the same thing. */
+const INSPECTIONS_UNAVAILABLE = { description: 'Inspection activity is unavailable right now.' };
 
 const LarvalIcon = iconRegistry.domains.larvalSurveillance.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
-const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const MapViewIcon = iconRegistry.generic.map.icon;
 
 /**
@@ -85,8 +76,11 @@ export const Route = createFileRoute('/larval-surveillance/')({
 });
 
 function LarvalSurveillanceOverviewRoute() {
+	// `record` is the measure the route-loading skeleton reserves, so the
+	// overview arrives at the width it stood in for (#1043, #1049). The panels
+	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
+		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="Inspection activity across your habitats, the species your samples identified, and the habitats where larval density came back heavy."
 				eyebrow="Surveillance & mapping"
@@ -105,8 +99,8 @@ function OverviewBody() {
 	// The organization's "today"; the day strip and windows are pure string math
 	// from here.
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const since = useMemo(() => addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1)), [today]);
+	const today = todayInTimeZone(timeZone);
+	const since = addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1));
 
 	return (
 		<div className="grid gap-5 xl:grid-cols-12">
@@ -115,7 +109,7 @@ function OverviewBody() {
 			</div>
 
 			<div className="grid content-start gap-5 xl:col-span-5">
-				<SpeciesCompositionPanel today={today} />
+				<LarvalSpeciesComposition today={today} />
 				<OpenSamplesPanel since={since} />
 			</div>
 
@@ -128,7 +122,7 @@ function OverviewBody() {
 
 /** Habitat name as a link to the habitat, for panels that list a day's work. */
 function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
-	const label = inspectionSiteLabel(row);
+	const label = inspectionHabitatLabel(row);
 	if (row.habitatId === null) {
 		return (
 			<span className="truncate font-medium text-foreground text-sm tabular-nums">{label}</span>
@@ -147,41 +141,13 @@ function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
 
 // --- daily inspections ------------------------------------------------------
 
-interface InspectorGroup {
-	readonly key: string;
-	readonly name: string;
-	readonly rows: readonly LarvalActivityRow[];
-}
-
-const UNASSIGNED_KEY = '__unassigned__';
-
-function groupByInspector(inspections: readonly LarvalActivityRow[]): readonly InspectorGroup[] {
-	const groups = new Map<string, LarvalActivityRow[]>();
-	for (const inspection of inspections) {
-		const key = inspection.inspectedByProfileId ?? UNASSIGNED_KEY;
-		const existing = groups.get(key);
-		if (existing) {
-			existing.push(inspection);
-		} else {
-			groups.set(key, [inspection]);
-		}
-	}
-	return [...groups.entries()]
-		.map(([key, rows]) => ({
-			key,
-			name:
-				key === UNASSIGNED_KEY ? 'Unassigned' : (rows[0]?.inspectedByName ?? 'Unknown inspector'),
-			rows,
-		}))
-		.sort((first, second) => {
-			if (first.key === UNASSIGNED_KEY) {
-				return 1;
-			}
-			if (second.key === UNASSIGNED_KEY) {
-				return -1;
-			}
-			return first.name.localeCompare(second.name);
-		});
+/** A day's inspections by the person who made them, the unassigned ones last. */
+function groupByInspector(inspections: readonly LarvalActivityRow[]) {
+	return groupRows(inspections, {
+		key: (inspection) => inspection.inspectedByProfileId,
+		name: (inspection) => inspection.inspectedByName,
+		unknownName: 'Unknown inspector',
+	});
 }
 
 function DailyInspectionsPanel({ today }: { readonly today: string }) {
@@ -190,17 +156,7 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 	// there is nothing to resolve and no second request to wait on.
 	const { rows: inspections, isReady, isError } = useLarvalActivityForDate(selectedDate);
 
-	const groups = useMemo(() => groupByInspector(inspections), [inspections]);
-
-	const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
-	const days = useMemo(() => buildWeek(weekStart), [weekStart]);
-	// The current week is the latest browsable one; there is no future data.
-	const canGoNextWeek = weekStart < startOfWeek(today);
-
-	const goToWeek = (deltaDays: number) => {
-		const shifted = addDaysToDateString(selectedDate, deltaDays);
-		setSelectedDate(shifted > today ? today : shifted);
-	};
+	const groups = groupByInspector(inspections);
 
 	return (
 		<Panel
@@ -214,130 +170,60 @@ function DailyInspectionsPanel({ today }: { readonly today: string }) {
 			icon={<InspectionIcon className="size-4" />}
 			title="Daily Inspections"
 		>
-			<div className="flex items-stretch gap-1 border-border/60 border-b p-3">
-				<Button
-					aria-label="Previous week"
-					className="size-auto shrink-0 px-1.5"
-					onClick={() => goToWeek(-7)}
-					size="icon"
-					variant="outline"
-				>
-					<ChevronLeftIcon aria-hidden="true" className="size-4" />
-				</Button>
-				<div className="grid flex-1 grid-cols-7 gap-1">
-					{days.map((day) => {
-						const isSelected = day === selectedDate;
-						const isToday = day === today;
-						const isFuture = day > today;
-						return (
-							<button
-								className={cn(
-									'flex flex-col items-center gap-0.5 rounded-md border px-1 py-1.5 text-xs transition-colors',
-									isSelected
-										? 'border-primary bg-primary text-primary-foreground'
-										: isFuture
-											? 'cursor-not-allowed border-border/40 text-muted-foreground/40'
-											: 'border-border hover:bg-accent',
-								)}
-								disabled={isFuture}
-								key={day}
-								onClick={() => setSelectedDate(day)}
-								type="button"
-							>
-								<span className="text-[0.62rem] uppercase tracking-wide opacity-70">
-									{isToday ? 'Today' : weekdayLabel(day)}
-								</span>
-								<span className="font-semibold tabular-nums">{dayOfMonth(day)}</span>
-							</button>
-						);
-					})}
-				</div>
-				<Button
-					aria-label="Next week"
-					className="size-auto shrink-0 px-1.5"
-					disabled={!canGoNextWeek}
-					onClick={() => goToWeek(7)}
-					size="icon"
-					variant="outline"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Button>
-			</div>
+			<WeekDayStrip onSelect={setSelectedDate} selectedDate={selectedDate} today={today} />
 
-			{isError ? (
-				<PanelMessage>Inspection activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton />
-			) : groups.length === 0 ? (
-				<PanelMessage>No inspections recorded on this day.</PanelMessage>
-			) : (
-				// A busy day can hold hundreds of inspections; keep the panel a fixed,
-				// internally scrolling height so the page stays balanced beside the
-				// shorter right column instead of stretching to full document length.
-				<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
-					{groups.map((group) => (
-						<InspectorGroupBlock group={group} key={group.key} />
-					))}
-				</div>
-			)}
+			<PanelRows
+				empty={{ description: 'No inspections recorded on this day.' }}
+				icon={<InspectionIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: groups }}
+				unavailable={INSPECTIONS_UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					// A busy day can hold hundreds of inspections; keep the panel a fixed,
+					// internally scrolling height so the page stays balanced beside the
+					// shorter right column instead of stretching to full document length.
+					<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
+						{rows.map((group) => (
+							<InspectorGroupBlock group={group} key={group.key} />
+						))}
+					</div>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
 
 /**
- * One inspector's day, collapsed to a single summary row until opened.
+ * One inspector's day, with how much of it came back breeding-positive.
  *
- * A crew of six working a heavy day puts several hundred rows in this panel, and
- * every one of them had to be scrolled past to reach the next inspector. Closed,
- * the row answers the question the panel is usually asked — how much each person
- * got through, and how much of it came back breeding-positive.
+ * That count is the only thing this adds to the shared block: the question the
+ * panel is usually asked is how much each person got through, and how much of
+ * it was wet and holding larvae.
  */
-function InspectorGroupBlock({ group }: { readonly group: InspectorGroup }) {
-	const [open, setOpen] = useState(false);
-	const PersonnelIcon = iconRegistry.entities.organization.icon;
+function InspectorGroupBlock({ group }: { readonly group: RowGroup<LarvalActivityRow> }) {
 	const positiveCount = group.rows.filter(
 		(inspection) => inspection.isWet && hasAnyLifeStage(inspection),
 	).length;
 
 	return (
-		<Collapsible asChild onOpenChange={setOpen} open={open}>
-			<section>
-				<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-					{open ? (
-						<ChevronDownIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-					) : (
-						<ChevronRightIcon
-							aria-hidden="true"
-							className="size-4 shrink-0 text-muted-foreground"
-						/>
-					)}
-					<PersonnelIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-					<span
-						className={cn(
-							'min-w-0 flex-1 truncate font-medium text-sm',
-							group.key === UNASSIGNED_KEY && 'text-muted-foreground italic',
-						)}
-					>
-						{group.name}
-					</span>
-					{positiveCount > 0 ? (
-						<Badge tone="danger" variant="outline">
-							{positiveCount} positive
-						</Badge>
-					) : null}
-					<span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
-						{group.rows.length}
-					</span>
-				</CollapsibleTrigger>
-				<CollapsibleContent>
-					<ul className="grid px-3 pb-3">
-						{group.rows.map((inspection) => (
-							<InspectionRow key={inspection.id} row={inspection} />
-						))}
-					</ul>
-				</CollapsibleContent>
-			</section>
-		</Collapsible>
+		<PersonGroupBlock
+			aside={
+				positiveCount > 0 ? (
+					<Badge tone="danger" variant="outline">
+						{positiveCount} positive
+					</Badge>
+				) : null
+			}
+			count={group.rows.length}
+			groupKey={group.key}
+			name={group.name}
+		>
+			{group.rows.map((inspection) => (
+				<InspectionRow key={inspection.id} row={inspection} />
+			))}
+		</PersonGroupBlock>
 	);
 }
 
@@ -362,113 +248,23 @@ function InspectionRow({ row }: { readonly row: LarvalActivityRow }) {
 
 // --- species composition ----------------------------------------------------
 
-const SPECIES_PREVIEW_COUNT = 6;
-type SpeciesWindow = '7d' | '30d';
-
-function SpeciesCompositionPanel({ today }: { readonly today: string }) {
+function LarvalSpeciesComposition({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
-	const since = useMemo(
-		() => addDaysToDateString(today, window === '7d' ? -6 : -29),
-		[today, window],
+	const { totals, grandTotal, isReady, isError } = useSpeciesComposition(
+		speciesWindowSince(today, window),
 	);
-	const { totals, grandTotal, isReady, isError } = useSpeciesComposition(since);
-
-	const { top, otherTotal, otherCount, maxBar } = useMemo(() => {
-		const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
-		const rest = totals.slice(SPECIES_PREVIEW_COUNT);
-		return {
-			top: previewed,
-			otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
-			otherCount: rest.length,
-			maxBar: previewed[0]?.total ?? 1,
-		};
-	}, [totals]);
 
 	return (
-		<Panel
-			actions={
-				<ToggleGroup
-					aria-label="Species window"
-					className="h-8"
-					onValueChange={(next) => next && setWindow(next as SpeciesWindow)}
-					size="sm"
-					type="single"
-					value={window}
-					variant="outline"
-				>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="7d">
-						7d
-					</ToggleGroupItem>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="30d">
-						30d
-					</ToggleGroupItem>
-				</ToggleGroup>
-			}
-			icon={<SpeciesIcon className="size-4" />}
-			title="Species Composition"
-		>
-			{isError ? (
-				<PanelMessage>Species data is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={5} />
-			) : top.length === 0 ? (
-				<PanelMessage>
-					No larvae identified in the last {window === '7d' ? '7' : '30'} days.
-				</PanelMessage>
-			) : (
-				<div className="grid gap-2.5 p-4">
-					{top.map((entry) => (
-						<SpeciesBar
-							barWidth={(entry.total / maxBar) * 100}
-							entry={entry}
-							key={entry.speciesId}
-							percent={grandTotal === 0 ? 0 : (entry.total / grandTotal) * 100}
-						/>
-					))}
-					{otherTotal > 0 ? (
-						<SpeciesBar
-							barWidth={(otherTotal / maxBar) * 100}
-							entry={{ speciesId: '__other__', name: `Other (${otherCount})`, total: otherTotal }}
-							muted
-							percent={grandTotal === 0 ? 0 : (otherTotal / grandTotal) * 100}
-						/>
-					) : null}
-				</div>
-			)}
-		</Panel>
-	);
-}
-
-function SpeciesBar({
-	entry,
-	percent,
-	barWidth,
-	muted = false,
-}: {
-	readonly entry: SpeciesTotal;
-	readonly percent: number;
-	readonly barWidth: number;
-	readonly muted?: boolean;
-}) {
-	return (
-		<div className="grid gap-1">
-			<div className="flex items-baseline justify-between gap-2 text-sm">
-				<span
-					className={cn('truncate', muted ? 'text-muted-foreground' : 'text-foreground italic')}
-				>
-					{entry.name}
-				</span>
-				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
-				</span>
-			</div>
-			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-				<div
-					className={cn('h-full rounded-full', muted ? 'bg-muted-foreground/40' : 'bg-primary')}
-					style={{ width: `${Math.max(barWidth, 2)}%` }}
-				/>
-			</div>
-		</div>
+		<SpeciesCompositionPanel
+			emptySubject="larvae"
+			grandTotal={grandTotal}
+			isError={isError}
+			isReady={isReady}
+			onWindowChange={setWindow}
+			totals={totals}
+			window={window}
+			windows={SPECIES_WINDOWS}
+		/>
 	);
 }
 
@@ -495,45 +291,47 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 			icon={<SampleIcon className="size-4" />}
 			title="Awaiting Identification"
 		>
-			{isError ? (
-				<PanelMessage>Sample data is unavailable right now.</PanelMessage>
-			) : isLoading ? (
-				<RowSkeleton count={3} />
-			) : samples.length === 0 ? (
-				<PanelMessage>No samples awaiting identification. Nice work.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{samples.map((sample) => (
-						<li className="flex items-center gap-3 px-4 py-2.5" key={sample.id}>
-							<div className="grid min-w-0 flex-1">
-								<Link
-									className={cn(recordLink({ size: 'sm' }), 'truncate')}
-									params={{ id: sample.id }}
-									to="/larval-surveillance/samples/$id"
-								>
-									{sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`}
-								</Link>
-								<span className="truncate text-muted-foreground text-xs tabular-nums">
-									{sample.habitatName ??
-										(sample.habitatId === null ? adhocLabel(sample.lat, sample.lng) : 'Habitat')}
+			<PanelRows
+				empty={{ description: 'No samples awaiting identification. Nice work.' }}
+				icon={<SampleIcon aria-hidden="true" />}
+				inset
+				// The hook says `isLoading`; the reading asks the other way round.
+				reading={{ isError, isReady: !isLoading, rows: samples }}
+				unavailable={{ description: 'Sample data is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((sample) => (
+							<li className="flex items-center gap-3 px-4 py-2.5" key={sample.id}>
+								<div className="grid min-w-0 flex-1">
+									<Link
+										className={cn(recordLink({ size: 'sm' }), 'truncate')}
+										params={{ id: sample.id }}
+										to="/larval-surveillance/samples/$id"
+									>
+										{sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`}
+									</Link>
+									<span className="truncate text-muted-foreground text-xs tabular-nums">
+										{sample.habitatName ??
+											(sample.habitatId === null
+												? adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')
+												: 'Habitat')}
+									</span>
+								</div>
+								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+									{formatMonthDay(sample.inspectionDate)}
 								</span>
-							</div>
-							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-								{formatMonthDay(sample.inspectionDate)}
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
+							</li>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
 
 // --- heavy / very heavy -----------------------------------------------------
-
-function _isHot(density: LarvalDensity | null): boolean {
-	return density === 'heavy' || density === 'very_heavy';
-}
 
 function HeavyInspectionsPanel({
 	since,
@@ -559,54 +357,57 @@ function HeavyInspectionsPanel({
 			icon={<AlertTriangleIcon className="size-4" />}
 			title={`Heavy & Very Heavy · Last ${ACTIVITY_WINDOW_DAYS} Days`}
 		>
-			{isError ? (
-				<PanelMessage>Inspection activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : hot.length === 0 ? (
-				<PanelMessage>
-					No heavy or very heavy inspections in the last {ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="grid gap-1 p-2 sm:grid-cols-2">
-					{hot.map((inspection) => {
-						const row = inspection;
-						return (
-							<li
-								className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
-								key={inspection.id}
-							>
-								<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-									{formatMonthDay(inspection.inspectionDate)}
-								</span>
-								{/*
-								 * The reason to look at this panel is to open the inspection that
-								 * came back heavy, so the row's body goes there rather than to the
-								 * habitat — the habitat is one hop further on from the inspection.
-								 */}
-								<Link
-									className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-									params={{ id: inspection.id }}
-									to="/larval-surveillance/inspections/$id"
+			<PanelRows
+				empty={{
+					description: `No heavy or very heavy inspections in the last ${ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<AlertTriangleIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: hot }}
+				unavailable={INSPECTIONS_UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="grid gap-1 p-2 sm:grid-cols-2">
+						{rows.map((inspection) => {
+							const row = inspection;
+							return (
+								<li
+									className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
+									key={inspection.id}
 								>
-									<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
-										{inspectionSiteLabel(row)}
+									<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
+										{formatMonthDay(inspection.inspectionDate)}
 									</span>
-									<span className="truncate text-muted-foreground text-xs">
-										{row.typeName ?? 'Unassigned type'}
-									</span>
-								</Link>
-								<div className="flex shrink-0 items-center gap-2">
-									<DensityBadge density={inspection.density} />
-									{hasAnyLifeStage(inspection) ? (
-										<LifeStageStrip size="sm" stages={inspection} />
-									) : null}
-								</div>
-							</li>
-						);
-					})}
-				</ul>
-			)}
+									{/*
+									 * The reason to look at this panel is to open the inspection that
+									 * came back heavy, so the row's body goes there rather than to the
+									 * habitat — the habitat is one hop further on from the inspection.
+									 */}
+									<Link
+										className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										params={{ id: inspection.id }}
+										to="/larval-surveillance/inspections/$id"
+									>
+										<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
+											{inspectionHabitatLabel(row)}
+										</span>
+										<span className="truncate text-muted-foreground text-xs">
+											{row.typeName ?? 'Unassigned type'}
+										</span>
+									</Link>
+									<div className="flex shrink-0 items-center gap-2">
+										<DensityBadge density={inspection.density} />
+										{hasAnyLifeStage(inspection) ? (
+											<LifeStageStrip size="sm" stages={inspection} />
+										) : null}
+									</div>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }

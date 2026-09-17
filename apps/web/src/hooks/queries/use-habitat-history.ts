@@ -44,7 +44,6 @@
 
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { requested_control_actions } from '../../lib/collections/requested_control_actions';
@@ -278,21 +277,14 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 		[habitatId],
 	);
 
-	const inspectionRows = inspectionResult.data;
-	const historyInspections = useMemo(() => {
-		const rows = (inspectionRows ?? []) as unknown as readonly HabitatHistoryInspection[];
-		return [...rows].sort((a, b) => (a.inspectionDate < b.inspectionDate ? 1 : -1));
-	}, [inspectionRows]);
+	const historyInspections = newestFirst(inspectionResult.data);
 
-	const historySamples = useMemo<readonly HabitatHistorySampleRow[]>(
-		() =>
-			historyInspections.flatMap((inspection) =>
-				inspection.samples.map((sample) => ({
-					...sample,
-					inspectionDate: inspection.inspectionDate,
-				})),
-			),
-		[historyInspections],
+	const historySamples: readonly HabitatHistorySampleRow[] = historyInspections.flatMap(
+		(inspection) =>
+			inspection.samples.map((sample) => ({
+				...sample,
+				inspectionDate: inspection.inspectionDate,
+			})),
 	);
 
 	return {
@@ -314,4 +306,10 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 		isSourceReductionsError: sourceReductionResult.isError,
 		isRequestsError: requestResult.isError,
 	};
+}
+
+/** The habitat's inspections, newest first, over a copy of what the query returned. */
+function newestFirst(inspectionRows: unknown): readonly HabitatHistoryInspection[] {
+	const rows = (inspectionRows ?? []) as unknown as readonly HabitatHistoryInspection[];
+	return [...rows].sort((a, b) => (a.inspectionDate < b.inspectionDate ? 1 : -1));
 }

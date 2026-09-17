@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DrawGeometry } from './use-map-draw';
 
 /** A finished point geometry, the only shape an address can produce. */
@@ -36,27 +36,35 @@ export function useAddressPoint({
 	readonly onPlacePoint: (point: DrawPoint) => void;
 }): AddressPointController {
 	const [addressCoord, setAddressCoord] = useState<AddressCoord | null>(null);
-	// Read through refs so the callbacks stay stable across a form's re-renders and
-	// never seed against a geometry that has since been drawn.
+	// Read through refs so neither callback closes over a stale geometry: a form
+	// re-renders as the user draws, and seeding against the geometry as it was at
+	// the last render is what would replace a shape the user had already put down.
 	const geometryRef = useRef(geometry);
-	geometryRef.current = geometry;
 	const placeRef = useRef(onPlacePoint);
-	placeRef.current = onPlacePoint;
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		geometryRef.current = geometry;
+		placeRef.current = onPlacePoint;
+	});
 
-	const selectAddress = useCallback((address: AddressPoint | null) => {
+	const selectAddress = (address: AddressPoint | null) => {
 		const coord = addressCoordOf(address);
 		setAddressCoord(coord);
 		if (coord !== null && geometryRef.current === null) {
 			placeRef.current(pointAt(coord));
 		}
-	}, []);
+	};
 
-	const moveToAddress = useCallback(() => {
+	const moveToAddress = () => {
 		if (addressCoord === null) {
 			return;
 		}
 		placeRef.current(pointAt(addressCoord));
-	}, [addressCoord]);
+	};
 
 	return { addressCoord, selectAddress, moveToAddress };
 }

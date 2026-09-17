@@ -1,6 +1,5 @@
 import type { Collection } from '@tanstack/db';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { application_methods } from '../../lib/collections/application_methods';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { insecticides } from '../../lib/collections/insecticides';
@@ -70,16 +69,12 @@ export function useControlMethodNames(): ReadonlyMap<string, string> {
 	const biocontrol = useBiocontrolMethodOptions();
 	const outreach = useOutreachMethodOptions();
 
-	return useMemo(
-		() =>
-			new Map([
-				...application.nameById,
-				...sourceReduction.nameById,
-				...biocontrol.nameById,
-				...outreach.nameById,
-			]),
-		[application, sourceReduction, biocontrol, outreach],
-	);
+	return new Map([
+		...application.nameById,
+		...sourceReduction.nameById,
+		...biocontrol.nameById,
+		...outreach.nameById,
+	]);
 }
 
 /**
@@ -100,7 +95,7 @@ export function useInsecticideOptions(): CatalogOptions {
 		[],
 	);
 
-	return useIndexed(result.data);
+	return indexed(result.data);
 }
 
 function useNamedCatalog<TRow extends { readonly id: string; readonly name: string }>(
@@ -115,13 +110,10 @@ function useNamedCatalog<TRow extends { readonly id: string; readonly name: stri
 		[collection],
 	);
 
-	return useIndexed(result.data);
+	return indexed(result.data);
 }
 
 /** The index a query cannot return, over the rows it did. */
-function useIndexed(options: readonly FilterOption[]): CatalogOptions {
-	return useMemo(
-		() => ({ options, nameById: new Map(options.map((row) => [row.id, row.label] as const)) }),
-		[options],
-	);
+function indexed(options: readonly FilterOption[]): CatalogOptions {
+	return { options, nameById: new Map(options.map((row) => [row.id, row.label] as const)) };
 }

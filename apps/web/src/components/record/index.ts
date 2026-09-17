@@ -3,17 +3,20 @@
  * between.
  *
  * Fourteen pages had assembled the same arrangement by hand: a scroll container
- * at the app's measure, a back link, the fork between placeholder, unavailable
- * and record, a two-column split, and a danger zone whose acknowledgement
- * dialog has to be held above the card that raises it. Each carried its own
- * skeleton, and each edit route carried another.
+ * at the app's measure, the fork between placeholder, unavailable and record, a
+ * two-column split, and a danger zone whose acknowledgement dialog has to be
+ * held above the card that raises it. Each carried its own skeleton, and each
+ * edit route carried another. Each also drew its own header, which is what
+ * {@link DetailPageShell} settles: one pinned bar, one place a record's name,
+ * flags, Tags, pencil and menu are decided.
  *
  * A page now supplies its record, its noun, its cards and its writes. Anything a
  * second detail page needs belongs here.
  */
 
+export { createItems } from './detail-create-actions';
+export { DetailPageShell, detailBodyClass } from './detail-page-shell';
 export { EditFormSkeleton } from './edit-form-skeleton';
-export { RecordDetailColumns } from './record-detail-columns';
 export type { RecordDetailLayout } from './record-detail-layout';
 export { RecordDetailPage, type RecordReading } from './record-detail-page';
 export { RecordDetailSkeleton } from './record-detail-skeleton';

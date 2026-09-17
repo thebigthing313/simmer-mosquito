@@ -25,14 +25,14 @@ describe('generationRefusalOf', () => {
 		// codes leaves the operator with a refusal and nowhere to go.
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon', 'acre'],
 		});
 
 		expect(generationRefusalOf(error)).toEqual({
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon', 'acre'],
 			registrations: [],
 			registrationsNotShown: 0,
@@ -44,8 +44,8 @@ describe('generationRefusalOf', () => {
 		// organization, so without these the operator has a unit name and no row.
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon'],
 			registrations: [
 				{
@@ -72,8 +72,8 @@ describe('generationRefusalOf', () => {
 	it('keeps an unnamed contact and drops a row with no contact to link to', () => {
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon'],
 			registrations: [
 				{
@@ -100,8 +100,8 @@ describe('generationRefusalOf', () => {
 	it('gives an empty code and registration list for the refusals that carry none', () => {
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'mission_has_no_items',
-			message: 'This mission has no stops.',
+			code: 'mission_has_no_items',
+			reason: 'This mission has no stops.',
 		});
 
 		// Not undefined: the card renders both lists without first asking which
@@ -114,12 +114,68 @@ describe('generationRefusalOf', () => {
 	it('drops non-strings out of the code list rather than rendering them', () => {
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
-			reason: 'buffer_unit_not_convertible',
-			message: 'A buffer unit could not be converted.',
+			code: 'buffer_unit_not_convertible',
+			reason: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon', 7, null],
 		});
 
 		expect(generationRefusalOf(error)?.unitCodes).toEqual(['gallon']);
+	});
+
+	it('reads every reason the union holds back as itself', () => {
+		// The membership check is a `Record<GenerationRefusalReason, true>`, so a
+		// reason missing from it fails `tsc`. This is the other direction: that the
+		// check passes each one rather than answering null for a member.
+		const reasons = [
+			'mission_not_found',
+			'mission_completed',
+			'mission_cancelled',
+			'mission_has_no_items',
+			'mission_has_no_notification_type',
+			'buffer_unit_not_convertible',
+		] as const;
+
+		for (const reason of reasons) {
+			const error = new CommandError('Refused.', 409, {
+				error: 'mission_notifications_refused',
+				code: reason,
+				reason: 'The server said why.',
+			});
+			expect(generationRefusalOf(error)?.code).toBe(reason);
+		}
+	});
+
+	it('is null for a code the union does not hold', () => {
+		// It used to be cast, so a reason the server grew arrived inside the union
+		// without being a member and landed on the card's default heading. Null is
+		// the same answer `mergeRefusalReason` gives, and it sends the failure down
+		// the path every other error takes (#930).
+		const error = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			code: 'mission_paused',
+			reason: 'The mission is paused.',
+		});
+
+		expect(generationRefusalOf(error)).toBeNull();
+	});
+
+	it('reads the sentence the way every other refusal reader does', () => {
+		// `refusalSentence` since #929. This site had a fourth rule: it took a
+		// string of spaces as an answer and never looked at `message`, so a refusal
+		// arriving either way rendered a blank red box.
+		const spaces = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			code: 'mission_completed',
+			reason: '   ',
+			message: 'The mission is already complete.',
+		});
+		expect(generationRefusalOf(spaces)?.reason).toBe('The mission is already complete.');
+
+		const neither = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			code: 'mission_completed',
+		});
+		expect(generationRefusalOf(neither)?.reason).toBe('Generation was refused.');
 	});
 
 	it('is null for a failure that is not a generation refusal', () => {

@@ -10,6 +10,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { unreadable } from '../../lib/unreadable-input';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
 
@@ -168,8 +169,16 @@ export function MapCardText({
 	);
 }
 
-/** The shared "lat, lng" label (4dp) used by the map cards. */
-export function coordinateLabel(point: { readonly lat: number; readonly lng: number }): string {
+/**
+ * The shared "lat, lng" label (4dp) used by the map cards.
+ *
+ * Not `coordinateLabel` in `lib/coordinate-label`, which is the detail pages'
+ * label: that one takes a nullable pair and has a word for a record with no
+ * centroid, because the Coordinates row of a detail page always draws. A card
+ * renders this only once it has both numbers, and it rounds to four places
+ * rather than five, so the two are different contracts and the names say so.
+ */
+export function mapCardCoordinates(point: { readonly lat: number; readonly lng: number }): string {
 	return `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
 }
 
@@ -200,7 +209,7 @@ export function MapCardLocation({
 		return <MapCardDetail icon={LocateFixedIcon}>Unknown coordinates</MapCardDetail>;
 	}
 
-	const coordinates = coordinateLabel({ lat, lng });
+	const coordinates = mapCardCoordinates({ lat, lng });
 	if (isPointGeomType(geomType)) {
 		return (
 			<MapCardDetail icon={LocateFixedIcon} mono>
@@ -219,23 +228,30 @@ export function MapCardLocation({
 }
 
 /**
- * The eyebrow row at the top of a {@link MapCard}: the record's `type` (e.g.
- * "Inspection"), plus its `date` for dated records. Every card passes its type so
- * the kind of feature you clicked always reads at a glance; inspections, samples,
- * collections, applications, source-reduction, biocontrol, and service requests
- * additionally pass `date`, which appears with a calendar icon after the type.
+ * The eyebrow row at the top of a {@link MapCard}: the record's type, plus its
+ * `date` for dated records. Every card passes its type so the kind of feature
+ * you clicked always reads at a glance; inspections, samples, collections,
+ * applications, source-reduction, biocontrol, and service requests additionally
+ * pass `date`, which appears with a calendar icon after the type.
+ *
+ * `recordType` is the register's key and the word drawn is
+ * `recordNoun(...).title`, which is what puts this module on
+ * `check:record-nouns`' list of readers. It took the display text as a free
+ * `type` string until #1020, and the thirteen cards spelled it by hand: three
+ * disagreed with the register outright, `Biocontrol`, `Source reduction` and
+ * `Outreach`, and the rest agreed by copy or by case.
  */
 export function MapCardEyebrow({
-	type,
+	recordType,
 	date,
 }: {
-	readonly type: string;
+	readonly recordType: RecordType;
 	readonly date?: string | undefined;
 }) {
 	return (
 		<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
 			<span className="font-semibold text-[0.68rem] text-foreground/75 uppercase tracking-wide">
-				{type}
+				{recordNoun(recordType).title}
 			</span>
 			{date === undefined ? null : (
 				<>

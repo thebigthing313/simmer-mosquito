@@ -13,13 +13,15 @@
  */
 
 /**
- * The side column's width, and the breakpoint the split appears at.
+ * The side column's width.
  *
- * `wide` is the 22rem rail eleven pages carry, which holds a comments thread.
- * `narrow` is the 18rem rail for a side column of fact cards alone, which is
- * the weather station.
+ * One value, because the rail now holds one thing: the record's comments
+ * thread. Its facts sit beside the map instead, in `RecordDetailColumns`'
+ * `facts` slot, so the 18rem variant that existed for a rail of fact cards
+ * alone has no page left to serve. A second width joins this when a second
+ * kind of rail does.
  */
-export type RecordDetailAside = 'wide' | 'narrow';
+export type RecordDetailAside = 'wide';
 
 /**
  * One placeholder in a column: a Tailwind height for a single card, or a list
@@ -30,14 +32,16 @@ export type RecordDetailAside = 'wide' | 'narrow';
  */
 export type RecordDetailBlock = string | readonly string[];
 
-/** What the frame draws while the record is still syncing. */
+/**
+ * What the frame draws while the record is still syncing.
+ *
+ * The header is not in here any more. Every detail page draws the same bar now,
+ * so its placeholder is the same three lines on every page and
+ * `DetailPageHeaderSkeleton` owns them. The fifteen `eyebrow`, `title` and
+ * `subtitle` widths that used to be declared here were fifteen guesses at the
+ * length of a name nobody had read yet.
+ */
 export interface RecordDetailSkeletonShape {
-	/** Width of the eyebrow line. Omit on a page whose header has no eyebrow. */
-	readonly eyebrow?: string | undefined;
-	/** Width of the title line. */
-	readonly title?: string | undefined;
-	/** Width of the line under the title, on the pages whose header has three. */
-	readonly subtitle?: string | undefined;
 	/** The primary column's cards, top to bottom. */
 	readonly main: readonly RecordDetailBlock[];
 	/** The side column's cards. Omit on a page with no side column. */
@@ -45,7 +49,7 @@ export interface RecordDetailSkeletonShape {
 }
 
 export interface RecordDetailLayout {
-	/** Omit for a page that fills the measure with one column. */
+	/** Omit for a page with no comments thread, which is the three GIS records. */
 	readonly aside?: RecordDetailAside | undefined;
 	/** The side column follows the scroll once the split is on. */
 	readonly stickyAside?: boolean | undefined;
@@ -54,10 +58,5 @@ export interface RecordDetailLayout {
 	 * a location band group rather than a stack of separate cards.
 	 */
 	readonly mainGap?: 'default' | 'tight' | undefined;
-	/**
-	 * `trailing` for a page whose horizontal padding already comes from its
-	 * domain layout, which is the larval surveillance routes.
-	 */
-	readonly padding?: 'detail' | 'trailing' | undefined;
 	readonly skeleton: RecordDetailSkeletonShape;
 }

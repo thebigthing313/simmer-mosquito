@@ -40,7 +40,6 @@ import { Route as ControlOperationsResistanceMonitoringRouteImport } from './rou
 import { Route as AdultSurveillanceTrapDirectoryRouteImport } from './routes/adult-surveillance/trap-directory'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
 import { Route as AdultSurveillanceArbovirusSurveillanceRouteImport } from './routes/adult-surveillance/arbovirus-surveillance'
-import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
 import { Route as PublicEngagementServiceRequestsIndexRouteImport } from './routes/public-engagement/service-requests/index'
 import { Route as PublicEngagementOutreachIndexRouteImport } from './routes/public-engagement/outreach/index'
 import { Route as PublicEngagementContactsIndexRouteImport } from './routes/public-engagement/contacts/index'
@@ -112,7 +111,6 @@ import { Route as AdultSurveillanceTrapsIdRouteImport } from './routes/adult-sur
 import { Route as AdultSurveillanceCollectionsStatsRouteImport } from './routes/adult-surveillance/collections/stats'
 import { Route as AdultSurveillanceCollectionsCreateRouteImport } from './routes/adult-surveillance/collections/create'
 import { Route as AdultSurveillanceCollectionsIdRouteImport } from './routes/adult-surveillance/collections/$id'
-import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin.organizations.$organizationId'
 import { Route as LarvalSurveillanceHabitatsRoutesIndexRouteImport } from './routes/larval-surveillance/habitats/routes/index'
 import { Route as AdultSurveillanceTrapsRoutesIndexRouteImport } from './routes/adult-surveillance/traps/routes/index'
 import { Route as PublicEngagementServiceRequestsIdEditRouteImport } from './routes/public-engagement/service-requests/$id_.edit'
@@ -305,11 +303,6 @@ const AdultSurveillanceArbovirusSurveillanceRoute =
     path: '/adult-surveillance/arbovirus-surveillance',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AdminOrganizationsRoute = AdminOrganizationsRouteImport.update({
-  id: '/admin/organizations',
-  path: '/admin/organizations',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PublicEngagementServiceRequestsIndexRoute =
   PublicEngagementServiceRequestsIndexRouteImport.update({
     id: '/public-engagement/service-requests/',
@@ -721,12 +714,6 @@ const AdultSurveillanceCollectionsIdRoute =
     path: '/adult-surveillance/collections/$id',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AdminOrganizationsOrganizationIdRoute =
-  AdminOrganizationsOrganizationIdRouteImport.update({
-    id: '/$organizationId',
-    path: '/$organizationId',
-    getParentRoute: () => AdminOrganizationsRoute,
-  } as any)
 const LarvalSurveillanceHabitatsRoutesIndexRoute =
   LarvalSurveillanceHabitatsRoutesIndexRouteImport.update({
     id: '/larval-surveillance/habitats/routes/',
@@ -893,7 +880,6 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
-  '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
@@ -913,7 +899,6 @@ export interface FileRoutesByFullPath {
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/operations/': typeof OperationsIndexRoute
   '/public-engagement/': typeof PublicEngagementIndexRoute
-  '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
@@ -1024,7 +1009,6 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
-  '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
@@ -1044,7 +1028,6 @@ export interface FileRoutesByTo {
   '/my-organization': typeof MyOrganizationIndexRoute
   '/operations': typeof OperationsIndexRoute
   '/public-engagement': typeof PublicEngagementIndexRoute
-  '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
@@ -1157,7 +1140,6 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
-  '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
@@ -1177,7 +1159,6 @@ export interface FileRoutesById {
   '/my-organization/': typeof MyOrganizationIndexRoute
   '/operations/': typeof OperationsIndexRoute
   '/public-engagement/': typeof PublicEngagementIndexRoute
-  '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/adult-surveillance/collections/$id': typeof AdultSurveillanceCollectionsIdRoute
   '/adult-surveillance/collections/create': typeof AdultSurveillanceCollectionsCreateRoute
   '/adult-surveillance/collections/stats': typeof AdultSurveillanceCollectionsStatsRoute
@@ -1291,7 +1272,6 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/today'
-    | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
@@ -1311,7 +1291,6 @@ export interface FileRouteTypes {
     | '/my-organization/'
     | '/operations/'
     | '/public-engagement/'
-    | '/admin/organizations/$organizationId'
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
@@ -1422,7 +1401,6 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/today'
-    | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
@@ -1442,7 +1420,6 @@ export interface FileRouteTypes {
     | '/my-organization'
     | '/operations'
     | '/public-engagement'
-    | '/admin/organizations/$organizationId'
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
@@ -1554,7 +1531,6 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/today'
-    | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
@@ -1574,7 +1550,6 @@ export interface FileRouteTypes {
     | '/my-organization/'
     | '/operations/'
     | '/public-engagement/'
-    | '/admin/organizations/$organizationId'
     | '/adult-surveillance/collections/$id'
     | '/adult-surveillance/collections/create'
     | '/adult-surveillance/collections/stats'
@@ -1687,7 +1662,6 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   TodayRoute: typeof TodayRoute
-  AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
   AdultSurveillanceArbovirusSurveillanceRoute: typeof AdultSurveillanceArbovirusSurveillanceRoute
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
   AdultSurveillanceTrapDirectoryRoute: typeof AdultSurveillanceTrapDirectoryRoute
@@ -2015,13 +1989,6 @@ declare module '@tanstack/react-router' {
       path: '/adult-surveillance/arbovirus-surveillance'
       fullPath: '/adult-surveillance/arbovirus-surveillance'
       preLoaderRoute: typeof AdultSurveillanceArbovirusSurveillanceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/organizations': {
-      id: '/admin/organizations'
-      path: '/admin/organizations'
-      fullPath: '/admin/organizations'
-      preLoaderRoute: typeof AdminOrganizationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/public-engagement/service-requests/': {
@@ -2521,13 +2488,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdultSurveillanceCollectionsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/organizations/$organizationId': {
-      id: '/admin/organizations/$organizationId'
-      path: '/$organizationId'
-      fullPath: '/admin/organizations/$organizationId'
-      preLoaderRoute: typeof AdminOrganizationsOrganizationIdRouteImport
-      parentRoute: typeof AdminOrganizationsRoute
-    }
     '/larval-surveillance/habitats/routes/': {
       id: '/larval-surveillance/habitats/routes/'
       path: '/larval-surveillance/habitats/routes'
@@ -2739,17 +2699,6 @@ const MyOrganizationRouteWithChildren = MyOrganizationRoute._addFileChildren(
   MyOrganizationRouteChildren,
 )
 
-interface AdminOrganizationsRouteChildren {
-  AdminOrganizationsOrganizationIdRoute: typeof AdminOrganizationsOrganizationIdRoute
-}
-
-const AdminOrganizationsRouteChildren: AdminOrganizationsRouteChildren = {
-  AdminOrganizationsOrganizationIdRoute: AdminOrganizationsOrganizationIdRoute,
-}
-
-const AdminOrganizationsRouteWithChildren =
-  AdminOrganizationsRoute._addFileChildren(AdminOrganizationsRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
@@ -2763,7 +2712,6 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   TodayRoute: TodayRoute,
-  AdminOrganizationsRoute: AdminOrganizationsRouteWithChildren,
   AdultSurveillanceArbovirusSurveillanceRoute:
     AdultSurveillanceArbovirusSurveillanceRoute,
   AdultSurveillanceCollectionMethodsRoute:

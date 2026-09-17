@@ -17,7 +17,6 @@
  */
 
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { species } from '../../lib/collections/species';
 
 export function useSpeciesNames(): ReadonlyMap<string, string> {
@@ -29,8 +28,5 @@ export function useSpeciesNames(): ReadonlyMap<string, string> {
 		[],
 	);
 
-	return useMemo(
-		() => new Map(result.data.map((taxon) => [taxon.id, taxon.name] as const)),
-		[result.data],
-	);
+	return new Map(result.data.map((taxon) => [taxon.id, taxon.name] as const));
 }

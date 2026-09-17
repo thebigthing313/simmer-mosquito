@@ -1,5 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { HabitatMerge } from '../../../components/cleanup/habitat-merge';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
+import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/$id_/merge')({
@@ -17,5 +19,10 @@ export const Route = createFileRoute('/larval-surveillance/habitats/$id_/merge')
 
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <HabitatMerge habitatId={id} />;
+	const { auth } = Route.useRouteContext();
+	const { organization } = useOrganizationWorkspace(auth.snapshot);
+	const actorProfileId =
+		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+	const canSubmit = canAttributeWrite({ organization, actorProfileId });
+	return <HabitatMerge canSubmit={canSubmit} habitatId={id} />;
 }

@@ -8,9 +8,12 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type CSSProperties, type ReactNode, type RefObject, useRef } from 'react';
+import type { CountNoun } from '../../lib/format-count';
+import type { RecordType } from '../../lib/record-nouns';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
 import { MAP_CHROME_SURFACE } from '../map/chrome';
-import { type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
+import { type EmptyRailCopy, type ExplorerEmptiness, emptyRailCopy } from './explorer-empty-state';
+import { countNoun, type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
 import { ResultBody, ResultList, ResultRows } from './result-list';
 import { ResultMeta } from './result-meta';
 import type { ExplorerPanel } from './use-explorer-panel';
@@ -33,17 +36,39 @@ export interface ExplorerHeading {
 	readonly icon?: RegistryIcon | undefined;
 	readonly total: number;
 	readonly isLoading: boolean;
-	readonly noun?: { readonly one: string; readonly many: string } | undefined;
+	/** What the panel counts. `ExplorerHeader`'s `counts` carries the rule. */
+	readonly counts?: RecordType | CountNoun | undefined;
 	/** The create control, hidden below the role floor its command needs. */
 	readonly create?: ExplorerCreateAction | undefined;
 }
 
+/**
+ * What stands in for the rows when there are none.
+ *
+ * A surface that pages the map's viewport hands over the emptiness its resource
+ * hook reports, and the frame writes the copy: it holds the create action, the
+ * filter count and the filter card, which is everything the three branches read
+ * (#958). A surface whose list is not a page of the viewport writes its own two
+ * sentences, since what "nothing here" means on a folder tree or a day's log is
+ * that surface's to say.
+ */
+type ExplorerEmptyCopy =
+	| {
+			/** What is missing, e.g. `No regions yet`. */
+			readonly emptyTitle: string;
+			/** What to change to find some. */
+			readonly emptyDescription: string;
+			readonly empty?: undefined;
+	  }
+	| {
+			/** `ExplorerResource.empty`: what the page lists, and why it holds nothing. */
+			readonly empty: ExplorerEmptiness;
+			readonly emptyTitle?: undefined;
+			readonly emptyDescription?: undefined;
+	  };
+
 /** What every panel needs, whether it hands over rows or a whole body. */
 interface ExplorerResultsBase {
-	/** What is missing, e.g. `No habitats in view`. */
-	readonly emptyTitle: string;
-	/** What to change to find some. */
-	readonly emptyDescription: string;
 	/** The placeholder's height, matched to the row it stands in for. */
 	readonly skeletonClassName?: string | undefined;
 	/** The request failed. Replaces the empty state, which would misread as "none match". */
@@ -78,7 +103,8 @@ interface ExplorerBodyResults extends ExplorerResultsBase {
 }
 
 /** The results, and what stands in for them when there are none. */
-export type ExplorerResults<TRow> = ExplorerRowResults<TRow> | ExplorerBodyResults;
+export type ExplorerResults<TRow> = (ExplorerRowResults<TRow> | ExplorerBodyResults) &
+	ExplorerEmptyCopy;
 
 /**
  * A map-first record page: the map owns the stage, and what matched floats over
@@ -102,7 +128,8 @@ export function ExplorerMapPage<TRow>({
 	panel,
 	heading,
 	filters,
-	activeFilterCount,
+	toolbar,
+	activeFilterCount = 0,
 	results,
 	footer,
 	map,
@@ -116,10 +143,22 @@ export function ExplorerMapPage<TRow>({
 	readonly actions?: ReactNode | undefined;
 	readonly panel: ExplorerPanel;
 	readonly heading: ExplorerHeading;
-	/** The filter controls, stacked under the panel's title row. */
-	readonly filters: ReactNode;
+	/**
+	 * The filter controls, in a card beside the results, behind a toggle in the
+	 * panel header. Left out by a surface that narrows nothing: without it the
+	 * header draws no toggle and no card, rather than a control that opens on an
+	 * empty card.
+	 */
+	readonly filters?: ReactNode | undefined;
+	/**
+	 * A control that belongs to the panel rather than to the filter card, drawn
+	 * as a strip under the title row and always in reach. Daily Work's day is
+	 * one: the page is one person on one day, so the day is what the page is
+	 * rather than a way of cutting it down.
+	 */
+	readonly toolbar?: ReactNode | undefined;
 	/** How many filters are off their default, so a collapsed panel can say so. */
-	readonly activeFilterCount: number;
+	readonly activeFilterCount?: number | undefined;
 	/**
 	 * Extra entries for the panel's overflow menu, under the create action. For a
 	 * surface whose work is not only "add one of these".
@@ -165,6 +204,7 @@ export function ExplorerMapPage<TRow>({
 					onResetFilters={onResetFilters}
 					panel={panel}
 					results={results}
+					toolbar={toolbar}
 				/>
 			)}
 		</OutletFullPageMap>
@@ -189,6 +229,7 @@ function OpenPanels<TRow>({
 	onResetFilters,
 	panel,
 	results,
+	toolbar,
 }: {
 	readonly actions: ReactNode;
 	readonly activeFilterCount: number;
@@ -199,6 +240,7 @@ function OpenPanels<TRow>({
 	readonly onResetFilters: (() => void) | undefined;
 	readonly panel: ExplorerPanel;
 	readonly results: ExplorerResults<TRow>;
+	readonly toolbar: ReactNode;
 }) {
 	const { isNarrow } = panel;
 	return (
@@ -222,16 +264,18 @@ function OpenPanels<TRow>({
 					actions={actions}
 					activeFilterCount={activeFilterCount}
 					footer={footer}
+					hasFilters={filters !== undefined}
 					heading={heading}
 					menuItems={menuItems}
 					onCollapse={() => panel.setCollapsed(true)}
 					onResetFilters={onResetFilters}
 					panel={panel}
 					results={results}
+					toolbar={toolbar}
 				/>
 			</div>
 
-			{panel.isFiltersOpen ? (
+			{filters !== undefined && panel.isFiltersOpen ? (
 				<FiltersCard
 					activeFilterCount={activeFilterCount}
 					onClose={() => panel.setFiltersOpen(false)}
@@ -256,24 +300,35 @@ function ResultsPanel<TRow>({
 	heading,
 	results,
 	footer,
+	hasFilters,
 	onCollapse,
 	panel,
 	activeFilterCount,
 	menuItems,
 	onResetFilters,
+	toolbar,
 }: {
 	readonly actions: ReactNode;
 	readonly heading: ExplorerHeading;
 	readonly results: ExplorerResults<TRow>;
 	readonly footer: ReactNode;
+	/** There is a filter card to show, so the header carries the control that shows it. */
+	readonly hasFilters: boolean;
 	readonly onCollapse: () => void;
 	readonly panel: ExplorerPanel;
 	readonly activeFilterCount: number;
 	readonly menuItems: ReactNode;
 	readonly onResetFilters?: (() => void) | undefined;
+	readonly toolbar: ReactNode;
 }) {
-	const { emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } = results;
+	const { skeletonClassName, isError, onRetry } = results;
 	const { isEmpty, content } = resultContent(results);
+	const empty = emptyCopy(results, {
+		create: heading.create,
+		activeFilterCount,
+		onResetFilters,
+		onShowFilters: hasFilters ? () => panel.setFiltersOpen(true) : undefined,
+	});
 	const footerRef = useRef<HTMLDivElement | null>(null);
 
 	return (
@@ -288,15 +343,19 @@ function ResultsPanel<TRow>({
 					icon: XIcon,
 				}}
 				create={heading.create}
-				filterToggle={{
-					isOpen: panel.isFiltersOpen,
-					onToggle: () => panel.setFiltersOpen(!panel.isFiltersOpen),
-					activeCount: activeFilterCount,
-				}}
+				{...(hasFilters
+					? {
+							filterToggle: {
+								isOpen: panel.isFiltersOpen,
+								onToggle: () => panel.setFiltersOpen(!panel.isFiltersOpen),
+								activeCount: activeFilterCount,
+							},
+						}
+					: {})}
 				icon={heading.icon}
 				isLoading={heading.isLoading}
 				menuItems={menuItems}
-				noun={heading.noun}
+				counts={heading.counts}
 				onResetFilters={onResetFilters}
 				// The count lives in the pager when there is one. Without a pager the
 				// header is the only place left for it, and a rail that never states its
@@ -305,13 +364,14 @@ function ResultsPanel<TRow>({
 				surface="chrome"
 				title={heading.title}
 				total={heading.total}
-			/>
+			>
+				{toolbar}
+			</ExplorerHeader>
 
 			{footer === undefined || isEmpty ? null : <SkipResults targetRef={footerRef} />}
 
 			<ResultList
-				emptyDescription={emptyDescription}
-				emptyTitle={emptyTitle}
+				{...empty}
 				isEmpty={isEmpty}
 				isError={isError ?? false}
 				isLoading={heading.isLoading}
@@ -374,6 +434,25 @@ function resultContent<TRow>(results: ExplorerResults<TRow>): {
 		};
 	}
 	return { isEmpty: results.isEmpty, content: <ResultBody>{results.body}</ResultBody> };
+}
+
+/**
+ * The two copy shapes resolved to what the rail draws: a caller's own two
+ * sentences as they are, or the paged branches written from the frame's state.
+ */
+function emptyCopy<TRow>(
+	results: ExplorerResults<TRow>,
+	frame: {
+		readonly create: ExplorerCreateAction | undefined;
+		readonly activeFilterCount: number;
+		readonly onResetFilters: (() => void) | undefined;
+		readonly onShowFilters: (() => void) | undefined;
+	},
+): EmptyRailCopy {
+	if (results.empty === undefined) {
+		return { emptyTitle: results.emptyTitle, emptyDescription: results.emptyDescription };
+	}
+	return emptyRailCopy({ empty: results.empty, ...frame });
 }
 
 /**
@@ -460,7 +539,11 @@ function CollapsedPanel({
 				<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
 			)}
 			<span className="font-medium text-foreground text-sm">{heading.title}</span>
-			<ResultMeta isLoading={heading.isLoading} noun={heading.noun} total={heading.total} />
+			<ResultMeta
+				isLoading={heading.isLoading}
+				noun={countNoun(heading.counts)}
+				total={heading.total}
+			/>
 			{activeFilterCount > 0 ? (
 				<Badge tone="neutral" variant="outline">
 					{activeFilterCount === 1 ? '1 filter' : `${activeFilterCount} filters`}

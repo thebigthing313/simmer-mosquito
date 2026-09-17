@@ -9,11 +9,12 @@
  * loading — the loading case never returns.
  */
 
-import { caseWhen, coalesce, concat, eq, isNull, useLiveSuspenseQuery } from '@tanstack/react-db';
+import { caseWhen, eq, isNull, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { addresses } from '../../lib/collections/addresses';
 import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
-import type { Habitat } from './habitat-view';
+import { type Habitat, habitatNameSelect } from './habitat-view';
+import { addressSelect } from './shared';
 
 export function useHabitatSuspense(habitatId: string): Habitat | undefined {
 	const result = useLiveSuspenseQuery(
@@ -33,16 +34,8 @@ export function useHabitatSuspense(habitatId: string): Habitat | undefined {
 				)
 				.select(({ habitat, type, address }) => ({
 					id: habitat.id,
-					address: {
-						id: address.id,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					},
-					name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+					address: addressSelect(address),
+					name: habitatNameSelect(habitat),
 					description: habitat.description,
 					typeId: habitat.habitat_type_id,
 					typeName: caseWhen(isNull(habitat.habitat_type_id), null, type.name),

@@ -19,8 +19,9 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -38,6 +39,7 @@ import {
 	type RegionFolderListing,
 	useRegionFolders,
 } from '../../../hooks/queries/use-region-folders';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -56,6 +58,7 @@ import {
 } from './-region-dnd';
 import { RegionMapCard } from './-region-map-card';
 import { type RegionRename, useRegionRename } from './-region-rename';
+import { type FolderMatch, groupByFolder, type RegionTree, searchTree } from './-region-tree';
 
 interface RegionFilters {
 	readonly search: string;
@@ -70,7 +73,7 @@ export const Route = createFileRoute('/gis/regions/')({
 });
 
 const RegionIcon = iconRegistry.entities.region.icon;
-const RESULT_NOUN = { one: 'region', many: 'regions' };
+const RECORD_TYPE: RecordType = 'region';
 const ImportIcon = iconRegistry.actions.upload.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
@@ -178,7 +181,7 @@ function RegionTreeBody({
 	showUnfiledHeader,
 	view,
 }: {
-	readonly filtered: ReturnType<typeof searchTree>;
+	readonly filtered: RegionTree;
 	readonly on: RegionTreeHandlers;
 	readonly showUnfiledHeader: boolean;
 	readonly view: RegionTreeView;
@@ -254,68 +257,6 @@ function withIds(
 	return next;
 }
 
-/** The regions under each folder, and the ones filed nowhere. */
-function groupByFolder(regions: readonly RegionListing[]): {
-	readonly byFolder: ReadonlyMap<string, readonly RegionListing[]>;
-	readonly root: readonly RegionListing[];
-} {
-	const byFolder = new Map<string, RegionListing[]>();
-	const root: RegionListing[] = [];
-	for (const region of regions) {
-		if (region.folderId === null) {
-			root.push(region);
-			continue;
-		}
-		const bucket = byFolder.get(region.folderId);
-		if (bucket === undefined) {
-			byFolder.set(region.folderId, [region]);
-		} else {
-			bucket.push(region);
-		}
-	}
-	return { byFolder, root };
-}
-
-/** One folder and whichever of its regions the search kept. */
-interface FolderMatch {
-	readonly folder: RegionFolderListing;
-	readonly regions: readonly RegionListing[];
-}
-
-/**
- * The tree, narrowed by the search term.
- *
- * Search spans both levels: a folder hit keeps all of its regions, since you
- * searched for the folder and so want its contents, and a region hit keeps just
- * that region under its folder. Folders that end up with nothing drop out.
- */
-function searchTree(
-	sortedFolders: readonly RegionFolderListing[],
-	grouped: ReturnType<typeof groupByFolder>,
-	query: string,
-): { readonly folders: readonly FolderMatch[]; readonly unfiled: readonly RegionListing[] } {
-	if (query.length === 0) {
-		return {
-			folders: sortedFolders.map((folder) => ({
-				folder,
-				regions: grouped.byFolder.get(folder.id) ?? [],
-			})),
-			unfiled: grouped.root,
-		};
-	}
-	const hit = (value: string | null): boolean => value?.toLowerCase().includes(query) === true;
-	const matched: FolderMatch[] = [];
-	for (const folder of sortedFolders) {
-		const folderRegions = grouped.byFolder.get(folder.id) ?? [];
-		const folderHit = hit(folder.name) || hit(folder.description);
-		const kept = folderHit ? folderRegions : folderRegions.filter((region) => hit(region.name));
-		if (folderHit || kept.length > 0) {
-			matched.push({ folder, regions: kept });
-		}
-	}
-	return { folders: matched, unfiled: grouped.root.filter((region) => hit(region.name)) };
-}
-
 /**
  * The two writes the tree makes in place.
  *
@@ -324,40 +265,40 @@ function searchTree(
  * the domain refuses, and a drag that lands a region back in its own folder is
  * the same. The `null` folder means unfiled, which is why the move guard
  * compares the value rather than asking whether one arrived.
+ *
+ * The rows arrive as a value rather than through a ref. The ref existed to keep
+ * these two handlers stable while still reading the latest rows, and writing it
+ * during render is what the compiler refuses (`Refs`, #823). Naming `regions` in
+ * the dependency lists is the honest form: the handlers read the rows, so they
+ * change when the rows do, and nothing downstream depends on them not changing.
  */
 function useRegionEdits(
 	mutations: ReturnType<typeof useRegionMutations>,
-	regionsRef: { readonly current: readonly RegionListing[] },
+	regions: readonly RegionListing[],
 ) {
-	const renameRegion = useCallback(
-		async (id: string, rawName: string) => {
-			const name = rawName.trim();
-			const current = regionsRef.current.find((region) => region.id === id);
-			if (current === undefined || name.length === 0 || name === current.name) {
-				return;
-			}
-			try {
-				await mutations.rename(id, name);
-			} catch {
-				// Optimistic mutation rolled back; the tree already shows the synced name.
-			}
-		},
-		[mutations, regionsRef],
-	);
-	const moveRegion = useCallback(
-		async (id: string, folderId: string | null) => {
-			const current = regionsRef.current.find((region) => region.id === id);
-			if (current === undefined || current.folderId === folderId) {
-				return;
-			}
-			try {
-				await mutations.move(id, folderId);
-			} catch {
-				// Optimistic mutation rolled back; the tree already shows the prior folder.
-			}
-		},
-		[mutations, regionsRef],
-	);
+	const renameRegion = async (id: string, rawName: string) => {
+		const name = rawName.trim();
+		const current = regions.find((region) => region.id === id);
+		if (current === undefined || name.length === 0 || name === current.name) {
+			return;
+		}
+		try {
+			await mutations.rename(id, name);
+		} catch {
+			// Optimistic mutation rolled back; the tree already shows the synced name.
+		}
+	};
+	const moveRegion = async (id: string, folderId: string | null) => {
+		const current = regions.find((region) => region.id === id);
+		if (current === undefined || current.folderId === folderId) {
+			return;
+		}
+		try {
+			await mutations.move(id, folderId);
+		} catch {
+			// Optimistic mutation rolled back; the tree already shows the prior folder.
+		}
+	};
 	return { moveRegion, renameRegion };
 }
 
@@ -370,10 +311,6 @@ function RegionsExplorerRoute() {
 	const { regions, isReady: regionsReady } = useRegionDirectory();
 	const isReady = foldersReady && regionsReady;
 	const mutations = useRegionMutations();
-	// A ref keeps rename/move handlers stable while still reading the latest rows.
-	const regionsRef = useRef(regions);
-	regionsRef.current = regions;
-
 	// Visibility (map) is off for every region until a checkbox turns it on.
 	const [visibleIds, setVisibleIds] = useState<ReadonlySet<string>>(() => new Set());
 	// Folders default collapsed; only explicitly-opened ones are tracked.
@@ -385,10 +322,7 @@ function RegionsExplorerRoute() {
 		setFilters: setRegionFilters,
 		activeCount: activeFilterCount,
 	} = useSearchFilters(REGION_FILTER_DEFAULTS, REGION_FILTER_CODECS);
-	const commitSearch = useCallback(
-		(next: string) => setRegionFilters({ search: next }),
-		[setRegionFilters],
-	);
+	const commitSearch = (next: string) => setRegionFilters({ search: next });
 	const {
 		input: search,
 		setInput: setSearch,
@@ -396,27 +330,21 @@ function RegionsExplorerRoute() {
 	} = useDebouncedTextFilter(regionQuery.search, commitSearch);
 	// Both halves: the field the operator is looking at, and the committed term on
 	// the URL that is actually cutting the tree.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderListing | 'new' | null>(null);
 
-	const sortedFolders = useMemo(
-		() => [...folders].sort((a, b) => a.name.localeCompare(b.name)),
-		[folders],
-	);
-	const regionsByFolder = useMemo(() => groupByFolder(regions), [regions]);
+	const sortedFolders = [...folders].sort((a, b) => a.name.localeCompare(b.name));
+	const regionsByFolder = groupByFolder(regions);
 
 	const query = search.trim().toLowerCase();
-	const filtered = useMemo(
-		() => searchTree(sortedFolders, regionsByFolder, query),
-		[query, sortedFolders, regionsByFolder],
-	);
+	const filtered = searchTree(sortedFolders, regionsByFolder, query);
 	const hasMatches = filtered.folders.length > 0 || filtered.unfiled.length > 0;
 	const emptyState = regionsEmptyState({
 		hasDirectory: regions.length > 0 || sortedFolders.length > 0,
@@ -424,40 +352,30 @@ function RegionsExplorerRoute() {
 		query: search.trim(),
 	});
 
-	const visibleArray = useMemo(() => [...visibleIds], [visibleIds]);
+	const visibleArray = [...visibleIds];
 	const serverUrl = getServerUrl();
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'regions',
-				serverUrl,
-				visibleIds: visibleArray,
-				selectedId: focusedId,
-				onSelectFeature: (id: string | null) => setFocusedId(id),
-			},
-		],
-		[serverUrl, visibleArray, focusedId],
-	);
-	const toggleRegion = useCallback(
-		(id: string, on: boolean) => setVisibleIds((prev) => withIds(prev, [id], on)),
-		[],
-	);
-	const toggleFolder = useCallback(
-		(regionIds: readonly string[], on: boolean) =>
-			setVisibleIds((prev) => withIds(prev, regionIds, on)),
-		[],
-	);
-	const toggleExpand = useCallback(
-		(folderId: string, open: boolean) => setExpandedIds((prev) => withIds(prev, [folderId], open)),
-		[],
-	);
+	const layers: readonly MapTileLayer[] = [
+		{
+			kind: 'regions',
+			serverUrl,
+			visibleIds: visibleArray,
+			selectedId: focusedId,
+			onSelectFeature: (id: string | null) => setFocusedId(id),
+		},
+	];
+	const toggleRegion = (id: string, on: boolean) =>
+		setVisibleIds((prev) => withIds(prev, [id], on));
+	const toggleFolder = (regionIds: readonly string[], on: boolean) =>
+		setVisibleIds((prev) => withIds(prev, regionIds, on));
+	const toggleExpand = (folderId: string, open: boolean) =>
+		setExpandedIds((prev) => withIds(prev, [folderId], open));
 	// Focusing a region also switches it on, so the map has something to fly to.
-	const focusRegion = useCallback((id: string) => {
+	const focusRegion = (id: string) => {
 		setVisibleIds((prev) => withIds(prev, [id], true));
 		setFocusedId(id);
-	}, []);
+	};
 
-	const { moveRegion, renameRegion } = useRegionEdits(mutations, regionsRef);
+	const { moveRegion, renameRegion } = useRegionEdits(mutations, regions);
 
 	const dnd = useRegionDnd(moveRegion);
 	const rename = useRegionRename(renameRegion);
@@ -485,23 +403,23 @@ function RegionsExplorerRoute() {
 					<WriteOnly minimum="manager">
 						<DropdownMenuItem onSelect={() => setFolderDialog('new')}>
 							<NewFolderIcon aria-hidden="true" />
-							New Folder
+							Create Folder
 						</DropdownMenuItem>
 						<DropdownMenuItem asChild>
 							<Link to="/gis/regions/import">
 								<ImportIcon aria-hidden="true" />
-								Import Regions
+								{`Import ${recordNoun(RECORD_TYPE).titleMany}`}
 							</Link>
 						</DropdownMenuItem>
 					</WriteOnly>
 				}
 				heading={{
-					title: 'Regions',
+					title: recordNoun('region').titleMany,
 					icon: RegionIcon,
 					total: regions.length,
 					isLoading: !isReady,
-					noun: RESULT_NOUN,
-					create: { to: '/gis/regions/create', label: 'Create Region', minimum: 'manager' },
+					counts: RECORD_TYPE,
+					create: { to: '/gis/regions/create', label: createLabel('region'), minimum: 'manager' },
 				}}
 				onResetFilters={() => commitSearch('')}
 				map={

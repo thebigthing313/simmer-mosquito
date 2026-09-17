@@ -8,6 +8,7 @@ import {
 	getMultipartGeometryType,
 	getOwnedGeometryBaseTypes,
 	getOwnedGeometryPolicy,
+	isOwnedGeometry,
 	normalizeOwnedGeometry,
 	OWNED_GEOMETRY_POLICIES,
 	type OwnedGeoJsonGeometryFor,
@@ -16,6 +17,7 @@ import {
 	ownedGeometryAllowsParts,
 	SUPPORTED_GEOMETRY_TYPES,
 	type SupportedGeoJsonGeometry,
+	type SupportedGeometryType,
 	validateGeometry,
 } from '../../shared.js';
 
@@ -231,6 +233,109 @@ describe('ownedGeometryAllowsParts', () => {
 		expect(ownedGeometryAllowsParts('notificationRegistration', 'Polygon')).toBe(false);
 		expect(ownedGeometryAllowsParts('notificationRegistration', 'Point')).toBe(false);
 		expect(ownedGeometryAllowsParts('trap', 'Point')).toBe(false);
+	});
+});
+
+/**
+ * The predicate five record forms each held a copy of.
+ *
+ * Every copy read `allowedTypes` off the register and then asserted a shape name
+ * written out by hand beside it, so the run-time answer and the type it narrowed
+ * to agreed by coincidence. This is the one predicate they collapsed into, and
+ * the cases below are what the five suites asked between them: every kind the
+ * register holds, over all six shapes, rather than the one kind whichever form a
+ * copy came from cared about.
+ */
+describe('isOwnedGeometry', () => {
+	/** A closed ring, held as tuples so it reads as GeoJSON positions. */
+	const RING = [
+		[0, 0],
+		[0, 2],
+		[2, 2],
+		[0, 0],
+	] as const;
+
+	/** One geometry per shape, so the question can be put to a kind six times. */
+	const GEOMETRIES = {
+		Point: { type: 'Point', coordinates: [1, 1] },
+		LineString: {
+			type: 'LineString',
+			coordinates: [
+				[0, 0],
+				[0, 2],
+			],
+		},
+		Polygon: { type: 'Polygon', coordinates: [RING] },
+		MultiPoint: { type: 'MultiPoint', coordinates: [[1, 1]] },
+		MultiLineString: {
+			type: 'MultiLineString',
+			coordinates: [
+				[
+					[0, 0],
+					[0, 2],
+				],
+			],
+		},
+		MultiPolygon: { type: 'MultiPolygon', coordinates: [[RING]] },
+	} as const satisfies Readonly<Record<SupportedGeometryType, SupportedGeoJsonGeometry>>;
+
+	it('answers for every kind the register holds', () => {
+		for (const policy of OWNED_GEOMETRY_POLICIES) {
+			// Widened off the row's own tuple: the rows are `as const`, so the union
+			// of their `allowedTypes` narrows `includes` to a parameter no name fits.
+			const allowedTypes: readonly SupportedGeometryType[] = policy.allowedTypes;
+			for (const type of SUPPORTED_GEOMETRY_TYPES) {
+				const stored = allowedTypes.includes(type);
+
+				expect([policy.kind, type, isOwnedGeometry(policy.kind, GEOMETRIES[type])]).toEqual([
+					policy.kind,
+					type,
+					stored,
+				]);
+			}
+		}
+	});
+
+	// The loop above reads the register on both sides, so a predicate answering
+	// the same thing every time would pass it for a point-only kind. These name
+	// the answers instead, one per shape set the matrix holds.
+	it('takes the shapes the matrix names and nothing else', () => {
+		expect(isOwnedGeometry('address', GEOMETRIES.Point)).toBe(true);
+		expect(isOwnedGeometry('address', GEOMETRIES.Polygon)).toBe(false);
+		expect(isOwnedGeometry('region', GEOMETRIES.Polygon)).toBe(true);
+		expect(isOwnedGeometry('region', GEOMETRIES.MultiPolygon)).toBe(true);
+		expect(isOwnedGeometry('region', GEOMETRIES.Point)).toBe(false);
+		expect(isOwnedGeometry('notificationRegistration', GEOMETRIES.Point)).toBe(true);
+		expect(isOwnedGeometry('notificationRegistration', GEOMETRIES.MultiPolygon)).toBe(false);
+		expect(isOwnedGeometry('habitat', GEOMETRIES.MultiLineString)).toBe(true);
+	});
+
+	/**
+	 * The narrowing, which `tsc` checks rather than vitest.
+	 *
+	 * `DRAWN` stands in for the web draw control's own geometry union, which
+	 * spells the same six shapes over its own position type and is what four of
+	 * the five copies existed to narrow. The predicate answers about the value it
+	 * was handed, so the caller gets its own vocabulary back rather than the
+	 * domain's.
+	 */
+	it('narrows whatever vocabulary the caller spells the shapes in', () => {
+		/** Two of the six shapes over a position type that is not the domain's. */
+		type DrawnGeometry =
+			| { readonly type: 'Point'; readonly coordinates: readonly [number, number] }
+			| { readonly type: 'Polygon'; readonly coordinates: readonly (readonly number[])[] };
+
+		const drawn: DrawnGeometry = { type: 'Point', coordinates: [1, 1] };
+
+		if (isOwnedGeometry('address', drawn)) {
+			// The assertion is the annotation: a predicate that answered about the
+			// domain's geometries would leave `drawn` the union it arrived as.
+			const placed: readonly [number, number] = drawn.coordinates;
+
+			expect(placed).toEqual([1, 1]);
+		} else {
+			expect.unreachable('An Address stores a Point.');
+		}
 	});
 });
 

@@ -4,12 +4,23 @@
 	// Nx/pnpm monorepo. Both globs are already in pnpm-workspace.yaml; fallow
 	// discovers them on its own, but stating them keeps the scope explicit.
 	//
-	// `scripts` is a third pnpm workspace package since #665 and is deliberately
-	// not listed. fallow already reads it: the entry points below name two
-	// modules under it, and the dependency check answers against the package.json
-	// beside them. Adding the pattern would move the gate scripts into the
-	// duplication corpus, which is a measurement of its own rather than a
-	// bookkeeping edit.
+	// `scripts` is a third pnpm workspace package since #665 and is not listed,
+	// because listing it changes nothing. fallow discovers it from
+	// pnpm-workspace.yaml the way it discovers the other two: the entry points
+	// below name two modules under it, the dependency check answers against the
+	// package.json beside them, and `fallow dupes` reads every gate script
+	// already. This comment used to say the opposite, that adding the pattern
+	// would move the gate scripts into the duplication corpus, and #988 was
+	// filed from that sentence. Measured on develop at 08c10fcf with fallow
+	// 3.14.0: `fallow dupes` reports 15,870 lines (4.7%) across 432 files with
+	// this list as checked in, and the same 15,870 lines across the same 432
+	// files with `"scripts"` added. A copy of `scripts/check-map-palette.mjs`
+	// placed beside it, under the checked-in list, reports a 307-line clone
+	// group naming both files (`180-486`, the docblock and imports above being
+	// what the scan skips by design). No `scripts/` file is in the report
+	// because no gate carries a clone above the minimum size, which is what
+	// `scripts/lib/` exists to keep true, not because the directory is out of
+	// the corpus.
 	"workspaces": {
 		"patterns": ["apps/*", "packages/*"]
 	},
@@ -59,8 +70,35 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 5.5% is where the workspace sits, and 5.6 leaves a
+	// what makes it a gate: 4.91% is where the workspace sits, and 5.0 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// It was 5.5 against 5.20% when #786 took the mechanical copies out of the
+	// suites #704 had just started counting. Three of them: the `request` and
+	// `build` helpers seventeen `table-commands` unit suites each wrote over a
+	// mock `AuthContext`, now `command-harness.ts` beside those suites; the Hono
+	// app with an inline auth stub and a captured-requests array that
+	// `sync-shapes.test.ts` built ten times, now one `shapeApp` in that file; and
+	// the Organization-and-Profile prologue 82 integration cases opened with,
+	// now `createActingOrganization` and its trap and station variants in
+	// `packages/db/src/test-support/row-fixtures.ts`. 16,702 duplicated lines
+	// became 15,763, in 573 clone groups rather than 612. Both halves agree here,
+	// because what came out was copies rather than denominator.
+	//
+	// **The gesture scripts in `use-map-draw.test.tsx` and
+	// `use-map-measure.test.tsx` are accepted duplication and were deliberately
+	// left alone**, 1,922 of the lines above. Each duplicated block there is one
+	// case's own sequence of pointer events, and a case that reached for a shared
+	// gesture would no longer say which gesture it ran. They are the largest two
+	// entries in any per-file count of this report, so read them as measured and
+	// declined rather than as work nobody has got to.
+	//
+	// It was 5.6 against 5.4% when #863 moved the last of `apps/web`'s
+	// single-record read hooks onto `useRecordById` and replaced sixteen copies
+	// of the seven-line address projection with `addressSelect`. 17,254
+	// duplicated lines became 17,202, across 427 files rather than 429. The
+	// ratio does not move a tenth on 52 lines, so what comes down here is
+	// allowance nothing was using rather than a measurement of the branch.
 	//
 	// **Every number above this line was measured on a corpus with no test file
 	// in it, and every number below it was measured with the suites in.** #704
@@ -210,7 +248,7 @@
 			"**/out/**",
 			"**/storybook-static/**"
 		],
-		"threshold": 5.6
+		"threshold": 5.0
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and

@@ -1,8 +1,10 @@
 import type { SearchResult } from '@simmer-mosquito/domain';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { describe, expect, it } from 'vitest';
 import {
 	type RouteTypeIndex,
 	searchResultDestination,
+	searchResultIcon,
 } from '../../../../components/search/search-destinations';
 
 const HABITAT_TREE = '/larval-surveillance/habitats/routes/$id';
@@ -156,5 +158,24 @@ describe('every other result', () => {
 		const page: SearchResult = { kind: 'route', id: 'habitats', title: 'Habitats' };
 
 		expect(searchResultDestination(page, LOADED).status).toBe('unresolved');
+	});
+});
+
+describe('the icon on a result row', () => {
+	// The search document class is the table name, `weather_sources`, and the
+	// registry entry is the record's name, `weatherStation`, the one CONTEXT.md,
+	// `OWNED_GEOMETRY_POLICIES` and `RECORD_NOUNS` give it (#1001). This is the
+	// map between the two vocabularies, so the assertion names both.
+	it('draws the weather station glyph on a weather_sources record', () => {
+		const station: SearchResult = {
+			kind: 'record',
+			id: 'station-1',
+			title: 'Airport ASOS',
+			table: 'weather_sources',
+			matchedField: 'name',
+			matchClass: 'exact',
+		};
+
+		expect(searchResultIcon(station)).toBe(iconRegistry.entities.weatherStation.icon);
 	});
 });

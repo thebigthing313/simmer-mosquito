@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type GeolocationStatus =
 	| 'idle'
@@ -46,9 +46,14 @@ export function useGeolocation(
 	const [coords, setCoords] = useState<GeolocationCoords | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	// Keep the latest callback without making `locate` change identity.
+	// Keep the latest callback without making `locate` change identity. The write
+	// is an effect rather than a render-phase assignment, which is what the React
+	// Compiler permits; the ref is read from an async geolocation callback, so it
+	// is read after commit either way and the timing is unchanged.
 	const onLocatedRef = useRef(onLocated);
-	onLocatedRef.current = onLocated;
+	useEffect(() => {
+		onLocatedRef.current = onLocated;
+	});
 
 	// Guard against setting state after the control unmounts mid-request.
 	const isMounted = useRef(true);
@@ -59,7 +64,7 @@ export function useGeolocation(
 		};
 	}, []);
 
-	const locate = useCallback(() => {
+	const locate = () => {
 		if (!isSupported) {
 			setStatus('unavailable');
 			setError('Location services are not available in this browser.');
@@ -102,7 +107,7 @@ export function useGeolocation(
 			},
 			GEOLOCATION_OPTIONS,
 		);
-	}, [isSupported]);
+	};
 
 	return { status, coords, error, isSupported, locate };
 }

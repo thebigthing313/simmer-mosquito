@@ -1,18 +1,21 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
-import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { useState } from 'react';
 import {
-	type SpeciesTotal,
-	useAdultSpeciesComposition,
-} from '../../hooks/queries/use-adult-species-composition';
+	SPECIES_WINDOWS,
+	SpeciesCompositionPanel,
+	type SpeciesWindow,
+	speciesWindowSince,
+} from '../../components/species-composition-panel';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { useAdultSpeciesComposition } from '../../hooks/queries/use-adult-species-composition';
 import { useCollectionsAwaitingIdentification } from '../../hooks/queries/use-collections-awaiting-identification';
 import { useCollectionsOverThreshold } from '../../hooks/queries/use-collections-over-threshold';
 import {
@@ -20,14 +23,19 @@ import {
 	useRecentCollections,
 } from '../../hooks/queries/use-recent-collections';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
 import {
-	ADULT_ACTIVITY_WINDOW_DAYS,
 	addDaysToDateString,
 	formatMonthDay,
 	formatWeekdayMonthDay,
 	todayInTimeZone,
-} from './-overview-data';
+} from '../../lib/local-date';
+import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
+
+/** How far back the recent-window queries reach. */
+const ADULT_ACTIVITY_WINDOW_DAYS = 14;
+
+/** Three panels read the same activity, so a failure says the same thing on each. */
+const COLLECTIONS_UNAVAILABLE = { description: 'Collection activity is unavailable right now.' };
 
 const AdultIcon = iconRegistry.domains.adultSurveillance.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;
@@ -40,14 +48,14 @@ export const Route = createFileRoute('/adult-surveillance/')({
 
 function AdultSurveillanceOverviewRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const since = useMemo(
-		() => addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const since = addDaysToDateString(today, -(ADULT_ACTIVITY_WINDOW_DAYS - 1));
 
+	// `record` is the measure the route-loading skeleton reserves, so the
+	// overview arrives at the width it stood in for (#1043, #1049). The panels
+	// keep their twelve-column grid; the frame is what widened.
 	return (
-		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
+		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="Collection activity across your traps, the species composition in what they caught, and the collections still awaiting identification or flagged with a problem."
 				eyebrow="Surveillance & mapping"
@@ -60,7 +68,7 @@ function AdultSurveillanceOverviewRoute() {
 					<RecentCollectionsPanel since={since} />
 				</div>
 				<div className="grid content-start gap-5 xl:col-span-5">
-					<SpeciesCompositionPanel today={today} />
+					<AdultSpeciesComposition today={today} />
 					<AwaitingIdentificationPanel since={since} />
 				</div>
 				<div className="xl:col-span-12">
@@ -152,7 +160,7 @@ function groupByDay(
 function RecentCollectionsPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
 	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
-	const groups = useMemo(() => groupByDay(collections, timeZone), [collections, timeZone]);
+	const groups = groupByDay(collections, timeZone);
 
 	return (
 		<Panel
@@ -160,21 +168,24 @@ function RecentCollectionsPanel({ since }: { readonly since: string }) {
 			icon={<CollectionIcon className="size-4" />}
 			title={`Recent Collections · Last ${ADULT_ACTIVITY_WINDOW_DAYS} Days`}
 		>
-			{isError ? (
-				<PanelMessage>Collection activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton />
-			) : groups.length === 0 ? (
-				<PanelMessage>
-					No collections retrieved in the last {ADULT_ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
-					{groups.map((group) => (
-						<DayGroupBlock group={group} key={group.day} />
-					))}
-				</div>
-			)}
+			<PanelRows
+				empty={{
+					description: `No collections retrieved in the last ${ADULT_ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<CollectionIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: groups }}
+				unavailable={COLLECTIONS_UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
+						{rows.map((group) => (
+							<DayGroupBlock group={group} key={group.day} />
+						))}
+					</div>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -223,113 +234,23 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 
 // --- species composition ----------------------------------------------------
 
-const SPECIES_PREVIEW_COUNT = 6;
-type SpeciesWindow = '7d' | '30d';
-
-function SpeciesCompositionPanel({ today }: { readonly today: string }) {
+function AdultSpeciesComposition({ today }: { readonly today: string }) {
 	const [window, setWindow] = useState<SpeciesWindow>('7d');
-	const since = useMemo(
-		() => addDaysToDateString(today, window === '7d' ? -6 : -29),
-		[today, window],
+	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(
+		speciesWindowSince(today, window),
 	);
-	const { totals, grandTotal, isReady, isError } = useAdultSpeciesComposition(since);
-
-	const { top, otherTotal, otherCount, maxBar } = useMemo(() => {
-		const previewed = totals.slice(0, SPECIES_PREVIEW_COUNT);
-		const rest = totals.slice(SPECIES_PREVIEW_COUNT);
-		return {
-			top: previewed,
-			otherTotal: rest.reduce((sum, entry) => sum + entry.total, 0),
-			otherCount: rest.length,
-			maxBar: previewed[0]?.total ?? 1,
-		};
-	}, [totals]);
 
 	return (
-		<Panel
-			actions={
-				<ToggleGroup
-					aria-label="Species window"
-					className="h-8"
-					onValueChange={(next) => next && setWindow(next as SpeciesWindow)}
-					size="sm"
-					type="single"
-					value={window}
-					variant="outline"
-				>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="7d">
-						7d
-					</ToggleGroupItem>
-					<ToggleGroupItem className="h-8 px-2.5 text-xs" value="30d">
-						30d
-					</ToggleGroupItem>
-				</ToggleGroup>
-			}
-			icon={<SpeciesIcon className="size-4" />}
-			title="Species Composition"
-		>
-			{isError ? (
-				<PanelMessage>Species data is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={5} />
-			) : top.length === 0 ? (
-				<PanelMessage>
-					No specimens identified in the last {window === '7d' ? '7' : '30'} days.
-				</PanelMessage>
-			) : (
-				<div className="grid gap-2.5 p-4">
-					{top.map((entry) => (
-						<SpeciesBar
-							barWidth={(entry.total / maxBar) * 100}
-							entry={entry}
-							key={entry.speciesId}
-							percent={grandTotal === 0 ? 0 : (entry.total / grandTotal) * 100}
-						/>
-					))}
-					{otherTotal > 0 ? (
-						<SpeciesBar
-							barWidth={(otherTotal / maxBar) * 100}
-							entry={{ speciesId: '__other__', name: `Other (${otherCount})`, total: otherTotal }}
-							muted
-							percent={grandTotal === 0 ? 0 : (otherTotal / grandTotal) * 100}
-						/>
-					) : null}
-				</div>
-			)}
-		</Panel>
-	);
-}
-
-function SpeciesBar({
-	entry,
-	percent,
-	barWidth,
-	muted = false,
-}: {
-	readonly entry: SpeciesTotal;
-	readonly percent: number;
-	readonly barWidth: number;
-	readonly muted?: boolean;
-}) {
-	return (
-		<div className="grid gap-1">
-			<div className="flex items-baseline justify-between gap-2 text-sm">
-				<span
-					className={cn('truncate', muted ? 'text-muted-foreground' : 'text-foreground italic')}
-				>
-					{entry.name}
-				</span>
-				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-					{entry.total.toLocaleString('en-US')} · {percent.toFixed(0)}%
-				</span>
-			</div>
-			<div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-				<div
-					className={cn('h-full rounded-full', muted ? 'bg-muted-foreground/40' : 'bg-primary')}
-					style={{ width: `${Math.max(barWidth, 2)}%` }}
-				/>
-			</div>
-		</div>
+		<SpeciesCompositionPanel
+			emptySubject="specimens"
+			grandTotal={grandTotal}
+			isError={isError}
+			isReady={isReady}
+			onWindowChange={setWindow}
+			totals={totals}
+			window={window}
+			windows={SPECIES_WINDOWS}
+		/>
 	);
 }
 
@@ -355,29 +276,32 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 			icon={<SpeciesIcon className="size-4" />}
 			title="Awaiting Identification"
 		>
-			{isError ? (
-				<PanelMessage>Collection data is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : awaiting.length === 0 ? (
-				<PanelMessage>No collections awaiting identification. Nice work.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{awaiting.map((collection) => (
-						<li className="flex items-center gap-3 px-4 py-2.5" key={collection.id}>
-							<div className="grid min-w-0 flex-1">
-								<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
-								<span className="truncate text-muted-foreground text-xs">
-									{collection.methodName}
+			<PanelRows
+				empty={{ description: 'No collections awaiting identification. Nice work.' }}
+				icon={<SpeciesIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: awaiting }}
+				unavailable={{ description: 'Collection data is unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((collection) => (
+							<li className="flex items-center gap-3 px-4 py-2.5" key={collection.id}>
+								<div className="grid min-w-0 flex-1">
+									<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
+									<span className="truncate text-muted-foreground text-xs">
+										{collection.methodName}
+									</span>
+								</div>
+								<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+									{collectionDayLabel(collection, timeZone)}
 								</span>
-							</div>
-							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
-								{collectionDayLabel(collection, timeZone)}
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
+							</li>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -397,72 +321,82 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 			icon={<AlertTriangleIcon className="size-4" />}
 			title={`Over Action Threshold · Last ${ADULT_ACTIVITY_WINDOW_DAYS} Days`}
 		>
-			{isError ? (
-				<PanelMessage>Collection activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : !hasConfiguredThresholds ? (
-				// Distinct from the empty list below it. Without this an unset threshold
-				// reads as a quiet fortnight.
-				<PanelMessage>
-					No collection method sets an action threshold.{' '}
-					<Link
-						className="font-medium text-primary hover:underline"
-						to="/adult-surveillance/collection-methods"
-					>
-						Set one
-					</Link>
-					.
-				</PanelMessage>
-			) : collections.length === 0 ? (
-				<PanelMessage>
-					No collection reached its method's action threshold in the last{' '}
-					{ADULT_ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="grid gap-1 p-2 sm:grid-cols-2">
-					{collections.map((collection) => (
-						<li
-							className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
-							key={collection.id}
-						>
-							<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
-								{formatMonthDay(collectionEffectiveDate(collection, timeZone) ?? '')}
-							</span>
-							{/*
-							 * The reason to read this panel is to open the collection that ran
-							 * hot, so the row's body goes there rather than to the trap.
-							 */}
-							<Link
-								className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								params={{ id: collection.id }}
-								to="/adult-surveillance/collections/$id"
+			<PanelRows
+				empty={{
+					description: `No collection reached its method's action threshold in the last ${ADULT_ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<AlertTriangleIcon aria-hidden="true" />}
+				inset
+				// Distinct from the empty list, and ranked between the placeholder and
+				// the count the way `instead` is: without it an unset threshold reads
+				// as a quiet fortnight.
+				instead={
+					hasConfiguredThresholds
+						? undefined
+						: {
+								description: (
+									<>
+										No collection method sets an action threshold.{' '}
+										<Link
+											className="font-medium text-primary hover:underline"
+											to="/adult-surveillance/collection-methods"
+										>
+											Set one
+										</Link>
+										.
+									</>
+								),
+							}
+				}
+				reading={{ isError, isReady, rows: collections }}
+				unavailable={COLLECTIONS_UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="grid gap-1 p-2 sm:grid-cols-2">
+						{rows.map((collection) => (
+							<li
+								className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
+								key={collection.id}
 							>
-								<span className="truncate font-medium text-foreground text-sm group-hover:text-primary">
-									{collectionPrimaryLabel(collection)}
+								<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
+									{formatMonthDay(collectionEffectiveDate(collection, timeZone) ?? '')}
 								</span>
-								<span className="truncate text-muted-foreground text-xs">
-									{collection.methodName}
+								{/*
+								 * The reason to read this panel is to open the collection that ran
+								 * hot, so the row's body goes there rather than to the trap.
+								 */}
+								<Link
+									className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									params={{ id: collection.id }}
+									to="/adult-surveillance/collections/$id"
+								>
+									<span className="truncate font-medium text-foreground text-sm group-hover:text-primary">
+										{collectionPrimaryLabel(collection)}
+									</span>
+									<span className="truncate text-muted-foreground text-xs">
+										{collection.methodName}
+									</span>
+								</Link>
+								<span className="shrink-0 text-sm tabular-nums">
+									{/* A slash reads as nothing aloud, so the pair is spelled out. */}
+									<span className="sr-only">
+										{collection.total.toLocaleString('en-US')} of a threshold of{' '}
+										{collection.actionThreshold.toLocaleString('en-US')}
+									</span>
+									<span aria-hidden="true" className="font-medium text-foreground">
+										{collection.total.toLocaleString('en-US')}
+									</span>
+									<span aria-hidden="true" className="text-muted-foreground">
+										{' / '}
+										{collection.actionThreshold.toLocaleString('en-US')}
+									</span>
 								</span>
-							</Link>
-							<span className="shrink-0 text-sm tabular-nums">
-								{/* A slash reads as nothing aloud, so the pair is spelled out. */}
-								<span className="sr-only">
-									{collection.total.toLocaleString('en-US')} of a threshold of{' '}
-									{collection.actionThreshold.toLocaleString('en-US')}
-								</span>
-								<span aria-hidden="true" className="font-medium text-foreground">
-									{collection.total.toLocaleString('en-US')}
-								</span>
-								<span aria-hidden="true" className="text-muted-foreground">
-									{' / '}
-									{collection.actionThreshold.toLocaleString('en-US')}
-								</span>
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
+							</li>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -472,10 +406,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 function AttentionPanel({ since }: { readonly since: string }) {
 	const timeZone = useOrganizationTimeZone();
 	const { collections, isReady, isError } = useRecentCollections(since, timeZone);
-	const flagged = useMemo(
-		() => collections.filter((collection) => collection.hasProblem),
-		[collections],
-	);
+	const flagged = collections.filter((collection) => collection.hasProblem);
 
 	return (
 		<Panel
@@ -483,35 +414,38 @@ function AttentionPanel({ since }: { readonly since: string }) {
 			icon={<AlertTriangleIcon className="size-4" />}
 			title={`Flagged for Attention · Last ${ADULT_ACTIVITY_WINDOW_DAYS} Days`}
 		>
-			{isError ? (
-				<PanelMessage>Collection activity is unavailable right now.</PanelMessage>
-			) : !isReady ? (
-				<RowSkeleton count={3} />
-			) : flagged.length === 0 ? (
-				<PanelMessage>
-					No collections were flagged with a problem in the last {ADULT_ACTIVITY_WINDOW_DAYS} days.
-				</PanelMessage>
-			) : (
-				<ul className="grid gap-1 p-2 sm:grid-cols-2">
-					{flagged.map((collection) => (
-						<li
-							className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
-							key={collection.id}
-						>
-							<TrapIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-							<div className="grid min-w-0 flex-1">
-								<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
-								<span className="truncate text-muted-foreground text-xs">
-									{collection.methodName}
+			<PanelRows
+				empty={{
+					description: `No collections were flagged with a problem in the last ${ADULT_ACTIVITY_WINDOW_DAYS} days.`,
+				}}
+				icon={<AlertTriangleIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: flagged }}
+				unavailable={COLLECTIONS_UNAVAILABLE}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="grid gap-1 p-2 sm:grid-cols-2">
+						{rows.map((collection) => (
+							<li
+								className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
+								key={collection.id}
+							>
+								<TrapIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+								<div className="grid min-w-0 flex-1">
+									<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
+									<span className="truncate text-muted-foreground text-xs">
+										{collection.methodName}
+									</span>
+								</div>
+								<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
+									{collectionDayLabel(collection, timeZone)}
 								</span>
-							</div>
-							<span className="w-11 shrink-0 text-right text-muted-foreground text-xs tabular-nums">
-								{collectionDayLabel(collection, timeZone)}
-							</span>
-						</li>
-					))}
-				</ul>
-			)}
+							</li>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }

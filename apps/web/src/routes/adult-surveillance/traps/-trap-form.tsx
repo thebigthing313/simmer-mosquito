@@ -1,16 +1,15 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
-import {
-	FormSection,
-	LocationSection,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
+import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
 import type {
 	CatalogListing,
@@ -18,7 +17,6 @@ import type {
 } from '../../../hooks/queries/use-catalog-rosters';
 import type { TrapRecord } from '../../../hooks/queries/use-trap-record';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { AddressPicker } from '../-adult-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 const noLureValue = 'none';
@@ -32,6 +30,41 @@ const TRAP_FIELD_PATHS: Readonly<Record<string, string>> = {
 	trapCode: 'trapCode',
 	description: 'description',
 };
+
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * The builder is the only channel: it requires the collection method and holds
+ * the name-or-code rule, and every issue comes back attributed to the field that
+ * holds it. A second check on the method used to run in `onSubmit` and throw a
+ * bare string into the page alert, which told an operator a save had failed
+ * without saying where to look.
+ *
+ * The edit page does not require a redraw, so an untouched trap keeps its point
+ * and the builder is handed the stand-in rather than a null it would report
+ * against a map the operator was never asked to draw on.
+ */
+export function validateTrap(
+	value: TrapFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+) {
+	return domainValidator(
+		() =>
+			createTrapCommand({
+				...FORM_VALIDATION_CONTEXT,
+				trapId: FORM_VALIDATION_CONTEXT.organizationId,
+				locationSource: validationLocationSource(geometry, requireLocation),
+				collectionMethodId: value.collectionMethodId,
+				addressId: value.addressId,
+				collectionLureId: value.collectionLureId === noLureValue ? null : value.collectionLureId,
+				trapName: value.trapName,
+				trapCode: value.trapCode,
+				description: value.description,
+			}),
+		TRAP_FIELD_PATHS,
+	)({ value });
+}
 
 export interface TrapFormValues {
 	/**
@@ -72,7 +105,6 @@ export interface TrapFormPageProps {
 	 */
 	readonly requireLocation?: boolean;
 	readonly header: TrapFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: TrapFormValues;
 		/** The trap's point. Always set on create; may be unchanged on edit. */
@@ -103,7 +135,6 @@ export function TrapFormPage({
 	initialGeometry = null,
 	requireLocation = true,
 	header,
-	submitLabel,
 	onSave,
 }: TrapFormPageProps) {
 	// The draw layer both renders the trap's point and edits it, so the map needs no
@@ -114,43 +145,22 @@ export function TrapFormPage({
 		missingMessage: 'Place the trap point on the map.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType } = location;
+	const { draw, geometry, geometryType } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				collectionMethods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[collectionMethods],
+	const methodOptions = lifecycleOptions(
+		collectionMethods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: TrapFormValues }) =>
-					createTrapCommand({
-						...FORM_VALIDATION_CONTEXT,
-						trapId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
-						collectionMethodId: value.collectionMethodId,
-						addressId: value.addressId,
-						collectionLureId:
-							value.collectionLureId === noLureValue ? null : value.collectionLureId,
-						trapName: value.trapName,
-						trapCode: value.trapCode,
-						description: value.description,
-					}),
-				TRAP_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: TrapFormValues }) =>
+				validateTrap(value, geometry, requireLocation),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			if (value.collectionMethodId === '') {
-				throw new Error('Select the collection method for this trap.');
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -164,7 +174,7 @@ export function TrapFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -185,38 +195,25 @@ export function TrapFormPage({
 			>
 				<form.FormErrorAlert title="Unable to Save Trap" />
 
-				<LocationSection
+				<LocationBand
 					description="The point is the trap’s exact location. An address is optional reference. Refine the point off it to the precise spot."
-					error={location.locationError}
+					geometryKind="trap"
+					label="Point"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="trap"
-						label="Point"
-						required={requireLocation}
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Configuration">
 					<div className="grid gap-5 sm:grid-cols-2">

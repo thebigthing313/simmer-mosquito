@@ -1,12 +1,13 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
@@ -32,6 +33,7 @@ import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-l
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	ApplicationFormPage,
@@ -53,8 +55,6 @@ export const Route = createFileRoute('/control-operations/chemical/$id_/edit')({
 	component: EditApplicationRoute,
 });
 
-const applicationGcTimeMs = 30_000;
-
 function EditApplicationRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
@@ -68,14 +68,14 @@ function EditApplicationRoute() {
 
 	// One query for the application and everything named on it. `applications` is
 	// on-demand, so this is status-gated rather than suspending; see the hook.
-	const { application, isReady, isError } = useApplication(id, { gcTime: applicationGcTimeMs });
+	const { application, isReady, isError } = useApplication(id, { gcTime: activityGcTimeMs });
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
 		<RecordEditFrame
-			noun="application"
+			recordType="application"
 			reading={{ isError, isReady, record: application }}
 			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -83,10 +83,10 @@ function EditApplicationRoute() {
 				<EditApplicationLoader
 					application={record}
 					applicationMethods={methods}
-					canSubmit={organization !== null && actorProfileId !== null}
+					canSubmit={canAttributeWrite({ organization, actorProfileId })}
 					equipment={equipment}
 					insecticides={insecticides}
-					organizationId={organization?.id ?? ''}
+					organizationId={organization.id}
 					profiles={profiles}
 					units={units}
 					vehicles={vehicles}
@@ -136,93 +136,90 @@ function EditApplicationLoader({
 	const { setPersonnel } = useAdditionalPersonnelMutations();
 	const batches = useApplicationBatches(application.id);
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-		}: {
-			readonly values: ApplicationFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) => {
-			if (values.amountApplied === null) {
-				throw new Error('Enter the amount applied.');
-			}
-			// Read out here because the narrowing above does not survive into the
-			// callback `run` takes.
-			const amountApplied = values.amountApplied;
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+	}: {
+		readonly values: ApplicationFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) => {
+		if (values.amountApplied === null) {
+			throw new Error('Enter the amount applied.');
+		}
+		// Read out here because the narrowing above does not survive into the
+		// callback `run` takes.
+		const amountApplied = values.amountApplied;
 
-			// The shape and the address are independent: only state a location when the
-			// user actually redrew it. Absent means "leave it", which is not the same
-			// request as re-sending the shape it already has.
-			const redrawn = geometryChanged && geometry !== null ? geometry : null;
-			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
+		// The shape and the address are independent: only state a location when the
+		// user actually redrew it. Absent means "leave it", which is not the same
+		// request as re-sending the shape it already has.
+		const redrawn = geometryChanged && geometry !== null ? geometry : null;
+		const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
-			// The batch clearance goes out unanswered and comes back as a refusal only
-			// when the product moved and the record has lots of the old one, which is
-			// the only time it matters. See `useAcknowledgedWrite`.
-			//
-			// Everything past the update is *inside* the callback on purpose: `run`
-			// resolves on a refusal as well as on a success, because a refusal is a
-			// question rather than a failure. Reconciling the crew and the batches out
-			// here would file them against a record whose own edit was never written,
-			// and leaving here on the way past would abandon the page before the
-			// question could be asked.
-			await run(async (acknowledgements) => {
-				// Which commands this save means is worked out by the hook, from what
-				// actually moved — the field details and the placement are different
-				// builders, and naming one with nothing to read is refused.
-				await update(application, {
-					values: {
-						insecticideId: values.insecticideId,
-						amountApplied,
-						unitId: values.applicationUnitId,
-						actionDate: values.applicationDate,
-						methodId: nullableSelection(values.applicationMethodId),
-						applicatorProfileId: nullableSelection(values.applicatorProfileId),
-						vehicleId: nullableSelection(values.vehicleId),
-						equipmentId: nullableSelection(values.equipmentId),
-						addressId: values.addressId,
-						habitatId: values.habitatId,
-						metadata: values.metadata,
-					},
-					...(centroid === null || redrawn === null
-						? {}
-						: {
-								location: {
-									lat: centroid.lat,
-									lng: centroid.lng,
-									geomType: centroid.geomType,
-									locationSource: { kind: 'geometry', geometry: redrawn },
-								},
-							}),
-					acknowledgements,
-				});
-				await Promise.all([
-					setPersonnel({
-						target: { type: 'application', id: application.id },
-						existing: personnel.rows,
-						profileIds: values.additionalPersonnelIds,
-					}),
-					setBatches({
-						applicationId: application.id,
-						existing: batches.rows,
-						insecticideBatchIds: values.insecticideBatchIds,
-					}),
-				]);
-				await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
+		// The batch clearance goes out unanswered and comes back as a refusal only
+		// when the product moved and the record has lots of the old one, which is
+		// the only time it matters. See `useAcknowledgedWrite`.
+		//
+		// Everything past the update is *inside* the callback on purpose: `run`
+		// resolves on a refusal as well as on a success, because a refusal is a
+		// question rather than a failure. Reconciling the crew and the batches out
+		// here would file them against a record whose own edit was never written,
+		// and leaving here on the way past would abandon the page before the
+		// question could be asked.
+		await run(async (acknowledgements) => {
+			// Which commands this save means is worked out by the hook, from what
+			// actually moved — the field details and the placement are different
+			// builders, and naming one with nothing to read is refused.
+			await update(application, {
+				values: {
+					insecticideId: values.insecticideId,
+					amountApplied,
+					unitId: values.applicationUnitId,
+					actionDate: values.applicationDate,
+					methodId: nullableSelection(values.applicationMethodId),
+					applicatorProfileId: nullableSelection(values.applicatorProfileId),
+					vehicleId: nullableSelection(values.vehicleId),
+					equipmentId: nullableSelection(values.equipmentId),
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+					metadata: values.metadata,
+				},
+				...(centroid === null || redrawn === null
+					? {}
+					: {
+							location: {
+								lat: centroid.lat,
+								lng: centroid.lng,
+								geomType: centroid.geomType,
+								locationSource: { kind: 'geometry', geometry: redrawn },
+							},
+						}),
+				acknowledgements,
 			});
-		},
-		[application, personnel.rows, batches.rows, navigate, run, update, setBatches, setPersonnel],
-	);
+			await Promise.all([
+				setPersonnel({
+					target: { type: 'application', id: application.id },
+					existing: personnel.rows,
+					profileIds: values.additionalPersonnelIds,
+				}),
+				setBatches({
+					applicationId: application.id,
+					existing: batches.rows,
+					insecticideBatchIds: values.insecticideBatchIds,
+				}),
+			]);
+			await navigate({ to: '/control-operations/chemical/$id', params: { id: application.id } });
+		});
+	};
 
 	if (geometryQuery.isError) {
 		return (
 			<RecordUnavailable
-				description="This application's geometry could not be loaded."
+				description="This chemical application's geometry could not be loaded."
 				layout="centered"
-				noun="application"
+				recordType="application"
 				reason="error"
 			/>
 		);
@@ -230,9 +227,9 @@ function EditApplicationLoader({
 	if (personnel.isError || batches.isError) {
 		return (
 			<RecordUnavailable
-				description="This application's personnel and batches could not be loaded."
+				description="This chemical application's personnel and batches could not be loaded."
 				layout="centered"
-				noun="application"
+				recordType="application"
 				reason="error"
 			/>
 		);
@@ -250,11 +247,11 @@ function EditApplicationLoader({
 				defaultValues={defaultsFromApplication(application, personnel, batches)}
 				equipment={equipment}
 				header={{
-					title: 'Edit Application',
+					title: `Edit ${recordNoun('application').title}`,
 					description: 'Update this application’s product, amount, work details, or location.',
 					backTo: '/control-operations/chemical/$id',
 					backParams: { id: application.id },
-					backLabel: 'Back to application',
+					backLabel: 'Back to chemical application',
 				}}
 				initialGeometry={geometryQuery.geometry}
 				insecticides={insecticides}
@@ -262,7 +259,6 @@ function EditApplicationLoader({
 				organizationId={organizationId}
 				profiles={profiles}
 				requireLocation={false}
-				submitLabel="Save Changes"
 				units={units}
 				vehicles={vehicles}
 			/>

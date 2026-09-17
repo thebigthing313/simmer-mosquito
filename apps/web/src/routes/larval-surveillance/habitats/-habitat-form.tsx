@@ -2,23 +2,20 @@ import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { createHabitatCommand } from '@simmer-mosquito/domain';
 import { centroidFromGeoJson } from '@simmer-mosquito/mapping';
 import {
-	customFieldCount,
-	customSchemaFor,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { getServerUrl } from '../../../auth';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, DrawGeometryType } from '../../../components/map/use-map-draw';
-import { AddressPicker } from '../../../components/pickers/address-picker';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { WriteOnly } from '../../../components/write-only';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
@@ -48,7 +45,6 @@ export interface HabitatFormPageProps {
 	readonly defaultValues: HabitatFormValues;
 	readonly initialGeometry: DrawGeometry | null;
 	readonly header: HabitatFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: HabitatFormValues;
 		readonly geometry: DrawGeometry;
@@ -86,7 +82,6 @@ export function HabitatFormPage({
 	defaultValues,
 	initialGeometry,
 	header,
-	submitLabel,
 	onSave,
 }: HabitatFormPageProps) {
 	const location = useDrawLocation({
@@ -94,7 +89,7 @@ export function HabitatFormPage({
 		initialGeometry,
 		missingMessage: 'Draw the habitat geometry on the map before saving.',
 	});
-	const { addressCoord, draw, geometry, geometryType } = location;
+	const { draw, geometry, geometryType } = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -139,7 +134,7 @@ export function HabitatFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				gap="tight"
@@ -200,41 +195,26 @@ export function HabitatFormPage({
 				{/* Address above geometry, in one section — the same Location block
 							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
-					<LocationSection
+					<LocationBand
 						description={locationDescription({
 							geometryKind: 'habitat',
 							subject: 'The geometry is the habitat itself.',
 						})}
-						error={location.locationError}
+						geometryKind="habitat"
+						location={location}
+						organizationId={organizationId}
 					>
 						<form.AppField name="addressId">
 							{(field) => (
-								<AddressPicker
-									create={{ requestMapPoint: location.requestMapPoint }}
-									onSelect={(address) => {
-										field.handleChange(address?.id ?? null);
-										location.selectAddress(address);
-									}}
+								<LocationAddressField
+									location={location}
+									onChange={field.handleChange}
 									organizationId={organizationId}
 									value={field.state.value}
 								/>
 							)}
 						</form.AppField>
-
-						<GeometryControl
-							controller={draw}
-							geometry={geometry}
-							geometryType={geometryType}
-							geometryKind="habitat"
-							label="Geometry"
-							required
-							onClear={location.clear}
-							onDraw={location.startDraw}
-							onTypeChange={location.changeType}
-							organizationId={organizationId}
-							{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-						/>
-					</LocationSection>
+					</LocationBand>
 				</WriteOnly>
 
 				<form.AppField
@@ -254,33 +234,18 @@ export function HabitatFormPage({
 					)}
 				</form.AppField>
 
-				{/* Habitat metadata is guided by the type's custom schema (see
-							    docs/larval-surveillance-domain.md), but stays open to ad-hoc keys
-							    so a habitat can carry notes its type never declared. */}
-				<form.Subscribe selector={(state) => state.values.habitatTypeId}>
-					{(habitatTypeId) => {
-						const schema = customSchemaFor(habitatTypes, habitatTypeId);
-						const hasTypeFields = customFieldCount(schema) > 0;
-						return (
-							<form.AppField
-								name="metadata"
-								validators={{ onSubmit: validateSchemaMetadata(schema) }}
-							>
-								{(field) => (
-									<field.MetadataField
-										label="Metadata"
-										description={
-											hasTypeFields
-												? 'Fields this habitat type collects, plus any notes of your own.'
-												: 'Optional structured notes for habitat details of your own.'
-										}
-										mode={{ kind: 'schema', schema, allowExtra: true }}
-									/>
-								)}
-							</form.AppField>
-						);
-					}}
-				</form.Subscribe>
+				{/* Guided by the type's custom schema (see docs/larval-surveillance-domain.md),
+							    and open to ad-hoc keys so a habitat can carry notes its type never
+							    declared. */}
+				<CustomFieldsSection
+					allowExtra
+					catalog={habitatTypes}
+					description="Fields this habitat type collects, plus any notes of your own."
+					emptyDescription="Optional structured notes for habitat details of your own."
+					form={form}
+					framed={false}
+					schemaField="habitatTypeId"
+				/>
 			</RecordFormPage>
 		</form.AppForm>
 	);
@@ -340,42 +305,6 @@ function habitatTypeOptions(habitatTypes: readonly SchemaCatalogListing[]) {
 			(type) => type.name,
 		),
 	];
-}
-
-function _drawInstruction(type: DrawGeometryType, vertexCount: number): string {
-	if (type === 'Point') {
-		return 'Click the map to place the point.';
-	}
-	const noun = type === 'LineString' ? 'line' : 'area';
-	const minimum = type === 'LineString' ? 2 : 3;
-	if (vertexCount === 0) {
-		return `Click the map to start the ${noun}.`;
-	}
-	const count = `${vertexCount} ${vertexCount === 1 ? 'vertex' : 'vertices'}`;
-	if (vertexCount < minimum) {
-		const remaining = minimum - vertexCount;
-		return `${count} · add ${remaining} more to finish.`;
-	}
-	return `${count} · double-click or Finish to complete.`;
-}
-
-function _geometrySummary(geometry: DrawGeometry | null): string {
-	if (geometry === null) {
-		return 'No geometry drawn yet.';
-	}
-	if (geometry.type === 'Point') {
-		const coordinates = geometry.coordinates;
-		if (!Array.isArray(coordinates) || coordinates.length < 2) {
-			return 'Point';
-		}
-		return `Point · ${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)}`;
-	}
-	if (geometry.type === 'LineString') {
-		const count = Array.isArray(geometry.coordinates) ? geometry.coordinates.length : 0;
-		return `Line · ${count} vertices`;
-	}
-	const ring = geometry.coordinates?.[0] ?? [];
-	return `Polygon · ${Math.max(ring.length - 1, 0)} vertices`;
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

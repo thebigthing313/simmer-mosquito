@@ -7,14 +7,13 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { CheckIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { type Collection, eq, useLiveQuery } from '@tanstack/react-db';
+import { unmatchableId } from '../../hooks/queries/shared';
 
 // Shared search-and-pick chrome for the domain forms: a search input that opens a
 // popover of matches beneath itself. Callers supply the results — an eager
 // collection filtered client-side, or a live subset query against an on-demand one.
 
 const selectedGcTimeMs = 30_000;
-/** A syntactically valid uuid no row carries, so "nothing selected" matches nothing. */
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 
 /** What every synced row carries, and all this lookup needs. */
 interface IdentifiedRow {
@@ -38,7 +37,7 @@ export function useSelectedRowLabel<TRow extends IdentifiedRow>({
 	readonly pickedLabel: string;
 	readonly toLabel: (row: TRow) => string;
 }): string {
-	const queryId = value ?? UNMATCHABLE_ID;
+	const queryId = value ?? unmatchableId;
 	// The query builder resolves column refs off a concrete row type, so the lookup
 	// runs against the shared `id` shape every synced row satisfies.
 	const rows = collection as unknown as Collection<IdentifiedRow, string | number>;

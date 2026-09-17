@@ -12,8 +12,8 @@ import type { SimmerDatabase } from '../../../index.js';
 
 // --- the SQL every map surface emits ----------------------------------------
 //
-// Eleven explorer surfaces each answer the same four questions — the tile, the
-// framed extent, the paged list, the single row — and all forty-one answers come
+// Twelve explorer surfaces each answer the same four questions — the tile, the
+// framed extent, the paged list, the single row — and all forty-seven answers come
 // out of one factory, reached through the register the surfaces are keyed in.
 // What has to hold across all of them is invisible in any one reader: the
 // organization predicate, the soft-delete predicate, and (for the spatial reads)
@@ -72,6 +72,7 @@ const mapReads: ReadonlyArray<{
 					tagIds: ids,
 					regionIds,
 					search: 'ditch',
+					untreatedOnly: true,
 				},
 			}),
 	},
@@ -86,7 +87,14 @@ const mapReads: ReadonlyArray<{
 				timeZone,
 				bounds,
 				...page,
-				filters: { isActive: true, habitatTypeIds: ids, tagIds: ids, regionIds, search: 'ditch' },
+				filters: {
+					isActive: true,
+					habitatTypeIds: ids,
+					tagIds: ids,
+					regionIds,
+					search: 'ditch',
+					untreatedOnly: true,
+				},
 			}),
 	},
 	{
@@ -98,7 +106,14 @@ const mapReads: ReadonlyArray<{
 			MAP_SURFACES.habitats.getExtent(db, {
 				organizationId,
 				timeZone,
-				filters: { isActive: true, habitatTypeIds: ids, tagIds: ids, regionIds, search: 'ditch' },
+				filters: {
+					isActive: true,
+					habitatTypeIds: ids,
+					tagIds: ids,
+					regionIds,
+					search: 'ditch',
+					untreatedOnly: true,
+				},
 			}),
 	},
 	{
@@ -262,14 +277,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'trap page',
+		name: 'trap bbox list',
 		organizationAlias: 't',
 		geomAlias: 't',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.traps.listPage(db, {
+			MAP_SURFACES.traps.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: { collectionMethodIds: ids, isActive: true, search: 'gravid', regionIds },
 			}),
@@ -305,20 +321,33 @@ const mapReads: ReadonlyArray<{
 				...tile,
 				organizationId,
 				timeZone,
-				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
 			}),
 	},
 	{
-		name: 'collection page',
+		name: 'collection bbox list',
 		organizationAlias: 'c',
 		geomAlias: 'c',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.collections.listPage(db, {
+			MAP_SURFACES.collections.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
-				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
 			}),
 	},
 	{
@@ -330,7 +359,13 @@ const mapReads: ReadonlyArray<{
 			MAP_SURFACES.collections.getExtent(db, {
 				organizationId,
 				timeZone,
-				filters: { collectionMethodIds: ids, problemOnly: true, regionIds, ...dates },
+				filters: {
+					collectionMethodIds: ids,
+					problemOnly: true,
+					awaitingOnly: true,
+					regionIds,
+					...dates,
+				},
 			}),
 	},
 	{
@@ -362,14 +397,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'application page',
+		name: 'application bbox list',
 		organizationAlias: 'a',
 		geomAlias: 'a',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.chemical.listPage(db, {
+			MAP_SURFACES.chemical.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: {
 					insecticideIds: ids,
@@ -426,14 +462,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'source reduction page',
+		name: 'source reduction bbox list',
 		organizationAlias: 'sr',
 		geomAlias: 'sr',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES['source-reduction'].listPage(db, {
+			MAP_SURFACES['source-reduction'].listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: {
 					sourceReductionMethodIds: ids,
@@ -489,14 +526,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'biocontrol page',
+		name: 'biocontrol bbox list',
 		organizationAlias: 'ba',
 		geomAlias: 'ba',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.biocontrol.listPage(db, {
+			MAP_SURFACES.biocontrol.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: {
 					biocontrolMethodIds: ids,
@@ -548,14 +586,15 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
-		name: 'outreach page',
+		name: 'outreach bbox list',
 		organizationAlias: 'oa',
 		geomAlias: 'oa',
-		spatial: false,
+		spatial: true,
 		read: (db) =>
-			MAP_SURFACES.outreach.listPage(db, {
+			MAP_SURFACES.outreach.listByBounds(db, {
 				organizationId,
 				timeZone,
+				bounds,
 				...page,
 				filters: { outreachMethodIds: ids, technicianProfileIds: ids, regionIds, ...dates },
 			}),
@@ -604,6 +643,20 @@ const mapReads: ReadonlyArray<{
 			}),
 	},
 	{
+		name: 'address bbox list',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		spatial: true,
+		read: (db) =>
+			MAP_SURFACES.addresses.listByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				...page,
+				filters: { search: 'main st', regionIds },
+			}),
+	},
+	{
 		name: 'address extent',
 		organizationAlias: 'a',
 		geomAlias: 'a',
@@ -614,6 +667,61 @@ const mapReads: ReadonlyArray<{
 				timeZone,
 				filters: { search: 'main st', regionIds },
 			}),
+	},
+	{
+		name: 'address by id',
+		organizationAlias: 'a',
+		geomAlias: 'a',
+		spatial: false,
+		read: (db) => MAP_SURFACES.addresses.getById(db, { organizationId, timeZone, id }),
+	},
+
+	// --- service requests ---
+	{
+		name: 'service request tile',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: true,
+		read: (db) =>
+			MAP_SURFACES['service-requests'].getTile(db, {
+				...tile,
+				organizationId,
+				timeZone,
+				filters: { isOpen: true, search: '#12', tagIds: ids, regionIds },
+			}),
+	},
+	{
+		name: 'service request bbox list',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: true,
+		read: (db) =>
+			MAP_SURFACES['service-requests'].listByBounds(db, {
+				organizationId,
+				timeZone,
+				bounds,
+				...page,
+				filters: { isOpen: false, search: '#12', tagIds: ids, regionIds },
+			}),
+	},
+	{
+		name: 'service request extent',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: false,
+		read: (db) =>
+			MAP_SURFACES['service-requests'].getExtent(db, {
+				organizationId,
+				timeZone,
+				filters: { isOpen: true, search: '#12', tagIds: ids, regionIds },
+			}),
+	},
+	{
+		name: 'service request by id',
+		organizationAlias: 'sr',
+		geomAlias: 'sr',
+		spatial: false,
+		read: (db) => MAP_SURFACES['service-requests'].getById(db, { organizationId, timeZone, id }),
 	},
 
 	// --- regions ---

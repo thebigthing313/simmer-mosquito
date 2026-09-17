@@ -1,4 +1,4 @@
-import { CommandError } from '@simmer-mosquito/sync';
+import { CommandError, refusalSentence } from '@simmer-mosquito/sync';
 
 import type { DeleteImpactEntry } from '../hooks/use-delete-impact';
 
@@ -30,20 +30,7 @@ export function commandErrorFrom(
 	body: unknown,
 	fallback: string,
 ): CommandError {
-	return new CommandError(messageFromBody(body, fallback), response.status, body);
-}
-
-/** The most specific sentence the body offers, or `fallback`. */
-export function messageFromBody(body: unknown, fallback: string): string {
-	if (!isRecord(body)) {
-		return fallback;
-	}
-	// `reason` first: it is what the role and lifecycle refusals carry, and it is
-	// the more specific of the two whenever both are present.
-	if (typeof body.reason === 'string' && body.reason !== '') {
-		return body.reason;
-	}
-	return typeof body.message === 'string' && body.message !== '' ? body.message : fallback;
+	return new CommandError(refusalSentence(body, fallback), response.status, body);
 }
 
 /** The `{ error: 'delete_blocked', blockers }` body, when that is what happened. */

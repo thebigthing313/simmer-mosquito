@@ -5,7 +5,6 @@ import {
 	type CollectionMapFilters,
 	countActiveHabitatsByType,
 	countProfileActivity,
-	getAddressById,
 	getNotificationRegistrationGeometryById,
 	getOrganizationSettingsRaw,
 	getRegionById,
@@ -22,6 +21,7 @@ import {
 	type RegionMvtTileFilters,
 	type SampleListFilters,
 	type SampleStatus,
+	type ServiceRequestMapFilters,
 	type SimmerDatabase,
 	type SourceReductionMapFilters,
 	sampleStatusValues,
@@ -64,12 +64,12 @@ type TileDb = Kysely<SimmerDatabase>;
  *
  * One object, one spread. A new route adds a line here and a line at its
  * registration, and it is injectable from the moment it exists — which the old
- * shape did not manage: `getRegionById`, `getAddressById` and
+ * shape did not manage: `getRegionById`, the address by-id read and
  * `getRequestedControlActionDisplayRowById` were called directly, so three
  * routes could not be driven without a database at all.
  */
 const defaultMapReaders = {
-	// The eleven map surfaces, read off `MAP_SURFACES` in `packages/db`: one entry
+	// The twelve map surfaces, read off `MAP_SURFACES` in `packages/db`: one entry
 	// per tileset name, and the four readers of one entry are one surface object,
 	// so the tile a route draws and the rows its rail lists are the same set by
 	// construction. The reader names are this file's, because they are the seam a
@@ -91,44 +91,51 @@ const defaultMapReaders = {
 
 	getTrapTile: MAP_SURFACES.traps.getTile,
 	getTrapExtent: MAP_SURFACES.traps.getExtent,
-	listTrapDisplayRows: MAP_SURFACES.traps.listPage,
+	listTrapDisplayRows: MAP_SURFACES.traps.listByBounds,
 	getTrapDisplayRow: MAP_SURFACES.traps.getById,
 
 	getCollectionTile: MAP_SURFACES.collections.getTile,
 	getCollectionExtent: MAP_SURFACES.collections.getExtent,
-	listCollectionDisplayRows: MAP_SURFACES.collections.listPage,
+	listCollectionDisplayRows: MAP_SURFACES.collections.listByBounds,
 	getCollectionDisplayRow: MAP_SURFACES.collections.getById,
 
 	getApplicationTile: MAP_SURFACES.chemical.getTile,
 	getApplicationExtent: MAP_SURFACES.chemical.getExtent,
-	listApplicationDisplayRows: MAP_SURFACES.chemical.listPage,
+	listApplicationDisplayRows: MAP_SURFACES.chemical.listByBounds,
 	getApplicationDisplayRow: MAP_SURFACES.chemical.getById,
 
 	getSourceReductionTile: MAP_SURFACES['source-reduction'].getTile,
 	getSourceReductionExtent: MAP_SURFACES['source-reduction'].getExtent,
-	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listPage,
+	listSourceReductionDisplayRows: MAP_SURFACES['source-reduction'].listByBounds,
 	getSourceReductionDisplayRow: MAP_SURFACES['source-reduction'].getById,
 
 	getBiocontrolTile: MAP_SURFACES.biocontrol.getTile,
 	getBiocontrolExtent: MAP_SURFACES.biocontrol.getExtent,
-	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listPage,
+	listBiocontrolDisplayRows: MAP_SURFACES.biocontrol.listByBounds,
 	getBiocontrolDisplayRow: MAP_SURFACES.biocontrol.getById,
 
 	getOutreachTile: MAP_SURFACES.outreach.getTile,
 	getOutreachExtent: MAP_SURFACES.outreach.getExtent,
-	listOutreachDisplayRows: MAP_SURFACES.outreach.listPage,
+	listOutreachDisplayRows: MAP_SURFACES.outreach.listByBounds,
 	getOutreachDisplayRow: MAP_SURFACES.outreach.getById,
 
-	// Addresses and regions are drawn from their surface and read as rows through
-	// their own catalog, so their by-id readers are not surface methods.
-	getRegionTile: MAP_SURFACES.regions.getTile,
-	getRegionExtent: MAP_SURFACES.regions.getExtent,
 	getAddressTile: MAP_SURFACES.addresses.getTile,
 	getAddressExtent: MAP_SURFACES.addresses.getExtent,
+	listAddressDisplayRows: MAP_SURFACES.addresses.listByBounds,
+	getAddressDisplayRow: MAP_SURFACES.addresses.getById,
 
-	// The ten readers that are nobody's surface method.
+	getServiceRequestTile: MAP_SURFACES['service-requests'].getTile,
+	getServiceRequestExtent: MAP_SURFACES['service-requests'].getExtent,
+	listServiceRequestDisplayRows: MAP_SURFACES['service-requests'].listByBounds,
+	getServiceRequestDisplayRow: MAP_SURFACES['service-requests'].getById,
+
+	// Regions are drawn from their surface and read as rows through their own
+	// catalog, so the by-id reader is not a surface method.
+	getRegionTile: MAP_SURFACES.regions.getTile,
+	getRegionExtent: MAP_SURFACES.regions.getExtent,
+
+	// The nine readers that are nobody's surface method.
 	getRegionRow: getRegionById,
-	getAddressRow: getAddressById,
 	getRequestedControlActionRow: getRequestedControlActionDisplayRowById,
 	getNotificationRegistrationGeometry: getNotificationRegistrationGeometryById,
 	searchHabitatDisplayRows: searchHabitatSites,
@@ -270,9 +277,9 @@ export function registerMapTileRoutes(
 		get: readers.getHabitatDisplayRow,
 	});
 
-	// Region + address geometry is deliberately excluded from the Electric sync
-	// shapes (the on-demand rows carry no geometry), so detail views read the
-	// polygon/point over HTTP the same way habitats do.
+	// Region geometry is deliberately excluded from the Electric sync shape (the
+	// on-demand rows carry no geometry), so detail views read the polygon over
+	// HTTP the same way habitats do.
 	registerByIdRoute(app, options, {
 		path: '/map/regions/:id',
 		key: 'region',
@@ -281,12 +288,23 @@ export function registerMapTileRoutes(
 		toResponse: (row) => ({ ...row.geometry }),
 	});
 
+	// The address book's rail is a page of the viewport, the way the nine paged
+	// explorers' are (#962). The by-id read answers the same display row, which
+	// carries the geometry the sync shape omits at its top level, so the detail
+	// page's geometry read still finds `lat`, `lng` and `geojson` where it did.
+	registerPagedRoute(app, options, {
+		path: '/map/addresses',
+		key: 'addresses',
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseAddressTileFilters),
+		list: readers.listAddressDisplayRows,
+	});
+
 	registerByIdRoute(app, options, {
 		path: '/map/addresses/:id',
 		key: 'address',
 		noun: 'Address',
-		get: readers.getAddressRow,
-		toResponse: (row) => ({ ...row.geometry }),
+		get: readers.getAddressDisplayRow,
 	});
 
 	registerPagedRoute(app, options, {
@@ -321,7 +339,7 @@ export function registerMapTileRoutes(
 		path: '/map/chemical',
 		key: 'applications',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseApplicationMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseApplicationMapFilters),
 		list: readers.listApplicationDisplayRows,
 	});
 
@@ -336,7 +354,7 @@ export function registerMapTileRoutes(
 		path: '/map/source-reduction',
 		key: 'sourceReductions',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseSourceReductionMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseSourceReductionMapFilters),
 		list: readers.listSourceReductionDisplayRows,
 	});
 
@@ -351,7 +369,7 @@ export function registerMapTileRoutes(
 		path: '/map/biocontrol',
 		key: 'biocontrolActions',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseBiocontrolMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseBiocontrolMapFilters),
 		list: readers.listBiocontrolDisplayRows,
 	});
 
@@ -367,7 +385,7 @@ export function registerMapTileRoutes(
 		path: '/map/outreach',
 		key: 'outreachActions',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseOutreachMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseOutreachMapFilters),
 		list: readers.listOutreachDisplayRows,
 	});
 
@@ -377,6 +395,26 @@ export function registerMapTileRoutes(
 		noun: 'Outreach',
 		foundNoun: 'Outreach action',
 		get: readers.getOutreachDisplayRow,
+	});
+
+	// The service requests rail is a page of the viewport, the way the ten other
+	// paged explorers' are (#963). `/map/service-requests/:id/nearby`, registered
+	// in `service-request-nearby.ts`, is one segment longer than the by-id route
+	// and Hono matches on the whole path, so the two cannot answer each other's
+	// requests.
+	registerPagedRoute(app, options, {
+		path: '/map/service-requests',
+		key: 'serviceRequests',
+		parseQuery: (searchParams, organizationId, timeZone) =>
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseServiceRequestMapFilters),
+		list: readers.listServiceRequestDisplayRows,
+	});
+
+	registerByIdRoute(app, options, {
+		path: '/map/service-requests/:id',
+		key: 'serviceRequest',
+		noun: 'Service request',
+		get: readers.getServiceRequestDisplayRow,
 	});
 
 	// Geometry only — a request's other fields already stream on its Electric
@@ -469,7 +507,7 @@ export function registerMapTileRoutes(
 		path: '/map/traps',
 		key: 'traps',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseTrapMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseTrapMapFilters),
 		list: readers.listTrapDisplayRows,
 	});
 
@@ -484,7 +522,7 @@ export function registerMapTileRoutes(
 		path: '/map/collections',
 		key: 'collections',
 		parseQuery: (searchParams, organizationId, timeZone) =>
-			parsePageQuery(searchParams, organizationId, timeZone, parseCollectionMapFilters),
+			parseBboxPageQuery(searchParams, organizationId, timeZone, parseCollectionMapFilters),
 		list: readers.listCollectionDisplayRows,
 	});
 
@@ -647,13 +685,13 @@ function registerByIdRoute<TRow>(
 				 * The organization's zone, on every by-id read for the reason
 				 * `PageInput` carries one: the map surfaces share an input shape, and
 				 * which of them reads a zone is a fact about the schema rather than
-				 * about this file. The four readers here that are not surface methods
+				 * about this file. The three readers here that are not surface methods
 				 * ignore it.
 				 */
 				readonly timeZone: string;
 			},
 		) => Promise<TRow | undefined>;
-		/** For the two routes that answer geometry rather than the row. */
+		/** For the region route, which answers geometry rather than the row. */
 		readonly toResponse?: (row: TRow) => unknown;
 	},
 ): void {
@@ -686,7 +724,7 @@ function registerByIdRoute<TRow>(
 }
 
 /**
- * The eleven tilesets `/map/tiles/:tileset/...` can name.
+ * The twelve tilesets `/map/tiles/:tileset/...` can name.
  *
  * Each is a filter parser and the two readers that must agree with it — the
  * tile the map draws and the extent the camera frames. They are declared
@@ -756,6 +794,11 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
 			getTile: readers.getCollectionTile,
 			getExtent: readers.getCollectionExtent,
 		}),
+		'service-requests': defineTileSet({
+			parseFilters: parseServiceRequestMapFilters,
+			getTile: readers.getServiceRequestTile,
+			getExtent: readers.getServiceRequestExtent,
+		}),
 	};
 
 	// Back to plain string keys: the `:tileset` param is whatever the caller
@@ -772,6 +815,11 @@ function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSet
  * convention: every filter parser refuses a param it does not recognise, so
  * forgetting to strip `limit` from what it is handed turns a paging request
  * into a 400.
+ *
+ * Reached only through {@link parseBboxPageQuery} now that all nine paged
+ * surfaces page inside the viewport (#920). It stays a function of its own
+ * because the paging half and the box half refuse different things, and a
+ * caller reading a 400 wants to know which.
  */
 function parsePageQuery<TFilters>(
 	searchParams: URLSearchParams,
@@ -806,7 +854,14 @@ function parsePageQuery<TFilters>(
 	};
 }
 
-/** The same, for the surfaces that page within a viewport. */
+/**
+ * The same, plus the box.
+ *
+ * Every paged map surface reads one: the explorer rail is the map's list, so a
+ * request with no viewport is one the client cannot mean (#920). `bbox` is
+ * refused rather than defaulted, because a missing box would otherwise page the
+ * whole Organization behind a map showing a street corner.
+ */
 function parseBboxPageQuery<TFilters>(
 	searchParams: URLSearchParams,
 	organizationId: string,
@@ -888,7 +943,8 @@ interface FilterField {
 		| 'date'
 		| 'density'
 		| 'sampleStatus'
-		| 'trapStatus';
+		| 'trapStatus'
+		| 'requestStatus';
 }
 
 /** The region filter is spatial, not an FK, and every surface carries it. */
@@ -952,7 +1008,15 @@ function parseFilterField(
 		case 'sampleStatus':
 			return parseOptionalSampleStatusFilter(searchParams, field.param);
 		case 'trapStatus':
-			return parseOptionalTrapStatusFilter(searchParams, field.param);
+			return parseOptionalBinaryStatusFilter(searchParams, field.param, {
+				true: 'active',
+				false: 'inactive',
+			});
+		case 'requestStatus':
+			return parseOptionalBinaryStatusFilter(searchParams, field.param, {
+				true: 'open',
+				false: 'closed',
+			});
 		default: {
 			const unhandled: never = field.kind;
 			throw new Error(`Unhandled map filter kind ${String(unhandled)}.`);
@@ -967,6 +1031,8 @@ export const parseHabitatTileFilters = defineFilters<HabitatMvtTileFilters>('hab
 	{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
 	regionField,
 	{ param: 'search', kind: 'text' },
+	// The Dashboard's banner links here; the surface reads the same fragment.
+	{ param: 'untreated', as: 'untreatedOnly', kind: 'trueOnly' },
 ]);
 
 export const parseAddressTileFilters = defineFilters<AddressMvtTileFilters>('address tile', [
@@ -1046,9 +1112,23 @@ export const parseTrapMapFilters = defineFilters<TrapMapFilters>('traps', [
 export const parseCollectionMapFilters = defineFilters<CollectionMapFilters>('collections', [
 	{ param: 'collectionMethodId', as: 'collectionMethodIds', kind: 'uuidList' },
 	{ param: 'problem', as: 'problemOnly', kind: 'trueOnly' },
+	// The Dashboard's queue links here; the surface reads the same fragment.
+	{ param: 'awaiting', as: 'awaitingOnly', kind: 'trueOnly' },
 	regionField,
 	...dateFields,
 ]);
+
+// No date fields, deliberately: the explorer's filters are status, search, tag
+// and region, and a date default is not a substitute for the viewport (#920).
+export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilters>(
+	'service-requests',
+	[
+		{ param: 'status', as: 'isOpen', kind: 'requestStatus' },
+		{ param: 'search', kind: 'text' },
+		{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
+		regionField,
+	],
+);
 
 export function parseTileCoordinate(input: {
 	readonly z: string;
@@ -1115,44 +1195,22 @@ function parseSampleDisplayQuery(
 
 // --- control-operations map queries -----------------------------------------
 //
-// These domains render their maps from unbounded MVT tiles, and their list from
-// a filtered, offset-paged window (no bbox). Filters fold identically into the
-// tile URL and the list query so the map and the paged rail stay in lockstep.
+// These domains render their maps from MVT tiles and their rail from a paged
+// window inside the same viewport. Filters fold identically into the tile URL
+// and the list query, so the map and the paged rail stay in lockstep on both
+// counts: the same filters, and the same box.
 
-function parseOptionalTrapStatusFilter(
+/**
+ * One param that may be given once or not at all: absent or blank is
+ * `undefined`, given twice is refused, and otherwise the trimmed text goes to
+ * `read`, which is the part of the parse that is the field's own. Four parsers
+ * opened with the first half and each wrote it out.
+ */
+function parseSingleValue<TValue>(
 	searchParams: URLSearchParams,
 	param: string,
-):
-	| { readonly ok: true; readonly value: boolean | undefined }
-	| { readonly ok: false; readonly reason: string } {
-	const values = searchParams.getAll(param);
-	if (values.length === 0) {
-		return { ok: true, value: undefined };
-	}
-	if (values.length > 1) {
-		return { ok: false, reason: `${param} may only be provided once.` };
-	}
-
-	const trimmed = values[0]?.trim().toLowerCase() ?? '';
-	if (trimmed.length === 0) {
-		return { ok: true, value: undefined };
-	}
-	if (trimmed === 'active') {
-		return { ok: true, value: true };
-	}
-	if (trimmed === 'inactive') {
-		return { ok: true, value: false };
-	}
-
-	return { ok: false, reason: `${param} must be active or inactive.` };
-}
-
-function parseOptionalSampleStatusFilter(
-	searchParams: URLSearchParams,
-	param: string,
-):
-	| { readonly ok: true; readonly value: SampleStatus | undefined }
-	| { readonly ok: false; readonly reason: string } {
+	read: (trimmed: string) => OptionalFilterResult<TValue>,
+): OptionalFilterResult<TValue> {
 	const values = searchParams.getAll(param);
 	if (values.length === 0) {
 		return { ok: true, value: undefined };
@@ -1162,14 +1220,45 @@ function parseOptionalSampleStatusFilter(
 	}
 
 	const trimmed = values[0]?.trim() ?? '';
-	if (trimmed.length === 0) {
-		return { ok: true, value: undefined };
-	}
-	if (!sampleStatusSet.has(trimmed)) {
-		return { ok: false, reason: `${param} must be one of: ${sampleStatusValues.join(', ')}.` };
-	}
+	return trimmed.length === 0 ? { ok: true, value: undefined } : read(trimmed);
+}
 
-	return { ok: true, value: trimmed as SampleStatus };
+type OptionalFilterResult<TValue> =
+	| { readonly ok: true; readonly value: TValue | undefined }
+	| { readonly ok: false; readonly reason: string };
+
+/**
+ * A two-word status that the reader takes as a boolean: `active` or `inactive`
+ * for a trap's `isActive`, `open` or `closed` for a service request's `isOpen`.
+ * The words are the surface's vocabulary and the boolean is the column's, and
+ * the parse is the same either way.
+ */
+function parseOptionalBinaryStatusFilter(
+	searchParams: URLSearchParams,
+	param: string,
+	words: { readonly true: string; readonly false: string },
+): OptionalFilterResult<boolean> {
+	return parseSingleValue(searchParams, param, (trimmed) => {
+		const word = trimmed.toLowerCase();
+		if (word === words.true) {
+			return { ok: true, value: true };
+		}
+		if (word === words.false) {
+			return { ok: true, value: false };
+		}
+		return { ok: false, reason: `${param} must be ${words.true} or ${words.false}.` };
+	});
+}
+
+function parseOptionalSampleStatusFilter(
+	searchParams: URLSearchParams,
+	param: string,
+): OptionalFilterResult<SampleStatus> {
+	return parseSingleValue(searchParams, param, (trimmed) =>
+		sampleStatusSet.has(trimmed)
+			? { ok: true, value: trimmed as SampleStatus }
+			: { ok: false, reason: `${param} must be one of: ${sampleStatusValues.join(', ')}.` },
+	);
 }
 
 const maxSearchResults = 25;
@@ -1262,26 +1351,12 @@ function parseOptionalUuidListFilter(
 function parseOptionalTextFilter(
 	searchParams: URLSearchParams,
 	param: string,
-):
-	| { readonly ok: true; readonly value: string | undefined }
-	| { readonly ok: false; readonly reason: string } {
-	const values = searchParams.getAll(param);
-	if (values.length === 0) {
-		return { ok: true, value: undefined };
-	}
-	if (values.length > 1) {
-		return { ok: false, reason: `${param} may only be provided once.` };
-	}
-
-	const trimmed = values[0]?.trim() ?? '';
-	if (trimmed.length === 0) {
-		return { ok: true, value: undefined };
-	}
-	if (trimmed.length > maxSearchLength) {
-		return { ok: false, reason: `${param} must be ${maxSearchLength} characters or fewer.` };
-	}
-
-	return { ok: true, value: trimmed };
+): OptionalFilterResult<string> {
+	return parseSingleValue(searchParams, param, (trimmed) =>
+		trimmed.length > maxSearchLength
+			? { ok: false, reason: `${param} must be ${maxSearchLength} characters or fewer.` }
+			: { ok: true, value: trimmed },
+	);
 }
 
 const inspectionDensitySet = new Set<string>(LARVAL_DENSITIES);
@@ -1383,27 +1458,13 @@ export function parseOptionalPositiveNumber(
 export function parseOptionalDateFilter(
 	searchParams: URLSearchParams,
 	param: string,
-):
-	| { readonly ok: true; readonly value: string | undefined }
-	| { readonly ok: false; readonly reason: string } {
-	const values = searchParams.getAll(param);
-	if (values.length === 0) {
-		return { ok: true, value: undefined };
-	}
-	if (values.length > 1) {
-		return { ok: false, reason: `${param} may only be provided once.` };
-	}
-
-	const trimmed = values[0]?.trim() ?? '';
-	if (trimmed.length === 0) {
-		return { ok: true, value: undefined };
-	}
-	// Shape check plus a real calendar-validity check (rejects e.g. 2026-13-40).
-	if (!isoDatePattern.test(trimmed) || Number.isNaN(Date.parse(`${trimmed}T00:00:00Z`))) {
-		return { ok: false, reason: `${param} must be a valid YYYY-MM-DD date.` };
-	}
-
-	return { ok: true, value: trimmed };
+): OptionalFilterResult<string> {
+	return parseSingleValue(searchParams, param, (trimmed) =>
+		// Shape check plus a real calendar-validity check (rejects e.g. 2026-13-40).
+		!isoDatePattern.test(trimmed) || Number.isNaN(Date.parse(`${trimmed}T00:00:00Z`))
+			? { ok: false, reason: `${param} must be a valid YYYY-MM-DD date.` }
+			: { ok: true, value: trimmed },
+	);
 }
 
 function parseBoundingBoxParam(value: string | null):

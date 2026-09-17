@@ -1,19 +1,14 @@
 import { isSourceReductionUnitType, recordSourceReductionCommand } from '@simmer-mosquito/domain';
 import {
-	customFieldCount,
-	customSchemaFor,
 	FormSection,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
@@ -22,17 +17,17 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { noTechnicianValue, technicianOptions } from '../../../lib/no-technician';
 import { unitOptions } from '../../../lib/unit-options';
-import { AddressPicker, HabitatPicker } from '../-control-pickers';
-
-/** Non-empty sentinel: Radix Select forbids empty-string item values. */
-export const noTechnicianValue = 'none';
+import { HabitatPicker } from '../-control-pickers';
 
 /** Domain issue path → the form field holding it. */
 const SOURCE_REDUCTION_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -44,6 +39,39 @@ const SOURCE_REDUCTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	addressId: 'addressId',
 	metadata: 'metadata',
 };
+
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * The builder is the only channel: it holds the method, the amount, the unit and
+ * the date, and every issue it raises comes back attributed to the field that
+ * holds it. A second hand-rolled pass over the same five rules used to run in
+ * `onSubmit` and throw a bare string into the page alert, which told an operator
+ * a save had failed without saying where to look.
+ */
+export function validateSourceReduction(
+	value: SourceReductionFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+) {
+	return domainValidator(
+		() =>
+			recordSourceReductionCommand({
+				...FORM_VALIDATION_CONTEXT,
+				sourceReductionId: FORM_VALIDATION_CONTEXT.organizationId,
+				locationSource: validationLocationSource(geometry, requireLocation),
+				sourceReductionMethodId: value.sourceReductionMethodId,
+				sourcesEliminatedAmount: value.sourcesEliminatedAmount as number,
+				sourcesEliminatedUnitId: value.sourcesEliminatedUnitId,
+				sourceReductionDate: value.sourceReductionDate,
+				technicianProfileId:
+					value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
+				addressId: value.addressId,
+				metadata: value.metadata,
+			}),
+		SOURCE_REDUCTION_FIELD_PATHS,
+	)({ value });
+}
 
 export interface SourceReductionFormValues {
 	/** A source reduction method id, or '' when unset (placeholder shown). */
@@ -106,7 +134,6 @@ export interface SourceReductionFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: SourceReductionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: SourceReductionSaveInput) => Promise<void>;
 }
 
@@ -136,7 +163,6 @@ export function SourceReductionFormPage({
 	requireLocation = true,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: SourceReductionFormPageProps) {
 	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
@@ -148,47 +174,24 @@ export function SourceReductionFormPage({
 		missingMessage: 'Map where the sources were eliminated.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
+	const { draw, geometry, geometryType, referenceGeometry } = location;
 
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				methods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		[methods],
+	const methodOptions = lifecycleOptions(
+		methods,
+		(method) => method.isActive,
+		(method) => method.name,
 	);
 	// The domain restricts source-reduction amounts to count/distance/area/volume.
-	const amountUnitOptions = useMemo(() => unitOptions(units, isSourceReductionUnitType), [units]);
+	const amountUnitOptions = unitOptions(units, isSourceReductionUnitType);
 
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: domainValidator(
-				({ value }: { readonly value: SourceReductionFormValues }) =>
-					recordSourceReductionCommand({
-						...FORM_VALIDATION_CONTEXT,
-						sourceReductionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: validationLocationSource(geometry, requireLocation),
-						sourceReductionMethodId: value.sourceReductionMethodId,
-						sourcesEliminatedAmount: value.sourcesEliminatedAmount as number,
-						sourcesEliminatedUnitId: value.sourcesEliminatedUnitId,
-						sourceReductionDate: value.sourceReductionDate,
-						technicianProfileId:
-							value.technicianProfileId === noTechnicianValue ? null : value.technicianProfileId,
-						addressId: value.addressId,
-						metadata: value.metadata,
-					}),
-				SOURCE_REDUCTION_FIELD_PATHS,
-			),
+			onSubmit: ({ value }: { readonly value: SourceReductionFormValues }) =>
+				validateSourceReduction(value, geometry, requireLocation),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const validationError = validate(value);
-			if (validationError !== null) {
-				throw new Error(validationError);
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -202,7 +205,7 @@ export function SourceReductionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -262,67 +265,52 @@ export function SourceReductionFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection
+				<LocationBand
+					below={
+						<form.AppField name="habitatId">
+							{(field) => (
+								<HabitatPicker
+									label="Habitat"
+									organizationId={organizationId}
+									onSelect={(habitat) => {
+										field.handleChange(habitat?.id ?? null);
+										// The habitat is larval context, not the action's location, but
+										// framing the map on it (and seeding unplaced geometry) saves the
+										// crew a pan across the county.
+										location.selectReference(
+											habitat === null ||
+												typeof habitat.latitude !== 'number' ||
+												typeof habitat.longitude !== 'number'
+												? null
+												: { lat: habitat.latitude, lng: habitat.longitude },
+										);
+									}}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+					}
 					description={locationDescription({
 						geometryKind: 'controlAction',
 						subject: 'The geometry is where the sources were eliminated.',
 						habitat: true,
 					})}
-					error={location.locationError}
+					geometryKind="controlAction"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="controlAction"
-						label="Geometry"
-						required={requireLocation}
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						onTypeChange={location.changeType}
-						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-
-					<form.AppField name="habitatId">
-						{(field) => (
-							<HabitatPicker
-								label="Habitat"
-								organizationId={organizationId}
-								onSelect={(habitat) => {
-									field.handleChange(habitat?.id ?? null);
-									// The habitat is larval context, not the action's location, but
-									// framing the map on it (and seeding unplaced geometry) saves the
-									// crew a pan across the county.
-									location.selectReference(
-										habitat === null ||
-											typeof habitat.latitude !== 'number' ||
-											typeof habitat.longitude !== 'number'
-											? null
-											: { lat: habitat.latitude, lng: habitat.longitude },
-									);
-								}}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Work Performed">
 					<form.AppField name="sourceReductionMethodId">
@@ -360,31 +348,7 @@ export function SourceReductionFormPage({
 					</div>
 				</FormSection>
 
-				{/* Organizations attach their own fields to a method; render whichever
-							    the selected one declares, and nothing when it declares none. */}
-				<form.Subscribe selector={(state) => state.values.sourceReductionMethodId}>
-					{(methodId) => {
-						const schema = customSchemaFor(methods, methodId);
-						if (customFieldCount(schema) === 0) {
-							return null;
-						}
-						return (
-							<FormSection title="Custom Fields">
-								<form.AppField
-									name="metadata"
-									validators={{ onSubmit: validateSchemaMetadata(schema) }}
-								>
-									{(field) => (
-										<field.MetadataField
-											description="Extra details you collect for this method."
-											mode={{ kind: 'schema', schema }}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-						);
-					}}
-				</form.Subscribe>
+				<CustomFieldsSection catalog={methods} form={form} schemaField="sourceReductionMethodId" />
 
 				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
@@ -395,29 +359,6 @@ export function SourceReductionFormPage({
 // --- controls ---------------------------------------------------------------
 
 // --- validation + helpers ---------------------------------------------------
-
-/**
- * Context-free checks only — org ownership, referenced-row existence, and the
- * unit-type restriction are the server's call (docs/domain-command-contract.md).
- */
-function validate(values: SourceReductionFormValues): string | null {
-	if (values.sourceReductionMethodId === '') {
-		return 'Select the source reduction method used.';
-	}
-	if (values.sourcesEliminatedAmount === null) {
-		return 'Enter how many sources were eliminated.';
-	}
-	if (values.sourcesEliminatedAmount < 0) {
-		return 'Sources eliminated cannot be negative.';
-	}
-	if (values.sourcesEliminatedUnitId === '') {
-		return 'Select the unit the amount is measured in.';
-	}
-	if (values.sourceReductionDate === '') {
-		return 'Enter the date this work was performed.';
-	}
-	return null;
-}
 
 /**
  * What the form holds, as the write seam takes it.
@@ -438,17 +379,6 @@ export function sourceReductionFieldsFrom(values: SourceReductionFormValues) {
 		unitId: values.sourcesEliminatedUnitId,
 		metadata: values.metadata,
 	};
-}
-
-function technicianOptions(profiles: readonly ProfileListing[]) {
-	return [
-		{ label: 'Unassigned', value: noTechnicianValue },
-		...lifecycleOptions(
-			profiles,
-			(profile) => profile.isActive,
-			(profile) => profile.displayName,
-		),
-	];
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

@@ -1,8 +1,9 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -11,17 +12,17 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useCollectionMethodOptions,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	usePersonnelOptions,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -33,6 +34,8 @@ import {
 } from '../../../components/map';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	DATE_RANGE_COUNTING,
 	dateParam,
@@ -42,14 +45,13 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { BycatchBadge, collectionEffectiveDate } from '../-adult-display';
+import { RecordBadges } from '../../-record-badges';
+import { collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
-import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 import type { CollectionStatusValue } from './-legend';
 import { collectionLegend, collectionStatusLabel } from './-legend';
 
-interface CollectionSite {
+interface CollectionRow {
 	readonly id: string;
 	readonly trapId: string | null;
 	readonly lat: number;
@@ -71,6 +73,8 @@ interface CollectionFilters {
 	readonly to: string;
 	readonly methods: ReadonlySet<string>;
 	readonly problems: boolean;
+	/** Awaiting identification: dated, not a zero result, no species keyed out. */
+	readonly awaiting: boolean;
 	readonly regions: ReadonlySet<string>;
 }
 
@@ -79,6 +83,7 @@ const COLLECTION_FILTER_CODECS: FilterCodecs<CollectionFilters> = {
 	to: dateParam,
 	methods: idSetParam,
 	problems: flagParam,
+	awaiting: flagParam,
 	regions: idSetParam,
 };
 
@@ -90,28 +95,23 @@ export const Route = createFileRoute('/adult-surveillance/collections/')({
 });
 
 const DEFAULT_WINDOW_DAYS = 90;
-const RESULT_NOUN = { one: 'collection', many: 'collections' };
+const RECORD_TYPE: RecordType = 'collection';
 const PATH = '/map/collections';
 
 function CollectionsExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 	// The filter state lives in the URL, so a shared link and Back out of a record
 	// both land on the list the operator had narrowed to.
-	const filterDefaults = useMemo<CollectionFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			methods: new Set(),
-			problems: false,
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: CollectionFilters = {
+		from: defaultFrom,
+		to: today,
+		methods: new Set(),
+		problems: false,
+		awaiting: false,
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -122,19 +122,12 @@ function CollectionsExplorerRoute() {
 	const dateTo = query.to;
 	const methodIds = query.methods;
 	const problemOnly = query.problems;
+	const awaitingOnly = query.awaiting;
 	const regionIds = query.regions;
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setProblemOnly = useCallback(
-		(next: boolean) => setFilters({ problems: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setProblemOnly = (next: boolean) => setFilters({ problems: next });
+	const setAwaitingOnly = (next: boolean) => setFilters({ awaiting: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -147,58 +140,43 @@ function CollectionsExplorerRoute() {
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
 	const personnel = usePersonnelOptions();
 	const regions = useRegionOptions();
-	const filters = useMemo<CollectionTileFilters>(
-		() => ({
-			...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
-			...(problemOnly ? { problemOnly: true } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[methodIds, problemOnly, regionIds, dateFrom, dateTo],
-	);
-	const legend = useMemo(() => collectionLegend(problemOnly), [problemOnly]);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
+	const filters: CollectionTileFilters = {
+		...whenAny('collectionMethodIds', methodIds),
+		...whenOn('problemOnly', problemOnly),
+		...whenOn('awaitingOnly', awaitingOnly),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
+	};
+	const legend = collectionLegend(problemOnly);
+	const layer: MapTileLayer = {
+		kind: 'collections',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<CollectionRow>({
+			path: PATH,
+			rowsKey: 'collections',
+			rowKey: 'collection',
+			recordType: 'collection',
+			params: {
 				collectionMethodId: filters.collectionMethodIds,
 				problem: filters.problemOnly,
+				awaiting: filters.awaitingOnly,
 				regionId: filters.regionIds,
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
-			}),
-		[filters],
-	);
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<CollectionSite>({
-			path: PATH,
-			rowsKey: 'collections',
-			label: 'Collections',
-			params,
+			},
+			layer,
+			map,
+			selectedId,
 		});
 
-	const selected = useSelectedMapRecord<CollectionSite>({
-		path: PATH,
-		rowKey: 'collection',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'collections',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
 	const clearAll = reset;
 
@@ -225,34 +203,33 @@ function CollectionsExplorerRoute() {
 							selected={regionIds}
 						/>
 						<ToggleFilter label="Problems only" onChange={setProblemOnly} value={problemOnly} />
+						<ToggleFilter
+							label="Awaiting identification"
+							onChange={setAwaitingOnly}
+							value={awaitingOnly}
+						/>
 					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{[...methodIds].map((id) => (
-								<FilterChip
-									key={id}
-									label={methodNameById.get(id) ?? 'Unknown method'}
-									onRemove={() => setMethodIds(toggle(methodIds, id))}
-								/>
-							))}
-							{[...regionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setRegionIds(toggle(regionIds, id))}
-								/>
-							))}
-							{problemOnly ? (
-								<FilterChip label="Problems only" onRemove={() => setProblemOnly(false)} />
-							) : null}
-						</ActiveFilterBar>
+						<CollectionChips
+							awaitingOnly={awaitingOnly}
+							methodIds={methodIds}
+							methodNameById={methodNameById}
+							onClearAll={clearAll}
+							problemOnly={problemOnly}
+							regionIds={regionIds}
+							regionNameById={regions.nameById}
+							setAwaitingOnly={setAwaitingOnly}
+							setMethodIds={setMethodIds}
+							setProblemOnly={setProblemOnly}
+							setRegionIds={setRegionIds}
+						/>
 					) : null}
 				</>
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'collection', many: 'collections' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -260,12 +237,11 @@ function CollectionsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Collections',
+				title: recordNoun('collection').titleMany,
 				icon: CollectionEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
-				create: { to: '/adult-surveillance/collections/create', label: 'Record Collection' },
+				create: { to: '/adult-surveillance/collections/create', label: createLabel('collection') },
 			}}
 			onResetFilters={clearAll}
 			map={
@@ -294,9 +270,7 @@ function CollectionsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No collections in range',
-				emptyDescription:
-					'Widen the time window or loosen the filters to bring collections into range.',
+				empty,
 				renderRow: (row) => (
 					<CollectionListItem
 						isSelected={row.id === selectedId}
@@ -313,6 +287,58 @@ function CollectionsExplorerRoute() {
 	);
 }
 
+/** What is currently narrowing the list, each chip removing its own filter. */
+function CollectionChips({
+	methodIds,
+	regionIds,
+	problemOnly,
+	awaitingOnly,
+	methodNameById,
+	regionNameById,
+	setMethodIds,
+	setRegionIds,
+	setProblemOnly,
+	setAwaitingOnly,
+	onClearAll,
+}: {
+	readonly methodIds: ReadonlySet<string>;
+	readonly regionIds: ReadonlySet<string>;
+	readonly problemOnly: boolean;
+	readonly awaitingOnly: boolean;
+	readonly methodNameById: ReadonlyMap<string, string>;
+	readonly regionNameById: ReadonlyMap<string, string>;
+	readonly setMethodIds: (next: ReadonlySet<string>) => void;
+	readonly setRegionIds: (next: ReadonlySet<string>) => void;
+	readonly setProblemOnly: (next: boolean) => void;
+	readonly setAwaitingOnly: (next: boolean) => void;
+	readonly onClearAll: () => void;
+}) {
+	return (
+		<ActiveFilterBar onClearAll={onClearAll}>
+			{[...methodIds].map((id) => (
+				<FilterChip
+					key={id}
+					label={methodNameById.get(id) ?? 'Unknown method'}
+					onRemove={() => setMethodIds(toggle(methodIds, id))}
+				/>
+			))}
+			{[...regionIds].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={regionNameById.get(id) ?? 'Unknown region'}
+					onRemove={() => setRegionIds(toggle(regionIds, id))}
+				/>
+			))}
+			{problemOnly ? (
+				<FilterChip label="Problems only" onRemove={() => setProblemOnly(false)} />
+			) : null}
+			{awaitingOnly ? (
+				<FilterChip label="Awaiting identification" onRemove={() => setAwaitingOnly(false)} />
+			) : null}
+		</ActiveFilterBar>
+	);
+}
+
 function CollectionListItem({
 	row,
 	trapName,
@@ -321,7 +347,7 @@ function CollectionListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly row: CollectionSite;
+	readonly row: CollectionRow;
 	readonly trapName: string | null;
 	readonly methodName: string;
 	readonly setByName: string | null;
@@ -338,7 +364,14 @@ function CollectionListItem({
 			 * collection's status, which the dot at the left of the row now draws in
 			 * the colour the map paints it and the key names.
 			 */
-			badges={<BycatchBadge hasBycatch={row.hasBycatch} />}
+			badges={
+				<RecordBadges
+					facts={{ category: 'collection', status: row.status, hasBycatch: row.hasBycatch }}
+					// Trap out, Problem reported and Zero result are the collection's
+					// status, which the dot draws in the colour the map paints it.
+					status="dot"
+				/>
+			}
 			date={effectiveDate === null ? null : formatListDate(effectiveDate)}
 			detailLabel={`View details for ${label}`}
 			detailLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}
@@ -367,7 +400,7 @@ function collectionSwatch(status: CollectionStatusValue): {
 
 /** Who handled this collection: whoever collected it, else whoever set it. */
 function collectionPersonnelName(
-	row: CollectionSite,
+	row: CollectionRow,
 	nameById: ReadonlyMap<string, string>,
 ): string | null {
 	const profileId = row.collectedByProfileId ?? row.setByProfileId;

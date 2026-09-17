@@ -28,7 +28,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
@@ -51,7 +51,7 @@ import { useDebouncedValue } from '../../../../hooks/use-debounced-value';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
-	type HabitatSite,
+	type RouteHabitat,
 	type RouteStopView,
 	stopTone,
 	updateHabitatDescription,
@@ -63,7 +63,6 @@ import { StopStatus, StopTagChips, StopTypePill, useStopMeta } from '../-route-s
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
-const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 const NO_TAGS: readonly Tag[] = [];
 
@@ -105,34 +104,39 @@ function RouteEditRoute() {
 	const [error, setError] = useState<string | null>(null);
 
 	const organizationId = identity?.organizationId ?? null;
-	const { rename, remove: removeRoute, moveStops } = useRouteMutations();
-	const { addStop: addRouteItem, setDirections, removeStop } = useRouteItemMutations();
+	const { rename, remove: removeRoute, moveStops, canWrite: canWriteRoute } = useRouteMutations();
+	const {
+		addStop: addRouteItem,
+		setDirections,
+		removeStop,
+		canWrite: canWriteStops,
+	} = useRouteItemMutations();
+	// No single submit: every control on this page writes as it is used, so each
+	// one reads this. Both hooks publish `canAttributeWrite` over the snapshot,
+	// and both are read because the page writes through both (#944).
+	const canSubmit = canWriteRoute && canWriteStops;
 
-	const commitMove = useCallback((plan: MovePlan) => moveStops(id, plan), [id, moveStops]);
+	const commitMove = (plan: MovePlan) => moveStops(id, plan);
 	const { ordered: orderedStops, move: moveStop } = useStopOrder({
 		items: stops,
 		keyOf: stopKey,
 		commit: commitMove,
 	});
 
-	const features = useMemo<RouteStopFeature[]>(
-		() =>
-			orderedStops
-				.map((stop, index) => ({ stop, ordinal: index + 1 }))
-				.filter((entry) => entry.stop.hasLocation)
-				.map((entry) => ({
-					id: entry.stop.routeItemId,
-					lng: entry.stop.lng as number,
-					lat: entry.stop.lat as number,
-					ordinal: entry.ordinal,
-					tone: stopTone(entry.stop),
-				})),
-		[orderedStops],
-	);
+	const features: RouteStopFeature[] = orderedStops
+		.map((stop, index) => ({ stop, ordinal: index + 1 }))
+		.filter((entry) => entry.stop.hasLocation)
+		.map((entry) => ({
+			id: entry.stop.routeItemId,
+			lng: entry.stop.lng as number,
+			lat: entry.stop.lat as number,
+			ordinal: entry.ordinal,
+			tone: stopTone(entry.stop),
+		}));
 
-	const existingHabitatIds = useMemo(() => new Set(stops.map((stop) => stop.habitatId)), [stops]);
+	const existingHabitatIds = new Set(stops.map((stop) => stop.habitatId));
 
-	const commitName = useCallback(async () => {
+	const commitName = async () => {
 		if (route === null || nameDraft === null) {
 			setNameDraft(null);
 			return;
@@ -146,54 +150,44 @@ function RouteEditRoute() {
 			await rename(id, trimmed);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to rename the route.');
-		} finally {
-			setNameDraft(null);
 		}
-	}, [route, nameDraft, id, rename]);
+		setNameDraft(null);
+	};
 
-	const addStop = useCallback(
-		async (habitat: HabitatSite) => {
-			if (existingHabitatIds.has(habitat.id)) {
-				return;
-			}
-			setError(null);
-			try {
-				await addRouteItem({
-					routeId: id,
-					target: { type: 'habitat', id: habitat.id },
-					position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
-				});
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
-			}
-		},
-		[existingHabitatIds, stops, id, addRouteItem],
-	);
+	const addStop = async (habitat: RouteHabitat) => {
+		if (existingHabitatIds.has(habitat.id)) {
+			return;
+		}
+		setError(null);
+		try {
+			await addRouteItem({
+				routeId: id,
+				target: { type: 'habitat', id: habitat.id },
+				position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
+			});
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+		}
+	};
 
-	const move = useCallback(
-		async (index: number, action: MoveAction) => {
-			setError(null);
-			try {
-				await moveStop(index, action);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
-			}
-		},
-		[moveStop],
-	);
+	const move = async (index: number, action: MoveAction) => {
+		setError(null);
+		try {
+			await moveStop(index, action);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
+		}
+	};
 
-	const saveDirections = useCallback(
-		async (routeItemId: string, value: string) => {
-			try {
-				await setDirections(routeItemId, value);
-			} catch (cause) {
-				setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
-			}
-		},
-		[setDirections],
-	);
+	const saveDirections = async (routeItemId: string, value: string) => {
+		try {
+			await setDirections(routeItemId, value);
+		} catch (cause) {
+			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+		}
+	};
 
-	const saveDescription = useCallback(async (habitatId: string, value: string) => {
+	const saveDescription = async (habitatId: string, value: string) => {
 		try {
 			// The route reads habitats from a live on-demand subset, so the edited
 			// description streams back on its own — no invalidation needed.
@@ -201,9 +195,9 @@ function RouteEditRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to save the description.');
 		}
-	}, []);
+	};
 
-	const confirmRemove = useCallback(async () => {
+	const confirmRemove = async () => {
 		const target = removeTarget;
 		setRemoveTarget(null);
 		if (target === null) {
@@ -215,9 +209,9 @@ function RouteEditRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
 		}
-	}, [removeTarget, removeStop]);
+	};
 
-	const confirmDeleteRoute = useCallback(async () => {
+	const confirmDeleteRoute = async () => {
 		setDeleteOpen(false);
 		setError(null);
 		try {
@@ -226,7 +220,7 @@ function RouteEditRoute() {
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
 		}
-	}, [id, navigate, removeRoute]);
+	};
 
 	const body = (
 		<>
@@ -256,6 +250,7 @@ function RouteEditRoute() {
 							</Link>
 							<Button
 								className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+								disabled={!canSubmit}
 								onClick={() => setDeleteOpen(true)}
 								size="sm"
 								variant="ghost"
@@ -276,6 +271,7 @@ function RouteEditRoute() {
 								<RouteIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
 								<Input
 									className="font-medium"
+									disabled={!canSubmit}
 									id="route-name"
 									onBlur={commitName}
 									onChange={(event) => setNameDraft(event.target.value)}
@@ -290,7 +286,9 @@ function RouteEditRoute() {
 							</div>
 						</div>
 
-						<AddStopBar existingHabitatIds={existingHabitatIds} onAdd={addStop} />
+						{canSubmit ? (
+							<AddStopBar existingHabitatIds={existingHabitatIds} onAdd={addStop} />
+						) : null}
 
 						{error !== null ? (
 							<Alert variant="destructive">
@@ -300,6 +298,7 @@ function RouteEditRoute() {
 					</div>
 
 					<EditStopList
+						canSubmit={canSubmit}
 						highlightId={highlightId}
 						isLoading={isLoading}
 						itemCount={itemCount}
@@ -366,7 +365,7 @@ function RouteEditRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="route"
+			recordType="route"
 			reading={{ isError, isReady, record: route }}
 			skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
 		>
@@ -380,7 +379,7 @@ function AddStopBar({
 	onAdd,
 }: {
 	readonly existingHabitatIds: ReadonlySet<string>;
-	readonly onAdd: (habitat: HabitatSite) => void;
+	readonly onAdd: (habitat: RouteHabitat) => void;
 }) {
 	const [searchInput, setSearchInput] = useState('');
 	const { debounced: search, settle } = useDebouncedValue(searchInput, 220);
@@ -457,6 +456,7 @@ function AddStopBar({
 
 function EditStopList({
 	stops,
+	canSubmit,
 	isLoading,
 	itemCount,
 	selectedStopId,
@@ -470,6 +470,7 @@ function EditStopList({
 	onHover,
 }: {
 	readonly stops: readonly RouteStopView[];
+	readonly canSubmit: boolean;
 	readonly isLoading: boolean;
 	readonly itemCount: number;
 	readonly selectedStopId: string | null;
@@ -496,6 +497,7 @@ function EditStopList({
 		>
 			{stops.map((stop, index) => (
 				<EditStopRow
+					canSubmit={canSubmit}
 					index={index}
 					isFirst={index === 0}
 					isHighlighted={stop.routeItemId === highlightId}
@@ -526,6 +528,7 @@ function EditStopList({
 
 function EditStopRow({
 	stop,
+	canSubmit,
 	ordinal,
 	index,
 	isFirst,
@@ -544,6 +547,7 @@ function EditStopRow({
 	onHover,
 }: {
 	readonly stop: RouteStopView;
+	readonly canSubmit: boolean;
 	readonly ordinal: number;
 	readonly index: number;
 	readonly isFirst: boolean;
@@ -601,24 +605,26 @@ function EditStopRow({
 						<StopTypePill typeName={typeName} />
 						<StopStatus stop={stop} />
 						<span aria-hidden="true" className="min-w-0 flex-1" />
-						<StopReorderControls
-							extraActions={
-								<>
-									<DropdownMenuItem onClick={() => onEditAddress(stop)}>
-										<HomeIcon aria-hidden="true" />
-										Edit linked address…
-									</DropdownMenuItem>
-									<DropdownMenuSeparator />
-									<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
-										Remove from route
-									</DropdownMenuItem>
-								</>
-							}
-							index={index}
-							isFirst={isFirst}
-							isLast={isLast}
-							onMove={onMove}
-						/>
+						{canSubmit ? (
+							<StopReorderControls
+								extraActions={
+									<>
+										<DropdownMenuItem onClick={() => onEditAddress(stop)}>
+											<HomeIcon aria-hidden="true" />
+											Edit linked address…
+										</DropdownMenuItem>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
+											Remove from route
+										</DropdownMenuItem>
+									</>
+								}
+								index={index}
+								isFirst={isFirst}
+								isLast={isLast}
+								onMove={onMove}
+							/>
+						) : null}
 					</div>
 
 					{/* The home icon is the label; consecutive matching addresses read dimmed. */}
@@ -638,6 +644,7 @@ function EditStopRow({
 					<div className="mt-2 grid gap-1.5">
 						<InlineEditField
 							ariaLabel={`Description for ${stop.name}`}
+							disabled={!canSubmit}
 							emptyLabel="Add a description"
 							onSave={(value) => onSaveDescription(stop.habitatId, value)}
 							renderValue={(value) => (
@@ -650,6 +657,7 @@ function EditStopRow({
 						/>
 						<InlineEditField
 							ariaLabel={`Directions after ${stop.name}`}
+							disabled={!canSubmit}
 							emptyLabel="Add directions to the next stop"
 							onSave={(value) => onSaveDirections(stop.routeItemId, value)}
 							renderValue={(value) => (

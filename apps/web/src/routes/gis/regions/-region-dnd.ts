@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 /** Drag payload type. The dragged region's id travels as this MIME type's data. */
 export const REGION_DND_TYPE = 'application/x-simmer-region';
@@ -99,22 +99,19 @@ export function useRegionDnd(
 	const [draggingId, setDraggingId] = useState<string | null>(null);
 	const [dropTarget, setDropTarget] = useState<RegionDropTarget | null>(null);
 
-	return useMemo<RegionDnd>(
-		() => ({
-			draggingId,
-			dropTarget,
-			onDragStart: (id) => setDraggingId(id),
-			onDragEnd: () => {
-				setDraggingId(null);
-				setDropTarget(null);
-			},
-			onDragOverTarget: (target) => setDropTarget(target),
-			onDropRegion: (regionId, folderId) => {
-				setDraggingId(null);
-				setDropTarget(null);
-				void onMove(regionId, folderId);
-			},
-		}),
-		[draggingId, dropTarget, onMove],
-	);
+	return {
+		draggingId,
+		dropTarget,
+		onDragStart: (id) => setDraggingId(id),
+		onDragEnd: () => {
+			setDraggingId(null);
+			setDropTarget(null);
+		},
+		onDragOverTarget: (target) => setDropTarget(target),
+		onDropRegion: (regionId, folderId) => {
+			setDraggingId(null);
+			setDropTarget(null);
+			void onMove(regionId, folderId);
+		},
+	};
 }

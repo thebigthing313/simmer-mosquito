@@ -60,6 +60,36 @@ export function newRecordId(): string {
 }
 
 /**
+ * Is there an Organization and an actor Profile to attribute the write to.
+ *
+ * Every organization write carries both: the Organization the row belongs to,
+ * and the Profile it is recorded on behalf of. A hook reads the pair off the
+ * auth snapshot, and until both are there it has nothing to build a command
+ * from, so it publishes `canWrite: false` and the form disables its submit
+ * button rather than firing a write the server would refuse.
+ *
+ * This is not the role floor. Whether a person may write this record at all is
+ * settled before the form renders, by `isBelowWriteFloor(context, '<route
+ * path>')` in the route's `beforeLoad`, which sends someone below the floor back
+ * to the record. A screen reading this predicate is asking whether the
+ * attribution is ready, not whether the person is permitted.
+ *
+ * It was written out 55 times before #888: 39 times across 33 hooks in this
+ * folder, and 16 more at route components that recomputed it instead of reading
+ * the hook they already held.
+ *
+ * `organization` takes either the Organization or its id, because a hook holds
+ * the id off the snapshot and a route component usually holds the record it
+ * loaded. Neither is read. The question is only whether one is there.
+ */
+export function canAttributeWrite(attribution: {
+	readonly organization: object | string | null;
+	readonly actorProfileId: string | null;
+}): boolean {
+	return attribution.organization !== null && attribution.actorProfileId !== null;
+}
+
+/**
  * The timestamps an optimistic row carries.
  *
  * The server writes its own with its own clock; these exist so the row on screen

@@ -17,6 +17,7 @@ import {
 	parseOutreachMapFilters,
 	parseRegionTileFilters,
 	parseSampleTileFilters,
+	parseServiceRequestMapFilters,
 	parseSourceReductionMapFilters,
 	parseTileCoordinate,
 	parseTrapMapFilters,
@@ -805,6 +806,8 @@ describe('registerMapTileRoutes — inspections', () => {
 // The four routes whose readers were called directly rather than injected, so
 // none of them could be driven without a database until the readers became one
 // object. Three answer geometry the Electric shape does not carry (ADR 0009).
+// The address route is a surface by-id read since #962, and answers the whole
+// display row with the geometry at its top level.
 describe('map geometry routes', () => {
 	it('answers a region with its geometry alone, scoped to the organization', async () => {
 		const calls: unknown[] = [];
@@ -824,15 +827,18 @@ describe('map geometry routes', () => {
 		expect(calls).toEqual([{ id: regionId, organizationId }]);
 	});
 
-	it('answers an address with its geometry alone', async () => {
+	it('answers an address as its display row, with the geometry at the top level', async () => {
+		const row = { id: addressId, organizationId, ...geometry, displayName: '100 Main St' };
 		const app = createApp({
-			getAddressRow: async () => ({ id: addressId, organizationId, geometry }) as never,
+			getAddressDisplayRow: async () => row as never,
 		});
 
 		const response = await app.request(`/map/addresses/${addressId}`);
 
 		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toEqual({ address: geometry });
+		// `lat`, `lng` and `geojson` sit where the detail page's geometry read has
+		// always found them, so the route changing shape moved nothing it reads.
+		await expect(response.json()).resolves.toEqual({ address: row });
 	});
 
 	it('answers a requested control action, and 404s for another organization’s', async () => {
@@ -1138,7 +1144,7 @@ const sampleInspectionRow = {
  * The model is `sync-shapes.test.ts`: one table, one assertion per entry, no
  * fixture. It exists because a typo in a registry key — `'source-reduction'` is
  * the one with a hyphen, and `apps/web` has to spell it the same way — ships as
- * a 400 `invalid_tileset` with nothing failing, and because seven of the eleven
+ * a 400 `invalid_tileset` with nothing failing, and because seven of the eleven original
  * tilesets and nineteen of the twenty-seven routes were reached by no test at
  * all.
  *
@@ -1167,6 +1173,7 @@ describe('map read route registration', () => {
 		'outreach',
 		'traps',
 		'collections',
+		'service-requests',
 	] as const satisfies readonly MapTilesetLayer[];
 
 	function registrationApp() {
@@ -1199,6 +1206,7 @@ describe('map read route registration', () => {
 
 	it.each([
 		'/map/habitats',
+		'/map/addresses',
 		'/map/inspections',
 		'/map/samples',
 		'/map/chemical',
@@ -1207,6 +1215,7 @@ describe('map read route registration', () => {
 		'/map/outreach',
 		'/map/traps',
 		'/map/collections',
+		'/map/service-requests',
 	])('registers %s and refuses a param its filters do not admit', async (path) => {
 		const response = await registrationApp().request(`${path}?notAFilter=1`);
 
@@ -1229,6 +1238,7 @@ describe('map read route registration', () => {
 		'/map/profiles/not-a-uuid/activity',
 		'/map/traps/not-a-uuid',
 		'/map/collections/not-a-uuid',
+		'/map/service-requests/not-a-uuid',
 	])('registers %s and refuses an id that is not a UUID', async (path) => {
 		const response = await registrationApp().request(path);
 
@@ -1272,17 +1282,20 @@ describe('map read route registration', () => {
  * decides what comes back.
  */
 describe('paged map surfaces', () => {
-	// Samples page *within a viewport*, so a bbox is required there and refused
-	// as an unknown filter everywhere else — the control-operations surfaces draw
-	// unbounded tiles and page the rail separately.
+	// Every paged surface pages *within a viewport*, so a bbox is required on all
+	// of them: the rail is the map's list, and a request with no box is one the
+	// client cannot mean (#920).
+	const bbox = 'bbox=-91,35,-90,36&';
 	const pagedSurfaces = [
-		['/map/samples', 'listSampleDisplayRows', 'bbox=-91,35,-90,36&'],
-		['/map/chemical', 'listApplicationDisplayRows', ''],
-		['/map/source-reduction', 'listSourceReductionDisplayRows', ''],
-		['/map/biocontrol', 'listBiocontrolDisplayRows', ''],
-		['/map/outreach', 'listOutreachDisplayRows', ''],
-		['/map/traps', 'listTrapDisplayRows', ''],
-		['/map/collections', 'listCollectionDisplayRows', ''],
+		['/map/addresses', 'listAddressDisplayRows', bbox],
+		['/map/samples', 'listSampleDisplayRows', bbox],
+		['/map/chemical', 'listApplicationDisplayRows', bbox],
+		['/map/source-reduction', 'listSourceReductionDisplayRows', bbox],
+		['/map/biocontrol', 'listBiocontrolDisplayRows', bbox],
+		['/map/outreach', 'listOutreachDisplayRows', bbox],
+		['/map/traps', 'listTrapDisplayRows', bbox],
+		['/map/collections', 'listCollectionDisplayRows', bbox],
+		['/map/service-requests', 'listServiceRequestDisplayRows', bbox],
 	] as const;
 
 	function pagedApp(reader: (typeof pagedSurfaces)[number][1]) {
@@ -1290,7 +1303,9 @@ describe('paged map surfaces', () => {
 		return { app: createApp({ [reader]: list } as never), list };
 	}
 
-	it.each(pagedSurfaces)('carries limit and offset through %s', async (path, reader, prefix) => {
+	it.each(
+		pagedSurfaces,
+	)('carries limit, offset and the box through %s', async (path, reader, prefix) => {
 		const { app, list } = pagedApp(reader);
 
 		const response = await app.request(`${path}?${prefix}limit=5&offset=10`);
@@ -1298,8 +1313,25 @@ describe('paged map surfaces', () => {
 		expect(response.status).toBe(200);
 		expect(list).toHaveBeenCalledWith(
 			expect.anything(),
-			expect.objectContaining({ organizationId, limit: 5, offset: 10 }),
+			expect.objectContaining({
+				organizationId,
+				limit: 5,
+				offset: 10,
+				bounds: { west: -91, south: 35, east: -90, north: 36 },
+			}),
 		);
+	});
+
+	// The other direction, and the one that decides what a rail lists: a request
+	// with no box is refused rather than answered with the whole Organization.
+	it.each(pagedSurfaces)('refuses %s with no bbox', async (path, reader) => {
+		const { app, list } = pagedApp(reader);
+
+		const response = await app.request(`${path}?limit=5`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ reason: 'bbox is required.' });
+		expect(list).not.toHaveBeenCalled();
 	});
 
 	it.each(pagedSurfaces)('refuses an oversized limit on %s', async (path, reader, prefix) => {
@@ -1313,8 +1345,9 @@ describe('paged map surfaces', () => {
 		expect(list).not.toHaveBeenCalled();
 	});
 
-	// The date fields every one of these surfaces carries, and the one shape of
-	// bad input a caller is most likely to send.
+	// The date fields most of these surfaces carry, and the one shape of bad
+	// input a caller is most likely to send. Addresses and traps carry none, and
+	// refuse the param as one their filters do not admit, which is the same 400.
 	it.each(pagedSurfaces)('refuses a malformed date on %s', async (path, reader, prefix) => {
 		const { app, list } = pagedApp(reader);
 
@@ -1346,17 +1379,29 @@ describe('enum map filters', () => {
 	it('refuses a trap status that is not active or retired', async () => {
 		const app = createApp({ listTrapDisplayRows: async () => ({ rows: [], total: 0 }) });
 
-		const response = await app.request('/map/traps?status=broken');
+		const response = await app.request('/map/traps?bbox=-91,35,-90,36&status=broken');
 
 		expect(response.status).toBe(400);
 		const body = (await response.json()) as { readonly reason: string };
 		expect(body.reason).toContain('status must be');
 	});
 
+	it('refuses a service request status that is not open or closed, and names both', async () => {
+		const app = createApp({
+			listServiceRequestDisplayRows: async () => ({ rows: [], total: 0 }),
+		});
+
+		const response = await app.request('/map/service-requests?bbox=-91,35,-90,36&status=all');
+
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { readonly reason: string };
+		expect(body.reason).toBe('status must be open or closed.');
+	});
+
 	it('refuses an id that is not a UUID inside a list filter', async () => {
 		const app = createApp({ listApplicationDisplayRows: async () => ({ rows: [], total: 0 }) });
 
-		const response = await app.request('/map/chemical?insecticideId=not-a-uuid');
+		const response = await app.request('/map/chemical?bbox=-91,35,-90,36&insecticideId=not-a-uuid');
 
 		expect(response.status).toBe(400);
 		const body = (await response.json()) as { readonly reason: string };
@@ -1459,10 +1504,30 @@ describe('map filter fields', () => {
 	});
 
 	it('maps the collection params', () => {
-		expect(filtersOf(parseCollectionMapFilters, `collectionMethodId=${idA}&problem=true`)).toEqual({
+		expect(
+			filtersOf(parseCollectionMapFilters, `collectionMethodId=${idA}&problem=true&awaiting=true`),
+		).toEqual({
 			collectionMethodIds: [idA],
 			problemOnly: true,
+			awaitingOnly: true,
 		});
+	});
+
+	// The Dashboard's untreated banner links to the explorer with this on, and
+	// the explorer's count is the surface's, so the param has to reach the reader.
+	it('maps the habitat untreated param', () => {
+		expect(filtersOf(parseHabitatTileFilters, 'untreated=true')).toEqual({ untreatedOnly: true });
+	});
+
+	// The four filters the explorer used to apply in the browser, as the query
+	// params the reader takes. `status` is the same two-word shape as the trap's,
+	// over `open` and `closed`, and lands on `isOpen` either way round.
+	it('maps the service request params', () => {
+		expect(
+			filtersOf(parseServiceRequestMapFilters, `status=open&search=%2312&tagId=${idA}`),
+		).toEqual({ isOpen: true, search: '#12', tagIds: [idA] });
+		expect(filtersOf(parseServiceRequestMapFilters, 'status=closed')).toEqual({ isOpen: false });
+		expect(filtersOf(parseServiceRequestMapFilters, '')).toEqual({});
 	});
 
 	// Three surfaces wrote this rule out longhand; it is one field kind now, so
@@ -1471,6 +1536,8 @@ describe('map filter fields', () => {
 		[parseSampleTileFilters, 'nonMosquito'],
 		[parseBiocontrolMapFilters, 'habitatLinked'],
 		[parseCollectionMapFilters, 'problem'],
+		[parseCollectionMapFilters, 'awaiting'],
+		[parseHabitatTileFilters, 'untreated'],
 	] as const)('drops %#: only true narrows', (parse, param) => {
 		expect(filtersOf(parse, `${param}=false`)).toEqual({});
 		expect(Object.values(filtersOf(parse, `${param}=true`))).toEqual([true]);

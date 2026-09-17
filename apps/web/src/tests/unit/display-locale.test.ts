@@ -25,8 +25,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatAssignmentDate, formatDueAt } from '../../hooks/queries/assignment-view';
 import { formatAmount, formatCount } from '../../lib/format-count';
-import { localTimeOfDay, todayInTimeZone } from '../../lib/local-date';
-import { formatDate } from '../../routes/-habitat-detail';
+import { formatListDate, localTimeOfDay, todayInTimeZone } from '../../lib/local-date';
 import { formatOperationalDate } from '../../routes/operations/-operations-data';
 import { formatRequestDate } from '../../routes/public-engagement/-public-engagement-display';
 
@@ -142,8 +141,8 @@ describe('a host that is not en-US', () => {
 		expect((14245).toLocaleString('en-US')).toBe('14,245');
 	});
 
-	it('renders a Habitat date as en-US', () => {
-		expect(formatDate('2026-08-04')).toBe('Aug 4, 2026');
+	it('renders a list date as en-US', () => {
+		expect(formatListDate('2026-08-04')).toBe('Aug 4, 2026');
 	});
 
 	it('renders a mission rain date as en-US', () => {
@@ -198,7 +197,7 @@ describe('the runner as it is', () => {
 	});
 
 	it('renders the same strings the moved host did', () => {
-		expect(formatDate('2026-08-04')).toBe('Aug 4, 2026');
+		expect(formatListDate('2026-08-04')).toBe('Aug 4, 2026');
 		expect(formatOperationalDate('2026-08-04')).toBe('Aug 4, 2026');
 		expect(formatRequestDate('2026-08-04')).toBe('Aug 4, 2026');
 		expect(formatAssignmentDate('2026-08-04')).toBe('Tue, Aug 4, 2026');

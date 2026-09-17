@@ -1,7 +1,9 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { useRecordExtras } from '../../../forms/record-extras';
@@ -22,15 +24,15 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
+import { todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { todayInTimeZone } from '../-overview-data';
 import {
 	CollectionFormPage,
 	type CollectionFormValues,
 	type CollectionSaveInput,
 	collectionFieldsFrom,
 	defaultCollectionFormValues,
-	isCollectionLocation,
 } from './-collection-form';
 
 const createCollectionSearchSchema = z.object({
@@ -94,7 +96,7 @@ function CreateCollectionRoute() {
 	const mutations = useCollectionMutations();
 
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 
 	// Minted up front so the crew rows can be written the moment the collection
 	// lands — and so their on-demand stream is already warm when the save fires.
@@ -109,75 +111,63 @@ function CreateCollectionRoute() {
 		ask: true,
 	});
 
-	const onSave = useCallback(
-		async (input: CollectionSaveInput) =>
-			runAcknowledged(async (acknowledgements) => {
-				const { values, trap, geometry } = input;
-				const isTrap = values.sourceMode === 'trap';
+	const onSave = async (input: CollectionSaveInput) =>
+		runAcknowledged(async (acknowledgements) => {
+			const { values, trap, geometry } = input;
+			const isTrap = values.sourceMode === 'trap';
 
-				// A trap collection inherits the trap's location; an ad hoc one carries
-				// its own point. The server snapshots geom from the location source; this
-				// centroid seeds the optimistic row so the map shows it immediately.
-				const centroid =
-					isTrap && trap !== null
-						? { lat: trap.latitude, lng: trap.longitude, geomType: 'point' }
-						: geometry !== null && isCollectionLocation(geometry)
-							? {
-									lat: geometry.coordinates[1],
-									lng: geometry.coordinates[0],
-									geomType: 'point',
-								}
-							: null;
-				if (centroid === null) {
-					throw new Error('Unable to determine the collection location.');
-				}
+			// A trap collection inherits the trap's location; an ad hoc one carries
+			// its own point. The server snapshots geom from the location source; this
+			// centroid seeds the optimistic row so the map shows it immediately.
+			const centroid =
+				isTrap && trap !== null
+					? { lat: trap.latitude, lng: trap.longitude, geomType: 'point' }
+					: geometry !== null && isOwnedGeometry('collection', geometry)
+						? {
+								lat: geometry.coordinates[1],
+								lng: geometry.coordinates[0],
+								geomType: 'point',
+							}
+						: null;
+			if (centroid === null) {
+				throw new Error('Unable to determine the collection location.');
+			}
 
-				const placement = placementFor({
-					assignmentItemId,
-					trapId: isTrap && trap !== null ? trap.id : null,
-					geometry: isTrap ? null : geometry,
-				});
+			const placement = placementFor({
+				assignmentItemId,
+				trapId: isTrap && trap !== null ? trap.id : null,
+				geometry: isTrap ? null : geometry,
+			});
 
-				const fields = collectionFieldsFrom(values, timeZone);
-				await mutations.record({
-					collectionId,
-					fields,
-					placement,
-					centroid,
-					// Whether the trap has already been emptied. The route this replaces
-					// left the server to work this out from whether a `collectedAt` had
-					// arrived, which made a stray timestamp turn a trap being left out into
-					// a finished record.
-					isCollected: fields.timing.collectedAt !== null,
-					acknowledgements,
-				});
+			const fields = collectionFieldsFrom(values, timeZone);
+			await mutations.record({
+				collectionId,
+				fields,
+				placement,
+				centroid,
+				// Whether the trap has already been emptied. The route this replaces
+				// left the server to work this out from whether a `collectedAt` had
+				// arrived, which made a stray timestamp turn a trap being left out into
+				// a finished record.
+				isCollected: fields.timing.collectedAt !== null,
+				acknowledgements,
+			});
 
-				// Crew rows reference the collection, so they can only be written once it
-				// exists.
-				await recordExtras.attach({
-					target: { type: 'collection', id: collectionId },
-					profileIds: values.additionalPersonnelIds,
-					commentText: values.comment,
-				});
-				// Back to the worklist the stop came from, not to the collection: the
-				// crew's next move is the next stop.
-				if (assignmentId !== null) {
-					await navigate({ to: '/operations/assignments/$id', params: { id: assignmentId } });
-					return;
-				}
-				await navigate({ to: '/adult-surveillance/collections/$id', params: { id: collectionId } });
-			}),
-		[
-			collectionId,
-			navigate,
-			assignmentItemId,
-			assignmentId,
-			runAcknowledged,
-			timeZone,
-			recordExtras,
-			mutations,
-		],
-	);
+			// Crew rows reference the collection, so they can only be written once it
+			// exists.
+			await recordExtras.attach({
+				target: { type: 'collection', id: collectionId },
+				profileIds: values.additionalPersonnelIds,
+				commentText: values.comment,
+			});
+			// Back to the worklist the stop came from, not to the collection: the
+			// crew's next move is the next stop.
+			if (assignmentId !== null) {
+				await navigate({ to: '/operations/assignments/$id', params: { id: assignmentId } });
+				return;
+			}
+			await navigate({ to: '/adult-surveillance/collections/$id', params: { id: collectionId } });
+		});
 
 	return (
 		<>
@@ -195,16 +185,15 @@ function CreateCollectionRoute() {
 					initialGeometry,
 				)}
 				header={{
-					title: 'Record Collection',
+					title: createLabel('collection'),
 					description: 'Log a collection from a trap or a one-off field location.',
 					backTo: '/adult-surveillance/collections',
-					backLabel: 'Collections',
+					backLabel: recordNoun('collection').titleMany,
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
+				organizationId={organization.id}
 				profiles={profiles}
-				submitLabel="Record Collection"
 				traps={traps}
 				units={units}
 			/>

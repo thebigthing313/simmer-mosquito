@@ -37,7 +37,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { CheckIcon, PlusIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { densityLabel, type LifeStageFlags } from '../../../components/larval-display';
@@ -46,9 +46,10 @@ import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
-import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField } from '../../../forms/location-band';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
@@ -57,8 +58,8 @@ import { useHabitatSearch } from '../../../hooks/queries/use-habitat-search';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
-import { todayInTimeZone } from '../-overview-data';
+import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
 
 export type InspectionLocationMode = 'habitat' | 'adhoc';
 
@@ -162,7 +163,6 @@ export interface InspectionFormPageProps {
 	 */
 	readonly mode: 'create' | 'edit';
 	readonly header: InspectionFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: InspectionFormValues;
 		readonly adhocGeometry: DrawGeometry | null;
@@ -268,11 +268,10 @@ export function InspectionFormPage({
 	initialPreviewGeometry = null,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: InspectionFormPageProps) {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const today = todayInTimeZone(timeZone);
 	const isEditing = mode === 'edit';
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
@@ -357,27 +356,24 @@ export function InspectionFormPage({
 	});
 
 	const { clearError } = location;
-	const handleHabitatSelected = useCallback(
-		(habitat: HabitatMatch | null) => {
-			clearError();
-			setHabitatError(null);
-			if (habitat === null) {
-				setReferenceGeometry(null);
-				return;
-			}
-			// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it
-			// so the map can frame the selected habitat.
-			void fetchHabitatGeometry(habitat.id).then((geometry) => setReferenceGeometry(geometry));
-		},
-		[clearError, setReferenceGeometry],
-	);
+	const handleHabitatSelected = (habitat: HabitatMatch | null) => {
+		clearError();
+		setHabitatError(null);
+		if (habitat === null) {
+			setReferenceGeometry(null);
+			return;
+		}
+		// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it
+		// so the map can frame the selected habitat.
+		void fetchHabitatGeometry(habitat.id).then((geometry) => setReferenceGeometry(geometry));
+	};
 
-	const startAdhocDraw = useCallback(() => {
+	const startAdhocDraw = () => {
 		// Ad-hoc geometry is the inspection's own; drop any habitat reference shape
 		// still framing the map from a previous mode.
 		setReferenceGeometry(null);
 		startDraw();
-	}, [setReferenceGeometry, startDraw]);
+	};
 
 	return (
 		<form.AppForm>
@@ -385,7 +381,7 @@ export function InspectionFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -517,14 +513,9 @@ export function InspectionFormPage({
 									    one is refined off. */}
 									<form.AppField name="addressId">
 										{(field) => (
-											<AddressPicker
-												create={{ requestMapPoint: location.requestMapPoint }}
-												label="Address"
-												onSelect={(address) => {
-													field.handleChange(address?.id ?? null);
-													location.clearError();
-													location.selectAddress(address);
-												}}
+											<LocationAddressField
+												location={location}
+												onChange={field.handleChange}
 												organizationId={organizationId}
 												value={field.state.value}
 											/>
@@ -737,7 +728,7 @@ function SamplesSection({
 					? 'Samples already on this inspection are managed from its record; these are added to them.'
 					: null
 			}
-			title={isEditing ? 'Add Samples' : 'Samples'}
+			title={isEditing ? 'Add Samples' : recordNoun('sample').titleMany}
 		>
 			<div className="grid gap-3">
 				{value.length === 0 ? (
@@ -777,7 +768,7 @@ function SamplesSection({
 				)}
 				<Button
 					className="w-fit"
-					onClick={() => onChange([...value, { id: crypto.randomUUID(), label: '' }])}
+					onClick={() => onChange([...value, { id: newRecordId(), label: '' }])}
 					size="sm"
 					type="button"
 					variant="outline"

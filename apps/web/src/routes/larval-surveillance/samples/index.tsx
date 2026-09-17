@@ -16,7 +16,7 @@ import { CheckIcon, ChevronDownIcon, iconRegistry } from '@simmer-mosquito/ui-we
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -26,17 +26,16 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	useMapBoundsParam,
-	usePagedMapResource,
+	useExplorerResource,
 	useRegionOptions,
-	useSelectedMapRecord,
 	useSpeciesOptions,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -49,16 +48,18 @@ import {
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import {
-	DATE_RANGE_COUNTING,
-	searchValidator,
-	useSearchFilters,
-} from '../../../lib/search-filters';
-import {
 	addDaysToDateString,
 	dateRangeLabel,
 	formatListDate,
 	todayInTimeZone,
-} from '../-overview-data';
+} from '../../../lib/local-date';
+import { recordNoun } from '../../../lib/record-nouns';
+import { sampleName } from '../../../lib/sample-name';
+import {
+	DATE_RANGE_COUNTING,
+	searchValidator,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { SampleMapCard } from '../-sample-map-card';
 import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
 import type { SampleStatus } from './-legend';
@@ -118,25 +119,19 @@ const PATH = '/map/samples';
 
 function SamplesExplorerRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const defaultFrom = addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1));
 
 	// The filter state lives in the URL, so a deep link, a shared link, and Back
 	// out of a record all land on the same view.
-	const filterDefaults = useMemo<SampleFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			status: 'all',
-			species: new Set(),
-			nonMosquito: false,
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
+	const filterDefaults: SampleFilters = {
+		from: defaultFrom,
+		to: today,
+		status: 'all',
+		species: new Set(),
+		nonMosquito: false,
+		regions: new Set(),
+	};
 	const {
 		filters: query,
 		setFilters,
@@ -149,22 +144,10 @@ function SamplesExplorerRoute() {
 	const speciesIds = query.species;
 	const nonMosquito = query.nonMosquito;
 	const regionIds = query.regions;
-	const setStatus = useCallback(
-		(next: StatusFilterValue) => setFilters({ status: next }),
-		[setFilters],
-	);
-	const setSpeciesIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ species: next }),
-		[setFilters],
-	);
-	const setNonMosquito = useCallback(
-		(next: boolean) => setFilters({ nonMosquito: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setStatus = (next: StatusFilterValue) => setFilters({ status: next });
+	const setSpeciesIds = (next: ReadonlySet<string>) => setFilters({ species: next });
+	const setNonMosquito = (next: boolean) => setFilters({ nonMosquito: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -173,71 +156,48 @@ function SamplesExplorerRoute() {
 	const { nameById, options } = useSpeciesOptions();
 	const regions = useRegionOptions();
 
-	const filters = useMemo<SampleTileFilters>(
-		() => ({
-			...(speciesIds.size > 0 ? { speciesIds: [...speciesIds] } : {}),
-			...(status === 'all' ? {} : { status }),
-			...(nonMosquito ? { nonMosquitoOnly: true } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[speciesIds, status, nonMosquito, regionIds, dateFrom, dateTo],
-	);
+	const filters: SampleTileFilters = {
+		...whenAny('speciesIds', speciesIds),
+		...(status === 'all' ? {} : { status }),
+		...whenOn('nonMosquitoOnly', nonMosquito),
+		...whenAny('regionIds', regionIds),
+		...whenText('dateFrom', dateFrom),
+		...whenText('dateTo', dateTo),
+	};
 
-	const bbox = useMapBoundsParam(map);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				bbox,
+	const layer: MapTileLayer = {
+		kind: 'samples',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<SampleFeature>({
+			path: PATH,
+			rowsKey: 'samples',
+			rowKey: 'sample',
+			recordType: 'sample',
+			params: {
 				species: filters.speciesIds,
 				status: filters.status,
 				nonMosquito: filters.nonMosquitoOnly,
 				regionId: filters.regionIds,
 				dateFrom: filters.dateFrom,
 				dateTo: filters.dateTo,
-			}),
-		[bbox, filters],
-	);
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<SampleFeature>({
-			path: PATH,
-			rowsKey: 'samples',
-			label: 'Samples',
-			params,
-			enabled: bbox !== null,
+			},
+			layer,
+			map,
+			selectedId,
 		});
 
-	const selected = useSelectedMapRecord<SampleFeature>({
-		path: PATH,
-		rowKey: 'sample',
-		rows,
-		selectedId,
-	});
-
-	useFlyToSelection(map, selected);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'samples',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
-	const legend = useMemo(() => sampleLegend(status), [status]);
+	const legend = sampleLegend(status);
 
-	const resetDates = useCallback(
-		() => setFilters({ from: defaultFrom, to: today }),
-		[setFilters, defaultFrom, today],
-	);
+	const resetDates = () => setFilters({ from: defaultFrom, to: today });
 	const clearAll = reset;
 
 	return (
@@ -288,7 +248,7 @@ function SamplesExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'sample', many: 'samples' }}
+					noun={recordNoun('sample')}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -296,7 +256,7 @@ function SamplesExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Samples',
+				title: recordNoun('sample').titleMany,
 				icon: SampleIcon,
 				total,
 				isLoading,
@@ -329,9 +289,7 @@ function SamplesExplorerRoute() {
 				isError,
 				onRetry: retry,
 				skeletonClassName: 'h-[64px]',
-				emptyTitle: 'No samples in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range.',
+				empty,
 				renderRow: (sample) => (
 					<SampleListItem
 						isSelected={sample.id === selectedId}
@@ -612,7 +570,9 @@ function SampleContext({ sample }: { readonly sample: SampleFeature }) {
 	return (
 		<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
 			{sample.habitatId === null ? (
-				<span className="truncate tabular-nums">{adhocLabel(sample.lat, sample.lng)}</span>
+				<span className="truncate tabular-nums">
+					{adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')}
+				</span>
 			) : (
 				<Link
 					className="pointer-events-auto relative z-10 truncate rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -668,23 +628,8 @@ function SpeciesResults({
 	);
 }
 
-function _StatusDot({ status }: { readonly status: SampleStatus }) {
-	return (
-		<span
-			aria-hidden="true"
-			className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
-			style={{ backgroundColor: SAMPLE_STATUS_COLORS[status] }}
-			title={sampleStatusLabel(status)}
-		/>
-	);
-}
-
 // --- selected sample detail card --------------------------------------------
 
 // --- data hooks -------------------------------------------------------------
 
 // --- helpers ----------------------------------------------------------------
-
-function sampleName(sample: SampleFeature): string {
-	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}

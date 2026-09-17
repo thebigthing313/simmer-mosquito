@@ -26,9 +26,9 @@
  * named at once, that surface wants a server read, not a bigger number.
  */
 
-import { coalesce, concat, inArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
+import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
+import { habitatNameSelect } from './habitat-view';
 import { activityGcTimeMs, unmatchableId } from './shared';
 
 /** How many Habitats one subset will name. See above — a ceiling, not a margin. */
@@ -50,7 +50,7 @@ export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, str
 					.where(({ habitat }) => inArray(habitat.id, sorted.length > 0 ? sorted : [unmatchableId]))
 					.select(({ habitat }) => ({
 						id: habitat.id,
-						name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+						name: habitatNameSelect(habitat),
 					})),
 		},
 		[idsKey],
@@ -58,5 +58,5 @@ export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, str
 
 	const rows = result.data;
 
-	return useMemo(() => new Map(rows.map((habitat) => [habitat.id, habitat.name] as const)), [rows]);
+	return new Map(rows.map((habitat) => [habitat.id, habitat.name] as const));
 }

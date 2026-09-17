@@ -2,8 +2,9 @@ import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ExplorerMapPage,
@@ -11,23 +12,19 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
 	useExplorerPanel,
-	useFlyToSelection,
-	useMapBoundsParam,
-	usePagedMapResource,
+	useExplorerResource,
 	useRegionOptions,
-	useSelectedMapRecord,
 	whenAny,
 	whenOn,
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../../../components/larval-display';
+import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
@@ -37,8 +34,11 @@ import {
 	type MapLegendEntry,
 	type MapTileLayer,
 } from '../../../components/map';
-import { adhocLabel } from '../../../lib/coordinate-label';
+import { habitatLabel } from '../../../lib/coordinate-label';
+import { formatListDate } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
+import { RecordBadges } from '../../-record-badges';
 import {
 	DensityFilter,
 	type InspectionCatalogs,
@@ -56,7 +56,6 @@ import {
 	inspectionFilterCodecs,
 	sharedInspectionSearch,
 } from '../-inspections-search';
-import { formatListDate } from '../-overview-data';
 import { inspectionLegend } from './-legend';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
@@ -71,7 +70,7 @@ export const Route = createFileRoute('/larval-surveillance/inspections/')({
  * plus the record fields and the joined habitat / address / inspector labels the
  * list and detail card need to identify a row (an inspection has no name of its own).
  */
-interface InspectionSite {
+interface InspectionRow {
 	readonly id: string;
 	readonly lat: number | null;
 	readonly lng: number | null;
@@ -105,60 +104,19 @@ function useInspectionFilterOptions(): InspectionFilterOptions {
 	return { catalogs, regions };
 }
 
-/**
- * The page of inspections in view, and whichever one is selected.
- *
- * The selected record is fetched on its own when it is not on the page in hand,
- * so a deep link to a record outside the current window still opens with the map
- * flown to it.
- */
-function useInspectionResults({
-	filters,
-	map,
-	selectedId,
-}: {
-	readonly filters: InspectionTileFilters;
-	readonly map: MapboxMap | null;
-	readonly selectedId: string | null;
-}) {
-	const bbox = useMapBoundsParam(map);
-	const params = useMemo(() => inspectionQueryParams(bbox, filters), [bbox, filters]);
-	const paged = usePagedMapResource<InspectionSite>({
-		path: PATH,
-		rowsKey: 'inspections',
-		label: 'Inspections',
-		params,
-		enabled: bbox !== null,
-	});
-	const selected = useSelectedMapRecord<InspectionSite>({
-		path: PATH,
-		rowKey: 'inspection',
-		rows: paged.rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
-	return { paged, selected };
-}
+const RECORD_TYPE: RecordType = 'inspection';
 
-const RESULT_NOUN = { one: 'inspection', many: 'inspections' };
-
-/** What an empty or loading rail draws, which is the same whatever is filtered. */
-const INSPECTION_RESULTS_COPY = {
-	skeletonClassName: 'h-[64px]',
-	emptyTitle: 'No inspections in view',
-	emptyDescription:
-		'Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range.',
-} as const;
+/** The placeholder's height, matched to the two-line row it stands in for. */
+const INSPECTION_SKELETON_CLASS = 'h-[64px]';
 
 /** The panel's title row: what the surface is, and how much of it matched. */
 function inspectionsHeading(total: number, isLoading: boolean) {
 	return {
-		title: 'Inspections',
+		title: recordNoun('inspection').titleMany,
 		icon: InspectionEntityIcon,
 		total,
 		isLoading,
-		noun: RESULT_NOUN,
-		create: { to: '/larval-surveillance/inspections/create', label: 'Create Inspection' },
+		create: { to: '/larval-surveillance/inspections/create', label: createLabel('inspection') },
 	} as const;
 }
 
@@ -177,9 +135,8 @@ function inspectionTileFilters(set: InspectionFilterState): InspectionTileFilter
 }
 
 /** The same filters as the list endpoint's query string. */
-function inspectionQueryParams(bbox: string | null, filters: InspectionTileFilters) {
-	return mapQueryParams({
-		bbox,
+function inspectionQueryParams(filters: InspectionTileFilters) {
+	return {
 		isWet: filters.isWet,
 		density: filters.densities,
 		positive: filters.positiveOnly,
@@ -188,7 +145,7 @@ function inspectionQueryParams(bbox: string | null, filters: InspectionTileFilte
 		regionId: filters.regionIds,
 		dateFrom: filters.dateFrom,
 		dateTo: filters.dateTo,
-	});
+	};
 }
 
 /** The catalogs the filter controls offer, and the names their chips read by. */
@@ -218,29 +175,31 @@ function InspectionsExplorerRoute() {
 	const carried = sharedInspectionSearch(Route.useSearch());
 
 	const filterOptions = useInspectionFilterOptions();
-	const filters = useMemo(() => inspectionTileFilters(state), [state]);
+	const filters = inspectionTileFilters(state);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
-	const { paged, selected } = useInspectionResults({ filters, map, selectedId });
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } = paged;
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'inspections',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
-	const legend = useMemo(() => inspectionLegend(wetness, densities), [wetness, densities]);
+	const layer: MapTileLayer = {
+		kind: 'inspections',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<InspectionRow>({
+			path: PATH,
+			rowsKey: 'inspections',
+			rowKey: 'inspection',
+			recordType: 'inspection',
+			params: inspectionQueryParams(filters),
+			layer,
+			map,
+			selectedId,
+		});
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
+	const legend = inspectionLegend(wetness, densities);
 
-	const resetDates = useCallback(
-		() => setFilters({ from: defaults.from, to: defaults.to }),
-		[setFilters, defaults.from, defaults.to],
-	);
+	const resetDates = () => setFilters({ from: defaults.from, to: defaults.to });
 	const clearAll = reset;
 
 	return (
@@ -261,7 +220,7 @@ function InspectionsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={RESULT_NOUN}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -282,7 +241,8 @@ function InspectionsExplorerRoute() {
 			}
 			panel={panel}
 			results={{
-				...INSPECTION_RESULTS_COPY,
+				skeletonClassName: INSPECTION_SKELETON_CLASS,
+				empty,
 				rows,
 				isError,
 				onRetry: retry,
@@ -314,7 +274,7 @@ function InspectionMap({
 	readonly onSelect: (id: string | null) => void;
 	readonly onMapReady: (map: MapboxMap) => void;
 	readonly panel: ReturnType<typeof useExplorerPanel>;
-	readonly selected: InspectionSite | null;
+	readonly selected: InspectionRow | null;
 }) {
 	return (
 		<>
@@ -478,14 +438,17 @@ function InspectionListItem({
 	selectedId,
 	onSelect,
 }: {
-	readonly inspection: InspectionSite;
+	readonly inspection: InspectionRow;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
 }) {
 	const isSelected = inspection.id === selectedId;
 	const typeName = resolveTypeName(inspection, typeNameById);
-	const label = siteLabel(inspection);
+	const label = habitatLabel(inspection, {
+		addressName: inspection.addressDisplayName,
+		fallback: 'Ad-hoc inspection',
+	});
 	const when = formatListDate(inspection.inspectionDate);
 	return (
 		<ExplorerRow
@@ -499,9 +462,19 @@ function InspectionListItem({
 			 * rail keeps the same shape whether or not this one found anything.
 			 */
 			badges={
-				inspection.isWet && hasAnyLifeStage(inspection) ? (
-					<LifeStageStrip size="sm" stages={inspection} />
-				) : null
+				<RecordBadges
+					facts={{
+						category: 'inspection',
+						result: {
+							isWet: inspection.isWet,
+							density: inspection.density,
+							stages: hasAnyLifeStage(inspection) ? inspection : null,
+						},
+					}}
+					// The dot at the left of the row is already the density, and the key
+					// above the map names the colours it draws in.
+					status="dot"
+				/>
 			}
 			date={when}
 			detailLabel={`View details for the ${when} inspection of ${label}`}
@@ -526,7 +499,7 @@ function InspectionListItem({
 }
 
 /** The heat colour this inspection draws in, so the row matches the map. */
-function inspectionSwatch(inspection: InspectionSite): {
+function inspectionSwatch(inspection: InspectionRow): {
 	readonly color: string;
 	readonly label: string;
 } {
@@ -544,21 +517,11 @@ function inspectionSwatch(inspection: InspectionSite): {
 // --- helpers ----------------------------------------------------------------
 
 function resolveTypeName(
-	inspection: InspectionSite,
+	inspection: InspectionRow,
 	typeNameById: ReadonlyMap<string, string>,
 ): string {
 	if (inspection.habitatTypeId === null) {
 		return 'Unassigned type';
 	}
 	return typeNameById.get(inspection.habitatTypeId) ?? 'Unknown type';
-}
-
-function siteLabel(inspection: InspectionSite): string {
-	return (
-		inspection.habitatName?.trim() ||
-		inspection.addressDisplayName?.trim() ||
-		(inspection.habitatId === null
-			? adhocLabel(inspection.lat, inspection.lng)
-			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
-	);
 }

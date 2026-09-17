@@ -15,7 +15,6 @@
 
 import type { RouteType } from '@simmer-mosquito/domain';
 import { count, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import type { RouteSummary } from '../../components/route-planning/route-summary';
 import { route_items } from '../../lib/collections/route_items';
 import { routes } from '../../lib/collections/routes';
@@ -74,10 +73,7 @@ export function useRouteStopCounts(): {
 
 	const rows = result.data;
 
-	const countByRouteId = useMemo(
-		() => new Map(rows.map((row) => [row.routeId, row.stops])),
-		[rows],
-	);
+	const countByRouteId = new Map(rows.map((row) => [row.routeId, row.stops]));
 
 	return { countByRouteId, isReady: result.isReady };
 }

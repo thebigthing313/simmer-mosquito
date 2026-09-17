@@ -14,7 +14,7 @@ import {
 	mapRecordSurface,
 } from './map-surface.js';
 import { geojsonToGeom } from './org-owned-writes.js';
-import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
+import { assertIanaTimeZone, collectionStatusSql, localDateSql } from './record-display-sql.js';
 import { checkedValues } from './write-references.js';
 
 export interface CreateTrapInput {
@@ -583,6 +583,8 @@ export interface CollectionMapFilters {
 	readonly collectionMethodIds?: readonly string[];
 	/** Only collections flagged with a problem. */
 	readonly problemOnly?: boolean;
+	/** Only collections awaiting identification; see {@link collectionAwaitingCondition}. */
+	readonly awaitingOnly?: boolean;
 	/** Match collections falling inside any of these regions. */
 	readonly regionIds?: readonly string[];
 	/** Inclusive lower bound on the collection's effective date (`YYYY-MM-DD`). */
@@ -631,23 +633,49 @@ export interface SafeCollectionDisplayRow {
  * applies the offset in force at that instant, so this stays right across a
  * daylight-saving change rather than an hour off for half the season.
  */
-function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
+export function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
 	return sql.raw(
 		`coalesce(${localDateSql('c.collected_at', assertIanaTimeZone(timeZone))}, c.collection_date)`,
 	);
 }
 
 /**
+ * A collection awaiting identification, over `collections c`: dated, not
+ * declared a zero result, and carrying no live species row.
+ *
+ * Dated means the effective date is set. Under exact timestamps a trap still
+ * out has no `collected_at`, so there is nothing to identify yet; that
+ * collection is pending rather than awaiting, and it is on no queue.
+ *
+ * One fragment for the `awaiting` filter on the collections map surface and the
+ * Dashboard's all-time count, so the count and the rows the explorer shows
+ * behind its link are one predicate. `has_problem` is not a term here: a
+ * collection with a problem and no species rows still needs keying out, and the
+ * overview's client-side count (`useCollectionsAwaitingIdentification`) reads
+ * it the same way.
+ */
+export function collectionAwaitingCondition(
+	effectiveDate: RawBuilder<unknown>,
+): RawBuilder<boolean> {
+	return sql<boolean>`(
+		c.is_zero_result = false
+		and ${effectiveDate} is not null
+		and not exists (
+			select 1
+			from collection_species cs
+			where cs.collection_id = c.id
+				and cs.deleted_at is null
+		)
+	)`;
+}
+
+/**
  * The four states a collection can be in, resolved server-side by precedence so
  * the map colour and the result rail can never disagree about what one is.
  *
- * `pending` first, because it says the record is not finished: the trap is
- * still out and there is nothing to report a problem or a count about yet. It
- * reads the row's own `collection_timing_mode` rather than the organization's
- * current setting, because a null `collected_at` means "not emptied" only under
- * exact timestamps. Under date-plus-duration every finished collection has one,
- * and a status keyed off the column alone would paint the whole surface
- * pending.
+ * The precedence itself is {@link collectionStatusSql}, beside the other
+ * fragments that decide how a record reads, because the profile activity log
+ * resolves the same four states over a different alias.
  */
 export type CollectionStatus = 'pending' | 'problem' | 'zero_result' | 'collected';
 
@@ -658,14 +686,7 @@ export const collectionStatusValues: readonly CollectionStatus[] = [
 	'collected',
 ];
 
-const collectionStatusExpression = sql`
-	case
-		when c.collection_timing_mode = 'exact_timestamps' and c.collected_at is null then 'pending'
-		when c.has_problem then 'problem'
-		when c.is_zero_result then 'zero_result'
-		else 'collected'
-	end
-`;
+const collectionStatusExpression = sql.raw(collectionStatusSql('c'));
 
 const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
 	id: sql`c.id`,
@@ -752,9 +773,6 @@ export function collectionSurface(
 		async getExtent(db, input) {
 			return forZone(input.timeZone).getExtent(db, input);
 		},
-		async listPage(db, input) {
-			return forZone(input.timeZone).listPage(db, input);
-		},
 		async listByBounds(db, input) {
 			return forZone(input.timeZone).listByBounds(db, input);
 		},
@@ -776,6 +794,9 @@ function collectionFilterWhere(
 	}
 	if (filters?.problemOnly === true) {
 		clauses.push(sql<boolean>`c.has_problem = true`);
+	}
+	if (filters?.awaitingOnly === true) {
+		clauses.push(collectionAwaitingCondition(effectiveDate));
 	}
 	if (filters?.dateFrom !== undefined) {
 		clauses.push(sql<boolean>`${effectiveDate} >= ${filters.dateFrom}`);

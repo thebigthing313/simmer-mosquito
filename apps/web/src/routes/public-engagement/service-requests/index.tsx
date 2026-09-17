@@ -1,5 +1,4 @@
 import { toDbEntityType } from '@simmer-mosquito/domain';
-import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -24,10 +23,11 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
+import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -39,26 +39,26 @@ import {
 	toggle,
 	useEntityTags,
 	useExplorerPanel,
-	useRegionMembership,
+	useExplorerResource,
 	useRegionOptions,
 	useTagOptions,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 	SERVICE_REQUEST_STATUS_COLORS,
+	type ServiceRequestTileFilters,
 } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import {
-	type RequestListing,
-	useOrganizationServiceRequests,
-} from '../../../hooks/queries/use-organization-service-requests';
 import { useRequestParties } from '../../../hooks/queries/use-request-parties';
-import { tag_items } from '../../../lib/collections/tag_items';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -78,16 +78,32 @@ import { ServiceRequestMapCard } from '../-service-request-map-card';
 import type { StatusFilter } from './-legend';
 import { serviceRequestLegend } from './-legend';
 
+/**
+ * A service request as `/map/service-requests` lists it: what the row shows,
+ * where on the map it sits, and the two ids the rail resolves for the page it
+ * draws. `closedAt` arrives as the JSON string the server wrote, and only its
+ * presence is read.
+ */
+interface RequestListing {
+	readonly id: string;
+	readonly lat: number;
+	readonly lng: number;
+	readonly displayName: number | null;
+	readonly requestDate: string;
+	readonly details: string;
+	readonly contactId: string;
+	readonly addressId: string;
+	readonly closedAt: string | null;
+}
+
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
-const RESULT_NOUN = { one: 'request', many: 'requests' };
+const RECORD_TYPE: RecordType = 'serviceRequest';
+const PATH = '/map/service-requests';
 const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
 	{ value: 'open', label: 'Open' },
 	{ value: 'closed', label: 'Closed' },
 	{ value: 'all', label: 'All' },
 ];
-const requestsGcTimeMs = 30_000;
-const PAGE_SIZE = 25;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const EMPTY_TAGS: readonly Tag[] = [];
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'open', 'closed'];
@@ -119,11 +135,9 @@ export const Route = createFileRoute('/public-engagement/service-requests/')({
 });
 
 function ServiceRequestsExplorerRoute() {
-	const { requests, isReady } = useOrganizationServiceRequests();
-
 	// The catalog drives both the filter options and the per-card chip labels.
 	const { byId: tagById } = useTagOptions();
-	const availableTags = useMemo(() => [...tagById.values()], [tagById]);
+	const availableTags = [...tagById.values()];
 
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to.
@@ -135,16 +149,10 @@ function ServiceRequestsExplorerRoute() {
 	const status = query.status;
 	const selectedTagIds = query.tags;
 	const selectedRegionIds = query.regions;
-	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
-	const setSelectedTagIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ tags: next }),
-		[setFilters],
-	);
-	const setSelectedRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setSelectedTagIds = (next: ReadonlySet<string>) => setFilters({ tags: next });
+	const setSelectedRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: search,
 		setInput: setSearch,
@@ -152,95 +160,57 @@ function ServiceRequestsExplorerRoute() {
 	} = useDebouncedTextFilter(query.search, commitSearch);
 	// Both halves: the field the operator is looking at, and the committed term on
 	// the URL that is actually cutting the list.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 	// Both halves: the field the operator is looking at, and the committed set on
 	// the URL that is actually cutting the list. One patch, one navigation, since
 	// two calls would each read the same prior search and the second would undo
 	// the first.
-	const clearAll = useCallback(() => {
+	const clearAll = () => {
 		setSearch('');
 		setFilters({ search: '', tags: new Set(), regions: new Set(), status: 'open' });
-	}, [setSearch, setFilters]);
+	};
 	const regions = useRegionOptions();
-	// Requests are filtered from rows already synced here, so region membership is
-	// answered against the boundaries directly rather than by the server.
-	const regionMembership = useRegionMembership(selectedRegionIds);
-	const [page, setPage] = useState(0);
-	const [focusedId, setFocusedId] = useState<string | null>(null);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
 
-	// Tag filter is applied through a targeted query keyed on the (few) selected
-	// tag ids — it resolves the set of request ids carrying any selected tag,
-	// rather than loading tag rows for every request up front.
-	const selectedTagKey = [...selectedTagIds].sort().join(',');
-	const selectedRegionKey = [...selectedRegionIds].sort().join(',');
-	const taggedRequestIds = useRequestIdsForTags(selectedTagIds);
-
-	const filtered = useMemo(
-		() =>
-			requests.filter((request) =>
-				matchesRequest(request, {
-					containsPoint: regionMembership.contains,
-					search: search.trim().toLowerCase(),
-					status,
-					taggedRequestIds: selectedTagIds.size === 0 ? null : taggedRequestIds,
-				}),
-			),
-		[requests, status, search, selectedTagIds, taggedRequestIds, regionMembership],
-	);
-
-	const legend = useMemo(() => serviceRequestLegend(status), [status]);
-
-	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset paging when the filter set changes.
-	useEffect(() => {
-		setPage(0);
-	}, [search, status, selectedTagKey, selectedRegionKey]);
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
-	const visible = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-
-	// Resolve the related on-demand rows for the *visible page only* — a ≤25-id
-	// subset that loads reliably, instead of one join over the whole request set.
-	const visibleRequestIds = useStableIds(visible.map((request) => request.id));
-	const parties = useRequestParties(visible);
-	const tagsByRequestId = useEntityTags(toDbEntityType('serviceRequest'), visibleRequestIds);
-	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
-
-	const geoJson = useMemo(() => requestFeatures(filtered), [filtered]);
-	// These points come from local rows, so the camera frames the filtered set
-	// straight from the list rather than asking the server for an extent.
-	const mappedBounds = useMemo(
-		() =>
-			boundsFromCoordinates(mappable(filtered).map((r) => ({ lng: r.longitude, lat: r.latitude }))),
-		[filtered],
-	);
-
-	// Fly to a request when it becomes focused (list click or map click).
-	const focused = focusedId === null ? null : (requests.find((r) => r.id === focusedId) ?? null);
-	useEffect(() => {
-		if (map === null || focused === null) {
-			return;
-		}
-		map.flyTo({
-			center: [focused.longitude, focused.latitude],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 600,
+	// The tiles and the page read one filter shape off one server predicate, so
+	// the map and the rail stay in lockstep. The rail used to filter and page the
+	// whole Organization's requests out of the sync collection and draw them as a
+	// GeoJSON overlay, 1,180 rows in the prod clone over three years (#963).
+	const filters = requestTileFilters(query);
+	const legend = serviceRequestLegend(status);
+	const layer: MapTileLayer = {
+		kind: 'service-requests',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<RequestListing>({
+			path: PATH,
+			rowsKey: 'serviceRequests',
+			rowKey: 'serviceRequest',
+			recordType: RECORD_TYPE,
+			params: requestQueryParams(filters),
+			layer,
+			map,
+			selectedId,
 		});
-	}, [map, focused]);
 
-	const hasFilter =
-		search.trim().length > 0 ||
-		status !== 'all' ||
-		selectedTagIds.size > 0 ||
-		selectedRegionIds.size > 0;
+	// Resolve the related on-demand rows for the page alone, a subset of at most
+	// fifty ids that loads reliably, instead of one join over the whole request set.
+	const parties = useRequestParties(rows);
+	const tagsByRequestId = useEntityTags(
+		toDbEntityType('serviceRequest'),
+		rows.map((request) => request.id),
+	);
+	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
 
 	return (
 		<ExplorerMapPage
@@ -263,25 +233,22 @@ function ServiceRequestsExplorerRoute() {
 				/>
 			}
 			footer={
-				pageCount > 1 ? (
-					<ExplorerPagination
-						noun={{ one: 'request', many: 'requests' }}
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={filtered.length}
-					/>
-				) : undefined
+				<ExplorerPagination
+					noun={recordNoun(RECORD_TYPE)}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
+				/>
 			}
 			heading={{
-				title: 'Service Requests',
+				title: recordNoun('serviceRequest').titleMany,
 				icon: RequestIcon,
-				total: filtered.length,
-				isLoading: !isReady || !regionMembership.isReady,
-				noun: RESULT_NOUN,
+				total,
+				isLoading,
 				create: {
 					to: '/public-engagement/service-requests/create',
-					label: 'New Request',
+					label: createLabel('serviceRequest'),
 					minimum: 'manager',
 				},
 			}}
@@ -293,39 +260,37 @@ function ServiceRequestsExplorerRoute() {
 							create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
 						}}
 						controls={{ measure: true, readout: true }}
-						fitToData={mappedBounds}
-						geoJson={geoJson}
-						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
+						fitToData
 						inset={panel.inset}
+						layers={layers}
 						legend={legend}
 						onMapReady={setMap}
 						searchWidth={panel.width}
 					/>
-					{focused === null ? null : (
+					{selected === null ? null : (
 						<ServiceRequestMapCard
-							id={focused.id}
+							id={selected.id}
 							inset={panel.inset}
-							onClose={() => setFocusedId(null)}
+							onClose={() => setSelectedId(null)}
 						/>
 					)}
 				</>
 			}
 			panel={panel}
 			results={{
-				rows: visible,
-				emptyTitle: hasFilter ? 'No requests match' : 'No service requests yet',
-				emptyDescription: hasFilter
-					? 'Try a different filter or search term.'
-					: 'Log a service request to start tracking public reports.',
+				rows,
+				isError,
+				onRetry: retry,
+				empty,
 				skeletonClassName: 'h-16',
 				renderRow: (request) => (
 					<RequestRowItem
 						address={parties.addressById.get(request.addressId) ?? null}
 						contact={parties.contactById.get(request.contactId) ?? null}
 						detailsLoading={detailsLoading}
-						isFocused={request.id === focusedId}
+						isFocused={request.id === selectedId}
 						key={request.id}
-						onFocus={() => setFocusedId(request.id)}
+						onFocus={() => setSelectedId(request.id)}
 						request={request}
 						tags={tagsByRequestId.byId.get(request.id) ?? EMPTY_TAGS}
 					/>
@@ -333,6 +298,35 @@ function ServiceRequestsExplorerRoute() {
 			}}
 		/>
 	);
+}
+
+/**
+ * The filter shape the tiles and the page both read, off the URL's filter set.
+ * `all` is no status filter at all rather than a third value, and an empty
+ * search, tag set or region set drops out so the query names only what narrows.
+ */
+function requestTileFilters(query: RequestFilterSet): ServiceRequestTileFilters {
+	return {
+		...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
+		...whenText('search', query.search.trim()),
+		...whenAny('tagIds', query.tags),
+		...whenAny('regionIds', query.regions),
+	};
+}
+
+/** The same filters as the query params `/map/service-requests` takes. */
+function requestQueryParams(filters: ServiceRequestTileFilters): {
+	readonly status: 'open' | 'closed' | undefined;
+	readonly search: string | undefined;
+	readonly tagId: readonly string[] | undefined;
+	readonly regionId: readonly string[] | undefined;
+} {
+	return {
+		status: filters.isOpen === undefined ? undefined : filters.isOpen ? 'open' : 'closed',
+		search: filters.search,
+		tagId: filters.tagIds,
+		regionId: filters.regionIds,
+	};
 }
 
 /** The filter card's contents: the four controls and the chips that undo them. */
@@ -498,98 +492,6 @@ function SearchChip({
 		return null;
 	}
 	return <FilterChip label={`Search: ${search}`} onRemove={onClear} />;
-}
-
-/** Whether one request survives the filter set the operator has on. */
-function matchesRequest(
-	request: RequestListing,
-	criteria: {
-		readonly containsPoint: (point: { readonly lng: number; readonly lat: number }) => boolean;
-		readonly search: string;
-		readonly status: StatusFilter;
-		/** The ids carrying a selected tag, or `null` when no tag filter is on. */
-		readonly taggedRequestIds: ReadonlySet<string> | null;
-	},
-): boolean {
-	const open = isServiceRequestOpen(request);
-	if (criteria.status === 'open' && !open) {
-		return false;
-	}
-	if (criteria.status === 'closed' && open) {
-		return false;
-	}
-	if (criteria.taggedRequestIds !== null && !criteria.taggedRequestIds.has(request.id)) {
-		return false;
-	}
-	if (!criteria.containsPoint({ lng: request.longitude, lat: request.latitude })) {
-		return false;
-	}
-	if (criteria.search.length === 0) {
-		return true;
-	}
-	return (
-		serviceRequestTitle(request).toLowerCase().includes(criteria.search) ||
-		request.details.toLowerCase().includes(criteria.search)
-	);
-}
-
-/** The requests that have somewhere to be drawn. */
-function mappable(requests: readonly RequestListing[]): readonly RequestListing[] {
-	return requests.filter(
-		(request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude),
-	);
-}
-
-/**
- * The overlay the map draws.
- *
- * These points are a plain GeoJSON overlay rather than vector tiles, so the
- * colour travels on the feature and the layer's paint reads it back.
- */
-function requestFeatures(requests: readonly RequestListing[]): GeoJSON.GeoJSON | null {
-	const features = mappable(requests).map(
-		(request): GeoJSON.Feature => ({
-			type: 'Feature',
-			id: request.id,
-			properties: { id: request.id, color: requestSwatch(request).color },
-			geometry: { type: 'Point', coordinates: [request.longitude, request.latitude] },
-		}),
-	);
-	return features.length === 0 ? null : { type: 'FeatureCollection', features };
-}
-
-/** Dedupe + sort an id list into a stable array reference for query deps. */
-function useStableIds(ids: readonly string[]): readonly string[] {
-	const key = ids.join(',');
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `key` captures `ids`.
-	return useMemo(() => [...new Set(ids)].sort(), [key]);
-}
-
-/**
- * The set of request ids carrying any of the selected tags, resolved from the
- * on-demand `tag_items` collection with a query keyed on the (few) selected tag
- * ids. entityId is a globally-unique UUID, so a request id in this set provably
- * carries the tag regardless of the polymorphic entity_type discriminator.
- */
-function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<string> {
-	const tagIds = [...selectedTagIds].sort();
-	const key = tagIds.join(',');
-	const queryIds = tagIds.length > 0 ? tagIds : [UNMATCHABLE_ID];
-	const result = useLiveQuery(
-		{
-			gcTime: requestsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: tag_items() })
-					.where(({ item }) => inArray(item.tag_id, queryIds))
-					.select(({ item }) => ({ entityId: item.entity_id })),
-		},
-		[key],
-	);
-
-	const assignments = result.data;
-
-	return useMemo(() => new Set(assignments.map((item) => item.entityId)), [assignments]);
 }
 
 function TagFilter({
@@ -766,14 +668,4 @@ function requestSwatch(request: RequestListing): {
 	return isServiceRequestOpen(request)
 		? { color: SERVICE_REQUEST_STATUS_COLORS.open, label: 'Open' }
 		: { color: SERVICE_REQUEST_STATUS_COLORS.closed, label: 'Closed' };
-}
-
-function _toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
-	const next = new Set(set);
-	if (next.has(id)) {
-		next.delete(id);
-	} else {
-		next.add(id);
-	}
-	return next;
 }

@@ -1,8 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -11,26 +9,22 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useControlMethodNames } from '../../../components/explorer';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
 import { RequestStatusBadge } from '../../../components/request-status-badge';
-import { WriteOnly } from '../../../components/write-only';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
 	controlTypeLabel,
@@ -55,12 +49,14 @@ import {
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { CONTROL_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { useCommandRunner } from '../-command-runner';
 import { MissionStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
+const ResolveIcon = iconRegistry.actions.select.icon;
+const ReopenIcon = iconRegistry.actions.reset.icon;
 const MissionIcon = iconRegistry.entities.route.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 export const Route = createFileRoute('/operations/requests-for-control/$id')({
 	component: RequestDetailRoute,
@@ -69,7 +65,7 @@ export const Route = createFileRoute('/operations/requests-for-control/$id')({
 const layout: RecordDetailLayout = {
 	aside: 'wide',
 	stickyAside: true,
-	skeleton: { eyebrow: 'w-32', main: ['h-[360px]', 'h-40'], aside: ['h-72'] },
+	skeleton: { main: [['h-[360px]', 'h-64'], 'h-40'], aside: ['h-72'] },
 };
 
 /**
@@ -88,10 +84,9 @@ function RequestDetailRoute() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to requests for control', to: '/operations/requests-for-control' }}
 			deleteRefusals={CONTROL_REQUEST_DELETE_REFUSALS}
 			layout={layout}
-			noun="request"
+			recordType="requestedControlAction"
 			reading={{ isError, isReady, record: request }}
 		>
 			{(record, askDelete) => (
@@ -113,8 +108,10 @@ function RequestDetailContent({
 	const habitatName = useLinkedHabitatName(request.habitatId);
 	const requestWrites = useRequestedControlActionMutations();
 	const { busy, error, run } = useCommandRunner();
+	const timeZone = useOrganizationTimeZone();
+	const isOpen = request.status === 'open';
 
-	const toggleResolved = useCallback(() => {
+	const toggleResolved = () => {
 		void run(
 			() =>
 				request.status === 'open'
@@ -122,117 +119,71 @@ function RequestDetailContent({
 					: requestWrites.reopen(request.id),
 			'Unable to update this request.',
 		);
-	}, [request.status, request.id, requestWrites, run]);
+	};
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
-				<>
-					<RequestDetailsCard habitatName={habitatName} request={request} />
-					<CommentsSection
-						description="Why this was raised, what was found, and how it was settled."
-						target={{ type: 'requestedControlAction', id: request.id }}
-					/>
-				</>
-			}
-			header={
-				<>
-					<RequestHeader
-						busy={busy}
-						onToggleResolved={toggleResolved}
-						request={request}
-						subject={subject}
-					/>
-					{error === null ? null : (
-						<Alert variant="destructive">
-							<AlertDescription>{error}</AlertDescription>
-						</Alert>
-					)}
-				</>
-			}
-			layout={layout}
-		>
-			<div className="grid content-start gap-3">
-				<RequestLocationCard habitatName={habitatName} request={request} />
-				<RecordRegionsBand
-					noun="request"
-					recordId={request.id}
-					recordType="requested_control_actions"
+				<CommentsSection
+					description="Why this was raised, what was found, and how it was settled."
+					target={{ type: 'requestedControlAction', id: request.id }}
 				/>
-			</div>
+			}
+			facts={<RequestDetailsCard habitatName={habitatName} request={request} />}
+			header={{
+				actions: [
+					{
+						// Resolving is a manager call: it takes work off the queue.
+						disabled: busy,
+						icon: isOpen ? ResolveIcon : ReopenIcon,
+						id: 'resolution',
+						label: isOpen ? 'Mark Resolved' : 'Reopen Request',
+						minimum: 'manager',
+						onSelect: toggleResolved,
+					},
+				],
+				/*
+				 * Editing is `OWN_REQUESTED_ACTION`, the author or a manager. The
+				 * browser cannot tell authorship apart, so the pencil shows at the
+				 * write line and the server settles the rest.
+				 */
+				edit: { params: { id: request.id }, to: '/operations/requests-for-control/$id/edit' },
+				flags: <RequestStatusBadge status={request.status} />,
+				icon: RequestIcon,
+				recordType: 'requestedControlAction',
+				remove: {
+					ask: askDelete,
+					name: subject,
+					onDelete: (acknowledgements) => requestWrites.remove(request.id, acknowledgements),
+					recordId: request.id,
+					returnTo: '/operations/requests-for-control',
+				},
+				subtitle: `${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`,
+				title: subject,
+			}}
+			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<RequestLocationCard habitatName={habitatName} request={request} />
+					<RecordRegionsBand recordId={request.id} recordType="requested_control_actions" />
+				</div>
+			}
+		>
+			{error === null ? null : (
+				<Alert variant="destructive">
+					<AlertDescription>{error}</AlertDescription>
+				</Alert>
+			)}
 			<RequestMissionsCard requestId={request.id} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={subject}
-				noun="request for control"
-				onDelete={(acknowledgements) => requestWrites.remove(request.id, acknowledgements)}
-				recordId={request.id}
-				recordType="requestedControlAction"
-				returnTo="/operations/requests-for-control"
-			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
 /** Habitats are an on-demand collection, so the linked one resolves as a subset. */
 function useLinkedHabitatName(habitatId: string | null): string | null {
-	const habitatIds = useMemo(() => (habitatId === null ? [] : [habitatId]), [habitatId]);
+	const habitatIds = habitatId === null ? [] : [habitatId];
 	const habitatNameById = useHabitatNames(habitatIds);
 	return habitatId === null ? null : (habitatNameById.get(habitatId) ?? null);
-}
-
-function RequestHeader({
-	request,
-	subject,
-	busy,
-	onToggleResolved,
-}: {
-	readonly request: RequestRecord;
-	readonly subject: string;
-	readonly busy: boolean;
-	readonly onToggleResolved: () => void;
-}) {
-	const isOpen = request.status === 'open';
-	const timeZone = useOrganizationTimeZone();
-
-	return (
-		<PageHeader
-			actions={
-				<>
-					<RequestStatusBadge status={request.status} />
-					{/*
-					 * Editing is `OWN_REQUESTED_ACTION` — the author or a manager. The
-					 * browser cannot tell authorship apart, so the button shows at the
-					 * write line and the server settles the rest.
-					 */}
-					<WriteOnly>
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: request.id }} to="/operations/requests-for-control/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-					{/* Resolving is a manager call: it takes work off the queue. */}
-					<WriteOnly minimum="manager">
-						<Button
-							disabled={busy}
-							onClick={onToggleResolved}
-							size="sm"
-							variant={isOpen ? 'default' : 'outline'}
-						>
-							{busy ? <Spinner /> : null}
-							{isOpen ? 'Mark Resolved' : 'Reopen Request'}
-						</Button>
-					</WriteOnly>
-				</>
-			}
-			eyebrow="Request for Control"
-			icon={RequestIcon}
-			description={`${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`}
-			title={subject}
-		/>
-	);
 }
 
 /**
@@ -286,7 +237,7 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 				<div className="grid gap-1">
 					<CardTitle className="flex items-center gap-2">
 						<MissionIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-						Missions
+						{recordNoun('mission').titleMany}
 					</CardTitle>
 					<CardDescription>The missions carrying this request as a stop.</CardDescription>
 				</div>
@@ -363,10 +314,8 @@ function RequestFactRows({ request }: { readonly request: RequestRecord }) {
 	return (
 		<>
 			<DetailRow label="Control type">{controlTypeLabel(request.controlType)}</DetailRow>
-			<DetailRow empty="No method named" label="Method">
-				{methodName}
-			</DetailRow>
-			<DetailRow empty="No summary" label="Summary">
+			<DetailRow label="Method">{methodName}</DetailRow>
+			<DetailRow label="Summary">
 				{request.summary?.trim() ? (
 					<span className="whitespace-pre-wrap">{request.summary}</span>
 				) : null}
@@ -396,7 +345,7 @@ function RequestLinkRows({
 			<DetailRow label="Address">
 				<LinkedAddressValueById addressId={request.addressId} />
 			</DetailRow>
-			<DetailRow empty="None" label="Habitat">
+			<DetailRow label="Habitat">
 				{request.habitatId === null ? null : (
 					<Link
 						className={recordLink()}
@@ -407,7 +356,7 @@ function RequestLinkRows({
 					</Link>
 				)}
 			</DetailRow>
-			<DetailRow empty="None" label="Inspection">
+			<DetailRow label="Inspection">
 				{request.inspectionId === null ? null : (
 					<Link
 						className={recordLink()}
@@ -418,7 +367,7 @@ function RequestLinkRows({
 					</Link>
 				)}
 			</DetailRow>
-			<DetailRow empty="None" label="Collection">
+			<DetailRow label="Collection">
 				{request.collectionId === null ? null : (
 					<Link
 						className={recordLink()}

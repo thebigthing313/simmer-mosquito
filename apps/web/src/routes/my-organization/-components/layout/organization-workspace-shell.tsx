@@ -4,9 +4,16 @@ import type { SimmerRole } from '../types';
 import { PermissionPill } from './layout';
 
 /**
- * Organization workspace content frame. Section navigation now lives in the
- * global dual-pane header (driven by `organizationHeaderTabs`), so the shell just
- * constrains width and surfaces the permission state above the active section.
+ * The frame every my-organization section draws in. Section navigation is
+ * the sidebar's, one entry per route under `/my-organization` in
+ * `navigation.ts`, so the shell sets the measure and puts the permission
+ * state above the active section and does nothing else.
+ *
+ * The measure is `record`, the 112rem cap the route-loading skeleton
+ * reserves, so a section arrives at the width the skeleton stood in for
+ * rather than 416px narrower (#1043). What is inside keeps its own width: a
+ * settings form's fields and the people table are laid out by the section,
+ * and widening the frame moves neither.
  */
 export function OrganizationWorkspaceShell({
 	canManage,
@@ -18,7 +25,7 @@ export function OrganizationWorkspaceShell({
 	readonly role: SimmerRole;
 }) {
 	return (
-		<div className={pageContainer({ gap: 'compact', padding: 'none' })}>
+		<div className={pageContainer({ gap: 'compact', measure: 'record', padding: 'none' })}>
 			<div className="flex justify-end">
 				<PermissionPill canManage={canManage} role={role} />
 			</div>

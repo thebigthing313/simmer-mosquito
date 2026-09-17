@@ -11,7 +11,6 @@
  */
 
 import { coalesce, eq, gte, or, toArray, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
@@ -88,34 +87,21 @@ export function useCollectionsAwaitingIdentification(
 
 	const rows = result.data;
 
-	const awaiting = useMemo(
-		() =>
-			rows
-				.filter((row) => !row.isZeroResult && row.species.length === 0)
-				.map(
-					({
-						id,
-						trapId,
-						trapName,
-						trapCode,
-						methodId,
-						methodName,
-						collectedAt,
-						collectionDate,
-					}) => ({
-						id,
-						trapId,
-						trapName,
-						trapCode,
-						methodId,
-						methodName,
-						collectedAt,
-						collectionDate,
-					}),
-				)
-				.sort(compareByCollectionDateDesc),
-		[rows],
-	);
+	const awaiting = rows
+		.filter((row) => !row.isZeroResult && row.species.length === 0)
+		.map(
+			({ id, trapId, trapName, trapCode, methodId, methodName, collectedAt, collectionDate }) => ({
+				id,
+				trapId,
+				trapName,
+				trapCode,
+				methodId,
+				methodName,
+				collectedAt,
+				collectionDate,
+			}),
+		)
+		.sort(compareByCollectionDateDesc);
 
 	return { awaiting, isReady: result.isReady, isError: result.isError };
 }

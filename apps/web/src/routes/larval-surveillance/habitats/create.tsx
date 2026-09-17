@@ -1,10 +1,12 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { recordNoun } from '../../../lib/record-nouns';
+import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
@@ -19,7 +21,10 @@ export const Route = createFileRoute('/larval-surveillance/habitats/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...addressSeedSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/larval-surveillance/habitats/create')) {
 			throw redirect({ replace: true, to: '/larval-surveillance/habitats' });
@@ -30,7 +35,8 @@ export const Route = createFileRoute('/larval-surveillance/habitats/create')({
 
 function CreateHabitatRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const habitatTypes = useHabitatTypeRoster();
@@ -38,39 +44,42 @@ function CreateHabitatRoute() {
 	const organizationId =
 		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
-			readonly values: HabitatFormValues;
-			readonly geometry: DrawGeometry;
-		}) => {
-			const drawn = geometry;
-			const centroid = ownedCentroidFromGeoJson(drawn);
-			if (centroid === null) {
-				throw new Error('Unable to determine the habitat location from the drawn geometry.');
-			}
+	const onSave = async ({
+		values,
+		geometry,
+	}: {
+		readonly values: HabitatFormValues;
+		readonly geometry: DrawGeometry;
+	}) => {
+		const drawn = geometry;
+		const centroid = ownedCentroidFromGeoJson(drawn);
+		if (centroid === null) {
+			throw new Error('Unable to determine the habitat location from the drawn geometry.');
+		}
 
-			const habitatId = await mutations.create(
-				{
-					habitatName: nullableText(values.habitatName),
-					description: values.description.trim(),
-					addressId: values.addressId,
-					habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
-					metadata: values.metadata,
-				},
-				drawn,
-				centroid,
-			);
+		// The id comes back from the write rather than being minted here, and
+		// neither reason `newRecordId` gives for minting up front applies. Nothing
+		// on this page writes a child row against the new habitat, and although
+		// `habitats` is on-demand, nothing here subscribes to it, so the insert
+		// returns no txid to wait on and the write settles on the server's answer.
+		// The geometry cache below is seeded after that answer, not before it.
+		const habitatId = await mutations.create(
+			{
+				habitatName: nullableText(values.habitatName),
+				description: values.description.trim(),
+				addressId: values.addressId,
+				habitatTypeId: values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,
+				metadata: values.metadata,
+			},
+			drawn,
+			centroid,
+		);
 
-			// Prime the detail's geometry cache so it renders the new shape on arrival
-			// instead of fetching (and briefly showing an empty state) from scratch.
-			seedHabitatGeometryCache(queryClient, habitatId, drawn);
-			await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitatId } });
-		},
-		[mutations, navigate, queryClient],
-	);
+		// Prime the detail's geometry cache so it renders the new shape on arrival
+		// instead of fetching (and briefly showing an empty state) from scratch.
+		seedHabitatGeometryCache(queryClient, habitatId, drawn);
+		await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitatId } });
+	};
 
 	return (
 		<HabitatFormPage
@@ -78,15 +87,17 @@ function CreateHabitatRoute() {
 			organizationId={organizationId}
 			canSubmit={mutations.canWrite}
 			habitatTypes={habitatTypes}
-			defaultValues={defaultHabitatFormValues()}
+			defaultValues={{
+				...defaultHabitatFormValues(),
+				...seededValues({ addressId: search.addressId }),
+			}}
 			initialGeometry={initialGeometry}
 			header={{
-				title: 'Create Habitat',
+				title: createLabel('habitat'),
 				description: 'Add a mapped larval habitat with the core field details crews need.',
 				backTo: '/larval-surveillance/habitats',
-				backLabel: 'Habitats',
+				backLabel: recordNoun('habitat').titleMany,
 			}}
-			submitLabel="Create Habitat"
 			onSave={onSave}
 		/>
 	);

@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -54,6 +55,22 @@ describe('CatalogPage', () => {
 
 		expect(screen.getAllByRole('button', { name: 'Add Method' })).toHaveLength(2);
 		expect(screen.queryByText('rows')).toBeNull();
+	});
+
+	// One prop here is the measure of all five catalogs. The route-loading
+	// skeleton reserves the record measure, so a frame back in the 1200 column
+	// would arrive 416px narrower than the skeleton it replaces (#1043, #1047).
+	it('draws in the record measure the route-loading skeleton reserves', () => {
+		const { container } = render(page({ canEdit: true, isEmpty: false }));
+		const measure = pageContainer({ measure: 'record' })
+			.split(/\s+/)
+			.find((cls) => cls.startsWith('max-w-'));
+		if (measure === undefined) {
+			throw new Error('pageContainer names no record measure');
+		}
+
+		expect(container.querySelector(`.${CSS.escape(measure)}`)).not.toBeNull();
+		expect(container.querySelector(`.${CSS.escape('max-w-[1200px]')}`)).toBeNull();
 	});
 });
 

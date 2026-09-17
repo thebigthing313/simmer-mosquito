@@ -1,7 +1,7 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import {
@@ -10,6 +10,8 @@ import {
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
+import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
@@ -23,7 +25,10 @@ export const Route = createFileRoute('/adult-surveillance/traps/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...addressSeedSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isBelowWriteFloor(context, '/adult-surveillance/traps/create')) {
 			throw redirect({ replace: true, to: '/adult-surveillance/traps' });
@@ -34,7 +39,8 @@ export const Route = createFileRoute('/adult-surveillance/traps/create')({
 
 function CreateTrapRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const methods = useCollectionMethodRoster();
@@ -42,47 +48,49 @@ function CreateTrapRoute() {
 	const mutations = useTrapMutations();
 	const { run, dialog } = useAcknowledgedWrite({ askable: TRAP_SAVE_REFUSALS, ask: true });
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
-			readonly values: TrapFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) => {
-			if (geometry === null) {
-				throw new Error('Place the trap point on the map.');
-			}
+	const onSave = async ({
+		values,
+		geometry,
+	}: {
+		readonly values: TrapFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) => {
+		if (geometry === null) {
+			throw new Error('Place the trap point on the map.');
+		}
 
-			// The point is the trap's authoritative geometry; the address (if any) is
-			// reference only. The server recomputes geom from the location source; this
-			// centroid seeds the optimistic row so the map/coordinates show immediately.
-			const shape = geometry;
-			const centroid = ownedCentroidFromGeoJson(shape);
-			if (centroid === null) {
-				throw new Error('Unable to determine the trap location.');
-			}
+		// The point is the trap's authoritative geometry; the address (if any) is
+		// reference only. The server recomputes geom from the location source; this
+		// centroid seeds the optimistic row so the map/coordinates show immediately.
+		const shape = geometry;
+		const centroid = ownedCentroidFromGeoJson(shape);
+		if (centroid === null) {
+			throw new Error('Unable to determine the trap location.');
+		}
 
-			// The code question goes out unanswered and comes back as a refusal only
-			// if another trap already carries the code.
-			//
-			// The navigation is *inside* the callback on purpose: `run` resolves on a
-			// refusal as well as on a success, because a refusal is a question rather
-			// than a failure. Leaving here on the way past would abandon the page
-			// before the question could be asked, and read as a save that worked.
-			await run(async (acknowledgements) => {
-				const trapId = await mutations.create(
-					trapFieldsFrom(values),
-					shape,
-					centroid,
-					acknowledgements,
-				);
-				await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trapId } });
-			});
-		},
-		[mutations, navigate, run],
-	);
+		// The code question goes out unanswered and comes back as a refusal only
+		// if another trap already carries the code.
+		//
+		// The navigation is *inside* the callback on purpose: `run` resolves on a
+		// refusal as well as on a success, because a refusal is a question rather
+		// than a failure. Leaving here on the way past would abandon the page
+		// before the question could be asked, and read as a save that worked.
+		//
+		// The id comes back from the write rather than being minted here, and
+		// neither reason `newRecordId` gives for minting up front applies. Nothing
+		// on this page writes a child row against the new trap, and `traps` is
+		// eager, so there is no on-demand subset to warm.
+		await run(async (acknowledgements) => {
+			const trapId = await mutations.create(
+				trapFieldsFrom(values),
+				shape,
+				centroid,
+				acknowledgements,
+			);
+			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trapId } });
+		});
+	};
 
 	return (
 		<>
@@ -90,18 +98,20 @@ function CreateTrapRoute() {
 				canSubmit={mutations.canWrite}
 				collectionLures={lures}
 				collectionMethods={methods}
-				defaultValues={defaultTrapFormValues()}
+				defaultValues={{
+					...defaultTrapFormValues(),
+					...seededValues({ addressId: search.addressId }),
+				}}
 				header={{
-					title: 'Add Trap',
+					title: createLabel('trap'),
 					description:
 						'Place the trap point, optionally reference an address, and set its method and lure.',
 					backTo: '/adult-surveillance/traps',
-					backLabel: 'Traps',
+					backLabel: recordNoun('trap').titleMany,
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization?.id ?? ''}
-				submitLabel="Add Trap"
+				organizationId={organization.id}
 			/>
 			{dialog}
 		</>

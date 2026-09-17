@@ -2,13 +2,14 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	mapCardCoordinates,
 } from '../../../components/map/map-card';
 import type { MapInset } from '../../../components/map/map-inset';
 import { useWeatherStation } from '../../../hooks/queries/use-weather-station';
+import { recordNoun } from '../../../lib/record-nouns';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { StationStatusBadge } from './-weather-ui';
 
@@ -33,7 +34,12 @@ export function WeatherStationMapCard({
 
 	if (station === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Weather Station">
+			<MapCard
+				className="max-w-[420px]"
+				inset={inset}
+				onClose={onClose}
+				title={recordNoun('weatherStation').title}
+			>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -48,7 +54,7 @@ export function WeatherStationMapCard({
 		<MapCard
 			badges={<StationStatusBadge isActive={station.isActive} />}
 			className="max-w-[420px]"
-			eyebrow={<MapCardEyebrow type="Weather station" />}
+			eyebrow={<MapCardEyebrow recordType="weatherStation" />}
 			inset={inset}
 			onClose={onClose}
 			title={station.name}
@@ -65,7 +71,7 @@ export function WeatherStationMapCard({
 				</MapCardDetail>
 				{typeof lat !== 'number' || typeof lng !== 'number' ? null : (
 					<MapCardDetail icon={LocateFixedIcon} mono>
-						{coordinateLabel({ lat, lng })}
+						{mapCardCoordinates({ lat, lng })}
 					</MapCardDetail>
 				)}
 			</div>

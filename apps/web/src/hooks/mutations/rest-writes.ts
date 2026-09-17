@@ -38,7 +38,7 @@
  * the command endpoints exist, and then the ordinary one is.
  */
 
-import { CommandError, sessionFetch, settleWrite } from '@simmer-mosquito/sync';
+import { CommandError, refusalSentence, sessionFetch, settleWrite } from '@simmer-mosquito/sync';
 import { createTransaction } from '@tanstack/db';
 
 /** What a refused body may carry. Every field optional: the shape is the route's to choose. */
@@ -65,7 +65,7 @@ export function restRefusalFor(
 	fallback: string,
 ): Error | null {
 	if (!ok || typeof body.txid !== 'number') {
-		return new CommandError(body.reason ?? body.message ?? fallback, status, body);
+		return new CommandError(refusalSentence(body, fallback), status, body);
 	}
 
 	return null;

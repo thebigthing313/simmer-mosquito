@@ -3,23 +3,19 @@ import {
 	recordChemicalApplicationCommand,
 } from '@simmer-mosquito/domain';
 import {
-	customFieldCount,
-	customSchemaFor,
 	type FieldOption,
 	FormSection,
-	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
-	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
@@ -28,7 +24,10 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
+import { LocationAddressField, LocationBand } from '../../../forms/location-band';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type {
 	FormulationComponentListing,
@@ -41,9 +40,10 @@ import type { UnitLabel, UnitType } from '../../../hooks/queries/use-unit-labels
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { recordCount } from '../../../lib/record-nouns';
 import { unitOptions } from '../../../lib/unit-options';
 import { insecticideDisplayName } from '../-control-display';
-import { AddressPicker, HabitatPicker } from '../-control-pickers';
+import { HabitatPicker } from '../-control-pickers';
 import {
 	componentAmounts,
 	formatAmountValue,
@@ -56,6 +56,22 @@ export const noSelectionValue = 'none';
 
 /** Shared empty list, so an unselected formulation keeps a stable identity. */
 const NO_COMPONENTS: readonly FormulationComponentListing[] = [];
+
+/** The components of every formulation the caller supplied, keyed by formulation. */
+function groupComponentsByFormulation(
+	components: readonly FormulationComponentListing[] | undefined,
+): ReadonlyMap<string, readonly FormulationComponentListing[]> {
+	const grouped = new Map<string, FormulationComponentListing[]>();
+	for (const component of components ?? []) {
+		const bucket = grouped.get(component.formulationId);
+		if (bucket === undefined) {
+			grouped.set(component.formulationId, [component]);
+		} else {
+			bucket.push(component);
+		}
+	}
+	return grouped;
+}
 
 /** Domain issue path → the form field holding it. */
 const APPLICATION_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -101,6 +117,77 @@ function isApplicationUnitType(unitType: UnitType): boolean {
  * downstream stores which mix it came from (see `docs/control-operations-domain.md`).
  */
 export type ApplicationProductMode = 'insecticide' | 'formulation';
+
+/** The chosen mix, as the expansion needs it: how big a batch is, and what is in one. */
+export interface ApplicationMix {
+	/** The mix's batch size, or `NaN` when no mix is chosen. */
+	readonly batchSize: number;
+	/** The chosen mix's component products, empty when no mix is chosen. */
+	readonly components: readonly FormulationComponentListing[];
+}
+
+/**
+ * The form's rules, straight from the domain builder.
+ *
+ * A mix is validated as what it becomes: the same expansion the save runs, so a
+ * rule that would reject one of the generated applications is reported here
+ * rather than after the first row lands. An unchosen mix reaches the expansion
+ * as no components and a `NaN` batch size, and both of those issues map onto the
+ * formulation field.
+ *
+ * The builder is the only channel. A second pass over the product, the amount,
+ * the unit and the date used to run in `onSubmit` and throw a bare string into
+ * the page alert, which told an operator a save had failed without saying where
+ * to look.
+ */
+export function validateApplication(
+	value: ApplicationFormValues,
+	geometry: DrawGeometry | null,
+	requireLocation: boolean,
+	mix: ApplicationMix,
+) {
+	const shared = {
+		...FORM_VALIDATION_CONTEXT,
+		locationSource: validationLocationSource(geometry, requireLocation),
+		applicationDate: value.applicationDate,
+		applicatorProfileId:
+			value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,
+		applicationMethodId:
+			value.applicationMethodId === noSelectionValue ? null : value.applicationMethodId,
+		vehicleId: value.vehicleId === noSelectionValue ? null : value.vehicleId,
+		equipmentId: value.equipmentId === noSelectionValue ? null : value.equipmentId,
+		addressId: value.addressId,
+		metadata: value.metadata,
+	};
+	if (value.productMode === 'formulation') {
+		return domainValidator(
+			() =>
+				expandFormulationApplicationCommands({
+					...shared,
+					totalAmount: value.amountApplied as number,
+					batchSize: mix.batchSize,
+					components: mix.components.map((component, index) => ({
+						insecticideId: component.insecticideId,
+						amount: component.amount,
+						unitId: component.unitId,
+						applicationId: placeholderApplicationId(index),
+					})),
+				}),
+			FORMULATION_FIELD_PATHS,
+		)({ value });
+	}
+	return domainValidator(
+		() =>
+			recordChemicalApplicationCommand({
+				...shared,
+				applicationId: FORM_VALIDATION_CONTEXT.organizationId,
+				insecticideId: value.insecticideId,
+				amountApplied: value.amountApplied as number,
+				applicationUnitId: value.applicationUnitId,
+			}),
+		APPLICATION_FIELD_PATHS,
+	)({ value });
+}
 
 export interface ApplicationFormValues {
 	readonly productMode: ApplicationProductMode;
@@ -177,7 +264,6 @@ export interface ApplicationFormPageProps {
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: ApplicationFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: {
 		readonly values: ApplicationFormValues;
 		/** The application's geometry. Always set on create; may be unchanged on edit. */
@@ -225,7 +311,6 @@ export function ApplicationFormPage({
 	requireLocation = true,
 	mode,
 	header,
-	submitLabel,
 	onSave,
 }: ApplicationFormPageProps) {
 	const location = useDrawLocation({
@@ -234,170 +319,78 @@ export function ApplicationFormPage({
 		missingMessage: 'Map where the product was applied.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry, geometryType } = location;
+	const { draw, geometry, geometryType } = location;
 
-	const insecticideOptions = useMemo(
-		() => lifecycleOptions(insecticides, (row) => row.isActive, insecticideDisplayName),
-		[insecticides],
+	const insecticideOptions = lifecycleOptions(
+		insecticides,
+		(row) => row.isActive,
+		insecticideDisplayName,
 	);
-	const methodOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				applicationMethods,
-				(row) => row.isActive,
-				(row) => row.name,
-			),
-		[applicationMethods],
+	const methodOptions = lifecycleOptions(
+		applicationMethods,
+		(row) => row.isActive,
+		(row) => row.name,
 	);
-	const profileOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				profiles,
-				(row) => row.isActive,
-				(row) => row.displayName,
-			),
-		[profiles],
+	const profileOptions = lifecycleOptions(
+		profiles,
+		(row) => row.isActive,
+		(row) => row.displayName,
 	);
-	const vehicleOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				vehicles,
-				(row) => row.isActive,
-				(row) => row.name,
-			),
-		[vehicles],
+	const vehicleOptions = lifecycleOptions(
+		vehicles,
+		(row) => row.isActive,
+		(row) => row.name,
 	);
-	const equipmentOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				equipment,
-				(row) => row.isActive,
-				(row) => row.name,
-			),
-		[equipment],
+	const equipmentOptions = lifecycleOptions(
+		equipment,
+		(row) => row.isActive,
+		(row) => row.name,
 	);
-	const unitTypeById = useMemo(
-		() => new Map(units.map((unit) => [unit.id, unit.unitType])),
-		[units],
-	);
+	const unitTypeById = new Map(units.map((unit) => [unit.id, unit.unitType]));
 	// A product is measured one way — a pound of granules is never four fluid
 	// ounces — so the unit list narrows to the kind its default unit is in. Until
 	// a product is chosen (or if its default unit is missing) every unit a
 	// treatment can be measured in stays on offer.
-	const unitTypeFor = useCallback(
-		(insecticideId: string): UnitType | null => {
-			const product = insecticides.find((row) => row.id === insecticideId);
-			return product === undefined ? null : (unitTypeById.get(product.defaultUnitId) ?? null);
-		},
-		[insecticides, unitTypeById],
-	);
-	const applicationUnitOptionsFor = useCallback(
-		(insecticideId: string) => {
-			const unitType = unitTypeFor(insecticideId);
-			return unitType === null
-				? unitOptions(units, isApplicationUnitType)
-				: unitOptions(units, (candidate) => candidate === unitType);
-		},
-		[units, unitTypeFor],
-	);
+	const unitTypeFor = (insecticideId: string): UnitType | null => {
+		const product = insecticides.find((row) => row.id === insecticideId);
+		return product === undefined ? null : (unitTypeById.get(product.defaultUnitId) ?? null);
+	};
+	const applicationUnitOptionsFor = (insecticideId: string) => {
+		const unitType = unitTypeFor(insecticideId);
+		return unitType === null
+			? unitOptions(units, isApplicationUnitType)
+			: unitOptions(units, (candidate) => candidate === unitType);
+	};
 
 	// Formulation entry is offered only where the caller supplied the catalog —
 	// recording new work. Editing a saved application edits its one product.
 	const formulationEntry = formulations !== undefined;
-	const formulationOptions = useMemo(
-		() =>
-			formulations === undefined
-				? []
-				: lifecycleOptions(
-						formulations,
-						(row) => row.isActive,
-						(row) => row.formulationName,
-					),
-		[formulations],
-	);
-	const formulationById = useMemo(
-		() => new Map((formulations ?? []).map((row) => [row.id, row] as const)),
-		[formulations],
-	);
-	const componentsByFormulation = useMemo(() => {
-		const grouped = new Map<string, FormulationComponentListing[]>();
-		for (const component of formulationComponents ?? []) {
-			const bucket = grouped.get(component.formulationId);
-			if (bucket === undefined) {
-				grouped.set(component.formulationId, [component]);
-			} else {
-				bucket.push(component);
-			}
-		}
-		return grouped;
-	}, [formulationComponents]);
-	const componentsFor = useCallback(
-		(formulationId: string): readonly FormulationComponentListing[] =>
-			componentsByFormulation.get(formulationId) ?? NO_COMPONENTS,
-		[componentsByFormulation],
-	);
-	const formulationFor = useCallback(
-		(formulationId: string): FormulationListing | undefined => formulationById.get(formulationId),
-		[formulationById],
-	);
+	const formulationOptions =
+		formulations === undefined
+			? []
+			: lifecycleOptions(
+					formulations,
+					(row) => row.isActive,
+					(row) => row.formulationName,
+				);
+	const formulationById = new Map((formulations ?? []).map((row) => [row.id, row] as const));
+	const componentsByFormulation = groupComponentsByFormulation(formulationComponents);
+	const componentsFor = (formulationId: string): readonly FormulationComponentListing[] =>
+		componentsByFormulation.get(formulationId) ?? NO_COMPONENTS;
+	const formulationFor = (formulationId: string): FormulationListing | undefined =>
+		formulationById.get(formulationId);
 
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) => {
-				const locationSource = validationLocationSource(geometry, requireLocation);
-				const shared = {
-					...FORM_VALIDATION_CONTEXT,
-					locationSource,
-					applicationDate: value.applicationDate,
-					applicatorProfileId:
-						value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,
-					applicationMethodId:
-						value.applicationMethodId === noSelectionValue ? null : value.applicationMethodId,
-					vehicleId: value.vehicleId === noSelectionValue ? null : value.vehicleId,
-					equipmentId: value.equipmentId === noSelectionValue ? null : value.equipmentId,
-					addressId: value.addressId,
-					metadata: value.metadata,
-				};
-				// A mix is validated as what it becomes: the same expansion the save
-				// runs, so a rule that would reject one of the generated applications
-				// is reported here rather than after the first row lands.
-				if (value.productMode === 'formulation') {
-					return domainValidator(
-						() =>
-							expandFormulationApplicationCommands({
-								...shared,
-								totalAmount: value.amountApplied as number,
-								batchSize: formulationFor(value.formulationId)?.batchSize ?? Number.NaN,
-								components: componentsFor(value.formulationId).map((component, index) => ({
-									insecticideId: component.insecticideId,
-									amount: component.amount,
-									unitId: component.unitId,
-									applicationId: placeholderApplicationId(index),
-								})),
-							}),
-						FORMULATION_FIELD_PATHS,
-					)({ value });
-				}
-				return domainValidator(
-					() =>
-						recordChemicalApplicationCommand({
-							...shared,
-							applicationId: FORM_VALIDATION_CONTEXT.organizationId,
-							insecticideId: value.insecticideId,
-							amountApplied: value.amountApplied as number,
-							applicationUnitId: value.applicationUnitId,
-						}),
-					APPLICATION_FIELD_PATHS,
-				)({ value });
-			},
+			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) =>
+				validateApplication(value, geometry, requireLocation, {
+					batchSize: formulationFor(value.formulationId)?.batchSize ?? Number.NaN,
+					components: componentsFor(value.formulationId),
+				}),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const invalid = validate(value, componentsFor(value.formulationId).length);
-			if (invalid !== null) {
-				throw new Error(invalid);
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -411,7 +404,7 @@ export function ApplicationFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -429,7 +422,7 @@ export function ApplicationFormPage({
 					void form.handleSubmit();
 				}}
 			>
-				<form.FormErrorAlert title="Unable to Save Application" />
+				<form.FormErrorAlert title="Unable to Save Chemical Application" />
 
 				<form.AppField name="applicationDate">
 					{(field) => (
@@ -472,55 +465,40 @@ export function ApplicationFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection
+				<LocationBand
+					below={
+						<form.AppField name="habitatId">
+							{(field) => (
+								<HabitatPicker
+									label="Habitat"
+									organizationId={organizationId}
+									onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
+									value={field.state.value}
+								/>
+							)}
+						</form.AppField>
+					}
 					description={locationDescription({
 						geometryKind: 'controlAction',
 						subject: 'The geometry is where the product was applied.',
 						habitat: true,
 					})}
-					error={location.locationError}
+					geometryKind="controlAction"
+					location={location}
+					organizationId={organizationId}
+					required={requireLocation}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
-							<AddressPicker
-								create={{ requestMapPoint: location.requestMapPoint }}
-								label="Address"
-								onSelect={(address) => {
-									field.handleChange(address?.id ?? null);
-									location.clearError();
-									location.selectAddress(address);
-								}}
+							<LocationAddressField
+								location={location}
+								onChange={field.handleChange}
 								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
 					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						geometryKind="controlAction"
-						label="Geometry"
-						required={requireLocation}
-						onClear={location.clear}
-						onDraw={location.startDraw}
-						onTypeChange={location.changeType}
-						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
-					/>
-
-					<form.AppField name="habitatId">
-						{(field) => (
-							<HabitatPicker
-								label="Habitat"
-								organizationId={organizationId}
-								onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</LocationSection>
+				</LocationBand>
 
 				<FormSection title="Product">
 					{formulationEntry ? (
@@ -744,7 +722,7 @@ export function ApplicationFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<FormSection title="Application">
+				<FormSection title="Work Performed">
 					<div className="grid gap-5 sm:grid-cols-2">
 						<form.AppField name="applicationMethodId">
 							{(field) => (
@@ -776,32 +754,11 @@ export function ApplicationFormPage({
 					</div>
 				</FormSection>
 
-				{/* Organizations attach their own fields to an application method; render
-							    whichever the selected one declares, and nothing when it declares
-							    none (including when no method is chosen). */}
-				<form.Subscribe selector={(state) => state.values.applicationMethodId}>
-					{(methodId) => {
-						const schema = customSchemaFor(applicationMethods, methodId);
-						if (customFieldCount(schema) === 0) {
-							return null;
-						}
-						return (
-							<FormSection title="Custom Fields">
-								<form.AppField
-									name="metadata"
-									validators={{ onSubmit: validateSchemaMetadata(schema) }}
-								>
-									{(field) => (
-										<field.MetadataField
-											description="Extra details you collect for this method."
-											mode={{ kind: 'schema', schema }}
-										/>
-									)}
-								</form.AppField>
-							</FormSection>
-						);
-					}}
-				</form.Subscribe>
+				<CustomFieldsSection
+					catalog={applicationMethods}
+					form={form}
+					schemaField="applicationMethodId"
+				/>
 
 				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
@@ -860,7 +817,7 @@ function FormulationBreakdown({
 		<div className="grid gap-2 rounded-md border border-border/50 bg-muted/30 p-3">
 			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
 				<span className="font-medium text-foreground text-sm">
-					Saves as {ordered.length} {ordered.length === 1 ? 'application' : 'applications'}
+					Saves as {recordCount('application', ordered.length)}
 				</span>
 				<span className="text-muted-foreground text-xs">
 					{batches === null || !Number.isFinite(batches)
@@ -901,10 +858,6 @@ function FormulationBreakdown({
 	);
 }
 
-// insecticide_batches is on-demand (docs/sync.md); keep a product's subset warm
-// briefly so flipping between products does not refetch each time.
-const batchOptionsGcTimeMs = 30_000;
-
 /**
  * The chosen product's lots, as picker options. They sync on demand, so the list
  * comes from a live subset scoped to that product rather than a client-side
@@ -920,7 +873,7 @@ function InsecticideBatchOptions({
 }) {
 	const result = useLiveQuery(
 		{
-			gcTime: batchOptionsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ batch: insecticide_batches() })
@@ -932,14 +885,10 @@ function InsecticideBatchOptions({
 	const batches = result.data;
 	// Spent and retired lots stay on offer, behind the ones still on the shelf —
 	// an application being keyed in after the fact used whatever it used.
-	const options = useMemo(
-		() =>
-			lifecycleOptions(
-				batches,
-				(batch) => batch.is_active,
-				(batch) => batch.batch_name,
-			),
-		[batches],
+	const options = lifecycleOptions(
+		batches,
+		(batch) => batch.is_active,
+		(batch) => batch.batch_name,
 	);
 
 	return <>{children(options)}</>;
@@ -953,34 +902,6 @@ function optionalOptions(
 	emptyLabel: string,
 ): readonly FieldOption[] {
 	return [{ label: emptyLabel, value: noSelectionValue }, ...options];
-}
-
-function validate(values: ApplicationFormValues, componentCount: number): string | null {
-	const mixed = values.productMode === 'formulation';
-	if (mixed) {
-		if (values.formulationId === '') {
-			return 'Select the formulation that was applied.';
-		}
-		if (componentCount === 0) {
-			return 'This formulation has no products to record against.';
-		}
-	} else if (values.insecticideId === '') {
-		return 'Select the insecticide that was applied.';
-	}
-	if (
-		values.amountApplied === null ||
-		!Number.isFinite(values.amountApplied) ||
-		values.amountApplied <= 0
-	) {
-		return mixed ? 'Enter the total amount of mix applied.' : 'Enter the amount applied.';
-	}
-	if (values.applicationUnitId === '') {
-		return 'Select the unit the amount was measured in.';
-	}
-	if (values.applicationDate === '') {
-		return 'Enter the date this application was made.';
-	}
-	return null;
 }
 
 /** A component product's name, for a label or a breakdown row. */

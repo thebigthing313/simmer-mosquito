@@ -25,6 +25,28 @@ domain doc instead of expanding this file.
 | **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, retire, purge |
 | **Deactivate** | Retiring a record that should not be referred to from now on. Leaves records that already name it alone. | delete, disable, archive |
 
+### Create verbs
+
+A surface that opens a create form names it with one verb per kind of record,
+in its navigation entry, its page title and its heading alike. The verb says
+what the form makes; the submit button says **Save** on every create and edit
+form, because it names the act of committing, so an entry and its button are
+expected to differ. **New** is not used.
+
+- **Record** for work performed in the field: Inspection, Collection, Chemical
+  Application, Biocontrol Action, Source Reduction, Outreach Action.
+- **Create** for a thing brought into existence, a root record with no parent
+  its form cannot open without: Habitat, Trap, Address, Region, Contact,
+  Mission, Assignment, Requested Control Action, Service Request, Weather
+  Station, Route.
+- **Add** for a child attached to a parent that already exists, whose form
+  cannot open without the parent's id: Samples to an Inspection, a stop to a
+  Mission, a Notification Registration to a Contact or Address.
+
+The noun is the record's term above, read from `RECORD_NOUNS` in `apps/web`,
+and the verb is `CREATE_VERBS` in the same app's navigation module, so a surface
+calls `createLabel` and reads both rather than spelling either.
+
 ## Workflow language
 
 | Area | Terms | Detail |
@@ -50,6 +72,12 @@ domain doc instead of expanding this file.
   **Species Counts**.
 - A **Habitat** can have many **Habitat Inspections**; an **Ad Hoc Inspection**
   may be promoted into a **Habitat**.
+- An active **Habitat** is **untreated** while its latest inspection came back
+  heavy or very heavy, no **Chemical Application**, **Source Reduction** or
+  **Biocontrol Action** dated on or after that inspection names the habitat or
+  the inspection, and no unresolved **Requested Control Action** names it. A
+  later inspection at a lower density clears it on its own; a request for
+  control takes it off the untreated list without treating it.
 - A **Route** is reusable planning; an **Assignment** is dated field work; a
   **Mission** is scheduled control-work dispatch.
 - A **Requested Control Action** may later be linked to a performed **Chemical
@@ -61,7 +89,16 @@ domain doc instead of expanding this file.
   record was a mistake, so anything referring to it proves otherwise and refuses
   the delete. Deactivate says the record was real and its use has ended, so it
   never touches what already names it and only stops new references.
-- A **Service Request** belongs to a **Contact** and location.
+- A **Service Request** belongs to a **Contact** and location. An open one is
+  **in progress** once it is a stop on an **Assignment**, whatever that
+  assignment's state; a comment on it is not progress. Before that it is
+  **new**.
+- A **Service Request** is **received** on its request date, the day the
+  Organization took it, and that is the day it counts on. When the row was
+  entered is not a domain date.
+- A **Requested Control Action** is **assigned** while a **Mission Item** on a
+  scheduled or in-progress **Mission** names it. A stop on a completed or
+  cancelled mission leaves an unresolved request unassigned again.
 - A **Mission** contains ordered **Mission Items**; a mission item can produce
   zero or more performed control actions.
 
@@ -111,6 +148,13 @@ Common source terms:
   Where a **Contact** works is text, labelled **Company**. The rule binds on
   labels, filters, headings, and columns; lowercase "organization" in a sentence
   is not a term.
+- "Requested Control Action" is the term; **request for control** is its display
+  form. The route, the sidebar entry, the index title and every heading on the
+  record already read that way, because the record is a request rather than a
+  performed action, and the term reads as though the control work happened. The
+  term stays as the name of the record across the domain docs, the commands and
+  the tables; the display form is what a person sees, and it is written once, in
+  `apps/web/src/lib/record-nouns.ts`.
 - "District" can mean the **Organization** itself, since an abatement district is
   one, or a piece of its geography, which is a **Region**. Not a term: write
   Organization or Region.

@@ -1,19 +1,19 @@
 import { type BoundingBox, boundsFromGeoJson } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useFlyToSelection } from '../components/explorer';
 import type { ActivityLayerConfig } from '../components/map/use-activity-layer';
 import {
-	type ActivityDayGroup,
 	type ActivityEntry,
+	type ActivityFamilyGroup,
 	activityEntryKey,
 	buildActivityMapData,
-	groupActivityByDay,
+	groupActivityByFamily,
 } from './-activity-data';
 
 // What a page holding one Profile's field work derives from the response, and
-// how the map and the list stay pointed at the same entry. Daily Work reads it
-// over one day, and the response it reads is still a window's.
+// how the map and the list stay pointed at the same entry. Daily Work reads one
+// day, and the families below are that day's.
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
@@ -27,9 +27,9 @@ import {
  */
 export interface ActivityView {
 	readonly items: readonly ActivityEntry[];
-	readonly days: readonly ActivityDayGroup[];
+	readonly families: readonly ActivityFamilyGroup[];
 	readonly mapData: GeoJSON.FeatureCollection | null;
-	/** The camera frame for the whole window, or null where there is nothing to frame. */
+	/** The camera frame for the whole day, or null where there is nothing to frame. */
 	readonly bounds: BoundingBox | null;
 	readonly selected: ActivityEntry | null;
 }
@@ -58,18 +58,15 @@ export function useActivitySelection(
 		view,
 		selectedKey,
 		select: setSelectedKey,
-		clear: useCallback(() => setSelectedKey(null), []),
-		onMapReady: useCallback((instance: MapboxMap) => setMap(instance), []),
-		activityLayer: useMemo(
-			() => ({ data: view.mapData, selectedKey, onSelectFeature: setSelectedKey }),
-			[view.mapData, selectedKey],
-		),
+		clear: () => setSelectedKey(null),
+		onMapReady: (instance: MapboxMap) => setMap(instance),
+		activityLayer: { data: view.mapData, selectedKey, onSelectFeature: setSelectedKey },
 	};
 }
 
 /**
- * Everything a page derives from one activity response: the day groups, the pin
- * cloud, the camera frame, and which entry is selected.
+ * Everything a page derives from one activity response: the family groups, the
+ * pin cloud, the camera frame, and which entry is selected.
  */
 function useActivityView(
 	items: readonly ActivityEntry[] | undefined,
@@ -80,24 +77,18 @@ function useActivityView(
 	const entries = items ?? NO_ENTRIES;
 	return {
 		items: entries,
-		days: useMemo(() => groupActivityByDay(entries), [entries]),
-		mapData: useMemo(() => buildActivityMapData(entries), [entries]),
+		families: groupActivityByFamily(entries),
+		mapData: buildActivityMapData(entries),
 		// The camera frames the whole day's work as one MultiPoint, so a person who
 		// covered two townships is not left half off the edge of the map.
-		bounds: useMemo(
-			() =>
-				entries.length === 0
-					? null
-					: boundsFromGeoJson({
-							type: 'MultiPoint',
-							coordinates: entries.map((item) => [item.lng, item.lat]),
-						}),
-			[entries],
-		),
-		selected: useMemo(
-			() => entries.find((item) => activityEntryKey(item) === selectedKey) ?? null,
-			[entries, selectedKey],
-		),
+		bounds:
+			entries.length === 0
+				? null
+				: boundsFromGeoJson({
+						type: 'MultiPoint',
+						coordinates: entries.map((item) => [item.lng, item.lat]),
+					}),
+		selected: entries.find((item) => activityEntryKey(item) === selectedKey) ?? null,
 	};
 }
 

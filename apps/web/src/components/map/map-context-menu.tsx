@@ -9,7 +9,7 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useHasRole } from '../../hooks/use-can-write';
 import type { MapCreateTarget } from './map-create-targets';
@@ -122,7 +122,7 @@ function MapContextMenuItems({
 	const navigate = useNavigate();
 	const coordinates = formatLatLng(lat, lng);
 
-	const onCopy = useCallback(() => {
+	const onCopy = () => {
 		// `writeText` rejects without a secure context or clipboard permission, and
 		// a menu that closes having silently done nothing is worse than one that
 		// says so.
@@ -130,7 +130,7 @@ function MapContextMenuItems({
 			() => toast.success('Coordinates copied', { description: coordinates }),
 			() => toast.error('Could not copy the coordinates to the clipboard.'),
 		);
-	}, [coordinates]);
+	};
 
 	return (
 		<ContextMenuContent className="w-60">

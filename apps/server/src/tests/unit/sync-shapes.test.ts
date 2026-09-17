@@ -217,53 +217,82 @@ const servedTables = Object.entries(syncShapeScopes)
 	.filter(([, entry]) => isServedScope(entry))
 	.map(([table]) => table);
 
-function recordingApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
-	const app = new Hono<{ Variables: AuthVariables }>();
+/** What a case may say about the app it is meeting. */
+interface ShapeAppOptions {
+	/**
+	 * The Organization the auth middleware puts in context.
+	 *
+	 * `null` is the middleware that sets none and admits anyway, which is what
+	 * the routes with no organization predicate are reached through.
+	 */
+	readonly organization?: string | null;
+	/** `null` is a server with no Electric configured, which is a 503 on every shape. */
+	readonly electricUrl?: string | null;
+	/**
+	 * The organization door refuses, which is the app as an operator meets it:
+	 * the organization middleware says 403 and the operator one admits.
+	 */
+	readonly refuseOrganization?: boolean;
+	/** What the stub Electric answers with, for the cases that read its headers. */
+	readonly respond?: () => Response;
+}
 
-	registerSyncShapeRoutes(app, {
-		electricUrl: 'http://localhost:3001/v1/shape',
-		authContextMiddleware: createMiddleware(async (context, next) => {
-			context.set('authContext', { organization: { id: 'org-1' } } as never);
-			await next();
-		}),
-		operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-		fetch: ((request) => {
-			requests.push(String(request));
-			return Promise.resolve(new Response('[]'));
-		}) as typeof fetch,
-	});
-
-	return app;
+interface ShapeApp {
+	readonly app: Hono<{ Variables: AuthVariables }>;
+	/** Every upstream URL, in order, which is what most cases read. */
+	readonly requests: string[];
+	/** The same calls with the init the proxy sent, for the POST subset cases. */
+	readonly calls: Array<{ readonly url: string; readonly init: RequestInit | undefined }>;
 }
 
 /**
- * The app as an operator meets it: the organization middleware refuses, the
- * operator one admits.
+ * One app, one stub Electric, and the record of what reached it.
+ *
+ * Ten cases wrote this out: a fresh `Hono`, an `authContextMiddleware` setting
+ * `org-1`, an `operatorAuthContextMiddleware` that admits, and a `fetch`
+ * pushing onto an array declared a line above. What differed between them was
+ * the Electric url, whether the organization door refuses and what the stub
+ * answers with, so those are the three options and nothing else is.
  */
-function refusingOrganizationApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
+function shapeApp(options: ShapeAppOptions = {}): ShapeApp {
+	const {
+		organization = 'org-1',
+		electricUrl = 'http://localhost:3001/v1/shape',
+		refuseOrganization = false,
+		respond = () => new Response('[]'),
+	} = options;
 	const app = new Hono<{ Variables: AuthVariables }>();
+	const calls: Array<{ readonly url: string; readonly init: RequestInit | undefined }> = [];
+	const requests: string[] = [];
 
 	registerSyncShapeRoutes(app, {
-		electricUrl: 'http://localhost:3001/v1/shape',
-		authContextMiddleware: createMiddleware(async (context) =>
-			context.json({ error: 'forbidden' }, 403),
-		),
+		electricUrl,
+		authContextMiddleware: createMiddleware(async (context, next) => {
+			if (refuseOrganization) {
+				return context.json({ error: 'forbidden' }, 403);
+			}
+			if (organization !== null) {
+				context.set('authContext', { organization: { id: organization } } as never);
+			}
+			await next();
+		}),
 		operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-		fetch: ((request) => {
-			requests.push(String(request));
-			return Promise.resolve(new Response('[]'));
+		fetch: ((url, init) => {
+			calls.push({ url: String(url), init: init as RequestInit | undefined });
+			requests.push(String(url));
+			return Promise.resolve(respond());
 		}) as typeof fetch,
 	});
 
-	return app;
+	return { app, requests, calls };
 }
 
 describe('registerSyncShapeRoutes', () => {
 	it.each(
 		servedTables,
 	)('forces the table, columns and organization scope of the %s shape', async (table) => {
-		const requests: string[] = [];
-		const response = await recordingApp(requests).request(`/sync/shapes/${table}`);
+		const { app, requests } = shapeApp();
+		const response = await app.request(`/sync/shapes/${table}`);
 		const upstream = new URL(requests[0] ?? '');
 		const declared = shapeWhereByTable[table];
 		const expectedWhere = declared === undefined ? orgScopedWhere : declared;
@@ -283,13 +312,7 @@ describe('registerSyncShapeRoutes', () => {
 	it('serves no shape for a table the scope map withholds', async () => {
 		// `users` has no predicate that could scope it to an organization, so it
 		// has no route at all rather than one that streams every login.
-		const app = new Hono<{ Variables: AuthVariables }>();
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (_context, next) => next()),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-		});
+		const { app } = shapeApp({ organization: null });
 
 		expect((await app.request('/sync/shapes/users')).status).toBe(404);
 	});
@@ -297,13 +320,7 @@ describe('registerSyncShapeRoutes', () => {
 	it.each(
 		servedTables.map((table) => [`/sync/shapes/${table}`] as const),
 	)('registers %s for both GET and the POST subset transport', async (path) => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: null,
-			authContextMiddleware: createMiddleware(async (_context, next) => next()),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-		});
+		const { app } = shapeApp({ organization: null, electricUrl: null });
 
 		for (const method of ['GET', 'POST']) {
 			const response = await app.request(path, {
@@ -323,8 +340,8 @@ describe('registerSyncShapeRoutes', () => {
 		['/sync/shapes/genera', 'genera'],
 		['/sync/shapes/species', 'species'],
 	])('serves %s with no organization predicate', async (path, table) => {
-		const requests: string[] = [];
-		const response = await recordingApp(requests).request(path);
+		const { app, requests } = shapeApp();
+		const response = await app.request(path);
 		const upstream = new URL(requests[0] ?? '');
 
 		expect(response.status).toBe(200);
@@ -352,7 +369,7 @@ describe('registerSyncShapeRoutes', () => {
 		'/admin/sync/shapes/genera',
 		'/admin/sync/shapes/species',
 	])('no longer serves %s', async (path) => {
-		const response = await recordingApp([]).request(path);
+		const response = await shapeApp().app.request(path);
 
 		expect(response.status).toBe(404);
 	});
@@ -363,8 +380,8 @@ describe('registerSyncShapeRoutes', () => {
 	 * `global` shape does not need one.
 	 */
 	it('admits an operator on a global shape the organization middleware refuses', async () => {
-		const requests: string[] = [];
-		const response = await refusingOrganizationApp(requests).request('/sync/shapes/genera');
+		const { app, requests } = shapeApp({ refuseOrganization: true });
+		const response = await app.request('/sync/shapes/genera');
 
 		expect(response.status).toBe(200);
 		expect(new URL(requests[0] ?? '').searchParams.get('table')).toBe('genera');
@@ -378,14 +395,16 @@ describe('registerSyncShapeRoutes', () => {
 	 * than a list someone maintains.
 	 */
 	it('does not admit an operator on an organization-scoped shape', async () => {
-		const response = await refusingOrganizationApp([]).request('/sync/shapes/habitats');
+		const response = await shapeApp({ refuseOrganization: true }).app.request(
+			'/sync/shapes/habitats',
+		);
 
 		expect(response.status).toBe(403);
 	});
 
 	it('asks for the column names Postgres has, with no case conversion', async () => {
-		const requests: string[] = [];
-		await recordingApp(requests).request('/sync/shapes/organizations');
+		const { app, requests } = shapeApp();
+		await app.request('/sync/shapes/organizations');
 		const columns = new URL(requests[0] ?? '').searchParams.get('columns')?.split(',') ?? [];
 
 		expect(columns).toContain('workos_organization_id');
@@ -398,23 +417,7 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it('registers org-scoped insecticide batch shapes', async () => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-		const requests: string[] = [];
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (context, next) => {
-				context.set('authContext', {
-					organization: { id: 'org-1' },
-				} as never);
-				await next();
-			}),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-			fetch: ((request) => {
-				requests.push(String(request));
-				return Promise.resolve(new Response('[]'));
-			}) as typeof fetch,
-		});
+		const { app, requests } = shapeApp();
 
 		const response = await app.request('/sync/shapes/insecticide_batches');
 		const upstream = new URL(requests[0] ?? '');
@@ -427,23 +430,7 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it('registers org-scoped larval surveillance shapes', async () => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-		const requests: string[] = [];
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (context, next) => {
-				context.set('authContext', {
-					organization: { id: 'org-1' },
-				} as never);
-				await next();
-			}),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-			fetch: ((request) => {
-				requests.push(String(request));
-				return Promise.resolve(new Response('[]'));
-			}) as typeof fetch,
-		});
+		const { app, requests } = shapeApp();
 
 		const response = await app.request('/sync/shapes/inspections');
 		const upstream = new URL(requests[0] ?? '');
@@ -457,23 +444,7 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it('proxies a POST subset request through the org-scoped shape', async () => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-		const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (context, next) => {
-				context.set('authContext', {
-					organization: { id: 'org-1' },
-				} as never);
-				await next();
-			}),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-			fetch: ((url, init) => {
-				calls.push({ url: String(url), init: init as RequestInit | undefined });
-				return Promise.resolve(new Response('{"data":[]}'));
-			}) as typeof fetch,
-		});
+		const { app, calls } = shapeApp({ respond: () => new Response('{"data":[]}') });
 
 		const response = await app.request('/sync/shapes/route_items', {
 			method: 'POST',
@@ -498,13 +469,7 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it('returns 503 for a POST subset request without an electric url', async () => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: null,
-			authContextMiddleware: createMiddleware(async (_context, next) => next()),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-		});
+		const { app } = shapeApp({ organization: null, electricUrl: null });
 
 		const response = await app.request('/sync/shapes/route_items', {
 			method: 'POST',
@@ -517,23 +482,7 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it('streams centroid columns but never raw geometry for the habitats shape', async () => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-		const requests: string[] = [];
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (context, next) => {
-				context.set('authContext', {
-					organization: { id: 'org-1' },
-				} as never);
-				await next();
-			}),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-			fetch: ((request) => {
-				requests.push(String(request));
-				return Promise.resolve(new Response('[]'));
-			}) as typeof fetch,
-		});
+		const { app, requests } = shapeApp();
 
 		const response = await app.request('/sync/shapes/habitats');
 		const upstream = new URL(requests[0] ?? '');
@@ -550,23 +499,7 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it('does not request server-only geometry columns from locatable shapes', async () => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-		const requests: string[] = [];
-
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (context, next) => {
-				context.set('authContext', {
-					organization: { id: 'org-1' },
-				} as never);
-				await next();
-			}),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-			fetch: ((request) => {
-				requests.push(String(request));
-				return Promise.resolve(new Response('[]'));
-			}) as typeof fetch,
-		});
+		const { app, requests } = shapeApp();
 
 		for (const path of [
 			'/sync/shapes/traps',
@@ -623,17 +556,7 @@ describe('shape response caching', () => {
 	}
 
 	function appWithElectric(): Hono<{ Variables: AuthVariables }> {
-		const app = new Hono<{ Variables: AuthVariables }>();
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (context, next) => {
-				context.set('authContext', { organization: { id: 'org-1' } } as never);
-				await next();
-			}),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-			fetch: (() => Promise.resolve(electricResponse())) as typeof fetch,
-		});
-		return app;
+		return shapeApp({ respond: electricResponse }).app;
 	}
 
 	it('never forwards Electric’s public caching directive to the browser', async () => {
@@ -653,28 +576,19 @@ describe('shape response caching', () => {
 	});
 
 	it('drops hop-by-hop headers rather than describing a body it no longer has', async () => {
-		const app = new Hono<{ Variables: AuthVariables }>();
-		registerSyncShapeRoutes(app, {
-			electricUrl: 'http://localhost:3001/v1/shape',
-			authContextMiddleware: createMiddleware(async (context, next) => {
-				context.set('authContext', { organization: { id: 'org-1' } } as never);
-				await next();
-			}),
-			operatorAuthContextMiddleware: createMiddleware(async (_context, next) => next()),
-			fetch: (() =>
-				Promise.resolve(
-					new Response('{"data":[]}', {
-						headers: {
-							// Electric's framing of *its* response body. Forwarded verbatim they
-							// describe a body this proxy has already re-framed, and the browser
-							// fails the stream rather than the request.
-							'content-encoding': 'gzip',
-							'transfer-encoding': 'chunked',
-							connection: 'keep-alive',
-							'electric-offset': '0_0',
-						},
-					}),
-				)) as typeof fetch,
+		const { app } = shapeApp({
+			respond: () =>
+				new Response('{"data":[]}', {
+					headers: {
+						// Electric's framing of *its* response body. Forwarded verbatim they
+						// describe a body this proxy has already re-framed, and the browser
+						// fails the stream rather than the request.
+						'content-encoding': 'gzip',
+						'transfer-encoding': 'chunked',
+						connection: 'keep-alive',
+						'electric-offset': '0_0',
+					},
+				}),
 		});
 
 		const response = await app.request('/sync/shapes/units');

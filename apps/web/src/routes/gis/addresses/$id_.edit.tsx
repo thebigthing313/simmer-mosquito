@@ -1,17 +1,19 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import {
 	type AddressFields,
 	useAddressMutations,
 } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
 	AddressFormPage,
+	type AddressFormSave,
 	type AddressFormValues,
 	type AddressPointGeometry,
 } from './-address-form';
@@ -24,8 +26,6 @@ export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	},
 	component: EditAddressRoute,
 });
-
-const _addressGcTimeMs = 30_000;
 
 function EditAddressRoute() {
 	const { id } = Route.useParams();
@@ -45,7 +45,7 @@ function EditAddressRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="address"
+			recordType="address"
 			reading={{
 				isError: addressResult.isError,
 				isReady: addressResult.isReady,
@@ -59,7 +59,7 @@ function EditAddressRoute() {
 				) : (
 					<EditAddressLoader
 						address={record}
-						canSubmit={organization !== null && actorProfileId !== null}
+						canSubmit={canAttributeWrite({ organization, actorProfileId })}
 						initialGeometry={initialGeometry}
 					/>
 				)
@@ -81,49 +81,41 @@ function EditAddressLoader({
 	const queryClient = useQueryClient();
 	const mutations = useAddressMutations();
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-			geocoderResponse,
-		}: {
-			readonly values: AddressFormValues;
-			readonly geometry: AddressPointGeometry | null;
-			readonly geometryChanged: boolean;
-			readonly geocoderResponse: unknown | null;
-		}) => {
-			const refinedPoint = geometryChanged && geometry !== null;
-			// The point goes only when it actually moved: naming the location command
-			// with the point the row already has is a write with no edit behind it.
-			await mutations.save(
-				address.id,
-				{
-					displayName: values.displayName.trim(),
-					addressLine1: nullableText(values.addressLine1),
-					addressLine2: nullableText(values.addressLine2),
-					locality: nullableText(values.locality),
-					region: nullableText(values.region),
-					postalCode: nullableText(values.postalCode),
-					geocoderResponse: geocoderResponse ?? null,
-				},
-				addressFieldsOf(address),
-				refinedPoint ? geometry : null,
-			);
-			if (refinedPoint && geometry !== null) {
-				seedAddressGeometryCache(queryClient, address.id, geometry);
-			}
-			await navigate({ to: '/gis/addresses/$id', params: { id: address.id } });
-		},
-		[address, mutations, navigate, queryClient],
-	);
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+		geocoderResponse,
+	}: AddressFormSave) => {
+		const refinedPoint = geometryChanged && geometry !== null;
+		// The point goes only when it actually moved: naming the location command
+		// with the point the row already has is a write with no edit behind it.
+		await mutations.save(
+			address.id,
+			{
+				displayName: values.displayName.trim(),
+				addressLine1: nullableText(values.addressLine1),
+				addressLine2: nullableText(values.addressLine2),
+				locality: nullableText(values.locality),
+				region: nullableText(values.region),
+				postalCode: nullableText(values.postalCode),
+				geocoderResponse: geocoderResponse ?? null,
+			},
+			addressFieldsOf(address),
+			refinedPoint ? geometry : null,
+		);
+		if (refinedPoint && geometry !== null) {
+			seedAddressGeometryCache(queryClient, address.id, geometry);
+		}
+		await navigate({ to: '/gis/addresses/$id', params: { id: address.id } });
+	};
 
 	return (
 		<AddressFormPage
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromAddress(address)}
 			header={{
-				title: 'Edit Address',
+				title: `Edit ${recordNoun('address').title}`,
 				description: "Update this address's details or location.",
 				backTo: '/gis/addresses/$id',
 				backParams: { id: address.id },
@@ -132,7 +124,6 @@ function EditAddressLoader({
 			initialGeocoderResponse={address.geocoderResponse ?? null}
 			initialGeometry={initialGeometry}
 			onSave={onSave}
-			submitLabel="Save Changes"
 		/>
 	);
 }

@@ -1,7 +1,7 @@
 import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import type { RouteStopFeature } from '../../../../components/map';
 import type { RouteSummary } from '../../../../components/route-planning/route-summary';
+import { activityGcTimeMs, unmatchableId } from '../../../../hooks/queries/shared';
 import { trapDisplayName } from '../../../../hooks/queries/trap-view';
 import { route_items } from '../../../../lib/collections/route_items';
 import { routes } from '../../../../lib/collections/routes';
@@ -9,13 +9,7 @@ import { traps } from '../../../../lib/collections/traps';
 
 // Trap routes reuse the shared `routes` / `route_items` tables — a route with
 // `route_type: 'trap'`, its stops `route_items` with `entity_type: 'trap'`.
-// `routes` is eager; `route_items` is on-demand (docs/sync.md), kept warm briefly
-// so index → detail → edit hops reuse the subset.
-const routeItemsGcTimeMs = 30_000;
-
-// A syntactically valid uuid that matches no row — keeps an `eq` subset predicate
-// live (and empty) while a route id is still unresolved.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
+// `routes` is eager; `route_items` is on-demand (docs/sync.md).
 
 /** One resolved stop: a route item joined to its trap, in route order. */
 export interface RouteStopView {
@@ -68,6 +62,17 @@ export function useTrapRoutes(): {
 	};
 }
 
+/** How many stops each route id holds, over the rows the subset returned. */
+function countStopsByRouteId(
+	rows: readonly { readonly routeId: string }[],
+): ReadonlyMap<string, number> {
+	const map = new Map<string, number>();
+	for (const row of rows) {
+		map.set(row.routeId, (map.get(row.routeId) ?? 0) + 1);
+	}
+	return map;
+}
+
 /** Stop counts per trap route, from the on-demand `route_items` subset. */
 export function useRouteStopCounts(): {
 	readonly countByRouteId: ReadonlyMap<string, number>;
@@ -75,7 +80,7 @@ export function useRouteStopCounts(): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -87,13 +92,7 @@ export function useRouteStopCounts(): {
 
 	const rows = result.data;
 
-	const countByRouteId = useMemo(() => {
-		const map = new Map<string, number>();
-		for (const row of rows) {
-			map.set(row.routeId, (map.get(row.routeId) ?? 0) + 1);
-		}
-		return map;
-	}, [rows]);
+	const countByRouteId = countStopsByRouteId(rows);
 
 	return { countByRouteId, isLoading: !result.isReady };
 }
@@ -115,7 +114,7 @@ export function useRouteStops(routeId: string | null): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -123,7 +122,7 @@ export function useRouteStops(routeId: string | null): {
 						and(
 							// An unmatchable id keeps the hook order stable while no route is
 							// selected — a live query cannot be conditional.
-							eq(item.route_id, routeId ?? UNMATCHABLE_ID),
+							eq(item.route_id, routeId ?? unmatchableId),
 							// Pushed into the predicate rather than filtered afterwards: a
 							// habitat route's items are rows this subset should never load.
 							eq(item.entity_type, 'trap'),
@@ -154,45 +153,37 @@ export function useRouteStops(routeId: string | null): {
 
 	const rows = result.data;
 
-	const stops = useMemo<readonly RouteStopView[]>(
-		() =>
-			// The `ordinal` is the one thing the query cannot produce: it is the stop's
-			// place in the ordered result, and a projection sees a row rather than the
-			// sequence. `position` is the stored sort key and can have gaps, so it is
-			// not the number a crew reads off the list.
-			rows.map((row, index) => ({
-				routeItemId: row.routeItemId,
-				trapId: row.trapId,
-				ordinal: index + 1,
-				position: row.position,
-				name: trapDisplayName({
-					id: row.trapId,
-					trapName: row.trapName,
-					trapCode: row.trapCode,
-				}),
-				isActive: row.isActive,
-				lat: row.lat,
-				lng: row.lng,
-				hasLocation: row.lat !== null && row.lng !== null,
-				directionsToNextItem: row.directionsToNextItem,
-				isResolving: row.resolvedTrapId === undefined,
-			})),
-		[rows],
-	);
+	// The `ordinal` is the one thing the query cannot produce: it is the stop's
+	// place in the ordered result, and a projection sees a row rather than the
+	// sequence. `position` is the stored sort key and can have gaps, so it is
+	// not the number a crew reads off the list.
+	const stops: readonly RouteStopView[] = rows.map((row, index) => ({
+		routeItemId: row.routeItemId,
+		trapId: row.trapId,
+		ordinal: index + 1,
+		position: row.position,
+		name: trapDisplayName({
+			id: row.trapId,
+			trapName: row.trapName,
+			trapCode: row.trapCode,
+		}),
+		isActive: row.isActive,
+		lat: row.lat,
+		lng: row.lng,
+		hasLocation: row.lat !== null && row.lng !== null,
+		directionsToNextItem: row.directionsToNextItem,
+		isResolving: row.resolvedTrapId === undefined,
+	}));
 
-	const features = useMemo<readonly RouteStopFeature[]>(
-		() =>
-			stops
-				.filter((stop) => stop.hasLocation)
-				.map((stop) => ({
-					id: stop.routeItemId,
-					lat: stop.lat as number,
-					lng: stop.lng as number,
-					ordinal: stop.ordinal,
-					tone: stop.isActive ? ('default' as const) : ('inactive' as const),
-				})),
-		[stops],
-	);
+	const features: readonly RouteStopFeature[] = stops
+		.filter((stop) => stop.hasLocation)
+		.map((stop) => ({
+			id: stop.routeItemId,
+			lat: stop.lat as number,
+			lng: stop.lng as number,
+			ordinal: stop.ordinal,
+			tone: stop.isActive ? ('default' as const) : ('inactive' as const),
+		}));
 
 	return { stops, features, itemCount: rows.length, isLoading: !result.isReady };
 }

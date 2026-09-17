@@ -30,6 +30,16 @@ const extentStaleTimeMs = 30_000;
  * whose records sit off-screen is invisible until someone finds it. The extent
  * endpoint answers "where is this filter's data" in one round-trip, from the same
  * filter predicates that build the tiles.
+ *
+ * A refit off an extent URL is skipped when the whole extent already sits inside
+ * the part of the canvas the reader can see, which `getBounds` answers net of
+ * the map's padding. Every match is on screen, so the camera has nothing to
+ * find, and the move it would have made is what re-keys the explorer rail's
+ * page: the rail lists the viewport, so a fit that landed inside the old box
+ * cost a third request for the rows the first one already held (#957). The
+ * load-time fit is never skipped, since a fresh camera has framed nothing yet,
+ * and a locally-computed box is fitted as it always was: those canvases have
+ * no rail paging behind the move, so there is no request to spare.
  */
 export function useMapExtentFit(
 	map: MapboxMap | null,
@@ -40,21 +50,16 @@ export function useMapExtentFit(
 	const url = source !== null && 'url' in source ? source.url : null;
 	const localBounds = source !== null && 'bounds' in source ? source.bounds : null;
 
-	const query = useQuery({
-		enabled: url !== null,
-		queryKey: ['map-extent', url],
-		queryFn: ({ signal }) => fetchMapExtent(url ?? '', signal),
-		staleTime: extentStaleTimeMs,
-	});
+	const { extent } = useMapExtent(url);
 
-	const bounds = url === null ? localBounds : (query.data ?? null);
+	const bounds = url === null ? localBounds : extent;
 	// Keyed on the source as well as the box: re-running the same filter set is a
 	// pan-and-forget, but picking a *different* filter that happens to cover the
-	// same ground should still pull the camera back onto it.
+	// same ground is a new decision, and pulls the camera back onto it when the
+	// reader has panned away from it.
 	const fitKey = bounds === null ? null : `${url ?? 'local'}|${formatBoundingBox(bounds)}`;
 
-	const fittedKeyRef = useRef<string | null>(null);
-	const fittedMapRef = useRef<MapboxMap | null>(null);
+	const fitted = useRef<FitLedger>({ map: null, key: null });
 	// Chrome floating over the map is added to the fit margin, so a framed set
 	// sits in the part of the canvas the reader can see rather than under a panel.
 	const padding = insetPadding(FIT_PADDING, inset);
@@ -65,15 +70,120 @@ export function useMapExtentFit(
 		if (!isMapLive(map) || !isLoaded || bounds === null || fitKey === null) {
 			return;
 		}
-		// A fresh GL instance always re-frames, even for a key it already fitted.
-		const isFirstFit = fittedMapRef.current !== map;
-		if (!isFirstFit && fittedKeyRef.current === fitKey) {
-			return;
-		}
-		fittedMapRef.current = map;
-		fittedKeyRef.current = fitKey;
-		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, padding);
+		frameOnce(fitted.current, { map, bounds, fitKey, url, padding });
 	}, [map, isLoaded, bounds, fitKey, paddingKey]);
+}
+
+/** What the camera was last framed on, so one key is fitted once per GL instance. */
+interface FitLedger {
+	map: MapboxMap | null;
+	key: string | null;
+}
+
+/** One frame the hook has been asked for, with the key that names it. */
+interface FitRequest {
+	readonly map: MapboxMap;
+	readonly bounds: BoundingBox;
+	readonly fitKey: string;
+	readonly url: string | null;
+	readonly padding: ReturnType<typeof insetPadding>;
+}
+
+/**
+ * Frame the request unless the ledger says this key was already framed on this
+ * map, and record it either way. A fresh GL instance always re-frames, even for
+ * a key it already fitted; a repeated key on the same instance is a pan the
+ * reader made and is left alone.
+ */
+function frameOnce(ledger: FitLedger, { map, bounds, fitKey, url, padding }: FitRequest): void {
+	const isFirstFit = ledger.map !== map;
+	if (!isFirstFit && ledger.key === fitKey) {
+		return;
+	}
+	ledger.map = map;
+	ledger.key = fitKey;
+	if (isFirstFit || isRefitOwed(map, url, bounds)) {
+		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, padding);
+	}
+}
+
+/**
+ * Whether a changed key still moves the camera. A locally-computed box always
+ * does; an extent URL's does only when some of the extent is off screen.
+ */
+function isRefitOwed(map: MapboxMap, url: string | null, bounds: BoundingBox): boolean {
+	return url === null || !isInView(map, bounds);
+}
+
+/**
+ * Whether the whole of `extent` sits inside what the map is showing.
+ *
+ * `getBounds` is the view net of the map's padding, so a record under the
+ * results panel does not count as on screen, and it is null before the map has
+ * a transform, which reads as not in view so the fit still runs. Longitude is
+ * compared under a shift of a whole turn either way as well as none: mapbox
+ * reports a camera past the antimeridian unwrapped, west 170 to east 190, while
+ * the server writes the same ground at -170, and a comparison that read only
+ * the raw numbers would fit a camera that had nothing to find. The failure it
+ * leaves open runs the safe way, a fit that was not needed rather than a set
+ * left off screen: an extent whose records straddle the line arrives from
+ * `ST_Extent` as a box spanning the long way round, and is never in view. It
+ * does not share `normalizeBounds` in `explorer/use-map-bounds.ts`, which reads
+ * the same unwrapped camera and answers a different question: that one sends
+ * the whole world for a view across the line, because the endpoint takes one
+ * box, and a whole-world view here would hold every extent and skip a fit that
+ * was owed (#933).
+ */
+function isInView(map: MapboxMap, extent: BoundingBox): boolean {
+	const view = map.getBounds();
+	if (view === null) {
+		return false;
+	}
+	const south = view.getSouth();
+	const north = view.getNorth();
+	if (extent.south < south || extent.north > north) {
+		return false;
+	}
+	const west = view.getWest();
+	const east = view.getEast();
+	return [0, 360, -360].some((turn) => extent.west + turn >= west && extent.east + turn <= east);
+}
+
+/** What the extent endpoint has said about one filter set. */
+export interface MapExtent {
+	/**
+	 * The box every row the filters select fits in, or null. Null before the
+	 * request has answered and null when the server said nothing matched; read
+	 * `isSettled` to tell those apart.
+	 */
+	readonly extent: BoundingBox | null;
+	/** The request has answered, with a box, with null, or with an error. */
+	readonly isSettled: boolean;
+	readonly isError: boolean;
+}
+
+/**
+ * The extent of one tileset's filtered set, keyed on the extent URL.
+ *
+ * Two readers share it: the camera fit above, and the explorer rail, which
+ * reads a null extent as "nothing matches anywhere" rather than "nothing in
+ * view" (#958). Both observe the same query key, so a surface framing its data
+ * and branching its empty state on it sends one request, not two. A `null` URL
+ * is a canvas framing local rows, which never settles here because nothing was
+ * asked for.
+ */
+export function useMapExtent(url: string | null): MapExtent {
+	const query = useQuery({
+		enabled: url !== null,
+		queryKey: ['map-extent', url],
+		queryFn: ({ signal }) => fetchMapExtent(url ?? '', signal),
+		staleTime: extentStaleTimeMs,
+	});
+	return {
+		extent: query.data ?? null,
+		isSettled: query.status !== 'pending',
+		isError: query.isError,
+	};
 }
 
 function fitMapToBounds(

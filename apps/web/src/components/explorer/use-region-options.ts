@@ -1,5 +1,4 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { unmatchableId } from '../../hooks/queries/shared';
 import { useOrganizationIdentity } from '../../hooks/queries/use-organization-identity';
 import { regions } from '../../lib/collections/regions';
@@ -41,13 +40,10 @@ export function useRegionOptions(): {
 
 	const options = result.data;
 
-	return useMemo(
-		() => ({
-			options,
-			nameById: new Map(options.map((region) => [region.id, region.label] as const)),
-		}),
-		[options],
-	);
+	return {
+		options,
+		nameById: new Map(options.map((region) => [region.id, region.label] as const)),
+	};
 }
 
 // Regions are picked, unpicked, and re-picked while an operator narrows a map;

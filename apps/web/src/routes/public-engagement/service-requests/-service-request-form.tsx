@@ -1,6 +1,5 @@
 import {
 	createServiceRequestCommand,
-	getOwnedGeometryPolicy,
 	REQUEST_INTAKE_TYPES,
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
@@ -11,14 +10,12 @@ import {
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useCallback, useMemo } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type {
 	DrawGeometry,
-	DrawGeometryFor,
 	DrawGeometryType,
 	MapDrawController,
 } from '../../../components/map/use-map-draw';
@@ -26,7 +23,11 @@ import type { AddressOption } from '../../../components/pickers/address-picker';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
 import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	FORM_VALIDATION_GEOMETRY,
+} from '../../../forms/domain-validation';
 import type { ServiceRequestFields } from '../../../hooks/mutations/use-service-request-mutations';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -34,7 +35,6 @@ import {
 	CONTACT_FIELD_PATHS,
 	type ContactFormValues,
 	defaultContactFormValues,
-	validateContactForm,
 } from '../-contact-fields';
 import { ContactFieldsBlock } from '../-contact-fields-block';
 
@@ -92,31 +92,21 @@ const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 	),
 };
 
-/** What a Service Request stores, read off the register rather than named here. */
-const REQUEST_LOCATION_SHAPES = getOwnedGeometryPolicy('serviceRequest').allowedTypes;
-
 /**
- * Whether a placed shape is one a Service Request stores.
- *
- * The draw control takes the same `serviceRequest` policy and offers nothing
- * else, so this narrows what the create route holds to what the write seam takes
- * rather than gating a second time. Both halves read the register, for the same
- * reason the station and Region predicates do: the route used to ask
- * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
- * widens, and on Regions that copy refused a boundary the user could see on the
- * map. `Point` written into the assertion was the last of that copy left.
- */
-export function isRequestLocation(
-	geometry: DrawGeometry,
-): geometry is DrawGeometryFor<'serviceRequest'> {
-	return REQUEST_LOCATION_SHAPES.includes(geometry.type);
-}
-
-/**
- * The create path's rules, straight from the domain builder: intake type, date,
+ * The form's rules, straight from the domain builder: intake type, date,
  * details, and whichever of the contact/address subforms is in play.
+ *
+ * Both surfaces run it, which the create path alone used to. The edit page does
+ * not own the point, and the builder requires one, so it is handed the stand-in
+ * and reports on everything else. Skipping it there left the edit page with only
+ * a hand-rolled channel that threw a bare string into the page alert.
  */
-function validateServiceRequest(value: ServiceRequestFormValues, geometry: DrawGeometry | null) {
+export function validateServiceRequest(
+	value: ServiceRequestFormValues,
+	geometry: DrawGeometry | null,
+	options: { readonly hideLocation: boolean; readonly disableNewContact: boolean },
+) {
+	const existingContact = value.contactMode === 'existing' || options.disableNewContact;
 	return domainValidator(
 		() =>
 			createServiceRequestCommand({
@@ -126,16 +116,15 @@ function validateServiceRequest(value: ServiceRequestFormValues, geometry: DrawG
 				requestDate: value.requestDate,
 				details: value.details,
 				receivedByProfileId: value.receivedByProfileId === '' ? null : value.receivedByProfileId,
-				contact:
-					value.contactMode === 'existing'
-						? { kind: 'existing', contactId: value.contactId ?? '' }
-						: {
-								kind: 'new',
-								contactId: FORM_VALIDATION_CONTEXT.organizationId,
-								details: value.newContact,
-							},
+				contact: existingContact
+					? { kind: 'existing', contactId: value.contactId ?? '' }
+					: {
+							kind: 'new',
+							contactId: FORM_VALIDATION_CONTEXT.organizationId,
+							details: value.newContact,
+						},
 				location: {
-					geometry: (geometry ?? null) as never,
+					geometry: (options.hideLocation ? FORM_VALIDATION_GEOMETRY : (geometry ?? null)) as never,
 					address: { kind: 'existing', addressId: value.addressId ?? '' },
 				},
 			}),
@@ -173,7 +162,6 @@ export interface ServiceRequestFormPageProps {
 	/** Edit disables inline contact creation (existing contact only). */
 	readonly disableNewContact?: boolean;
 	readonly header: ServiceRequestFormHeader;
-	readonly submitLabel: string;
 	readonly onSave: (input: ServiceRequestSaveInput) => Promise<void>;
 }
 
@@ -203,7 +191,6 @@ export function ServiceRequestFormPage({
 	hideLocation = false,
 	disableNewContact = false,
 	header,
-	submitLabel,
 	onSave,
 }: ServiceRequestFormPageProps) {
 	// The draw layer both renders the placed point and edits it, so the map needs no
@@ -216,41 +203,26 @@ export function ServiceRequestFormPage({
 	});
 	const { addressCoord, draw, geometry, geometryType } = location;
 
-	const profileOptions = useMemo(
-		() =>
-			lifecycleOptions(
-				profiles,
-				(profile) => profile.isActive,
-				(profile) => profile.displayName,
-			),
-		[profiles],
+	const profileOptions = lifecycleOptions(
+		profiles,
+		(profile) => profile.isActive,
+		(profile) => profile.displayName,
 	);
 
 	const { clearError, selectAddress } = location;
-	const handleAddressSelected = useCallback(
-		(address: AddressOption | null) => {
-			clearError();
-			selectAddress(address);
-		},
-		[clearError, selectAddress],
-	);
+	const handleAddressSelected = (address: AddressOption | null) => {
+		clearError();
+		selectAddress(address);
+	};
 
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			/*
-			 * Skipped when the location is locked (the edit form does not own the
-			 * point) — the builder requires one, and there would be no field to fix.
-			 */
 			onSubmit: (input: { readonly value: ServiceRequestFormValues }) =>
-				hideLocation ? undefined : validateServiceRequest(input.value, geometry),
+				validateServiceRequest(input.value, geometry, { hideLocation, disableNewContact }),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
-			const error = validateServiceRequestForm(value, { hideLocation, disableNewContact });
-			if (error !== null) {
-				throw new Error(error);
-			}
 			if (!location.requireGeometry()) {
 				return;
 			}
@@ -264,7 +236,7 @@ export function ServiceRequestFormPage({
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+						<form.SubmitButton disabled={!canSubmit} />
 					</>
 				}
 				header={header}
@@ -497,37 +469,6 @@ function RequestLocation({
 			/>
 		</LocationSection>
 	);
-}
-
-// --- validation -------------------------------------------------------------
-
-function validateServiceRequestForm(
-	values: ServiceRequestFormValues,
-	options: { readonly hideLocation: boolean; readonly disableNewContact: boolean },
-): string | null {
-	if (values.details.trim().length === 0) {
-		return 'Enter the request details.';
-	}
-	if (values.receivedByProfileId.trim().length === 0) {
-		return 'Select who received the request.';
-	}
-
-	if (values.contactMode === 'existing' || options.disableNewContact) {
-		if (values.contactId === null) {
-			return 'Select the contact for this request.';
-		}
-	} else {
-		const contactError = validateContactForm(values.newContact);
-		if (contactError !== null) {
-			return contactError;
-		}
-	}
-
-	if (!options.hideLocation && values.addressId === null) {
-		return 'Select or create the address for this request.';
-	}
-
-	return null;
 }
 
 // --- controls ---------------------------------------------------------------

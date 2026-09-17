@@ -1,16 +1,15 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-
 import {
 	type DrawGeometry,
-	isStationLocation,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
@@ -38,7 +37,7 @@ function EditWeatherStationRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="weather station"
+			recordType="weatherStation"
 			reading={{ isError, isReady, record: station }}
 			skeleton={<EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />}
 		>
@@ -56,45 +55,43 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 	const mutations = useWeatherStationMutations();
 	const { run, dialog } = useAcknowledgedWrite({ askable: STATION_REFUSALS, ask: true });
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-		}: {
-			readonly values: WeatherStationFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) => {
-			// `null` unless the user actually moved the pin: the form holds the point
-			// it loaded, and sending that back names a command with nothing to change.
-			const point =
-				geometryChanged && geometry !== null && isStationLocation(geometry) ? geometry : null;
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+	}: {
+		readonly values: WeatherStationFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) => {
+		// `null` unless the user actually moved the pin: the form holds the point
+		// it loaded, and sending that back names a command with nothing to change.
+		const point =
+			geometryChanged && geometry !== null && isOwnedGeometry('weatherStation', geometry)
+				? geometry
+				: null;
 
-			// The two questions go out unanswered and come back as refusals if the
-			// station has readings, which is the only time either matters. See
-			// `useAcknowledgedWrite`.
-			//
-			// The navigation is *inside* the callback on purpose: `run` resolves on a
-			// refusal as well as on a success, because a refusal is a question rather
-			// than a failure. Leaving here on the way past would abandon the page
-			// before the question could be asked, and read as a save that worked.
-			await run(async (acknowledgements) => {
-				await mutations.save({
-					weatherStationId: station.id,
-					fields: weatherStationFieldsFrom(values),
-					current: weatherStationFieldsFrom(formValuesFrom(station)),
-					geometry: point,
-					acknowledgedIdentityChange:
-						acknowledgements.acknowledgedHistoricalStationIdentityChange === true,
-					acknowledgedLocationChange:
-						acknowledgements.acknowledgedHistoricalLocationChange === true,
-				});
-				await navigate({ to: '/gis/weather/$id', params: { id: station.id } });
+		// The two questions go out unanswered and come back as refusals if the
+		// station has readings, which is the only time either matters. See
+		// `useAcknowledgedWrite`.
+		//
+		// The navigation is *inside* the callback on purpose: `run` resolves on a
+		// refusal as well as on a success, because a refusal is a question rather
+		// than a failure. Leaving here on the way past would abandon the page
+		// before the question could be asked, and read as a save that worked.
+		await run(async (acknowledgements) => {
+			await mutations.save({
+				weatherStationId: station.id,
+				fields: weatherStationFieldsFrom(values),
+				current: weatherStationFieldsFrom(formValuesFrom(station)),
+				geometry: point,
+				acknowledgedIdentityChange:
+					acknowledgements.acknowledgedHistoricalStationIdentityChange === true,
+				acknowledgedLocationChange: acknowledgements.acknowledgedHistoricalLocationChange === true,
 			});
-		},
-		[mutations, navigate, run, station],
-	);
+			await navigate({ to: '/gis/weather/$id', params: { id: station.id } });
+		});
+	};
 
 	return (
 		<>
@@ -102,7 +99,7 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 				canSubmit={mutations.canWrite}
 				defaultValues={formValuesFrom(station)}
 				header={{
-					title: 'Edit Weather Station',
+					title: `Edit ${recordNoun('weatherStation').title}`,
 					description: "Update this station's name, code, or location.",
 					backTo: '/gis/weather/$id',
 					backParams: { id: station.id },
@@ -111,7 +108,6 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 				initialGeometry={pointFrom(station)}
 				mode="edit"
 				onSave={onSave}
-				submitLabel="Save Changes"
 			/>
 			{dialog}
 		</>

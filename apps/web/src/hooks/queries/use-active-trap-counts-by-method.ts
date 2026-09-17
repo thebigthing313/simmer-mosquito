@@ -13,7 +13,6 @@
  */
 
 import { count, eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { traps } from '../../lib/collections/traps';
 
 export function useActiveTrapCountsByMethod(): ReadonlyMap<string, number> {
@@ -32,8 +31,5 @@ export function useActiveTrapCountsByMethod(): ReadonlyMap<string, number> {
 
 	// The one `useMemo` this folder allows: a query returns rows and cannot return
 	// a lookup of them.
-	return useMemo(
-		() => new Map(result.data.map((row) => [row.methodId, row.activeCount])),
-		[result.data],
-	);
+	return new Map(result.data.map((row) => [row.methodId, row.activeCount]));
 }

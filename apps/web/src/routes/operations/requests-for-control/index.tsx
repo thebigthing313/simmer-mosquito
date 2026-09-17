@@ -2,7 +2,8 @@ import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -18,6 +19,7 @@ import {
 	type FilterOption,
 	MultiSelectFilter,
 	SegmentedFilter,
+	ToggleFilter,
 	useControlMethodNames,
 	useExplorerPanel,
 	usePersonnelOptions,
@@ -32,21 +34,25 @@ import {
 	requestDisplayName,
 	requestStatus,
 } from '../../../hooks/queries/operations-view';
+import { useAssignedRequestIds } from '../../../hooks/queries/use-assigned-request-ids';
 import { useRequestedControlActions } from '../../../hooks/queries/use-requested-control-actions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
+import type { RecordType } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
+	flagParam,
 	idSetParam,
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
-const RESULT_NOUN = { one: 'request', many: 'requests' };
+const RECORD_TYPE: RecordType = 'requestedControlAction';
 
 type StatusFilter = 'all' | 'open' | 'resolved';
 
@@ -67,6 +73,8 @@ interface RequestFilters {
 	readonly status: StatusFilter;
 	readonly types: ReadonlySet<string>;
 	readonly people: ReadonlySet<string>;
+	/** Only requests no live stop on a scheduled or in-progress mission names. */
+	readonly unassigned: boolean;
 }
 
 // `open` is the default and so stays out of the URL: the queue is read to find
@@ -78,6 +86,7 @@ const FILTER_CODECS: FilterCodecs<RequestFilters> = {
 	status: choiceParam(['all', 'open', 'resolved'], 'open'),
 	types: idSetParam,
 	people: idSetParam,
+	unassigned: flagParam,
 };
 
 export const Route = createFileRoute('/operations/requests-for-control/')({
@@ -92,17 +101,15 @@ const DEFAULT_WINDOW_DAYS = 90;
 
 function RequestsForControlRoute() {
 	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const filterDefaults = useMemo<RequestFilters>(
-		() => ({
-			from: addCalendarDays(today, -(DEFAULT_WINDOW_DAYS - 1)),
-			to: today,
-			status: 'open',
-			types: new Set(),
-			people: new Set(),
-		}),
-		[today],
-	);
+	const today = todayInTimeZone(timeZone);
+	const filterDefaults: RequestFilters = {
+		from: addCalendarDays(today, -(DEFAULT_WINDOW_DAYS - 1)),
+		to: today,
+		status: 'open',
+		types: new Set(),
+		people: new Set(),
+		unassigned: false,
+	};
 	const {
 		filters,
 		setFilters,
@@ -115,21 +122,23 @@ function RequestsForControlRoute() {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const { requests, isLoading } = useRequestedControlActions(filters.from, filters.to);
+	// The stops are a second subset rather than a join on the window, so the
+	// window stays pushed down; the hook's header says why. Applied in memory
+	// after the window, the way `status` is.
+	const { assignedRequestIds, isReady: assignedReady } = useAssignedRequestIds();
 	const { options: personnelOptions, nameById } = usePersonnelOptions();
 	const methodNameById = useControlMethodNames();
 
-	const visible = useMemo(
-		() => requests.filter((request) => matchesFilters(request, filters)),
-		[requests, filters],
+	const visible = requests.filter((request) =>
+		matchesFilters(request, filters, assignedRequestIds),
 	);
 
-	const mapped = useMemo(() => mappable(visible), [visible]);
-	const geoJson = useMemo(() => requestFeatures(mapped), [mapped]);
+	const mapped = mappable(visible);
+	const geoJson = requestFeatures(mapped);
 	// The points come from local rows, so the camera frames the filtered set from
 	// the list rather than asking the server for an extent.
-	const bounds = useMemo(
-		() => boundsFromCoordinates(mapped.map((request) => ({ lng: request.lng, lat: request.lat }))),
-		[mapped],
+	const bounds = boundsFromCoordinates(
+		mapped.map((request) => ({ lng: request.lng, lat: request.lat })),
 	);
 	useFlyToRequest(
 		map,
@@ -153,12 +162,15 @@ function RequestsForControlRoute() {
 				/>
 			}
 			heading={{
-				title: 'Requests for Control',
+				title: recordNoun('requestedControlAction').titleMany,
 				icon: RequestIcon,
 				total: visible.length,
-				isLoading,
-				noun: RESULT_NOUN,
-				create: { to: '/operations/requests-for-control/create', label: 'New Request for Control' },
+				isLoading: isLoading || (filters.unassigned && !assignedReady),
+				counts: RECORD_TYPE,
+				create: {
+					to: '/operations/requests-for-control/create',
+					label: createLabel('requestedControlAction'),
+				},
 			}}
 			onResetFilters={reset}
 			map={
@@ -242,35 +254,23 @@ function useRequestDateRange(
 	setFilters: (patch: Partial<RequestFilters>) => void,
 	today: string,
 ) {
-	const onFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
-			});
-		},
-		[setFilters, filters.to],
-	);
-	const onToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
-			});
-		},
-		[setFilters, filters.from],
-	);
-	const onApplyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-	const activePresetId = useMemo(
-		() => activeDatePresetId(filters.from, filters.to, today),
-		[filters.from, filters.to, today],
-	);
+	const onFromChange = (next: string) => {
+		setFilters({
+			from: next,
+			...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
+		});
+	};
+	const onToChange = (next: string) => {
+		setFilters({
+			to: next,
+			...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
+		});
+	};
+	const onApplyPreset = (preset: DatePreset) => {
+		const range = datePresetRange(preset, today);
+		setFilters({ from: range.from, to: range.to });
+	};
+	const activePresetId = activeDatePresetId(filters.from, filters.to, today);
 	return {
 		activePresetId,
 		from: filters.from,
@@ -326,6 +326,11 @@ function RequestControlFilters({
 					options={personnelOptions}
 					selected={filters.people}
 				/>
+				<ToggleFilter
+					label="Not yet assigned"
+					onChange={(next) => setFilters({ unassigned: next })}
+					value={filters.unassigned}
+				/>
 			</FilterGrid>
 
 			<RequestControlChips
@@ -378,6 +383,9 @@ function RequestControlChips({
 					onRemove={() => setFilters({ people: without(filters.people, id) })}
 				/>
 			))}
+			{filters.unassigned ? (
+				<FilterChip label="Not yet assigned" onRemove={() => setFilters({ unassigned: false })} />
+			) : null}
 		</ActiveFilterBar>
 	);
 }
@@ -390,25 +398,32 @@ function without(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
 }
 
 /**
- * Status, control type, and requester are matched here rather than in the query:
- * status derives from a nullable timestamp rather than a column, and narrowing
- * the shape per filter change would re-stream the whole window each time. An
- * empty set means the filter is off.
+ * Status, control type, requester and assignment are matched here rather than
+ * in the query: status derives from a nullable timestamp rather than a column,
+ * assignment lives on another table, and narrowing the shape per filter change
+ * would re-stream the whole window each time. An empty set means the filter is
+ * off.
  */
-function matchesFilters(request: RequestListing, filters: RequestFilters): boolean {
-	if (filters.status !== 'all' && requestStatus(request) !== filters.status) {
-		return false;
+function matchesFilters(
+	request: RequestListing,
+	filters: RequestFilters,
+	assignedRequestIds: ReadonlySet<string>,
+): boolean {
+	return (
+		(filters.status === 'all' || requestStatus(request) === filters.status) &&
+		!(filters.unassigned && assignedRequestIds.has(request.id)) &&
+		(filters.types.size === 0 || filters.types.has(request.controlType)) &&
+		matchesRequester(request, filters.people)
+	);
+}
+
+/** Whether the request was raised by one of the chosen people; an empty set is off. */
+function matchesRequester(request: RequestListing, people: ReadonlySet<string>): boolean {
+	if (people.size === 0) {
+		return true;
 	}
-	if (filters.types.size > 0 && !filters.types.has(request.controlType)) {
-		return false;
-	}
-	if (filters.people.size > 0) {
-		const requester = request.requestedByProfileId;
-		if (requester === null || !filters.people.has(requester)) {
-			return false;
-		}
-	}
-	return true;
+	const requester = request.requestedByProfileId;
+	return requester !== null && people.has(requester);
 }
 
 function RequestRow({

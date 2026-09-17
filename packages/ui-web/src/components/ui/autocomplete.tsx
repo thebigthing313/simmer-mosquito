@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/popover';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import type * as React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckIcon, SearchIcon, XIcon } from '../../icons/registry';
 
 export interface AutocompleteOption {
@@ -73,19 +73,16 @@ export function Autocomplete<TOption extends AutocompleteOption = AutocompleteOp
 	...props
 }: AutocompleteProps<TOption>) {
 	const [open, setOpen] = useState(false);
-	const optionSource = useMemo(() => options ?? [], [options]);
+	const optionSource = options ?? [];
 	// With a static list the caller need not track the selected row: a prefilled
 	// value (editing an existing record) resolves to its label here, so the input
 	// never shows a raw id.
-	const currentOption = useMemo(() => {
-		if (selectedOption !== undefined) {
-			return selectedOption;
-		}
-		if (value === null || value === undefined || value === '') {
-			return null;
-		}
-		return optionSource.find((option) => getOptionValue(option) === value) ?? null;
-	}, [getOptionValue, optionSource, selectedOption, value]);
+	const currentOption =
+		selectedOption !== undefined
+			? selectedOption
+			: value === null || value === undefined || value === ''
+				? null
+				: (optionSource.find((option) => getOptionValue(option) === value) ?? null);
 	// An async source cannot resolve a preset value locally, so the raw value stands
 	// in. A static list either resolved above or holds a sentinel ("no selection"),
 	// and either way the placeholder beats printing an id.
@@ -109,15 +106,12 @@ export function Autocomplete<TOption extends AutocompleteOption = AutocompleteOp
 
 	// A static list filters in place. Debouncing it would open the popover at the
 	// previous query's size and resize it a beat later, moving it under the pointer.
-	const results = useMemo(() => {
-		if (getOptions !== undefined) {
-			return asyncResults;
-		}
-		if (activeQuery.length < minQueryLength) {
-			return [];
-		}
-		return filterOptions(optionSource, activeQuery, getOptionLabel);
-	}, [activeQuery, asyncResults, getOptionLabel, getOptions, minQueryLength, optionSource]);
+	const results =
+		getOptions !== undefined
+			? asyncResults
+			: activeQuery.length < minQueryLength
+				? []
+				: filterOptions(optionSource, activeQuery, getOptionLabel);
 
 	useEffect(() => {
 		setSelected(currentOption);

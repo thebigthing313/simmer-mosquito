@@ -126,6 +126,93 @@ export function createProfile(
 	});
 }
 
+// Surfaces
+//
+// A builder above returns one row's id. The two below chain the ones every
+// integration suite has to have before it can write anything at all, and they
+// are here for the reason the row builders are: the Organization-and-Profile
+// pair opened 93 cases across thirteen files, and the four-row trap prologue
+// nineteen more, each written out by hand. A case still reads which fixture it
+// ran against, because the builder hands back every id under its own name and a
+// case that wants a different row passes the override rather than seeding one
+// beside it.
+
+/** The Organization a case writes into and the Profile its writes are attributed to. */
+export interface ActingOrganization {
+	readonly organizationId: string;
+	readonly actorProfileId: string;
+}
+
+export async function createActingOrganization(
+	db: DbExecutor,
+	overrides: {
+		readonly organization?: Overrides<'organizations'>;
+		readonly profile?: Overrides<'profiles', 'organization_id'>;
+	} = {},
+): Promise<ActingOrganization> {
+	const organizationId = await createOrganization(db, overrides.organization);
+	const actorProfileId = await createProfile(db, organizationId, overrides.profile);
+	return { organizationId, actorProfileId };
+}
+
+/**
+ * The same, with the Trap the adult surveillance cases write against.
+ *
+ * A Trap needs a Collection Method, so the two arrive together: a case that
+ * takes only the Trap still has the method's id to name on a Collection.
+ */
+export interface TrapSurface extends ActingOrganization {
+	readonly collectionMethodId: string;
+	readonly trapId: string;
+}
+
+export async function createTrapSurface(
+	db: DbExecutor,
+	overrides: {
+		readonly organization?: Overrides<'organizations'>;
+		readonly profile?: Overrides<'profiles', 'organization_id'>;
+		readonly collectionMethod?: Overrides<'collection_methods', 'organization_id'>;
+		readonly trap?: Overrides<'traps', 'organization_id' | 'collection_method_id'>;
+	} = {},
+): Promise<TrapSurface> {
+	const acting = await createActingOrganization(db, overrides);
+	const collectionMethodId = await createCollectionMethod(
+		db,
+		acting.organizationId,
+		overrides.collectionMethod,
+	);
+	const trapId = await createTrap(db, acting.organizationId, collectionMethodId, overrides.trap);
+	return { ...acting, collectionMethodId, trapId };
+}
+
+/**
+ * The same, with the Weather Station the weather cases write summaries against.
+ *
+ * The station carries the acting Profile on both stamp columns, because the
+ * history refusals read who last touched it and a station nobody wrote is not a
+ * state those commands can reach.
+ */
+export interface StationSurface extends ActingOrganization {
+	readonly weatherStationId: string;
+}
+
+export async function createStationSurface(
+	db: DbExecutor,
+	overrides: {
+		readonly organization?: Overrides<'organizations'>;
+		readonly profile?: Overrides<'profiles', 'organization_id'>;
+		readonly station?: Overrides<'weather_sources', 'organization_id'>;
+	} = {},
+): Promise<StationSurface> {
+	const acting = await createActingOrganization(db, overrides);
+	const weatherStationId = await createWeatherSource(db, acting.organizationId, {
+		created_by_profile_id: acting.actorProfileId,
+		updated_by_profile_id: acting.actorProfileId,
+		...overrides.station,
+	});
+	return { ...acting, weatherStationId };
+}
+
 // Places and people
 
 export function createAddress(

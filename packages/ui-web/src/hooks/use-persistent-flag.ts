@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 /**
  * A boolean UI preference that survives reloads.
@@ -15,13 +15,10 @@ export function usePersistentFlag(
 ): readonly [boolean, (next: boolean) => void] {
 	const [value, setValue] = useState(() => readFlag(key) ?? defaultValue);
 
-	const set = useCallback(
-		(next: boolean) => {
-			setValue(next);
-			writeFlag(key, next);
-		},
-		[key],
-	);
+	const set = (next: boolean) => {
+		setValue(next);
+		writeFlag(key, next);
+	};
 
 	return [value, set];
 }

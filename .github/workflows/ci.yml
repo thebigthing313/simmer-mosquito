@@ -216,6 +216,32 @@ jobs:
       - name: Image names
         run: pnpm check:image-names
 
+      # Six components used to take a free-text noun for the record they were
+      # about, and every route spelled it at each call site, so one record type
+      # carried as many spellings as it had call sites. Seven disagreed with
+      # themselves: a chemical application counted `applications` under a
+      # heading saying chemical application, a biocontrol action counted
+      # `releases`, and a request for control and a service request both counted
+      # plain `requests`. `RECORD_NOUNS` in `apps/web/src/lib/record-nouns.ts`
+      # is the register now and the components take a record type, so the
+      # compiler holds membership. This holds the register whole, refuses a
+      # `noun` prop on any of the six, and refuses a register noun written as a
+      # noun literal anywhere under `apps/web/src`, at zero with no allowance.
+      - name: Record nouns
+        run: pnpm check:record-nouns
+
+      # The sidebar is where that register is read and where `check:record-nouns`
+      # cannot look: its `NOUN_KEYS` excludes `label`, because widening to that
+      # key reported 73 findings that are nearly all a field label naming a
+      # linked record. A sidebar entry names the surface it moves you to, and it
+      # is read on its own in the palette with no group heading beside it, which
+      # is what #910 found. So the destination settles it rather than the key.
+      # Every entry whose `to` ends in one of the six write verbs must build its
+      # label through `recordNoun`, directly or through a wrapper that does, at
+      # zero with no allowance list. 19 entries of 78 today.
+      - name: Nav labels
+        run: pnpm check:nav-labels
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads
@@ -307,6 +333,17 @@ jobs:
       - name: Session credentials
         run: pnpm check:session-credentials
 
+      # An underscore prefix is a claim that a binding is deliberately unused,
+      # and nothing asked whether the claim was still true. Biome's unused rules
+      # are silenced by exactly that prefix and `fallow dead-code` gates unused
+      # exports, so a module-private declaration wearing one was invisible to
+      # both and fifteen collected under a green `pnpm check:all` (#860). This
+      # parses every module in the workspace and refuses one, at zero with no
+      # allowance list. A parameter and a destructuring omission are out of
+      # scope, being what the convention exists for.
+      - name: Unread declarations
+        run: pnpm check:unread-declarations
+
       # The React Compiler reports through a `logger` and nowhere else, and the
       # rollout in #649 accepts on "every component compiles or carries a
       # deliberate opt-out with a reason", which nothing could check. This runs
@@ -317,6 +354,27 @@ jobs:
       # the slowest, at about 25 seconds.
       - name: Compiler bail-outs
         run: pnpm check:compiler-bailouts
+
+      # Its neighbour asks whether a module compiles; this asks whether it is on
+      # the allowlist at all. `apps/web/src/forms` sat uncompiled through four
+      # phases of #649 with every gate green, because a compile-clean module
+      # reads the same whether or not the compiler ever saw it (#838). This
+      # parses every module in the workspace, not the four React roots, and
+      # refuses one that holds React and is on neither `COMPILER_PHASES` nor the
+      # written exemption register. Two seconds, since it runs no compiler.
+      - name: Compiler coverage
+        run: pnpm check:compiler-coverage
+
+      # The third of that set, over what the compiler makes redundant rather
+      # than over what it compiles. #839 settled that a `useMemo` or
+      # `useCallback` on a compiled path is stripped by default and a survivor
+      # carries a written reason, and 848 of them stood on the day the rule
+      # landed, so this ships as a per-file ratchet failing in both directions
+      # and empties as the strip phases land. Its corpus is `COMPILER_PHASES`,
+      # so it inherits whatever that register covers, which is what the gate
+      # above exists to keep complete.
+      - name: Manual memoization
+        run: pnpm check:manual-memo
 
       # The other half of the same question, and the only thing here that reads
       # a React rule at all: Biome's `react` domain is off, so 104 Rules of

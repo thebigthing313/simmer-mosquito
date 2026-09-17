@@ -29,7 +29,6 @@
 import type { SimmerRole } from '@simmer-mosquito/domain';
 import type { Profile } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
-import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { profiles } from '../../lib/collections/profiles';
 import { useAuthSnapshot } from '../use-auth-snapshot';
@@ -104,40 +103,37 @@ export function useProfileMutations(): ProfileMutations {
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 
-	const createHistorical = useCallback(
-		async (fields: ProfileFields) => {
-			if (organizationId === null) {
-				throw new Error('Your profile is still loading.');
-			}
+	const createHistorical = async (fields: ProfileFields) => {
+		if (organizationId === null) {
+			throw new Error('Your profile is still loading.');
+		}
 
-			const now = optimisticStamp();
-			const row = {
-				id: newRecordId(),
-				organization_id: organizationId,
-				// No login, which is what makes it historical. An invitation is what
-				// attaches one, and it is a separate floor and a separate route.
-				user_id: null,
-				display_name: fields.displayName,
-				email: null,
-				is_active: fields.isActive,
-				created_at: now,
-				updated_at: now,
-			} satisfies Profile;
+		const now = optimisticStamp();
+		const row = {
+			id: newRecordId(),
+			organization_id: organizationId,
+			// No login, which is what makes it historical. An invitation is what
+			// attaches one, and it is a separate floor and a separate route.
+			user_id: null,
+			display_name: fields.displayName,
+			email: null,
+			is_active: fields.isActive,
+			created_at: now,
+			updated_at: now,
+		} satisfies Profile;
 
-			await settleWrite(
-				mutateCollection(profiles(), {
-					operation: 'insert',
-					intent: 'identity.createProfile',
-					row,
-				}),
-			);
+		await settleWrite(
+			mutateCollection(profiles(), {
+				operation: 'insert',
+				intent: 'identity.createProfile',
+				row,
+			}),
+		);
 
-			return row.id;
-		},
-		[organizationId],
-	);
+		return row.id;
+	};
 
-	const save = useCallback(async (id: string, changes: Partial<Profile>) => {
+	const save = async (id: string, changes: Partial<Profile>) => {
 		// Nothing moved, so there is nothing to name. `updateProfile` with an empty
 		// change set is refused by the domain, and stamping `updated_at` to give the
 		// diff something to carry would only turn a no-op into a write.
@@ -153,7 +149,7 @@ export function useProfileMutations(): ProfileMutations {
 				changes,
 			}),
 		);
-	}, []);
+	};
 
 	return { createHistorical, save, canWrite: organizationId !== null };
 }

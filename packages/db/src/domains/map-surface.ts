@@ -7,8 +7,9 @@ import { readMapTile } from './map-tile.js';
 
 // --- what a map surface is ---------------------------------------------------
 //
-// Eleven explorer surfaces — habitats, inspections, samples, traps, collections,
-// the four control actions, addresses, regions — answer the same four questions.
+// Twelve explorer surfaces — habitats, inspections, samples, traps, collections,
+// the four control actions, addresses, regions, service requests — answer the
+// same four questions.
 // Where are the records in this tile? What area do they cover? Give me a page of
 // them. Give me this one. Only the table, the geometry, the projection, and the
 // predicates that narrow the set differ; everything around those was written out
@@ -63,12 +64,6 @@ export interface MapFilterInput<TFilters> extends MapReadContext {
 	readonly filters?: TFilters;
 }
 
-export interface MapPageInput<TFilters> extends MapReadContext {
-	readonly filters?: TFilters;
-	readonly limit: number;
-	readonly offset: number;
-}
-
 export interface MapBoundsPageInput<TFilters> extends MapReadContext {
 	readonly bounds: MapBounds;
 	readonly filters?: TFilters;
@@ -120,8 +115,18 @@ export interface MapSurfaceDefinition<TFilters> {
 	 * soft delete, its geometry being present). Not a place for filters.
 	 */
 	readonly alwaysWhere?: readonly RawBuilder<boolean>[];
-	/** The predicates the surface's own filters contribute, or none. */
-	readonly filterWhere?: (filters: TFilters | undefined) => RawBuilder<boolean>[];
+	/**
+	 * The predicates the surface's own filters contribute, or none.
+	 *
+	 * The read context rides along for the one filter whose predicate is a
+	 * question about today: the habitats surface's `untreated`, whose window is
+	 * the rolling week ending on the organization's day, which only the zone can
+	 * name. A filter over a stored column ignores it.
+	 */
+	readonly filterWhere?: (
+		filters: TFilters | undefined,
+		context: MapReadContext,
+	) => RawBuilder<boolean>[];
 }
 
 /**
@@ -185,9 +190,14 @@ export interface MapSurfaceReaders<TFilters> {
 
 /** The geometry reads plus the row reads a surface with a display projection offers. */
 export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReaders<TFilters> {
-	/** A filtered, offset-paged window with no viewport bound. */
-	listPage(db: DbExecutor, input: MapPageInput<TFilters>): Promise<MapPageResult<TRow>>;
-	/** A filtered, offset-paged window inside an explicit bounding box. */
+	/**
+	 * A filtered, offset-paged window inside an explicit bounding box.
+	 *
+	 * The only paged read a surface offers. `listPage` stood beside it and
+	 * answered the same question with no box, which six explorers read while
+	 * their maps drew the viewport, so the rail and the map showed different
+	 * sets; it went when the last of the six flipped (#920).
+	 */
 	listByBounds(db: DbExecutor, input: MapBoundsPageInput<TFilters>): Promise<MapPageResult<TRow>>;
 	/** One row, or nothing when it is another organization's, deleted, or absent. */
 	getById(db: DbExecutor, input: MapByIdInput): Promise<TRow | undefined>;
@@ -196,9 +206,10 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
 /**
  * The geometry half of a map surface: the tile and the framed extent.
  *
- * Enough on its own for a surface the explorer only draws — addresses and
- * regions are read as rows through their own catalog, not through a display
- * projection. Anything with a result rail wants {@link mapRecordSurface}.
+ * Enough on its own for a surface the explorer only draws — regions are read
+ * as rows through their own catalog, not through a display projection.
+ * Anything with a result rail wants {@link mapRecordSurface}; addresses moved
+ * across when their rail became a page of the viewport (#962).
  */
 export function mapSurface<TFilters>(
 	definition: MapSurfaceDefinition<TFilters>,
@@ -214,7 +225,7 @@ export function mapSurface<TFilters>(
 				geom: definition.geom,
 				properties: definition.properties,
 				where: [
-					...surfaceWhere(definition, input.organizationId, input.filters),
+					...surfaceWhere(definition, input, input.filters),
 					...envelopeWhere(definition.geom),
 				],
 			});
@@ -224,7 +235,7 @@ export function mapSurface<TFilters>(
 			return readMapExtent(db, {
 				geom: definition.geom,
 				from: definition.from,
-				where: surfaceWhere(definition, input.organizationId, input.filters),
+				where: surfaceWhere(definition, input, input.filters),
 			});
 		},
 	};
@@ -247,26 +258,10 @@ export function mapRecordSurface<TFilters, TRow>(
 		...mapSurface(definition),
 
 		// `total` is the page's, not the row's, so it is not a display column: it
-		// is declared here, on the cast of the read that appends it, and the two
-		// paged readers are the only place it exists. Putting it in the
-		// projection would put it in `TRow`, where the by-id read that never
-		// selects it would then claim it.
-		async listPage(db, input) {
-			const result = await sql<TRow & { readonly total: number }>`
-				select
-					${columns},
-					count(*) over()::int as "total"
-				from ${definition.from}
-				${joins}
-				where ${sql.join(surfaceWhere(definition, input.organizationId, input.filters), sql` and `)}
-				order by ${display.orderBy}
-				limit ${input.limit}
-				offset ${input.offset}
-			`.execute(db);
-
-			return { total: result.rows[0]?.total ?? 0, rows: result.rows };
-		},
-
+		// is declared here, on the cast of the read that appends it, and the
+		// paged reader is the only place it exists. Putting it in the projection
+		// would put it in `TRow`, where the by-id read that never selects it
+		// would then claim it.
 		async listByBounds(db, input) {
 			const result = await sql<TRow & { readonly total: number }>`
 				with bounds as (
@@ -285,10 +280,7 @@ export function mapRecordSurface<TFilters, TRow>(
 				${joins}
 				cross join bounds
 				where ${sql.join(
-					[
-						...surfaceWhere(definition, input.organizationId, input.filters),
-						...envelopeWhere(definition.geom),
-					],
+					[...surfaceWhere(definition, input, input.filters), ...envelopeWhere(definition.geom)],
 					sql` and `,
 				)}
 				order by ${display.orderBy}
@@ -341,10 +333,13 @@ function scopeWhere<TFilters>(
 /** The scope plus the surface's own filters — every read but the by-id one. */
 function surfaceWhere<TFilters>(
 	definition: MapSurfaceDefinition<TFilters>,
-	organizationId: string,
+	context: MapReadContext,
 	filters: TFilters | undefined,
 ): RawBuilder<boolean>[] {
-	return [...scopeWhere(definition, organizationId), ...(definition.filterWhere?.(filters) ?? [])];
+	return [
+		...scopeWhere(definition, context.organizationId),
+		...(definition.filterWhere?.(filters, context) ?? []),
+	];
 }
 
 /**

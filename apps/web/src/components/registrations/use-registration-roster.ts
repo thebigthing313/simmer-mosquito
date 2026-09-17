@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import {
 	type RegistrationListing,
 	useRegistrationDirectory,
@@ -31,19 +30,12 @@ export function useRegistrationRoster(
 	const directory = useRegistrationDirectory();
 	const { all: units } = useUnitLabels();
 
-	const registrations = useMemo(
-		() =>
-			directory.registrations.filter(
-				(registration) =>
-					registration.contactId === contactId && (includeInactive || registration.isActive),
-			),
-		[contactId, directory.registrations, includeInactive],
+	const registrations = directory.registrations.filter(
+		(registration) =>
+			registration.contactId === contactId && (includeInactive || registration.isActive),
 	);
 
-	const unitsById = useMemo(
-		() => new Map(units.map((unit) => [unit.id, { code: unit.code }])),
-		[units],
-	);
+	const unitsById = new Map(units.map((unit) => [unit.id, { code: unit.code }]));
 
 	return { registrations, unitsById, isReady: directory.isReady };
 }

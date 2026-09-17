@@ -16,18 +16,14 @@
 
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthContext } from '../../../auth-context.js';
-import type { CommandTable } from '../../../command-payload.js';
-import type { OrganizationCommandType } from '../../../command-permissions.js';
-import type { WritableCommand } from '../../../command-write.js';
-import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { habitatTableCommands } from '../../../table-commands/habitats.js';
 import { inspectionTableCommands } from '../../../table-commands/inspections.js';
 import { sampleSpeciesTableCommands } from '../../../table-commands/sample-species.js';
 import { sampleTableCommands } from '../../../table-commands/samples.js';
+import { ACTOR, ORGANIZATION, organizationHarness } from './command-harness.js';
 
-const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
-const ACTOR = '22222222-2222-4222-8222-222222222222';
+const { requestFor, build } = organizationHarness({ role: 'manager' });
+
 const HABITAT = '33333333-3333-4333-8333-333333333333';
 const INSPECTION = '44444444-4444-4444-8444-444444444444';
 const SAMPLE = '55555555-5555-4555-8555-555555555555';
@@ -41,35 +37,6 @@ const habitats = habitatTableCommands(undefined as never);
 const inspections = inspectionTableCommands(undefined as never);
 const samples = sampleTableCommands(undefined as never);
 const sampleSpecies = sampleSpeciesTableCommands(undefined as never);
-
-function request(
-	id: string,
-	payload: Record<string, unknown>,
-	settings: unknown = null,
-): IntentRequest<CommandTable, string> {
-	return {
-		payload,
-		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
-		authContext: {
-			organization: { id: ORGANIZATION, settings },
-			profile: { id: ACTOR },
-			role: 'manager',
-		} as unknown as AuthContext,
-		id,
-	};
-}
-
-function build<TCommand extends WritableCommand>(
-	spec: TableCommands<CommandTable, TCommand, unknown, string>,
-	intent: OrganizationCommandType,
-	intentRequest: IntentRequest<CommandTable, string>,
-): TCommand {
-	const builder = spec.intents[intent];
-	if (builder === undefined) {
-		throw new Error(`${spec.table} does not accept ${intent}.`);
-	}
-	return builder(intentRequest);
-}
 
 /** A wet inspection, keyed the way a collection row is keyed. */
 function inspectionBody(): Record<string, unknown> {
@@ -88,7 +55,7 @@ describe('inspections intent map', () => {
 		const command = build(
 			inspections,
 			'larvalSurveillance.recordHabitatInspection',
-			request(INSPECTION, inspectionBody()),
+			requestFor(INSPECTION, inspectionBody()),
 		);
 
 		expect(command.type).toBe('larvalSurveillance.recordHabitatInspection');
@@ -121,7 +88,7 @@ describe('inspections intent map', () => {
 			build(
 				inspections,
 				'larvalSurveillance.recordHabitatInspection',
-				request(INSPECTION, camelCase),
+				requestFor(INSPECTION, camelCase),
 			),
 		).toThrow(DomainValidationError);
 	});
@@ -135,7 +102,7 @@ describe('inspections intent map', () => {
 			build(
 				inspections,
 				'larvalSurveillance.recordHabitatInspection',
-				request(INSPECTION, inspectionBody()),
+				requestFor(INSPECTION, inspectionBody()),
 			),
 		).not.toThrow();
 
@@ -143,8 +110,10 @@ describe('inspections intent map', () => {
 			build(
 				inspections,
 				'larvalSurveillance.recordHabitatInspection',
-				request(INSPECTION, inspectionBody(), {
-					larvalSurveillance: { inspectionEntryPolicy: { mode: 'count_and_dips_required' } },
+				requestFor(INSPECTION, inspectionBody(), {
+					settings: {
+						larvalSurveillance: { inspectionEntryPolicy: { mode: 'count_and_dips_required' } },
+					},
 				}),
 			),
 		).toThrow(DomainValidationError);
@@ -156,7 +125,7 @@ describe('inspections intent map', () => {
 		const command = build(
 			inspections,
 			'fieldWork.recordHabitatInspectionForAssignmentItem',
-			request(INSPECTION, { ...inspectionBody(), assignment_item_id: ASSIGNMENT_ITEM }),
+			requestFor(INSPECTION, { ...inspectionBody(), assignment_item_id: ASSIGNMENT_ITEM }),
 		);
 
 		expect(command.type).toBe('fieldWork.recordHabitatInspectionForAssignmentItem');
@@ -172,7 +141,7 @@ describe('inspections intent map', () => {
 		const command = build(
 			inspections,
 			'larvalSurveillance.updateAdHocInspectionLocation',
-			request(INSPECTION, { address_id: null }),
+			requestFor(INSPECTION, { address_id: null }),
 		);
 
 		expect(command.payload).toMatchObject({ changes: { addressId: null } });
@@ -188,7 +157,7 @@ describe('samples intent map', () => {
 		const command = build(
 			samples,
 			'larvalSurveillance.addUnlabeledInspectionSample',
-			request(SAMPLE, { inspection_id: INSPECTION, display_name: 'Dip 3' }),
+			requestFor(SAMPLE, { inspection_id: INSPECTION, display_name: 'Dip 3' }),
 		);
 
 		expect(command.type).toBe('larvalSurveillance.addUnlabeledInspectionSample');
@@ -200,7 +169,7 @@ describe('samples intent map', () => {
 		const command = build(
 			samples,
 			'larvalSurveillance.addInspectionSample',
-			request(SAMPLE, { inspection_id: INSPECTION, display_name: 'Dip 3' }),
+			requestFor(SAMPLE, { inspection_id: INSPECTION, display_name: 'Dip 3' }),
 		);
 
 		expect(command.payload).toMatchObject({ inspectionId: INSPECTION, displayName: 'Dip 3' });
@@ -213,7 +182,7 @@ describe('samples intent map', () => {
 		const command = build(
 			samples,
 			'larvalSurveillance.markSampleZeroLarvae',
-			request(SAMPLE, { is_zero_larvae: false }),
+			requestFor(SAMPLE, { is_zero_larvae: false }),
 		);
 
 		expect(command.type).toBe('larvalSurveillance.markSampleZeroLarvae');
@@ -223,12 +192,12 @@ describe('samples intent map', () => {
 		const assumed = build(
 			samples,
 			'larvalSurveillance.deleteInspectionSample',
-			request(SAMPLE, {}),
+			requestFor(SAMPLE, {}),
 		);
 		const withheld = build(
 			samples,
 			'larvalSurveillance.deleteInspectionSample',
-			request(SAMPLE, { acknowledgedAssociatedRecordsDeletion: false }),
+			requestFor(SAMPLE, { acknowledgedAssociatedRecordsDeletion: false }),
 		);
 
 		expect(assumed.payload).toMatchObject({ acknowledgedAssociatedRecordsDeletion: true });
@@ -241,7 +210,7 @@ describe('sample_species intent map', () => {
 		const command = build(
 			sampleSpecies,
 			'larvalSurveillance.addSampleSpeciesCount',
-			request(SAMPLE_SPECIES, {
+			requestFor(SAMPLE_SPECIES, {
 				sample_id: SAMPLE,
 				species_id: SPECIES,
 				larvae_count: 12,
@@ -264,7 +233,7 @@ describe('sample_species intent map', () => {
 		const command = build(
 			sampleSpecies,
 			'larvalSurveillance.updateSampleSpeciesCount',
-			request(SAMPLE_SPECIES, { larvae_count: 8 }),
+			requestFor(SAMPLE_SPECIES, { larvae_count: 8 }),
 		);
 
 		expect(command.payload).toMatchObject({ changes: { larvaeCount: 8 } });
@@ -287,7 +256,7 @@ describe('habitats: merge', () => {
 		const command = build(
 			habitats,
 			'larvalSurveillance.mergeHabitats',
-			request(HABITAT, {
+			requestFor(HABITAT, {
 				sourceHabitatIds: [SOURCE_HABITAT],
 				acknowledgedMergeConsolidatesHistory: true,
 			}),
@@ -306,7 +275,7 @@ describe('habitats: merge', () => {
 			build(
 				habitats,
 				'larvalSurveillance.mergeHabitats',
-				request(HABITAT, {
+				requestFor(HABITAT, {
 					sourceHabitatIds: [SOURCE_HABITAT],
 					acknowledgedMergeConsolidatesHistory: false,
 				}),
@@ -322,7 +291,7 @@ describe('habitats: merge', () => {
 			build(
 				habitats,
 				'larvalSurveillance.mergeHabitats',
-				request(HABITAT, {
+				requestFor(HABITAT, {
 					sourceHabitatIds: [],
 					acknowledgedMergeConsolidatesHistory: true,
 				}),
@@ -335,7 +304,7 @@ describe('habitats: merge', () => {
 			build(
 				habitats,
 				'larvalSurveillance.mergeHabitats',
-				request(HABITAT, {
+				requestFor(HABITAT, {
 					sourceHabitatIds: [HABITAT],
 					acknowledgedMergeConsolidatesHistory: true,
 				}),

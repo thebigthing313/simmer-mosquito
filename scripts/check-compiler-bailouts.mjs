@@ -285,43 +285,38 @@ const TODO = 'Todo';
  * path in, and either way that is an edit in the phase's own PR.
  */
 const BAILING_FILES = [
-	'apps/web/src/components/catalog/catalog-record-dialog.tsx',
-	'apps/web/src/components/explorer/result-list.tsx',
-	'apps/web/src/components/explorer/use-paged-map-resource.ts',
-	'apps/web/src/components/explorer/use-region-membership.ts',
-	'apps/web/src/components/map/map-canvas.tsx',
-	'apps/web/src/components/map/use-address-point.ts',
-	'apps/web/src/components/map/use-geojson-layer.ts',
-	'apps/web/src/components/map/use-geojson-source.ts',
-	'apps/web/src/components/map/use-geolocation.ts',
-	'apps/web/src/components/map/use-map-draw.ts',
-	'apps/web/src/components/map/use-map-measure.ts',
-	'apps/web/src/components/map/use-mapbox-map.ts',
-	'apps/web/src/components/map/use-route-layer.ts',
-	'apps/web/src/components/map/use-tile-layer.ts',
-	'apps/web/src/components/route-planning/route-map.tsx',
-	'apps/web/src/components/route-planning/routes-index-page.tsx',
-	'apps/web/src/components/search/search-palette.tsx',
-	'apps/web/src/routes/adult-surveillance/-collection-key-entry.tsx',
-	'apps/web/src/routes/adult-surveillance/traps/routes/index.tsx',
-	'apps/web/src/routes/gis/regions/index.tsx',
-	'apps/web/src/routes/larval-surveillance/-sample-key-entry.tsx',
-	'apps/web/src/routes/larval-surveillance/habitats/routes/index.tsx',
-	'apps/web/src/routes/larval-surveillance/inspections/table.tsx',
-	'apps/web/src/routes/operations/-worklist-map.tsx',
-	'apps/web/src/routes/public-engagement/service-requests/index.tsx',
 	'apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx',
 	'apps/web/src/tests/unit/components/map/fake-map.tsx',
-	'packages/ui-web/src/components/app-shell/header/header-search-bar.tsx',
-	'packages/ui-web/src/components/form/field-components/metadata-field.tsx',
 ];
 
 /**
  * How many `Todo` findings the corpus holds, allowed to fall and not to rise.
  *
  * The one single-direction ratchet here, and the header says why.
+ *
+ * It went 42 to 43 in phase 6 (#824) with no new source, which is the one way
+ * this number rises that the header's "read what arrived" does not describe.
+ * `useGeoJsonSource` reported six `Refs` findings and no `Todo`; the compiler
+ * stops at the first validation a function fails, so it had never reached the
+ * try/catch further down. Fixing the six ref reads let it get there, and the
+ * same function at the same `fnLoc` now reports one `Todo` instead. A phase that
+ * clears a bail-out can therefore uncover a `Todo` behind it, and the check is
+ * that the new finding sits in a function the phase just fixed.
+ *
+ * **The two left are generated shadcn source and stay.** They are `String.raw`
+ * in `packages/ui-web/src/components/ui/calendar.tsx`, and regenerating the
+ * component puts them back, which is the regeneration hazard this gate was
+ * built with (#777). The other 41 were rewritten in #856: a `Todo` bails the
+ * whole enclosing component rather than the handler it sits in, so 43 findings
+ * were 30 components compiled by nothing, 17 of which had had their manual
+ * memoization stripped on the premise that the compiler would replace it.
+ *
+ * That is also why the run **names the files it counts**. This category is
+ * counted apart from both halves of the ratchet and was never listed, so 30
+ * uncompiled components sat under a green summary line for the length of the
+ * rollout, and reading them took patching this file.
  */
-const TODO_FINDINGS = 42;
+const TODO_FINDINGS = 2;
 
 /** The floor under the walk. See the header. */
 const MINIMUM_MODULES = 950;
@@ -450,6 +445,31 @@ const unexcused = (module) =>
 	module.bailouts.filter((bailout) => !module.directives.some((each) => covers(each, bailout)));
 
 /**
+ * How many functions in a module carry a live opt-out.
+ *
+ * Not the `CompileSkip` count, which is what the summary line reported until
+ * phase 6 and which read zero against the workspace's one live directive.
+ * #777 measured the reason: validation runs before the emit decision, so a
+ * function that bails logs its `CompileError` with the directive or without it
+ * and logs no `CompileSkip` at all. Only a function that would otherwise have
+ * compiled skips. An opt-out is therefore a skip **or** a bail-out some
+ * directive covers, and the second kind is the one anybody writes a directive
+ * for, so counting skips alone reports zero exactly when a reader is asking.
+ *
+ * Counted by function and not by finding, which is #826's granularity rule:
+ * three findings inside one function are one opt-out, because the compiler
+ * bails at function granularity and a directive is written per function.
+ */
+const optOuts = (module) => {
+	const excused = module.bailouts.filter((bailout) =>
+		module.directives.some((each) => covers(each, bailout)),
+	);
+	const spans = [...excused, ...module.skips].map((finding) => `${finding.start}:${finding.end}`);
+
+	return new Set(spans).size;
+};
+
+/**
  * The opt-out directives in one file, and what each one's marker says.
  *
  * The directive is read off the raw source because it *is* a string literal,
@@ -571,12 +591,16 @@ const markerProblems = (modules) => [
 	),
 ];
 
+/** Each file holding a `Todo`, with how many, in corpus order. */
+const todoFilesOf = (modules) =>
+	modules.filter((module) => module.todos > 0).map((module) => `${module.file} (${module.todos})`);
+
 /** The `Todo` ratchet, which reads in one direction. See the header. */
-const todoProblems = (todos) =>
+const todoProblems = (todos, todoFiles) =>
 	todos <= TODO_FINDINGS
 		? []
 		: [
-				`${count(todos, 'Todo finding')} against \`TODO_FINDINGS\` of ${TODO_FINDINGS}. \`Todo\` is the compiler saying it has not implemented a case, so a rise means new source in a shape it cannot read yet. Read what arrived before raising the number.`,
+				`${count(todos, 'Todo finding')} against \`TODO_FINDINGS\` of ${TODO_FINDINGS}, in ${todoFiles.join(', ')}. \`Todo\` is the compiler saying it has not implemented a case, so a rise means new source in a shape it cannot read yet. A finding bails the whole component it sits in, not the handler, so read what arrived before raising the number.`,
 			];
 
 /**
@@ -666,12 +690,23 @@ const todoSlack = (todos) =>
 		? `, and \`TODO_FINDINGS\` is ${TODO_FINDINGS}, holding ${TODO_FINDINGS - todos} of slack: lower it, reading the diff`
 		: '';
 
-/** The one line a clean run prints. */
-function announce(modules, compiled, todos) {
-	const skips = modules.reduce((total, module) => total + module.skips.length, 0);
+/**
+ * The line a clean run prints, and the `Todo` files under it.
+ *
+ * The files are named rather than only counted because this category is held
+ * apart from both halves of the ratchet: a component it bails is compiled by
+ * nothing, and a number alone never said which (#856).
+ */
+function announce(modules, compiled, todos, todoFiles) {
+	const skips = modules.reduce((total, module) => total + optOuts(module), 0);
 	console.log(
 		`${GATE}: ${count(modules.length, 'module')}, ${count(compiled, 'compiled function')}, ${count(BAILING_FILES.length, 'file')} on the ratchet, ${count(skips, 'opted-out function')}, ${count(todos, 'Todo finding')}${todoSlack(todos)}.`,
 	);
+	if (todoFiles.length > 0) {
+		console.log(
+			`${GATE}: Todo findings sit in ${todoFiles.join(', ')}, each bailing its component.`,
+		);
+	}
 }
 
 function main() {
@@ -683,6 +718,7 @@ function main() {
 	const modules = paths.map(readModule);
 	const compiled = modules.reduce((total, module) => total + module.compiled, 0);
 	const todos = modules.reduce((total, module) => total + module.todos, 0);
+	const todoFiles = todoFilesOf(modules);
 
 	const problems = [
 		...probeProblems(),
@@ -691,11 +727,11 @@ function main() {
 		...insideProblems(modules),
 		...outsideProblems(modules),
 		...markerProblems(modules),
-		...todoProblems(todos),
+		...todoProblems(todos, todoFiles),
 	];
 
 	if (problems.length === 0) {
-		announce(modules, compiled, todos);
+		announce(modules, compiled, todos, todoFiles);
 		return;
 	}
 

@@ -2,8 +2,9 @@ import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -11,15 +12,14 @@ import {
 	FilterChip,
 	FilterGrid,
 	MultiSelectFilter,
-	mapQueryParams,
 	SegmentedFilter,
 	toggle,
 	useCollectionMethodOptions,
 	useExplorerPanel,
-	useFlyToSelection,
-	usePagedMapResource,
+	useExplorerResource,
 	useRegionOptions,
-	useSelectedMapRecord,
+	whenAny,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -30,6 +30,7 @@ import {
 	type TrapTileFilters,
 } from '../../../components/map';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -43,7 +44,7 @@ import { TrapMapCard } from '../-trap-map-card';
 import type { StatusFilter } from './-legend';
 import { trapLegend } from './-legend';
 
-interface TrapSite {
+interface TrapRow {
 	readonly id: string;
 	readonly lat: number;
 	readonly lng: number;
@@ -84,7 +85,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 	validateSearch: searchValidator(TRAP_FILTER_CODECS),
 });
 
-const RESULT_NOUN = { one: 'trap', many: 'traps' };
+const RECORD_TYPE: RecordType = 'trap';
 const PATH = '/map/traps';
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
@@ -101,21 +102,15 @@ function TrapsExplorerRoute() {
 	const status = query.status;
 	const methodIds = query.methods;
 	const regionIds = query.regions;
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: searchInput,
 		setInput: setSearchInput,
 		clear: clearSearchInput,
 	} = useDebouncedTextFilter(query.search, commitSearch, 200);
-	const setStatus = useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]);
-	const setMethodIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ methods: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
+	const setStatus = (next: StatusFilter) => setFilters({ status: next });
+	const setMethodIds = (next: ReadonlySet<string>) => setFilters({ methods: next });
+	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -125,68 +120,51 @@ function TrapsExplorerRoute() {
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
-	const filters = useMemo<TrapTileFilters>(
-		() => ({
-			...(methodIds.size > 0 ? { collectionMethodIds: [...methodIds] } : {}),
-			...(status === 'all' ? {} : { isActive: status === 'active' }),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(search.length > 0 ? { search } : {}),
-		}),
-		[methodIds, status, regionIds, search],
-	);
-	const legend = useMemo(() => trapLegend(status), [status]);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
+	const filters: TrapTileFilters = {
+		...whenAny('collectionMethodIds', methodIds),
+		...(status === 'all' ? {} : { isActive: status === 'active' }),
+		...whenAny('regionIds', regionIds),
+		...whenText('search', search),
+	};
+	const legend = trapLegend(status);
+	const layer: MapTileLayer = {
+		kind: 'traps',
+		serverUrl: getServerUrl(),
+		filters,
+		selectedId,
+		onSelectFeature: setSelectedId,
+	};
+	const layers: readonly MapTileLayer[] = [layer];
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage, selected, empty } =
+		useExplorerResource<TrapRow>({
+			path: PATH,
+			rowsKey: 'traps',
+			rowKey: 'trap',
+			recordType: 'trap',
+			params: {
 				collectionMethodId: filters.collectionMethodIds,
 				status:
 					filters.isActive === undefined ? undefined : filters.isActive ? 'active' : 'inactive',
 				search: filters.search,
 				regionId: filters.regionIds,
-			}),
-		[filters],
-	);
-
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<TrapSite>({
-			path: PATH,
-			rowsKey: 'traps',
-			label: 'Traps',
-			params,
+			},
+			layer,
+			map,
+			selectedId,
 		});
 
-	const selected = useSelectedMapRecord<TrapSite>({
-		path: PATH,
-		rowKey: 'trap',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
+	const handleMapReady = (instance: MapboxMap) => setMap(instance);
 
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const layers = useMemo(
-		(): readonly MapTileLayer[] => [
-			{
-				kind: 'traps',
-				serverUrl: getServerUrl(),
-				filters,
-				selectedId,
-				onSelectFeature: setSelectedId,
-			},
-		],
-		[filters, selectedId],
-	);
-
-	const clearAll = useCallback(() => {
+	const clearAll = () => {
 		clearSearchInput();
 		reset();
-	}, [clearSearchInput, reset]);
+	};
 	// Both halves: the field the operator is looking at, and the committed term on
 	// the URL that is actually cutting the list.
-	const clearSearch = useCallback(() => {
+	const clearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
+	};
 
 	return (
 		<ExplorerMapPage
@@ -256,7 +234,7 @@ function TrapsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'trap', many: 'traps' }}
+					noun={recordNoun(RECORD_TYPE)}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
@@ -264,14 +242,13 @@ function TrapsExplorerRoute() {
 				/>
 			}
 			heading={{
-				title: 'Traps',
+				title: recordNoun('trap').titleMany,
 				icon: TrapEntityIcon,
 				total,
 				isLoading,
-				noun: RESULT_NOUN,
 				create: {
 					to: '/adult-surveillance/traps/create',
-					label: 'Add Trap',
+					label: createLabel('trap'),
 					minimum: 'manager',
 				},
 			}}
@@ -298,8 +275,7 @@ function TrapsExplorerRoute() {
 				rows,
 				isError,
 				onRetry: retry,
-				emptyTitle: 'No traps match',
-				emptyDescription: 'Loosen the filters, or add a trap to start collecting.',
+				empty,
 				renderRow: (trap) => (
 					<TrapListItem
 						isSelected={trap.id === selectedId}
@@ -328,7 +304,7 @@ function TrapListItem({
 	isSelected,
 	onSelect,
 }: {
-	readonly trap: TrapSite;
+	readonly trap: TrapRow;
 	readonly methodName: string;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;

@@ -1,25 +1,17 @@
 import { commandPathFor, sessionFetch, writeCommand } from '@simmer-mosquito/sync';
 import { and, coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { RouteStopFeature } from '../../../components/map';
 import type { RouteSummary } from '../../../components/route-planning/route-summary';
+import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
 import { addresses } from '../../../lib/collections/addresses';
 import { habitats } from '../../../lib/collections/habitats';
 import { route_items } from '../../../lib/collections/route_items';
 import { routes } from '../../../lib/collections/routes';
 
-// `route_items` is an on-demand shape (docs/sync.md); keep a route's members warm
-// briefly after unmount so hopping index → detail → edit reuses the subset.
-const routeItemsGcTimeMs = 30_000;
-
-// A syntactically valid uuid that matches no row — keeps an `IN`/`eq` subset
-// predicate live (and empty) while a route/id set is still unresolved.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
 /** The slice of a habitat the route surfaces need — geometry, status, address. */
-export interface HabitatSite {
+export interface RouteHabitat {
 	readonly id: string;
 	readonly habitatName: string | null;
 	readonly description: string;
@@ -109,6 +101,17 @@ export function useHabitatRoutes(): {
 	};
 }
 
+/** How many stops each route id holds, over the rows the subset returned. */
+function countStopsByRouteId(
+	stops: readonly { readonly routeId: string }[],
+): ReadonlyMap<string, number> {
+	const map = new Map<string, number>();
+	for (const stop of stops) {
+		map.set(stop.routeId, (map.get(stop.routeId) ?? 0) + 1);
+	}
+	return map;
+}
+
 /**
  * Habitat-stop counts for every route, keyed by route id. Reads the org-scoped
  * `route_items` shape (the same on-demand collection the map preview subscribes to),
@@ -120,7 +123,7 @@ export function useRouteStopCounts(): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -132,13 +135,7 @@ export function useRouteStopCounts(): {
 
 	const stops = result.data;
 
-	const countByRouteId = useMemo(() => {
-		const map = new Map<string, number>();
-		for (const stop of stops) {
-			map.set(stop.routeId, (map.get(stop.routeId) ?? 0) + 1);
-		}
-		return map;
-	}, [stops]);
+	const countByRouteId = countStopsByRouteId(stops);
 
 	return { countByRouteId, isLoading: result.isLoading };
 }
@@ -169,7 +166,7 @@ export function useRouteStops(routeId: string | null): {
 } {
 	const result = useLiveQuery(
 		{
-			gcTime: routeItemsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ item: route_items() })
@@ -177,7 +174,7 @@ export function useRouteStops(routeId: string | null): {
 						and(
 							// An unmatchable id keeps the hook order stable while no route is
 							// selected — a live query cannot be conditional.
-							eq(item.route_id, routeId ?? UNMATCHABLE_ID),
+							eq(item.route_id, routeId ?? unmatchableId),
 							// Pushed into the predicate rather than filtered afterwards: a trap
 							// route's items are rows this subset should never have loaded.
 							eq(item.entity_type, 'habitat'),
@@ -222,37 +219,29 @@ export function useRouteStops(routeId: string | null): {
 
 	const rows = result.data;
 
-	const stops = useMemo<RouteStopView[]>(
-		() =>
-			// The `ordinal` is the one thing the query cannot produce: it is the stop's
-			// place in the ordered result, and a projection sees a row rather than the
-			// sequence. `position` is the stored sort key and can have gaps, so it is
-			// not the number a crew reads off the list.
-			rows.map((row, index) => ({
-				...row,
-				ordinal: index + 1,
-				name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
-				hasLocation: row.lat !== null && row.lng !== null,
-				isResolving: row.resolvedHabitatId === undefined,
-			})),
-		[rows],
-	);
+	// The `ordinal` is the one thing the query cannot produce: it is the stop's
+	// place in the ordered result, and a projection sees a row rather than the
+	// sequence. `position` is the stored sort key and can have gaps, so it is
+	// not the number a crew reads off the list.
+	const stops: RouteStopView[] = rows.map((row, index) => ({
+		...row,
+		ordinal: index + 1,
+		name: row.name ?? `Habitat ${row.habitatId.slice(0, 8)}`,
+		hasLocation: row.lat !== null && row.lng !== null,
+		isResolving: row.resolvedHabitatId === undefined,
+	}));
 
-	const clusters = useMemo(() => clusterByAddress(stops), [stops]);
+	const clusters = clusterByAddress(stops);
 
-	const features = useMemo<RouteStopFeature[]>(
-		() =>
-			stops
-				.filter((stop) => stop.hasLocation)
-				.map((stop) => ({
-					id: stop.routeItemId,
-					lng: stop.lng as number,
-					lat: stop.lat as number,
-					ordinal: stop.ordinal,
-					tone: stopTone(stop),
-				})),
-		[stops],
-	);
+	const features: RouteStopFeature[] = stops
+		.filter((stop) => stop.hasLocation)
+		.map((stop) => ({
+			id: stop.routeItemId,
+			lng: stop.lng as number,
+			lat: stop.lat as number,
+			ordinal: stop.ordinal,
+			tone: stopTone(stop),
+		}));
 
 	return {
 		stops,
@@ -288,7 +277,7 @@ const minSearchLength = 2;
 
 /** Name/address habitat search for the add-stop picker (min 2 chars). */
 export function useHabitatSearch(query: string): {
-	readonly results: readonly HabitatSite[];
+	readonly results: readonly RouteHabitat[];
 	readonly isFetching: boolean;
 	readonly isTooShort: boolean;
 } {
@@ -309,14 +298,14 @@ export function useHabitatSearch(query: string): {
 	};
 }
 
-async function fetchHabitatSearch(query: string, signal: AbortSignal): Promise<HabitatSite[]> {
+async function fetchHabitatSearch(query: string, signal: AbortSignal): Promise<RouteHabitat[]> {
 	const url = new URL('/map/habitats/search', getServerUrl());
 	url.searchParams.set('q', query);
 	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`Habitat search failed (${response.status}).`);
 	}
-	const body = (await response.json()) as { readonly habitats?: HabitatSite[] };
+	const body = (await response.json()) as { readonly habitats?: RouteHabitat[] };
 	return body.habitats ?? [];
 }
 

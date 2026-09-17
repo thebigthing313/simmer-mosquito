@@ -143,7 +143,11 @@ describe('a refused merge', () => {
 		// The seam between the request and `mergeRefusalReason`: the refusal has to
 		// arrive as a `CommandError` carrying the server's body, or the dialog falls
 		// through to a message about nothing it can act on.
-		stubApiRefusal(409, { error: 'merge_refused', reason: 'target_inactive' });
+		stubApiRefusal(409, {
+			error: 'merge_refused',
+			code: 'target_inactive',
+			reason: 'That habitat is retired.',
+		});
 		const { result } = renderHook(() => useRecordMerge('habitat'));
 
 		const refusal = await result

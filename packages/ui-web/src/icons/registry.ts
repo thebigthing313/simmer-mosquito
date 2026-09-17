@@ -23,6 +23,7 @@ import {
 	Copy,
 	Download,
 	Droplet,
+	DropletOff,
 	Edit,
 	Eye,
 	EyeOff,
@@ -88,7 +89,6 @@ import {
 	Upload,
 	User,
 	Users,
-	WavesHorizontal,
 	Worm,
 	Wrench,
 	X,
@@ -170,7 +170,12 @@ export const iconRegistry = {
 		contact: icon('contact', 'Contact', 'entities', User),
 		equipment: icon('equipment', 'Equipment', 'entities', Wrench),
 		formulation: icon('formulation', 'Formulation', 'entities', Beaker),
-		habitat: icon('habitat', 'Habitat', 'entities', WavesHorizontal),
+		// A Habitat is where larvae are found, and the worm is the mark the product
+		// already reads as larval, so it heads a Habitat everywhere one is named.
+		// It is the same glyph as `domains.larvalSurveillance` on purpose: the
+		// Habitat is the core record of that domain, so the two share a mark
+		// rather than competing for one. Do not split them.
+		habitat: icon('habitat', 'Habitat', 'entities', Worm),
 		insecticide: icon('insecticide', 'Insecticide', 'entities', SprayCan),
 		inspection: icon('inspection', 'Inspection', 'entities', ClipboardCheck),
 		mission: icon('mission', 'Mission', 'entities', Target),
@@ -186,18 +191,18 @@ export const iconRegistry = {
 		route: icon('route', 'Route', 'entities', Route),
 		sample: icon('sample', 'Sample', 'entities', FlaskConical),
 		serviceRequest: icon('serviceRequest', 'Service request', 'entities', PhoneCall),
-		sourceReductionAction: icon(
-			'sourceReductionAction',
-			'Source reduction action',
-			'entities',
-			Trash2,
-		),
+		// Not the bin: `actions.delete` is `Trash2`, and the two sit in the same
+		// menu on a Habitat, where "Record source reduction" and "Delete habitat"
+		// showed one glyph for two different things. Source reduction removes the
+		// standing water a Habitat holds, so the struck-through droplet says what
+		// the action does rather than borrowing the mark for discarding a record.
+		sourceReduction: icon('sourceReduction', 'Source reduction action', 'entities', DropletOff),
 		tag: icon('tag', 'Tag', 'entities', Tag),
 		taxonomy: icon('taxonomy', 'Taxonomy', 'entities', Network),
 		trap: icon('trap', 'Trap', 'entities', Box),
 		unit: icon('unit', 'Unit', 'entities', Ruler),
 		vehicle: icon('vehicle', 'Vehicle', 'entities', Truck),
-		weatherSource: icon('weatherSource', 'Weather source', 'entities', Thermometer),
+		weatherStation: icon('weatherStation', 'Weather station', 'entities', Thermometer),
 	},
 	actions: {
 		add: icon('add', 'Add', 'actions', Plus),

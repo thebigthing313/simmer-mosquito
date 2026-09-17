@@ -2,7 +2,7 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -15,16 +15,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import {
 	CalendarIcon,
@@ -38,32 +30,34 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useId, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
+import { newRecordId } from '../../../hooks/mutations/shared';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
 	type SampleSpeciesFields,
 	useSampleSpeciesMutations,
 } from '../../../hooks/mutations/use-sample-species-mutations';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
-import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
-import { todayInTimeZone } from '../-overview-data';
-import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
+import { habitatLabel } from '../../../lib/coordinate-label';
+import { todayInTimeZone } from '../../../lib/local-date';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
+import { sampleName } from '../../../lib/sample-name';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
@@ -72,15 +66,21 @@ export const Route = createFileRoute('/larval-surveillance/samples/$id')({
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
-	padding: 'trailing',
 	stickyAside: true,
 	skeleton: {
-		eyebrow: 'w-28',
-		subtitle: 'w-48',
-		main: ['h-[320px]', 'h-64'],
+		main: [['h-[320px]', 'h-64'], 'h-64'],
 		aside: ['h-96'],
 	},
 };
+
+/**
+ * What this page calls the habitat a sample was taken at.
+ *
+ * The fallback is the sample's own category, not the inspection's: this page
+ * reached `adhocLabel` on its default and a sample carrying no centroid read
+ * `Ad-hoc inspection`.
+ */
+const SAMPLE_LABEL = { fallback: 'Ad-hoc sample' } as const;
 
 function RouteComponent() {
 	const { id } = Route.useParams();
@@ -88,16 +88,9 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			actions={
-				<SampleSourceButtons
-					habitatId={query.data?.habitatId ?? null}
-					inspectionId={query.data?.inspectionId ?? null}
-				/>
-			}
-			back={{ label: 'Back to samples', to: '/larval-surveillance/samples' }}
 			deleteRefusals={SAMPLE_DELETE_REFUSALS}
 			layout={layout}
-			noun="sample"
+			recordType="sample"
 			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
 		>
 			{(record, askDelete) => <SampleDetailContent askDelete={askDelete} geo={record} />}
@@ -110,11 +103,7 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 // names come from — the same mark heads the card on adult collections.
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
-const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
-
-// The sample record + its species rows stream from on-demand collections; keep the
-// subset warm briefly after unmount so returning to the page reuses it.
-const sampleRecordGcTimeMs = 30_000;
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 
 /**
  * One identification as this page holds it.
@@ -204,36 +193,6 @@ interface SampleGeoRow {
 	readonly updatedAt: string;
 }
 
-/** The inspection this sample was taken on, and the site that inspection was at. */
-function SampleSourceButtons({
-	habitatId,
-	inspectionId,
-}: {
-	readonly habitatId: string | null;
-	readonly inspectionId: string | null;
-}) {
-	return (
-		<>
-			{inspectionId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: inspectionId }} to="/larval-surveillance/inspections/$id">
-						<InspectionIcon aria-hidden="true" />
-						View inspection
-					</Link>
-				</Button>
-			)}
-			{habitatId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-						<HabitatIcon aria-hidden="true" />
-						View habitat
-					</Link>
-				</Button>
-			)}
-		</>
-	);
-}
-
 function SampleDetailContent({
 	geo,
 	askDelete,
@@ -252,72 +211,61 @@ function SampleDetailContent({
 	const sampleMutations = useSampleMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
-				<>
-					<ContextCard geo={geo} />
-					<CommentsSection
-						description="Lab notes, identification context, and follow-up for this sample."
-						target={{ type: 'sample', id: geo.id }}
-					/>
-				</>
+				<CommentsSection
+					description="Lab notes, identification context, and follow-up for this sample."
+					target={{ type: 'sample', id: geo.id }}
+				/>
 			}
-			header={<SampleHeader canManage={canManage} geo={geo} />}
+			facts={<ContextCard geo={geo} />}
+			header={{
+				flags: <AccessBadge canManage={canManage} />,
+				icon: SampleIcon,
+				recordType: 'sample',
+				remove: {
+					ask: askDelete,
+					name: breadcrumbLabel(geo),
+					onDelete: (acknowledgements) => sampleMutations.remove(geo.id, acknowledgements),
+					recordId: geo.id,
+					returnTo: '/larval-surveillance/samples',
+				},
+				subtitle: <SampleSubtitle geo={geo} />,
+				title: sampleName(geo),
+			}}
 			layout={layout}
+			lead={<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />}
 		>
-			<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />
 			<IdentificationCard canManage={canManage} identity={identity} sampleId={geo.id} seed={geo} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={breadcrumbLabel(geo)}
-				noun="sample"
-				onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
-				recordId={geo.id}
-				recordType="sample"
-				returnTo="/larval-surveillance/samples"
-			/>
-		</RecordDetailColumns>
+		</DetailPageShell>
 	);
 }
 
-function SampleHeader({
-	geo,
-	canManage,
-}: {
-	readonly geo: SampleGeoRow;
-	readonly canManage: boolean;
-}) {
+/** When the sample was collected, and off what. */
+function SampleSubtitle({ geo }: { readonly geo: SampleGeoRow }) {
 	return (
-		<PageHeader
-			actions={<AccessBadge canManage={canManage} />}
-			description={
-				<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
-					<CalendarIcon aria-hidden="true" className="size-4" />
-					<span>Collected {formatFullDate(geo.inspectionDate)}</span>
-					{geo.habitatId === null ? (
-						<>
-							<span aria-hidden="true">·</span>
-							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
-						</>
-					) : (
-						<>
-							<span aria-hidden="true">·</span>
-							<span>at</span>
-							<Link
-								className={recordLink()}
-								params={{ id: geo.habitatId }}
-								to="/larval-surveillance/habitats/$id"
-							>
-								{habitatLabel(geo)}
-							</Link>
-						</>
-					)}
-				</p>
-			}
-			eyebrow="Larval sample"
-			icon={SampleIcon}
-			title={sampleName(geo)}
-		/>
+		<p className="m-0 inline-flex flex-wrap items-center gap-1.5">
+			<CalendarIcon aria-hidden="true" className="size-4" />
+			<span>Collected {formatFullDate(geo.inspectionDate)}</span>
+			{geo.habitatId === null ? (
+				<>
+					<span aria-hidden="true">·</span>
+					<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
+				</>
+			) : (
+				<>
+					<span aria-hidden="true">·</span>
+					<span>at</span>
+					<Link
+						className={recordLink()}
+						params={{ id: geo.habitatId }}
+						to="/larval-surveillance/habitats/$id"
+					>
+						{habitatLabel(geo, SAMPLE_LABEL)}
+					</Link>
+				</>
+			)}
+		</p>
 	);
 }
 
@@ -384,7 +332,7 @@ function IdentificationCard({
 	// and label. Falls back to the one-shot seed until the subset is ready.
 	const recordResult = useLiveQuery(
 		{
-			gcTime: sampleRecordGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
 		},
@@ -392,7 +340,7 @@ function IdentificationCard({
 	);
 	const speciesResult = useLiveQuery(
 		{
-			gcTime: sampleRecordGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ sampleSpecies: sample_species() })
@@ -430,80 +378,69 @@ function IdentificationCard({
 	const larvaeTotal = speciesRows.reduce((sum, row) => sum + row.larvaeCount, 0);
 	const meta = STATUS_META[status];
 
-	const takenSpeciesIds = useMemo(
-		() => new Set(speciesRows.map((row) => row.speciesId)),
-		[speciesRows],
-	);
+	const takenSpeciesIds = new Set(speciesRows.map((row) => row.speciesId));
 
 	const timeZone = useOrganizationTimeZone();
 
-	const guard = useCallback((): boolean => {
+	const guard = (): boolean => {
 		if (!canManage || identity?.organizationId == null) {
 			setError('You do not have permission to manage this sample.');
 			return false;
 		}
 		return true;
-	}, [canManage, identity]);
+	};
 
-	const handleAddSpecies = useCallback(
-		async (speciesId: string, larvaeCount: number) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			try {
-				await speciesMutations.add({
-					sampleSpeciesId: crypto.randomUUID(),
-					sampleId,
-					fields: {
-						speciesId,
-						larvaeCount,
-						identifiedByProfileId: identity?.profileId ?? null,
-						// A calendar date, not a timestamp — the domain builder validates
-						// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-						identifiedAt: todayInTimeZone(timeZone),
-					},
-				});
-			} catch (cause) {
-				setError(messageOf(cause, 'Unable to add species.'));
-			}
-		},
-		[guard, identity, sampleId, timeZone, speciesMutations],
-	);
+	const handleAddSpecies = async (speciesId: string, larvaeCount: number) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		const identifiedByProfileId = identity?.profileId ?? null;
+		try {
+			await speciesMutations.add({
+				sampleSpeciesId: newRecordId(),
+				sampleId,
+				fields: {
+					speciesId,
+					larvaeCount,
+					identifiedByProfileId,
+					// A calendar date, not a timestamp — the domain builder validates
+					// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
+					identifiedAt: todayInTimeZone(timeZone),
+				},
+			});
+		} catch (cause) {
+			setError(messageOf(cause, 'Unable to add species.'));
+		}
+	};
 
-	const handleUpdateCount = useCallback(
-		async (rowId: string, larvaeCount: number) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			const current = speciesRows.find((row) => row.id === rowId);
-			if (current === undefined) {
-				return;
-			}
-			try {
-				await speciesMutations.save(rowId, { ...current, larvaeCount }, current);
-			} catch (cause) {
-				setError(messageOf(cause, 'Unable to update count.'));
-			}
-		},
-		[guard, speciesRows, speciesMutations],
-	);
+	const handleUpdateCount = async (rowId: string, larvaeCount: number) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		const current = speciesRows.find((row) => row.id === rowId);
+		if (current === undefined) {
+			return;
+		}
+		try {
+			await speciesMutations.save(rowId, { ...current, larvaeCount }, current);
+		} catch (cause) {
+			setError(messageOf(cause, 'Unable to update count.'));
+		}
+	};
 
-	const handleRemoveSpecies = useCallback(
-		async (rowId: string) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			try {
-				await speciesMutations.remove(rowId);
-			} catch (cause) {
-				setError(messageOf(cause, 'Unable to remove species.'));
-			}
-		},
-		[guard, speciesMutations],
-	);
+	const handleRemoveSpecies = async (rowId: string) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		try {
+			await speciesMutations.remove(rowId);
+		} catch (cause) {
+			setError(messageOf(cause, 'Unable to remove species.'));
+		}
+	};
 
 	/**
 	 * The four disposition writes, each naming its own command.
@@ -513,43 +450,34 @@ function IdentificationCard({
 	 * this migration removes. Zero-larvae is two commands because which way it
 	 * moved is the point; the other three are one each.
 	 */
-	const runPatch = useCallback(
-		async (write: () => Promise<void>, fallback: string) => {
-			if (!guard()) {
-				return;
-			}
-			setError(null);
-			try {
-				await write();
-			} catch (cause) {
-				setError(messageOf(cause, fallback));
-			}
-		},
-		[guard],
-	);
+	const runPatch = async (write: () => Promise<void>, fallback: string) => {
+		if (!guard()) {
+			return;
+		}
+		setError(null);
+		try {
+			await write();
+		} catch (cause) {
+			setError(messageOf(cause, fallback));
+		}
+	};
 
-	const disposition = useMemo(
-		() => ({
-			setZeroLarvae: (next: boolean) =>
-				runPatch(
-					() => sampleMutations.setZeroLarvae(sampleId, next),
-					'Unable to update the sample.',
-				),
-			setNonMosquito: (next: boolean) =>
-				runPatch(
-					() => sampleMutations.setNonMosquito(sampleId, next),
-					'Unable to update the sample.',
-				),
-			setUnidentifiableReason: (next: string) =>
-				runPatch(
-					() => sampleMutations.setUnidentifiableReason(sampleId, next === '' ? null : next),
-					'Unable to update the sample.',
-				),
-			rename: (next: string) =>
-				runPatch(() => sampleMutations.rename(sampleId, next), 'Unable to update the sample.'),
-		}),
-		[runPatch, sampleMutations, sampleId],
-	);
+	const disposition = {
+		setZeroLarvae: (next: boolean) =>
+			runPatch(() => sampleMutations.setZeroLarvae(sampleId, next), 'Unable to update the sample.'),
+		setNonMosquito: (next: boolean) =>
+			runPatch(
+				() => sampleMutations.setNonMosquito(sampleId, next),
+				'Unable to update the sample.',
+			),
+		setUnidentifiableReason: (next: string) =>
+			runPatch(
+				() => sampleMutations.setUnidentifiableReason(sampleId, next === '' ? null : next),
+				'Unable to update the sample.',
+			),
+		rename: (next: string) =>
+			runPatch(() => sampleMutations.rename(sampleId, next), 'Unable to update the sample.'),
+	};
 
 	return (
 		<Card variant="surface">
@@ -587,44 +515,49 @@ function IdentificationCard({
 					</Alert>
 				) : null}
 
-				{isError ? (
-					<ResultsUnavailable />
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-12 w-full" key={index} />
-						))}
-					</div>
-				) : (
-					<>
-						<SpeciesResultList
-							canManage={canManage}
-							nameById={nameById}
-							onRemove={handleRemoveSpecies}
-							onUpdateCount={handleUpdateCount}
-							rows={speciesRows}
-							total={larvaeTotal}
-						/>
-
-						{canManage ? (
-							<AddSpeciesRow
-								onAdd={handleAddSpecies}
-								options={options}
-								takenSpeciesIds={takenSpeciesIds}
+				{/* No `empty`: a sample nobody has keyed out still needs its add row and
+				    its disposition controls, so `SpeciesResultList` says there are no
+				    species where the list would be rather than in place of the card. */}
+				<PanelRows
+					icon={<SpeciesIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: speciesRows }}
+					unavailable={{
+						description: 'The sample’s identification could not be loaded. Try again shortly.',
+						title: 'Results Unavailable',
+					}}
+					wrap="none"
+				>
+					{(rows) => (
+						<>
+							<SpeciesResultList
+								canManage={canManage}
+								nameById={nameById}
+								onRemove={handleRemoveSpecies}
+								onUpdateCount={handleUpdateCount}
+								rows={rows}
+								total={larvaeTotal}
 							/>
-						) : null}
 
-						<DispositionSection
-							canManage={canManage}
-							displayName={displayName}
-							hasNonMosquito={hasNonMosquito}
-							hasSpecies={speciesRows.length > 0}
-							isZeroLarvae={isZeroLarvae}
-							disposition={disposition}
-							unidentifiableReason={unidentifiableReason}
-						/>
-					</>
-				)}
+							{canManage ? (
+								<AddSpeciesRow
+									onAdd={handleAddSpecies}
+									options={options}
+									takenSpeciesIds={takenSpeciesIds}
+								/>
+							) : null}
+
+							<DispositionSection
+								canManage={canManage}
+								displayName={displayName}
+								hasNonMosquito={hasNonMosquito}
+								hasSpecies={rows.length > 0}
+								isZeroLarvae={isZeroLarvae}
+								disposition={disposition}
+								unidentifiableReason={unidentifiableReason}
+							/>
+						</>
+					)}
+				</PanelRows>
 			</CardContent>
 
 			{identity?.organizationId == null ? null : (
@@ -724,20 +657,12 @@ function SpeciesResultRow({
 			return;
 		}
 		setBusy(true);
-		try {
-			await onUpdateCount(row.id, resolved);
-		} finally {
-			setBusy(false);
-		}
+		await onUpdateCount(row.id, resolved).finally(() => setBusy(false));
 	};
 
 	const remove = async () => {
 		setBusy(true);
-		try {
-			await onRemove(row.id);
-		} finally {
-			setBusy(false);
-		}
+		await onRemove(row.id).finally(() => setBusy(false));
 	};
 
 	return (
@@ -792,13 +717,9 @@ function AddSpeciesRow({
 
 	// `sample_species` holds one row per species, so anything already identified is
 	// edited in the list above rather than offered again here.
-	const available = useMemo(
-		() =>
-			options
-				.filter((option) => !takenSpeciesIds.has(option.id))
-				.map((option) => ({ value: option.id, label: option.label })),
-		[options, takenSpeciesIds],
-	);
+	const available = options
+		.filter((option) => !takenSpeciesIds.has(option.id))
+		.map((option) => ({ value: option.id, label: option.label }));
 
 	const canAdd =
 		speciesId !== null && count !== null && Number.isFinite(count) && count >= 0 && !busy;
@@ -808,13 +729,9 @@ function AddSpeciesRow({
 			return;
 		}
 		setBusy(true);
-		try {
-			await onAdd(speciesId, Math.trunc(count));
-			setSpeciesId(null);
-			setCount(1);
-		} finally {
-			setBusy(false);
-		}
+		await onAdd(speciesId, Math.trunc(count)).finally(() => setBusy(false));
+		setSpeciesId(null);
+		setCount(1);
 	};
 
 	return (
@@ -985,11 +902,7 @@ function TextPatchField({
 			return;
 		}
 		setBusy(true);
-		try {
-			await onCommit(next);
-		} finally {
-			setBusy(false);
-		}
+		await onCommit(next).finally(() => setBusy(false));
 	};
 
 	if (!canManage) {
@@ -1049,7 +962,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					</DetailRow>
 					<DetailRow label="Habitat">
 						{geo.habitatId === null ? (
-							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
+							<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
 						) : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
@@ -1057,12 +970,11 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 								to="/larval-surveillance/habitats/$id"
 							>
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{habitatLabel(geo)}
+								{habitatLabel(geo, SAMPLE_LABEL)}
 							</Link>
 						)}
 					</DetailRow>
 					<DetailRow label="Collected">{formatFullDate(geo.inspectionDate)}</DetailRow>
-					<DetailRow label="Coordinates">{coordinateLabel(geo)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(geo.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(geo.updatedAt, timeZone)}</DetailRow>
 				</DetailList>
@@ -1131,22 +1043,6 @@ async function fetchSampleGeoContext(
 
 // --- presentational states --------------------------------------------------
 
-function ResultsUnavailable() {
-	return (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<SpeciesIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>Results Unavailable</EmptyTitle>
-				<EmptyDescription>
-					The sample’s identification could not be loaded. Try again shortly.
-				</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function resolveStatus(input: {
@@ -1166,23 +1062,8 @@ function resolveStatus(input: {
 	return 'awaiting';
 }
 
-function sampleName(geo: SampleGeoRow): string {
-	return geo.displayName?.trim() || `Sample ${geo.id.slice(0, 8)}`;
-}
-
-function habitatLabel(geo: SampleGeoRow): string {
-	return (
-		geo.habitatName?.trim() ||
-		(geo.habitatId === null ? 'Ad-hoc' : `Habitat ${geo.habitatId.slice(0, 8)}`)
-	);
-}
-
 function breadcrumbLabel(geo: SampleGeoRow): string {
 	return `Sample · ${formatMonthDayYear(geo.inspectionDate)}`;
-}
-
-function coordinateLabel(geo: SampleGeoRow): string {
-	return formatCoordinates(geo.lat, geo.lng) ?? 'Unknown coordinates';
 }
 
 function messageOf(cause: unknown, fallback: string): string {

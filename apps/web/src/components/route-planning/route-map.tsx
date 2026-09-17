@@ -1,9 +1,37 @@
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { MapCanvas, type RouteStopFeature } from '../map';
 import { MapControlButton, MapControlGroup } from '../map/map-control';
 import { boundsOfStops, type RouteStop } from './route-stop';
+
+/**
+ * Frame a map on a route's stops. It takes the stops as an argument rather than
+ * closing over them so the auto-fit effect can depend on the stops themselves.
+ */
+function fitToRoute(instance: MapboxMap, stops: readonly RouteStop[], animate: boolean): void {
+	const bounds = boundsOfStops(stops);
+	if (bounds === null) {
+		return;
+	}
+	const [[west, south], [east, north]] = bounds;
+	const duration = animate ? 650 : 0;
+	if (west === east && south === north) {
+		instance.easeTo({
+			center: [west, south],
+			zoom: Math.max(instance.getZoom(), 15),
+			duration,
+		});
+		return;
+	}
+	instance.fitBounds(
+		[
+			[west, south],
+			[east, north],
+		],
+		{ padding: 72, maxZoom: 16, duration },
+	);
+}
 
 interface RouteMapProps {
 	readonly stops: readonly RouteStop[];
@@ -35,29 +63,7 @@ export function RouteMap({
 	children,
 }: RouteMapProps) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
-	const stopsRef = useRef(stops);
-	stopsRef.current = stops;
 	const lastFitRef = useRef<string | null>(null);
-
-	const fitToRoute = useCallback((instance: MapboxMap, animate: boolean) => {
-		const bounds = boundsOfStops(stopsRef.current);
-		if (bounds === null) {
-			return;
-		}
-		const [[west, south], [east, north]] = bounds;
-		const duration = animate ? 650 : 0;
-		if (west === east && south === north) {
-			instance.easeTo({ center: [west, south], zoom: Math.max(instance.getZoom(), 15), duration });
-			return;
-		}
-		instance.fitBounds(
-			[
-				[west, south],
-				[east, north],
-			],
-			{ padding: 72, maxZoom: 16, duration },
-		);
-	}, []);
 
 	// Auto-fit once per fitKey, but only after geometry has actually resolved.
 	useEffect(() => {
@@ -72,14 +78,14 @@ export function RouteMap({
 			return;
 		}
 		lastFitRef.current = key;
-		fitToRoute(map, true);
-	}, [map, fitKey, stops, fitToRoute]);
+		fitToRoute(map, stops, true);
+	}, [map, fitKey, stops]);
 
-	const handleZoom = useCallback(() => {
+	const handleZoom = () => {
 		if (map !== null) {
-			fitToRoute(map, true);
+			fitToRoute(map, stops, true);
 		}
-	}, [map, fitToRoute]);
+	};
 
 	const hasMappedStops = features.length > 0;
 	const hasUnmappedOnly = !hasMappedStops && stops.length > 0;

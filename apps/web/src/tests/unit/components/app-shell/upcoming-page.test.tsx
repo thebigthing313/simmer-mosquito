@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { ShellProvider } from '@simmer-mosquito/ui-web/components/app-shell';
+import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -55,6 +56,47 @@ describe('UpcomingPage', () => {
 			expect(screen.getByText('What will land here')).toBeTruthy();
 			cleanup();
 		}
+	});
+
+	// One prop here is the measure of all fourteen stubs. The route-loading
+	// skeleton reserves the record measure and draws its heading at the frame's
+	// left edge, so a stub centred in the 1200 column arrived narrower than the
+	// skeleton with its heading 440px to the right of where the skeleton's sat
+	// (#1043, #1048). The prose keeps a measure of its own inside the frame.
+	it('draws in the record measure the route-loading skeleton reserves', () => {
+		const { container } = renderAt('/gis/data-explorer');
+		const measure = pageContainer({ measure: 'record' })
+			.split(/\s+/)
+			.find((cls) => cls.startsWith('max-w-'));
+		if (measure === undefined) {
+			throw new Error('pageContainer names no record measure');
+		}
+
+		expect(container.querySelector(`.${CSS.escape(measure)}`)).not.toBeNull();
+		expect(container.querySelector(`.${CSS.escape('max-w-[1200px]')}`)).toBeNull();
+		// The prose column sits at the frame's left edge, where the skeleton's
+		// heading sits, rather than centring itself in the wider frame.
+		const prose = container.querySelector('h1')?.closest(`.${CSS.escape('max-w-[46rem]')}`);
+		expect(prose).not.toBeNull();
+		expect(prose?.classList.contains('mx-auto')).toBe(false);
+		expect(prose?.parentElement?.classList.contains('mx-auto')).toBe(false);
+	});
+
+	// The frame pads the page and the skeleton reads the same `page` padding,
+	// so the stub's badge lands where the skeleton's title bar sat only if the
+	// grid inside the frame adds no vertical padding of its own. It carried
+	// `py-6` on top of the frame's `py-6 md:py-8`, which put the badge 56px
+	// below the stage top on a desktop screen against the skeleton's 32px
+	// (#1060).
+	it('adds no vertical padding inside the frame the skeleton shares', () => {
+		const { container } = renderAt('/gis/data-explorer');
+		const frame = container.firstElementChild;
+		const grid = container.querySelector('h1')?.closest('header')?.parentElement;
+		expect(frame?.className).toBe(
+			pageContainer({ flow: 'block', gap: 'none', measure: 'record', padding: 'page' }),
+		);
+		expect(grid?.parentElement).toBe(frame);
+		expect(grid?.className.split(/\s+/).filter((cls) => /^-?(p|py|pt|pb)-/.test(cls))).toEqual([]);
 	});
 });
 

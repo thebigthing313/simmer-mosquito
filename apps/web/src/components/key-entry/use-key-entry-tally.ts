@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 
 /**
  * One line of the running tally. The variant distinguishes lines that share a species
@@ -153,24 +153,24 @@ export interface KeyEntryTally {
 export function useKeyEntryTally(): KeyEntryTally {
 	const [state, setState] = useState<TallyState>(EMPTY_TALLY_STATE);
 
-	const add = useCallback((speciesId: string, variant: TallyVariant) => {
+	const add = (speciesId: string, variant: TallyVariant) => {
 		setState((current) => applyPress(current, speciesId, variant));
-	}, []);
+	};
 
-	const undo = useCallback(() => {
+	const undo = () => {
 		setState(applyUndo);
-	}, []);
+	};
 
-	const clear = useCallback(() => {
+	const clear = () => {
 		setState(EMPTY_TALLY_STATE);
-	}, []);
+	};
 
-	const setCount = useCallback((entryKey: string, count: number) => {
+	const setCount = (entryKey: string, count: number) => {
 		setState((current) => applySetCount(current, entryKey, count));
-	}, []);
+	};
 
-	const entries = useMemo(() => tallyEntries(state), [state]);
-	const total = useMemo(() => entries.reduce((sum, entry) => sum + entry.count, 0), [entries]);
+	const entries = tallyEntries(state);
+	const total = entries.reduce((sum, entry) => sum + entry.count, 0);
 
 	return {
 		entries,

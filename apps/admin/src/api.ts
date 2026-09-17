@@ -6,6 +6,7 @@ import type {
 	OrganizationSubscriptionStatus,
 	SimmerRole,
 } from '@simmer-mosquito/domain';
+import { refusalSentence } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
 import { refusalMessage } from './lib/refusal-messages';
 
@@ -458,28 +459,30 @@ function adminApiError(response: Response, body: unknown, fallback: string): Adm
 }
 
 /**
- * What a refusal reads as, in three steps and never as a code.
+ * What a refusal reads as, and never a code.
  *
- * The register is asked first, then the server's own `reason`, then the
- * caller's fallback. `refusal-messages.ts` carries why the register comes
- * before `reason` and what may be entered in it; the short version is that a
- * code in it is a code no admin-reachable refusal writes a sentence for, and
- * three of them send a `reason` that is a code.
+ * The body's own sentence is asked first through `refusalSentence`, then the
+ * register, then the caller's fallback. Reading the body first is the plain
+ * order and #795 is what let it come back: `reason` used to be a code on three
+ * of the refusals the console reaches, so preferring it would have put
+ * `organization_required` in a red box, and the register was read first to stop
+ * that (#689). Every refusal body's `reason` is now a sentence, so the register
+ * is what answers a code that sends no sentence at all, which
+ * `refusal-messages.ts` lists.
+ *
+ * The register is passed as the fallback rather than consulted between the two
+ * body fields, so `message` now wins over it where both exist. That is the
+ * register's own rule read the other way round: an entry goes in only for a
+ * code every admin-reachable refusal sends bare, and `message` is a sentence.
+ * The two refusals that write one, `delete_blocked` and
+ * `acknowledgement_required`, have no entry.
  *
  * `body.error` is never returned. A code the register has not thought about
  * takes the fallback, which is a sentence every caller already supplies.
  */
 function responseErrorMessage(body: unknown, fallback: string): string {
-	if (isRecord(body)) {
-		const mapped = refusalMessage(typeof body.error === 'string' ? body.error : null);
-		if (mapped !== null) {
-			return mapped;
-		}
-		if (typeof body.reason === 'string' && body.reason.trim() !== '') {
-			return body.reason;
-		}
-	}
-	return fallback;
+	const code = isRecord(body) && typeof body.error === 'string' ? body.error : null;
+	return refusalSentence(body, refusalMessage(code) ?? fallback);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

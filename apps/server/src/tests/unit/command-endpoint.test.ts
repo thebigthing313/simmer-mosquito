@@ -41,7 +41,7 @@ describe('a domain refusal raised inside the write transaction', () => {
 		expect(response.status).toBe(400);
 		await expect(response.json()).resolves.toEqual({
 			error: 'invalid_command',
-			message: 'Geometry must cover ground.',
+			reason: 'Geometry must cover ground.',
 			issues: [{ path: 'geometry', message: 'Geometry must cover ground.' }],
 		});
 	});
@@ -83,7 +83,7 @@ describe('a domain refusal raised by the builder', () => {
 		expect(response.status).toBe(400);
 		await expect(response.json()).resolves.toEqual({
 			error: 'invalid_command',
-			message: 'Name is required.',
+			reason: 'Name is required.',
 			issues: [{ path: 'name', message: 'Name is required.' }],
 		});
 	});
@@ -116,6 +116,38 @@ describe('handleCommandError', () => {
 			'reference_refused',
 			'mission_notifications_refused',
 		]);
+	});
+
+	it('splits the discriminator onto `code` and leaves `reason` a sentence', () => {
+		// #795: the three refusals whose class carries a `reason` union used to put
+		// that union in the body's `reason` and the sentence in a sibling
+		// `message`, so a caller rendering `reason` showed a person `target_inactive`.
+		// A body's `reason` is prose everywhere now, and a client branches on
+		// `error` and then on `code`.
+		const bodies = [
+			new RecordMergeRefusedError(
+				'habitat',
+				'target_inactive',
+				[recordId],
+				'That habitat is retired.',
+			),
+			new ReferenceRefusedError('insecticide', 'inactive', 'insecticide'),
+			new MissionNotificationRefusedError('mission_not_found', recordId, 'No such mission.'),
+		].map((error) => answered(error).body as { readonly code: string; readonly reason: string });
+
+		expect(bodies.map((body) => body.code)).toEqual([
+			'target_inactive',
+			'inactive',
+			'mission_not_found',
+		]);
+		expect(bodies.map((body) => body.reason)).toEqual([
+			'That habitat is retired.',
+			'That insecticide is inactive and cannot be used on new records. Reactivate it first, or pick another.',
+			'No such mission.',
+		]);
+		// And no `message` beside them, which is what a caller would otherwise have
+		// to know to prefer.
+		expect(bodies.every((body) => !('message' in body))).toBe(true);
 	});
 
 	it('rethrows an error nobody declared', () => {

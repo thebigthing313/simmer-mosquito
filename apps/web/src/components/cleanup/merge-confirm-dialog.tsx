@@ -11,9 +11,10 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
 import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
+import { recordNoun } from '../../lib/record-nouns';
 import {
 	defaultMergeFieldSelections,
 	mergeFieldProblems,
@@ -32,6 +33,13 @@ export interface MergeConfirmDialogProps {
 	readonly target: DuplicateRecord;
 	/** The records folded into it and retired. */
 	readonly sources: readonly DuplicateRecord[];
+	/**
+	 * Whether there is an Organization and an actor Profile to record the merge
+	 * against. The route computes it with `canAttributeWrite` and the page hands
+	 * it down; a merge is a command like any other write and the server refuses
+	 * one it cannot attribute, so the button is off before the click (#944).
+	 */
+	readonly canSubmit: boolean;
 	/** Runs the merge. Rejects with the server's refusal. */
 	readonly onConfirm: (acknowledged: boolean, fieldUpdates: MergeFieldUpdates) => Promise<void>;
 }
@@ -46,10 +54,11 @@ export interface MergeConfirmDialogProps {
  * write, and a second vocabulary for the same kind of decision would be worse
  * than a modal.
  *
- * Two things have to be true before the button is live: no required field has
- * been emptied, and the user has ticked the acknowledgement. Until then this
- * sends `false` for the flag rather than omitting it, because the server reads
- * an absent flag as agreement.
+ * Three things have to be true before the button is live: there is an actor
+ * Profile to attribute the merge to, no required field has been emptied, and
+ * the user has ticked the acknowledgement. Until then this sends `false` for
+ * the flag rather than omitting it, because the server reads an absent flag as
+ * agreement.
  *
  * ## What moves is stated, not counted
  *
@@ -69,10 +78,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 	const [failure, setFailure] = useState<string | null>(null);
 	const [isMerging, setIsMerging] = useState(false);
 
-	const rows = useMemo(
-		() => mergeFieldRows(props.recordType, props.target, props.sources),
-		[props.recordType, props.target, props.sources],
-	);
+	const rows = mergeFieldRows(props.recordType, props.target, props.sources);
 	// Seeded once. The page unmounts this dialog when the set or the survivor
 	// changes, so there is no open dialog whose defaults could go stale, and
 	// re-seeding on every render would undo the reader's edit as they typed it.
@@ -102,9 +108,8 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 			props.onOpenChange(false);
 		} catch (error) {
 			setFailure(refusalMessage(error, props.config));
-		} finally {
-			setIsMerging(false);
 		}
+		setIsMerging(false);
 	}
 
 	return (
@@ -161,7 +166,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>
 					<AlertDialogAction
-						disabled={!acknowledged || isMerging || problems.length > 0}
+						disabled={!props.canSubmit || !acknowledged || isMerging || problems.length > 0}
 						onClick={(event) => {
 							// The primitive closes on click. This one has to stay open to show
 							// a refusal, and closes itself once the write settles.
@@ -202,7 +207,7 @@ function EmptyFieldAlert({
 			</AlertTitle>
 			<AlertDescription>
 				{problems.length === 1
-					? `Every ${config.noun.one} needs one.`
+					? `Every ${recordNoun(config.recordType).one} needs one.`
 					: `${problems.join(', ')} each need a value.`}
 			</AlertDescription>
 		</Alert>
@@ -255,14 +260,16 @@ function Acknowledgement({
  * "The other address are retired" reached the screen.
  */
 function retiredPhrase(count: number, config: RecordCleanupConfig): string {
+	const noun = recordNoun(config.recordType);
 	return count === 1
-		? `The other ${config.noun.one} is retired.`
-		: `The other ${count} ${config.noun.many} are retired.`;
+		? `The other ${noun.one} is retired.`
+		: `The other ${count} ${noun.many} are retired.`;
 }
 
 /** The same subject, for a sentence that supplies its own verb. */
 function retiredSubject(count: number, config: RecordCleanupConfig): string {
-	return count === 1 ? `The other ${config.noun.one}` : `The other ${count} ${config.noun.many}`;
+	const noun = recordNoun(config.recordType);
+	return count === 1 ? `The other ${noun.one}` : `The other ${count} ${noun.many}`;
 }
 
 /** The records that go away, named rather than counted. */
@@ -298,12 +305,13 @@ function RetiredList({
  * proposal is out of date, which the page's own refetch resolves.
  */
 function refusalMessage(error: unknown, config: RecordCleanupConfig): string {
+	const noun = recordNoun(config.recordType);
 	switch (mergeRefusalReason(error)) {
 		case 'target_inactive':
-			return `The ${config.noun.one} you chose to keep is retired. Reactivate it, or keep a different one.`;
+			return `The ${noun.one} you chose to keep is retired. Reactivate it, or keep a different one.`;
 		case 'target_not_found':
 		case 'source_not_found':
-			return `One of these ${config.noun.many} is already gone. Refresh the page to see what is left.`;
+			return `One of these ${noun.many} is already gone. Refresh the page to see what is left.`;
 		default:
 			return error instanceof Error ? error.message : 'The merge could not be sent.';
 	}

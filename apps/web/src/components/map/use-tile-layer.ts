@@ -25,9 +25,16 @@ export function useTileLayer(
 	const filterKey = layer === undefined ? '' : tileLayerFilterKey(layer);
 
 	const layerRef = useRef(layer);
-	layerRef.current = layer;
 	const urlRef = useRef(url);
-	urlRef.current = url;
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		layerRef.current = layer;
+		urlRef.current = url;
+	});
 
 	// Source + layers + interaction. Re-runs only on map identity / load / enable.
 	useEffect(() => {

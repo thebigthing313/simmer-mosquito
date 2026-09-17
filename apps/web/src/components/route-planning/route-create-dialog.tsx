@@ -14,6 +14,7 @@ import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { useRouteMutations } from '../../hooks/mutations/use-route-mutations';
+import { createLabel } from '../app-shell/navigation';
 import type { RoutePlanningSurface } from './surface';
 
 /**
@@ -57,9 +58,8 @@ export function RouteCreateDialog({
 			await navigate(surface.editLink(routeId));
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to create the route.');
-		} finally {
-			setPending(false);
 		}
+		setPending(false);
 	};
 
 	const handleOpenChange = (next: boolean) => {
@@ -75,7 +75,7 @@ export function RouteCreateDialog({
 			<DialogContent className="sm:max-w-md">
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
-						<DialogTitle>New Route</DialogTitle>
+						<DialogTitle>{createLabel('route')}</DialogTitle>
 						<DialogDescription>
 							Name the route now; you'll add and order its {surface.stopNounPlural} next.
 						</DialogDescription>
@@ -108,7 +108,7 @@ export function RouteCreateDialog({
 						</Button>
 						<Button disabled={!canSubmit} type="submit">
 							{pending ? <Loader2Icon aria-hidden="true" className="animate-spin" /> : null}
-							Create Route
+							Save
 						</Button>
 					</DialogFooter>
 				</form>

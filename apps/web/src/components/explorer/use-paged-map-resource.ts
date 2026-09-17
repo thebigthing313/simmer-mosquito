@@ -1,7 +1,8 @@
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getServerUrl } from '../../auth';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
 /** Rows per page on every explorer. */
 const PAGE_SIZE = 50;
@@ -45,6 +46,12 @@ export interface PagedMapResource<TRow> {
 	readonly isLoading: boolean;
 	/** The request failed. The rows are the last good answer, or none at all. */
 	readonly isError: boolean;
+	/**
+	 * The page request has answered, with rows or with an error, and none is in
+	 * flight. False before the map has a viewport, since no page has been asked
+	 * for yet, and false again while a new page is on its way.
+	 */
+	readonly isSettled: boolean;
 	/** Run the request again, for the retry the failure state offers. */
 	readonly retry: () => void;
 	readonly page: number;
@@ -65,7 +72,7 @@ export interface PagedMapResource<TRow> {
 export function usePagedMapResource<TRow>({
 	path,
 	rowsKey,
-	label,
+	recordType,
 	params,
 	enabled = true,
 	normalizeRow,
@@ -74,8 +81,14 @@ export function usePagedMapResource<TRow>({
 	readonly path: string;
 	/** The key the rows arrive under in the response body, e.g. `sourceReductions`. */
 	readonly rowsKey: string;
-	/** Plural noun for the failure message, e.g. `Source reductions`. */
-	readonly label: string;
+	/**
+	 * What the page lists. Names the failure out of `lib/record-nouns.ts`.
+	 *
+	 * It was a free-text `label` until #940, and four of the nine explorers were
+	 * spelling their own: `Applications`, `Biocontrol`, `Outreach` and `Source
+	 * reductions`, beside five that read `titleMany` out of the register.
+	 */
+	readonly recordType: RecordType;
 	readonly params: Readonly<Record<string, string>>;
 	/** False while the request cannot be made yet — before the map has a viewport. */
 	readonly enabled?: boolean;
@@ -94,7 +107,7 @@ export function usePagedMapResource<TRow>({
 	const query = useQuery({
 		enabled,
 		queryKey: [path, 'page', paramsKey, page],
-		queryFn: ({ signal }) => fetchPage<TRow>(path, rowsKey, label, params, page, signal),
+		queryFn: ({ signal }) => fetchPage<TRow>(path, rowsKey, recordType, params, page, signal),
 		placeholderData: (previous) => previous,
 	});
 
@@ -107,26 +120,37 @@ export function usePagedMapResource<TRow>({
 		}
 	}, [page, pageCount]);
 
-	const raw = query.data?.rows;
-	const rows = useMemo(
-		() => (raw === undefined ? [] : normalizeRow === undefined ? raw : raw.map(normalizeRow)),
-		[raw, normalizeRow],
-	);
+	const rows = normalized(query.data?.rows, normalizeRow);
+	// `status` alone is not enough: `placeholderData` keeps it at `success` while
+	// the next page loads, and a disabled query sits at `pending` without fetching.
+	const isSettled = query.status !== 'pending' && !query.isFetching;
 
-	const retry = useCallback(() => {
+	const retry = () => {
 		void query.refetch();
-	}, [query.refetch]);
+	};
 
 	return {
 		rows,
 		total,
 		isLoading: query.isLoading,
 		isError: query.isError,
+		isSettled,
 		retry,
 		page,
 		pageCount,
 		setPage,
 	};
+}
+
+/** The page's rows, put through the caller's shaping if it asked for any. */
+function normalized<TRow>(
+	raw: readonly TRow[] | undefined,
+	normalizeRow: ((row: TRow) => TRow) | undefined,
+): readonly TRow[] {
+	if (raw === undefined) {
+		return [];
+	}
+	return normalizeRow === undefined ? raw : raw.map(normalizeRow);
 }
 
 /**
@@ -136,11 +160,28 @@ export function usePagedMapResource<TRow>({
  * fifty in the rail, so the row may be nowhere in `rows`. Eight explorers
  * resolved that with the same pair: read the page first, fall back to fetching
  * the one record by id.
+ *
+ * The rule for the fallback, which every surface selecting by id follows: **a
+ * record is asked for by id once the page has settled and does not hold it.**
+ * Settled means answered, with rows or with an error, and not fetching; it does
+ * not mean non-empty. A page holding nothing is an answer, and the selection is
+ * not on it, so the by-id request goes out, which is what keeps a deep link
+ * into an empty viewport from drawing no rail. A page that failed is an answer
+ * too, so the rail can draw when the list cannot.
+ *
+ * Before #934 the gate was `rows` alone, and `rows` is empty until the page
+ * lands, so on every deep link the by-id request went out on the first render
+ * beside the page request and, when the row was on that page, brought back a
+ * row the page was about to deliver. The price of the gate is that a deep link
+ * whose row is off the page asks for it one page request later than it did,
+ * and a row that is on the page draws when the page does rather than a moment
+ * before it.
  */
 export function useSelectedMapRecord<TRow extends { readonly id: string }>({
 	path,
 	rowKey,
 	rows,
+	pageSettled,
 	selectedId,
 	normalizeRow,
 }: {
@@ -148,11 +189,13 @@ export function useSelectedMapRecord<TRow extends { readonly id: string }>({
 	/** The key the record arrives under in the response body, e.g. `sourceReduction`. */
 	readonly rowKey: string;
 	readonly rows: readonly TRow[];
+	/** `PagedMapResource.isSettled`: whether `rows` is the page's answer rather than its absence. */
+	readonly pageSettled: boolean;
 	readonly selectedId: string | null;
 	readonly normalizeRow?: (row: TRow) => TRow;
 }): TRow | null {
-	const visibleById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
-	const needsFetch = selectedId !== null && !visibleById.has(selectedId);
+	const visibleById = new Map(rows.map((row) => [row.id, row]));
+	const needsFetch = pageSettled && selectedId !== null && !visibleById.has(selectedId);
 	const query = useQuery({
 		enabled: needsFetch,
 		queryKey: [path, 'detail', selectedId],
@@ -184,7 +227,7 @@ function stableParamsKey(params: Readonly<Record<string, string>>): string {
 async function fetchPage<TRow>(
 	path: string,
 	rowsKey: string,
-	label: string,
+	recordType: RecordType,
 	params: Readonly<Record<string, string>>,
 	page: number,
 
@@ -199,7 +242,7 @@ async function fetchPage<TRow>(
 
 	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
-		throw new Error(`${label} request failed (${response.status}).`);
+		throw new Error(`${recordNoun(recordType).titleMany} request failed (${response.status}).`);
 	}
 	const body = (await response.json()) as Record<string, unknown>;
 	const rows = body[rowsKey];

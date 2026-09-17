@@ -1,6 +1,6 @@
+import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
@@ -9,10 +9,10 @@ import {
 } from '../../../hooks/queries/use-region-folders';
 import { type RegionRecord, useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-region-geometry';
+import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
-	isRegionBoundary,
 	noRegionFolderValue,
 	RegionFormPage,
 	type RegionFormValues,
@@ -44,7 +44,7 @@ function EditRegionRoute() {
 
 	return (
 		<RecordEditFrame
-			noun="region"
+			recordType="region"
 			reading={{ isError, isReady, record: region }}
 			skeleton={skeleton}
 		>
@@ -76,44 +76,41 @@ function EditRegionLoader({
 	const queryClient = useQueryClient();
 	const mutations = useRegionMutations();
 
-	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-			geometryChanged,
-		}: {
-			readonly values: RegionFormValues;
-			readonly geometry: DrawGeometry | null;
-			readonly geometryChanged: boolean;
-		}) => {
-			// `null` unless the user actually redrew it: the form holds the boundary it
-			// loaded, and sending that back names a command with nothing to change.
-			const boundary =
-				geometryChanged && geometry !== null && isRegionBoundary(geometry) ? geometry : null;
+	const onSave = async ({
+		values,
+		geometry,
+		geometryChanged,
+	}: {
+		readonly values: RegionFormValues;
+		readonly geometry: DrawGeometry | null;
+		readonly geometryChanged: boolean;
+	}) => {
+		// `null` unless the user actually redrew it: the form holds the boundary it
+		// loaded, and sending that back names a command with nothing to change.
+		const boundary =
+			geometryChanged && geometry !== null && isOwnedGeometry('region', geometry) ? geometry : null;
 
-			// `current` comes back through the same round trip as the edited values, so
-			// a field nobody touched compares equal to itself and the save names only
-			// the commands it has changed fields for.
-			await mutations.save({
-				regionId: region.id,
-				fields: regionFieldsFrom(values),
-				current: regionFieldsFrom(formValuesFrom(region)),
-				geometry: boundary,
-			});
-			if (boundary !== null) {
-				seedRegionGeometryCache(queryClient, region.id, boundary);
-			}
-			await navigate({ to: '/gis/regions/$id', params: { id: region.id } });
-		},
-		[mutations, navigate, queryClient, region],
-	);
+		// `current` comes back through the same round trip as the edited values, so
+		// a field nobody touched compares equal to itself and the save names only
+		// the commands it has changed fields for.
+		await mutations.save({
+			regionId: region.id,
+			fields: regionFieldsFrom(values),
+			current: regionFieldsFrom(formValuesFrom(region)),
+			geometry: boundary,
+		});
+		if (boundary !== null) {
+			seedRegionGeometryCache(queryClient, region.id, boundary);
+		}
+		await navigate({ to: '/gis/regions/$id', params: { id: region.id } });
+	};
 
 	return (
 		<RegionFormPage
 			canSubmit={mutations.canWrite}
 			defaultValues={formValuesFrom(region)}
 			header={{
-				title: 'Edit Region',
+				title: `Edit ${recordNoun('region').title}`,
 				description: "Update this region's name, folder, boundary, or details.",
 				backTo: '/gis/regions/$id',
 				backParams: { id: region.id },
@@ -123,7 +120,6 @@ function EditRegionLoader({
 			mode="edit"
 			onSave={onSave}
 			regionFolders={regionFolders}
-			submitLabel="Save Changes"
 		/>
 	);
 }

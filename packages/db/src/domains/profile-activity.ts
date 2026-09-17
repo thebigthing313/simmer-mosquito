@@ -31,9 +31,12 @@ import { type Kysely, type RawBuilder, sql } from 'kysely';
 import type { SimmerDatabase } from '../index.js';
 import {
 	assertIanaTimeZone,
+	collectionStatusSql,
 	habitatStatusSql,
 	inspectionResultSql,
+	lifeStageCodesSql,
 	localDateSql,
+	recordTagIdsSql,
 	trapLabelSql,
 	trapStatusSql,
 } from './record-display-sql.js';
@@ -62,7 +65,7 @@ export interface ProfileActivityRow {
 	 * addresses are not eagerly synced and a list of "Inspection" with no site is
 	 * the thing this surface exists to avoid.
 	 */
-	readonly siteName: string | null;
+	readonly placeName: string | null;
 	/** The lookup that names the record's kind (type/method/insecticide). */
 	readonly refId: string | null;
 	/** A second lookup where one exists — an application's method, beside its product. */
@@ -73,16 +76,61 @@ export interface ProfileActivityRow {
 	readonly unitId: string | null;
 	/**
 	 * One short, category-specific thing more: a density or `dry` for inspections,
-	 * `problem`/`zero` for collections, `active`/`inactive`/`inaccessible` for
-	 * sites, `open`/`closed` for requests, the reach description for outreach.
-	 * The client already switches on category to lay a row out; this rides along.
+	 * the four-state status for collections, `active`/`inactive`/`inaccessible`
+	 * for sites, `open`/`closed` for requests, the reach description for
+	 * outreach. The client already switches on category to lay a row out; this
+	 * rides along.
 	 */
 	readonly detail: string | null;
+	/**
+	 * The life stages an inspection found, as the `E1234P` codes the strip draws.
+	 * Null on every other category, and on an inspection that found none.
+	 */
+	readonly stages: string | null;
+	/**
+	 * What a control action was performed against: `larval` where it names a
+	 * habitat or an inspection, `standalone` where it names neither. Null on
+	 * every category that has no such link.
+	 */
+	readonly context: string | null;
+	/** Whether a collection caught something other than what it was set for. */
+	readonly hasBycatch: boolean | null;
+	/**
+	 * The Tags on this record, as ids the client resolves against the eagerly
+	 * synced catalog. Null on the categories that carry no Tags.
+	 */
+	readonly tagIds: readonly string[] | null;
+	/**
+	 * The Profile this entry is attributed to: the record's own attribution
+	 * column on a primary entry, the assisting link's Profile on an assisting
+	 * one. On a one-Profile read this is the Profile that was asked for on every
+	 * row; the Dashboard's people table reads the whole Organization for a day
+	 * and groups by it.
+	 */
+	readonly profileId: string;
+	/**
+	 * The moment this entry is best known by, as an ISO instant: `occurredAt`
+	 * where the record carries one, else when the record was typed in. Never
+	 * null, which is what lets "the latest record" be answered for a person
+	 * whose day was inspections, a record type that carries a date and no time.
+	 */
+	readonly recordedAt: string;
 }
 
-export interface ProfileActivityInput {
+/**
+ * What every activity read takes: one Organization, one window, one zone, and
+ * optionally one Profile.
+ *
+ * With `profileId` the read is the Activity Monitor's, one person's log.
+ * Without it the same seventeen branches read the whole Organization, which is
+ * what the Dashboard's people table groups by Profile. The attribution rule is
+ * the same either way: a record with no attributed Profile counts for nobody,
+ * so the branch that would name it is skipped rather than widened.
+ */
+export interface ActivityBranchInput {
 	readonly organizationId: string;
-	readonly profileId: string;
+	/** Narrow to one Profile's entries; omit for every Profile in the Organization. */
+	readonly profileId?: string;
 	/** Inclusive lower bound on the activity date (`YYYY-MM-DD`). */
 	readonly dateFrom: string;
 	/** Inclusive upper bound on the activity date (`YYYY-MM-DD`). */
@@ -93,6 +141,10 @@ export interface ProfileActivityInput {
 	 * day the database server rolled over.
 	 */
 	readonly timeZone: string;
+}
+
+export interface ProfileActivityInput extends ActivityBranchInput {
+	readonly profileId: string;
 	/** Safety cap on total rows returned across all branches. */
 	readonly limit?: number;
 }
@@ -141,22 +193,28 @@ interface RecordShape {
 	/** A `timestamptz` where one genuinely exists, `null` otherwise. */
 	readonly occurredAt: string;
 	readonly label: string;
-	readonly siteName: string;
+	readonly placeName: string;
 	readonly refId: string;
 	readonly methodRefId?: string;
 	readonly amount?: string;
 	readonly unitId?: string;
 	readonly detail?: string;
+	readonly stages?: string;
+	readonly context?: string;
+	readonly hasBycatch?: string;
+	readonly tagIds?: string;
 }
 
 const NO_TIMESTAMP = 'null::timestamptz';
 const NO_NUMBER = 'null::numeric';
 const NO_TEXT = 'null::text';
+const NO_FLAG = 'null::boolean';
+const NO_TEXT_ARRAY = 'null::text[]';
 
 /** The habitat, else the address, a record was performed at. */
 const SITE_JOINS =
 	'left join habitats h on h.id = r.habitat_id left join addresses ad on ad.id = r.address_id';
-const SITE_NAME = `coalesce(nullif(btrim(h.habitat_name), ''), nullif(btrim(ad.display_name), ''))`;
+const PLACE_NAME = `coalesce(nullif(btrim(h.habitat_name), ''), nullif(btrim(ad.display_name), ''))`;
 const ADDRESS_JOIN = 'left join addresses ad on ad.id = r.address_id';
 const ADDRESS_NAME = `nullif(btrim(ad.display_name), '')`;
 
@@ -189,9 +247,10 @@ function recordShapes(timeZone: string): {
 			occurredAt: 'r.created_at',
 			label: 'r.habitat_name',
 			// A habitat *is* the site, so it names no other one.
-			siteName: NO_TEXT,
+			placeName: NO_TEXT,
 			refId: 'r.habitat_type_id::text',
 			detail: habitatStatusSql('r'),
+			tagIds: recordTagIdsSql('r', 'habitat'),
 		},
 		inspection: {
 			category: 'inspection',
@@ -201,10 +260,13 @@ function recordShapes(timeZone: string): {
 			date: 'r.inspection_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			siteName: SITE_NAME,
+			placeName: PLACE_NAME,
 			refId: 'r.habitat_type_id::text',
 			// What the explorer's badge reads: dry, or how much was found.
 			detail: inspectionResultSql('r'),
+			// And what its strip reads, which is the one thing neither the density
+			// nor the dot says: which stages were in the water.
+			stages: lifeStageCodesSql('r'),
 		},
 		trap: {
 			category: 'trap',
@@ -213,7 +275,7 @@ function recordShapes(timeZone: string): {
 			date: localDate('r.created_at'),
 			occurredAt: 'r.created_at',
 			label: trapLabelSql('r'),
-			siteName: NO_TEXT,
+			placeName: NO_TEXT,
 			refId: 'r.collection_method_id::text',
 			detail: trapStatusSql('r'),
 		},
@@ -226,10 +288,13 @@ function recordShapes(timeZone: string): {
 			occurredAt: 'coalesce(r.collected_at, r.started_at)',
 			label: NO_TEXT,
 			// The trap it came out of. A collection with none was recorded ad hoc.
-			siteName: trapLabelSql('t'),
+			placeName: trapLabelSql('t'),
 			refId: 'r.collection_method_id::text',
-			detail: `case when r.has_problem = true then 'problem'
-				when r.is_zero_result = true then 'zero' else null end`,
+			// All four states rather than the two exceptional ones. The explorer
+			// paints its dot with the same resolution, and a log saying nothing
+			// where that dot says "Trap out" is the two surfaces disagreeing.
+			detail: collectionStatusSql('r'),
+			hasBycatch: 'r.has_bycatch',
 		},
 		application: {
 			category: 'application',
@@ -239,7 +304,7 @@ function recordShapes(timeZone: string): {
 			date: 'r.application_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			siteName: SITE_NAME,
+			placeName: PLACE_NAME,
 			refId: 'r.insecticide_id::text',
 			methodRefId: 'r.application_method_id::text',
 			amount: 'r.amount_applied',
@@ -253,7 +318,7 @@ function recordShapes(timeZone: string): {
 			date: 'r.source_reduction_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			siteName: SITE_NAME,
+			placeName: PLACE_NAME,
 			refId: 'r.source_reduction_method_id::text',
 			amount: 'r.sources_eliminated_amount',
 			unitId: 'r.sources_eliminated_unit_id::text',
@@ -266,10 +331,14 @@ function recordShapes(timeZone: string): {
 			date: 'r.biocontrol_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			siteName: SITE_NAME,
+			placeName: PLACE_NAME,
 			refId: 'r.biocontrol_method_id::text',
 			amount: 'r.amount_released',
 			unitId: 'r.release_unit_id::text',
+			// The same two arms `controlContext` reads on the client, over the two
+			// columns the table has. Biocontrol names no collection.
+			context: `case when r.habitat_id is not null or r.inspection_id is not null
+				then 'larval' else 'standalone' end`,
 		},
 		outreach: {
 			category: 'outreach',
@@ -279,7 +348,7 @@ function recordShapes(timeZone: string): {
 			date: 'r.outreach_date',
 			occurredAt: NO_TIMESTAMP,
 			label: NO_TEXT,
-			siteName: ADDRESS_NAME,
+			placeName: ADDRESS_NAME,
 			refId: 'r.outreach_method_id::text',
 			// Reach is a count of people, not a measured quantity, so it carries no unit.
 			amount: 'r.reach',
@@ -293,10 +362,11 @@ function recordShapes(timeZone: string): {
 			date: 'r.request_date',
 			occurredAt: NO_TIMESTAMP,
 			label: `nullif(concat('Request ', r.display_name::text), 'Request ')`,
-			siteName: ADDRESS_NAME,
+			placeName: ADDRESS_NAME,
 			// Requests carry no method or type lookup; the intake type is a column.
 			refId: NO_TEXT,
 			detail: `case when r.closed_at is null then 'open' else 'closed' end`,
+			tagIds: recordTagIdsSql('r', 'service_request'),
 		},
 	};
 }
@@ -438,10 +508,14 @@ export async function countProfileActivity(
 }
 
 /**
- * The seventeen branches one question expands to: eleven where the Profile is
- * named on the record, six where they assisted on it.
+ * The seventeen branches one question expands to: eleven where a Profile is
+ * named on the record, six where one assisted on it.
+ *
+ * Exported for the Dashboard's people table, which wraps the union in a group
+ * by `profileId` rather than copying seventeen branches. Each branch is a
+ * `select`, so the caller writes the `union all` and whatever sits above it.
  */
-function activityBranches(input: ProfileActivityInput): RawBuilder<ProfileActivityRow>[] {
+export function activityBranches(input: ActivityBranchInput): RawBuilder<ProfileActivityRow>[] {
 	const timeZone = assertIanaTimeZone(input.timeZone);
 	const shapes = recordShapes(timeZone);
 	const assistingShapes = shapeByEntityType(shapes);
@@ -462,14 +536,26 @@ function activityBranches(input: ProfileActivityInput): RawBuilder<ProfileActivi
 
 interface BranchScope {
 	readonly org: string;
-	readonly profileId: string;
+	readonly profileId: string | undefined;
 	readonly dateFrom: string;
 	readonly dateTo: string;
+}
+
+/**
+ * The Profile predicate: one Profile when the read asks for one, any attributed
+ * Profile when it does not. Never "any row": a record nobody is named on is
+ * nobody's field work.
+ */
+function profilePredicate(column: RawBuilder<unknown>, scope: BranchScope): RawBuilder<boolean> {
+	return scope.profileId === undefined
+		? sql<boolean>`${column} is not null`
+		: sql<boolean>`${column} = ${scope.profileId}`;
 }
 
 function primarySelect(branch: PrimaryBranch, scope: BranchScope): RawBuilder<ProfileActivityRow> {
 	const { shape } = branch;
 	const date = branch.date ?? shape.date;
+	const profileColumn = sql`r.${sql.raw(branch.profileColumn)}`;
 
 	return sql<ProfileActivityRow>`
 		select ${projection(shape, {
@@ -477,12 +563,13 @@ function primarySelect(branch: PrimaryBranch, scope: BranchScope): RawBuilder<Pr
 			role: branch.role,
 			date,
 			occurredAt: branch.occurredAt ?? shape.occurredAt,
+			profileId: profileColumn,
 		})}
 		from ${sql.raw(shape.table)} r
 		${shape.joins === undefined ? sql`` : sql.raw(shape.joins)}
 		where r.organization_id = ${scope.org}
 			and r.deleted_at is null
-			and r.${sql.raw(branch.profileColumn)} = ${scope.profileId}
+			and ${profilePredicate(profileColumn, scope)}
 			and (${sql.raw(date)}) between ${scope.dateFrom}::date and ${scope.dateTo}::date
 			${branch.where === undefined ? sql`` : sql`and ${sql.raw(branch.where)}`}
 	`;
@@ -505,13 +592,14 @@ function assistingSelect(
 			role: 'assisted',
 			date: shape.date,
 			occurredAt: shape.occurredAt,
+			profileId: sql`ap.personnel_profile_id`,
 		})}
 		from additional_personnel ap
 		join ${sql.raw(shape.table)} r on r.id = ap.entity_id
 		${shape.joins === undefined ? sql`` : sql.raw(shape.joins)}
 		where ap.organization_id = ${scope.org}
 			and ap.deleted_at is null
-			and ap.personnel_profile_id = ${scope.profileId}
+			and ${profilePredicate(sql`ap.personnel_profile_id`, scope)}
 			and ap.entity_type = ${entityType}
 			and r.organization_id = ${scope.org}
 			and r.deleted_at is null
@@ -533,6 +621,8 @@ function projection(
 		readonly role: ActivityRole;
 		readonly date: string;
 		readonly occurredAt: string;
+		/** The column naming the Profile this entry counts for. */
+		readonly profileId: RawBuilder<unknown>;
 	},
 ): RawBuilder<unknown> {
 	return sql`
@@ -549,11 +639,20 @@ function projection(
 			'YYYY-MM-DD"T"HH24:MI:SS"Z"'
 		) as "occurredAt",
 		${sql.raw(shape.label)} as label,
-		${sql.raw(shape.siteName)} as "siteName",
+		${sql.raw(shape.placeName)} as "placeName",
 		${sql.raw(shape.refId)} as "refId",
 		${sql.raw(shape.methodRefId ?? NO_TEXT)} as "methodRefId",
 		${sql.raw(shape.amount ?? NO_NUMBER)} as amount,
 		${sql.raw(shape.unitId ?? NO_TEXT)} as "unitId",
-		${sql.raw(shape.detail ?? NO_TEXT)} as detail
+		${sql.raw(shape.detail ?? NO_TEXT)} as detail,
+		${sql.raw(shape.stages ?? NO_TEXT)} as stages,
+		${sql.raw(shape.context ?? NO_TEXT)} as context,
+		${sql.raw(shape.hasBycatch ?? NO_FLAG)} as "hasBycatch",
+		${sql.raw(shape.tagIds ?? NO_TEXT_ARRAY)} as "tagIds",
+		${entry.profileId}::text as "profileId",
+		to_char(
+			coalesce((${sql.raw(entry.occurredAt)}), r.created_at) at time zone 'UTC',
+			'YYYY-MM-DD"T"HH24:MI:SS"Z"'
+		) as "recordedAt"
 	`;
 }

@@ -3,7 +3,8 @@ import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -19,6 +20,8 @@ import {
 } from '../../../components/map';
 import type { WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useWeatherStations } from '../../../hooks/queries/use-weather-stations';
+import type { RecordType } from '../../../lib/record-nouns';
+import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -62,7 +65,7 @@ export const Route = createFileRoute('/gis/weather/')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
-const RESULT_NOUN = { one: 'station', many: 'stations' };
+const RECORD_TYPE: RecordType = 'weatherStation';
 
 /** A station whose synced centroid is usable as a map coordinate. */
 interface PlottedStation {
@@ -86,14 +89,14 @@ function WeatherStationsRoute() {
 	const panel = useExplorerPanel();
 
 	// Already alphabetical off the query; the search and the status narrow it here.
-	const stations = useMemo(() => matchingStations(rows, search, status), [rows, search, status]);
-	const plotted = useMemo(() => plottedStations(stations), [stations]);
-	const geoJson = useMemo(() => stationFeatures(plotted), [plotted]);
-	const legend = useMemo(() => weatherStationLegend(status), [status]);
+	const stations = matchingStations(rows, search, status);
+	const plotted = plottedStations(stations);
+	const geoJson = stationFeatures(plotted);
+	const legend = weatherStationLegend(status);
 
 	// The points come from local rows, so the camera frames the filtered set from
 	// the list rather than asking the server for an extent.
-	const bounds = useMemo(() => boundsFromCoordinates(plotted), [plotted]);
+	const bounds = boundsFromCoordinates(plotted);
 
 	useFlyToStation(map, plotted.find((station) => station.id === focusedId) ?? null);
 
@@ -102,12 +105,16 @@ function WeatherStationsRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={<StationFilters {...filters} />}
 			heading={{
-				title: 'Weather Stations',
+				title: recordNoun('weatherStation').titleMany,
 				icon: WeatherIcon,
 				total: stations.length,
 				isLoading: false,
-				noun: RESULT_NOUN,
-				create: { to: '/gis/weather/create', label: 'Add Station', minimum: 'manager' },
+				counts: RECORD_TYPE,
+				create: {
+					to: '/gis/weather/create',
+					label: createLabel('weatherStation'),
+					minimum: 'manager',
+				},
 			}}
 			onResetFilters={filters.onClearAll}
 			map={
@@ -280,7 +287,7 @@ function useStationFilters(): StationFilterState {
 		reset,
 		activeCount: activeFilterCount,
 	} = useSearchFilters(STATION_FILTER_DEFAULTS, STATION_FILTER_CODECS);
-	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
+	const commitSearch = (next: string) => setFilters({ search: next });
 	const {
 		input: value,
 		setInput: onChange,
@@ -289,21 +296,21 @@ function useStationFilters(): StationFilterState {
 
 	// Both halves: the field the operator is looking at, and the committed term on
 	// the URL that is actually cutting the list.
-	const onClearSearch = useCallback(() => {
+	const onClearSearch = () => {
 		clearSearchInput();
 		commitSearch('');
-	}, [clearSearchInput, commitSearch]);
-	const onClearAll = useCallback(() => {
+	};
+	const onClearAll = () => {
 		clearSearchInput();
 		reset();
-	}, [clearSearchInput, reset]);
+	};
 
 	return {
 		activeFilterCount,
 		onChange,
 		onClearAll,
 		onClearSearch,
-		onStatusChange: useCallback((next: StatusFilter) => setFilters({ status: next }), [setFilters]),
+		onStatusChange: (next: StatusFilter) => setFilters({ status: next }),
 		search: query.search,
 		status: query.status,
 		value,

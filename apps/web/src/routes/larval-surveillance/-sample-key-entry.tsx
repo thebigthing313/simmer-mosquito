@@ -1,5 +1,5 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 import {
 	type CommitBaseline,
 	flushedKeysAfter,
@@ -11,6 +11,7 @@ import {
 	NO_VARIANT,
 	type TallyEntry,
 } from '../../components/key-entry/use-key-entry-tally';
+import { newRecordId } from '../../hooks/mutations/shared';
 import {
 	type SampleSpeciesFields,
 	useSampleSpeciesMutations,
@@ -18,7 +19,7 @@ import {
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
 import { sample_species } from '../../lib/collections/sample_species';
-import { todayInTimeZone } from './-overview-data';
+import { todayInTimeZone } from '../../lib/local-date';
 
 /** One identification row, as the tally grid reads and writes it. */
 interface KeyEntryRow extends SampleSpeciesFields {
@@ -69,15 +70,12 @@ export function SampleKeyEntryDialog({
 	const insertedRef = useRef<Map<string, string>>(new Map());
 	const flushedRef = useRef<ReadonlySet<string>>(new Set());
 
-	const rowsRef = useRef(rows);
-	rowsRef.current = rows;
-
-	useEffect(() => {
-		if (!open) {
-			return;
-		}
+	// See the adult dialog: the rows are read when the modal opens and must not
+	// re-run the effect. The latest-value ref that used to do it was written
+	// during render, which the compiler refuses (#779, group A).
+	const captureBaseline = useEffectEvent(() => {
 		baselineRef.current = new Map(
-			rowsRef.current.map(
+			rows.map(
 				(row) =>
 					[
 						entryKeyFor(row.speciesId, NO_VARIANT),
@@ -87,55 +85,59 @@ export function SampleKeyEntryDialog({
 		);
 		insertedRef.current = new Map();
 		flushedRef.current = new Set();
+	});
+
+	useEffect(() => {
+		if (!open) {
+			return;
+		}
+		captureBaseline();
 	}, [open]);
 
-	const commit = useCallback(
-		async (entries: readonly TallyEntry[]) => {
-			const steps = planCommit({
-				entries,
-				baseline: baselineRef.current,
-				inserted: insertedRef.current,
-				flushed: flushedRef.current,
-			});
-			const writes = steps.map((step) => {
-				if (step.kind === 'update') {
-					const current = rowsRef.current.find((row) => row.id === step.rowId);
-					return current === undefined
-						? Promise.resolve()
-						: mutations.save(step.rowId, { ...current, larvaeCount: step.count }, current);
-				}
-				if (step.kind === 'delete') {
-					insertedRef.current.delete(step.entryKey);
-					return mutations.remove(step.rowId);
-				}
+	const commit = async (entries: readonly TallyEntry[]) => {
+		const steps = planCommit({
+			entries,
+			baseline: baselineRef.current,
+			inserted: insertedRef.current,
+			flushed: flushedRef.current,
+		});
+		const writes = steps.map((step) => {
+			if (step.kind === 'update') {
+				const current = rows.find((row) => row.id === step.rowId);
+				return current === undefined
+					? Promise.resolve()
+					: mutations.save(step.rowId, { ...current, larvaeCount: step.count }, current);
+			}
+			if (step.kind === 'delete') {
+				insertedRef.current.delete(step.entryKey);
+				return mutations.remove(step.rowId);
+			}
 
-				const id = crypto.randomUUID();
-				// Remember the id only once the insert sticks. A rejected insert is rolled
-				// back out of the collection, so recording it up front would leave the next
-				// flush trying to update a row that no longer exists.
-				return mutations
-					.add({
-						sampleSpeciesId: id,
-						sampleId,
-						fields: {
-							speciesId: step.speciesId,
-							larvaeCount: step.count,
-							identifiedByProfileId: actorProfileId,
-							// A calendar date, not a timestamp — the domain builder validates
-							// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
-							identifiedAt: todayInTimeZone(timeZone),
-						},
-					})
-					.then(() => {
-						insertedRef.current.set(step.entryKey, id);
-					});
-			});
+			const id = newRecordId();
+			// Remember the id only once the insert sticks. A rejected insert is rolled
+			// back out of the collection, so recording it up front would leave the next
+			// flush trying to update a row that no longer exists.
+			return mutations
+				.add({
+					sampleSpeciesId: id,
+					sampleId,
+					fields: {
+						speciesId: step.speciesId,
+						larvaeCount: step.count,
+						identifiedByProfileId: actorProfileId,
+						// A calendar date, not a timestamp — the domain builder validates
+						// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
+						identifiedAt: todayInTimeZone(timeZone),
+					},
+				})
+				.then(() => {
+					insertedRef.current.set(step.entryKey, id);
+				});
+		});
 
-			await Promise.all(writes);
-			flushedRef.current = flushedKeysAfter(entries);
-		},
-		[actorProfileId, sampleId, timeZone, mutations],
-	);
+		await Promise.all(writes);
+		flushedRef.current = flushedKeysAfter(entries);
+	};
 
 	return (
 		<KeyEntryDialog

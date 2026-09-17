@@ -13,20 +13,58 @@ import { cva, type VariantProps } from 'class-variance-authority';
  *               pages breathe (`overview`); record detail pages run tighter
  *               (`detail`) because they stack many small fact groups.
  * - `padding` — `page` is the standard framed page. `detail` adds bottom room so
- *               a long record doesn't end flush against the viewport. `trailing`
- *               is for pages whose horizontal padding already comes from a
- *               parent layout, leaving only that bottom room to add.
+ *               a long record doesn't end flush against the viewport, and
+ *               `header` is the pinned bar above it.
+ * - `measure` — how wide the column is allowed to get. See below.
  *
  * Route-level `className` should stay layout-local (a grid template, a local
  * width) rather than re-stating any of this.
  */
-export const pageContainer = cva('mx-auto w-full max-w-[1200px]', {
+export const pageContainer = cva('mx-auto w-full', {
 	variants: {
+		/*
+		 * How wide the column may get. Each app draws in one of the two, and
+		 * the route-loading skeleton (`OutletContentFallback`) reads the same
+		 * one, so a page arrives at the width the skeleton stood in for.
+		 *
+		 * `page` is the 1200px measure this file was written for: a column of
+		 * prose, headings and stacked sections, where a longer line is a worse
+		 * line. It is the admin console's measure now. `apps/admin` draws every
+		 * page in it through `AdminPage` and its changelog through
+		 * `ChangelogPage`, and it stays the default so a shared component
+		 * mounted without a `measure` draws where the console expects. No route
+		 * in `apps/web` reads it since #1043, and one that starts to is a route
+		 * that will arrive narrower than its skeleton.
+		 *
+		 * `record` is the measure every non-map route page in `apps/web` reads,
+		 * and it was written for the record detail frame, which holds almost no
+		 * prose. It holds fact rows, a map, child-record tables and a comments
+		 * rail, and those want different widths from each other rather than one
+		 * shared one. Measured on a 1920 screen: the stage inside the two rails
+		 * is 1616px, so the 1200 measure left 416px of it empty while a fact
+		 * row's value column ran 600px wide around 81px of ink. Widening the
+		 * page alone would have made that row worse, so the cards carry their
+		 * own measures now (see `DetailList` and `detailCardRowClass`) and the
+		 * page is free to fill the stage. That is the rule the other pages moved
+		 * under: widening the frame widens nothing inside it, and content that
+		 * wants a narrower line carries its own measure, the way the changelog's
+		 * release list does.
+		 *
+		 * The cap is 112rem rather than none. Past about that width a child
+		 * record's table row gets long enough that the eye loses which row it
+		 * is on, and the page header's title and its actions end up too far
+		 * apart to read as one bar. On a 2560 screen it leaves 232px on each
+		 * side, which reads as a margin rather than as waste.
+		 */
+		measure: {
+			page: 'max-w-[1200px]',
+			record: 'max-w-[112rem]',
+		},
 		/*
 		 * Most pages stack sections on a grid so `gap` controls the rhythm.
 		 * `block` exists for the plain padded column (see `OutletSimpleLayout`),
 		 * which shares this measure but lets its children own their own spacing —
-		 * the point is that the 1200px measure is decided here and nowhere else.
+		 * the point is that the measure is decided here and nowhere else.
 		 */
 		flow: {
 			grid: 'grid content-start',
@@ -42,13 +80,20 @@ export const pageContainer = cva('mx-auto w-full max-w-[1200px]', {
 		padding: {
 			page: 'px-4 py-6 md:px-8 md:py-8',
 			detail: 'px-4 py-6 pb-10 md:px-8',
-			trailing: 'pb-10',
+			/*
+			 * The pinned bar a record detail page opens with. Same side padding as
+			 * `detail`, so the header's title sits over the first card's edge, and a
+			 * shorter vertical rhythm because a pinned bar costs every screen below it
+			 * the room it takes.
+			 */
+			header: 'px-4 py-4 md:px-8',
 			none: '',
 		},
 	},
 	defaultVariants: {
 		flow: 'grid',
 		gap: 'overview',
+		measure: 'page',
 		padding: 'page',
 	},
 });

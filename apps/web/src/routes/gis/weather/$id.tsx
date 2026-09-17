@@ -1,5 +1,4 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -18,14 +17,14 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -43,12 +42,10 @@ export const Route = createFileRoute('/gis/weather/$id')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 const layout: RecordDetailLayout = {
-	aside: 'narrow',
-	skeleton: { eyebrow: 'w-24', title: 'w-56', main: ['h-64'], aside: ['h-48'] },
+	skeleton: { main: [['h-64', 'h-64'], 'h-48'] },
 };
 
 function RouteComponent() {
@@ -58,10 +55,9 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			back={{ label: 'Back to Weather Stations', to: '/gis/weather' }}
 			deleteRefusals={STATION_DELETE_REFUSALS}
 			layout={layout}
-			noun="weather station"
+			recordType="weatherStation"
 			reading={{ isReady, record: station }}
 		>
 			{(record, askDelete) => <WeatherStationContent askDelete={askDelete} station={record} />}
@@ -84,30 +80,39 @@ function WeatherStationContent({
 	const isOwned = station.sourceType === 'organization' && station.organizationId !== null;
 
 	return (
-		<RecordDetailColumns
-			aside={
-				<>
-					<StationDetailsCard station={station} />
-					{isOwned ? (
-						<WriteOnly minimum="manager">
-							<StationLifecycleCard askDelete={askDelete} station={station} />
-						</WriteOnly>
-					) : null}
-				</>
-			}
-			header={<StationHeader isOwned={isOwned} station={station} />}
+		<DetailPageShell
+			facts={<StationDetailsCard station={station} />}
+			header={{
+				...(isOwned
+					? {
+							edit: {
+								minimum: 'manager' as const,
+								params: { id: station.id },
+								to: '/gis/weather/$id/edit' as const,
+							},
+						}
+					: {}),
+				flags: <StationStatusBadge isActive={station.isActive} />,
+				icon: WeatherIcon,
+				recordType: 'weatherStation',
+				subtitle: weatherSourceTypeLabel(station.sourceType),
+				title: station.name,
+			}}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<StationLocationCard station={station} />
+					<RecordRegionsBand recordId={station.id} recordType="weather_sources" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<StationLocationCard station={station} />
-				<RecordRegionsBand
-					noun="weather station"
-					recordId={station.id}
-					recordType="weather_sources"
-				/>
-			</div>
 			<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
-		</RecordDetailColumns>
+			{isOwned ? (
+				<WriteOnly minimum="manager">
+					<StationLifecycleCard askDelete={askDelete} station={station} />
+				</WriteOnly>
+			) : null}
+		</DetailPageShell>
 	);
 }
 
@@ -133,38 +138,6 @@ function StationLocationCard({ station }: { readonly station: WeatherStation }) 
 			}}
 			geomType={station.geometryKind}
 			height="h-[280px]"
-		/>
-	);
-}
-
-function StationHeader({
-	station,
-	isOwned,
-}: {
-	readonly station: WeatherStation;
-	readonly isOwned: boolean;
-}) {
-	return (
-		<PageHeader
-			actions={
-				<>
-					<StationStatusBadge isActive={station.isActive} />
-					{isOwned ? (
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: station.id }} to="/gis/weather/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					) : null}
-				</>
-			}
-			eyebrow="Weather station"
-			icon={WeatherIcon}
-			description={weatherSourceTypeLabel(station.sourceType)}
-			title={station.name}
 		/>
 	);
 }
@@ -210,19 +183,18 @@ function StationLifecycleCard({
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);
 
-	const toggleActive = useCallback(async () => {
+	const toggleActive = async () => {
 		setError(null);
 		setIsBusy(true);
 		try {
 			await mutations.setActive(station.id, !station.isActive);
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to change the station.');
-		} finally {
-			setIsBusy(false);
 		}
-	}, [mutations, station.id, station.isActive]);
+		setIsBusy(false);
+	};
 
-	const remove = useCallback(async () => {
+	const remove = async () => {
 		setError(null);
 		setIsBusy(true);
 		try {
@@ -238,11 +210,10 @@ function StationLifecycleCard({
 			});
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to delete the station.');
-		} finally {
-			setIsBusy(false);
-			setConfirmingDelete(false);
 		}
-	}, [askDelete, mutations, navigate, station.id]);
+		setIsBusy(false);
+		setConfirmingDelete(false);
+	};
 
 	return (
 		<Card variant="surface">

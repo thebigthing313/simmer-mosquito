@@ -12,16 +12,11 @@
  *
  * `updatedAt` rides along because the form keys its geometry fetch on it, so a
  * re-opened form loads the shape as it stands rather than a cached earlier one.
- *
- * `inspections` is on-demand, so this uses the status-gated `useLiveQuery`
- * rather than the suspense variant, which sticks after a navigation unmount over
- * an on-demand collection.
  */
 
 import type { LarvalDensity } from '@simmer-mosquito/domain';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { inspections } from '../../lib/collections/inspections';
-import { mapCardGcTimeMs, unmatchableId } from './shared';
+import { useRecordById } from './shared';
 
 /** An Inspection as its edit form holds one. */
 export interface InspectionRecord {
@@ -53,37 +48,30 @@ export function useInspectionRecord(inspectionId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = inspectionId ?? unmatchableId;
+	const result = useRecordById({
+		collection: inspections(),
+		id: inspectionId ?? null,
+		query: (query) =>
+			query.select(({ record: inspection }) => ({
+				id: inspection.id,
+				habitatId: inspection.habitat_id,
+				habitatTypeId: inspection.habitat_type_id,
+				addressId: inspection.address_id,
+				inspectedByProfileId: inspection.inspected_by_profile_id,
+				inspectionDate: inspection.inspection_date,
+				isWet: inspection.is_wet,
+				dipCount: inspection.dip_count,
+				density: inspection.density,
+				larvaeCount: inspection.larvae_count,
+				hasEggs: inspection.has_eggs,
+				hasFirstInstar: inspection.has_first_instar,
+				hasSecondInstar: inspection.has_second_instar,
+				hasThirdInstar: inspection.has_third_instar,
+				hasFourthInstar: inspection.has_fourth_instar,
+				hasPupae: inspection.has_pupae,
+				updatedAt: inspection.updated_at,
+			})),
+	});
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: inspections() })
-					.where(({ inspection }) => eq(inspection.id, id))
-					.select(({ inspection }) => ({
-						id: inspection.id,
-						habitatId: inspection.habitat_id,
-						habitatTypeId: inspection.habitat_type_id,
-						addressId: inspection.address_id,
-						inspectedByProfileId: inspection.inspected_by_profile_id,
-						inspectionDate: inspection.inspection_date,
-						isWet: inspection.is_wet,
-						dipCount: inspection.dip_count,
-						density: inspection.density,
-						larvaeCount: inspection.larvae_count,
-						hasEggs: inspection.has_eggs,
-						hasFirstInstar: inspection.has_first_instar,
-						hasSecondInstar: inspection.has_second_instar,
-						hasThirdInstar: inspection.has_third_instar,
-						hasFourthInstar: inspection.has_fourth_instar,
-						hasPupae: inspection.has_pupae,
-						updatedAt: inspection.updated_at,
-					})),
-		},
-		[id],
-	);
-
-	return { inspection: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { inspection: result.record, isReady: result.isReady, isError: result.isError };
 }

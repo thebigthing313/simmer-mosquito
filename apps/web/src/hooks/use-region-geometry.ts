@@ -17,7 +17,7 @@ export interface RegionGeometry {
 // synced row has no geometry), so the boundary is read over HTTP — mirroring the
 // habitat detail's geometry query. Keyed on the id alone so an unrelated field
 // edit doesn't refetch, and a geometry edit can seed this exact key.
-export function regionGeometryQueryKey(regionId: string): readonly unknown[] {
+function regionGeometryQueryKey(regionId: string): readonly unknown[] {
 	return ['region-geometry', regionId];
 }
 
@@ -69,10 +69,12 @@ export function seedRegionGeometryCache(
 }
 
 /**
- * Read one region's boundary. Exported so a caller resolving several at once can
- * share this hook's cache entries rather than opening a second cache of its own.
+ * Read one region's boundary. It was exported while the service-request
+ * explorer resolved several at once to filter its list in the browser; that
+ * list pages the viewport off the server now (#963), and nothing outside this
+ * module reads a boundary except through the hook and the two helpers above.
  */
-export async function fetchRegionGeometry(
+async function fetchRegionGeometry(
 	regionId: string,
 	signal: AbortSignal,
 ): Promise<RegionGeometry | null> {

@@ -14,15 +14,12 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
+import { activityGcTimeMs } from '../hooks/queries/shared';
 import { inspections } from '../lib/collections/inspections';
+import { recordNoun } from '../lib/record-nouns';
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
-
-// Same on-demand collection + gcTime contract as the history card; the subset is
-// shared, so this second live query reuses the warm habitat slice.
-const statsGcTimeMs = 30_000;
 
 // Minimal projection: just the fields that decide dry / wet-negative / wet-positive.
 interface InspectionStatsRow {
@@ -73,7 +70,7 @@ function isBreeding(row: InspectionStatsRow): boolean {
 }
 
 const chartConfig = {
-	count: { label: 'Inspections' },
+	count: { label: recordNoun('inspection').titleMany },
 	dry: { label: 'Dry', color: 'var(--muted-foreground)' },
 	wetNegative: { label: 'Wet, no breeding', color: 'var(--chart-2)' },
 	wetPositive: { label: 'Wet, breeding', color: 'var(--chart-5)' },
@@ -129,7 +126,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 	// pattern (not useLiveSuspenseQuery) to avoid the post-unmount suspense hang.
 	const result = useLiveQuery(
 		{
-			gcTime: statsGcTimeMs,
+			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
 					.from({ inspection: inspections() })
@@ -151,7 +148,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 	);
 
 	const rows: readonly InspectionStatsRow[] = result.data;
-	const { total, segments } = useMemo(() => computeSegments(rows), [rows]);
+	const { total, segments } = computeSegments(rows);
 
 	return (
 		<Card variant="surface">

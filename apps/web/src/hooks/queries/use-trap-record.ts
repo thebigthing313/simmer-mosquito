@@ -11,12 +11,14 @@
  * and `updatedAt` because the form keys its geometry fetch on it — a re-opened
  * form loads the point as it stands rather than a cached earlier one.
  *
- * `traps` is eager, so this resolves without a fetch.
+ * `traps` is eager, so this resolves without a fetch. It reads through
+ * {@link useRecordById} like its neighbours, which means it keeps its subset warm
+ * for the map-card window rather than the live query's own few seconds. Over an
+ * eager collection that window costs no request either way.
  */
 
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { traps } from '../../lib/collections/traps';
-import { unmatchableId } from './shared';
+import { useRecordById } from './shared';
 
 /** A Trap as its edit form holds one. */
 export interface TrapRecord {
@@ -44,29 +46,25 @@ export function useTrapRecord(trapId: string | null | undefined): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const id = trapId ?? unmatchableId;
+	const result = useRecordById({
+		collection: traps(),
+		id: trapId ?? null,
+		query: (query) =>
+			query.select(({ record: trap }) => ({
+				id: trap.id,
+				organizationId: trap.organization_id,
+				trapName: trap.trap_name,
+				trapCode: trap.trap_code,
+				description: trap.description,
+				collectionMethodId: trap.collection_method_id,
+				collectionLureId: trap.collection_lure_id,
+				addressId: trap.address_id,
+				isActive: trap.is_active,
+				latitude: trap.lat,
+				longitude: trap.lng,
+				updatedAt: trap.updated_at,
+			})),
+	});
 
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ trap: traps() })
-				.where(({ trap }) => eq(trap.id, id))
-				.select(({ trap }) => ({
-					id: trap.id,
-					organizationId: trap.organization_id,
-					trapName: trap.trap_name,
-					trapCode: trap.trap_code,
-					description: trap.description,
-					collectionMethodId: trap.collection_method_id,
-					collectionLureId: trap.collection_lure_id,
-					addressId: trap.address_id,
-					isActive: trap.is_active,
-					latitude: trap.lat,
-					longitude: trap.lng,
-					updatedAt: trap.updated_at,
-				})),
-		[id],
-	);
-
-	return { trap: result.data[0], isReady: result.isReady, isError: result.isError };
+	return { trap: result.record, isReady: result.isReady, isError: result.isError };
 }

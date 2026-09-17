@@ -60,10 +60,13 @@ function AuthShell({
 	// The strip goes above the centring grid, not inside it: a child of
 	// `place-items-center` is centred rather than pinned to the top, and the
 	// grid is `min-h-svh`, so a strip in a row of its own overflows the window.
+	// A flex column outside it rather than two rows, because the strip renders
+	// `null` everywhere but staging and an empty row would take the height the
+	// card centres in.
 	return (
-		<div className="grid min-h-svh grid-rows-[auto_1fr] bg-simmer-green-900">
+		<div className="flex min-h-svh flex-col bg-simmer-green-900">
 			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
-			<div className="grid place-items-center px-6 py-12">
+			<div className="grid flex-1 place-items-center px-6 py-12">
 				<div className="w-full max-w-[400px]">
 					<div className="mb-8 grid justify-items-center gap-3">
 						<img alt="SIMMER" className="h-12 w-auto" src="/logo.svg" />

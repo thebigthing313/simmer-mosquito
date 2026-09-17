@@ -48,7 +48,6 @@ import {
 	toArray,
 	useLiveQuery,
 } from '@tanstack/react-db';
-import { useMemo } from 'react';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
@@ -101,10 +100,7 @@ export function useCollectionsOverThreshold(
 			.select(({ method }) => ({ id: method.id })),
 	);
 
-	const methodIds = useMemo(
-		() => methodsWithThresholds.data.map((method) => method.id).sort(),
-		[methodsWithThresholds.data],
-	);
+	const methodIds = methodsWithThresholds.data.map((method) => method.id).sort();
 	// A dependency has to be comparable by value, and an array is not.
 	const methodIdsKey = methodIds.join(',');
 
@@ -159,40 +155,36 @@ export function useCollectionsOverThreshold(
 
 	const rows = result.data;
 
-	const over = useMemo(
-		() =>
-			rows
-				.flatMap((row) => {
-					const threshold = row.actionThreshold;
-					// Nothing to compare against without a threshold, and nothing to
-					// compare with until somebody keys the collection out. A zero-result
-					// collection and one still awaiting identification both land here,
-					// whatever the threshold is set to.
-					if (threshold === null || row.species.length === 0) {
-						return [];
-					}
-					// Every species row: both sexes, any physiological status.
-					const total = row.species.reduce((sum, entry) => sum + entry.count, 0);
-					if (total < threshold) {
-						return [];
-					}
-					return [
-						{
-							id: row.id,
-							trapId: row.trapId,
-							trapName: row.trapName,
-							trapCode: row.trapCode,
-							methodName: row.methodName,
-							actionThreshold: threshold,
-							total,
-							collectedAt: row.collectedAt,
-							collectionDate: row.collectionDate,
-						},
-					];
-				})
-				.sort(compareByCollectionDateDesc),
-		[rows],
-	);
+	const over = rows
+		.flatMap((row) => {
+			const threshold = row.actionThreshold;
+			// Nothing to compare against without a threshold, and nothing to
+			// compare with until somebody keys the collection out. A zero-result
+			// collection and one still awaiting identification both land here,
+			// whatever the threshold is set to.
+			if (threshold === null || row.species.length === 0) {
+				return [];
+			}
+			// Every species row: both sexes, any physiological status.
+			const total = row.species.reduce((sum, entry) => sum + entry.count, 0);
+			if (total < threshold) {
+				return [];
+			}
+			return [
+				{
+					id: row.id,
+					trapId: row.trapId,
+					trapName: row.trapName,
+					trapCode: row.trapCode,
+					methodName: row.methodName,
+					actionThreshold: threshold,
+					total,
+					collectedAt: row.collectedAt,
+					collectionDate: row.collectionDate,
+				},
+			];
+		})
+		.sort(compareByCollectionDateDesc);
 
 	return {
 		collections: over,

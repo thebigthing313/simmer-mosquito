@@ -10,6 +10,34 @@ import {
 	type RegionMembershipRecordType,
 	useRecordRegions,
 } from '../../hooks/use-record-regions';
+import { type RecordType, recordNoun } from '../../lib/record-nouns';
+
+/**
+ * The membership endpoint speaks table names and the noun register speaks the
+ * domain vocabulary, so one of them has to name the other.
+ *
+ * A `Record` over the endpoint's union rather than a lookup that may miss:
+ * adding a record type to the membership endpoint fails `tsc` here until it
+ * says which record it is, which is the drift the band used to carry as a
+ * hand-written `noun` beside the table name.
+ */
+const RECORD_TYPE_BY_TABLE: Record<RegionMembershipRecordType, RecordType> = {
+	addresses: 'address',
+	applications: 'application',
+	biocontrol_actions: 'biocontrolAction',
+	collections: 'collection',
+	habitats: 'habitat',
+	inspections: 'inspection',
+	mission_items: 'missionItem',
+	notification_registrations: 'notificationRegistration',
+	outreach_actions: 'outreachAction',
+	regions: 'region',
+	requested_control_actions: 'requestedControlAction',
+	service_requests: 'serviceRequest',
+	source_reductions: 'sourceReduction',
+	traps: 'trap',
+	weather_sources: 'weatherStation',
+};
 
 const RegionIcon = iconRegistry.entities.region.icon;
 
@@ -42,12 +70,9 @@ const CHIPS_BEFORE_COLLAPSE = 6;
 export function RecordRegionsBand({
 	recordType,
 	recordId,
-	noun,
 }: {
 	readonly recordType: RegionMembershipRecordType;
 	readonly recordId: string;
-	/** The record's own noun, for the empty state: "This habitat is inside…". */
-	readonly noun: string;
 }) {
 	const { data, isPending, isError } = useRecordRegions(recordType, recordId);
 
@@ -79,7 +104,7 @@ export function RecordRegionsBand({
 		return (
 			<BandShell>
 				<p className="m-0 text-sm text-muted-foreground">
-					This {noun} is inside none of your regions.
+					This {recordNoun(RECORD_TYPE_BY_TABLE[recordType]).one} is inside none of your regions.
 				</p>
 			</BandShell>
 		);
@@ -106,7 +131,7 @@ function BandShell({ children }: { readonly children: React.ReactNode }) {
 			<CardContent className="grid gap-3" padding="compact">
 				<p className="m-0 flex items-center gap-2 text-sm font-medium">
 					<RegionIcon aria-hidden="true" className="size-3.5" />
-					Regions
+					{recordNoun('region').titleMany}
 				</p>
 				{children}
 			</CardContent>

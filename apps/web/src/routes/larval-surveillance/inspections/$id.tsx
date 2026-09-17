@@ -2,9 +2,9 @@ import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -12,15 +12,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -30,7 +22,6 @@ import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import {
 	DensityBadge,
 	hasAnyLifeStage,
@@ -42,11 +33,11 @@ import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
-	RecordDetailColumns,
+	createItems,
+	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import {
 	useBiocontrolMethodRoster,
@@ -65,9 +56,11 @@ import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { adhocLabel } from '../../../lib/coordinate-label';
+import { adhocLabel, habitatLabel } from '../../../lib/coordinate-label';
 import { formatAmount } from '../../../lib/format-count';
-import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
+import { recordNoun } from '../../../lib/record-nouns';
+import { sampleName } from '../../../lib/sample-name';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 	component: RouteComponent,
@@ -75,11 +68,8 @@ export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 
 const layout: RecordDetailLayout = {
 	aside: 'wide',
-	padding: 'trailing',
 	stickyAside: true,
 	skeleton: {
-		eyebrow: 'w-28',
-		subtitle: 'w-48',
 		main: [['h-[420px]', 'h-[420px]'], 'h-48'],
 		aside: ['h-96'],
 	},
@@ -91,11 +81,9 @@ function RouteComponent() {
 
 	return (
 		<RecordDetailPage
-			actions={<ViewHabitatButton habitatId={query.data?.habitatId ?? null} />}
-			back={{ label: 'Back to inspections', to: '/larval-surveillance/inspections' }}
 			deleteRefusals={INSPECTION_DELETE_REFUSALS}
 			layout={layout}
-			noun="inspection"
+			recordType="inspection"
 			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
 		>
 			{(record, askDelete) => <InspectionDetailContent askDelete={askDelete} inspection={record} />}
@@ -106,9 +94,8 @@ function RouteComponent() {
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
-const HabitatIcon = iconRegistry.simmer.fieldWork.icon;
+const HabitatIcon = iconRegistry.entities.habitat.icon;
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 
 /**
  * The `/map/inspections/:id` display projection: the owned-geometry columns plus
@@ -162,21 +149,6 @@ interface SampleEntry {
 	readonly species: readonly SampleSpeciesEntry[];
 }
 
-/** The site this inspection was filed against, beside the way back to the list. */
-function ViewHabitatButton({ habitatId }: { readonly habitatId: string | null }) {
-	if (habitatId === null) {
-		return null;
-	}
-	return (
-		<Button asChild size="sm" variant="outline">
-			<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-				<HabitatIcon aria-hidden="true" />
-				View habitat
-			</Link>
-		</Button>
-	);
-}
-
 function InspectionDetailContent({
 	inspection,
 	askDelete,
@@ -189,69 +161,60 @@ function InspectionDetailContent({
 	const mutations = useInspectionMutations();
 
 	return (
-		<RecordDetailColumns
+		<DetailPageShell
 			aside={
-				<>
-					<ContextCard inspection={inspection} />
-					<CommentsSection
-						description="Access notes, conditions, and follow-up for this inspection."
-						target={{ type: 'inspection', id: inspection.id }}
-					/>
-				</>
+				<CommentsSection
+					description="Access notes, conditions, and follow-up for this inspection."
+					target={{ type: 'inspection', id: inspection.id }}
+				/>
 			}
-			header={<InspectionHeader inspection={inspection} />}
+			facts={<ContextCard inspection={inspection} />}
+			header={{
+				/*
+				 * Filed against the inspection's habitat, which is what a control action
+				 * can hold: the three forms have a habitat picker and no inspection one.
+				 * An ad-hoc inspection names no habitat, so `createItems` hides them.
+				 */
+				actions: createItems('habitatId', inspection.habitatId, [
+					'/control-operations/chemical/create',
+					'/control-operations/source-reduction/create',
+					'/control-operations/biocontrol/create',
+				]),
+				edit: {
+					params: { id: inspection.id },
+					to: '/larval-surveillance/inspections/$id/edit',
+				},
+				/*
+				 * The verdict only. Wet or dry, and larvae or none, are two derived
+				 * flags that say what kind of record this is, which is what a header
+				 * is for. What was measured, meaning the density band, the stages, the
+				 * larvae and the dips, reads in the Details card, where a reader
+				 * looking for a number goes to look for it.
+				 */
+				flags: <FindingsFlags inspection={inspection} />,
+				icon: InspectionIcon,
+				recordType: 'inspection',
+				remove: {
+					ask: askDelete,
+					name: breadcrumbLabel(inspection),
+					onDelete: (acknowledgements) => mutations.remove(inspection.id, acknowledgements),
+					recordId: inspection.id,
+					returnTo: '/larval-surveillance/inspections',
+				},
+				subtitle: <InspectionSubtitle inspection={inspection} />,
+				title: formatFullDate(inspection.inspectionDate),
+			}}
 			layout={layout}
+			lead={
+				<div className="grid content-start gap-3">
+					<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
+					<RecordRegionsBand recordId={inspection.id} recordType="inspections" />
+				</div>
+			}
 		>
-			<div className="grid content-start gap-3">
-				<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
-				<RecordRegionsBand noun="inspection" recordId={inspection.id} recordType="inspections" />
-			</div>
 			<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 			<LinkedControlActionsCard inspectionId={inspection.id} />
-			<DangerZoneCard
-				ask={askDelete}
-				name={breadcrumbLabel(inspection)}
-				noun="inspection"
-				onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
-				recordId={inspection.id}
-				recordType="inspection"
-				returnTo="/larval-surveillance/inspections"
-			/>
-		</RecordDetailColumns>
-	);
-}
-
-function InspectionHeader({ inspection }: { readonly inspection: InspectionDetailRow }) {
-	return (
-		<div className="flex flex-wrap items-start justify-between gap-3">
-			<div className="grid gap-1.5">
-				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					<InspectionIcon aria-hidden="true" className="size-3.5" />
-					Larval inspection
-				</span>
-				<h1 className="m-0 flex items-center gap-2 font-semibold text-foreground text-heading leading-heading">
-					<CalendarIcon aria-hidden="true" className="size-5 text-muted-foreground" />
-					{formatFullDate(inspection.inspectionDate)}
-				</h1>
-				<InspectionSubtitle inspection={inspection} />
-				{/*
-				 * The result belongs to the record's identity — what this inspection
-				 * found is the last line of what it *is*, under the date and the site.
-				 * It sits in the header stack rather than in a band of its own so it
-				 * takes the width of what it holds; a full-page strip carrying six
-				 * cells and a short sentence was the same complaint turned sideways.
-				 */}
-				<FindingsLine inspection={inspection} />
-			</div>
-			<WriteOnly>
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: inspection.id }} to="/larval-surveillance/inspections/$id/edit">
-						<EditIcon aria-hidden="true" />
-						Edit
-					</Link>
-				</Button>
-			</WriteOnly>
-		</div>
+		</DetailPageShell>
 	);
 }
 
@@ -259,7 +222,9 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 	if (inspection.habitatId === null) {
 		return (
 			<p className="m-0 text-[0.95rem] text-muted-foreground">
-				<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
+				<span className="tabular-nums">
+					{adhocLabel(inspection.lat, inspection.lng, 'Ad-hoc inspection')}
+				</span>
 				{inspection.addressDisplayName === null ? null : ` · ${inspection.addressDisplayName}`}
 			</p>
 		);
@@ -273,11 +238,14 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 				params={{ id: inspection.habitatId }}
 				to="/larval-surveillance/habitats/$id"
 			>
-				{siteLabel(inspection)}
+				{habitatLabel(inspection, {
+					addressName: inspection.addressDisplayName,
+					fallback: 'Ad-hoc inspection',
+				})}
 			</Link>
 			<span aria-hidden="true">·</span>
 			<Suspense fallback={<span>Loading type…</span>}>
-				<HabitatTypeName habitatTypeId={inspection.habitatTypeId} />
+				<HabitatTypeSubtitle habitatTypeId={inspection.habitatTypeId} />
 			</Suspense>
 		</p>
 	);
@@ -316,27 +284,22 @@ function InspectionLocationCard({
 }
 
 /**
- * What the inspection found, in one line.
+ * Whether the inspection found anything, as one or two badges.
  *
- * This was a card beside the location map: four stat tiles over a life-stage
- * section, stretched to a map's height. Two of those tiles said what the badges
- * a few pixels above it already said — the density and whether larvae were
- * present — so the card spent a column and 280 pixels carrying three facts, and
- * the two it repeated were the two an operator had just read.
+ * Both are derived rather than measured. Wet or dry decides whether the rest of
+ * the record means anything, and larvae or none is read off the six life-stage
+ * flags, so neither is a number a reader would go looking for. They name the
+ * kind of record, which is the header's job.
  *
- * What is left is what nothing else on the page says: which stages were there,
- * how many larvae, and out of how much dipping. The rate closes the loop back
- * to the badge in the header — an organization configures its density bands as
- * ranges of larvae per dip, so printing the rate is what makes "Heavy"
- * checkable instead of asserted.
- *
- * A dry inspection renders nothing. Its Dry badge is already in the header, and
- * the sentence that used to fill this card — that larvae need standing water —
- * explained the job back to the person doing it.
+ * The measurements used to sit here beside them: the density band, the stage
+ * strip, the larvae count and the dipping. A header bar is where a record says
+ * what it is, and an operator reading for a number was reading the wrong part
+ * of the page, so those moved into the Details card as ordinary rows. See
+ * {@link FindingsList}.
  */
-function FindingsLine({ inspection }: { readonly inspection: InspectionDetailRow }) {
-	// A dry inspection is one badge and nothing else. There is no density to band,
-	// no stages to strip, and no dipping to have done.
+function FindingsFlags({ inspection }: { readonly inspection: InspectionDetailRow }) {
+	// A dry inspection is one badge and nothing else. There was no dipping to
+	// have done, so there is no positivity to report either.
 	if (!inspection.isWet) {
 		return (
 			<div className={findingsRow}>
@@ -345,27 +308,9 @@ function FindingsLine({ inspection }: { readonly inspection: InspectionDetailRow
 		);
 	}
 
-	const rate = larvaePerDip(inspection.larvaeCount, inspection.dipCount);
-
 	return (
 		<div className={findingsRow}>
-			{/*
-			 * Verdict, then the evidence for it — and in that order because it is the
-			 * order the explorer list already reads in, where a row is a density badge
-			 * followed by its life-stage strip. Same two objects, same sequence, so the
-			 * row an operator clicked and the record they land on read alike.
-			 */}
-			<DensityBadge density={inspection.density} />
 			<PositivityBadge inspection={inspection} />
-			<LifeStageStrip size="sm" stages={inspection} />
-			<p className="m-0 flex flex-wrap items-baseline gap-x-2 text-sm">
-				<span className="font-medium text-foreground tabular-nums">
-					{effortLabel(inspection.larvaeCount, inspection.dipCount)}
-				</span>
-				{rate === null ? null : (
-					<span className="text-muted-foreground tabular-nums">· {formatRate(rate)} per dip</span>
-				)}
-			</p>
 		</div>
 	);
 }
@@ -373,30 +318,62 @@ function FindingsLine({ inspection }: { readonly inspection: InspectionDetailRow
 const findingsRow = 'mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-2';
 
 /**
- * `34 larvae in 12 dips`, degrading to whichever half was recorded.
+ * What the inspection measured, as label-and-value rows.
  *
- * Zero is a finding, not a blank: twelve dips that turned up nothing is the
- * negative result surveillance is largely made of, and it has to read as
- * deliberate rather than as a field nobody filled in.
+ * Density first, then the evidence for it, which is the order the explorer list
+ * already reads in: a row there is a density badge followed by its life-stage
+ * strip. Same two objects, same sequence, so the row an operator clicked and
+ * the record they land on read alike.
+ *
+ * The rate closes the loop back to the band. An organization configures its
+ * density bands as ranges of larvae per dip, so printing the rate is what makes
+ * "Heavy" checkable instead of asserted.
+ *
+ * A dry inspection renders nothing. Its Dry badge is in the header, and there
+ * is no density to band, no stages to strip and no dipping to divide by.
  */
-function effortLabel(larvaeCount: number | null, dipCount: number | null): string {
-	const larvae =
-		larvaeCount === null
-			? null
-			: `${larvaeCount.toLocaleString('en-US')} ${plural(larvaeCount, 'larva', 'larvae')}`;
-	const dips =
-		dipCount === null
-			? null
-			: `${dipCount.toLocaleString('en-US')} ${plural(dipCount, 'dip', 'dips')}`;
-
-	if (larvae !== null && dips !== null) {
-		return `${larvae} in ${dips}`;
+function FindingsList({ inspection }: { readonly inspection: InspectionDetailRow }) {
+	if (!inspection.isWet) {
+		return null;
 	}
-	return larvae ?? dips ?? 'Counts not recorded';
-}
 
-function plural(count: number, one: string, many: string): string {
-	return count === 1 ? one : many;
+	const rate = larvaePerDip(inspection.larvaeCount, inspection.dipCount);
+
+	return (
+		<DetailList>
+			<DetailRow label="Density">
+				<DensityBadge density={inspection.density} />
+			</DetailRow>
+			<DetailRow label="Life stages">
+				<LifeStageStrip size="sm" stages={inspection} />
+			</DetailRow>
+			{/*
+			 * Zero is a finding, not a blank: twelve dips that turned up nothing is
+			 * the negative result surveillance is largely made of, so a recorded zero
+			 * has to read as deliberate rather than as a field nobody filled in. That
+			 * is what passing the count through rather than testing it for truth
+			 * does, and why `DetailRow` is handed `null` and left to say the row was
+			 * not recorded.
+			 */}
+			<DetailRow label="Larvae">
+				{inspection.larvaeCount === null ? null : (
+					<span className="tabular-nums">{inspection.larvaeCount.toLocaleString('en-US')}</span>
+				)}
+			</DetailRow>
+			<DetailRow label="Dips">
+				{inspection.dipCount === null ? null : (
+					<span className="flex flex-wrap items-baseline gap-x-2">
+						<span className="tabular-nums">{inspection.dipCount.toLocaleString('en-US')}</span>
+						{rate === null ? null : (
+							<span className="text-muted-foreground tabular-nums">
+								· {formatRate(rate)} per dip
+							</span>
+						)}
+					</span>
+				)}
+			</DetailRow>
+		</DetailList>
+	);
 }
 
 /** One decimal at most: `2.8`, `3`, `0.5`. */
@@ -404,6 +381,14 @@ function formatRate(rate: number): string {
 	return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(rate);
 }
 
+/**
+ * The Details card: what was found, then where and by whom.
+ *
+ * The two groups are separated by a rule rather than by a second card, because
+ * a reader wanting the larvae count and a reader wanting the inspector are the
+ * same reader scanning one column of labels. A dry inspection has no findings
+ * group, so it takes no rule either.
+ */
 function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
@@ -412,18 +397,27 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<DetailList>
+				<FindingsList inspection={inspection} />
+				<DetailList className={cn(inspection.isWet && 'border-border/50 border-t pt-4')}>
+					{/*
+					 * An ad-hoc inspection names no habitat, and this row says so rather
+					 * than printing the coordinates: it is the Habitat row, and filling it
+					 * with a place reads as a habitat whose name is a pair of numbers. The
+					 * coordinates are already in the subtitle and on the Location card
+					 * beside it.
+					 */}
 					<DetailRow label="Habitat">
-						{inspection.habitatId === null ? (
-							<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
-						) : (
+						{inspection.habitatId === null ? null : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: inspection.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{siteLabel(inspection)}
+								{habitatLabel(inspection, {
+									addressName: inspection.addressDisplayName,
+									fallback: 'Ad-hoc inspection',
+								})}
 							</Link>
 						)}
 					</DetailRow>
@@ -435,11 +429,8 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={inspection.addressId} />
 					</DetailRow>
-					<DetailRow empty="Unassigned" label="Inspector">
-						{inspection.inspectedByName}
-					</DetailRow>
+					<DetailRow label="Inspector">{inspection.inspectedByName}</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
-					<DetailRow label="Coordinates">{coordinateLabel(inspection)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
 				</DetailList>
@@ -465,7 +456,7 @@ function InspectionSamplesCard({
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
 							<SampleIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Samples
+							{recordNoun('sample').titleMany}
 						</CardTitle>
 						<CardDescription>
 							Specimens collected during this inspection and the species identified in each.
@@ -479,33 +470,22 @@ function InspectionSamplesCard({
 				</div>
 			</CardHeader>
 			<CardContent padding="compact">
-				{isError ? (
-					<SamplesEmpty
-						description="Sample records could not be loaded. Try again shortly."
-						title="Samples Unavailable"
-					/>
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-16 w-full" key={index} />
-						))}
-					</div>
-				) : samples.length === 0 ? (
-					<SamplesEmpty
-						description={
-							isWet
-								? 'No specimens were collected during this inspection.'
-								: 'Dry inspections collect no samples.'
-						}
-						title="No Samples Recorded"
-					/>
-				) : (
-					<ul className="grid gap-2">
-						{samples.map((sample) => (
-							<SampleItem key={sample.id} sample={sample} />
-						))}
-					</ul>
-				)}
+				<PanelRows
+					empty={{
+						description: isWet
+							? 'No specimens were collected during this inspection.'
+							: 'Dry inspections collect no samples.',
+						title: 'No Samples Recorded',
+					}}
+					icon={<SampleIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: samples }}
+					unavailable={{
+						description: 'Sample records could not be loaded. Try again shortly.',
+						title: 'Samples Unavailable',
+					}}
+				>
+					{(rows) => rows.map((sample) => <SampleItem key={sample.id} sample={sample} />)}
+				</PanelRows>
 			</CardContent>
 		</Card>
 	);
@@ -597,29 +577,25 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 				</div>
 			</CardHeader>
 			<CardContent padding="compact">
-				{isError ? (
-					<LinkedActionsEmpty
-						description="Linked control actions could not be loaded. Try again shortly."
-						title="Control Actions Unavailable"
-					/>
-				) : !isReady ? (
-					<div className="grid gap-2">
-						{[0, 1].map((index) => (
-							<Skeleton className="h-16 w-full" key={index} />
-						))}
-					</div>
-				) : actions.length === 0 ? (
-					<LinkedActionsEmpty
-						description="No applications, source reductions, or other control actions reference this inspection yet."
-						title="No Control Actions"
-					/>
-				) : (
-					<ul className="grid gap-2">
-						{actions.map((action) => (
+				<PanelRows
+					empty={{
+						description:
+							'No applications, source reductions, or other control actions reference this inspection yet.',
+						title: 'No Control Actions',
+					}}
+					icon={<ControlIcon aria-hidden="true" />}
+					reading={{ isError, isReady, rows: actions }}
+					unavailable={{
+						description: 'Linked control actions could not be loaded. Try again shortly.',
+						title: 'Control Actions Unavailable',
+					}}
+				>
+					{(rows) =>
+						rows.map((action) => (
 							<LinkedActionRow action={action} key={`${action.kind}-${action.id}`} />
-						))}
-					</ul>
-				)}
+						))
+					}
+				</PanelRows>
 			</CardContent>
 		</Card>
 	);
@@ -760,33 +736,29 @@ function ProfileName({ profileId }: { readonly profileId: string }) {
 	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
 }
 
-function LinkedActionsEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<ControlIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
-
+/**
+ * The habitat's type in a fact row, which is nothing at all when it has none.
+ *
+ * A `DetailRow` handed nothing draws the absent mark, so the row says the same
+ * thing the Address row beside it says. The subtitle is where an unassigned
+ * type is spelled out, because a lone dash after the habitat's name would read
+ * as a glyph nobody placed. See {@link HabitatTypeSubtitle}.
+ */
 function HabitatTypeName({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
 	const habitatTypes = useHabitatTypeRoster();
 	if (habitatTypeId === null) {
-		return <span className="text-muted-foreground">Unassigned type</span>;
+		return null;
 	}
 	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
 	return <>{match?.name ?? 'Unknown type'}</>;
+}
+
+/** The same name, in the header, where an unassigned type is said in words. */
+function HabitatTypeSubtitle({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
+	if (habitatTypeId === null) {
+		return <span>Unassigned type</span>;
+	}
+	return <HabitatTypeName habitatTypeId={habitatTypeId} />;
 }
 
 /** One id through the shared taxonomy read — the catalog is eager and small. */
@@ -821,28 +793,6 @@ async function fetchInspectionDetail(
 	return body.inspection ?? null;
 }
 
-// --- presentational states --------------------------------------------------
-
-function SamplesEmpty({
-	title,
-	description,
-}: {
-	readonly title: string;
-	readonly description: string;
-}) {
-	return (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
-			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<SampleIcon aria-hidden="true" />
-				</EmptyMedia>
-				<EmptyTitle>{title}</EmptyTitle>
-				<EmptyDescription>{description}</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
-	);
-}
-
 // --- helpers ----------------------------------------------------------------
 
 const sampleResultTones = {
@@ -870,20 +820,6 @@ function sampleResult(
 	return sampleResultTones.larvae;
 }
 
-function sampleName(sample: SampleEntry): string {
-	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}
-
-function siteLabel(inspection: InspectionDetailRow): string {
-	return (
-		inspection.habitatName?.trim() ||
-		inspection.addressDisplayName?.trim() ||
-		(inspection.habitatId === null
-			? adhocLabel(inspection.lat, inspection.lng)
-			: `Habitat ${inspection.habitatId.slice(0, 8)}`)
-	);
-}
-
 function breadcrumbLabel(inspection: InspectionDetailRow): string {
 	return `Inspection · ${formatMonthDayYear(inspection.inspectionDate)}`;
 }
@@ -899,11 +835,4 @@ function controlTypeLabel(controlType: ControlType): string {
 		default:
 			return 'Outreach';
 	}
-}
-
-function coordinateLabel(inspection: InspectionDetailRow): string {
-	if (inspection.lat == null || inspection.lng == null) {
-		return 'Unknown coordinates';
-	}
-	return `${inspection.lat.toFixed(5)}, ${inspection.lng.toFixed(5)}`;
 }

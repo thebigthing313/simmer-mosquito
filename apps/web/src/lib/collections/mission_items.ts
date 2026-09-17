@@ -7,6 +7,7 @@
  */
 
 import { createMissionItemsCollection, type MissionItem } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -20,4 +21,20 @@ export const mission_items = declareCollection<MissionItem>({
 	syncMode: 'on-demand',
 	mutations: true,
 	create: createMissionItemsCollection,
+
+	/*
+	 * The join key an inner join on `missions` loads this table by.
+	 *
+	 * `useAssignedRequestIds` joins stops to their missions with `inner`, and
+	 * the compiler drives an inner join from whichever side holds fewer rows in
+	 * the browser and loads the other lazily by `mission_id = any(...)`. That
+	 * lookup is taken only while the column is indexed; without one the compiler
+	 * warns once and asks the shape for every stop the source predicate admits.
+	 * `useMissionsForRequest` joins the same two tables and does not read this:
+	 * its join is `left` since #1026, so the stops are always the driven side
+	 * and the missions are fetched by their own `id`.
+	 */
+	index: (collection) => {
+		collection.createIndex((row) => row.mission_id, { indexType: BasicIndex });
+	},
 });

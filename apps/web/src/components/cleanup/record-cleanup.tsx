@@ -6,7 +6,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
 import {
@@ -17,6 +17,7 @@ import {
 	duplicateCandidatesQueryKey,
 	useDuplicateCandidates,
 } from '../../hooks/use-merge-candidates';
+import { recordNoun } from '../../lib/record-nouns';
 import { DuplicateGroupPanel } from './duplicate-group-panel';
 import { MatchTypeFilter } from './match-type-filter';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
@@ -53,8 +54,19 @@ interface PendingMerge {
  * Removing records that nothing refers to any more is the other half of cleanup
  * and is not here yet; the page says so rather than leaving the nav entry
  * promising it.
+ *
+ * `canSubmit` is the route's answer to `canAttributeWrite`, the same prop the
+ * form pages take, and it reaches the two controls a merge goes through: the
+ * button on a group that opens the confirmation, and the action in it that
+ * sends the command (#944).
  */
-export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRecordType }) {
+export function RecordCleanup({
+	recordType,
+	canSubmit,
+}: {
+	readonly recordType: DuplicateRecordType;
+	readonly canSubmit: boolean;
+}) {
 	const config = RECORD_CLEANUP_CONFIGS[recordType];
 	const pageConfig = DUPLICATE_PAGE_CONFIGS[recordType];
 	const candidates = useDuplicateCandidates(recordType);
@@ -71,7 +83,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 	 * from the one that was shared.
 	 */
 	const [matchTypes, setMatchTypes] = useState<ReadonlySet<DuplicateReason>>(() => new Set());
-	const clearMatchTypes = useCallback(() => setMatchTypes(new Set()), []);
+	const clearMatchTypes = () => setMatchTypes(new Set());
 
 	/*
 	 * Keyed by group, not by record. A contact is compared three ways, so the same
@@ -79,40 +91,43 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 	 * evidence. Refusing one proposal is not refusing the other, and a flat set
 	 * would silently withdraw both.
 	 */
-	const exclude = useCallback((groupKey: string, recordId: string) => {
+	const exclude = (groupKey: string, recordId: string) => {
 		setExcluded((current) => new Set(current).add(exclusionKey(groupKey, recordId)));
-	}, []);
+	};
 
-	const runMerge = useCallback(
-		async (acknowledged: boolean, fieldUpdates: MergeFieldUpdates): Promise<void> => {
-			if (pending === null) {
-				return;
-			}
-			await merge({
-				targetId: pending.target.id,
-				sourceIds: pending.sources.map((record) => record.id),
-				acknowledged,
-				fieldUpdates,
-			});
-			toast.success(
-				`Merged ${recordCountLabel(pending.sources.length, config)} into ${recordLabel(
-					pending.target,
-					config,
-				)}.`,
-			);
-			await queryClient.invalidateQueries({
-				queryKey: duplicateCandidatesQueryKey(recordType),
-			});
-		},
-		[config, merge, pending, queryClient, recordType],
-	);
+	const runMerge = async (
+		acknowledged: boolean,
+		fieldUpdates: MergeFieldUpdates,
+	): Promise<void> => {
+		if (pending === null) {
+			return;
+		}
+		await merge({
+			targetId: pending.target.id,
+			sourceIds: pending.sources.map((record) => record.id),
+			acknowledged,
+			fieldUpdates,
+		});
+		toast.success(
+			`Merged ${recordCountLabel(pending.sources.length, config)} into ${recordLabel(
+				pending.target,
+				config,
+			)}.`,
+		);
+		await queryClient.invalidateQueries({
+			queryKey: duplicateCandidatesQueryKey(recordType),
+		});
+	};
 
+	// `record` is the measure the route-loading skeleton reserves, so the tool
+	// arrives at the width it stood in for (#1043, #1046). The proposal sets
+	// below are cards, and how they lay out in the wider frame is #1049's.
 	return (
-		<div className={pageContainer({ gap: 'detail' })}>
+		<div className={pageContainer({ gap: 'detail', measure: 'record' })}>
 			<PageHeader
-				description={`Two records for one ${config.noun.one} split its history in half. This proposes the sets that look like duplicates and folds them into whichever one you keep.`}
+				description={`Two records for one ${recordNoun(recordType).one} split its history in half. This proposes the sets that look like duplicates and folds them into whichever one you keep.`}
 				icon={MergeIcon}
-				title="Cleanup Tools"
+				title={`Cleanup ${recordNoun(recordType).titleMany}`}
 			/>
 
 			{candidates.data === undefined || candidates.data.length === 0 ? null : (
@@ -128,6 +143,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 
 			<CleanupBody
 				candidates={candidates}
+				canSubmit={canSubmit}
 				config={config}
 				excluded={excluded}
 				pageConfig={pageConfig}
@@ -144,6 +160,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 
 			{pending === null ? null : (
 				<MergeConfirmDialog
+					canSubmit={canSubmit}
 					config={config}
 					onConfirm={runMerge}
 					onOpenChange={(open) => {
@@ -163,6 +180,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 
 function CleanupBody({
 	candidates,
+	canSubmit,
 	config,
 	excluded,
 	matchTypes,
@@ -175,6 +193,7 @@ function CleanupBody({
 	survivors,
 }: {
 	readonly candidates: ReturnType<typeof useDuplicateCandidates>;
+	readonly canSubmit: boolean;
 	readonly config: RecordCleanupConfig;
 	readonly pageConfig: DuplicatePageConfig;
 	readonly excluded: ReadonlySet<string>;
@@ -221,6 +240,7 @@ function CleanupBody({
 				const survivor = kept.find((record) => record.id === survivors[group.key]) ?? kept[0];
 				return survivor === undefined ? null : (
 					<DuplicateGroupPanel
+						canSubmit={canSubmit}
 						config={config}
 						group={group}
 						key={group.key}
@@ -316,8 +336,8 @@ function CleanupEmpty({
 			icon={config.icon}
 			title={
 				isFiltered
-					? `No duplicate ${config.noun.many} of this kind`
-					: `No duplicate ${config.noun.many} found`
+					? `No duplicate ${recordNoun(config.recordType).many} of this kind`
+					: `No duplicate ${recordNoun(config.recordType).many} found`
 			}
 		/>
 	);

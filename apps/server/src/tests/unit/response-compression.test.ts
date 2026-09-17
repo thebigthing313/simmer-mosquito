@@ -241,7 +241,14 @@ describe('read compression', () => {
 	// are the largest reads the server sends, and a request body is not a
 	// response.
 	it('covers the private read prefixes plus the shape proxy', () => {
-		expect([...COMPRESSED_READ_PREFIXES]).toEqual(['/map/*', '/records/*', '/search', '/sync/*']);
+		expect([...COMPRESSED_READ_PREFIXES]).toEqual([
+			'/map/*',
+			'/records/*',
+			'/search',
+			'/dashboard',
+			'/larval-surveillance/samples/awaiting',
+			'/sync/*',
+		]);
 		expect(COMPRESSED_READ_PREFIXES).toEqual(expect.arrayContaining([...PRIVATE_READ_PREFIXES]));
 	});
 

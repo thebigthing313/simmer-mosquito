@@ -9,16 +9,17 @@ import {
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../../components/linked-address';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	mapCardCoordinates,
 } from '../../components/map/map-card';
 import type { MapInset } from '../../components/map/map-inset';
 import { TagBadge } from '../../components/tag-badge';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useTrap } from '../../hooks/queries/use-trap';
+import { recordNoun } from '../../lib/record-nouns';
 
 const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
@@ -43,7 +44,7 @@ export function TrapMapCard({
 
 	if (trap === undefined) {
 		return (
-			<MapCard inset={inset} onClose={onClose} title="Trap">
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('trap').title}>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -64,7 +65,7 @@ export function TrapMapCard({
 					))}
 				</>
 			}
-			eyebrow={<MapCardEyebrow type="Trap" />}
+			eyebrow={<MapCardEyebrow recordType="trap" />}
 			inset={inset}
 			onClose={onClose}
 			title={trapDisplayName(trap)}
@@ -81,7 +82,7 @@ export function TrapMapCard({
 				</MapCardDetail>
 				<MapCardAddress address={trap.address} addressId={trap.addressId} />
 				<MapCardDetail icon={LocateFixedIcon} mono>
-					{coordinateLabel({ lat: trap.latitude, lng: trap.longitude })}
+					{mapCardCoordinates({ lat: trap.latitude, lng: trap.longitude })}
 				</MapCardDetail>
 			</div>
 		</MapCard>

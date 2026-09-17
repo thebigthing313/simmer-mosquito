@@ -4,16 +4,17 @@ import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
 import {
-	coordinateLabel,
 	MapCard,
 	MapCardDetail,
 	MapCardEyebrow,
+	mapCardCoordinates,
 } from '../../../components/map/map-card';
 import type { MapInset } from '../../../components/map/map-inset';
 import { TagBadge } from '../../../components/tag-badge';
 import { useAddress } from '../../../hooks/queries/use-address';
 import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { formatAddressLine } from '../../../lib/address-format';
+import { recordNoun } from '../../../lib/record-nouns';
 import { useAddressGeometry } from './-address-data';
 
 /**
@@ -50,7 +51,12 @@ export function AddressMapCard({
 
 	if (address === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Address">
+			<MapCard
+				className="max-w-[420px]"
+				inset={inset}
+				onClose={onClose}
+				title={recordNoun('address').title}
+			>
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -67,7 +73,7 @@ export function AddressMapCard({
 				tags.length === 0 ? undefined : tags.map((tag) => <TagBadge key={tag.id} tag={tag} />)
 			}
 			className="max-w-[420px]"
-			eyebrow={<MapCardEyebrow type="Address" />}
+			eyebrow={<MapCardEyebrow recordType="address" />}
 			inset={inset}
 			onClose={onClose}
 			title={address.displayName}
@@ -81,7 +87,7 @@ export function AddressMapCard({
 				{line.length === 0 ? null : <MapCardDetail icon={MapPinnedIcon}>{line}</MapCardDetail>}
 				{lat === null || lng === null ? null : (
 					<MapCardDetail icon={LocateFixedIcon} mono>
-						{coordinateLabel({ lat, lng })}
+						{mapCardCoordinates({ lat, lng })}
 					</MapCardDetail>
 				)}
 			</div>

@@ -228,17 +228,6 @@ export function validateEmail({ value }: { readonly value: string }): string | u
 	return 'Main contact must be a valid email address.';
 }
 
-function _nullableNonnegativeIntegerValue(value: number | null, label: string): number | null {
-	if (value === null) {
-		return null;
-	}
-
-	if (!Number.isInteger(value) || value < 0) {
-		throw new Error(`${label} must be a nonnegative whole number.`);
-	}
-	return value;
-}
-
 function nonnegativeNumberValue(value: number | null, label: string): number {
 	if (value === null || !Number.isFinite(value) || value < 0) {
 		throw new Error(`${label} must be zero or greater.`);
@@ -276,7 +265,26 @@ function densityRangeFormValue(range: LarvalDensityRange): DensityRangeFormValue
 	};
 }
 
-export function densityRangesFromFormValues(values: DensityRangeFormValues): LarvalDensityRanges {
+/**
+ * The density bands to save, or `null` when the Organization keys plain counts.
+ *
+ * The branch lives here rather than at the call site because that call site is
+ * inside a try block, and the React Compiler bails on a whole component when a
+ * try block holds a branching expression (#856). Throwing is the point: an
+ * out-of-order band has to refuse the save, so the validation stays inside the
+ * caller's try.
+ */
+export function densityRangesOrNull(
+	enabled: boolean,
+	values: DensityRangeFormValues,
+): LarvalDensityRanges | null {
+	if (!enabled) {
+		return null;
+	}
+	return densityRangesFromFormValues(values);
+}
+
+function densityRangesFromFormValues(values: DensityRangeFormValues): LarvalDensityRanges {
 	const ranges = {
 		light: densityRangeFromFormValue(values.light, 'light'),
 		medium: densityRangeFromFormValue(values.medium, 'medium'),
