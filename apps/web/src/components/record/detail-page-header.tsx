@@ -42,8 +42,9 @@ import { TagBadge } from '../tag-badge';
  * page was a table with no name over it.
  *
  * It is `sticky` rather than `fixed`, which is what lets it share the scroll
- * box with the content and therefore share the `record` container the layout is
- * measured against. A fixed bar would be positioned against the viewport, so it
+ * box with the content and therefore share the container the layout is
+ * measured against, the `record` measure on a page and the column on a panel
+ * (see {@link DetailHeaderFrame}). A fixed bar would be positioned against the viewport, so it
  * would sit over the rails and need its own copy of the measure to line its
  * title up with the first card. It follows DESIGN.md's Opaque Pin Rule: an
  * opaque surface, a one-pixel bottom border, `z-10`, and no blur, since nothing
@@ -87,9 +88,19 @@ import { TagBadge } from '../tag-badge';
  * no longer carries one of its own: see {@link DetailPageRecord}.
  */
 export function DetailPageHeader(props: DetailPageHeaderProps) {
-	const { icon: RecordIcon, recordType, title, subtitle, edit, actions, flags, tags } = props;
+	const {
+		icon: RecordIcon,
+		recordType,
+		title,
+		subtitle,
+		edit,
+		actions,
+		flags,
+		tags,
+		frame,
+	} = props;
 	return (
-		<DetailHeaderBar>
+		<DetailHeaderBar frame={frame ?? 'page'}>
 			<div className="flex min-w-0 flex-col gap-1.5">
 				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					<RecordIcon aria-hidden="true" className="size-3.5" />
@@ -133,7 +144,30 @@ interface DetailPageHeaderBase {
 	readonly flags?: ReactNode;
 	/** The record's id, for the six record kinds `TAG_TARGET_TYPES` allows. */
 	readonly tags?: { readonly recordId: string };
+	/** The box the bar is measured in. Defaults to `page`. See {@link DetailHeaderFrame}. */
+	readonly frame?: DetailHeaderFrame;
 }
+
+/**
+ * What the bar sits in, which decides its measure and padding.
+ *
+ * `page` is the record container: the bar spans the stage and its padding is
+ * `pageContainer`'s `header`, so the title sits over the first card's edge.
+ * That is every page on `DetailPageShell`, and the skeleton, which draws at
+ * the page measure whatever frame the record will arrive in: the service
+ * request page loads there too, since its split needs the request's
+ * coordinates before it can draw the map.
+ *
+ * `panel` is a column that already has a measure of its own, the 40% the
+ * service request page keeps beside its map. The `record` measure would be no
+ * cap there, and the `header` padding steps up to 32px a side at `md`, which in
+ * a 500px column is a bar whose title and pencil wrap before the flags do. So
+ * the bar takes the column's own padding, the same `p-4` the body scrolling
+ * under it is padded with. One prop rather than a second header, because
+ * everything else about the bar, the eyebrow, the menu, the Tags and the rule
+ * they sit under, is the same bar.
+ */
+type DetailHeaderFrame = 'page' | 'panel';
 
 /**
  * Which record the bar names, and whether it can be deleted from here.
@@ -247,16 +281,26 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
  * the pinned bar is the same height before the record arrives and the content
  * below it does not jump.
  */
-function DetailHeaderBar({ children }: { readonly children: ReactNode }) {
+function DetailHeaderBar({
+	children,
+	frame,
+}: {
+	readonly children: ReactNode;
+	readonly frame: DetailHeaderFrame;
+}) {
 	return (
 		<header className="sticky top-0 z-10 border-border border-b bg-background">
 			<div
-				className={pageContainer({
-					flow: 'block',
-					gap: 'none',
-					measure: 'record',
-					padding: 'header',
-				})}
+				className={
+					frame === 'panel'
+						? 'p-4'
+						: pageContainer({
+								flow: 'block',
+								gap: 'none',
+								measure: 'record',
+								padding: 'header',
+							})
+				}
 			>
 				<div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">{children}</div>
 			</div>
@@ -267,7 +311,7 @@ function DetailHeaderBar({ children }: { readonly children: ReactNode }) {
 /** The bar before the record, in the frame's skeleton. */
 export function DetailPageHeaderSkeleton() {
 	return (
-		<DetailHeaderBar>
+		<DetailHeaderBar frame="page">
 			<div className="flex min-w-0 flex-col gap-1.5">
 				<Skeleton className="h-4 w-24" />
 				<Skeleton className="h-8 w-64" />

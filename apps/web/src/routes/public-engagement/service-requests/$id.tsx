@@ -1,9 +1,6 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
@@ -12,35 +9,25 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	ArrowLeftIcon,
-	ChevronRightIcon,
-	iconRegistry,
-	MapPinnedIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ChevronRightIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { MapCanvas } from '../../../components/map';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
-import { ReasonDialog } from '../../../components/reason-dialog';
 import {
+	detailBodyClass,
 	type RecordDetailLayout,
 	RecordDetailSkeleton,
 	RecordUnavailable,
+	type RecordUnavailableReason,
 } from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
-import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useContact } from '../../../hooks/queries/use-contact-record';
@@ -51,7 +38,6 @@ import {
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
 import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { recordNoun } from '../../../lib/record-nouns';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
 import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
@@ -64,10 +50,9 @@ import {
 	formatAddressLines,
 	formatRequestDate,
 	intakeTypeLabel,
-	isServiceRequestOpen,
 	serviceRequestTitle,
 } from '../-public-engagement-display';
-import { RequestStatusBadge } from '../-public-engagement-ui';
+import { ServiceRequestDetailHeader } from './-service-request-detail-header';
 import {
 	buildNearbyMapData,
 	countNearbyByFamily,
@@ -89,8 +74,6 @@ export const Route = createFileRoute('/public-engagement/service-requests/$id')(
 	component: ServiceRequestDetailRoute,
 });
 
-const RequestIcon = iconRegistry.entities.serviceRequest.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
 const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
 /**
@@ -108,11 +91,11 @@ const layout: RecordDetailLayout = {
 function ServiceRequestDetailRoute() {
 	const { id } = Route.useParams();
 	const { request, isError, isReady } = useServiceRequestRecord(id);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the request leaves the collection the moment the button is
-	// pressed and the content below unmounts before the registry's refusal comes
-	// back. This component survives it: the row going is what makes it render
-	// `RecordUnavailable` instead.
+	// Held here rather than in the header's menu, and rendered here too. The
+	// delete is optimistic, so the request leaves the collection the moment the
+	// item is chosen and the content below unmounts before the registry's refusal
+	// comes back. This component survives it: the row going is what makes it
+	// render `RecordUnavailable` instead.
 	const { run, dialog } = useAcknowledgedWrite({
 		askable: SERVICE_REQUEST_DELETE_REFUSALS,
 		ask: true,
@@ -122,25 +105,15 @@ function ServiceRequestDetailRoute() {
 	// a read that failed is not a record that is missing, and telling the reader
 	// to stop looking is the wrong answer to a transient failure.
 	if (isError) {
-		return (
-			<ServiceRequestStatePage>
-				<RecordUnavailable recordType="serviceRequest" reason="error" />
-			</ServiceRequestStatePage>
-		);
+		return <ServiceRequestUnavailable reason="error" />;
 	}
 	if (!isReady) {
-		return (
-			<ServiceRequestStatePage>
-				<RecordDetailSkeleton layout={layout} />
-			</ServiceRequestStatePage>
-		);
+		return <RecordDetailSkeleton layout={layout} />;
 	}
 	if (request === undefined) {
 		return (
 			<>
-				<ServiceRequestStatePage>
-					<RecordUnavailable recordType="serviceRequest" reason="not-found" />
-				</ServiceRequestStatePage>
+				<ServiceRequestUnavailable reason="not-found" />
 				{dialog}
 			</>
 		);
@@ -154,31 +127,19 @@ function ServiceRequestDetailRoute() {
 }
 
 /**
- * Full-height, back-linked frame for the loading / unavailable states.
+ * The unavailable states, in the frame's body measure.
  *
- * `record` is the measure the route-loading skeleton reserves, so the state
- * arrives at the width it stood in for rather than in a 900px column of its
- * own, the third such column in the routes after search and weather import
- * (#1043, #1046).
+ * The same box `RecordDetailPage` puts its own in, so the message stands where
+ * the record's cards would have, at the width the route-loading skeleton
+ * reserved rather than in a 900px column of its own (#1043, #1046). There is no
+ * back link over it: the breadcrumb and the browser's back button already say
+ * where up is, and the one the page used to draw named a fixed destination.
  */
-function ServiceRequestStatePage({ children }: { readonly children: ReactNode }) {
+function ServiceRequestUnavailable({ reason }: { readonly reason: RecordUnavailableReason }) {
 	return (
-		<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
-			<BackLink />
-			{children}
+		<div className={detailBodyClass()}>
+			<RecordUnavailable reason={reason} recordType="serviceRequest" />
 		</div>
-	);
-}
-
-function BackLink() {
-	return (
-		<Link
-			className="inline-flex w-fit items-center gap-1.5 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			to="/public-engagement/service-requests"
-		>
-			<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-			{recordNoun('serviceRequest').titleMany}
-		</Link>
 	);
 }
 
@@ -187,13 +148,9 @@ function ServiceRequestDetailContent({
 	askDelete,
 }: {
 	readonly request: ServiceRequestRecord;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
-	const title = serviceRequestTitle(request);
-	useBreadcrumbLabel(request.id, title);
-	const open = isServiceRequestOpen(request);
+	useBreadcrumbLabel(request.id, serviceRequestTitle(request));
 
 	const nearby = useServiceRequestNearby(request.id);
 	const nameById = useLookupNames();
@@ -202,7 +159,6 @@ function ServiceRequestDetailContent({
 	);
 	const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
 
-	const mutations = useServiceRequestMutations();
 	const profiles = useProfileRoster();
 	const receivedByName =
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
@@ -232,35 +188,7 @@ function ServiceRequestDetailContent({
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'snug', padding: 'default' })}>
-					<BackLink />
-					<div className="flex items-start justify-between gap-2">
-						<div className="grid min-w-0 gap-1">
-							<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-								<RequestIcon aria-hidden="true" className="size-3.5" />
-								Service request
-							</span>
-							<h1 className="m-0 truncate font-semibold text-foreground text-xl leading-tight">
-								{title}
-							</h1>
-							<p className="m-0 text-muted-foreground text-sm">
-								{intakeTypeLabel(request.intakeType)} · {formatRequestDate(request.requestDate)}
-							</p>
-						</div>
-						<RequestStatusBadge open={open} />
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-						<CloseReopenButton open={open} requestId={request.id} />
-					</div>
-				</div>
+				<ServiceRequestDetailHeader askDelete={askDelete} request={request} />
 
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<div className="grid content-start gap-5 p-4">
@@ -285,14 +213,6 @@ function ServiceRequestDetailContent({
 						<CommentsSection
 							description="Follow-up, resolution notes, and field context for this request."
 							target={{ type: 'serviceRequest', id: request.id }}
-						/>
-						<DangerZoneCard
-							ask={askDelete}
-							name={title}
-							onDelete={(acknowledgements) => mutations.remove(request.id, acknowledgements)}
-							recordId={request.id}
-							recordType="serviceRequest"
-							returnTo="/public-engagement/service-requests"
 						/>
 					</div>
 				</div>
@@ -888,99 +808,4 @@ function formatCoords(
 		return null;
 	}
 	return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-}
-
-/**
- * Everything that differs between the close dialog and the reopen dialog. The
- * two are the same component with one of these picked once, so a wording change
- * lands in exactly one place and cannot drift between the halves.
- */
-interface LifecycleCopy {
-	readonly action: string;
-	readonly title: string;
-	readonly description: string;
-	readonly placeholder: string;
-	/** What the comment says when nobody explained it. */
-	readonly unexplained: string;
-}
-
-const CLOSE_COPY: LifecycleCopy = {
-	action: 'Close Request',
-	title: 'Close this request',
-	description: 'What was found, and what was done about it. This goes on the request as a comment.',
-	// vocabulary-ignore site: ordinary English in a field tech's voice, not the abstraction.
-	placeholder: 'No standing water found on site.',
-	unexplained: 'Closed',
-};
-
-const REOPEN_COPY: LifecycleCopy = {
-	action: 'Reopen Request',
-	title: 'Reopen this request',
-	description: 'Why this request is being picked back up. This goes on the request as a comment.',
-	placeholder: 'Caller reported it again.',
-	unexplained: 'Reopened',
-};
-
-/**
- * Close or reopen, with the reason that goes on the record.
- *
- * Both write a comment on the request in the same transaction, so the dialog is
- * not a confirmation step bolted on — it is where the comment's text comes from.
- * The reason is an argument to the command rather than a change to the row: it
- * is not a column here, and the optimistic row must not pretend it is.
- *
- * Neither is required. The command insists on non-empty text, so an empty box
- * falls back to the plain fact — the same bargain the mission cancel dialog
- * strikes. A close nobody explained is still a close, and refusing to record it
- * over a blank field would be the worse failure.
- */
-function CloseReopenButton({
-	requestId,
-	open,
-}: {
-	readonly requestId: string;
-	readonly open: boolean;
-}) {
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const mutations = useServiceRequestMutations();
-	const copy = open ? CLOSE_COPY : REOPEN_COPY;
-
-	const confirm = async (reason: string) => {
-		setDialogOpen(false);
-		setBusy(true);
-		setError(null);
-		const trimmed = reason.trim();
-		const text = trimmed.length === 0 ? copy.unexplained : trimmed;
-		try {
-			if (open) {
-				await mutations.close(requestId, text);
-			} else {
-				await mutations.reopen(requestId, text);
-			}
-		} catch (thrown) {
-			setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
-		}
-		setBusy(false);
-	};
-
-	return (
-		<div className="grid justify-items-end gap-1">
-			<Button disabled={busy} onClick={() => setDialogOpen(true)} size="sm" variant="outline">
-				{copy.action}
-			</Button>
-			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
-			<ReasonDialog
-				confirmLabel={copy.action}
-				description={copy.description}
-				onConfirm={(reason) => void confirm(reason)}
-				onOpenChange={setDialogOpen}
-				open={dialogOpen}
-				placeholder={copy.placeholder}
-				required={false}
-				title={copy.title}
-			/>
-		</div>
-	);
 }
