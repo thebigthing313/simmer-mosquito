@@ -29,6 +29,7 @@ export function useMissions(
 	readonly missions: readonly MissionListing[];
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
+	readonly isError: boolean;
 } {
 	const timeZone = useOrganizationTimeZone();
 	const fromBound = from === '' ? EARLIEST_INSTANT : localDayStartAsInstant(from, timeZone);
@@ -65,5 +66,10 @@ export function useMissions(
 		[fromBound, toBound],
 	);
 
-	return { missions: result.data, isLoading: result.isLoading, isReady: result.isReady };
+	return {
+		missions: result.data,
+		isLoading: result.isLoading,
+		isReady: result.isReady,
+		isError: result.isError,
+	};
 }

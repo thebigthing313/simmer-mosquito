@@ -1,6 +1,7 @@
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { Panel } from '@simmer-mosquito/ui-web/components/panel';
+import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
@@ -142,7 +143,7 @@ function OpenRequestsPanel({
 	readonly to: string;
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
-	const { requests, isReady } = useRequestedControlActions(from, to);
+	const { requests, isReady, isError } = useRequestedControlActions(from, to);
 	const methodNameById = useControlMethodNames();
 	const timeZone = useOrganizationTimeZone();
 	const open = requests.filter((request) => requestStatus(request) === 'open');
@@ -156,31 +157,36 @@ function OpenRequestsPanel({
 			icon={<RequestIcon className="size-4" />}
 			title="Open Requests for Control"
 		>
-			{!isReady ? (
-				<RowSkeleton count={4} />
-			) : open.length === 0 ? (
-				<PanelMessage>No control work is waiting to be scheduled.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{open.slice(0, PANEL_ROW_LIMIT).map((request) => (
-						<OverviewRow
-							icon={<RequestIcon aria-hidden="true" className="size-4" />}
-							key={request.id}
-							primary={requestDisplayName(request)}
-							secondary={`${controlTypeLabel(request.controlType)}${
-								request.recommendedMethodId === null
-									? ''
-									: ` · ${methodNameById.get(request.recommendedMethodId) ?? 'Unknown method'}`
-							} · ${
-								request.requestedByProfileId === null
-									? 'No requester'
-									: (nameById.get(request.requestedByProfileId) ?? 'Unknown requester')
-							}`}
-							trailing={formatRequestedAt(request.requestedAt, timeZone)}
-						/>
-					))}
-				</ul>
-			)}
+			<PanelRows
+				empty={{ description: 'No control work is waiting to be scheduled.' }}
+				icon={<RequestIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: open.slice(0, PANEL_ROW_LIMIT) }}
+				unavailable={{ description: 'Requests are unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((request) => (
+							<OverviewRow
+								icon={<RequestIcon aria-hidden="true" className="size-4" />}
+								key={request.id}
+								primary={requestDisplayName(request)}
+								secondary={`${controlTypeLabel(request.controlType)}${
+									request.recommendedMethodId === null
+										? ''
+										: ` · ${methodNameById.get(request.recommendedMethodId) ?? 'Unknown method'}`
+								} · ${
+									request.requestedByProfileId === null
+										? 'No requester'
+										: (nameById.get(request.requestedByProfileId) ?? 'Unknown requester')
+								}`}
+								trailing={formatRequestedAt(request.requestedAt, timeZone)}
+							/>
+						))}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -196,7 +202,7 @@ function AssignmentsPanel({
 	readonly to: string;
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
-	const { assignments, isReady } = useAssignments(from, to);
+	const { assignments, isReady, isError } = useAssignments(from, to);
 	const ids = assignments.map((assignment) => assignment.id);
 	const { countsById } = useAssignmentItemCounts(ids);
 
@@ -214,36 +220,41 @@ function AssignmentsPanel({
 			icon={<AssignmentIcon className="size-4" />}
 			title="Active Assignments"
 		>
-			{!isReady ? (
-				<RowSkeleton count={3} />
-			) : active.length === 0 ? (
-				<PanelMessage>No assignment is scheduled or running in this window.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{active.slice(0, PANEL_ROW_LIMIT).map((assignment) => {
-						const counts = countsById.get(assignment.id) ?? null;
-						return (
-							<OverviewRow
-								icon={<AssignmentIcon aria-hidden="true" className="size-4" />}
-								key={assignment.id}
-								primary={
-									assignment.assignmentName?.trim() || `Assignment ${assignment.assignmentDate}`
-								}
-								secondary={`${
-									assignment.assignedToProfileId === null
-										? 'Unassigned'
-										: (nameById.get(assignment.assignedToProfileId) ?? 'Unknown')
-								} · ${
-									counts === null || counts.total === 0
-										? 'No stops'
-										: `${counts.handled} of ${counts.total} done`
-								}`}
-								trailing={assignment.assignmentDate}
-							/>
-						);
-					})}
-				</ul>
-			)}
+			<PanelRows
+				empty={{ description: 'No assignment is scheduled or running in this window.' }}
+				icon={<AssignmentIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: active.slice(0, PANEL_ROW_LIMIT) }}
+				unavailable={{ description: 'Assignments are unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((assignment) => {
+							const counts = countsById.get(assignment.id) ?? null;
+							return (
+								<OverviewRow
+									icon={<AssignmentIcon aria-hidden="true" className="size-4" />}
+									key={assignment.id}
+									primary={
+										assignment.assignmentName?.trim() || `Assignment ${assignment.assignmentDate}`
+									}
+									secondary={`${
+										assignment.assignedToProfileId === null
+											? 'Unassigned'
+											: (nameById.get(assignment.assignedToProfileId) ?? 'Unknown')
+									} · ${
+										counts === null || counts.total === 0
+											? 'No stops'
+											: `${counts.handled} of ${counts.total} done`
+									}`}
+									trailing={assignment.assignmentDate}
+								/>
+							);
+						})}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
@@ -259,7 +270,7 @@ function MissionsPanel({
 	readonly to: string;
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
-	const { missions, isReady } = useMissions(from, to);
+	const { missions, isReady, isError } = useMissions(from, to);
 	const ids = missions.map((mission) => mission.id);
 	const { countsById } = useMissionItemCounts(ids);
 	const timeZone = useOrganizationTimeZone();
@@ -276,34 +287,39 @@ function MissionsPanel({
 			icon={<MissionIcon className="size-4" />}
 			title="Scheduled Missions"
 		>
-			{!isReady ? (
-				<RowSkeleton count={3} />
-			) : active.length === 0 ? (
-				<PanelMessage>No mission is scheduled or running in this window.</PanelMessage>
-			) : (
-				<ul className="divide-y divide-border/60">
-					{active.slice(0, PANEL_ROW_LIMIT).map((mission) => {
-						const counts = countsById.get(mission.id) ?? null;
-						return (
-							<OverviewRow
-								icon={<MissionIcon aria-hidden="true" className="size-4" />}
-								key={mission.id}
-								primary={missionDisplayName(mission, timeZone)}
-								secondary={`${MISSION_STATUS_LABELS[missionStatus(mission)]} · ${
-									mission.assignedToProfileId === null
-										? 'Unassigned'
-										: (nameById.get(mission.assignedToProfileId) ?? 'Unknown')
-								} · ${
-									counts === null || counts.total === 0
-										? 'No stops'
-										: `${counts.handled} of ${counts.total} done`
-								}`}
-								trailing={formatScheduledStart(mission.scheduledStartAt, timeZone)}
-							/>
-						);
-					})}
-				</ul>
-			)}
+			<PanelRows
+				empty={{ description: 'No mission is scheduled or running in this window.' }}
+				icon={<MissionIcon aria-hidden="true" />}
+				inset
+				reading={{ isError, isReady, rows: active.slice(0, PANEL_ROW_LIMIT) }}
+				unavailable={{ description: 'Missions are unavailable right now.' }}
+				wrap="none"
+			>
+				{(rows) => (
+					<ul className="divide-y divide-border/60">
+						{rows.map((mission) => {
+							const counts = countsById.get(mission.id) ?? null;
+							return (
+								<OverviewRow
+									icon={<MissionIcon aria-hidden="true" className="size-4" />}
+									key={mission.id}
+									primary={missionDisplayName(mission, timeZone)}
+									secondary={`${MISSION_STATUS_LABELS[missionStatus(mission)]} · ${
+										mission.assignedToProfileId === null
+											? 'Unassigned'
+											: (nameById.get(mission.assignedToProfileId) ?? 'Unknown')
+									} · ${
+										counts === null || counts.total === 0
+											? 'No stops'
+											: `${counts.handled} of ${counts.total} done`
+									}`}
+									trailing={formatScheduledStart(mission.scheduledStartAt, timeZone)}
+								/>
+							);
+						})}
+					</ul>
+				)}
+			</PanelRows>
 		</Panel>
 	);
 }
