@@ -66,6 +66,7 @@ import {
 	type NearbyResponse,
 	nearbyItemKey,
 	nearbySummary,
+	nearbyWindowLabel,
 	useServiceRequestNearby,
 	visibleNearbyItems,
 } from './-service-request-nearby';
@@ -446,9 +447,7 @@ function MapContextCaption({ response }: { readonly response: NearbyResponse }) 
 			<p className="m-0 font-medium text-foreground text-xs">
 				Within {formatRadiusLabel(response.radius.amount, response.radius.unitCode)}
 			</p>
-			<p className="m-0 text-[0.7rem] text-muted-foreground">
-				{formatRequestDate(response.dateFrom)} – {formatRequestDate(response.dateTo)}
-			</p>
+			<p className="m-0 text-[0.7rem] text-muted-foreground">{nearbyWindowLabel(response)}</p>
 		</div>
 	);
 }

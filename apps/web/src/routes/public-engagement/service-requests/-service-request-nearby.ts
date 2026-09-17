@@ -297,13 +297,30 @@ export function buildNearbyMapData(
 	return { type: 'FeatureCollection', features };
 }
 
-/** The clause the summary adds when an anchor, and not the setting, ended the window. */
+/** The clause the window phrase adds when an anchor, and not the setting, ended the window. */
 const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
 	setting: '',
 	close: ', extended to the day it was closed',
 	today: ', extended to today',
 	query: '',
 };
+
+/**
+ * The window as one phrase: the range, and the clause naming which end set
+ * it when the setting did not.
+ *
+ * The summary and the map caption both read it, so the caption cannot draw a
+ * six-week range under a setting that says 14 with nothing saying the close or
+ * today passed it, which it did while it wrote the two dates itself (#1109).
+ * The range is an unspaced en dash in one template, which is the shape
+ * `check:copy-dashes` reads.
+ */
+export function nearbyWindowLabel(
+	response: Pick<NearbyResponse, 'dateFrom' | 'dateTo' | 'dateToFrom'>,
+): string {
+	const range = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
+	return `${range}${NEARBY_WINDOW_END_CLAUSE[response.dateToFrom]}`;
+}
 
 /**
  * What the panel says it is showing, before and after the fetch lands.
@@ -327,9 +344,8 @@ export function nearbySummary(response: NearbyResponse | undefined): string {
 	const counts = countNearbyByFamily(response.items);
 	const count = NEARBY_FAMILIES.reduce((sum, { key }) => sum + counts[key], 0);
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
-	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
-	const end = NEARBY_WINDOW_END_CLAUSE[response.dateToFrom];
-	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}${end}.`;
+	const window = nearbyWindowLabel(response);
+	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
 }
 
 /** Distance shown in the family of the org's radius unit (feet/miles for imperial, m/km otherwise). */

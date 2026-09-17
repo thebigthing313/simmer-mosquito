@@ -15,6 +15,7 @@ import {
 	nearbyItemKey,
 	nearbyRow,
 	nearbySummary,
+	nearbyWindowLabel,
 	visibleNearbyItems,
 } from '../../../../../routes/public-engagement/service-requests/-service-request-nearby';
 
@@ -405,21 +406,43 @@ describe('formatRadiusLabel', () => {
 	});
 });
 
-describe('nearbySummary', () => {
-	function response(overrides: Partial<NearbyResponse> = {}): NearbyResponse {
-		return {
-			request: { id: 'r', lat: 42, lng: -71, requestDate: '2026-08-15' },
-			radius: { amount: 0.25, unitCode: 'mile', meters: 402.336 },
-			timeWindow: { daysBefore: 14, daysAfter: 14 },
-			dateFrom: '2026-08-01',
-			dateTo: '2026-08-29',
-			dateToFrom: 'setting',
-			families: ['larval', 'adult', 'control'],
-			items: ITEMS,
-			...overrides,
-		};
-	}
+function response(overrides: Partial<NearbyResponse> = {}): NearbyResponse {
+	return {
+		request: { id: 'r', lat: 42, lng: -71, requestDate: '2026-08-15' },
+		radius: { amount: 0.25, unitCode: 'mile', meters: 402.336 },
+		timeWindow: { daysBefore: 14, daysAfter: 14 },
+		dateFrom: '2026-08-01',
+		dateTo: '2026-08-29',
+		dateToFrom: 'setting',
+		families: ['larval', 'adult', 'control'],
+		items: ITEMS,
+		...overrides,
+	};
+}
 
+// The map caption and the summary draw the window through this one phrase,
+// so the caption cannot name a range without the end the summary names
+// (#1109). The range is an unspaced en dash in one string, which is the shape
+// the dash rule allows and `check:copy-dashes` reads.
+describe('nearbyWindowLabel', () => {
+	it('reads the range alone when the setting set the end', () => {
+		expect(nearbyWindowLabel(response())).toBe('Aug 1, 2026–Aug 29, 2026');
+	});
+
+	it('names the close when the request closed after the setting', () => {
+		expect(nearbyWindowLabel(response({ dateTo: '2026-10-02', dateToFrom: 'close' }))).toBe(
+			'Aug 1, 2026–Oct 2, 2026, extended to the day it was closed',
+		);
+	});
+
+	it('names today while an old request is still open', () => {
+		expect(nearbyWindowLabel(response({ dateTo: '2026-09-17', dateToFrom: 'today' }))).toBe(
+			'Aug 1, 2026–Sep 17, 2026, extended to today',
+		);
+	});
+});
+
+describe('nearbySummary', () => {
 	it('names the settings while the fetch is out', () => {
 		expect(nearbySummary(undefined)).toBe(
 			'Records around this request, from your public-engagement settings.',

@@ -36,7 +36,7 @@
  * lazy stand-in would otherwise overrun the test timeout while it imports.
  */
 
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import type { NearbyWindowEnd, SimmerRole } from '@simmer-mosquito/domain';
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -67,6 +67,8 @@ const harness = vi.hoisted(() => ({
 	nearby: [] as readonly unknown[],
 	/** The nearby read fails with a 500 rather than answering. */
 	nearbyFails: false,
+	/** Where the nearby window ends, and which end set it. */
+	window: { dateTo: '2026-09-03', dateToFrom: 'setting' as NearbyWindowEnd },
 	/** What the canvas was last handed for the nearby layer. */
 	nearbyLayer: null as NearbyLayerConfig | null,
 }));
@@ -112,8 +114,8 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 			radius: { amount: 500, unitCode: 'm', meters: 500 },
 			timeWindow: { daysBefore: 30, daysAfter: 30 },
 			dateFrom: '2026-07-05',
-			dateTo: '2026-09-03',
-			dateToFrom: 'setting',
+			dateTo: harness.window.dateTo,
+			dateToFrom: harness.window.dateToFrom,
 			families: ['larval', 'adult', 'control', 'publicEngagement'],
 			items: harness.nearby,
 		};
@@ -182,6 +184,7 @@ beforeEach(() => {
 	harness.writes.length = 0;
 	harness.nearby = [];
 	harness.nearbyFails = false;
+	harness.window = { dateTo: '2026-09-03', dateToFrom: 'setting' };
 	harness.nearbyLayer = null;
 });
 
@@ -568,6 +571,37 @@ describe('the tabs on the service request detail page', () => {
 
 		fireEvent.mouseDown(screen.getByRole('tab', { name: /Infrastructure/ }));
 		await waitFor(() => expect(mapPinKeys()).toEqual(['habitat:habitat-1']));
+	});
+});
+
+// The caption on the context map used to draw the range between two slots
+// around a spaced dash and no end, so a six-week range sat beside a setting
+// that says 14 with nothing saying the close or today had passed it, while the
+// summary in the rail said so. Both read one phrase now (#1109).
+describe('the caption on the context map', () => {
+	// The caption arrives with the nearby answer, after the heading the page
+	// is awaited on, so each case waits for it.
+	it('reads the radius and the range when the setting set the end', async () => {
+		await renderPage();
+
+		expect(await screen.findByText('Jul 5, 2026–Sep 3, 2026')).toBeTruthy();
+		expect(screen.getByText('Within 500 m')).toBeTruthy();
+	});
+
+	it('names the close when the request closed after the setting', async () => {
+		harness.window = { dateTo: '2026-10-02', dateToFrom: 'close' };
+		await renderPage(new Date('2026-10-02T15:00:00Z'));
+
+		expect(
+			await screen.findByText('Jul 5, 2026–Oct 2, 2026, extended to the day it was closed'),
+		).toBeTruthy();
+	});
+
+	it('names today while an old request is still open', async () => {
+		harness.window = { dateTo: '2026-09-17', dateToFrom: 'today' };
+		await renderPage();
+
+		expect(await screen.findByText('Jul 5, 2026–Sep 17, 2026, extended to today')).toBeTruthy();
 	});
 });
 
