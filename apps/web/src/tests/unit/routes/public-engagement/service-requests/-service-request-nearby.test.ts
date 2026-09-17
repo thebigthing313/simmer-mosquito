@@ -446,12 +446,6 @@ describe('nearbySummary', () => {
 		);
 	});
 
-	it('names no end for a range the caller set', () => {
-		expect(nearbySummary(response({ dateTo: '2026-08-01', dateToFrom: 'query' }))).toBe(
-			'5 records within 0.25 mi, Aug 1, 2026–Aug 1, 2026.',
-		);
-	});
-
 	// The other requests are in the response for the map, and no tab lists them.
 	it('leaves the other requests out of the count', () => {
 		expect(

@@ -125,16 +125,54 @@ describe('service request nearby window end', () => {
 		});
 	});
 
-	it('lets an explicit dateTo override the computed end', async () => {
+	// The radius and the window are the Organization's settings and the
+	// request's anchors, and nothing else. The route used to parse three
+	// overrides no caller sent (#1110); one sent anyway is an unknown key now,
+	// ignored rather than refused, since a caller cannot be wrong about a
+	// parameter that does not exist.
+	it('reads the radius and window from the settings when the query carries nothing', async () => {
+		const { app, calls } = createApp();
+
+		const response = await app.request(path);
+
+		// A quarter mile and fourteen days either side, the settings' defaults.
+		await expect(response.json()).resolves.toMatchObject({
+			radius: { amount: 0.25, unitCode: 'mile', meters: 402.336 },
+			timeWindow: { daysBefore: 14, daysAfter: 14 },
+			dateFrom: '2026-08-01',
+			dateTo: '2026-08-29',
+			dateToFrom: 'setting',
+		});
+		expect(calls).toEqual([
+			expect.objectContaining({
+				radiusMeters: 402.336,
+				dateFrom: '2026-08-01',
+				dateTo: '2026-08-29',
+			}),
+		]);
+	});
+
+	it('ignores a radius or window sent on the query', async () => {
 		const { app, calls } = createApp({}, '2026-10-02');
 
-		const response = await app.request(`${path}?dateTo=2026-08-01`);
+		const response = await app.request(
+			`${path}?radiusMeters=5000&dateFrom=2026-01-01&dateTo=2026-08-01`,
+		);
 
+		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toMatchObject({
-			dateTo: '2026-08-01',
-			dateToFrom: 'query',
+			radius: { meters: 402.336 },
+			dateFrom: '2026-08-01',
+			dateTo: '2026-10-02',
+			dateToFrom: 'close',
 		});
-		expect(calls).toEqual([expect.objectContaining({ dateTo: '2026-08-01' })]);
+		expect(calls).toEqual([
+			expect.objectContaining({
+				radiusMeters: 402.336,
+				dateFrom: '2026-08-01',
+				dateTo: '2026-10-02',
+			}),
+		]);
 	});
 });
 

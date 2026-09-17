@@ -421,12 +421,12 @@ and the request's end anchor, which is the day it was closed, or today while it
 is open. A closed request stops growing at its close. Both anchor days are
 calendar days in the Organization's timezone, the rule every operational date
 follows (#154, #156), so `closed_at` becomes a day in that zone and today is the
-day the Organization is currently on. An explicit `dateTo` on the nearby
-request still overrides the computed end.
+day the Organization is currently on. The nearby read takes no radius or window
+of its own: the setting and the anchors are the whole window, and a person who
+wants a wider or narrower view changes the setting (#1110).
 
-This setting drives default queries for nearby habitats, traps, surveillance
-actions, control actions, and other service requests. It does not
-prevent users from manually widening or narrowing a view later.
+This setting drives the queries for nearby habitats, traps, surveillance
+actions, control actions, and other service requests.
 
 ## Mobile and sync
 
