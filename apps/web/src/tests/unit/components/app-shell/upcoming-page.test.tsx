@@ -58,9 +58,42 @@ describe('UpcomingPage', () => {
 		}
 	});
 
-	// One prop here is the measure of all fourteen stubs. The route-loading
-	// skeleton reserves the record measure and draws its heading at the frame's
-	// left edge, so a stub centred in the 1200 column arrived narrower than the
+	it('names what Monthly and Annual will hold, and sends nobody to a stub', () => {
+		renderAt('/monthly');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Monthly');
+		expect(screen.getByText(/the operational month in review/i)).toBeTruthy();
+		expect(hrefs()).toEqual([
+			'/larval-surveillance',
+			'/adult-surveillance',
+			'/control-operations/chemical',
+		]);
+		cleanup();
+
+		renderAt('/annual');
+		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Annual');
+		expect(screen.getByText(/the season in review/i)).toBeTruthy();
+		expect(hrefs()).toEqual(['/control-operations', '/gis/regions', '/gis/weather']);
+	});
+
+	it('links every stub to built routes only', () => {
+		// Linking one unbuilt section to another is how a placeholder becomes a
+		// maze, and every `/stats` route is a stub too. The rule is written in the
+		// docblock over `CONTENT`; this is the rule read back off the rendered page.
+		const stubs = new Set(stubPaths());
+
+		for (const path of stubs) {
+			renderAt(path);
+			for (const href of hrefs()) {
+				expect(stubs.has(href), `${path} links ${href}`).toBe(false);
+				expect(href.endsWith('/stats'), `${path} links ${href}`).toBe(false);
+			}
+			cleanup();
+		}
+	});
+
+	// One prop here is the measure of every stub. The route-loading skeleton
+	// reserves the record measure and draws its heading at the frame's left
+	// edge, so a stub centred in the 1200 column arrived narrower than the
 	// skeleton with its heading 440px to the right of where the skeleton's sat
 	// (#1043, #1048). The prose keeps a measure of its own inside the frame.
 	it('draws in the record measure the route-loading skeleton reserves', () => {

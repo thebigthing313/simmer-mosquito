@@ -213,7 +213,15 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		groups: [
 			{
 				id: 'overview-main',
+				// The built page leads. The three behind it are review periods, each
+				// a stub until its own issue builds it (#1082).
 				items: [
+					{
+						id: 'dashboard',
+						label: 'Dashboard',
+						to: '/',
+						icon: iconRegistry.generic.component.icon,
+					},
 					{
 						id: 'today',
 						label: 'Today',
@@ -222,10 +230,18 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.simmer.fieldWork.icon,
 					},
 					{
-						id: 'dashboard',
-						label: 'Dashboard',
-						to: '/',
-						icon: iconRegistry.generic.component.icon,
+						id: 'monthly',
+						label: 'Monthly',
+						to: '/monthly',
+						stub: true,
+						icon: iconRegistry.generic.calendar.icon,
+					},
+					{
+						id: 'annual',
+						label: 'Annual',
+						to: '/annual',
+						stub: true,
+						icon: iconRegistry.generic.chart.icon,
 					},
 				],
 			},
@@ -1116,7 +1132,7 @@ export interface WebShellCandidate {
  * An item is in exactly one list. Carrying an `action` moves it out of the route
  * list, so a create form appears once rather than as both a place and a verb.
  *
- * Stubs are excluded from both: the fourteen `stub: true` items are unbuilt
+ * Stubs are excluded from both: the sixteen `stub: true` items are unbuilt
  * destinations, and offering one is offering a door that opens onto nothing.
  *
  * The Daily Work rows are excluded by reading the declared navigation rather

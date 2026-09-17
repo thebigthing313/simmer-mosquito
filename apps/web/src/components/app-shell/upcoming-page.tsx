@@ -176,6 +176,28 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 		],
 		elsewhere: [operations, serviceRequests, larvalOverview],
 	},
+	'/monthly': {
+		title: 'Monthly',
+		summary:
+			'The operational month in review: effort and findings across surveillance and control over a calendar month, beside the month before.',
+		willLand: [
+			'Inspections, collections, applications, and source reductions logged in the month, against the month before',
+			'Larvae-positive inspections and catch per trap night for the month, by region',
+			'Product applied and sources eliminated in the month, in a single unit each',
+		],
+		elsewhere: [larvalOverview, adultOverview, applications],
+	},
+	'/annual': {
+		title: 'Annual',
+		summary:
+			'The season in review: program totals and trends over a year, the material an annual report is written from.',
+		willLand: [
+			'Season totals for inspections, collections, applications, and outreach, against the seasons before',
+			'Species abundance and larval density trended across the season, by region',
+			'Weather recorded at your stations beside the surveillance logged over the same weeks',
+		],
+		elsewhere: [controlOverview, regions, weatherStations],
+	},
 	'/adult-surveillance/arbovirus-surveillance': {
 		title: 'Arbovirus Surveillance',
 		summary:
