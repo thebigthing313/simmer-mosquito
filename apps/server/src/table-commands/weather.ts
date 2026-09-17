@@ -50,6 +50,7 @@ import {
 } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
+import { todayInTimeZone } from '../organization-day.js';
 import type { WeatherStationRow, WeatherSummaryRow } from '../weather-commands/shared.js';
 import { writeWeatherStationCommand } from '../weather-commands/stations.js';
 import { writeWeatherSummaryCommand } from '../weather-commands/summaries.js';
@@ -301,14 +302,4 @@ function assertNotFuture(
 	if (issues.length > 0) {
 		throw new DomainValidationError('Weather summary command is invalid.', issues);
 	}
-}
-
-/** Today, as the calendar day the organization is currently on. */
-function todayInTimeZone(timeZone: string): string {
-	return new Intl.DateTimeFormat('en-CA', {
-		timeZone,
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-	}).format(new Date());
 }
