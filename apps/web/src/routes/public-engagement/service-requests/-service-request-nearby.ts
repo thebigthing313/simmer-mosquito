@@ -1,4 +1,5 @@
 import {
+	ACTIVITY_CATEGORIES,
 	ACTIVITY_FAMILIES,
 	type ActivityCategory,
 	type ActivityFamily,
@@ -35,15 +36,26 @@ import { formatRequestDate } from '../-public-engagement-display';
 /**
  * The families this page asks the endpoint for: all four, since the endpoint's
  * own default is the three operational ones and the Details and Comments tabs
- * draw the other requests around this one (#1090). Those come under
- * `publicEngagement`, which the endpoint reads off the activity register, so
- * the answer carries the outreach actions in the radius too;
- * {@link nearbyResponseFromWire} is where they come off.
+ * draw the other requests around this one (#1090).
  */
 const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = ACTIVITY_FAMILIES;
 
 /** The eight record kinds the page reads: every activity category but outreach. */
 export type NearbyCategory = Exclude<ActivityCategory, 'outreach'>;
+
+/**
+ * The categories it asks for beside the families, which are the eight it
+ * draws. `publicEngagement` is the register's family and holds outreach
+ * beside the other requests, and the page used to take the family whole and
+ * drop the outreach off the answer. The endpoint caps the union at 2000 rows
+ * nearest-first before any of that, so in a dense radius the outreach could
+ * fill the cap and cut a nearer request with nothing on the page saying so
+ * (#1114). Naming the categories narrows the read itself, and the cap counts
+ * only what the page draws.
+ */
+const NEARBY_REQUEST_CATEGORIES: readonly NearbyCategory[] = ACTIVITY_CATEGORIES.filter(
+	(category): category is NearbyCategory => category !== 'outreach',
+);
 
 /**
  * The page's own grouping of those kinds. The first three are its family tabs,
@@ -161,38 +173,20 @@ export interface NearbyRead {
 	readonly refetch: () => Promise<unknown>;
 }
 
-async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
+/**
+ * The read itself, exported for the suite that asserts what it sends. The
+ * answer is read as it arrives: the endpoint answers only the categories asked
+ * for, and it never answers with the request itself.
+ */
+export async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
 	const url = new URL(`/map/service-requests/${id}/nearby`, getServerUrl());
 	url.searchParams.set('families', NEARBY_REQUEST_FAMILIES.join(','));
+	url.searchParams.set('categories', NEARBY_REQUEST_CATEGORIES.join(','));
 	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`Nearby request failed (${response.status}).`);
 	}
-	return nearbyResponseFromWire((await response.json()) as WireNearbyResponse);
-}
-
-/** The endpoint's answer as sent: every category the families asked for hold. */
-export interface WireNearbyResponse extends Omit<NearbyResponse, 'items'> {
-	readonly items: readonly (Omit<NearbyItem, 'category'> & {
-		readonly category: ActivityCategory;
-	})[];
-}
-
-/**
- * The answer the page reads, which is the wire answer less the outreach.
- *
- * The endpoint's `publicEngagement` family is the register's, and the register
- * puts outreach beside service requests there. What the page wants from that
- * family is the other requests around this one, so the outreach actions come
- * off here rather than each reader checking the category (#1090). Nothing else
- * is dropped: the endpoint never answers with the request itself.
- */
-export function nearbyResponseFromWire(body: WireNearbyResponse): NearbyResponse {
-	return { ...body, items: body.items.filter(isNearbyItem) };
-}
-
-function isNearbyItem(item: WireNearbyResponse['items'][number]): item is NearbyItem {
-	return item.category !== 'outreach';
+	return (await response.json()) as NearbyResponse;
 }
 
 /**

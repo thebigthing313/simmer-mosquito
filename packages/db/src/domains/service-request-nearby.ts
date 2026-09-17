@@ -1,4 +1,8 @@
-import { type ActivityFamily, OPERATIONAL_ACTIVITY_FAMILIES } from '@simmer-mosquito/domain';
+import {
+	type ActivityCategory,
+	type ActivityFamily,
+	OPERATIONAL_ACTIVITY_FAMILIES,
+} from '@simmer-mosquito/domain';
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { SimmerDatabase } from '../index.js';
@@ -58,25 +62,40 @@ export interface NearbyRecordsInput {
 	 * round-trip, since a `union all` of zero branches is not a query.
 	 */
 	readonly families: readonly ActivityFamily[];
-	/** Safety cap on total rows returned across all categories. */
+	/**
+	 * Which categories to read, inside `families`; absent means every category
+	 * of the families named. The two compose as an intersection, so a category
+	 * outside every family asked for reads nothing, and an empty list reads
+	 * nothing the way an empty `families` does.
+	 *
+	 * It is here because of the cap. `limit` runs over the whole union, so a
+	 * caller that asks for a family and drops one of its shapes afterwards can
+	 * lose a nearer row of the shape it keeps to the ones it throws away; the
+	 * service request page asks for `publicEngagement` and draws its other
+	 * requests but not its outreach actions (#1114).
+	 */
+	readonly categories?: readonly ActivityCategory[] | undefined;
+	/** Safety cap on total rows returned across the shapes read. */
 	readonly limit?: number;
 }
 
 const DEFAULT_NEARBY_LIMIT = 2000;
 
 /**
- * Records within `radiusMeters` of a request, in the families asked for and,
- * for the dated kinds, within `[dateFrom, dateTo]`, in one round-trip. Distance
- * is spheroidal (`geography`); each branch is org-scoped and soft-delete
- * filtered. Ordered nearest-first and capped for safety.
+ * Records within `radiusMeters` of a request, in the families and categories
+ * asked for and, for the dated kinds, within `[dateFrom, dateTo]`, in one
+ * round-trip. Distance is spheroidal (`geography`); each branch is org-scoped
+ * and soft-delete filtered. Ordered nearest-first and capped for safety, and
+ * the cap counts only the shapes read, which is what `categories` is for.
  */
 export async function listNearbyRecords(
 	db: Kysely<SimmerDatabase>,
 	input: NearbyRecordsInput,
 ): Promise<NearbyRecordRow[]> {
 	const families = new Set(input.families);
-	const shapes = Object.values(recordShapes(assertIanaTimeZone(input.timeZone))).filter((shape) =>
-		families.has(shape.family),
+	const categories = input.categories === undefined ? undefined : new Set(input.categories);
+	const shapes = Object.values(recordShapes(assertIanaTimeZone(input.timeZone))).filter(
+		(shape) => families.has(shape.family) && (categories?.has(shape.category) ?? true),
 	);
 	if (shapes.length === 0) {
 		return [];

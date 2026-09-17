@@ -1,10 +1,11 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Tag } from '../../../../../hooks/queries/tag-view';
 import type { ActivityLookups } from '../../../../../routes/-activity-data';
 import {
 	buildNearbyMapData,
 	countNearbyByFamily,
+	fetchNearby,
 	formatNearbyDistance,
 	formatRadiusLabel,
 	type NearbyCategory,
@@ -12,11 +13,9 @@ import {
 	type NearbyResponse,
 	nearbyItemDate,
 	nearbyItemKey,
-	nearbyResponseFromWire,
 	nearbyRow,
 	nearbySummary,
 	visibleNearbyItems,
-	type WireNearbyResponse,
 } from '../../../../../routes/public-engagement/service-requests/-service-request-nearby';
 
 function item(
@@ -86,8 +85,12 @@ describe('countNearbyByFamily', () => {
 	});
 });
 
-describe('nearbyResponseFromWire', () => {
-	const wire: WireNearbyResponse = {
+describe('fetchNearby', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	const answer: NearbyResponse = {
 		request: { id: 'sr-1', lat: 42, lng: -71, requestDate: '2026-08-01' },
 		radius: { amount: 500, unitCode: 'meter', meters: 500 },
 		timeWindow: { daysBefore: 30, daysAfter: 30 },
@@ -95,19 +98,39 @@ describe('nearbyResponseFromWire', () => {
 		dateTo: '2026-08-31',
 		dateToFrom: 'setting',
 		families: ['larval', 'adult', 'control', 'publicEngagement'],
-		items: [
-			item('habitat', 'habitat', 50),
-			{ ...item('request', 'serviceRequest', 60), family: 'publicEngagement' },
-			{ ...item('talk', 'habitat', 70), category: 'outreach', family: 'publicEngagement' },
-		],
+		items: [item('habitat', 'habitat', 50), item('request', 'serviceRequest', 60)],
 	};
 
-	// The endpoint's public-engagement family is the register's, so it carries
-	// the outreach actions too; the page reads the other requests out of it.
-	it('keeps the other requests and drops the outreach the same family carries', () => {
-		const read = nearbyResponseFromWire(wire);
-		expect(read.items.map((entry) => entry.id)).toEqual(['habitat', 'request']);
-		expect(read.families).toEqual(wire.families);
+	// The endpoint caps the union nearest-first before anything is dropped, and
+	// the register's `publicEngagement` family holds outreach beside requests,
+	// so the page names the categories it draws rather than asking for the
+	// family and dropping outreach afterwards (#1114). What comes back is what
+	// was asked for, and nothing is filtered on the way in.
+	it('asks for every family and the eight categories it draws, and keeps the answer whole', async () => {
+		const requests: string[] = [];
+		vi.stubGlobal('fetch', (url: URL | string) => {
+			requests.push(String(url));
+			return Promise.resolve(new Response(JSON.stringify(answer), { status: 200 }));
+		});
+
+		const read = await fetchNearby('sr-1', new AbortController().signal);
+
+		expect(requests).toHaveLength(1);
+		const sent = new URL(requests[0] ?? '');
+		expect(sent.pathname).toBe('/map/service-requests/sr-1/nearby');
+		expect(sent.searchParams.get('families')).toBe('larval,adult,control,publicEngagement');
+		expect(sent.searchParams.get('categories')).toBe(
+			'habitat,inspection,trap,collection,application,sourceReduction,biocontrol,serviceRequest',
+		);
+		expect(read).toEqual(answer);
+	});
+
+	it('throws on a refused read rather than drawing an empty map', async () => {
+		vi.stubGlobal('fetch', () => Promise.resolve(new Response('', { status: 400 })));
+
+		await expect(fetchNearby('sr-1', new AbortController().signal)).rejects.toThrow(
+			'Nearby request failed (400).',
+		);
 	});
 });
 

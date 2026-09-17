@@ -317,6 +317,49 @@ describeDbIntegration('service-request nearby', () => {
 			expect(await categories([])).toEqual([]);
 		});
 	});
+
+	// The cap runs over the union, so a caller that drops a category after the
+	// read can lose a nearer row to it (#1114). `categories` narrows the read
+	// itself, inside the families: a category outside every family asked for
+	// reads nothing.
+	it('reads only the categories asked for, inside the families asked for', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'Near Pond', NEAR);
+			await insertServiceRequest(db, organizationId, {
+				geom: NEAR,
+				display_name: 2,
+				request_date: new Date('2026-07-20T12:00:00'),
+			});
+			const outreachMethod = await db
+				.insertInto('outreach_methods')
+				.values({ organization_id: organizationId, name: 'Door hanger' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.insertInto('outreach_actions')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					outreach_method_id: outreachMethod.id,
+					outreach_date: new Date('2026-07-22T12:00:00'),
+					reach: 40,
+				})
+				.execute();
+
+			const read = async (input: Partial<NearbyRecordsInput>) =>
+				(await listNearbyRecords(db, nearby(organizationId, input))).map((row) => row.category);
+
+			expect(
+				await read({ families: ['publicEngagement'], categories: ['serviceRequest'] }),
+			).toEqual(['serviceRequest']);
+			expect(
+				await read({ families: ['larval', 'publicEngagement'], categories: ['serviceRequest'] }),
+			).toEqual(['serviceRequest']);
+			expect(await read({ families: ['larval'], categories: ['serviceRequest'] })).toEqual([]);
+			expect(await read({ families: ['larval', 'publicEngagement'], categories: [] })).toEqual([]);
+		});
+	});
 });
 
 async function insertHabitat(

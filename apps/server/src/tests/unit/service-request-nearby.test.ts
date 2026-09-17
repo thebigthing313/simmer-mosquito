@@ -207,6 +207,46 @@ describe('service request nearby', () => {
 		expect(calls).toEqual([]);
 	});
 
+	// The reader caps the union, so the page has to narrow the read to what it
+	// draws rather than dropping a category off the answer (#1114). Absent, the
+	// reader takes every category of the families named, which is what it did
+	// before the filter existed.
+	it('passes the categories named to the reader, and none when none are named', async () => {
+		const { app, calls } = createApp();
+
+		const first = await app.request(path);
+		const second = await app.request(
+			`${path}?families=publicEngagement&categories=serviceRequest,habitat`,
+		);
+		const third = await app.request(`${path}?categories=trap&categories=collection`);
+
+		expect([first.status, second.status, third.status]).toEqual([200, 200, 200]);
+		expect(calls.map((call) => (call as { categories: unknown }).categories)).toEqual([
+			undefined,
+			['serviceRequest', 'habitat'],
+			['trap', 'collection'],
+		]);
+		// The answer names the families and not the categories: the page sends
+		// what it draws and nothing reads the list back.
+		const body = (await second.json()) as Record<string, unknown>;
+		expect(body).toMatchObject({ families: ['publicEngagement'] });
+		expect(body).not.toHaveProperty('categories');
+	});
+
+	it('refuses a category outside the vocabulary before reading anything', async () => {
+		const { app, calls } = createApp();
+
+		const response = await app.request(`${path}?categories=sample`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toEqual({
+			error: 'invalid_query',
+			reason:
+				'categories must be one of: habitat, inspection, trap, collection, application, sourceReduction, biocontrol, outreach, serviceRequest.',
+		});
+		expect(calls).toEqual([]);
+	});
+
 	it('answers the reader’s rows as they are', async () => {
 		const row = {
 			category: 'serviceRequest',
