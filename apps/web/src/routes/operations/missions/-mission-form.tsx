@@ -263,6 +263,7 @@ export function MissionFormPage({
 				}
 				gap="tight"
 				header={header}
+				measure="record"
 				onSubmit={() => {
 					void form.handleSubmit();
 				}}
