@@ -54,8 +54,7 @@ export interface ServiceRequestContextBounds {
  * show two weeks of what happened after it and nothing of the work that closed
  * it (#1084). Which day the anchor is on is the caller's question, because it
  * is a calendar day in the Organization's zone (#154, #156) and this function
- * knows no zone; it reads the day off whatever it is handed, so a timestamp
- * arrives as its first ten characters the way the request date does.
+ * knows no zone, so the anchor arrives as a `YYYY-MM-DD` already read in it.
  *
  * Throws `DomainValidationError` when either date is not a readable calendar
  * date, naming `requestDate` or `endAnchor` so the issue points at the field

@@ -42,7 +42,7 @@ export function registerServiceRequestNearbyRoutes(
 		readonly now?: () => Date;
 	},
 ): void {
-	const readers: ServiceRequestNearbyReaders = { ...defaultReaders, ...options.readers };
+	const readers: ServiceRequestNearbyReaders = { ...defaultNearbyReaders, ...options.readers };
 	const now = options.now ?? (() => new Date());
 
 	app.get('/map/service-requests/:id/nearby', options.authContextMiddleware, async (context) => {
@@ -139,7 +139,7 @@ export interface ServiceRequestNearbyReaders {
 	readonly listNearbyRecords: typeof listNearbyRecords;
 }
 
-const defaultReaders: ServiceRequestNearbyReaders = {
+const defaultNearbyReaders: ServiceRequestNearbyReaders = {
 	getOrganizationSettingsRaw,
 	getServiceRequestCenter,
 	listNearbyRecords,

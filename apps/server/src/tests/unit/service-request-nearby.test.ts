@@ -56,7 +56,7 @@ describe('GET /map/service-requests/:id/nearby', () => {
 		);
 	});
 
-	it('reads the close day in the Organization’s zone', async () => {
+	it("reads the close day in the Organization's zone", async () => {
 		const { app, getServiceRequestCenter } = createApp({ closedDate: null });
 
 		await app.request(`/map/service-requests/${id}/nearby`);

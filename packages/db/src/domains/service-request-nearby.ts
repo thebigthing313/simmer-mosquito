@@ -166,9 +166,9 @@ export interface ServiceRequestCenter {
 	/** The request's operational date (`YYYY-MM-DD`), the time-window's start anchor. */
 	readonly requestDate: string;
 	/**
-	 * The day the request was closed (`YYYY-MM-DD`) in the organization's zone,
+	 * The day the request was closed (`YYYY-MM-DD`) in the Organization's zone,
 	 * or null while it is open. The time-window's end anchor: `closed_at` is an
-	 * instant, and which day it fell on is the organization's question (#154).
+	 * instant, and which day it fell on is the Organization's question (#154).
 	 */
 	readonly closedDate: string | null;
 }

@@ -118,10 +118,10 @@ describe('serviceRequestContextBounds', () => {
 		);
 	});
 
-	it('reads the anchor day out of a timestamp and never moves the start', () => {
-		const bounds = serviceRequestContextBounds('2026-07-23', context, '2026-09-04T18:04:00.000Z');
-		expect(bounds.dateFrom).toBe('2026-07-09');
-		expect(bounds.dateTo).toBe('2026-09-04');
+	it('never moves the start, whichever end wins', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-09-04').dateFrom).toBe(
+			'2026-07-09',
+		);
 	});
 
 	it('refuses a request date it cannot read, naming the request date', () => {
