@@ -8,8 +8,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ChevronRightIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -31,13 +30,13 @@ import {
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useContact } from '../../../hooks/queries/use-contact-record';
-import { useLookupNames } from '../../../hooks/queries/use-lookup-names';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import {
 	type ServiceRequestRecord,
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
 import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { type ActivityLookups, useActivityLookups } from '../../-activity-data';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
 import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
@@ -56,20 +55,16 @@ import { ServiceRequestDetailHeader } from './-service-request-detail-header';
 import {
 	buildNearbyMapData,
 	countNearbyByFamily,
-	describeNearbyItem,
-	formatNearbyDistance,
 	formatRadiusLabel,
-	NEARBY_CATEGORY_LABEL,
 	NEARBY_FAMILIES,
-	NEARBY_FAMILY_OF,
 	type NearbyCategory,
 	type NearbyFamily,
 	type NearbyItem,
 	type NearbyResponse,
-	nearbyItemDate,
 	useServiceRequestNearby,
 	visibleNearbyItems,
 } from './-service-request-nearby';
+import { NearbyResultList } from './-service-request-nearby-rows';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id')({
 	component: ServiceRequestDetailRoute,
@@ -154,7 +149,7 @@ function ServiceRequestDetailContent({
 	useBreadcrumbLabel(request.id, serviceRequestTitle(request));
 
 	const nearby = useServiceRequestNearby(request.id);
-	const nameById = useLookupNames();
+	const lookups = useActivityLookups();
 	const [visibleFamilies, setVisibleFamilies] = useState<ReadonlySet<NearbyFamily>>(
 		() => new Set(ALL_FAMILIES),
 	);
@@ -204,7 +199,8 @@ function ServiceRequestDetailContent({
 						<NearbyPanel
 							isError={nearby.isError}
 							isLoading={nearby.isLoading}
-							nameById={nameById}
+							lookups={lookups}
+							onRetry={() => void nearby.refetch()}
 							onSelect={setSelectedNearbyId}
 							onToggleFamily={toggleFamily}
 							response={nearby.data}
@@ -381,20 +377,22 @@ function NearbyPanel({
 	response,
 	isLoading,
 	isError,
+	onRetry,
 	visibleFamilies,
 	onToggleFamily,
 	selectedId,
 	onSelect,
-	nameById,
+	lookups,
 }: {
 	readonly response: NearbyResponse | undefined;
 	readonly isLoading: boolean;
 	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
 	readonly onToggleFamily: (family: NearbyFamily) => void;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string | null) => void;
-	readonly nameById: ReadonlyMap<string, string>;
+	readonly lookups: ActivityLookups;
 }) {
 	const countsByFamily = countNearbyByFamily(response?.items ?? []);
 	const visibleItems = visibleNearbyItems(response?.items ?? [], visibleFamilies);
@@ -408,8 +406,11 @@ function NearbyPanel({
 				</CardTitle>
 				<CardDescription>{nearbySummary(response)}</CardDescription>
 			</CardHeader>
-			<CardContent className="grid gap-4" padding="compact">
-				<div className="flex flex-wrap gap-2">
+			{/* No padding on the content, because the rows carry the rail's own and
+			    a second measure around them would indent every row inside the card
+			    the header sits flush with. The toggles take the header's measure. */}
+			<CardContent className="grid" padding="none">
+				<div className="flex flex-wrap gap-2 px-4 pb-3">
 					{NEARBY_FAMILIES.map((family) => (
 						<FamilyToggle
 							count={countsByFamily[family.key]}
@@ -421,16 +422,21 @@ function NearbyPanel({
 						/>
 					))}
 				</div>
-
-				<NearbyList
-					isError={isError}
-					isLoading={isLoading}
-					items={visibleItems}
-					nameById={nameById}
-					onSelect={onSelect}
-					response={response}
-					selectedId={selectedId}
-				/>
+				{/* Clipped to the card's corner, so a selected or hovered last row's
+				    fill squares nothing off at the foot. */}
+				<div className="flex min-h-0 flex-col overflow-hidden rounded-b-[inherit] border-border/50 border-t">
+					<NearbyResultList
+						{...nearbyEmptyCopy(response, visibleItems.length)}
+						isError={isError}
+						isLoading={isLoading}
+						items={visibleItems}
+						lookups={lookups}
+						onRetry={onRetry}
+						onSelect={onSelect}
+						response={response}
+						selectedId={selectedId}
+					/>
+				</div>
 			</CardContent>
 		</Card>
 	);
@@ -447,55 +453,27 @@ function nearbySummary(response: NearbyResponse | undefined): string {
 	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
 }
 
-/** The list, or the one line standing in for it. `items` is already family-filtered. */
-function NearbyList({
-	response,
-	items,
-	isLoading,
-	isError,
-	selectedId,
-	onSelect,
-	nameById,
-}: {
-	readonly response: NearbyResponse | undefined;
-	readonly items: readonly NearbyItem[];
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string | null) => void;
-	readonly nameById: ReadonlyMap<string, string>;
-}) {
-	if (isError) {
-		return <NearbyMessage>Nearby records couldn't be loaded. Try again shortly.</NearbyMessage>;
+/**
+ * Why the list is empty, in the rail's two lines.
+ *
+ * Two reasons and they need telling apart: nothing fell inside the radius and
+ * the window, or something did and every family holding it is toggled off.
+ * The second used to read as the first before the toggles said their counts.
+ */
+function nearbyEmptyCopy(
+	response: NearbyResponse | undefined,
+	visibleCount: number,
+): { readonly emptyTitle: string; readonly emptyDescription: string } {
+	if (response !== undefined && response.items.length > 0 && visibleCount === 0) {
+		return {
+			emptyTitle: 'Every family is hidden',
+			emptyDescription: 'Turn one back on above to see its records.',
+		};
 	}
-	if (isLoading || response === undefined) {
-		return <NearbyLoading />;
-	}
-	if (response.items.length === 0) {
-		return (
-			<NearbyMessage>
-				No infrastructure, surveillance, or control activity fell within this radius and time
-				window.
-			</NearbyMessage>
-		);
-	}
-	if (items.length === 0) {
-		return <NearbyMessage>All families are hidden. Toggle one above to see records.</NearbyMessage>;
-	}
-	return (
-		<ul className="grid gap-1">
-			{items.map((item) => (
-				<NearbyRow
-					isSelected={item.id === selectedId}
-					item={item}
-					key={item.id}
-					nameById={nameById}
-					onSelect={onSelect}
-					unitCode={response.radius.unitCode}
-				/>
-			))}
-		</ul>
-	);
+	return {
+		emptyTitle: 'Nothing nearby',
+		emptyDescription: 'No records fell within this radius and time window.',
+	};
 }
 
 function FamilyToggle({
@@ -532,60 +510,6 @@ function FamilyToggle({
 	);
 }
 
-function NearbyRow({
-	item,
-	isSelected,
-	onSelect,
-	nameById,
-	unitCode,
-}: {
-	readonly item: NearbyItem;
-	readonly isSelected: boolean;
-	readonly onSelect: (id: string | null) => void;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly unitCode: string;
-}) {
-	const { title, subtitle } = describeNearbyItem(item, nameById);
-	const date = nearbyItemDate(item);
-	const meta = [
-		NEARBY_CATEGORY_LABEL[item.category],
-		subtitle,
-		date === null ? null : formatRequestDate(date),
-		formatNearbyDistance(item.distanceMeters, unitCode),
-	]
-		.filter((part): part is string => part !== null)
-		.join(' · ');
-
-	return (
-		<li
-			className={cn(
-				'group flex items-center gap-1.5 rounded-md pr-1 pl-2',
-				isSelected ? 'bg-primary/8' : 'hover:bg-muted/50',
-			)}
-		>
-			<button
-				className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={() => onSelect(isSelected ? null : item.id)}
-				title="Show on the Map"
-				type="button"
-			>
-				<FamilyDot family={NEARBY_FAMILY_OF[item.category]} />
-				<span className="grid min-w-0 flex-1 gap-0.5">
-					<span className="truncate font-medium text-foreground text-sm">{title}</span>
-					<span className="truncate text-muted-foreground text-xs">{meta}</span>
-				</span>
-			</button>
-			<Link
-				className={NEARBY_ITEM_LINK_ICON_CLASS}
-				params={{ id: item.id }}
-				to={NEARBY_DETAIL_ROUTE[item.category]}
-			>
-				<ChevronRightIcon aria-hidden="true" className="size-4" />
-			</Link>
-		</li>
-	);
-}
-
 function FamilyDot({
 	family,
 	dimmed = false,
@@ -599,44 +523,6 @@ function FamilyDot({
 			className={cn('size-2.5 shrink-0 rounded-full', dimmed && 'opacity-40')}
 			style={{ backgroundColor: NEARBY_FAMILY_COLORS[family] }}
 		/>
-	);
-}
-
-const NEARBY_ITEM_LINK_ICON_CLASS =
-	'flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
-/** Where each nearby category's detail page lives. Every one takes an `$id`. */
-const NEARBY_DETAIL_ROUTE = {
-	habitat: '/larval-surveillance/habitats/$id',
-	trap: '/adult-surveillance/traps/$id',
-	inspection: '/larval-surveillance/inspections/$id',
-	collection: '/adult-surveillance/collections/$id',
-	application: '/control-operations/chemical/$id',
-	sourceReduction: '/control-operations/source-reduction/$id',
-	biocontrol: '/control-operations/biocontrol/$id',
-} as const satisfies Record<NearbyCategory, string>;
-
-function NearbyLoading() {
-	return (
-		<div className="grid gap-1.5" aria-hidden="true">
-			{['n-1', 'n-2', 'n-3', 'n-4'].map((key) => (
-				<div className="flex items-center gap-2.5 px-2 py-1.5" key={key}>
-					<Skeleton className="size-2.5 rounded-full" />
-					<div className="grid flex-1 gap-1">
-						<Skeleton className="h-3.5 w-2/5" />
-						<Skeleton className="h-3 w-3/5" />
-					</div>
-				</div>
-			))}
-		</div>
-	);
-}
-
-function NearbyMessage({ children }: { readonly children: ReactNode }) {
-	return (
-		<p className="rounded-md border border-border/40 border-dashed bg-muted/20 px-3 py-4 text-center text-muted-foreground text-sm">
-			{children}
-		</p>
 	);
 }
 

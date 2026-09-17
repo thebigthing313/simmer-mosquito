@@ -1,12 +1,15 @@
+import { mapFamily } from '@simmer-mosquito/design-tokens';
 import { describe, expect, it } from 'vitest';
+import type { Tag } from '../../../../../hooks/queries/tag-view';
+import type { ActivityLookups } from '../../../../../routes/-activity-data';
 import {
 	countNearbyByFamily,
-	describeNearbyItem,
 	formatNearbyDistance,
 	formatRadiusLabel,
 	type NearbyCategory,
 	type NearbyItem,
 	nearbyItemDate,
+	nearbyRow,
 	visibleNearbyItems,
 } from '../../../../../routes/public-engagement/service-requests/-service-request-nearby';
 
@@ -109,83 +112,116 @@ describe('nearbyItemDate', () => {
 	});
 });
 
-describe('describeNearbyItem', () => {
-	const NAMES = new Map([
-		['type-1', 'Catch basin'],
-		['method-1', 'CDC light trap'],
-	]);
+describe('nearbyRow', () => {
+	const PRIORITY: Tag = { id: 'tag-1', name: 'Priority', color: null, description: null };
+	const LOOKUPS: ActivityLookups = {
+		nameById: new Map([
+			['type-1', 'Catch basin'],
+			['method-1', 'CDC light trap'],
+			['product-1', 'VectoBac 12AS'],
+			['method-2', 'Backpack sprayer'],
+		]),
+		formatQuantity: (amount, unitId) => `${amount} ${unitId ?? 'each'}`,
+		tagById: new Map([[PRIORITY.id, PRIORITY]]),
+	};
 
-	// Only habitats and traps are named records; the operational categories are
-	// titled by what they are and carry the lookup name underneath.
-	it('titles a habitat by its own name and keeps the type underneath', () => {
-		expect(
-			describeNearbyItem(
-				item('a', 'habitat', 10, { label: 'Elm St basin', refId: 'type-1' }),
-				NAMES,
-			),
-		).toEqual({ title: 'Elm St basin', subtitle: 'Catch basin' });
+	// The describer is Daily Work's, so each category is titled the way the same
+	// record is titled in a Profile's log; what this list adds is the category
+	// ahead of the subtitle, since there is no verb here to say what the record
+	// is. One case per category, so a kind the describer forgets fails here.
+	it.each([
+		[
+			'habitat',
+			{ label: 'Elm St basin', refId: 'type-1' },
+			{ title: 'Elm St basin', subtitle: 'Habitat · Catch basin' },
+		],
+		[
+			'trap',
+			{ label: 'Trap 14', refId: 'method-1' },
+			{ title: 'Trap 14', subtitle: 'Trap · CDC light trap' },
+		],
+		[
+			'inspection',
+			{ placeName: 'Elm St basin', refId: 'type-1' },
+			{ title: 'Elm St basin', subtitle: 'Inspection · Catch basin' },
+		],
+		[
+			'collection',
+			{ placeName: 'Trap 14', refId: 'method-1' },
+			{ title: 'Trap 14', subtitle: 'Collection · CDC light trap' },
+		],
+		[
+			'application',
+			{
+				refId: 'product-1',
+				methodRefId: 'method-2',
+				amount: 2,
+				unitId: 'gal',
+				placeName: 'Elm St basin',
+			},
+			{ title: 'VectoBac 12AS', subtitle: 'Application · 2 gal · Backpack sprayer · Elm St basin' },
+		],
+		[
+			'sourceReduction',
+			{ refId: 'method-2', placeName: 'Elm St basin' },
+			{ title: 'Backpack sprayer', subtitle: 'Source Reduction · Elm St basin' },
+		],
+		[
+			'biocontrol',
+			{ refId: 'method-2', amount: 40, placeName: 'Elm St basin' },
+			{ title: 'Backpack sprayer', subtitle: 'Biocontrol · 40 each · Elm St basin' },
+		],
+	] as const)('describes a %s the way Daily Work does, category first', (category, fields, expected) => {
+		const row = nearbyRow(item('a', category, 10, fields), LOOKUPS, 'meter');
+		expect({ title: row.title, subtitle: row.subtitle }).toEqual(expected);
 	});
 
-	it('falls back to the habitat type when the habitat is unnamed', () => {
-		expect(describeNearbyItem(item('a', 'habitat', 10, { refId: 'type-1' }), NAMES)).toEqual({
-			title: 'Catch basin',
-			subtitle: null,
-		});
-	});
-
-	it('falls back to the bare category when a habitat has neither', () => {
-		expect(describeNearbyItem(item('a', 'habitat', 10), NAMES)).toEqual({
+	// The category is the title then, and a subtitle repeating it says nothing.
+	it('falls back to the category when a record has nothing to name it, once', () => {
+		const row = nearbyRow(item('a', 'habitat', 10), LOOKUPS, 'meter');
+		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
 			title: 'Habitat',
 			subtitle: null,
 		});
 	});
 
-	it('titles a trap by its own name, with the collection method underneath', () => {
-		expect(
-			describeNearbyItem(item('a', 'trap', 10, { label: 'Trap 14', refId: 'method-1' }), NAMES),
-		).toEqual({ title: 'Trap 14', subtitle: 'CDC light trap' });
+	it('dates a visit for the rail and leaves a place undated', () => {
+		expect(nearbyRow(item('a', 'inspection', 10), LOOKUPS, 'meter').date).toBe('Aug 1, 2026');
+		expect(nearbyRow(item('a', 'trap', 10), LOOKUPS, 'meter').date).toBeNull();
 	});
 
-	it('gives an inspection no subtitle, since it references no lookup', () => {
-		expect(describeNearbyItem(item('a', 'inspection', 10, { refId: 'method-1' }), NAMES)).toEqual({
-			title: 'Inspection',
-			subtitle: null,
-		});
+	it('formats the distance in the family of the radius unit', () => {
+		expect(nearbyRow(item('a', 'trap', 100), LOOKUPS, 'mile').distance).toBe('328 ft');
+		expect(nearbyRow(item('a', 'trap', 100), LOOKUPS, 'meter').distance).toBe('100 m');
 	});
 
+	// The dot is the family, in the three hues the map paints, and its name is
+	// the family's rather than the record's, since the title names the record.
 	it.each([
-		['collection', 'Collection'],
-		['application', 'Application'],
-		['sourceReduction', 'Source reduction'],
-		['biocontrol', 'Biocontrol'],
-	] as const)('titles a %s by its category, with the method underneath', (category, title) => {
-		expect(describeNearbyItem(item('a', category, 10, { refId: 'method-1' }), NAMES)).toEqual({
-			title,
-			subtitle: 'CDC light trap',
-		});
+		['habitat', mapFamily.larval, 'Infrastructure'],
+		['inspection', mapFamily.adult, 'Surveillance'],
+		['biocontrol', mapFamily.control, 'Control'],
+	] as const)('colours a %s in its family hue', (category, color, label) => {
+		expect(nearbyRow(item('a', category, 10), LOOKUPS, 'meter').swatch).toEqual({ color, label });
 	});
 
-	// A label of spaces is not a name. Trusting it would title the row blank.
-	it('treats a whitespace-only label as no name at all', () => {
-		expect(describeNearbyItem(item('a', 'trap', 10, { label: '   ' }), NAMES)).toEqual({
-			title: 'Trap',
-			subtitle: null,
+	it('reads the badge facts and the Tags off the register the log reads', () => {
+		const row = nearbyRow(
+			item('a', 'inspection', 10, { detail: 'dry', tagIds: ['tag-1', 'unknown'] }),
+			LOOKUPS,
+			'meter',
+		);
+		expect(row.facts).toEqual({
+			category: 'inspection',
+			result: { isWet: false, density: null, stages: null },
 		});
+		expect(row.tags).toEqual([PRIORITY]);
 	});
 
-	it('trims the label it does use', () => {
-		expect(describeNearbyItem(item('a', 'trap', 10, { label: '  Trap 14  ' }), NAMES)).toEqual({
-			title: 'Trap 14',
-			subtitle: null,
-		});
-	});
-
-	// The lookup collections sync separately from the nearby response, so a
-	// refId can arrive before the row that names it.
-	it('drops the subtitle when the referenced name has not synced yet', () => {
-		expect(describeNearbyItem(item('a', 'collection', 10, { refId: 'unknown' }), NAMES)).toEqual({
-			title: 'Collection',
-			subtitle: null,
+	it("links the chevron to the record's own detail page", () => {
+		expect(nearbyRow(item('sr-9', 'sourceReduction', 10), LOOKUPS, 'meter').link).toEqual({
+			to: '/control-operations/source-reduction/$id',
+			params: { id: 'sr-9' },
 		});
 	});
 });

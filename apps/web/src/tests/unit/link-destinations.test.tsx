@@ -40,6 +40,11 @@ import { InspectionSurfaceSwitch } from '../../routes/larval-surveillance/-inspe
 import { sharedInspectionSearch } from '../../routes/larval-surveillance/-inspections-search';
 import { PeopleSection } from '../../routes/my-organization/-components/people';
 import { ServiceRequestDetailHeader } from '../../routes/public-engagement/service-requests/-service-request-detail-header';
+import type {
+	NearbyCategory,
+	NearbyItem,
+} from '../../routes/public-engagement/service-requests/-service-request-nearby';
+import { NearbyResultList } from '../../routes/public-engagement/service-requests/-service-request-nearby-rows';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
 
@@ -505,5 +510,77 @@ describe('the service request header', () => {
 		);
 
 		expect(linkHref('Edit')).toBe('/public-engagement/service-requests/service-request-1/edit');
+	});
+});
+
+/**
+ * The nearby list on a service request, one row per record kind.
+ *
+ * Seven kinds through one row, each keyed to its own detail route, which is the
+ * shape #582 named: every `to` is well formed, and a category paired with its
+ * neighbour's route compiles. The chevron and the title are the row's two links,
+ * so each record answers twice, and the ids are the assertion.
+ */
+describe('the nearby list', () => {
+	const CATEGORIES: readonly NearbyCategory[] = [
+		'habitat',
+		'trap',
+		'inspection',
+		'collection',
+		'application',
+		'sourceReduction',
+		'biocontrol',
+	];
+
+	function nearby(category: NearbyCategory, index: number): NearbyItem {
+		return {
+			category,
+			family: 'larval',
+			id: `${category}-${index}`,
+			lat: 30,
+			lng: -90,
+			distanceMeters: index,
+			date: '2026-08-01',
+			occurredAt: null,
+			label: `Record ${index}`,
+			placeName: `Record ${index}`,
+			refId: null,
+			methodRefId: null,
+			amount: null,
+			unitId: null,
+			detail: null,
+			stages: null,
+			context: null,
+			hasBycatch: null,
+			tagIds: null,
+		};
+	}
+
+	it('sends every record kind to its own detail page', () => {
+		const items = CATEGORIES.map((category, index) => nearby(category, index));
+		renderWithRouter(
+			<NearbyResultList
+				emptyTitle="Nothing nearby"
+				isError={false}
+				isLoading={false}
+				items={items}
+				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
+				onRetry={() => {}}
+				onSelect={() => {}}
+				response={undefined}
+				selectedId={null}
+			/>,
+		);
+
+		const expected = [
+			'/larval-surveillance/habitats/habitat-0',
+			'/adult-surveillance/traps/trap-1',
+			'/larval-surveillance/inspections/inspection-2',
+			'/adult-surveillance/collections/collection-3',
+			'/control-operations/chemical/application-4',
+			'/control-operations/source-reduction/sourceReduction-5',
+			'/control-operations/biocontrol/biocontrol-6',
+		];
+		expect(linkHrefs()).toEqual(expected.flatMap((href) => [href, href]));
 	});
 });

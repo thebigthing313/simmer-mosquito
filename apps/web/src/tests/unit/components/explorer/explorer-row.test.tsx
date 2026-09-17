@@ -142,6 +142,70 @@ describe('ExplorerRow', () => {
 		expect(dot.getAttribute('title')).toBeNull();
 	});
 
+	// The nearby list on a service request is the caller: every row there is a
+	// distance from the request, and a list where one row said it and the next
+	// did not would read as two kinds of record.
+	it('draws the distance in a slot of its own, reserved for a row without one', () => {
+		const { container, rerender } = render(
+			<ul>
+				<li>
+					<ExplorerRow
+						date="Aug 12, 2026"
+						detailLabel="View details"
+						detailLink={DETAIL}
+						distance="328 ft"
+						isSelected={false}
+						selectLabel="Show on the map"
+						title="CAR - S1 - 12"
+					/>
+				</li>
+			</ul>,
+		);
+		const distance = screen.getByText('328 ft');
+		// Its own column, not a word in the title block: the chevron is its next
+		// sibling and the title is not its parent.
+		expect(distance.nextElementSibling?.getAttribute('aria-label')).toBe('View details');
+		expect(screen.getByText('CAR - S1 - 12').parentElement?.contains(distance)).toBe(false);
+
+		rerender(
+			<ul>
+				<li>
+					<ExplorerRow
+						date="Aug 12, 2026"
+						detailLabel="View details"
+						detailLink={DETAIL}
+						distance={null}
+						isSelected={false}
+						selectLabel="Show on the map"
+						title="CAR - S1 - 12"
+					/>
+				</li>
+			</ul>,
+		);
+		// Null keeps the column, so the chevrons line up down a list where some
+		// rows have a distance and some do not.
+		const slot = container.querySelector('[data-slot="distance"]');
+		expect(slot).not.toBeNull();
+		expect(slot?.textContent).toBe('');
+
+		rerender(
+			<ul>
+				<li>
+					<ExplorerRow
+						date="Aug 12, 2026"
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						title="CAR - S1 - 12"
+					/>
+				</li>
+			</ul>,
+		);
+		// Omitted, and a list that never says a distance gets the width back.
+		expect(container.querySelector('[data-slot="distance"]')).toBeNull();
+	});
+
 	// A weather station whose centroid has not synced has nothing to show, and a
 	// control that does nothing is worse than no control.
 	it('draws no map control for a record with no coordinates', () => {

@@ -69,6 +69,17 @@ export interface ActivityEntry {
 	readonly tagIds: readonly string[] | null;
 }
 
+/**
+ * The record half of an entry: everything but whose entry it is.
+ *
+ * `involvement` and `role` say what a person did to the record, and only Daily
+ * Work has a person to ask about. The nearby list on a service request draws
+ * the same seven kinds of record with no person in the question, so the
+ * describer, the badge facts and the Tags below read this rather than the
+ * whole entry, and one row shape serves both surfaces.
+ */
+export type ActivityRecord = Omit<ActivityEntry, 'involvement' | 'role'>;
+
 interface ActivityResponse {
 	readonly profileId: string;
 	readonly dateFrom: string;
@@ -121,6 +132,24 @@ export const ACTIVITY_ROLE_LABEL: Readonly<Record<string, string>> = {
 	closed: 'Closed',
 	assisted: 'Assisted',
 };
+
+/**
+ * Where each record kind's detail page lives. Every one takes an `$id`.
+ *
+ * Read by the Daily Work log and by the nearby list on a service request, so
+ * the chevron on a row goes to the same page whichever list drew it.
+ */
+export const ACTIVITY_DETAIL_ROUTE = {
+	habitat: '/larval-surveillance/habitats/$id',
+	inspection: '/larval-surveillance/inspections/$id',
+	trap: '/adult-surveillance/traps/$id',
+	collection: '/adult-surveillance/collections/$id',
+	application: '/control-operations/chemical/$id',
+	sourceReduction: '/control-operations/source-reduction/$id',
+	biocontrol: '/control-operations/biocontrol/$id',
+	outreach: '/public-engagement/outreach/$id',
+	serviceRequest: '/public-engagement/service-requests/$id',
+} as const satisfies Record<ActivityCategory, string>;
 
 /**
  * The key one entry is selected by.
@@ -386,7 +415,7 @@ function isRefusal(error: Error): boolean {
  * collection whose status will not resolve says it was collected, which is what
  * the row's own verb already said.
  */
-export function activityBadgeFacts(entry: ActivityEntry): RecordBadgeFacts {
+export function activityBadgeFacts(entry: ActivityRecord): RecordBadgeFacts {
 	const detail = text(entry.detail);
 	switch (entry.category) {
 		case 'habitat':
@@ -448,7 +477,7 @@ function controlContextOf(context: string | null): ControlContext {
  * report; the stages ride separately, and an inspection that found none sends
  * nothing rather than six falses.
  */
-function inspectionResult(entry: ActivityEntry): InspectionResult {
+function inspectionResult(entry: ActivityRecord): InspectionResult {
 	const detail = text(entry.detail);
 	if (detail === 'dry') {
 		return { isWet: false, density: null, stages: null };
@@ -505,7 +534,7 @@ function lifeStageFlags(codes: string | null): LifeStageFlags | null {
  * out of an id.
  */
 export function activityTags(
-	entry: ActivityEntry,
+	entry: ActivityRecord,
 	tagById: ReadonlyMap<string, Tag>,
 ): readonly Tag[] {
 	if (entry.tagIds === null || entry.tagIds.length === 0) {
@@ -540,7 +569,7 @@ export interface ActivityDescription {
  * are not synced to the client.
  */
 export function describeActivityEntry(
-	entry: ActivityEntry,
+	entry: ActivityRecord,
 	nameById: ReadonlyMap<string, string>,
 	formatQuantity: (amount: number, unitId: string | null) => string,
 ): ActivityDescription {

@@ -13,6 +13,7 @@ import { ExplorerRow } from '../components/explorer';
 import type { MapInset } from '../components/map/map-inset';
 import {
 	ACTIVITY_CATEGORY_LABEL,
+	ACTIVITY_DETAIL_ROUTE,
 	ACTIVITY_FAMILY_LABELS,
 	ACTIVITY_ROLE_LABEL,
 	type ActivityCopy,
@@ -325,18 +326,6 @@ const ACTIVITY_MAP_CARD: Readonly<
 	outreach: OutreachMapCard,
 	serviceRequest: ServiceRequestMapCard,
 };
-
-const ACTIVITY_DETAIL_ROUTE = {
-	habitat: '/larval-surveillance/habitats/$id',
-	inspection: '/larval-surveillance/inspections/$id',
-	trap: '/adult-surveillance/traps/$id',
-	collection: '/adult-surveillance/collections/$id',
-	application: '/control-operations/chemical/$id',
-	sourceReduction: '/control-operations/source-reduction/$id',
-	biocontrol: '/control-operations/biocontrol/$id',
-	outreach: '/public-engagement/outreach/$id',
-	serviceRequest: '/public-engagement/service-requests/$id',
-} as const satisfies Record<ActivityEntry['category'], string>;
 
 export function ActivityFocusCard({
 	entry,
