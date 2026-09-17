@@ -147,7 +147,7 @@ describe('buildNearbyMapData', () => {
 });
 
 describe('visibleNearbyItems', () => {
-	it('keeps only the toggled-on families, nearest first', () => {
+	it('keeps only the families it is handed, nearest first', () => {
 		const visible = visibleNearbyItems(ITEMS, new Set(['infrastructure', 'control']));
 		expect(visible.map((entry) => entry.id)).toEqual([
 			'habitat',

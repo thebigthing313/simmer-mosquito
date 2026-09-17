@@ -215,10 +215,10 @@ function ServiceRequestDetailContent({
 						</TabStrip>
 					</div>
 
-					<TabsContent className="flex min-h-0 flex-col" value="details">
+					<TabsContent className={TAB_CONTENT_CLASS} value="details">
 						<TabBody>
 							<RequestDetailsCard receivedByName={receivedByName} request={request} />
-							<div className="grid gap-4 @lg:grid-cols-2">
+							<div className="grid gap-4 @md:grid-cols-2">
 								<PartyCard label="Contact">
 									<ContactParty contactId={request.contactId} />
 								</PartyCard>
@@ -231,7 +231,7 @@ function ServiceRequestDetailContent({
 					</TabsContent>
 
 					{NEARBY_FAMILIES.map((family) => (
-						<TabsContent className="flex min-h-0 flex-col" key={family.key} value={family.key}>
+						<TabsContent className={TAB_CONTENT_CLASS} key={family.key} value={family.key}>
 							<NearbyFamilyTab
 								families={mapFamiliesForTab(family.key)}
 								label={family.label}
@@ -243,7 +243,7 @@ function ServiceRequestDetailContent({
 						</TabsContent>
 					))}
 
-					<TabsContent className="flex min-h-0 flex-col" value="comments">
+					<TabsContent className={TAB_CONTENT_CLASS} value="comments">
 						<TabBody>
 							<CommentsSection
 								description="Follow-up, resolution notes, and field context for this request."
@@ -256,6 +256,12 @@ function ServiceRequestDetailContent({
 		</MapSplitPage>
 	);
 }
+
+/**
+ * A tab body is a column that hands its height on, so the scroller inside it,
+ * the rail's or `TabBody`'s, is what scrolls rather than the tab.
+ */
+const TAB_CONTENT_CLASS = 'flex min-h-0 flex-col';
 
 /** How many records a family tab lists, beside its label; nothing for none. */
 function TabCount({ count }: { readonly count: number }) {

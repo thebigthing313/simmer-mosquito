@@ -83,7 +83,7 @@ const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
 	biocontrol: 'control',
 };
 
-/** The family's name, as the tab strip, the row's dot and the legend spell it. */
+/** The family's name, as the tab strip and the row's dot spell it. */
 export const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
 	infrastructure: 'Infrastructure',
 	surveillance: 'Surveillance',

@@ -12,13 +12,13 @@
  * dialog and hands the mutation the reason, that Delete is last and opens the
  * delete dialog, that the pencil and the menu hide below the manager floor, and
  * that none of the retired controls are drawn. The second half is the tabs
- * under it (#1089): five in the product's strip, the active one read from and
- * written to `?tab=`, Details holding the record and Comments the thread, and
- * each family tab listing its family's nearby records as the results rail's
- * own rows (#1087) with the distance in its slot. A row click hands the map the
- * selection under the record's composite key, the map is handed only the
- * active tab's family, and the rail's empty and failed states stand in for the
- * bespoke ones the page drew.
+ * under it (#1089). Five sit in the product's strip, and the active one is
+ * read from and written to `?tab=`. Details holds the record and Comments the
+ * thread. Each family tab lists its family's nearby records as the results
+ * rail's own rows (#1087), with the distance in its slot. A row click hands
+ * the map the selection under the record's composite key, the map is handed
+ * only the active tab's family, and the rail's empty and failed states stand
+ * in for the bespoke ones the page drew.
  *
  * What is faked is what `write-attribution.test.tsx` fakes, for the reasons its
  * docblock gives: the route module's `Route` hands back the params a match
