@@ -1458,7 +1458,7 @@ export function parseOptionalPositiveNumber(
 		: { ok: false, reason: `${param} must be a positive number.` };
 }
 
-export function parseOptionalDateFilter(
+function parseOptionalDateFilter(
 	searchParams: URLSearchParams,
 	param: string,
 ): OptionalFilterResult<string> {
