@@ -113,7 +113,13 @@ export function PeopleSection({
 					meta="Profile records, current access, and field history"
 					title="People"
 				/>
-				<div className="grid gap-3">
+				{/* The list carries its own measure, 46rem, the width the assignments
+				    create form carries. The shell draws the section at the `record`
+				    measure (#1045), and a row's name column grows to fill everything
+				    up to the actions, so without this the two ends of one row sat
+				    about 1400px apart on a 1920 screen (#1054). The invite controls
+				    in the header stay at the frame's width. */}
+				<div className="grid max-w-[46rem] gap-3">
 					<article className="grid min-w-0 items-center gap-3 rounded-md border border-border/40 bg-muted/40 p-2.5 md:grid-cols-[minmax(240px,1fr)_auto]">
 						<div className="min-w-0">
 							<span className="font-medium wrap-anywhere text-sm text-foreground">

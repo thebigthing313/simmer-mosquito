@@ -178,8 +178,18 @@ function TagSections({
 	const { activeTags, inactiveTags } = useTagCatalog();
 	const [editingTagId, setEditingTagId] = useState<string | null>(null);
 
+	/*
+	 * `w-fit`: the block is as wide as the widest thing in it, which is the
+	 * table at the sum of its four column widths, so the add row above and the
+	 * empty-state box stretch to the table's right edge and no further. The
+	 * shell draws the section at the `record` measure (#1045), and without this
+	 * the create panel ran to the frame on its own (#1054). `fit-content` is
+	 * capped at the available width, so below `md:` the table still scrolls
+	 * inside its `overflow-x-auto` container rather than the block overflowing
+	 * the page.
+	 */
 	return (
-		<div className="grid gap-3">
+		<div className="grid w-fit gap-3">
 			{canManage && isCreating ? <TagCreatePanel onCancel={onCancelCreate} /> : null}
 			<TagTableSection
 				canManage={canManage}
@@ -229,7 +239,12 @@ function TagTableSection({
 				</p>
 			) : (
 				<div className="overflow-hidden rounded-md border border-border/30 [--tag-actions-column:156px] [--tag-color-column:150px] [--tag-description-column:clamp(220px,30vw,360px)] [--tag-preview-column:clamp(150px,18vw,220px)]">
-					<Table className="min-w-[calc(var(--tag-preview-column)+var(--tag-description-column)+var(--tag-color-column)+var(--tag-actions-column))] table-fixed">
+					{/* The width is the sum of the four column widths rather than
+					    `Table`'s `w-full`: `table-fixed` hands a wider table's slack to
+					    columns that already have widths, which is how the four spread
+					    across 1616px at the `record` measure (#1054). No cap and no
+					    second number, since the same four variables size the columns. */}
+					<Table className="w-[calc(var(--tag-preview-column)+var(--tag-description-column)+var(--tag-color-column)+var(--tag-actions-column))] table-fixed">
 						<TableHeader>
 							<TableRow>
 								<TableHead className="w-(--tag-preview-column)">Tag Preview</TableHead>
