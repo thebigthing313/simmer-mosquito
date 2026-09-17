@@ -79,11 +79,16 @@ const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
 	biocontrol: 'control',
 };
 
-export const NEARBY_FAMILIES: readonly { readonly key: NearbyFamily; readonly label: string }[] = [
-	{ key: 'infrastructure', label: 'Infrastructure' },
-	{ key: 'surveillance', label: 'Surveillance' },
-	{ key: 'control', label: 'Control' },
-];
+const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
+	infrastructure: 'Infrastructure',
+	surveillance: 'Surveillance',
+	control: 'Control',
+};
+
+/** The three families in the order the toggles draw them. */
+export const NEARBY_FAMILIES: readonly { readonly key: NearbyFamily; readonly label: string }[] = (
+	['infrastructure', 'surveillance', 'control'] as const
+).map((key) => ({ key, label: NEARBY_FAMILY_LABEL[key] }));
 
 /** How many nearby records fell in each family, for the toggle counts. */
 export function countNearbyByFamily(
@@ -187,13 +192,9 @@ export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: 
 		distance: formatNearbyDistance(item.distanceMeters, unitCode),
 		facts: activityBadgeFacts(item),
 		tags: activityTags(item, lookups.tagById),
-		swatch: { color: NEARBY_FAMILY_COLORS[family], label: nearbyFamilyLabel(family) },
+		swatch: { color: NEARBY_FAMILY_COLORS[family], label: NEARBY_FAMILY_LABEL[family] },
 		link: { to: ACTIVITY_DETAIL_ROUTE[item.category], params: { id: item.id } },
 	};
-}
-
-function nearbyFamilyLabel(family: NearbyFamily): string {
-	return NEARBY_FAMILIES.find((entry) => entry.key === family)?.label ?? family;
 }
 
 /**

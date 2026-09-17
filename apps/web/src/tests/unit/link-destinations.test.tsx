@@ -561,13 +561,21 @@ describe('the nearby list', () => {
 		renderWithRouter(
 			<NearbyResultList
 				emptyTitle="Nothing nearby"
+				families={new Set(['infrastructure', 'surveillance', 'control'])}
 				isError={false}
 				isLoading={false}
-				items={items}
 				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
 				onRetry={() => {}}
 				onSelect={() => {}}
-				response={undefined}
+				response={{
+					request: { id: 'sr-1', lat: 30, lng: -90, requestDate: '2026-08-04' },
+					radius: { amount: 500, unitCode: 'meter', meters: 500 },
+					timeWindow: { daysBefore: 30, daysAfter: 30 },
+					dateFrom: '2026-07-05',
+					dateTo: '2026-09-03',
+					families: ['larval', 'adult', 'control'],
+					items,
+				}}
 				selectedId={null}
 			/>,
 		);

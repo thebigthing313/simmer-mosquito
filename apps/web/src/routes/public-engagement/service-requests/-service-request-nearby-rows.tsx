@@ -2,12 +2,18 @@ import { ExplorerRow } from '../../../components/explorer';
 import { ResultList } from '../../../components/explorer/result-list';
 import type { ActivityLookups } from '../../-activity-data';
 import { RecordBadges } from '../../-record-badges';
-import { type NearbyItem, type NearbyResponse, nearbyRow } from './-service-request-nearby';
+import {
+	type NearbyFamily,
+	type NearbyItem,
+	type NearbyResponse,
+	nearbyRow,
+	visibleNearbyItems,
+} from './-service-request-nearby';
 
 // The nearby records around a service request, drawn as the rows an explorer's
 // results rail draws, with the distance from the request in a slot of its own.
-// Takes a list already filtered and ordered by the caller, so a page that lists
-// one family per tab hands each tab its own slice and nothing else changes.
+// Takes the families to show rather than a list, so a page that lists one
+// family per tab hands each tab its family and nothing else changes.
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
@@ -26,7 +32,7 @@ import { type NearbyItem, type NearbyResponse, nearbyRow } from './-service-requ
  */
 export function NearbyResultList({
 	response,
-	items,
+	families,
 	isLoading,
 	isError,
 	onRetry,
@@ -37,43 +43,51 @@ export function NearbyResultList({
 	emptyDescription,
 }: {
 	readonly response: NearbyResponse | undefined;
-	/** The records to draw, already family-filtered and nearest first. */
-	readonly items: readonly NearbyItem[];
+	/** Which of the response's families to draw, nearest first. */
+	readonly families: ReadonlySet<NearbyFamily>;
 	readonly isLoading: boolean;
 	readonly isError: boolean;
 	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly onSelect: (id: string | null) => void;
 	readonly lookups: ActivityLookups;
-	/** What the rail says when `items` is empty and nothing failed. */
+	/** What the rail says when nothing is drawn and nothing failed. */
 	readonly emptyTitle: string;
 	readonly emptyDescription?: string | undefined;
 }) {
+	// The rows and the unit their distance is written in come off one response,
+	// so a row can never draw ahead of the radius that measures it.
+	const list =
+		response === undefined
+			? null
+			: { items: visibleNearbyItems(response.items, families), unitCode: response.radius.unitCode };
 	return (
 		<ResultList
 			emptyDescription={emptyDescription}
 			emptyTitle={emptyTitle}
-			isEmpty={items.length === 0}
+			isEmpty={list === null || list.items.length === 0}
 			isError={isError}
 			isLoading={isLoading}
 			onRetry={onRetry}
 		>
-			<ul className="grid">
-				{items.map((item) => (
-					<li
-						className="border-border/40 border-t first:border-t-0"
-						key={`${item.category}:${item.id}`}
-					>
-						<NearbyExplorerRow
-							isSelected={item.id === selectedId}
-							item={item}
-							lookups={lookups}
-							onSelect={onSelect}
-							unitCode={response?.radius.unitCode ?? ''}
-						/>
-					</li>
-				))}
-			</ul>
+			{list === null ? null : (
+				<ul className="grid">
+					{list.items.map((item) => (
+						<li
+							className="border-border/40 border-t first:border-t-0"
+							key={`${item.category}:${item.id}`}
+						>
+							<NearbyExplorerRow
+								isSelected={item.id === selectedId}
+								item={item}
+								lookups={lookups}
+								onSelect={onSelect}
+								unitCode={list.unitCode}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
 		</ResultList>
 	);
 }

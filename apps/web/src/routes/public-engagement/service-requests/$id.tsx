@@ -406,37 +406,36 @@ function NearbyPanel({
 				</CardTitle>
 				<CardDescription>{nearbySummary(response)}</CardDescription>
 			</CardHeader>
-			{/* No padding on the content, because the rows carry the rail's own and
-			    a second measure around them would indent every row inside the card
-			    the header sits flush with. The toggles take the header's measure. */}
-			<CardContent className="grid" padding="none">
-				<div className="flex flex-wrap gap-2 px-4 pb-3">
-					{NEARBY_FAMILIES.map((family) => (
-						<FamilyToggle
-							count={countsByFamily[family.key]}
-							family={family.key}
-							key={family.key}
-							label={family.label}
-							onToggle={onToggleFamily}
-							pressed={visibleFamilies.has(family.key)}
-						/>
-					))}
-				</div>
-				{/* Clipped to the card's corner, so a selected or hovered last row's
-				    fill squares nothing off at the foot. */}
-				<div className="flex min-h-0 flex-col overflow-hidden rounded-b-[inherit] border-border/50 border-t">
-					<NearbyResultList
-						{...nearbyEmptyCopy(response, visibleItems.length)}
-						isError={isError}
-						isLoading={isLoading}
-						items={visibleItems}
-						lookups={lookups}
-						onRetry={onRetry}
-						onSelect={onSelect}
-						response={response}
-						selectedId={selectedId}
+			<CardContent className="flex flex-wrap gap-2" padding="compact">
+				{NEARBY_FAMILIES.map((family) => (
+					<FamilyToggle
+						count={countsByFamily[family.key]}
+						family={family.key}
+						key={family.key}
+						label={family.label}
+						onToggle={onToggleFamily}
+						pressed={visibleFamilies.has(family.key)}
 					/>
-				</div>
+				))}
+			</CardContent>
+			{/* Unpadded, because each row carries the rail's own measure. Clipped to
+			    the card's corner, so the fill on a selected last row ends where the
+			    card does. */}
+			<CardContent
+				className="flex min-h-0 flex-col overflow-hidden rounded-b-[inherit] border-border/50 border-t"
+				padding="none"
+			>
+				<NearbyResultList
+					{...nearbyEmptyCopy(response, visibleItems.length)}
+					families={visibleFamilies}
+					isError={isError}
+					isLoading={isLoading}
+					lookups={lookups}
+					onRetry={onRetry}
+					onSelect={onSelect}
+					response={response}
+					selectedId={selectedId}
+				/>
 			</CardContent>
 		</Card>
 	);

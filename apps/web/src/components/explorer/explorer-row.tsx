@@ -297,9 +297,10 @@ function DateColumn({
 /**
  * The distance column, at the right edge where the eye lands after the title.
  *
- * Right-aligned so the units stack under each other down the list, and wide
- * enough for `0.19 mi` and `1.50 km` alike, because a column that changed
- * width with its longest value would move every chevron below it.
+ * Right-aligned so the units stack under each other down the list. 56px is
+ * fixed rather than fitted, because a column that took the width of its
+ * longest value would move every chevron below it; the widest value the
+ * formatter writes is seven characters, `1.50 km`, at 12px text.
  */
 function DistanceColumn({
 	distance,
@@ -317,7 +318,6 @@ function DistanceColumn({
 				'w-14 shrink-0 text-right text-muted-foreground text-xs tabular-nums',
 				isStacked && 'pt-0.5',
 			)}
-			data-slot="distance"
 		>
 			{distance}
 		</span>

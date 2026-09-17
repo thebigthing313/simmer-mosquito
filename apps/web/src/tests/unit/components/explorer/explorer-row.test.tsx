@@ -146,7 +146,7 @@ describe('ExplorerRow', () => {
 	// distance from the request, and a list where one row said it and the next
 	// did not would read as two kinds of record.
 	it('draws the distance in a slot of its own, reserved for a row without one', () => {
-		const { container, rerender } = render(
+		const { rerender } = render(
 			<ul>
 				<li>
 					<ExplorerRow
@@ -183,10 +183,11 @@ describe('ExplorerRow', () => {
 			</ul>,
 		);
 		// Null keeps the column, so the chevrons line up down a list where some
-		// rows have a distance and some do not.
-		const slot = container.querySelector('[data-slot="distance"]');
-		expect(slot).not.toBeNull();
-		expect(slot?.textContent).toBe('');
+		// rows have a distance and some do not: the chevron's previous sibling is
+		// still the empty slot rather than the title block.
+		const chevron = screen.getByLabelText('View details');
+		expect(chevron.previousElementSibling?.textContent).toBe('');
+		expect(chevron.previousElementSibling?.contains(screen.getByText('CAR - S1 - 12'))).toBe(false);
 
 		rerender(
 			<ul>
@@ -203,7 +204,11 @@ describe('ExplorerRow', () => {
 			</ul>,
 		);
 		// Omitted, and a list that never says a distance gets the width back.
-		expect(container.querySelector('[data-slot="distance"]')).toBeNull();
+		expect(
+			screen
+				.getByLabelText('View details')
+				.previousElementSibling?.contains(screen.getByText('CAR - S1 - 12')),
+		).toBe(true);
 	});
 
 	// A weather station whose centroid has not synced has nothing to show, and a
