@@ -7,7 +7,9 @@ import {
 	type SimmerDatabase,
 } from '@simmer-mosquito/db';
 import {
+	ACTIVITY_CATEGORIES,
 	ACTIVITY_FAMILIES,
+	type ActivityCategory,
 	type ActivityFamily,
 	DomainValidationError,
 	type NearbyWindowEnd,
@@ -46,6 +48,14 @@ type NearbyReaders = typeof defaultNearbyReaders;
  * `families` names which of the four activity families to read; left out, it
  * is the three operational ones, and the public-engagement family is what
  * returns the outreach actions and the other requests around this one.
+ * `categories` narrows the read inside those families to the record kinds
+ * named, and the two compose as an intersection. It exists because the reader
+ * caps the union at 2000 rows nearest-first before anything is dropped, and
+ * `publicEngagement` holds two shapes: the service request page draws the
+ * other requests and not the outreach, and while it dropped outreach off the
+ * answer a dense radius could fill the cap with outreach actions and cut a
+ * nearer request with nothing on the page saying so (#1114). Asking for the
+ * categories it draws means the cap counts only those.
  *
  * The window starts `daysBefore` ahead of the request date and ends on the
  * later of `daysAfter` past it and the request's end anchor: the day it was
@@ -138,6 +148,7 @@ export function registerServiceRequestNearbyRoutes(
 			dateFrom: query.dateFrom,
 			dateTo: query.dateTo,
 			families: query.families,
+			categories: query.categories,
 			// The same settings the radius and window came from. A collection's
 			// `collected_at` becomes a day in this zone, so the window here means the
 			// same days the operator picked.
@@ -162,8 +173,10 @@ export function registerServiceRequestNearbyRoutes(
 }
 
 /**
- * What the read is asked: the radius, the window and the families, each the
- * caller's where the query names one and the default where it does not.
+ * What the read is asked: the radius, the window, the families and the
+ * categories, each the caller's where the query names one and the default
+ * where it does not. The categories have no default of their own: absent, the
+ * reader takes every category of the families named.
  *
  * The radius and window defaults come from
  * `settings.publicEngagement.serviceRequestContext`; the UI offers an "adjust"
@@ -185,6 +198,7 @@ function readNearbyQuery(
 			readonly dateTo: string;
 			readonly dateToFrom: NearbyWindowEnd;
 			readonly families: readonly ActivityFamily[];
+			readonly categories: readonly ActivityCategory[] | undefined;
 	  }
 	| { readonly ok: false; readonly reason: string } {
 	const radiusMeters = parseOptionalPositiveNumber(searchParams, 'radiusMeters');
@@ -207,12 +221,22 @@ function readNearbyQuery(
 		return families;
 	}
 
+	const categories = parseOptionalVocabularyListFilter(
+		searchParams,
+		'categories',
+		ACTIVITY_CATEGORIES,
+	);
+	if (!categories.ok) {
+		return categories;
+	}
+
 	return {
 		ok: true,
 		radiusMeters: radiusMeters.value ?? defaults.radiusMeters,
 		dateFrom: dateFrom.value ?? defaults.dateFrom,
 		...resolvedWindowEnd(dateTo.value, defaults, defaultEnd),
 		families: families.value ?? DEFAULT_NEARBY_FAMILIES,
+		categories: categories.value,
 	};
 }
 
