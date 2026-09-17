@@ -11,8 +11,21 @@ import {
 } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
+import type { LinkProps } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
-import type { ActivityEntry } from '../../-activity-data';
+import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
+import type { Tag } from '../../../hooks/queries/tag-view';
+import { formatListDate } from '../../../lib/local-date';
+import {
+	ACTIVITY_CATEGORY_LABEL,
+	ACTIVITY_DETAIL_ROUTE,
+	type ActivityLookups,
+	type ActivityRecord,
+	activityBadgeFacts,
+	activityTags,
+	describeActivityEntry,
+} from '../../-activity-data';
+import type { RecordBadgeFacts } from '../../-record-badges';
 import { formatRequestDate } from '../-public-engagement-display';
 
 // Data + display helpers for the service-request map context (nearby records).
@@ -35,9 +48,10 @@ export type NearbyFamily = 'infrastructure' | 'surveillance' | 'control';
 /**
  * One record near the request: the activity row for that record, less the two
  * fields that say whose entry it is, plus how far away it is. One shape on
- * both endpoints is what lets Daily Work's list row draw a nearby record too.
+ * both endpoints is what lets Daily Work's describer and badge register draw a
+ * nearby record too.
  */
-export interface NearbyItem extends Omit<ActivityEntry, 'involvement' | 'role' | 'category'> {
+export interface NearbyItem extends Omit<ActivityRecord, 'category'> {
 	readonly category: NearbyCategory;
 	readonly distanceMeters: number;
 }
@@ -59,7 +73,7 @@ export interface NearbyResponse {
 	readonly items: readonly NearbyItem[];
 }
 
-export const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
+const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
 	habitat: 'infrastructure',
 	trap: 'infrastructure',
 	inspection: 'surveillance',
@@ -69,21 +83,16 @@ export const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = 
 	biocontrol: 'control',
 };
 
-export const NEARBY_FAMILIES: readonly { readonly key: NearbyFamily; readonly label: string }[] = [
-	{ key: 'infrastructure', label: 'Infrastructure' },
-	{ key: 'surveillance', label: 'Surveillance' },
-	{ key: 'control', label: 'Control' },
-];
-
-export const NEARBY_CATEGORY_LABEL: Readonly<Record<NearbyCategory, string>> = {
-	habitat: 'Habitat',
-	trap: 'Trap',
-	inspection: 'Inspection',
-	collection: 'Collection',
-	application: 'Application',
-	sourceReduction: 'Source reduction',
-	biocontrol: 'Biocontrol',
+const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
+	infrastructure: 'Infrastructure',
+	surveillance: 'Surveillance',
+	control: 'Control',
 };
+
+/** The three families in the order the toggles draw them. */
+export const NEARBY_FAMILIES: readonly { readonly key: NearbyFamily; readonly label: string }[] = (
+	['infrastructure', 'surveillance', 'control'] as const
+).map((key) => ({ key, label: NEARBY_FAMILY_LABEL[key] }));
 
 /** How many nearby records fell in each family, for the toggle counts. */
 export function countNearbyByFamily(
@@ -141,29 +150,55 @@ export function nearbyItemDate(item: NearbyItem): string | null {
 	return NEARBY_FAMILY_OF[item.category] === 'infrastructure' ? null : item.date;
 }
 
-/** A title + optional subtitle for a nearby item, resolving lookup names where useful. */
-export function describeNearbyItem(
-	item: NearbyItem,
-	nameById: ReadonlyMap<string, string>,
-): { readonly title: string; readonly subtitle: string | null } {
-	const refName = item.refId === null ? null : (nameById.get(item.refId) ?? null);
-	const ownName = item.label?.trim() ? item.label.trim() : null;
-	switch (item.category) {
-		case 'habitat':
-			return { title: ownName ?? refName ?? 'Habitat', subtitle: ownName ? refName : null };
-		case 'trap':
-			return { title: ownName ?? 'Trap', subtitle: refName };
-		case 'inspection':
-			return { title: 'Inspection', subtitle: null };
-		case 'collection':
-			return { title: 'Collection', subtitle: refName };
-		case 'application':
-			return { title: 'Application', subtitle: refName };
-		case 'sourceReduction':
-			return { title: 'Source reduction', subtitle: refName };
-		case 'biocontrol':
-			return { title: 'Biocontrol', subtitle: refName };
-	}
+/** Everything one nearby record's row draws, resolved ahead of the render. */
+export interface NearbyRow {
+	readonly title: string;
+	readonly subtitle: string | null;
+	/** The operational date, formatted for the rail, or null for a place. */
+	readonly date: string | null;
+	/** How far from the request, in the family of the organization's radius unit. */
+	readonly distance: string;
+	readonly facts: RecordBadgeFacts;
+	readonly tags: readonly Tag[];
+	/** The family colour, named for the dot's accessible name. */
+	readonly swatch: { readonly color: string; readonly label: string };
+	readonly link: LinkProps;
+}
+
+/**
+ * One nearby record, as its explorer's rail would draw it, plus the distance.
+ *
+ * The title and subtitle are Daily Work's describer's, so a habitat near a
+ * request is titled the way the same habitat is titled in a Profile's log, and
+ * the badges come from the register beside it for the same reason. What this
+ * list adds over that log is the category ahead of the subtitle, because the
+ * log's verb is what said "Inspection" there and there is no verb here: an
+ * inspection's title is the place it was performed at, and beside a request a
+ * reader has to be told it was a visit rather than the place.
+ *
+ * A pure resolution rather than a component, so the seven categories can be
+ * asserted through one function and the row that draws it stays a mapping.
+ */
+export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: string): NearbyRow {
+	const described = describeActivityEntry(item, lookups.nameById, lookups.formatQuantity);
+	const category = ACTIVITY_CATEGORY_LABEL[item.category];
+	const family = NEARBY_FAMILY_OF[item.category];
+	const date = nearbyItemDate(item);
+	// A record with nothing to name it is titled by its category already, and a
+	// subtitle repeating the word under it says nothing twice.
+	const parts = [described.title === category ? null : category, described.subtitle].filter(
+		(part): part is string => part !== null,
+	);
+	return {
+		title: described.title,
+		subtitle: parts.length === 0 ? null : parts.join(' · '),
+		date: date === null ? null : formatListDate(date),
+		distance: formatNearbyDistance(item.distanceMeters, unitCode),
+		facts: activityBadgeFacts(item),
+		tags: activityTags(item, lookups.tagById),
+		swatch: { color: NEARBY_FAMILY_COLORS[family], label: NEARBY_FAMILY_LABEL[family] },
+		link: { to: ACTIVITY_DETAIL_ROUTE[item.category], params: { id: item.id } },
+	};
 }
 
 /**

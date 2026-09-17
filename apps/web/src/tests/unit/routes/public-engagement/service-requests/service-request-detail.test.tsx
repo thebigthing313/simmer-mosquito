@@ -11,7 +11,10 @@
  * `...` offers per state of the request, that choosing one opens the reason
  * dialog and hands the mutation the reason, that Delete is last and opens the
  * delete dialog, that the pencil and the menu hide below the manager floor, and
- * that none of the retired controls are drawn.
+ * that none of the retired controls are drawn. The second half is the nearby
+ * list under it (#1087): each record draws as the results rail's own row with
+ * the distance in its slot, a row click hands the map the selection, and the
+ * rail's empty and failed states stand in for the bespoke ones the page drew.
  *
  * What is faked is what `write-attribution.test.tsx` fakes, for the reasons its
  * docblock gives: the route module's `Route` hands back the params a match
@@ -29,13 +32,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NearbyLayerConfig } from '../../../../../components/map/use-nearby-layer';
+import { habitat_types } from '../../../../../lib/collections/habitat_types';
 import { organizations } from '../../../../../lib/collections/organizations';
 import { service_requests } from '../../../../../lib/collections/service_requests';
 import { tag_items } from '../../../../../lib/collections/tag_items';
 import { tags } from '../../../../../lib/collections/tags';
 import { recordNoun } from '../../../../../lib/record-nouns';
 import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
-import { preloadRouteComponent } from '../../explorer-route-harness';
+import { preloadRouteComponent, stubPanelLayout } from '../../explorer-route-harness';
 
 const harness = vi.hoisted(() => ({
 	/** The path params a match would carry. One object, since the stand-in reads it as a store. */
@@ -48,6 +53,12 @@ const harness = vi.hoisted(() => ({
 	sent: [] as URL[],
 	/** What the page handed the mutation hook. */
 	writes: [] as { readonly kind: 'close' | 'reopen' | 'remove'; readonly args: unknown[] }[],
+	/** What the nearby endpoint answers with. */
+	nearby: [] as readonly unknown[],
+	/** The nearby read fails with a 500 rather than answering. */
+	nearbyFails: false,
+	/** What the canvas was last handed for the nearby layer. */
+	nearbyLayer: null as NearbyLayerConfig | null,
 }));
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -61,31 +72,39 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 	const { sessionFetchStandIn } = await import('../../route-mock-stand-ins');
+	const answer = sessionFetchStandIn(harness.sent, (url) => {
+		if (url.pathname.endsWith('/delete-impact')) {
+			return {
+				recordType: 'serviceRequest',
+				recordId: REQUEST_ID,
+				found: true,
+				blockers: [],
+				cascades: [],
+				detaches: [],
+			};
+		}
+		if (url.pathname.endsWith('/regions')) {
+			return { recordType: 'service_requests', recordId: REQUEST_ID, found: true, groups: [] };
+		}
+		return {
+			request: { id: REQUEST_ID, lat: 30, lng: -90, requestDate: '2026-08-04' },
+			radius: { amount: 500, unitCode: 'm', meters: 500 },
+			timeWindow: { daysBefore: 30, daysAfter: 30 },
+			dateFrom: '2026-07-05',
+			dateTo: '2026-09-03',
+			items: harness.nearby,
+		};
+	});
 	return {
 		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn(harness.sent, (url) => {
-			if (url.pathname.endsWith('/delete-impact')) {
-				return {
-					recordType: 'serviceRequest',
-					recordId: REQUEST_ID,
-					found: true,
-					blockers: [],
-					cascades: [],
-					detaches: [],
-				};
+		sessionFetch: (input: URL | string) => {
+			const url = input instanceof URL ? input : new URL(input);
+			if (harness.nearbyFails && url.pathname.endsWith('/nearby')) {
+				harness.sent.push(url);
+				return Promise.resolve({ ok: false, status: 500 } as Response);
 			}
-			if (url.pathname.endsWith('/regions')) {
-				return { recordType: 'service_requests', recordId: REQUEST_ID, found: true, groups: [] };
-			}
-			return {
-				request: { id: REQUEST_ID, lat: 30, lng: -90, requestDate: '2026-08-04' },
-				radius: { amount: 500, unitCode: 'm', meters: 500 },
-				timeWindow: { daysBefore: 30, daysAfter: 30 },
-				dateFrom: '2026-07-05',
-				dateTo: '2026-09-03',
-				items: [],
-			};
-		}),
+			return answer(input);
+		},
 	};
 });
 
@@ -117,7 +136,10 @@ vi.mock('../../../../../hooks/mutations/use-service-request-mutations', () => ({
 
 vi.mock('../../../../../components/map', async (importOriginal) => ({
 	...(await importOriginal<typeof import('../../../../../components/map')>()),
-	MapCanvas: () => <p>map surface</p>,
+	MapCanvas: ({ nearbyLayer }: { readonly nearbyLayer?: NearbyLayerConfig }) => {
+		harness.nearbyLayer = nearbyLayer ?? null;
+		return <p>map surface</p>;
+	},
 }));
 
 /** The request on screen, read off the params so a case cannot render one and assert another. */
@@ -126,6 +148,9 @@ const REQUEST_ID = harness.params.id as string;
 let ServiceRequestDetail: () => ReactNode;
 
 beforeAll(async () => {
+	// The rail's placeholder rows arrive in a Radix ScrollArea, which measures
+	// itself with a ResizeObserver jsdom has not got.
+	stubPanelLayout();
 	ServiceRequestDetail = await preloadRouteComponent(
 		() => import('../../../../../routes/public-engagement/service-requests/$id'),
 		'service request detail',
@@ -138,7 +163,36 @@ beforeEach(() => {
 	harness.role = 'manager';
 	harness.sent.length = 0;
 	harness.writes.length = 0;
+	harness.nearby = [];
+	harness.nearbyFails = false;
+	harness.nearbyLayer = null;
 });
+
+/** One record near the request, in the activity row shape the endpoint answers. */
+function nearbyItem(overrides: Record<string, unknown>): Record<string, unknown> {
+	return {
+		category: 'inspection',
+		family: 'larval',
+		id: 'record-1',
+		lat: 30.001,
+		lng: -90.001,
+		distanceMeters: 120,
+		date: '2026-08-06',
+		occurredAt: null,
+		label: null,
+		placeName: null,
+		refId: null,
+		methodRefId: null,
+		amount: null,
+		unitId: null,
+		detail: null,
+		stages: null,
+		context: null,
+		hasBycatch: null,
+		tagIds: null,
+		...overrides,
+	};
+}
 
 afterEach(cleanup);
 
@@ -286,5 +340,82 @@ describe('the service request detail page header', () => {
 
 		expect(screen.queryByLabelText('Edit')).toBeNull();
 		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+	});
+});
+
+describe('the nearby list on the service request detail page', () => {
+	it('draws each record as a results-rail row with the distance in its slot', async () => {
+		seedRows(habitat_types, [{ id: 'type-1', name: 'Catch basin' }]);
+		harness.nearby = [
+			nearbyItem({
+				id: 'habitat-1',
+				category: 'habitat',
+				label: 'Elm St basin',
+				refId: 'type-1',
+				distanceMeters: 30,
+			}),
+			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin', refId: 'type-1' }),
+		];
+		await renderPage();
+
+		// The row's two controls, by the names the rail gives them: a habitat and an
+		// inspection at it share the title, so there are two of each.
+		expect(
+			await screen.findAllByRole('button', { name: 'Show Elm St basin on the map' }),
+		).toHaveLength(2);
+		expect(screen.getAllByLabelText('View details for Elm St basin')).toHaveLength(2);
+		// The describer's subtitle, with the category ahead of it.
+		expect(screen.getByText('Habitat · Catch basin')).toBeTruthy();
+		expect(screen.getByText('Inspection · Catch basin')).toBeTruthy();
+		// The distance, in the radius unit's family, and the date on the visit only.
+		expect(screen.getByText('30 m')).toBeTruthy();
+		expect(screen.getByText('120 m')).toBeTruthy();
+		expect(screen.getByText('Aug 6')).toBeTruthy();
+		// The family dot, named for what its colour means.
+		expect(screen.getByRole('img', { name: 'Infrastructure' })).toBeTruthy();
+		expect(screen.getByRole('img', { name: 'Surveillance' })).toBeTruthy();
+	});
+
+	it('hands the map the row the reader clicked, and clears it on a second click', async () => {
+		harness.nearby = [nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' })];
+		await renderPage();
+
+		const row = await screen.findByRole('button', { name: 'Show Elm St basin on the map' });
+		fireEvent.click(row);
+		await waitFor(() => expect(harness.nearbyLayer?.selectedIds).toEqual(['inspection-1']));
+		expect(row.getAttribute('aria-pressed')).toBe('true');
+
+		fireEvent.click(row);
+		await waitFor(() => expect(harness.nearbyLayer?.selectedIds).toEqual([]));
+	});
+
+	it("draws the rail's empty state when nothing fell inside the radius", async () => {
+		await renderPage();
+
+		expect(await screen.findByText('Nothing nearby')).toBeTruthy();
+		expect(screen.getByText('No records fell within this radius and time window.')).toBeTruthy();
+	});
+
+	it('says every family is hidden rather than that nothing is nearby', async () => {
+		harness.nearby = [nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' })];
+		await renderPage();
+
+		await screen.findByRole('button', { name: 'Show Elm St basin on the map' });
+		fireEvent.click(screen.getByRole('button', { name: /Surveillance/ }));
+
+		expect(await screen.findByText('Every family is hidden')).toBeTruthy();
+		expect(screen.queryByText('Nothing nearby')).toBeNull();
+	});
+
+	// The page used to tell a reader whose request had 500'd to try again
+	// shortly, with nothing to try. The rail's failed state carries the retry.
+	it("draws the rail's failed state with a retry when the read fails", async () => {
+		harness.nearbyFails = true;
+		await renderPage();
+
+		expect(await screen.findByRole('alert')).toBeTruthy();
+		expect(screen.getByText('Could not load results')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+		expect(screen.queryByText('Nothing nearby')).toBeNull();
 	});
 });

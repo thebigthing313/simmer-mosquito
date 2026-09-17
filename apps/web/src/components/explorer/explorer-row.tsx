@@ -42,6 +42,7 @@ export function ExplorerRow({
 	tags,
 	badges,
 	stackBadges,
+	distance,
 	detailLink,
 	detailLabel,
 	isSelected,
@@ -73,6 +74,13 @@ export function ExplorerRow({
 	 * the row's dot is spent on the family rather than on the record's state.
 	 */
 	readonly stackBadges?: boolean;
+	/**
+	 * How far the record is from the thing the list is about, pre-formatted,
+	 * in a column of its own at the right edge. The same three states as `date`:
+	 * text draws it, `null` reserves the column for a row without one so the
+	 * chevrons line up, and leaving the prop out draws no column at all.
+	 */
+	readonly distance?: string | null;
 	/** Where the chevron goes: this record's detail page. */
 	readonly detailLink: LinkProps;
 	readonly detailLabel: string;
@@ -124,6 +132,7 @@ export function ExplorerRow({
 					<RowTags tags={tags} />
 				</span>
 				<InlineBadges badges={badges} isStacked={isStacked} />
+				<DistanceColumn distance={distance} isStacked={isStacked} />
 				<Link
 					{...detailLink}
 					aria-label={detailLabel}
@@ -281,6 +290,36 @@ function DateColumn({
 		>
 			<span className="block">{head}</span>
 			{year === null ? null : <span className="block">{year}</span>}
+		</span>
+	);
+}
+
+/**
+ * The distance column, at the right edge where the eye lands after the title.
+ *
+ * Right-aligned so the units stack under each other down the list. 56px is
+ * fixed rather than fitted, because a column that took the width of its
+ * longest value would move every chevron below it; the widest value the
+ * formatter writes is seven characters, `1.50 km`, at 12px text.
+ */
+function DistanceColumn({
+	distance,
+	isStacked,
+}: {
+	readonly distance: string | null | undefined;
+	readonly isStacked: boolean;
+}) {
+	if (distance === undefined) {
+		return null;
+	}
+	return (
+		<span
+			className={cn(
+				'w-14 shrink-0 text-right text-muted-foreground text-xs tabular-nums',
+				isStacked && 'pt-0.5',
+			)}
+		>
+			{distance}
 		</span>
 	);
 }
