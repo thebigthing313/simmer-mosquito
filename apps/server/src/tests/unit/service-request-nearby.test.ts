@@ -124,12 +124,42 @@ describe('service request nearby window end', () => {
 			timeZone,
 		});
 	});
+});
+
+describe('service request nearby', () => {
+	it('reads the three operational families when none are named', async () => {
+		const { app, calls } = createApp();
+
+		const response = await app.request(path);
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({
+			request: { id: requestId, lat: 35.5, lng: -90.5, requestDate: '2026-08-15' },
+			families: ['larval', 'adult', 'control'],
+			// Fourteen days either side of the request date, the default window.
+			dateFrom: '2026-08-01',
+			dateTo: '2026-08-29',
+			items: [],
+		});
+		// The request reaches the reader by id as well as by point, which is what
+		// keeps it out of its own result; the organization comes from the session.
+		expect(calls).toEqual([
+			expect.objectContaining({
+				organizationId,
+				request: { id: requestId, lat: 35.5, lng: -90.5 },
+				families: ['larval', 'adult', 'control'],
+				dateFrom: '2026-08-01',
+				dateTo: '2026-08-29',
+				timeZone: 'America/New_York',
+			}),
+		]);
+	});
 
 	// The radius and the window are the Organization's settings and the
-	// request's anchors, and nothing else. The route used to parse three
+	// request's end anchor, and nothing else. The route used to parse three
 	// overrides no caller sent (#1110); one sent anyway is an unknown key now,
 	// ignored rather than refused, since a caller cannot be wrong about a
-	// parameter that does not exist.
+	// parameter that does not exist. The window's days are asserted above.
 	it('reads the radius and window from the settings when the query carries nothing', async () => {
 		const { app, calls } = createApp();
 
@@ -139,8 +169,6 @@ describe('service request nearby window end', () => {
 		await expect(response.json()).resolves.toMatchObject({
 			radius: { amount: 0.25, unitCode: 'mile', meters: 402.336 },
 			timeWindow: { daysBefore: 14, daysAfter: 14 },
-			dateFrom: '2026-08-01',
-			dateTo: '2026-08-29',
 			dateToFrom: 'setting',
 		});
 		expect(calls).toEqual([
@@ -171,36 +199,6 @@ describe('service request nearby window end', () => {
 				radiusMeters: 402.336,
 				dateFrom: '2026-08-01',
 				dateTo: '2026-10-02',
-			}),
-		]);
-	});
-});
-
-describe('service request nearby', () => {
-	it('reads the three operational families when none are named', async () => {
-		const { app, calls } = createApp();
-
-		const response = await app.request(path);
-
-		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toMatchObject({
-			request: { id: requestId, lat: 35.5, lng: -90.5, requestDate: '2026-08-15' },
-			families: ['larval', 'adult', 'control'],
-			// Fourteen days either side of the request date, the default window.
-			dateFrom: '2026-08-01',
-			dateTo: '2026-08-29',
-			items: [],
-		});
-		// The request reaches the reader by id as well as by point, which is what
-		// keeps it out of its own result; the organization comes from the session.
-		expect(calls).toEqual([
-			expect.objectContaining({
-				organizationId,
-				request: { id: requestId, lat: 35.5, lng: -90.5 },
-				families: ['larval', 'adult', 'control'],
-				dateFrom: '2026-08-01',
-				dateTo: '2026-08-29',
-				timeZone: 'America/New_York',
 			}),
 		]);
 	});

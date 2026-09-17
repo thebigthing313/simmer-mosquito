@@ -38,8 +38,7 @@ export function distanceToMeters(amount: number, unitCode: string): number {
  * say it: the setting's `daysAfter`, the day the request closed, or today while
  * it is open (#1085). A person reading a six-week range under a setting that
  * says 14 is otherwise sent to the settings looking for a number that is not
- * there. A fourth member named a `dateTo` the caller sent, for an override no
- * caller ever sent (#1110).
+ * there. A `query` member stood for an override nothing sent (#1110).
  */
 export type NearbyWindowEnd = 'setting' | 'close' | 'today';
 

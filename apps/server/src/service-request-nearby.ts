@@ -167,12 +167,12 @@ export function registerServiceRequestNearbyRoutes(
 }
 
 /**
- * What the caller narrows the read to: the families, the caller's where the
- * query names them and the three operational ones where it does not, and the
- * categories, which have no default of their own, since absent the reader
- * takes every category of the families named. Both go through the same parser
- * every other `/map/*` query uses. The radius and the window are not here,
- * because they are the settings' and the request's rather than the caller's.
+ * What the caller narrows the read to. The families are the caller's where the
+ * query names them and the three operational ones where it does not. The
+ * categories have no default of their own: absent, the reader takes every
+ * category of the families named. Both go through the same parser every other
+ * `/map/*` query uses. The radius and the window are not here, because they
+ * are the settings' and the request's rather than the caller's.
  */
 function readNearbyQuery(searchParams: URLSearchParams):
 	| {
