@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExplorerEmptyReason } from '../../../../components/explorer/explorer-empty-state';
 import type { MinimumRole } from '../../../../lib/write-access';
+import { stubRailViewportHeight } from '../../rail-viewport-stub';
 
 // The role floor the create control is drawn against. `useHasRole` reads the
 // auth snapshot, which is a network fact; the ladder itself is covered by
@@ -47,9 +48,6 @@ type ObserverCallback = (entries: readonly ObserverEntry[]) => void;
  */
 const liveObservers = new Map<ObserverCallback, Set<Element>>();
 
-/** The height of a result row, so a window of them fits in the panel. */
-const ROW_HEIGHT = 60;
-
 function observerEntry(target: Element): ObserverEntry {
 	return { contentRect: observedBox, target };
 }
@@ -80,16 +78,14 @@ vi.stubGlobal(
  * The rail mounts only the rows in view, and both halves of that are read off
  * `offsetHeight`: how tall the scroll container is, and how tall each row is.
  * jsdom does no layout, so every box is zero and a virtual list in it renders
- * nothing at all — the rows would be missing here for a reason that has nothing
- * to do with what these tests check. A row reports a row's height and everything
- * else reports the observed box.
+ * nothing at all, and the rows would be missing here for a reason that has
+ * nothing to do with what these tests check. The viewport reads the observed
+ * box through the reader, so a resize case moves the row window, and a row
+ * reports `STUB_ROW_HEIGHT`. Every other element keeps jsdom's zero: the panel
+ * measures itself off the observer's `contentRect`, not off `offsetHeight`,
+ * and nothing else in the frame reads the property.
  */
-Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-	configurable: true,
-	get(this: HTMLElement) {
-		return this.hasAttribute('data-index') ? ROW_HEIGHT : observedBox.height;
-	},
-});
+stubRailViewportHeight(() => observedBox.height);
 Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
 	configurable: true,
 	get: () => observedBox.width,
@@ -466,6 +462,20 @@ describe('ExplorerMapPage', () => {
 		expect(mounted).toBeLessThan(PAGE_OF_ROWS.length / 2);
 		// The window starts where the reader is, which on first paint is the top.
 		expect(screen.getByText('Site 1')).toBeTruthy();
+	});
+
+	// The viewport reads its height off the observed box, so a resize is a
+	// smaller window. The virtualiser re-reads `offsetHeight` on every observer
+	// entry that carries no `borderBoxSize`, which is what the stand-in fires.
+	it('shrinks the row window with the stage', () => {
+		render(<Page rows={PAGE_OF_ROWS} />);
+		const tall = document.querySelectorAll('[data-index]').length;
+
+		setObservedBox({ width: 1000, height: 120 });
+
+		const short = document.querySelectorAll('[data-index]').length;
+		expect(short).toBeGreaterThan(0);
+		expect(short).toBeLessThan(tall);
 	});
 
 	/*

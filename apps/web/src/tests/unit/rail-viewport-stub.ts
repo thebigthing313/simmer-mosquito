@@ -31,6 +31,12 @@
  * than rows because that is the question the virtualiser asks, and a reader who
  * has `STUB_ROW_HEIGHT` can write either.
  *
+ * The height is a number or a function returning one. A number is the fixed
+ * viewport most suites want. A function is read on every measurement, which is
+ * what a suite driving a resize needs: `explorer-map-page.test.tsx` hands the
+ * height its `ResizeObserver` stand-in reports, so a case that shrinks the box
+ * shrinks the viewport with it and the virtualiser's window follows.
+ *
  * `initialRect` through a prop on `ResultRows` was the other route. The
  * virtualiser replaces it on the render after the viewport mounts, so it holds
  * for one paint and a case would be asserting over a race.
@@ -39,9 +45,7 @@
  *
  * It installs no `ResizeObserver`. Radix's `ScrollArea` constructs one on
  * mount and jsdom has none, so a rail suite still installs a no-op or runs
- * `stubPanelLayout` beside this. `explorer-map-page.test.tsx` carries its own
- * `offsetHeight` getter of this shape, wired to the box its observer reports,
- * and moving it onto this stub is a follow-up rather than part of #1115.
+ * `stubPanelLayout` beside this.
  *
  * It is not an export of `router-harness.tsx`, which imports the generated
  * route tree at about 13 seconds, and a rail suite with no link in it should
@@ -59,23 +63,25 @@ const VIEWPORT_SELECTOR = '[data-slot="scroll-area-viewport"]';
 const ROW_INDEX_ATTRIBUTE = 'data-index';
 
 /**
- * Give the rail's scroll viewport `px` of height and each row in it
- * {@link STUB_ROW_HEIGHT}, until the returned function is called.
+ * Give the rail's scroll viewport `px` of height, a number or a function read
+ * on every measurement, and each row in it {@link STUB_ROW_HEIGHT}, until the
+ * returned function is called.
  *
  * Install it before the render and restore it after, per suite in a
  * `beforeAll`/`afterAll` pair or per case. The restore puts back the
  * `offsetHeight` that was there, so the stub layers over `stubPanelLayout` and
  * comes off without disturbing it.
  */
-export function stubRailViewportHeight(px: number): () => void {
+export function stubRailViewportHeight(px: number | (() => number)): () => void {
 	const previous = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
 	const previousGet = previous?.get;
+	const viewportHeight = typeof px === 'number' ? () => px : px;
 
 	Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
 		configurable: true,
 		get(this: HTMLElement): number {
 			if (this.matches(VIEWPORT_SELECTOR)) {
-				return px;
+				return viewportHeight();
 			}
 			if (this.hasAttribute(ROW_INDEX_ATTRIBUTE) && this.closest(VIEWPORT_SELECTOR) !== null) {
 				return STUB_ROW_HEIGHT;
