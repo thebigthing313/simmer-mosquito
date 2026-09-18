@@ -26,6 +26,7 @@ import { useCommentMutations } from '../hooks/mutations/use-comment-mutations';
 import { type CommentTarget, type RecordComment, useComments } from '../hooks/queries/use-comments';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
+import { errorMessageForSave } from '../lib/save-error';
 
 const CommentIcon = iconRegistry.actions.comment.icon;
 const PinIcon = iconRegistry.actions.pin.icon;
@@ -107,7 +108,10 @@ export function CommentsSection({
 			await setPinned(comment.id, !comment.isPinned);
 		} catch (cause) {
 			setError(
-				messageOf(cause, comment.isPinned ? 'Unable to unpin comment.' : 'Unable to pin comment.'),
+				errorMessageForSave(
+					cause,
+					comment.isPinned ? 'Unable to unpin comment.' : 'Unable to pin comment.',
+				),
 			);
 		}
 	};
@@ -224,7 +228,7 @@ function CommentComposer({
 		} catch (cause) {
 			// Restore the draft so a transient failure never loses the user's text.
 			setValue(trimmed);
-			onError(messageOf(cause, 'Unable to add comment.'));
+			onError(errorMessageForSave(cause, 'Unable to add comment.'));
 		}
 		setSubmitting(false);
 	};
@@ -322,7 +326,7 @@ function CommentItem({
 			await onEdit(comment.id, next);
 			setMode('view');
 		} catch (cause) {
-			onError(messageOf(cause, 'Unable to save comment.'));
+			onError(errorMessageForSave(cause, 'Unable to save comment.'));
 		}
 		setBusy(false);
 	};
@@ -336,7 +340,7 @@ function CommentItem({
 			await onDelete(comment.id);
 		} catch (cause) {
 			setMode('view');
-			onError(messageOf(cause, 'Unable to delete comment.'));
+			onError(errorMessageForSave(cause, 'Unable to delete comment.'));
 		}
 		setBusy(false);
 	};
@@ -594,8 +598,4 @@ function absoluteTime(value: Date, timeZone: string | undefined): string {
 		minute: '2-digit',
 		...(timeZone === undefined ? {} : { timeZone }),
 	}).format(date);
-}
-
-function messageOf(cause: unknown, fallback: string): string {
-	return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
 }

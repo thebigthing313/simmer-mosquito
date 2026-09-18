@@ -58,6 +58,7 @@ import { habitatLabel } from '../../../lib/coordinate-label';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 import { sampleName } from '../../../lib/sample-name';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
@@ -410,7 +411,7 @@ function IdentificationCard({
 				},
 			});
 		} catch (cause) {
-			setError(messageOf(cause, 'Unable to add species.'));
+			setError(errorMessageForSave(cause, 'Unable to add species.'));
 		}
 	};
 
@@ -426,7 +427,7 @@ function IdentificationCard({
 		try {
 			await speciesMutations.save(rowId, { ...current, larvaeCount }, current);
 		} catch (cause) {
-			setError(messageOf(cause, 'Unable to update count.'));
+			setError(errorMessageForSave(cause, 'Unable to update count.'));
 		}
 	};
 
@@ -438,7 +439,7 @@ function IdentificationCard({
 		try {
 			await speciesMutations.remove(rowId);
 		} catch (cause) {
-			setError(messageOf(cause, 'Unable to remove species.'));
+			setError(errorMessageForSave(cause, 'Unable to remove species.'));
 		}
 	};
 
@@ -458,7 +459,7 @@ function IdentificationCard({
 		try {
 			await write();
 		} catch (cause) {
-			setError(messageOf(cause, fallback));
+			setError(errorMessageForSave(cause, fallback));
 		}
 	};
 
@@ -1064,8 +1065,4 @@ function resolveStatus(input: {
 
 function breadcrumbLabel(geo: SampleGeoRow): string {
 	return `Sample · ${formatMonthDayYear(geo.inspectionDate)}`;
-}
-
-function messageOf(cause: unknown, fallback: string): string {
-	return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
 }
