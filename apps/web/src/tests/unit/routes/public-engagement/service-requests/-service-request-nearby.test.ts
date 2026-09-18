@@ -100,6 +100,8 @@ describe('fetchNearby', () => {
 		dateToFrom: 'setting',
 		families: ['larval', 'adult', 'control', 'publicEngagement'],
 		items: [item('habitat', 'habitat', 50), item('request', 'serviceRequest', 60)],
+		truncated: false,
+		limit: 2000,
 	};
 
 	// The page names the categories it draws rather than dropping outreach off
@@ -151,6 +153,8 @@ describe('buildNearbyMapData', () => {
 		dateToFrom: 'setting',
 		families: ['larval', 'adult', 'control'],
 		items: ITEMS,
+		truncated: false,
+		limit: 2000,
 	};
 
 	it('draws the ring, the centre and the pins of the families it is handed', () => {
@@ -416,6 +420,8 @@ function response(overrides: Partial<NearbyResponse> = {}): NearbyResponse {
 		dateToFrom: 'setting',
 		families: ['larval', 'adult', 'control'],
 		items: ITEMS,
+		truncated: false,
+		limit: 2000,
 		...overrides,
 	};
 }
@@ -482,6 +488,22 @@ describe('nearbySummary', () => {
 		);
 		expect(nearbySummary(response({ items: [] }))).toBe(
 			'No records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
+		);
+	});
+
+	// The reader caps the union nearest-first and says when the cap cut it, so
+	// a dense radius no longer draws a map that looks complete (#1141). The
+	// number is the answer's and not the page's, thousands separated the way
+	// every count here is.
+	it('says the map shows the nearest records only when the cap was hit', () => {
+		expect(nearbySummary(response({ truncated: true, limit: 2000 }))).toBe(
+			'5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026. Showing the nearest 2,000 records only. Narrow the radius or time window in your public-engagement settings to see every record inside them.',
+		);
+	});
+
+	it('says nothing about the cap when it was not hit', () => {
+		expect(nearbySummary(response({ truncated: false, limit: 5 }))).toBe(
+			'5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.',
 		);
 	});
 });

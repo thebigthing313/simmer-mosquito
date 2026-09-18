@@ -37,7 +37,7 @@ function createApp(overrides: Partial<Readers> = {}, closedDate: string | null =
 		getOrganizationSettings: async () => ({ timezone: timeZone }),
 		listNearbyRecords: async (_db, input) => {
 			calls.push(input);
-			return [];
+			return { items: [], truncated: false, limit: 2000 };
 		},
 		...overrides,
 	};
@@ -305,11 +305,30 @@ describe('service request nearby', () => {
 			tagIds: null,
 			distanceMeters: 33.4,
 		} as const;
-		const { app } = createApp({ listNearbyRecords: async () => [row] });
+		const { app } = createApp({
+			listNearbyRecords: async () => ({ items: [row], truncated: false, limit: 2000 }),
+		});
 
 		const response = await app.request(`${path}?families=publicEngagement`);
 
-		await expect(response.json()).resolves.toMatchObject({ items: [row] });
+		await expect(response.json()).resolves.toMatchObject({
+			items: [row],
+			truncated: false,
+			limit: 2000,
+		});
+	});
+
+	// The cap is the reader's, and the page says "the nearest 2,000" off the
+	// answer rather than spelling the number, so both facts have to reach the
+	// body as the reader gave them (#1141).
+	it('answers whether the cap cut the result, and the cap it applied', async () => {
+		const { app } = createApp({
+			listNearbyRecords: async () => ({ items: [], truncated: true, limit: 7 }),
+		});
+
+		const response = await app.request(path);
+
+		await expect(response.json()).resolves.toMatchObject({ truncated: true, limit: 7 });
 	});
 
 	it('refuses a request id that is not a UUID', async () => {

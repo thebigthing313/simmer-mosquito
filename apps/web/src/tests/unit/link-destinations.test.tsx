@@ -596,6 +596,8 @@ describe('the nearby list', () => {
 						dateToFrom: 'setting',
 						families: ['larval', 'adult', 'control', 'publicEngagement'],
 						items: CATEGORIES.map(nearby),
+						truncated: false,
+						limit: 2000,
 					},
 					isLoading: false,
 					isError: false,

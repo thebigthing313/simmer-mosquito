@@ -106,7 +106,7 @@ describeDbIntegration('service-request nearby', () => {
 			await insertHabitat(db, organizationId, 'Near Pond', NEAR);
 			await insertHabitat(db, organizationId, 'Far Pond', FAR);
 
-			const rows = await listNearbyRecords(db, nearby(organizationId));
+			const { items: rows } = await listNearbyRecords(db, nearby(organizationId));
 
 			const habitats = rows.filter((row) => row.category === 'habitat');
 			expect(habitats).toHaveLength(1);
@@ -147,7 +147,7 @@ describeDbIntegration('service-request nearby', () => {
 						db,
 						nearby(organizationId, { dateFrom: '2026-03-15', dateTo: '2026-03-15', timeZone }),
 					)
-				).filter((row) => row.category === 'collection');
+				).items.filter((row) => row.category === 'collection');
 
 			const eastern = await onTheFifteenth('America/New_York');
 			expect(eastern).toHaveLength(1);
@@ -195,7 +195,7 @@ describeDbIntegration('service-request nearby', () => {
 				})
 				.execute();
 
-			const rows = await listNearbyRecords(db, nearby(organizationId));
+			const { items: rows } = await listNearbyRecords(db, nearby(organizationId));
 
 			const inspection = rows.find((row) => row.category === 'inspection');
 			expect(inspection).toMatchObject({
@@ -255,7 +255,7 @@ describeDbIntegration('service-request nearby', () => {
 				request_date: new Date('2026-07-20T12:00:00'),
 			});
 
-			const rows = await listNearbyRecords(
+			const { items: rows } = await listNearbyRecords(
 				db,
 				nearby(organizationId, { families: ['publicEngagement'] }),
 			);
@@ -303,7 +303,7 @@ describeDbIntegration('service-request nearby', () => {
 				.execute();
 
 			const categories = async (families: NearbyRecordsInput['families']) =>
-				(await listNearbyRecords(db, nearby(organizationId, { families }))).map(
+				(await listNearbyRecords(db, nearby(organizationId, { families }))).items.map(
 					(row) => row.category,
 				);
 
@@ -348,7 +348,9 @@ describeDbIntegration('service-request nearby', () => {
 				.execute();
 
 			const read = async (input: Partial<NearbyRecordsInput>) =>
-				(await listNearbyRecords(db, nearby(organizationId, input))).map((row) => row.category);
+				(await listNearbyRecords(db, nearby(organizationId, input))).items.map(
+					(row) => row.category,
+				);
 
 			expect(
 				await read({ families: ['publicEngagement'], categories: ['serviceRequest'] }),
@@ -394,10 +396,49 @@ describeDbIntegration('service-request nearby', () => {
 						db,
 						nearby(organizationId, { families: ['publicEngagement'], limit: 1, ...input }),
 					)
-				).map((row) => `${row.category}:${row.id}`);
+				).items.map((row) => `${row.category}:${row.id}`);
 
 			expect(await read({})).toEqual([expect.stringMatching(/^outreach:/)]);
 			expect(await read({ categories: ['serviceRequest'] })).toEqual([`serviceRequest:${request}`]);
+		});
+	});
+
+	// The cap is a safety limit and not a page, so the page has to be told when
+	// it was hit: a radius denser than the cap otherwise draws a map that looks
+	// complete (#1141). The reader answers by reading one row past the limit
+	// and dropping it, so the rows are still the nearest `limit`.
+	it('says when the cap cut the result, and hands back the nearest rows under it', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'Third', point(-90.5, 35.5003));
+			await insertHabitat(db, organizationId, 'First', point(-90.5, 35.5001));
+			await insertHabitat(db, organizationId, 'Second', point(-90.5, 35.5002));
+
+			const capped = await listNearbyRecords(db, nearby(organizationId, { limit: 2 }));
+
+			expect(capped.truncated).toBe(true);
+			expect(capped.limit).toBe(2);
+			expect(capped.items.map((row) => row.label)).toEqual(['First', 'Second']);
+		});
+	});
+
+	it('says the cap was not hit when the rows fit under it, exactly or with room', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'First', point(-90.5, 35.5001));
+			await insertHabitat(db, organizationId, 'Second', point(-90.5, 35.5002));
+
+			const exact = await listNearbyRecords(db, nearby(organizationId, { limit: 2 }));
+			expect(exact).toMatchObject({ truncated: false, limit: 2 });
+			expect(exact.items).toHaveLength(2);
+
+			const room = await listNearbyRecords(db, nearby(organizationId, { limit: 3 }));
+			expect(room).toMatchObject({ truncated: false, limit: 3 });
+			expect(room.items).toHaveLength(2);
+
+			// Nothing read is nothing cut, and the default cap is still named.
+			const nothing = await listNearbyRecords(db, nearby(organizationId, { families: [] }));
+			expect(nothing).toEqual({ items: [], truncated: false, limit: 2000 });
 		});
 	});
 });

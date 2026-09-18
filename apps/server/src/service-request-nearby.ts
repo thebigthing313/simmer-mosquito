@@ -53,7 +53,9 @@ type NearbyReaders = typeof defaultNearbyReaders;
  * other requests and not the outreach, and while it dropped outreach off the
  * answer a dense radius could fill the cap with outreach actions and cut a
  * nearer request with nothing on the page saying so (#1114). Asking for the
- * categories it draws means the cap counts only those.
+ * categories it draws means the cap counts only those. When the cap is hit the
+ * answer says so, and names the cap, since a dense radius otherwise draws a
+ * map that looks complete (#1141).
  *
  * The window starts `daysBefore` ahead of the request date and ends on the
  * later of `daysAfter` past it and the request's end anchor: the day it was
@@ -135,7 +137,7 @@ export function registerServiceRequestNearbyRoutes(
 			return context.json({ error: 'invalid_query', reason: query.reason }, 400);
 		}
 
-		const items = await readers.listNearbyRecords(options.db, {
+		const { items, truncated, limit } = await readers.listNearbyRecords(options.db, {
 			organizationId,
 			request: { id, lat: request.lat, lng: request.lng },
 			radiusMeters: bounds.radiusMeters,
@@ -162,6 +164,10 @@ export function registerServiceRequestNearbyRoutes(
 			dateToFrom: windowEndOf(bounds, request.closedDate),
 			families: query.families,
 			items,
+			// The reader's cap, and whether it cut the result. The page says "the
+			// nearest 2,000" off these rather than spelling the number (#1141).
+			truncated,
+			limit,
 		});
 	});
 }

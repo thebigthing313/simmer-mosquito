@@ -16,6 +16,7 @@ import type { LinkProps } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import type { Tag } from '../../../hooks/queries/tag-view';
+import { formatCount } from '../../../lib/format-count';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { type ActivityLookups, type ActivityRecord, activityRow } from '../../-activity-data';
@@ -82,6 +83,10 @@ export interface NearbyResponse {
 	readonly dateToFrom: NearbyWindowEnd;
 	readonly families: readonly ActivityFamily[];
 	readonly items: readonly NearbyItem[];
+	/** True when more records matched than `limit`, so `items` is the nearest `limit` of them. */
+	readonly truncated: boolean;
+	/** The endpoint's cap, named here so the page never spells the number itself. */
+	readonly limit: number;
 }
 
 const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
@@ -334,6 +339,11 @@ export function nearbyWindowLabel(
  * and the window runs on to the close, or to today while the request is open
  * (#1084), so a six-week range beside a setting that says 14 needs the
  * sentence to say which end won.
+ *
+ * The endpoint caps the read nearest-first and says when the cap cut it, and
+ * a second sentence says so here, because a radius denser than the cap drew a
+ * map that looked complete (#1141). The cap is the answer's own number, so the
+ * page never spells it. With the flag clear the summary reads as it did.
  */
 export function nearbySummary(response: NearbyResponse | undefined): string {
 	if (response === undefined) {
@@ -343,7 +353,11 @@ export function nearbySummary(response: NearbyResponse | undefined): string {
 	const count = NEARBY_FAMILIES.reduce((sum, { key }) => sum + counts[key], 0);
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
 	const window = nearbyWindowLabel(response);
-	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
+	const summary = `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
+	if (!response.truncated) {
+		return summary;
+	}
+	return `${summary} Showing the nearest ${formatCount(response.limit)} records only. Narrow the radius or time window in your public-engagement settings to see every record inside them.`;
 }
 
 /** Distance shown in the family of the org's radius unit (feet/miles for imperial, m/km otherwise). */
