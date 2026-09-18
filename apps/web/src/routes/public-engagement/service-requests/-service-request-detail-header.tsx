@@ -6,6 +6,7 @@ import { ReasonDialog } from '../../../components/reason-dialog';
 import { DetailPageHeader } from '../../../components/record';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import type { ServiceRequestRecord } from '../../../hooks/queries/use-service-request-record';
+import { errorMessageForSave } from '../../../lib/save-error';
 import {
 	formatRequestDate,
 	intakeTypeLabel,
@@ -73,7 +74,7 @@ export function ServiceRequestDetailHeader({
 				await mutations.reopen(request.id, text);
 			}
 		} catch (thrown) {
-			toast.error(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
+			toast.error(errorMessageForSave(thrown, 'Unable to update the request.'));
 		}
 		setBusy(false);
 	};
