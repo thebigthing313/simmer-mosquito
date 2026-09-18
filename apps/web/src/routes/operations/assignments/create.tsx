@@ -15,6 +15,7 @@ import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-
 import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	useAssigneeOptions,
@@ -155,7 +156,7 @@ function AssignmentCreateRoute() {
 			// yet usable, and the list would just show an empty shell.
 			await navigate({ to: '/operations/assignments/$id/edit', params: { id: assignmentId } });
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to create the assignment.');
+			setError(errorMessageForSave(cause, 'Unable to create the assignment.'));
 			setSaving(false);
 		}
 	};

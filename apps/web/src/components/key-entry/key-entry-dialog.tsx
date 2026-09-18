@@ -34,6 +34,7 @@ import type {
 	ResolvedSpeciesKeyBinding,
 	SpeciesKeyBindingsView,
 } from '../../hooks/use-species-key-bindings';
+import { errorMessageForSave } from '../../lib/save-error';
 import { createCommitQueue } from './commit-queue';
 import {
 	NO_VARIANT,
@@ -144,7 +145,7 @@ export function KeyEntryDialog({
 				await onCommit(entries);
 				markCommitted(signature);
 			} catch (cause) {
-				setError(messageOf(cause, 'Unable to save these counts.'));
+				setError(errorMessageForSave(cause, 'Unable to save these counts.'));
 				setBusy(false);
 				return false;
 			}
@@ -725,8 +726,4 @@ function isTextEntryTarget(target: EventTarget | null): boolean {
 		target instanceof HTMLTextAreaElement ||
 		target.isContentEditable
 	);
-}
-
-function messageOf(cause: unknown, fallback: string): string {
-	return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
 }

@@ -29,6 +29,7 @@ import { useOrganizationWorkspace } from '../../../hooks/use-organization-worksp
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { recordCount, recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	ApplicationFormPage,
@@ -174,9 +175,10 @@ function CreateApplicationRoute() {
 						throw error;
 					}
 					throw new Error(
-						`Recorded ${saved.length} of ${recordCount('application', products.length)} before failing: ${
-							error instanceof Error ? error.message : 'Unknown error.'
-						}`,
+						`Recorded ${saved.length} of ${recordCount('application', products.length)} before failing: ${errorMessageForSave(
+							error,
+							'Unknown error.',
+						)}`,
 					);
 				}
 				saved.push(product);

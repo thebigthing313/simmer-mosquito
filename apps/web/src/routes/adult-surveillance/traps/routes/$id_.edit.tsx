@@ -37,6 +37,7 @@ import {
 import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-item-mutations';
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import { type TrapListing, useActiveTraps } from '../../../../hooks/queries/use-active-traps';
+import { errorMessageForSave } from '../../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { TrapPicker } from '../../-adult-pickers';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
@@ -118,7 +119,7 @@ function EditTrapRouteRoute() {
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
 			});
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+			setError(errorMessageForSave(cause, 'Unable to add the stop.'));
 		}
 	};
 
@@ -127,7 +128,7 @@ function EditTrapRouteRoute() {
 		try {
 			await moveStop(index, action);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
+			setError(errorMessageForSave(cause, 'Unable to reorder the route.'));
 		}
 	};
 
@@ -137,7 +138,7 @@ function EditTrapRouteRoute() {
 			await removeRoute(id);
 			await navigate({ to: '/adult-surveillance/traps/routes' });
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
+			setError(errorMessageForSave(cause, 'Unable to delete the route.'));
 		}
 	};
 

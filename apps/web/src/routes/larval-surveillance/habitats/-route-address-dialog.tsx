@@ -11,6 +11,7 @@ import {
 import { HomeIcon, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useEffect, useState } from 'react';
 import { AddressPicker } from '../../../components/pickers/address-picker';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { updateHabitatAddress } from './-route-data';
 
 interface RouteStopAddressDialogProps {
@@ -62,7 +63,7 @@ export function RouteStopAddressDialog({
 			await updateHabitatAddress(habitatId, addressId);
 			onOpenChange(false);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to update the linked address.');
+			setError(errorMessageForSave(cause, 'Unable to update the linked address.'));
 		}
 		setIsSaving(false);
 	};

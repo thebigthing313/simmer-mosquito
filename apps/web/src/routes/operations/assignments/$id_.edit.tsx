@@ -38,6 +38,7 @@ import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { WorklistMap } from '../-worklist-map';
 import {
@@ -199,7 +200,7 @@ function AssignmentPlanRoute() {
 			});
 			setDetailDraft(null);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save these details.');
+			setError(errorMessageForSave(cause, 'Unable to save these details.'));
 		}
 		setSavingDetails(false);
 	};
@@ -218,7 +219,7 @@ function AssignmentPlanRoute() {
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 			});
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+			setError(errorMessageForSave(cause, 'Unable to add the stop.'));
 		}
 	};
 
@@ -227,7 +228,7 @@ function AssignmentPlanRoute() {
 		try {
 			await moveStop(index, action);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to reorder the assignment.');
+			setError(errorMessageForSave(cause, 'Unable to reorder the assignment.'));
 		}
 	};
 
@@ -236,7 +237,7 @@ function AssignmentPlanRoute() {
 		try {
 			await items.setDirections(assignmentItemId, value);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+			setError(errorMessageForSave(cause, 'Unable to save directions.'));
 		}
 	};
 
@@ -250,7 +251,7 @@ function AssignmentPlanRoute() {
 		try {
 			await items.removeStop(target.assignmentItemId);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
+			setError(errorMessageForSave(cause, 'Unable to remove the stop.'));
 		}
 	};
 

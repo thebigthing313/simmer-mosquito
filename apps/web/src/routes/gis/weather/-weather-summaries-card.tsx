@@ -43,6 +43,7 @@ import {
 	useWeatherSummaryYears,
 	type WeatherSummaryListing,
 } from '../../../hooks/queries/use-weather-summaries';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { formatMeasure, formatRange, summaryPeriodLabel } from './-weather-display';
 import { WeatherSummaryDialog } from './-weather-summary-dialog';
 
@@ -91,7 +92,7 @@ export function WeatherSummariesCard({
 		try {
 			await mutations.remove(summaryId);
 		} catch (error) {
-			setRemoveError(error instanceof Error ? error.message : 'Unable to delete summary.');
+			setRemoveError(errorMessageForSave(error, 'Unable to delete summary.'));
 		}
 	};
 

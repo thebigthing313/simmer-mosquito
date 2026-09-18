@@ -21,6 +21,7 @@ import {
 	FORM_VALIDATION_GEOMETRY,
 } from '../../../forms/domain-validation';
 import { LocationBand } from '../../../forms/location-band';
+import { errorMessageForSave } from '../../../lib/save-error';
 
 /** The one shape an address stores, which is the shape the geocoder returns. */
 export type AddressPointGeometry = DrawPoint;
@@ -187,7 +188,7 @@ export function AddressFormPage({
 			setGeocoderResults(await searchGeocoder(addressQueryText(values), countryOf(values)));
 			setGeocoderOpen(true);
 		} catch (error) {
-			location.reportError(error instanceof Error ? error.message : 'Unable to geocode address.');
+			location.reportError(errorMessageForSave(error, 'Unable to geocode address.'));
 		}
 		setIsGeocoding(false);
 	};

@@ -6,10 +6,23 @@
  * message from here. A caller with a more specific sentence for the case where
  * the failure carries none passes it as `fallback`; the older callers compare
  * against the generic string and use theirs instead.
+ *
+ * One rule for every surface. An inline `setError` on an edit page or a
+ * dialog, a toast, and a per-row line in an import report all answer the same
+ * question, what the thrown value says or the caller's sentence when it says
+ * nothing, and #1162 found the ternary spelled by hand in 35 places. A failure
+ * on the way to a write reads it too: a geocode that returns nothing and a
+ * file the import cannot parse are refused at the same surface as the save
+ * they were for.
+ *
+ * An `Error` with an empty message says nothing, so it answers the fallback
+ * rather than a blank line. Three private `messageOf` helpers carried that
+ * rule before the sweep and the 37 other call sites did not, which is the
+ * drift a second copy makes.
  */
 export function errorMessageForSave(
 	saveError: unknown,
 	fallback = 'Unable to save changes.',
 ): string {
-	return saveError instanceof Error ? saveError.message : fallback;
+	return saveError instanceof Error && saveError.message.length > 0 ? saveError.message : fallback;
 }

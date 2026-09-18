@@ -15,6 +15,7 @@ import { useEffect, useId, useState } from 'react';
 import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
 import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
 import { recordNoun } from '../../lib/record-nouns';
+import { errorMessageForSave } from '../../lib/save-error';
 import {
 	defaultMergeFieldSelections,
 	mergeFieldProblems,
@@ -313,6 +314,6 @@ function refusalMessage(error: unknown, config: RecordCleanupConfig): string {
 		case 'source_not_found':
 			return `One of these ${noun.many} is already gone. Refresh the page to see what is left.`;
 		default:
-			return error instanceof Error ? error.message : 'The merge could not be sent.';
+			return errorMessageForSave(error, 'The merge could not be sent.');
 	}
 }

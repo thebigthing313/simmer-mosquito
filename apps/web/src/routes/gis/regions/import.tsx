@@ -40,6 +40,7 @@ import { useRegionMutations } from '../../../hooks/mutations/use-region-mutation
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { regions } from '../../../lib/collections/regions';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { RegionFolderDialog } from './-folder-dialog';
 import { MAX_REGIONS, parseRegionsFromFile, type RegionBoundary } from './-import-parse';
@@ -157,7 +158,7 @@ function ImportRegionsRoute() {
 			setItems(parsed);
 			fitToItems(parsed);
 		} catch (error) {
-			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
+			setParseError(errorMessageForSave(error, 'That file could not be read.'));
 			setItems([]);
 		}
 	};
@@ -243,7 +244,7 @@ function ImportRegionsRoute() {
 						(error) =>
 							isTxIdConfirmationTimeout(error)
 								? ('pending' as const)
-								: { error: error instanceof Error ? error.message : 'failed to import' },
+								: { error: errorMessageForSave(error, 'failed to import') },
 					);
 				const outcome = await Promise.race([
 					settled,
@@ -255,7 +256,7 @@ function ImportRegionsRoute() {
 					errors.push(`${item.name}: ${outcome.error}`);
 				}
 			} catch (error) {
-				errors.push(`${item.name}: ${error instanceof Error ? error.message : 'failed to import'}`);
+				errors.push(`${item.name}: ${errorMessageForSave(error, 'failed to import')}`);
 			}
 			done += 1;
 			setProgress({ done, total });
