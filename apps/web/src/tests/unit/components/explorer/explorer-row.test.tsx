@@ -15,6 +15,17 @@ afterEach(cleanup);
 
 const DETAIL = { to: '/gis/weather/$id', params: { id: 'w1' } } as never;
 
+// The two badge containers name themselves, so a case asks for the container
+// rather than for "a div under the title", which a `span` to `div` change in
+// the title block would have satisfied with no badge drawn (#1137).
+function stackedBadges(container: HTMLElement): Element | null {
+	return container.querySelector('[data-slot="explorer-row-stacked-badges"]');
+}
+
+function inlineBadges(container: HTMLElement): Element | null {
+	return container.querySelector('[data-slot="explorer-row-inline-badges"]');
+}
+
 describe('ExplorerRow', () => {
 	it('offers the map control when the record has somewhere to fly to', () => {
 		render(
@@ -59,6 +70,8 @@ describe('ExplorerRow', () => {
 		// of its own after it.
 		const title = screen.getByText('CAR - S1 - 12');
 		expect(title.parentElement?.contains(screen.getByText('Very heavy'))).toBe(true);
+		expect(stackedBadges(container)?.contains(screen.getByText('Very heavy'))).toBe(true);
+		expect(inlineBadges(container)).toBeNull();
 
 		rerender(
 			<ul>
@@ -77,7 +90,8 @@ describe('ExplorerRow', () => {
 		expect(
 			screen.getByText('CAR - S1 - 12').parentElement?.contains(screen.getByText('Very heavy')),
 		).toBe(false);
-		expect(container.textContent).toContain('Very heavy');
+		expect(inlineBadges(container)?.contains(screen.getByText('Very heavy'))).toBe(true);
+		expect(stackedBadges(container)).toBeNull();
 	});
 
 	// A record kind with nothing to draw used to arrive as an empty fragment,
@@ -85,7 +99,7 @@ describe('ExplorerRow', () => {
 	// under its subtitle and an undated one the inline column beside the title.
 	// The caller passes nothing now, and nothing is what the row draws (#1107).
 	it('draws no badge container, stacked or inline, when there are no badges', () => {
-		const { rerender } = render(
+		const { container, rerender } = render(
 			<ul>
 				<li>
 					<ExplorerRow
@@ -102,7 +116,7 @@ describe('ExplorerRow', () => {
 		);
 		// The title block holds the title and the subtitle and no line under them.
 		const titleBlock = screen.getByText('Altosid').parentElement;
-		expect(titleBlock?.querySelector('div')).toBeNull();
+		expect(stackedBadges(container)).toBeNull();
 		expect(titleBlock?.lastElementChild?.textContent).toBe('Backpack sprayer');
 
 		rerender(
@@ -123,7 +137,8 @@ describe('ExplorerRow', () => {
 		// sits between them.
 		const chevron = screen.getByLabelText('View details');
 		expect(chevron.previousElementSibling?.contains(screen.getByText('Altosid'))).toBe(true);
-		expect(screen.getByText('Altosid').parentElement?.querySelector('div')).toBeNull();
+		expect(inlineBadges(container)).toBeNull();
+		expect(stackedBadges(container)).toBeNull();
 	});
 
 	// `Aug 12, 2026` on one line needs 88px of a 380px rail to carry a year that
