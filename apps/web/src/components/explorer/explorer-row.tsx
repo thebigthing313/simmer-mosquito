@@ -108,6 +108,12 @@ export function ExplorerRow({
 	 * Undated rows have the room, so they keep the pill, unless the caller says
 	 * otherwise: a list with no date rail can still put more beside a title than
 	 * one line holds.
+	 *
+	 * Each container names itself, `data-slot="explorer-row-stacked-badges"` and
+	 * `data-slot="explorer-row-inline-badges"`, the way `packages/ui-web` names
+	 * its parts. A suite asserting a row has no badge column queries that name
+	 * rather than "a div under the title", which a `span` to `div` change here
+	 * would have broken while nothing on screen moved (#1137).
 	 */
 	const isStacked = badges !== undefined && (stackBadges ?? date !== undefined);
 
@@ -164,7 +170,14 @@ function StackedBadges({
 	if (!isStacked || badges === null) {
 		return null;
 	}
-	return <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">{badges}</div>;
+	return (
+		<div
+			className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
+			data-slot="explorer-row-stacked-badges"
+		>
+			{badges}
+		</div>
+	);
 }
 
 /** The badges as a right-aligned pill, on the undated rows that have the room. */
@@ -178,7 +191,11 @@ function InlineBadges({
 	if (badges === undefined || isStacked) {
 		return null;
 	}
-	return <div className="flex shrink-0 items-center gap-1.5">{badges}</div>;
+	return (
+		<div className="flex shrink-0 items-center gap-1.5" data-slot="explorer-row-inline-badges">
+			{badges}
+		</div>
+	);
 }
 
 function RowTags({ tags }: { readonly tags: readonly Tag[] | undefined }) {
