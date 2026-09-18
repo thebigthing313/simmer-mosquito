@@ -131,51 +131,125 @@ export function hasBadges(facts: RecordBadgeFacts, status: StatusPlacement): boo
 	return (status === 'badge' && hasStateBadge(facts)) || hasDetailBadges(facts);
 }
 
-/**
- * The pill that says what state the record is in.
- *
- * Only drawn where the row's dot is spent on something else. A collection that
- * was simply collected gets none: the log already says "Collected" as the verb
- * leading its subtitle, and a pill repeating that on every row of a round
- * stands where an exception would be.
- */
-function RecordStateBadge({ facts }: { readonly facts: RecordBadgeFacts }): ReactNode {
-	if (!hasStateBadge(facts)) {
-		return null;
-	}
-	switch (facts.category) {
-		case 'habitat':
-		case 'trap':
-		case 'collection':
-		case 'serviceRequest':
-			return <StateBadge token={facts.status} />;
-		case 'inspection':
-			return inspectionStateBadge(facts.result);
-		default:
-			return null;
-	}
-}
+/** The facts of one category, as the register's entry for it reads them. */
+type FactsFor<Category extends ActivityCategory> = Extract<
+	RecordBadgeFacts,
+	{ readonly category: Category }
+>;
 
 /**
- * Whether this record has a state to draw as a pill.
+ * What one record kind puts in the badge group, as four answers over its own
+ * narrowed facts.
  *
- * Guarded here rather than in the branches above, for the reason
- * {@link hasDetailBadges} gives: "is there a pill" and "which pill" cannot
- * answer differently. The collected collection is the one record with a state
- * and no pill for it.
+ * The predicate and the renderer for one kind are one entry, so "is there a
+ * pill" and "which pill" cannot answer differently, and the same for the
+ * second line. `hasState` is asked before `state` draws and `hasDetail` before
+ * `detail`, because the row lays its container out on the answer and never on
+ * the element.
  */
+interface CategoryBadges<Category extends ActivityCategory> {
+	/** Whether this record has a state to draw as a pill. */
+	readonly hasState: (facts: FactsFor<Category>) => boolean;
+	/** The pill that says what state the record is in. */
+	readonly state: (facts: FactsFor<Category>) => ReactNode;
+	/** Whether this record draws anything beyond its state. */
+	readonly hasDetail: (facts: FactsFor<Category>) => boolean;
+	/** The badges that stand whatever the row's dot is doing. */
+	readonly detail: (facts: FactsFor<Category>) => ReactNode;
+}
+
+/** The entry for a kind with nothing to draw under either placement. */
+const NO_BADGES = {
+	hasState: () => false,
+	state: () => null,
+	hasDetail: () => false,
+	detail: () => null,
+} as const;
+
+/**
+ * The register: every category in the domain's union, each answering over
+ * its own facts. Keyed by `ActivityCategory` so a category added to the log
+ * fails `tsc` here until it says what it draws, and a category removed from
+ * the union fails on the entry left behind.
+ *
+ * The state pill is only drawn where the row's dot is spent on something
+ * else. A collection that was simply collected gets none: the log already
+ * says "Collected" as the verb leading its subtitle, and a pill repeating that
+ * on every row of a round stands where an exception would be. It is the one
+ * record with a state and no pill for it.
+ *
+ * The detail badges take a line of their own under the row, which is why each
+ * `hasDetail` is the exact condition its `detail` draws under: an inspection's
+ * density plus its six-cell strip is 175px, which in a 380px panel left the
+ * record with no room for its name. A dry site has no stages to report, and a
+ * wet one that found none says so through the pill beside it.
+ */
+const BADGES_BY_CATEGORY: { readonly [Category in ActivityCategory]: CategoryBadges<Category> } = {
+	habitat: {
+		hasState: () => true,
+		state: (facts) => <StateBadge token={facts.status} />,
+		hasDetail: () => false,
+		detail: () => null,
+	},
+	inspection: {
+		hasState: () => true,
+		state: (facts) => inspectionStateBadge(facts.result),
+		hasDetail: (facts) => facts.result.isWet && facts.result.stages !== null,
+		detail: (facts) =>
+			facts.result.stages === null ? null : (
+				<LifeStageStrip size="sm" stages={facts.result.stages} />
+			),
+	},
+	trap: {
+		hasState: () => true,
+		state: (facts) => <StateBadge token={facts.status} />,
+		hasDetail: () => false,
+		detail: () => null,
+	},
+	collection: {
+		hasState: (facts) => facts.status !== 'collected',
+		state: (facts) => <StateBadge token={facts.status} />,
+		hasDetail: (facts) => facts.hasBycatch,
+		detail: () => <BycatchBadge hasBycatch={true} />,
+	},
+	application: NO_BADGES,
+	sourceReduction: NO_BADGES,
+	biocontrol: {
+		hasState: () => false,
+		state: () => null,
+		hasDetail: () => true,
+		detail: (facts) => <ContextBadge context={facts.context} />,
+	},
+	outreach: NO_BADGES,
+	serviceRequest: {
+		hasState: () => true,
+		state: (facts) => <StateBadge token={facts.status} />,
+		hasDetail: () => false,
+		detail: () => null,
+	},
+};
+
+/**
+ * The register's entry for this record, typed to take it.
+ *
+ * Generic over the category rather than over the union, because indexing the
+ * register with the union hands back a union of entries, and an entry for one
+ * kind does not take another kind's facts. Every caller passes the whole
+ * union, so `Category` is the whole union there and the entry takes it; the
+ * pairing of a key to the facts of that key is the mapped type's.
+ */
+function badgesFor<Category extends ActivityCategory>(
+	facts: FactsFor<Category>,
+): CategoryBadges<Category> {
+	return BADGES_BY_CATEGORY[facts.category];
+}
+
+function RecordStateBadge({ facts }: { readonly facts: RecordBadgeFacts }): ReactNode {
+	return hasStateBadge(facts) ? badgesFor(facts).state(facts) : null;
+}
+
 function hasStateBadge(facts: RecordBadgeFacts): boolean {
-	switch (facts.category) {
-		case 'habitat':
-		case 'trap':
-		case 'inspection':
-		case 'serviceRequest':
-			return true;
-		case 'collection':
-			return facts.status !== 'collected';
-		default:
-			return false;
-	}
+	return badgesFor(facts).hasState(facts);
 }
 
 /** Dry, the density found, or wet where the site held water and nothing was counted. */
@@ -190,53 +264,17 @@ function inspectionStateBadge(result: InspectionResult): ReactNode {
 	);
 }
 
-/**
- * The badges that stand whatever the row's dot is doing: what an inspection
- * found in the water, what else came out of a trap, what a control action was
- * performed against.
- */
 function RecordDetailBadges({ facts }: { readonly facts: RecordBadgeFacts }): ReactNode {
-	if (!hasDetailBadges(facts)) {
-		return null;
-	}
-	switch (facts.category) {
-		case 'inspection':
-			return facts.result.stages === null ? null : (
-				<LifeStageStrip size="sm" stages={facts.result.stages} />
-			);
-		case 'collection':
-			return <BycatchBadge hasBycatch={true} />;
-		case 'biocontrol':
-			return <ContextBadge context={facts.context} />;
-		default:
-			return null;
-	}
+	return hasDetailBadges(facts) ? badgesFor(facts).detail(facts) : null;
 }
 
 /**
- * Whether this record draws anything beyond its state.
- *
- * The row asks before it lays the badges out. A state pill on its own sits
- * beside the title, and anything more takes a line of its own: an inspection's
- * density plus its six-cell strip is 175px, which in a 380px panel left the
- * record with no room for its name.
- *
- * The guards live here rather than in the branches below, so "does this row
- * need a second line" and "what goes on it" cannot answer differently. A dry
- * site has no stages to report, and a wet one that found none says so through
- * the pill beside it.
+ * Whether this record draws anything beyond its state, which is what the row
+ * asks before it lays the badges out: a state pill on its own sits beside the
+ * title, and anything more takes a line of its own.
  */
 export function hasDetailBadges(facts: RecordBadgeFacts): boolean {
-	switch (facts.category) {
-		case 'inspection':
-			return facts.result.isWet && facts.result.stages !== null;
-		case 'collection':
-			return facts.hasBycatch;
-		case 'biocontrol':
-			return true;
-		default:
-			return false;
-	}
+	return badgesFor(facts).hasDetail(facts);
 }
 
 /** The states a pill can name, across the four categories that have one. */
