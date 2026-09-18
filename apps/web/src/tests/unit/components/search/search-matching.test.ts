@@ -1,6 +1,5 @@
 import type { SearchResult } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthMe } from '../../../../auth';
 import {
 	shellSearchCandidates,
 	type WebShellCandidate,
@@ -11,6 +10,7 @@ import {
 	capPaletteGroups,
 	matchCandidates,
 } from '../../../../components/search/search-matching';
+import { signedInSnapshotAs } from '../../routes/route-mock-stand-ins';
 
 describe('the client-side matcher', () => {
 	// A whole-phrase substring test never reaches this, because the phrase is
@@ -44,7 +44,7 @@ describe('the client-side matcher', () => {
 	// The Weather explorer is labelled `Map`, so its own label says nothing about
 	// weather. Its keywords are the only thing left that does.
 	it('reaches an explorer whose label does not carry its noun', () => {
-		const weather = shellSearchCandidates(ownerAuth()).routes.find(
+		const weather = shellSearchCandidates(signedInSnapshotAs('owner')).routes.find(
 			(candidate) => candidate.id === 'weather',
 		);
 		if (weather === undefined) {
@@ -231,27 +231,4 @@ function actions(count: number): SearchResult[] {
 		id: `a${index}`,
 		title: `a${index}`,
 	}));
-}
-
-function ownerAuth(): AuthMe {
-	return {
-		authenticated: true,
-		user: {
-			workosUserId: 'user_1',
-			email: 'crew@example.test',
-			firstName: null,
-			lastName: null,
-			displayName: 'Crew',
-			emailVerified: true,
-			profilePictureUrl: null,
-		},
-		workosOrganizationId: 'org_1',
-		localIdentity: {
-			userId: 'user_1',
-			organizationId: 'org_1',
-			profileId: 'profile_1',
-			membershipId: 'membership_1',
-			role: 'owner',
-		},
-	};
 }

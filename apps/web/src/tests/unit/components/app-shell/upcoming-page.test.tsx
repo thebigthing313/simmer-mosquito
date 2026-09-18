@@ -4,9 +4,9 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AuthMe } from '../../../../auth';
 import { shellDomainsForRole } from '../../../../components/app-shell/navigation';
 import { UpcomingPage } from '../../../../components/app-shell/upcoming-page';
+import { signedInSnapshotAs } from '../../routes/route-mock-stand-ins';
 import { stubItems } from './stub-items';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
@@ -172,23 +172,4 @@ function domains() {
 	return shellDomainsForRole(OWNER);
 }
 
-const OWNER: AuthMe = {
-	authenticated: true,
-	user: {
-		workosUserId: 'user_1',
-		email: 'crew@example.test',
-		firstName: null,
-		lastName: null,
-		displayName: 'Crew',
-		emailVerified: true,
-		profilePictureUrl: null,
-	},
-	workosOrganizationId: 'org_1',
-	localIdentity: {
-		userId: 'user_1',
-		organizationId: 'org_1',
-		profileId: 'profile_1',
-		membershipId: 'membership_1',
-		role: 'owner',
-	},
-};
+const OWNER = signedInSnapshotAs('owner');

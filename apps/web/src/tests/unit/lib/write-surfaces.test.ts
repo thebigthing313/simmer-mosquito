@@ -1,10 +1,11 @@
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthMe } from '../../../auth';
 import {
 	isBelowWriteFloor,
 	WRITE_SURFACE_FLOORS,
 	writeSurfaceFloor,
 } from '../../../lib/write-surfaces';
+import { signedInSnapshotAs } from '../routes/route-mock-stand-ins';
 
 /**
  * The register the sidebar, the route guards and the map menu all read.
@@ -60,29 +61,6 @@ describe('isBelowWriteFloor', () => {
 	});
 });
 
-function contextFor(role: string) {
-	return { auth: { load: () => Promise.resolve(authWithRole(role)) } };
-}
-
-function authWithRole(role: string): AuthMe {
-	return {
-		authenticated: true,
-		user: {
-			workosUserId: 'user_1',
-			email: 'crew@example.test',
-			firstName: null,
-			lastName: null,
-			displayName: 'Crew',
-			emailVerified: true,
-			profilePictureUrl: null,
-		},
-		workosOrganizationId: 'org_1',
-		localIdentity: {
-			userId: 'user_1',
-			organizationId: 'org_1',
-			profileId: 'profile_1',
-			membershipId: 'membership_1',
-			role,
-		},
-	};
+function contextFor(role: SimmerRole) {
+	return { auth: { load: () => Promise.resolve(signedInSnapshotAs(role)) } };
 }

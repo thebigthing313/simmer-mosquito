@@ -2,9 +2,9 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { AuthMe } from '../../../../../auth';
 import type { PersonListing } from '../../../../../hooks/queries/use-people-directory';
 import type { SimmerRole } from '../../../../../routes/my-organization/-components/types';
+import { signedInSnapshotWith } from '../../route-mock-stand-ins';
 
 /**
  * The width the People rows draw at.
@@ -68,26 +68,11 @@ const HISTORICAL_PERSON = {
 	role: null,
 } as unknown as PersonListing;
 
-const OWNER: AuthMe = {
-	authenticated: true,
-	user: {
-		workosUserId: 'user_1',
-		email: 'owner@example.test',
-		firstName: null,
-		lastName: null,
-		displayName: 'Owner',
-		emailVerified: true,
-		profilePictureUrl: null,
-	},
-	workosOrganizationId: 'org_1',
-	localIdentity: {
-		userId: 'user_1',
-		organizationId: 'org_1',
-		profileId: 'profile_1',
-		membershipId: 'membership_1',
-		role: 'owner',
-	},
-};
+// The Account's email is the text the first case finds the member card by.
+const OWNER = signedInSnapshotWith({
+	user: { email: 'owner@example.test' },
+	localIdentity: { role: 'owner' },
+});
 
 const MEASURE = `.${CSS.escape('max-w-[46rem]')}`;
 
