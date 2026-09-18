@@ -1,6 +1,5 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GenerationRefusal } from '../../../../../hooks/mutations/use-mission-notification-generation';
 import {
@@ -20,18 +19,12 @@ import {
  * registrations page.
  */
 
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-	...(await importOriginal<typeof import('@tanstack/react-router')>()),
-	Link: ({
-		children,
-		params,
-		to,
-	}: {
-		readonly children?: ReactNode;
-		readonly params?: { readonly id?: string };
-		readonly to?: string;
-	}) => <a href={(to ?? '').replace('$id', params?.id ?? '')}>{children}</a>,
-}));
+// The stand-in's `Link` writes the contact id into the href, which is what
+// the rows below are asserted on.
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+	const { routerStandIn } = await import('../../route-mock-stand-ins');
+	return routerStandIn(await importOriginal<object>(), () => ({}));
+});
 
 const sessionFetch = vi.fn();
 const errorToast = vi.fn();

@@ -205,9 +205,8 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             <a
               aria-label="View details for Elm St"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000001"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -323,9 +322,8 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             <a
               aria-label="View details for Oak Ave"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000002"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -816,9 +814,8 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         <a
           aria-label="View details for Elm Loop"
           class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          params="[object Object]"
+          href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000005"
           title="View Region Details"
-          to="/gis/regions/$id"
         >
           <svg
             aria-hidden="true"
@@ -934,9 +931,8 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         <a
           aria-label="View details for River walk"
           class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          params="[object Object]"
+          href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000006"
           title="View Region Details"
-          to="/gis/regions/$id"
         >
           <svg
             aria-hidden="true"
@@ -1167,9 +1163,8 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             <a
               aria-label="View details for Elm St"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000001"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -1390,9 +1385,8 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             <a
               aria-label="View details for Elmwood Park"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000003"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -1535,9 +1529,8 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         <a
           aria-label="View details for Elm Loop"
           class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          params="[object Object]"
+          href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000005"
           title="View Region Details"
-          to="/gis/regions/$id"
         >
           <svg
             aria-hidden="true"
@@ -1768,9 +1761,8 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <a
               aria-label="View details for Elm St"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000001"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -1886,9 +1878,8 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <a
               aria-label="View details for Oak Ave"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000002"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -2109,9 +2100,8 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <a
               aria-label="View details for Elmwood Park"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000003"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -2227,9 +2217,8 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <a
               aria-label="View details for Pine Ct"
               class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              params="[object Object]"
+              href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000004"
               title="View Region Details"
-              to="/gis/regions/$id"
             >
               <svg
                 aria-hidden="true"
@@ -2476,9 +2465,8 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         <a
           aria-label="View details for Elm Loop"
           class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          params="[object Object]"
+          href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000005"
           title="View Region Details"
-          to="/gis/regions/$id"
         >
           <svg
             aria-hidden="true"
@@ -2594,9 +2582,8 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         <a
           aria-label="View details for River walk"
           class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          params="[object Object]"
+          href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000006"
           title="View Region Details"
-          to="/gis/regions/$id"
         >
           <svg
             aria-hidden="true"
