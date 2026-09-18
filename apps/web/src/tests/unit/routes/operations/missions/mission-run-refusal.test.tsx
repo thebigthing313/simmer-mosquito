@@ -28,55 +28,45 @@
  * are stand-ins because neither is in the question.
  */
 
-import type { SimmerRole } from '@simmer-mosquito/domain';
-import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { type ReactNode, Suspense } from 'react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MissionProgressCounts } from '../../../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../../../hooks/queries/use-mission';
-import { organizations } from '../../../../../lib/collections/organizations';
-import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
 import { preloadRouteComponent } from '../../explorer-route-harness';
+import {
+	refusalHarness as harness,
+	ORGANIZATION_ID,
+	press,
+	renderRefusalPage,
+	resetRefusalHarness,
+} from '../refusal-harness';
 
-type LifecycleWrite = 'start' | 'complete' | 'cancel' | 'reopen';
-
-const harness = vi.hoisted(() => ({
-	params: { id: 'mission-1' } as Record<string, string>,
-	role: 'manager' as SimmerRole,
+const page = vi.hoisted(() => ({
 	/** The mission the page is handed. */
 	mission: null as MissionRecord | null,
 	/** Where the stops stand, which decides whether Start and Complete are enabled. */
 	counts: { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 } as MissionProgressCounts,
-	/** What the server answers the next lifecycle write with; `null` is a success. */
-	refusal: null as Error | string | null,
-	/** Every lifecycle write the page asked for, in order. */
-	writes: [] as LifecycleWrite[],
-	toastError: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
-	toast: { error: (message: string) => harness.toastError(message) },
-}));
+vi.mock('sonner', async () => {
+	const { sonnerStandIn } = await import('../refusal-harness');
+	return sonnerStandIn();
+});
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
-	const { routerStandIn } = await import('../../route-mock-stand-ins');
-	return routerStandIn(
-		await importOriginal<object>(),
-		() => ({}),
-		() => harness.params,
-	);
+	const { refusalRouterStandIn } = await import('../refusal-harness');
+	return refusalRouterStandIn(await importOriginal<object>());
 });
 
 vi.mock('../../../../../hooks/use-auth-snapshot', async () => {
-	const { signedInSnapshotAs } = await import('../../route-mock-stand-ins');
-	return { useAuthSnapshot: () => signedInSnapshotAs(harness.role) };
+	const { authSnapshotStandIn } = await import('../refusal-harness');
+	return authSnapshotStandIn();
 });
 
 vi.mock('../../../../../hooks/queries/use-mission', () => ({
 	useMission: () => ({
-		mission: harness.mission ?? undefined,
+		mission: page.mission ?? undefined,
 		isReady: true,
 		isError: false,
 	}),
@@ -86,24 +76,19 @@ vi.mock('../../../../../routes/operations/-operations-data', async (importOrigin
 	...(await importOriginal<typeof import('../../../../../routes/operations/-operations-data')>()),
 	useMissionStopViews: () => ({
 		stops: [],
-		counts: harness.counts,
+		counts: page.counts,
 		isLoading: false,
 	}),
 }));
 
-vi.mock('../../../../../hooks/mutations/use-mission-mutations', () => {
-	const write = (kind: LifecycleWrite) => async () => {
-		harness.writes.push(kind);
-		if (harness.refusal !== null) {
-			throw harness.refusal;
-		}
-	};
+vi.mock('../../../../../hooks/mutations/use-mission-mutations', async () => {
+	const { lifecycleWrite } = await import('../refusal-harness');
 	return {
 		useMissionMutations: () => ({
-			start: write('start'),
-			complete: write('complete'),
-			cancel: write('cancel'),
-			reopen: write('reopen'),
+			start: lifecycleWrite('start'),
+			complete: lifecycleWrite('complete'),
+			cancel: lifecycleWrite('cancel'),
+			reopen: lifecycleWrite('reopen'),
 			remove: async () => {},
 			moveStops: async () => {},
 			canWrite: true,
@@ -141,13 +126,8 @@ beforeAll(async () => {
 }, 300_000);
 
 beforeEach(() => {
-	installMemoryCollections();
-	seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
-	harness.role = 'manager';
-	harness.refusal = null;
-	harness.writes.length = 0;
-	harness.counts = { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 };
-	harness.toastError.mockReset();
+	resetRefusalHarness();
+	page.counts = { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 };
 });
 
 afterEach(cleanup);
@@ -156,7 +136,7 @@ function mission(overrides: Partial<MissionRecord> = {}): MissionRecord {
 	const scheduledStartAt = new Date('2026-08-04T11:00:00Z');
 	return {
 		id: harness.params.id as string,
-		organizationId: 'org-1',
+		organizationId: ORGANIZATION_ID,
 		missionName: 'Fog run',
 		controlType: 'application',
 		plannedMethodId: null,
@@ -179,13 +159,13 @@ function mission(overrides: Partial<MissionRecord> = {}): MissionRecord {
 
 /** A mission that is running, with every stop handled, so Complete is enabled. */
 function runningMission(): MissionRecord {
-	harness.counts = { total: 2, completed: 2, skipped: 0, pending: 0, handled: 2 };
+	page.counts = { total: 2, completed: 2, skipped: 0, pending: 0, handled: 2 };
 	return mission({ status: 'inProgress', startedAt: new Date('2026-08-04T11:05:00Z') });
 }
 
 /** A mission that has ended, so the header offers Reopen and nothing else. */
 function completedMission(): MissionRecord {
-	harness.counts = { total: 2, completed: 2, skipped: 0, pending: 0, handled: 2 };
+	page.counts = { total: 2, completed: 2, skipped: 0, pending: 0, handled: 2 };
 	return mission({
 		status: 'completed',
 		startedAt: new Date('2026-08-04T11:05:00Z'),
@@ -194,27 +174,8 @@ function completedMission(): MissionRecord {
 }
 
 async function renderPage(record: MissionRecord) {
-	harness.mission = record;
-	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	render(
-		<QueryClientProvider client={client}>
-			<TooltipProvider>
-				<Suspense fallback={<span>loading</span>}>
-					<MissionDetail />
-				</Suspense>
-			</TooltipProvider>
-		</QueryClientProvider>,
-	);
-	await screen.findByRole('heading', { level: 1, name: 'Fog run' });
-}
-
-/** Press a lifecycle button and let the write settle, so the busy flag clears inside `act`. */
-async function press(name: string): Promise<void> {
-	const button = screen.getByRole('button', { name });
-	expect((button as HTMLButtonElement).disabled).toBe(false);
-	await act(async () => {
-		fireEvent.click(button);
-	});
+	page.mission = record;
+	await renderRefusalPage(MissionDetail, 'Fog run');
 }
 
 /**
@@ -243,7 +204,7 @@ describe('a refused lifecycle write on the mission page', () => {
 	describe('Start', () => {
 		it('is a toast carrying the server sentence, and no Alert', async () => {
 			harness.refusal = new Error('This mission has been cancelled.');
-			harness.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+			page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 			await renderPage(mission());
 
 			await press('Start');
@@ -254,7 +215,7 @@ describe('a refused lifecycle write on the mission page', () => {
 
 		it('falls back to the page sentence when the refusal carries none', async () => {
 			harness.refusal = 'refused';
-			harness.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+			page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 			await renderPage(mission());
 
 			await press('Start');
@@ -334,7 +295,7 @@ describe('a refused lifecycle write on the mission page', () => {
 	});
 
 	it('raises no toast when the write goes through', async () => {
-		harness.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 		await renderPage(mission());
 
 		await press('Start');
