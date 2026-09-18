@@ -22,49 +22,44 @@
  * three is in the question and Mapbox GL has no jsdom.
  */
 
-import type { SimmerRole } from '@simmer-mosquito/domain';
-import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { type ReactNode, Suspense } from 'react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RequestRecord } from '../../../../../hooks/queries/use-requested-control-action';
-import { organizations } from '../../../../../lib/collections/organizations';
-import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
 import { preloadRouteComponent } from '../../explorer-route-harness';
+import {
+	refusalHarness as harness,
+	ORGANIZATION_ID,
+	renderRefusalPage,
+	resetRefusalHarness,
+} from '../refusal-harness';
 
-const harness = vi.hoisted(() => ({
-	params: { id: 'request-1' } as Record<string, string>,
-	role: 'manager' as SimmerRole,
+const page = vi.hoisted(() => ({
 	/** The request the page is handed. */
 	request: null as RequestRecord | null,
-	/** What the server answers the next lifecycle write with; `null` is a success. */
-	refusal: null as Error | string | null,
-	/** Every lifecycle write the page asked for, in order. */
-	writes: [] as ('resolve' | 'reopen')[],
-	toastError: vi.fn(),
 }));
 
-vi.mock('sonner', () => ({
-	toast: { error: (message: string) => harness.toastError(message) },
-}));
-
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-	const { routerStandIn } = await import('../../route-mock-stand-ins');
-	return routerStandIn(
-		await importOriginal<object>(),
-		() => ({}),
-		() => harness.params,
-	);
+vi.mock('sonner', async () => {
+	const { sonnerStandIn } = await import('../refusal-harness');
+	return sonnerStandIn();
 });
 
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+	const { refusalRouterStandIn } = await import('../refusal-harness');
+	return refusalRouterStandIn(await importOriginal<object>());
+});
+
+// This factory reads the id off the URL rather than off the harness, because
+// `refusal-harness.tsx` imports the organizations collection, which imports
+// `@simmer-mosquito/sync`, and a factory for `sync` that awaited it would wait
+// on itself. Its header says the same.
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 	const { sessionFetchStandIn } = await import('../../route-mock-stand-ins');
 	return {
 		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn([], () => ({
+		sessionFetch: sessionFetchStandIn([], (url) => ({
 			recordType: 'requestedControlAction',
-			recordId: harness.params.id,
+			recordId: url.pathname.split('/')[3],
 			found: true,
 			blockers: [],
 			cascades: [],
@@ -74,29 +69,24 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 });
 
 vi.mock('../../../../../hooks/use-auth-snapshot', async () => {
-	const { signedInSnapshotAs } = await import('../../route-mock-stand-ins');
-	return { useAuthSnapshot: () => signedInSnapshotAs(harness.role) };
+	const { authSnapshotStandIn } = await import('../refusal-harness');
+	return authSnapshotStandIn();
 });
 
 vi.mock('../../../../../hooks/queries/use-requested-control-action', () => ({
 	useRequestedControlAction: () => ({
-		request: harness.request ?? undefined,
+		request: page.request ?? undefined,
 		isReady: true,
 		isError: false,
 	}),
 }));
 
-vi.mock('../../../../../hooks/mutations/use-requested-control-action-mutations', () => {
-	const write = (kind: 'resolve' | 'reopen') => async () => {
-		harness.writes.push(kind);
-		if (harness.refusal !== null) {
-			throw harness.refusal;
-		}
-	};
+vi.mock('../../../../../hooks/mutations/use-requested-control-action-mutations', async () => {
+	const { lifecycleWrite } = await import('../refusal-harness');
 	return {
 		useRequestedControlActionMutations: () => ({
-			resolve: write('resolve'),
-			reopen: write('reopen'),
+			resolve: lifecycleWrite('resolve'),
+			reopen: lifecycleWrite('reopen'),
 			remove: async () => {},
 			canWrite: true,
 		}),
@@ -141,14 +131,7 @@ beforeAll(async () => {
 	);
 }, 300_000);
 
-beforeEach(() => {
-	installMemoryCollections();
-	seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
-	harness.role = 'manager';
-	harness.refusal = null;
-	harness.writes.length = 0;
-	harness.toastError.mockReset();
-});
+beforeEach(resetRefusalHarness);
 
 afterEach(cleanup);
 
@@ -156,7 +139,7 @@ function request(overrides: Partial<RequestRecord> = {}): RequestRecord {
 	const requestedAt = new Date('2026-08-04T14:00:00Z');
 	return {
 		id: harness.params.id as string,
-		organizationId: 'org-1',
+		organizationId: ORGANIZATION_ID,
 		controlType: 'application',
 		recommendedMethodId: null,
 		summary: 'Ditch behind the depot',
@@ -181,18 +164,8 @@ function request(overrides: Partial<RequestRecord> = {}): RequestRecord {
 }
 
 async function renderPage(record: RequestRecord) {
-	harness.request = record;
-	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-	render(
-		<QueryClientProvider client={client}>
-			<TooltipProvider>
-				<Suspense fallback={<span>loading</span>}>
-					<RequestDetail />
-				</Suspense>
-			</TooltipProvider>
-		</QueryClientProvider>,
-	);
-	await screen.findByRole('heading', { level: 1, name: 'Ditch behind the depot' });
+	page.request = record;
+	await renderRefusalPage(RequestDetail, 'Ditch behind the depot');
 }
 
 async function choose(name: string): Promise<void> {
