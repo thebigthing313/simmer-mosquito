@@ -1,29 +1,49 @@
-import type { AuthChallenge, AuthenticatedSession, WorkOsAuth } from '@simmer-mosquito/auth';
+import type {
+	AuthChallenge,
+	AuthenticatedSession,
+	WorkOsIdentityWrites,
+	WorkOsSessionAuth,
+} from '@simmer-mosquito/auth';
+import type {
+	AcceptInvitationBody,
+	AuthenticatedBody,
+	ChallengeBody,
+	ForgotPasswordBody,
+	InvalidPayloadBody,
+	InvitationLookupBody,
+	ResetPasswordBody,
+	SelectOrganizationBody,
+	SignInBody,
+	SignUpBody,
+	SwitchOrganizationBody,
+	VerifyEmailBody,
+	WeakPasswordBody,
+} from '@simmer-mosquito/auth/browser';
 import type { Context, Hono } from 'hono';
 import type { AuthMailer } from './auth-email.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { readSealedSession } from './auth-session-transport.js';
 
 /**
- * The subset of `WorkOsAuth` the in-app (bring-your-own-UI) auth pages drive.
- *
- * A `Pick` rather than a second description of the same nine methods, so a
- * signature that changes in `packages/auth` changes here instead of being
- * restated. A test still injects a fake without a WorkOS client; what it can no
- * longer do is answer with less than the real method answers with.
+ * What the in-app auth pages drive, picked off both halves of the WorkOS
+ * client rather than described a second time, so a signature that changes in
+ * `packages/auth` changes here. A test injects a fake without a WorkOS client,
+ * and it has to answer what the real method answers with.
  */
-export type AuthUserFlows = Pick<
-	WorkOsAuth,
-	| 'signInWithPassword'
-	| 'signUpWithPassword'
-	| 'verifyEmailCode'
-	| 'requestPasswordReset'
-	| 'resetPassword'
-	| 'getInvitationByToken'
-	| 'acceptInvitationWithPassword'
-	| 'authenticateWithOrganizationSelection'
-	| 'switchOrganization'
->;
+export interface AuthUserFlows {
+	readonly session: Pick<
+		WorkOsSessionAuth,
+		| 'signInWithPassword'
+		| 'verifyEmailCode'
+		| 'authenticateWithOrganizationSelection'
+		| 'switchOrganization'
+		| 'getInvitationByToken'
+	>;
+	readonly identity: Pick<
+		WorkOsIdentityWrites,
+		'signUpWithPassword' | 'requestPasswordReset' | 'resetPassword' | 'acceptInvitationWithPassword'
+	>;
+}
 
 /**
  * Runs after any successful WorkOS authentication: upserts the local identity,
@@ -51,10 +71,10 @@ export function registerAuthUserRoutes(
 	app.post('/auth/sign-in', async (context) => {
 		const payload = await readCredentials(context.req);
 		if (!payload.ok) {
-			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+			return context.json(invalidPayload(payload.reason), 400);
 		}
 
-		const result = await auth.signInWithPassword({
+		const result = await auth.session.signInWithPassword({
 			email: payload.value.email,
 			password: payload.value.password,
 			...requestClientHints(context),
@@ -71,27 +91,20 @@ export function registerAuthUserRoutes(
 			return context.json(challengeBody(result));
 		}
 
-		return context.json({ ok: false, status: 'invalid_credentials' }, 401);
+		return context.json({ ok: false, status: 'invalid_credentials' } satisfies SignInBody, 401);
 	});
 
 	app.post('/auth/sign-up', async (context) => {
 		const payload = await readCredentials(context.req, { withName: true });
 		if (!payload.ok) {
-			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+			return context.json(invalidPayload(payload.reason), 400);
 		}
 
 		if (payload.value.password.length < MIN_PASSWORD_LENGTH) {
-			return context.json(
-				{
-					ok: false,
-					status: 'weak_password',
-					reason: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-				},
-				422,
-			);
+			return context.json(tooShortPassword(), 422);
 		}
 
-		const result = await auth.signUpWithPassword({
+		const result = await auth.identity.signUpWithPassword({
 			email: payload.value.email,
 			password: payload.value.password,
 			...(payload.value.firstName === null ? {} : { firstName: payload.value.firstName }),
@@ -111,23 +124,23 @@ export function registerAuthUserRoutes(
 		}
 
 		if (result.status === 'email_taken') {
-			return context.json({ ok: false, status: 'email_taken' }, 409);
+			return context.json({ ok: false, status: 'email_taken' } satisfies SignUpBody, 409);
 		}
 
 		if (result.status === 'weak_password') {
-			return context.json({ ok: false, status: 'weak_password', reason: result.message }, 422);
+			return context.json(weakPassword(result.message), 422);
 		}
 
-		return context.json({ ok: false, status: 'invalid_credentials' }, 401);
+		return context.json({ ok: false, status: 'invalid_credentials' } satisfies SignUpBody, 401);
 	});
 
 	app.post('/auth/verify-email', async (context) => {
 		const payload = await readVerifyEmailPayload(context.req);
 		if (!payload.ok) {
-			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+			return context.json(invalidPayload(payload.reason), 400);
 		}
 
-		const result = await auth.verifyEmailCode({
+		const result = await auth.session.verifyEmailCode({
 			code: payload.value.code,
 			pendingAuthenticationToken: payload.value.pendingAuthenticationToken,
 			...requestClientHints(context),
@@ -141,16 +154,16 @@ export function registerAuthUserRoutes(
 			return context.json(challengeBody(result));
 		}
 
-		return context.json({ ok: false, status: 'invalid_code' }, 400);
+		return context.json({ ok: false, status: 'invalid_code' } satisfies VerifyEmailBody, 400);
 	});
 
 	app.post('/auth/select-organization', async (context) => {
 		const payload = await readSelectOrganizationPayload(context.req);
 		if (!payload.ok) {
-			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+			return context.json(invalidPayload(payload.reason), 400);
 		}
 
-		const result = await auth.authenticateWithOrganizationSelection({
+		const result = await auth.session.authenticateWithOrganizationSelection({
 			organizationId: payload.value.organizationId,
 			pendingAuthenticationToken: payload.value.pendingAuthenticationToken,
 			...requestClientHints(context),
@@ -160,7 +173,10 @@ export function registerAuthUserRoutes(
 			return respondAuthenticated(context, finalizeSession, result.session);
 		}
 
-		return context.json({ ok: false, status: 'invalid_selection' }, 400);
+		return context.json(
+			{ ok: false, status: 'invalid_selection' } satisfies SelectOrganizationBody,
+			400,
+		);
 	});
 
 	/**
@@ -182,17 +198,21 @@ export function registerAuthUserRoutes(
 	app.post('/auth/switch-organization', async (context) => {
 		const payload = await readSwitchOrganizationPayload(context.req);
 		if (!payload.ok) {
-			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+			return context.json(invalidPayload(payload.reason), 400);
 		}
 
-		const result = await auth.switchOrganization({
+		const result = await auth.session.switchOrganization({
 			sealedSession: readSealedSession(context),
 			workosOrganizationId: payload.value.organizationId,
 		});
 
 		if (!result.authenticated) {
 			return context.json(
-				{ ok: false, status: 'organization_switch_refused', reason: result.reason },
+				{
+					ok: false,
+					status: 'organization_switch_refused',
+					reason: result.reason,
+				} satisfies SwitchOrganizationBody,
 				403,
 			);
 		}
@@ -205,61 +225,51 @@ export function registerAuthUserRoutes(
 		// Always answer identically regardless of whether the account exists, so
 		// the endpoint can't be used to enumerate registered emails.
 		if (payload.ok) {
-			const reset = await auth.requestPasswordReset({ email: payload.value.email });
+			const reset = await auth.identity.requestPasswordReset({ email: payload.value.email });
 			if (reset !== null) {
 				const resetUrl = `${appOrigin}/reset-password?token=${encodeURIComponent(reset.passwordResetToken)}`;
 				await mailer.sendPasswordResetEmail({ to: reset.email, resetUrl });
 			}
 		}
 
-		return context.json({ ok: true });
+		return context.json({ ok: true } satisfies ForgotPasswordBody);
 	});
 
 	app.post('/auth/reset-password', async (context) => {
 		const payload = await readResetPasswordPayload(context.req);
 		if (!payload.ok) {
-			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+			return context.json(invalidPayload(payload.reason), 400);
 		}
 
 		if (payload.value.newPassword.length < MIN_PASSWORD_LENGTH) {
-			return context.json(
-				{
-					ok: false,
-					status: 'weak_password',
-					reason: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-				},
-				422,
-			);
+			return context.json(tooShortPassword(), 422);
 		}
 
-		const result = await auth.resetPassword({
+		const result = await auth.identity.resetPassword({
 			token: payload.value.token,
 			newPassword: payload.value.newPassword,
 		});
 
 		if (result.status === 'ok') {
-			return context.json({ ok: true });
+			return context.json({ ok: true } satisfies ResetPasswordBody);
 		}
 
 		if (result.status === 'weak_password') {
-			return context.json({ ok: false, status: 'weak_password', reason: result.message }, 422);
+			return context.json(weakPassword(result.message), 422);
 		}
 
-		return context.json({ ok: false, status: 'invalid_token' }, 400);
+		return context.json({ ok: false, status: 'invalid_token' } satisfies ResetPasswordBody, 400);
 	});
 
 	app.get('/auth/invitation', async (context) => {
 		const token = context.req.query('token');
 		if (token === undefined || token.trim() === '') {
-			return context.json(
-				{ ok: false, status: 'invalid_payload', reason: 'token is required.' },
-				400,
-			);
+			return context.json(invalidPayload('token is required.'), 400);
 		}
 
-		const invitation = await auth.getInvitationByToken(token);
+		const invitation = await auth.session.getInvitationByToken(token);
 		if (invitation === null) {
-			return context.json({ ok: true, invitation: null });
+			return context.json({ ok: true, invitation: null } satisfies InvitationLookupBody);
 		}
 
 		return context.json({
@@ -268,32 +278,28 @@ export function registerAuthUserRoutes(
 				email: invitation.email,
 				state: invitation.state,
 			},
-		});
+		} satisfies InvitationLookupBody);
 	});
 
 	app.post('/auth/accept-invitation', async (context) => {
 		const payload = await readAcceptInvitationPayload(context.req);
 		if (!payload.ok) {
-			return context.json({ ok: false, status: 'invalid_payload', reason: payload.reason }, 400);
+			return context.json(invalidPayload(payload.reason), 400);
 		}
 
 		if (payload.value.password.length < MIN_PASSWORD_LENGTH) {
+			return context.json(tooShortPassword(), 422);
+		}
+
+		const invitation = await auth.session.getInvitationByToken(payload.value.invitationToken);
+		if (invitation === null || invitation.state !== 'pending') {
 			return context.json(
-				{
-					ok: false,
-					status: 'weak_password',
-					reason: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-				},
-				422,
+				{ ok: false, status: 'invalid_invitation' } satisfies AcceptInvitationBody,
+				400,
 			);
 		}
 
-		const invitation = await auth.getInvitationByToken(payload.value.invitationToken);
-		if (invitation === null || invitation.state !== 'pending') {
-			return context.json({ ok: false, status: 'invalid_invitation' }, 400);
-		}
-
-		const result = await auth.acceptInvitationWithPassword({
+		const result = await auth.identity.acceptInvitationWithPassword({
 			invitationToken: payload.value.invitationToken,
 			email: invitation.email,
 			password: payload.value.password,
@@ -317,18 +323,27 @@ export function registerAuthUserRoutes(
 		}
 
 		if (result.status === 'account_exists') {
-			return context.json({ ok: false, status: 'account_exists' }, 409);
+			return context.json(
+				{ ok: false, status: 'account_exists' } satisfies AcceptInvitationBody,
+				409,
+			);
 		}
 
 		if (result.status === 'weak_password') {
-			return context.json({ ok: false, status: 'weak_password', reason: result.message }, 422);
+			return context.json(weakPassword(result.message), 422);
 		}
 
 		if (result.status === 'invalid_invitation') {
-			return context.json({ ok: false, status: 'invalid_invitation' }, 400);
+			return context.json(
+				{ ok: false, status: 'invalid_invitation' } satisfies AcceptInvitationBody,
+				400,
+			);
 		}
 
-		return context.json({ ok: false, status: 'invalid_credentials' }, 401);
+		return context.json(
+			{ ok: false, status: 'invalid_credentials' } satisfies AcceptInvitationBody,
+			401,
+		);
 	});
 }
 
@@ -338,26 +353,24 @@ async function respondAuthenticated(
 	session: AuthenticatedSession,
 ) {
 	const { organizationRequired } = await finalizeSession(context, session);
-	return context.json({ ok: true, organizationRequired });
+	return context.json({ ok: true, organizationRequired } satisfies AuthenticatedBody);
 }
 
-/** Serializes a "one more step" challenge (verification or org selection) for the client. */
-function challengeBody(challenge: AuthChallenge) {
-	if (challenge.status === 'verification_required') {
-		return {
-			ok: false as const,
-			status: 'verification_required' as const,
-			pendingAuthenticationToken: challenge.pendingAuthenticationToken,
-			email: challenge.email,
-		};
-	}
+function challengeBody(challenge: AuthChallenge): ChallengeBody {
+	return { ok: false, ...challenge };
+}
 
-	return {
-		ok: false as const,
-		status: 'organization_selection_required' as const,
-		pendingAuthenticationToken: challenge.pendingAuthenticationToken,
-		organizations: challenge.organizations,
-	};
+function invalidPayload(reason: string): InvalidPayloadBody {
+	return { ok: false, status: 'invalid_payload', reason };
+}
+
+function weakPassword(reason: string): WeakPasswordBody {
+	return { ok: false, status: 'weak_password', reason };
+}
+
+/** The length floor SIMMER checks before WorkOS is asked. */
+function tooShortPassword(): WeakPasswordBody {
+	return weakPassword(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
 }
 
 function requestClientHints(context: Context<{ Variables: AuthVariables }>): {

@@ -73,7 +73,7 @@ describe('acceptInvitationWithPassword', () => {
 		});
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.acceptInvitationWithPassword(input);
+		const result = await auth.identity.acceptInvitationWithPassword(input);
 
 		expect(mockUpdateUser).toHaveBeenCalledWith(
 			expect.objectContaining({ userId: 'user_1', password: input.password, emailVerified: true }),
@@ -87,7 +87,7 @@ describe('acceptInvitationWithPassword', () => {
 
 	it('creates an already-verified user when the invitee has no account yet', async () => {
 		const auth = createWorkOsAuth(config);
-		const result = await auth.acceptInvitationWithPassword(input);
+		const result = await auth.identity.acceptInvitationWithPassword(input);
 
 		expect(mockCreateUser).toHaveBeenCalledWith(
 			expect.objectContaining({ email: input.email, emailVerified: true }),
@@ -101,7 +101,7 @@ describe('acceptInvitationWithPassword', () => {
 		});
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.acceptInvitationWithPassword(input);
+		const result = await auth.identity.acceptInvitationWithPassword(input);
 
 		expect(result).toEqual({ status: 'account_exists' });
 		expect(mockUpdateUser).not.toHaveBeenCalled();
@@ -117,7 +117,7 @@ describe('acceptInvitationWithPassword', () => {
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.acceptInvitationWithPassword(input);
+		const result = await auth.identity.acceptInvitationWithPassword(input);
 
 		expect(result).toEqual({ status: 'invalid_invitation' });
 	});
@@ -132,7 +132,7 @@ describe('acceptInvitationWithPassword', () => {
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.acceptInvitationWithPassword(input);
+		const result = await auth.identity.acceptInvitationWithPassword(input);
 
 		expect(result).toEqual({
 			status: 'verification_required',
@@ -147,7 +147,7 @@ describe('acceptInvitationWithPassword', () => {
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.acceptInvitationWithPassword(input);
+		const result = await auth.identity.acceptInvitationWithPassword(input);
 
 		expect(result).toEqual({ status: 'invalid_credentials' });
 	});

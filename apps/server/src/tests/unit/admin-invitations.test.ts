@@ -109,7 +109,7 @@ describe('registerAdminInvitationRoutes', () => {
 
 	it('passes profileId through existing-profile invitation flow', async () => {
 		const auth = createFakeInvitationAuth();
-		const response = await postInvitation(auth, {
+		const response = await postInvitation(halves(auth), {
 			email: 'casey@example.test',
 			role: 'manager',
 			profileId: 'profile-existing',
@@ -165,7 +165,10 @@ describe('registerAdminInvitationRoutes', () => {
 			calls.push('workos');
 			return sentInvitation;
 		});
-		const response = await postInvitation(auth, { email: 'casey@example.test', role: 'manager' });
+		const response = await postInvitation(halves(auth), {
+			email: 'casey@example.test',
+			role: 'manager',
+		});
 
 		expect(response.status).toBe(201);
 		expect(calls).toEqual(['stage', 'workos']);
@@ -176,7 +179,10 @@ describe('registerAdminInvitationRoutes', () => {
 			new dbMock.StageOrganizationInvitationError('already_a_member'),
 		);
 		const auth = createFakeInvitationAuth();
-		const response = await postInvitation(auth, { email: 'casey@example.test', role: 'manager' });
+		const response = await postInvitation(halves(auth), {
+			email: 'casey@example.test',
+			role: 'manager',
+		});
 
 		expect(response.status).toBe(409);
 		await expect(response.json()).resolves.toEqual({ error: 'already_a_member' });
@@ -188,7 +194,7 @@ describe('registerAdminInvitationRoutes', () => {
 		dbMock.assertOrganizationProfileCanBeInvited.mockRejectedValue(
 			new dbMock.StageOrganizationInvitationError('profile_already_linked'),
 		);
-		const response = await postInvitation(auth, {
+		const response = await postInvitation(halves(auth), {
 			email: 'casey@example.test',
 			role: 'manager',
 			profileId: 'profile-existing',
@@ -210,7 +216,10 @@ describe('registerAdminInvitationRoutes', () => {
 			role: 'admin',
 			workosInvitationId: null,
 		});
-		const response = await postInvitation(auth, { email: 'casey@example.test', role: 'admin' });
+		const response = await postInvitation(halves(auth), {
+			email: 'casey@example.test',
+			role: 'admin',
+		});
 
 		expect(response.status).toBe(201);
 		await expect(response.json()).resolves.toMatchObject({
@@ -236,7 +245,10 @@ describe('registerAdminInvitationRoutes', () => {
 			workosUserId: 'workos_user_casey',
 			status: 'inactive',
 		});
-		const response = await postInvitation(auth, { email: 'casey@example.test', role: 'manager' });
+		const response = await postInvitation(halves(auth), {
+			email: 'casey@example.test',
+			role: 'manager',
+		});
 
 		expect(response.status).toBe(201);
 		expect(auth.sendOrganizationInvitation).toHaveBeenCalledOnce();
@@ -251,7 +263,10 @@ describe('registerAdminInvitationRoutes', () => {
 				status: 422,
 			});
 		});
-		const response = await postInvitation(auth, { email: 'casey@example.test', role: 'manager' });
+		const response = await postInvitation(halves(auth), {
+			email: 'casey@example.test',
+			role: 'manager',
+		});
 
 		expect(response.status).toBe(502);
 		await expect(response.json()).resolves.toEqual({
@@ -271,7 +286,7 @@ describe('registerAdminInvitationRoutes', () => {
 	// retry covers the connection blip.
 	it('retries a stamp that failed once', async () => {
 		dbMock.stampOrganizationInvitation.mockRejectedValueOnce(new Error('connection terminated'));
-		const response = await postInvitation(createFakeInvitationAuth(), {
+		const response = await postInvitation(halves(createFakeInvitationAuth()), {
 			email: 'casey@example.test',
 			role: 'manager',
 		});
@@ -289,7 +304,7 @@ describe('registerAdminInvitationRoutes', () => {
 	it('answers 201 with the unstamped Membership and logs the invitation id', async () => {
 		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		dbMock.stampOrganizationInvitation.mockRejectedValue(new Error('connection terminated'));
-		const response = await postInvitation(createFakeInvitationAuth(), {
+		const response = await postInvitation(halves(createFakeInvitationAuth()), {
 			email: 'casey@example.test',
 			role: 'manager',
 		});
@@ -319,7 +334,7 @@ describe('the staging identity interlock', () => {
 		// count carried in from it would make this pass without the guard.
 		vi.clearAllMocks();
 		const auth = createFakeInvitationAuth();
-		const response = await postInvitation(withoutWorkOsIdentityWrites(auth), {
+		const response = await postInvitation(withoutWorkOsIdentityWrites(halves(auth)), {
 			email: 'casey@example.test',
 			role: 'manager',
 		});
@@ -371,9 +386,19 @@ function createInvitationApp(auth: AdminInvitationAuth) {
 	return app;
 }
 
+type FakeInvitationAuth = AdminInvitationAuth['session'] & AdminInvitationAuth['identity'];
+
+/** The flat fake in the shape the route takes. */
+function halves(auth: FakeInvitationAuth): AdminInvitationAuth {
+	return { session: auth, identity: auth };
+}
+
+/** Both halves as one object, so a case reads and replaces a method without naming its half. */
 function createFakeInvitationAuth(
-	existingMember: Awaited<ReturnType<AdminInvitationAuth['findOrganizationMember']>> = null,
-): AdminInvitationAuth {
+	existingMember: Awaited<
+		ReturnType<AdminInvitationAuth['session']['findOrganizationMember']>
+	> = null,
+): FakeInvitationAuth {
 	return {
 		findOrganizationMember: vi.fn(async () => existingMember),
 		sendOrganizationInvitation: vi.fn(async (input) => ({

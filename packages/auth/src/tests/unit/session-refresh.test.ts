@@ -47,7 +47,9 @@ describe('authenticateSession', () => {
 			role: 'manager',
 		});
 
-		await expect(auth.authenticateSession('sealed', { mayRefresh: false })).resolves.toMatchObject({
+		await expect(
+			auth.session.authenticateSession('sealed', { mayRefresh: false }),
+		).resolves.toMatchObject({
 			authenticated: true,
 			workosOrganizationId: 'org_1',
 		});
@@ -57,7 +59,9 @@ describe('authenticateSession', () => {
 	it('refuses an expired access token rather than refreshing, when it may not refresh', async () => {
 		authenticate.mockResolvedValue({ authenticated: false, reason: 'invalid_jwt' });
 
-		await expect(auth.authenticateSession('sealed', { mayRefresh: false })).resolves.toEqual({
+		await expect(
+			auth.session.authenticateSession('sealed', { mayRefresh: false }),
+		).resolves.toEqual({
 			authenticated: false,
 			reason: SESSION_REFRESH_REQUIRED,
 		});
@@ -77,7 +81,9 @@ describe('authenticateSession', () => {
 			sealedSession: 'rotated',
 		});
 
-		await expect(auth.authenticateSession('sealed', { mayRefresh: true })).resolves.toMatchObject({
+		await expect(
+			auth.session.authenticateSession('sealed', { mayRefresh: true }),
+		).resolves.toMatchObject({
 			authenticated: true,
 			sealedSession: 'rotated',
 		});
@@ -91,14 +97,18 @@ describe('authenticateSession', () => {
 		authenticate.mockResolvedValue({ authenticated: false, reason: 'invalid_jwt' });
 		refresh.mockResolvedValue({ authenticated: false, reason: 'session_expired' });
 
-		await expect(auth.authenticateSession('sealed', { mayRefresh: true })).resolves.toEqual({
-			authenticated: false,
-			reason: 'session_expired',
-		});
+		await expect(auth.session.authenticateSession('sealed', { mayRefresh: true })).resolves.toEqual(
+			{
+				authenticated: false,
+				reason: 'session_expired',
+			},
+		);
 	});
 
 	it('needs no session loaded at all to refuse an empty cookie', async () => {
-		await expect(auth.authenticateSession(undefined, { mayRefresh: true })).resolves.toEqual({
+		await expect(
+			auth.session.authenticateSession(undefined, { mayRefresh: true }),
+		).resolves.toEqual({
 			authenticated: false,
 			reason: 'no_session_cookie_provided',
 		});

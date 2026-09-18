@@ -290,11 +290,6 @@
         "count": 1
       }
     },
-    "apps/web/src/components/species-composition-panel.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/hooks/mutations/use-application-mutations.ts": {
       "complexity_critical": {
         "count": 1
@@ -400,9 +395,6 @@
     },
     "apps/web/src/routes/control-operations/chemical/create.tsx": {
       "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -513,11 +505,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/operations/missions/$id.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/operations/missions/-mission-stops.tsx": {
       "complexity_moderate": {
         "count": 1
@@ -538,17 +525,6 @@
     },
     "apps/web/src/routes/search.tsx": {
       "crap_high": {
-        "count": 1
-      }
-    },
-    "packages/auth/src/index.ts": {
-      "complexity_high": {
-        "count": 1
-      },
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -775,10 +751,9 @@
     "apps/web/src/components/map/map-canvas.tsx:complexity",
     "apps/web/src/components/comments-section.tsx:complexity",
     "apps/web/src/routes/operations/assignments/create.tsx:complexity",
-    "packages/auth/src/index.ts:complexity",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
-    "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
+    "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
     "apps/server/src/writers/mission-dispatch/missions.ts:complexity",
     "apps/server/src/writers/public-engagement-records/contacts.ts:complexity"

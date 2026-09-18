@@ -2,7 +2,7 @@ import type {
 	AuthUser,
 	SessionAuthenticationOptions,
 	SessionAuthenticationResult,
-	WorkOsAuth,
+	WorkOsSessionAuth,
 } from '@simmer-mosquito/auth';
 import type { AuthenticatedMe, RefusedMeBody } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity, SimmerRole } from '@simmer-mosquito/db';
@@ -79,7 +79,7 @@ export type AuthContextResult =
 /**
  * The per-request session check, as a seam rather than as a view.
  *
- * Its own interface and not a `Pick<WorkOsAuth, 'authenticateSession'>`, because
+ * Its own interface and not a `Pick<WorkOsSessionAuth, 'authenticateSession'>`, because
  * `dev-impersonation.ts` implements it without being a WorkOS client at all and
  * `main.ts` threads it separately from `auth` for that reason. The assertion
  * below is what keeps the two shapes in step anyway.
@@ -94,15 +94,14 @@ export interface AuthSessionProvider {
 /**
  * Errors with the method name when the real WorkOS client stops fitting the seam.
  *
- * Deliberately the same three lines as in `packages/auth/src/index.ts` and in the
- * generated drift suite at
+ * Deliberately the same three lines as in the generated drift suite at
  * `packages/sync/src/tests/unit/collections/tables/drift.test.ts`, because a shared
  * export was considered and refused: the idiom has no runtime and exporting it would
  * put a dependency edge between packages that need nothing else from each other (#716).
  */
 type Assert<T extends never> = T;
-type _WorkOsAuthIsASessionProvider = Assert<
-	WorkOsAuth extends AuthSessionProvider ? never : 'authenticateSession'
+type _WorkOsSessionAuthIsASessionProvider = Assert<
+	WorkOsSessionAuth extends AuthSessionProvider ? never : 'authenticateSession'
 >;
 
 export interface LocalAuthIdentityResolver {
