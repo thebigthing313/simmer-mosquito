@@ -82,8 +82,8 @@ Missing settings resolve to defaults instead of blocking workflows.
 - `larvalSurveillance.inspectionEntryPolicy.densityRanges`: `null`
 - `controlOperations.trackInsecticideBatches`: `true`
 - `publicEngagement.serviceRequestContext.radius`: `0.25 mile`
-- `publicEngagement.serviceRequestContext.timeWindow`: 14 days before and 14
-  days after the request date
+- `publicEngagement.serviceRequestContext.timeWindow`: 14 days before the
+  request date and at least 14 days after it
 
 The East Coast timezone default is intentional for the first customer segment.
 Date-only domain rules use organization timezone to resolve "today" and
@@ -401,14 +401,17 @@ is false.
 
 ## Public engagement
 
-`publicEngagement.serviceRequestContext` controls default related-record
-context shown around service requests.
+`publicEngagement.serviceRequestContext` fixes the related-record context
+shown around a service request: how far from the request location the nearby
+read searches, and the time window it reads the dated records in. A habitat or
+a trap is within the radius whenever it exists; every other kind is also held
+to the window.
 
-The default is:
+An Organization that has never set it resolves to:
 
-- records within `0.25 mile`
-- control actions within 14 days before through at least 14 days after the
-  request date
+- records within `0.25 mile` of the request location
+- for the dated kinds, a window from 14 days before the request date to at
+  least 14 days after it
 
 The radius amount must be strictly positive. The radius unit is stored as a
 `units.code` and server save validation must ensure it is a distance unit.
