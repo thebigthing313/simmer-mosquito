@@ -83,26 +83,44 @@ export interface NearbyRecordsInput {
 const DEFAULT_NEARBY_LIMIT = 2000;
 
 /**
+ * What the nearby read answers: the rows, and whether the cap cut them.
+ *
+ * The cap is a safety limit rather than a page, and a radius denser than it
+ * used to draw a map that looked complete (#1141). `limit` rides along so the
+ * page that says "the nearest 2,000" never spells the number itself.
+ */
+export interface NearbyRecordsResult {
+	readonly items: readonly NearbyRecordRow[];
+	/** True when more rows matched than `limit`, so `items` is the nearest `limit` of them. */
+	readonly truncated: boolean;
+	/** The cap that was applied, the caller's or the default. */
+	readonly limit: number;
+}
+
+/**
  * Records within `radiusMeters` of a request, in the families and categories
  * asked for and, for the dated kinds, within `[dateFrom, dateTo]`, in one
  * round-trip. Distance is spheroidal (`geography`); each branch is org-scoped
  * and soft-delete filtered. Ordered nearest-first and capped for safety, and
  * the cap counts only the shapes read, which is what `categories` is for.
+ *
+ * The query reads one row past the cap and drops it, which is what answers
+ * `truncated` without a second count over the union.
  */
 export async function listNearbyRecords(
 	db: Kysely<SimmerDatabase>,
 	input: NearbyRecordsInput,
-): Promise<NearbyRecordRow[]> {
+): Promise<NearbyRecordsResult> {
+	const limit = input.limit ?? DEFAULT_NEARBY_LIMIT;
 	const families = new Set(input.families);
 	const categories = input.categories === undefined ? undefined : new Set(input.categories);
 	const shapes = Object.values(recordShapes(assertIanaTimeZone(input.timeZone))).filter(
 		(shape) => families.has(shape.family) && (categories?.has(shape.category) ?? true),
 	);
 	if (shapes.length === 0) {
-		return [];
+		return { items: [], truncated: false, limit };
 	}
 
-	const limit = input.limit ?? DEFAULT_NEARBY_LIMIT;
 	const result = await sql<NearbyRecordRow>`
 		with center as (
 			select st_setsrid(st_makepoint(${input.request.lng}, ${input.request.lat}), 4326)::geography as g
@@ -112,10 +130,11 @@ export async function listNearbyRecords(
 			sql` union all `,
 		)}
 		order by "distanceMeters" asc
-		limit ${limit}
+		limit ${limit + 1}
 	`.execute(db);
 
-	return result.rows.map((row) => ({
+	const truncated = result.rows.length > limit;
+	const items = (truncated ? result.rows.slice(0, limit) : result.rows).map((row) => ({
 		...row,
 		lat: Number(row.lat),
 		lng: Number(row.lng),
@@ -124,6 +143,7 @@ export async function listNearbyRecords(
 		// one formats wrong rather than failing.
 		amount: row.amount === null ? null : Number(row.amount),
 	}));
+	return { items, truncated, limit };
 }
 
 /** One branch of the union: a shape's columns, its distance, and the radius predicate. */

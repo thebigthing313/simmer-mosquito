@@ -73,6 +73,8 @@ const harness = vi.hoisted(() => ({
 	nearbyFails: false,
 	/** Where the nearby window ends, and which end set it. */
 	window: { dateTo: '2026-09-03', dateToFrom: 'setting' as NearbyWindowEnd },
+	/** Whether the endpoint's cap cut the answer. */
+	nearbyTruncated: false,
 	/** What the canvas was last handed for the nearby layer. */
 	nearbyLayer: null as NearbyLayerConfig | null,
 }));
@@ -122,6 +124,8 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
 			dateToFrom: harness.window.dateToFrom,
 			families: ['larval', 'adult', 'control', 'publicEngagement'],
 			items: harness.nearby,
+			truncated: harness.nearbyTruncated,
+			limit: 2000,
 		};
 	});
 	return {
@@ -189,6 +193,7 @@ beforeEach(() => {
 	harness.nearby = [];
 	harness.nearbyFails = false;
 	harness.window = { dateTo: '2026-09-03', dateToFrom: 'setting' };
+	harness.nearbyTruncated = false;
 	harness.nearbyLayer = null;
 });
 
@@ -810,6 +815,30 @@ describe('the nearby list on a family tab', () => {
 		await waitFor(() =>
 			expect(harness.nearbyLayer?.selectedIds).toEqual(['inspection:inspection-1']),
 		);
+	});
+
+	// The endpoint says when its cap cut the answer, and the panel's summary
+	// says so under the count, in the words the helper's suite pins (#1141).
+	it('says the map shows the nearest records only when the endpoint hit its cap', async () => {
+		harness.nearby = [nearbyItem({})];
+		harness.nearbyTruncated = true;
+		harness.search = { tab: 'surveillance' };
+		await renderPage();
+
+		expect(
+			await screen.findByText(
+				'1 record within 500 m, Jul 5, 2026–Sep 3, 2026. Showing the nearest 2,000 records only. Narrow the radius or time window in your public-engagement settings to see every record inside them.',
+			),
+		).toBeTruthy();
+	});
+
+	it('says nothing about the cap when the endpoint did not hit it', async () => {
+		harness.nearby = [nearbyItem({})];
+		harness.search = { tab: 'surveillance' };
+		await renderPage();
+
+		expect(await screen.findByText('1 record within 500 m, Jul 5, 2026–Sep 3, 2026.')).toBeTruthy();
+		expect(screen.queryByText(/Showing the nearest/)).toBeNull();
 	});
 
 	it("draws the rail's empty state, naming the family, when nothing fell inside the radius", async () => {

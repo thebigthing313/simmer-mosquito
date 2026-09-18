@@ -427,7 +427,11 @@ window, and a person who wants a wider or narrower view changes the setting
 (#1110).
 
 This setting drives the queries for nearby habitats, traps, surveillance
-actions, control actions, and other service requests.
+actions, control actions, and other service requests. The nearby read caps the
+answer at 2000 rows nearest-first and says when the cap was hit, and the page
+then says it is showing the nearest records only and points at this setting,
+since a radius denser than the cap otherwise draws a map that looks complete
+(#1141).
 
 ## Mobile and sync
 
