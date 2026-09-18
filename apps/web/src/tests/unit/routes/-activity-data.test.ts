@@ -118,16 +118,14 @@ describe('groupActivityByFamily', () => {
 });
 
 // A row reading "Inspection · Inspected" tells a supervisor nothing they did not
-// already know from the page they are on. Each category is therefore described
-// the way its own explorer describes it.
+// already know from the page they are on, so each category is described the
+// way its own explorer describes it. The nine happy paths are asserted once,
+// in the `activityRow` table below: that table reads the describer through the
+// row builder, so a case here for the same title and subtitle failed twice for
+// one reason. What stays here is what a table keyed by category cannot express,
+// the two fallbacks for a record that names nothing.
 describe('describeActivityEntry', () => {
-	const names = new Map([
-		['type-1', 'Roadside ditch'],
-		['product-1', 'Altosid'],
-		['method-1', 'Backpack sprayer'],
-		['sr-method-1', 'Container removal'],
-		['outreach-1', 'Door hanger'],
-	]);
+	const names = new Map([['method-1', 'CDC light trap']]);
 	const quantity = (amount: number, unitId: string | null) =>
 		unitId === null ? String(amount) : `${amount} gal`;
 
@@ -135,51 +133,13 @@ describe('describeActivityEntry', () => {
 		return describeActivityEntry(entry(overrides), names, quantity);
 	}
 
-	it('titles an inspection by the site it was performed at', () => {
-		expect(describe_({ category: 'inspection', placeName: 'Culvert 12', refId: 'type-1' })).toEqual(
-			{
-				title: 'Culvert 12',
-				subtitle: 'Roadside ditch',
-			},
-		);
-	});
-
-	it('titles an application by its product, and measures it', () => {
-		expect(
-			describe_({
-				category: 'application',
-				refId: 'product-1',
-				methodRefId: 'method-1',
-				amount: 2,
-				unitId: 'unit-1',
-				placeName: 'Culvert 12',
-			}),
-		).toEqual({ title: 'Altosid', subtitle: '2 gal · Backpack sprayer · Culvert 12' });
-	});
-
-	it('titles a source reduction by its method', () => {
-		expect(
-			describe_({
-				category: 'sourceReduction',
-				refId: 'sr-method-1',
-				amount: 4,
-				unitId: 'unit-1',
-				placeName: 'Culvert 12',
-			}),
-		).toEqual({ title: 'Container removal', subtitle: '4 gal · Culvert 12' });
-	});
-
-	it('counts an outreach action in people, not units', () => {
-		expect(
-			describe_({ category: 'outreach', refId: 'outreach-1', amount: 30, detail: 'Block party' }),
-		).toEqual({ title: 'Door hanger', subtitle: '30 people reached · Block party' });
-	});
-
-	it('names a collection by its trap, and says so when there is none', () => {
-		expect(describe_({ category: 'collection', placeName: 'T-1 - North gate' }).title).toBe(
-			'T-1 - North gate',
-		);
-		expect(describe_({ category: 'collection', placeName: null }).title).toBe('Ad-hoc collection');
+	// A collection with no trap was recorded away from one, so its fallback is
+	// its own rather than the category's.
+	it('says so when a collection has no trap to name it', () => {
+		expect(describe_({ category: 'collection', placeName: null, refId: 'method-1' })).toEqual({
+			title: 'Ad-hoc collection',
+			subtitle: 'CDC light trap',
+		});
 	});
 
 	// Nothing resolved and nothing joined still has to read as something.
@@ -435,7 +395,10 @@ describe('activityTags', () => {
 // both draw, answered once. Each surface adds its own on top: the log puts the
 // verb and the time of day around the subtitle, the nearby list puts the
 // category ahead of it. One case per category, so a kind either surface forgets
-// fails here rather than on whichever page a reader opens first.
+// fails here rather than on whichever page a reader opens first. The title and
+// subtitle in each case are the describer's, asserted here and nowhere else,
+// because the row reads `describeActivityEntry` and a second block over the
+// same pairs failed twice for one reason (#1146).
 describe('activityRow', () => {
 	const priority: Tag = { id: 'tag-1', name: 'Priority', color: null, description: null };
 	const lookups = {
@@ -519,17 +482,6 @@ describe('activityRow', () => {
 		expect({ title: row.title, subtitle: row.subtitle, categoryLabel: row.categoryLabel }).toEqual(
 			expected,
 		);
-	});
-
-	// The subtitle is the describer's as it stands: a record with nothing to
-	// name it is titled by its category and has none, and what a surface does
-	// about that is the surface's.
-	it('hands over the category as the title and no subtitle for a record naming nothing', () => {
-		const row = activityRow(entry({ category: 'habitat' }), lookups);
-		expect({ title: row.title, subtitle: row.subtitle }).toEqual({
-			title: 'Habitat',
-			subtitle: null,
-		});
 	});
 
 	it('reads the badge facts and the Tags off the register', () => {
