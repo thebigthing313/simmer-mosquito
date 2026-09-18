@@ -23,6 +23,7 @@ import {
 	useDeleteImpact,
 } from '../hooks/use-delete-impact';
 import { type RecordType, recordNoun } from '../lib/record-nouns';
+import { errorMessageForSave } from '../lib/save-error';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
 import type { Acknowledgements, AskAcknowledged } from './acknowledged-write';
@@ -237,9 +238,7 @@ export function RecordDeleteDialog({
 			const message =
 				blocked.length > 0
 					? `Deleting this ${one} is blocked by ${impactCountLabel(blocked[0] as DeleteImpactEntry)}.`
-					: cause instanceof Error
-						? cause.message
-						: `Unable to delete the ${one}.`;
+					: errorMessageForSave(cause, `Unable to delete the ${one}.`);
 
 			// The delete is optimistic, so the row leaves the collection the moment
 			// the button is pressed and this unmounts with the record it was
