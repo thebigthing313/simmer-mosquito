@@ -43,6 +43,26 @@
  * than writing a second answer, over the same three roots `check-vocabulary`
  * scans: the apps that ship screens.
  *
+ * One run it cannot hand over is read here off the masked source instead. The
+ * JSX pattern in `copy-strings.mjs` refuses any run holding a brace, because a
+ * brace is an interpolation and the pieces inside it are read on their own,
+ * and it drops a run with no letter in it, because whitespace between two tags
+ * is layout. `{from} – {to}` is both at once: the text between the two slots is
+ * a run that is whitespace and one dash, so it is neither a literal nor a run
+ * the scan keeps, and the caption on the service request detail page drew that
+ * dash on screen while this gate read the tree as clean (#1109). So
+ * `slotDashes` asks the masked source for a `}`, a run of whitespace and one
+ * dash, and a `{`, and hands each back as a piece of copy the rules read like
+ * any other. The masked source, because a string or a comment holding the same
+ * shape has already been blanked, which is what keeps a template's `${low} –
+ * ${high}` from being read twice: its fixed chunk is a literal already. The
+ * dash rules then decide the same way they decide for a literal, so `}–{` is a
+ * range and clean, `} – {` is spaced and a finding, and an em dash between two
+ * slots is a finding, because the carve-out below asks for a whole literal and a
+ * slot-split run has a brace either side rather than a quote. `JSX_TEXT` in
+ * `copy-strings.mjs` stays as it is: #588 is why a bare `>` opens no run, and a
+ * run with words in it beside the dash is already read by that rule.
+ *
  * Code comments are out, and that is a measurement rather than a preference.
  * `check-prose` records it: 3,059 em dashes in `.ts`, `.tsx` and `.mjs` here,
  * 2,265 of them under `apps/`. A gate reading those would fail on every branch
@@ -92,6 +112,16 @@
  * finds the files and `copyStrings` stops finding words in them, which is what
  * a regression in the masker looks like. Without them a gate that has stopped
  * reading anything still exits 0 under a summary line that reads like a pass.
+ *
+ * `PROBES` is the fourth guard and cannot be a floor. The tree is at zero, so
+ * a pattern that stopped matching would print the same clean summary line a
+ * working one prints, and no count over the corpus can tell the two apart. Six
+ * sources with known answers go through the same read path a file does, ahead
+ * of the walk, four holding a finding and two holding none: the slot-split
+ * spaced en dash and em dash, the spaced en dash inside a literal and the em
+ * dash inside a template chunk, against the unspaced en dash between two slots
+ * and the em dash that is a whole literal. A probe read wrong fails the run
+ * before any count prints.
  *
  * The rule itself is read back out of `docs/writing-style.md`, the way
  * `check-prose` reads it and `check-vocabulary` reads `CONTEXT.md`. If that
@@ -173,6 +203,29 @@ const MINIMUM_COPY = 10000;
 /** The word that opens a marker, and the token the sweep for a stale one looks for. */
 const MARKER_WORD = 'copy-dash-ignore';
 
+/**
+ * Sources with known answers, read ahead of the corpus.
+ *
+ * Each one goes through `readSource`, the same path a file takes, and `finds`
+ * is the rule names the read has to come back with, in order, or `null` for a
+ * clean source. The first two are #1150's shape, a dash that is the whole text
+ * between two expression slots, one per dash. The unspaced en dash between two
+ * slots is the same rule the en dash already follows in a template chunk, and
+ * it is here so that a widening which reads `}–{` as a finding fails on the
+ * branch that writes it. The spaced en dash inside a literal and the em dash
+ * inside a template chunk are the existing rule, so a run that has lost the
+ * literal half fails too, and the em dash that is a whole literal is the
+ * carve-out, which a run that has lost `isWholeLiteral` would report.
+ */
+const PROBES = [
+	{ source: 'const a = <p>{from} – {to}</p>;', finds: ['spaced en dash'] },
+	{ source: 'const a = <p>{from}—{to}</p>;', finds: ['em dash'] },
+	{ source: 'const a = <p>{low}–{high}</p>;', finds: null },
+	{ source: "const a = 'from – to';", finds: ['spaced en dash'] },
+	{ source: `const a = \` — \${code}\`;`, finds: ['em dash'] },
+	{ source: "const a = '—';", finds: null },
+];
+
 function main() {
 	if (RULES.length < MINIMUM_RULES) {
 		fail(
@@ -181,6 +234,7 @@ function main() {
 	}
 
 	assertRegisterStillSaysIt();
+	assertItReadsDashes();
 
 	const files = COPY_ROOTS.flatMap(readRoot);
 	assertItReadTheApps(files);
@@ -213,6 +267,22 @@ function assertRegisterStillSaysIt() {
 	}
 }
 
+/** That a dash handed to the rules still comes back as one, and a range still does not. */
+function assertItReadsDashes() {
+	const wrong = PROBES.filter((probe) => !readsProbe(probe));
+	if (wrong.length > 0) {
+		fail(
+			`the rules no longer read ${count(wrong.length, 'source')} of the ${PROBES.length} in PROBES as expected, the first being: ${wrong[0].source}. A run in this state reads the same dash wrong in every file, so it refuses rather than passing. Fix RULES, SLOT_DASH, isSpaced or isWholeLiteral in scripts/check-copy-dashes.mjs, and change a probe only alongside the rule it states.`,
+		);
+	}
+}
+
+/** One probe read as exactly the rules it claims, in the order it claims them. */
+function readsProbe(probe) {
+	const found = readSource(probe.source, 'probe.tsx').findings.map((finding) => finding.rule.name);
+	return found.join(', ') === (probe.finds ?? []).join(', ');
+}
+
 /** That the walk found the apps and `copyStrings` found words in them. */
 function assertItReadTheApps(files) {
 	if (files.length < MINIMUM_FILES) {
@@ -240,20 +310,58 @@ const copyAcross = (files) => files.reduce((total, file) => total + file.copyCou
 const readRoot = (root) =>
 	[...typeScriptFilesUnder(join(workspaceRoot, root))].map((file) => readFile(file));
 
-function readFile(file) {
-	const source = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-	const where = pathFrom(workspaceRoot, file);
+const readFile = (file) =>
+	readSource(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'), pathFrom(workspaceRoot, file));
+
+/**
+ * One source's findings and markers, which is what a file and a probe share.
+ *
+ * `copyCount` is the literals and runs `copyStrings` read and not the
+ * slot-split runs beside them, because the count is `MINIMUM_COPY`'s floor over
+ * that module and a dash this file reads for itself says nothing about it.
+ */
+function readSource(source, where) {
 	const lines = source.split('\n');
-	const masked = maskedSource(source).split('\n');
+	const masked = maskedSource(source);
 	const pieces = copyStrings(source);
 
 	return {
 		where,
 		lines,
 		copyCount: pieces.length,
-		findings: findingsIn(pieces, source, where),
-		markers: markersOf(lines, masked, where),
+		findings: findingsIn([...pieces, ...slotDashes(masked)], source, where),
+		markers: markersOf(lines, masked.split('\n'), where),
 	};
+}
+
+/**
+ * A dash that is the whole text between two expression slots: a `}`, then
+ * whitespace and one of the two dashes, then a `{`.
+ *
+ * The dash is spelled once, in `dash-rule.mjs`, and the class here is built
+ * from the two rules' patterns rather than written out beside them. One dash
+ * and nothing else, because a run with words in it beside the dash is prose,
+ * and prose between two slots is the run `JSX_TEXT` refuses for its brace,
+ * which this gate is not the place to start reading.
+ */
+const SLOT_DASH = new RegExp(
+	`\\}(\\s*(?:${RULES.map((rule) => rule.pattern.source).join('|')})\\s*)\\{`,
+	'g',
+);
+
+/**
+ * Every slot-split dash in one file, as a piece of copy the rules can read.
+ *
+ * Off the masked source, so the shape inside a string, a template or a comment
+ * cannot match: a template's `${low} – ${high}` is blanked there and its fixed
+ * chunk is already a literal `copyStrings` handed over. Masking keeps every
+ * index, so the piece's index points into the source the way a literal's does
+ * and the reported line is the line the dash is on.
+ */
+function* slotDashes(masked) {
+	for (const match of masked.matchAll(SLOT_DASH)) {
+		yield { text: match[1], index: match.index + 1, kind: 'slot' };
+	}
 }
 
 /**
@@ -305,9 +413,10 @@ const QUOTES = new Set(["'", '"', '`']);
  *
  * `copyStrings` hands back the body and its index, and the two characters
  * either side of that body are the delimiters it sat behind. A whole literal
- * has a matching pair, and that is what tells the three shapes apart: a
- * template chunk between interpolations opens on a `}` or closes on a `$`, and
- * a run of JSX text opens on the `>` that closed the tag above it.
+ * has a matching pair, and that is what tells the other shapes apart: a
+ * template chunk between interpolations opens on a `}` or closes on a `$`, a
+ * run of JSX text opens on the `>` that closed the tag above it, and a
+ * slot-split run opens on the `}` that closed the slot before it.
  *
  * The backtick is in, because a template with no interpolation in it is a whole
  * literal. `` `—` `` is the same glyph as `'—'` and Biome leaves it alone.
