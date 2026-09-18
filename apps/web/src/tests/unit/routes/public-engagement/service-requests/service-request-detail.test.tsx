@@ -41,7 +41,7 @@ import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NearbyLayerConfig } from '../../../../../components/map/use-nearby-layer';
 import { habitat_types } from '../../../../../lib/collections/habitat_types';
 import { organizations } from '../../../../../lib/collections/organizations';
@@ -172,16 +172,19 @@ vi.mock('../../../../../components/map', async (importOriginal) => ({
 const REQUEST_ID = harness.params.id as string;
 
 let ServiceRequestDetail: () => ReactNode;
+let restorePanel: () => void;
 
 beforeAll(async () => {
 	// The rail's placeholder rows arrive in a Radix ScrollArea, which measures
 	// itself with a ResizeObserver jsdom has not got.
-	stubPanelLayout();
+	restorePanel = stubPanelLayout();
 	ServiceRequestDetail = await preloadRouteComponent(
 		() => import('../../../../../routes/public-engagement/service-requests/$id'),
 		'service request detail',
 	);
 }, 300_000);
+
+afterAll(() => restorePanel());
 
 beforeEach(() => {
 	installMemoryCollections();

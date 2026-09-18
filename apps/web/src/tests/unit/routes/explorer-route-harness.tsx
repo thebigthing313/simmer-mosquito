@@ -96,9 +96,30 @@ export function roleReaches(role: string, minimum: MinimumRole): boolean {
 
 /**
  * The panel measures the stage and its own box, and jsdom lays nothing out.
- * Every element reports one size.
+ * Every element reports one size, until the returned function is called.
+ *
+ * A module-scope call may ignore the return, since a stub for the whole file
+ * is what it means. A call inside a `beforeAll` is paired with the restore in
+ * an `afterAll`, because the three properties are process globals and a stub
+ * left on leaks into every later describe in the file (#1144). The restore
+ * re-defines the descriptor that was there and deletes the property where
+ * there was none, which is the shape `stubRailViewportHeight` restores with,
+ * so the two layer in either order.
  */
-export function stubPanelLayout(): void {
+export function stubPanelLayout(): () => void {
+	// Read inside the call rather than at module scope, so importing the
+	// harness under an environment with no `HTMLElement` does not throw.
+	const targets: readonly (readonly [object, string])[] = [
+		[globalThis, 'ResizeObserver'],
+		[HTMLElement.prototype, 'offsetHeight'],
+		[HTMLElement.prototype, 'offsetWidth'],
+	];
+	const previous = targets.map(([target, name]) => ({
+		target,
+		name,
+		descriptor: Object.getOwnPropertyDescriptor(target, name),
+	}));
+
 	Object.defineProperty(globalThis, 'ResizeObserver', {
 		configurable: true,
 		writable: true,
@@ -122,6 +143,16 @@ export function stubPanelLayout(): void {
 		configurable: true,
 		get: () => 1000,
 	});
+
+	return () => {
+		for (const { target, name, descriptor } of previous) {
+			if (descriptor === undefined) {
+				delete (target as Record<string, unknown>)[name];
+			} else {
+				Object.defineProperty(target, name, descriptor);
+			}
+		}
+	};
 }
 
 /**

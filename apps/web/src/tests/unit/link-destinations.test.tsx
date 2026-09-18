@@ -562,12 +562,16 @@ describe('the nearby list', () => {
 	// constructs a ResizeObserver jsdom has not got, and the virtualiser mounts
 	// the rows the viewport's `offsetHeight` holds plus overscan. The stub's
 	// docblock has the count; this height holds the whole list.
+	let restorePanel: () => void;
 	let restoreViewport: () => void;
 	beforeAll(() => {
-		stubPanelLayout();
+		restorePanel = stubPanelLayout();
 		restoreViewport = stubRailViewportHeight(CATEGORIES.length * STUB_ROW_HEIGHT);
 	});
-	afterAll(() => restoreViewport());
+	afterAll(() => {
+		restoreViewport();
+		restorePanel();
+	});
 
 	const DETAIL_PATH: Readonly<Record<NearbyCategory, string>> = {
 		habitat: '/larval-surveillance/habitats',
