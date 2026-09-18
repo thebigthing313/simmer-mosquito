@@ -124,28 +124,25 @@ function computeSegments(rows: readonly InspectionStatsRow[]): {
 export function HabitatInspectionStats({ habitatId }: { readonly habitatId: string }) {
 	// inspections is an on-demand collection: use the status-gated useLiveQuery
 	// pattern (not useLiveSuspenseQuery) to avoid the post-unmount suspense hang.
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: inspections() })
-					.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
-					.select(({ inspection }) => ({
-						id: inspection.id,
-						isWet: inspection.is_wet,
-						density: inspection.density,
-						larvaeCount: inspection.larvae_count,
-						hasEggs: inspection.has_eggs,
-						hasFirstInstar: inspection.has_first_instar,
-						hasSecondInstar: inspection.has_second_instar,
-						hasThirdInstar: inspection.has_third_instar,
-						hasFourthInstar: inspection.has_fourth_instar,
-						hasPupae: inspection.has_pupae,
-					})),
-		},
-		[habitatId],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ inspection: inspections() })
+				.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
+				.select(({ inspection }) => ({
+					id: inspection.id,
+					isWet: inspection.is_wet,
+					density: inspection.density,
+					larvaeCount: inspection.larvae_count,
+					hasEggs: inspection.has_eggs,
+					hasFirstInstar: inspection.has_first_instar,
+					hasSecondInstar: inspection.has_second_instar,
+					hasThirdInstar: inspection.has_third_instar,
+					hasFourthInstar: inspection.has_fourth_instar,
+					hasPupae: inspection.has_pupae,
+				})),
+	});
 
 	const rows: readonly InspectionStatsRow[] = result.data;
 	const { total, segments } = computeSegments(rows);

@@ -19,12 +19,10 @@ import { organizations } from '../../lib/collections/organizations';
 import type { OrganizationIdentity } from './organization-view';
 
 export function useOrganizationIdentity(): OrganizationIdentity | undefined {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ organization: organizations() })
-				.select(({ organization }) => ({ id: organization.id, name: organization.name })),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ organization: organizations() })
+			.select(({ organization }) => ({ id: organization.id, name: organization.name })),
 	);
 
 	return result.data[0];

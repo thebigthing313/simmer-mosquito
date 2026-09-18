@@ -28,8 +28,8 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.7.2",
-		"@tanstack/electric-db-collection": "0.3.18",
+		"@tanstack/db": "^0.9.2",
+		"@tanstack/electric-db-collection": "0.4.10",
 		"zod": "^4.4.3"
 	},
 	"types": "./dist/index.d.ts",

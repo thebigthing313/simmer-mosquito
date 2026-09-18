@@ -34,22 +34,19 @@ export function useRegionDirectory(): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ region: regions() })
-					.orderBy(({ region }) => region.name, 'asc')
-					.select(({ region }) => ({
-						id: region.id,
-						name: region.name,
-						description: region.description,
-						folderId: region.region_folder_id,
-					})),
-		},
-		[],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ region: regions() })
+				.orderBy(({ region }) => region.name, 'asc')
+				.select(({ region }) => ({
+					id: region.id,
+					name: region.name,
+					description: region.description,
+					folderId: region.region_folder_id,
+				})),
+	});
 
 	return { regions: result.data, isReady: result.isReady, isError: result.isError };
 }

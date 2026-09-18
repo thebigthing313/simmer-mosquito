@@ -32,21 +32,18 @@ export interface ApplicationBatchesResult {
 }
 
 export function useApplicationBatches(applicationId: string | null): ApplicationBatchesResult {
-	const result = useLiveQuery(
-		{
-			gcTime: applicationBatchesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ entry: application_batches() })
-					.where(({ entry }) => eq(entry.application_id, applicationId ?? unmatchableId))
-					.orderBy(({ entry }) => entry.created_at, 'asc')
-					.select(({ entry }) => ({
-						id: entry.id,
-						insecticideBatchId: entry.insecticide_batch_id,
-					})),
-		},
-		[applicationId],
-	);
+	const result = useLiveQuery({
+		gcTime: applicationBatchesGcTimeMs,
+		query: (query) =>
+			query
+				.from({ entry: application_batches() })
+				.where(({ entry }) => eq(entry.application_id, applicationId ?? unmatchableId))
+				.orderBy(({ entry }) => entry.created_at, 'asc')
+				.select(({ entry }) => ({
+					id: entry.id,
+					insecticideBatchId: entry.insecticide_batch_id,
+				})),
+	});
 
 	const rows = result.data;
 

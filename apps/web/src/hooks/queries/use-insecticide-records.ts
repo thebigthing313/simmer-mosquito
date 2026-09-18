@@ -47,26 +47,24 @@ export interface InsecticideBatchRecord {
 
 /** Every product, active ones first and then by trade name. */
 export function useInsecticideRecords(): readonly InsecticideRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: insecticides() })
-				.orderBy(({ row }) => row.is_active, 'desc')
-				.orderBy(({ row }) => row.trade_name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					tradeName: row.trade_name,
-					activeIngredient: row.active_ingredient,
-					type: row.type,
-					registrationNumber: row.registration_number,
-					defaultUnitId: row.default_unit_id,
-					labelUrl: row.label_url,
-					msdsUrl: row.msds_url,
-					shorthand: row.shorthand,
-					metadata: row.metadata,
-					isActive: row.is_active,
-				})),
-		[],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: insecticides() })
+			.orderBy(({ row }) => row.is_active, 'desc')
+			.orderBy(({ row }) => row.trade_name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				tradeName: row.trade_name,
+				activeIngredient: row.active_ingredient,
+				type: row.type,
+				registrationNumber: row.registration_number,
+				defaultUnitId: row.default_unit_id,
+				labelUrl: row.label_url,
+				msdsUrl: row.msds_url,
+				shorthand: row.shorthand,
+				metadata: row.metadata,
+				isActive: row.is_active,
+			})),
 	).data;
 }
 
@@ -75,24 +73,21 @@ export function useInsecticideBatches(insecticideId: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: batchesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ batch: insecticide_batches() })
-					.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
-					.orderBy(({ batch }) => batch.is_active, 'desc')
-					.orderBy(({ batch }) => batch.batch_name, 'asc')
-					.select(({ batch }) => ({
-						id: batch.id,
-						insecticideId: batch.insecticide_id,
-						batchName: batch.batch_name,
-						isActive: batch.is_active,
-					})),
-		},
-		[insecticideId],
-	);
+	const result = useLiveQuery({
+		gcTime: batchesGcTimeMs,
+		query: (query) =>
+			query
+				.from({ batch: insecticide_batches() })
+				.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
+				.orderBy(({ batch }) => batch.is_active, 'desc')
+				.orderBy(({ batch }) => batch.batch_name, 'asc')
+				.select(({ batch }) => ({
+					id: batch.id,
+					insecticideId: batch.insecticide_id,
+					batchName: batch.batch_name,
+					isActive: batch.is_active,
+				})),
+	});
 
 	return {
 		batches: result.data ?? [],

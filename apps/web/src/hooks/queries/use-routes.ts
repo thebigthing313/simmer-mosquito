@@ -32,17 +32,15 @@ export function useRouteCatalog(): {
 	readonly routes: readonly RouteCatalogEntry[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ route: routes() })
-				.orderBy(({ route }) => route.route_name, 'asc')
-				.select(({ route }) => ({
-					id: route.id,
-					routeName: route.route_name,
-					routeType: route.route_type,
-				})),
-		[],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ route: routes() })
+			.orderBy(({ route }) => route.route_name, 'asc')
+			.select(({ route }) => ({
+				id: route.id,
+				routeName: route.route_name,
+				routeType: route.route_type,
+			})),
 	);
 
 	return { routes: result.data, isReady: result.isReady };
@@ -59,17 +57,14 @@ export function useRouteStopCounts(): {
 	readonly countByRouteId: ReadonlyMap<string, number>;
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: routeItemsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: route_items() })
-					.groupBy(({ item }) => item.route_id)
-					.select(({ item }) => ({ routeId: item.route_id, stops: count(item.id) })),
-		},
-		[],
-	);
+	const result = useLiveQuery({
+		gcTime: routeItemsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: route_items() })
+				.groupBy(({ item }) => item.route_id)
+				.select(({ item }) => ({ routeId: item.route_id, stops: count(item.id) })),
+	});
 
 	const rows = result.data;
 

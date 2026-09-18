@@ -82,101 +82,86 @@ export function useLinkedControlActions(inspectionId: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const applicationResult = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: applications() })
-					.where(({ application }) => eq(application.inspection_id, inspectionId))
-					.select(({ application }) => ({
-						id: application.id,
-						date: application.application_date,
-						actorProfileId: application.applicator_profile_id,
-						insecticideId: application.insecticide_id,
-						amount: application.amount_applied,
-						unitId: application.application_unit_id,
-					})),
-		},
-		[inspectionId],
-	);
+	const applicationResult = useLiveQuery({
+		gcTime: linkedActionsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ application: applications() })
+				.where(({ application }) => eq(application.inspection_id, inspectionId))
+				.select(({ application }) => ({
+					id: application.id,
+					date: application.application_date,
+					actorProfileId: application.applicator_profile_id,
+					insecticideId: application.insecticide_id,
+					amount: application.amount_applied,
+					unitId: application.application_unit_id,
+				})),
+	});
 
-	const sourceReductionResult = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sourceReduction: source_reductions() })
-					.where(({ sourceReduction }) => eq(sourceReduction.inspection_id, inspectionId))
-					.select(({ sourceReduction }) => ({
-						id: sourceReduction.id,
-						date: sourceReduction.source_reduction_date,
-						actorProfileId: sourceReduction.technician_profile_id,
-						methodId: sourceReduction.source_reduction_method_id,
-						amount: sourceReduction.sources_eliminated_amount,
-						unitId: sourceReduction.sources_eliminated_unit_id,
-					})),
-		},
-		[inspectionId],
-	);
+	const sourceReductionResult = useLiveQuery({
+		gcTime: linkedActionsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ sourceReduction: source_reductions() })
+				.where(({ sourceReduction }) => eq(sourceReduction.inspection_id, inspectionId))
+				.select(({ sourceReduction }) => ({
+					id: sourceReduction.id,
+					date: sourceReduction.source_reduction_date,
+					actorProfileId: sourceReduction.technician_profile_id,
+					methodId: sourceReduction.source_reduction_method_id,
+					amount: sourceReduction.sources_eliminated_amount,
+					unitId: sourceReduction.sources_eliminated_unit_id,
+				})),
+	});
 
-	const outreachResult = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ outreachAction: outreach_actions() })
-					.where(({ outreachAction }) => eq(outreachAction.inspection_id, inspectionId))
-					.select(({ outreachAction }) => ({
-						id: outreachAction.id,
-						date: outreachAction.outreach_date,
-						actorProfileId: outreachAction.technician_profile_id,
-						methodId: outreachAction.outreach_method_id,
-						reach: outreachAction.reach,
-					})),
-		},
-		[inspectionId],
-	);
+	const outreachResult = useLiveQuery({
+		gcTime: linkedActionsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ outreachAction: outreach_actions() })
+				.where(({ outreachAction }) => eq(outreachAction.inspection_id, inspectionId))
+				.select(({ outreachAction }) => ({
+					id: outreachAction.id,
+					date: outreachAction.outreach_date,
+					actorProfileId: outreachAction.technician_profile_id,
+					methodId: outreachAction.outreach_method_id,
+					reach: outreachAction.reach,
+				})),
+	});
 
-	const biocontrolResult = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ biocontrolAction: biocontrol_actions() })
-					.where(({ biocontrolAction }) => eq(biocontrolAction.inspection_id, inspectionId))
-					.select(({ biocontrolAction }) => ({
-						id: biocontrolAction.id,
-						date: biocontrolAction.biocontrol_date,
-						actorProfileId: biocontrolAction.technician_profile_id,
-						methodId: biocontrolAction.biocontrol_method_id,
-						amount: biocontrolAction.amount_released,
-						unitId: biocontrolAction.release_unit_id,
-					})),
-		},
-		[inspectionId],
-	);
+	const biocontrolResult = useLiveQuery({
+		gcTime: linkedActionsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ biocontrolAction: biocontrol_actions() })
+				.where(({ biocontrolAction }) => eq(biocontrolAction.inspection_id, inspectionId))
+				.select(({ biocontrolAction }) => ({
+					id: biocontrolAction.id,
+					date: biocontrolAction.biocontrol_date,
+					actorProfileId: biocontrolAction.technician_profile_id,
+					methodId: biocontrolAction.biocontrol_method_id,
+					amount: biocontrolAction.amount_released,
+					unitId: biocontrolAction.release_unit_id,
+				})),
+	});
 
-	const requestedResult = useLiveQuery(
-		{
-			gcTime: linkedActionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ requestedControlAction: requested_control_actions() })
-					.where(({ requestedControlAction }) =>
-						eq(requestedControlAction.inspection_id, inspectionId),
-					)
-					.select(({ requestedControlAction }) => ({
-						id: requestedControlAction.id,
-						date: requestedControlAction.requested_at,
-						actorProfileId: requestedControlAction.requested_by_profile_id,
-						controlType: requestedControlAction.control_type,
-						summary: requestedControlAction.summary,
-						resolvedAt: requestedControlAction.resolved_at,
-					})),
-		},
-		[inspectionId],
-	);
+	const requestedResult = useLiveQuery({
+		gcTime: linkedActionsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ requestedControlAction: requested_control_actions() })
+				.where(({ requestedControlAction }) =>
+					eq(requestedControlAction.inspection_id, inspectionId),
+				)
+				.select(({ requestedControlAction }) => ({
+					id: requestedControlAction.id,
+					date: requestedControlAction.requested_at,
+					actorProfileId: requestedControlAction.requested_by_profile_id,
+					controlType: requestedControlAction.control_type,
+					summary: requestedControlAction.summary,
+					resolvedAt: requestedControlAction.resolved_at,
+				})),
+	});
 
 	const results = [
 		applicationResult,

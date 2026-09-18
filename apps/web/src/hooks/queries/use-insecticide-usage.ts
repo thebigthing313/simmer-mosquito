@@ -30,27 +30,24 @@ export function useInsecticideUsage(sinceDate: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: applications() })
-					.where(({ application }) => gte(application.application_date, sinceDate))
-					.join(
-						{ product: insecticides() },
-						({ application, product }) => eq(application.insecticide_id, product.id),
-						'left',
-					)
-					.select(({ application, product }) => ({
-						insecticideId: application.insecticide_id,
-						name: coalesce(product.trade_name, 'Unknown insecticide'),
-						amountApplied: application.amount_applied,
-						unitId: application.application_unit_id,
-					})),
-		},
-		[sinceDate],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ application: applications() })
+				.where(({ application }) => gte(application.application_date, sinceDate))
+				.join(
+					{ product: insecticides() },
+					({ application, product }) => eq(application.insecticide_id, product.id),
+					'left',
+				)
+				.select(({ application, product }) => ({
+					insecticideId: application.insecticide_id,
+					name: coalesce(product.trade_name, 'Unknown insecticide'),
+					amountApplied: application.amount_applied,
+					unitId: application.application_unit_id,
+				})),
+	});
 
 	const rows = result.data;
 

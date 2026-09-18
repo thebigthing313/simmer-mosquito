@@ -261,17 +261,14 @@ function ApplicationBatchesCard({
 
 	// insecticide_batches is on-demand too; only this product's batches can be
 	// linked, so scope the subset to the applied insecticide.
-	const batchResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ batch: insecticide_batches() })
-					.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
-					.orderBy(({ batch }) => batch.batch_name, 'asc'),
-		},
-		[application.insecticideId],
-	);
+	const batchResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ batch: insecticide_batches() })
+				.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
+				.orderBy(({ batch }) => batch.batch_name, 'asc'),
+	});
 	const productBatches = batchResult.data;
 	const batchNameById = nameById(productBatches, (batch) => batch.batch_name);
 

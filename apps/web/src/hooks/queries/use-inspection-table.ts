@@ -158,9 +158,10 @@ export interface InspectionTableFilters {
  * URLs that select the same ids in a different order are one window rather than
  * two.
  *
- * It is also the hook's dependency list. The filters object is rebuilt on every
- * render, so depending on it directly would rebuild the query on every render;
- * depending on this rebuilds it exactly when the window resets.
+ * The live query itself no longer reads it: `useLiveQuery` derives the query's
+ * identity from the expression tree it builds, which reads the filters by value,
+ * so a filters object rebuilt on every render is the same query until a value
+ * in it moves.
  */
 export function inspectionWindowKey(sort: InspectionSort, filters: InspectionTableFilters): string {
 	return [
@@ -214,132 +215,129 @@ export function useInspectionTable(
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			query: (query) =>
-				query
-					.from({ inspection: inspections() })
-					.where(({ inspection }) => {
-						const clauses = [
-							filters.dateFrom === '' ? null : gte(inspection.inspection_date, filters.dateFrom),
-							filters.dateTo === '' ? null : lte(inspection.inspection_date, filters.dateTo),
-							filters.isWet === null ? null : eq(inspection.is_wet, filters.isWet),
-							filters.densities.size === 0
-								? null
-								: inArray(inspection.density, [...filters.densities]),
-							// Any of the six, which is what "larvae found" means on a
-							// record that counts stages rather than a total.
-							filters.larvaeFound
-								? or(
-										eq(inspection.has_eggs, true),
-										eq(inspection.has_first_instar, true),
-										eq(inspection.has_second_instar, true),
-										eq(inspection.has_third_instar, true),
-										eq(inspection.has_fourth_instar, true),
-										eq(inspection.has_pupae, true),
-									)
-								: null,
-							filters.habitatTypeIds.size === 0
-								? null
-								: inArray(inspection.habitat_type_id, [...filters.habitatTypeIds]),
-							filters.inspectedByProfileIds.size === 0
-								? null
-								: inArray(inspection.inspected_by_profile_id, [...filters.inspectedByProfileIds]),
-						];
-						// `id` is the primary key, so `IS NOT NULL` over it is "every
-						// row" without inventing a column to say it with.
-						return allOf(clauses, not(isNull(inspection.id)));
-					})
-					// `left` throughout: an Ad Hoc Inspection has no Habitat, an inspection
-					// need not name a type or an Address, and nobody may have been recorded
-					// as inspector. An `inner` join would drop those rows off the table.
-					.join(
-						{ habitat: habitats() },
-						({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
-						'left',
-					)
-					.join(
-						{ type: habitat_types() },
-						({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
-						'left',
-					)
-					.join(
-						{ inspector: profiles() },
-						({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
-						'left',
-					)
-					.join(
-						{ address: addresses() },
-						({ inspection, address }) => eq(inspection.address_id, address.id),
-						'left',
-					)
-					.orderBy(
-						({ inspection }) => {
-							const columns = {
-								date: inspection.inspection_date,
-								water: inspection.is_wet,
-								dips: inspection.dip_count,
-								larvae: inspection.larvae_count,
-							} satisfies Record<InspectionSortKey, unknown>;
-							return columns[sort.key];
-						},
-						// `nulls` is part of what the collection's index is built with, so
-						// the two declarations agree or the cursor is silently dropped.
-						// `compileOrderByClause` in `@tanstack/electric-db-collection`
-						// writes it into the shape's `order_by` as well, so Postgres is
-						// told `NULLS LAST` in both directions. That keeps an inspection
-						// nobody counted out of the top of "most dips first", and out of
-						// the top of the other end too, where it would read as a zero.
-						{ direction: sort.direction, nulls: 'last' },
-					)
-					// `created_at` breaks the tie and gets no column of its own. A day's
-					// work is entered in the order it was done, so without it the rows
-					// within a date come back in whatever order the engine keyed them and
-					// move under the reader as the next window arrives.
-					.orderBy(({ inspection }) => inspection.created_at, 'desc')
-					.limit(limit)
-					.select(({ inspection, habitat, type, inspector, address }) => ({
-						id: inspection.id,
-						inspectionDate: inspection.inspection_date,
-						inspectedByProfileId: inspection.inspected_by_profile_id,
-						// Guarded on the inspection's own column rather than read off the
-						// joined row: an unmatched `left` join yields `undefined` for every
-						// `x.*`, and the guard is what turns that into the `null` this row
-						// speaks in.
-						inspectedByName: caseWhen(
-							isNull(inspection.inspected_by_profile_id),
-							null,
-							inspector.display_name,
-						),
-						isWet: inspection.is_wet,
-						dipCount: inspection.dip_count,
-						density: inspection.density,
-						larvaeCount: inspection.larvae_count,
+	const result = useLiveQuery({
+		query: (query) =>
+			query
+				.from({ inspection: inspections() })
+				.where(({ inspection }) => {
+					const clauses = [
+						filters.dateFrom === '' ? null : gte(inspection.inspection_date, filters.dateFrom),
+						filters.dateTo === '' ? null : lte(inspection.inspection_date, filters.dateTo),
+						filters.isWet === null ? null : eq(inspection.is_wet, filters.isWet),
+						filters.densities.size === 0
+							? null
+							: inArray(inspection.density, [...filters.densities]),
+						// Any of the six, which is what "larvae found" means on a
+						// record that counts stages rather than a total.
+						filters.larvaeFound
+							? or(
+									eq(inspection.has_eggs, true),
+									eq(inspection.has_first_instar, true),
+									eq(inspection.has_second_instar, true),
+									eq(inspection.has_third_instar, true),
+									eq(inspection.has_fourth_instar, true),
+									eq(inspection.has_pupae, true),
+								)
+							: null,
+						filters.habitatTypeIds.size === 0
+							? null
+							: inArray(inspection.habitat_type_id, [...filters.habitatTypeIds]),
+						filters.inspectedByProfileIds.size === 0
+							? null
+							: inArray(inspection.inspected_by_profile_id, [...filters.inspectedByProfileIds]),
+					];
+					// `id` is the primary key, so `IS NOT NULL` over it is "every
+					// row" without inventing a column to say it with.
+					return allOf(clauses, not(isNull(inspection.id)));
+				})
+				// `left` throughout: an Ad Hoc Inspection has no Habitat, an inspection
+				// need not name a type or an Address, and nobody may have been recorded
+				// as inspector. An `inner` join would drop those rows off the table.
+				.join(
+					{ habitat: habitats() },
+					({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
+					'left',
+				)
+				.join(
+					{ type: habitat_types() },
+					({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
+					'left',
+				)
+				.join(
+					{ inspector: profiles() },
+					({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
+					'left',
+				)
+				.join(
+					{ address: addresses() },
+					({ inspection, address }) => eq(inspection.address_id, address.id),
+					'left',
+				)
+				.orderBy(
+					({ inspection }) => {
+						const columns = {
+							date: inspection.inspection_date,
+							water: inspection.is_wet,
+							dips: inspection.dip_count,
+							larvae: inspection.larvae_count,
+						} satisfies Record<InspectionSortKey, unknown>;
+						return columns[sort.key];
+					},
+					// `nulls` is part of what the collection's index is built with, so
+					// the two declarations agree or the cursor is silently dropped.
+					// `compileOrderByClause` in `@tanstack/electric-db-collection`
+					// writes it into the shape's `order_by` as well, so Postgres is
+					// told `NULLS LAST` in both directions. That keeps an inspection
+					// nobody counted out of the top of "most dips first", and out of
+					// the top of the other end too, where it would read as a zero.
+					{ direction: sort.direction, nulls: 'last' },
+				)
+				// `created_at` breaks the tie and gets no column of its own. A day's
+				// work is entered in the order it was done, so without it the rows
+				// within a date come back in whatever order the engine keyed them and
+				// move under the reader as the next window arrives.
+				.orderBy(({ inspection }) => inspection.created_at, 'desc')
+				.limit(limit)
+				.select(({ inspection, habitat, type, inspector, address }) => ({
+					id: inspection.id,
+					inspectionDate: inspection.inspection_date,
+					inspectedByProfileId: inspection.inspected_by_profile_id,
+					// Guarded on the inspection's own column rather than read off the
+					// joined row: an unmatched `left` join yields `undefined` for every
+					// `x.*`, and the guard is what turns that into the `null` this row
+					// speaks in.
+					inspectedByName: caseWhen(
+						isNull(inspection.inspected_by_profile_id),
+						null,
+						inspector.display_name,
+					),
+					isWet: inspection.is_wet,
+					dipCount: inspection.dip_count,
+					density: inspection.density,
+					larvaeCount: inspection.larvae_count,
 
-						habitatId: inspection.habitat_id,
-						// Guarded on the joined row and not on `habitat_id`: the row can be
-						// arriving, and `habitat-view.ts` says what that reads as (#998). In
-						// the `select` and not the `where`, which is what keeps the window's
-						// cursor on `inspections`.
-						habitatName: joinedHabitatNameSelect(habitat),
-						habitatTypeId: inspection.habitat_type_id,
-						typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
+					habitatId: inspection.habitat_id,
+					// Guarded on the joined row and not on `habitat_id`: the row can be
+					// arriving, and `habitat-view.ts` says what that reads as (#998). In
+					// the `select` and not the `where`, which is what keeps the window's
+					// cursor on `inspections`.
+					habitatName: joinedHabitatNameSelect(habitat),
+					habitatTypeId: inspection.habitat_type_id,
+					typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
 
-						latitude: inspection.lat,
-						longitude: inspection.lng,
+					latitude: inspection.lat,
+					longitude: inspection.lng,
 
-						address: addressSelect(address),
+					address: addressSelect(address),
 
-						hasEggs: inspection.has_eggs,
-						hasFirstInstar: inspection.has_first_instar,
-						hasSecondInstar: inspection.has_second_instar,
-						hasThirdInstar: inspection.has_third_instar,
-						hasFourthInstar: inspection.has_fourth_instar,
-						hasPupae: inspection.has_pupae,
-					})),
-		},
-		[inspectionWindowKey(sort, filters), limit],
-	);
+					hasEggs: inspection.has_eggs,
+					hasFirstInstar: inspection.has_first_instar,
+					hasSecondInstar: inspection.has_second_instar,
+					hasThirdInstar: inspection.has_third_instar,
+					hasFourthInstar: inspection.has_fourth_instar,
+					hasPupae: inspection.has_pupae,
+				})),
+	});
 
 	return { rows: result.data, isReady: result.isReady, isError: result.isError };
 }

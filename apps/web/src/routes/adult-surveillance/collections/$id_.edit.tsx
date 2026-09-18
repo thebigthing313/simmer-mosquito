@@ -174,7 +174,6 @@ function EditCollectionLoader({
 			}
 			lockSourceMode
 			onSave={onSave}
-			organizationId={collection.organizationId}
 			profiles={profiles}
 			traps={traps}
 			units={units}

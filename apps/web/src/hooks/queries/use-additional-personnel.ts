@@ -51,23 +51,20 @@ export function useAdditionalPersonnel(
 ): AdditionalPersonnelResult {
 	const entityType = toDbEntityType(target.type);
 
-	const result = useLiveQuery(
-		{
-			gcTime: additionalPersonnelGcTimeMs,
-			query: (query) =>
-				query
-					.from({ personnel: additional_personnel() })
-					.where(({ personnel }) =>
-						and(eq(personnel.entity_type, entityType), eq(personnel.entity_id, target.id)),
-					)
-					.orderBy(({ personnel }) => personnel.created_at, 'asc')
-					.select(({ personnel }) => ({
-						id: personnel.id,
-						personnelProfileId: personnel.personnel_profile_id,
-					})),
-		},
-		[entityType, target.id],
-	);
+	const result = useLiveQuery({
+		gcTime: additionalPersonnelGcTimeMs,
+		query: (query) =>
+			query
+				.from({ personnel: additional_personnel() })
+				.where(({ personnel }) =>
+					and(eq(personnel.entity_type, entityType), eq(personnel.entity_id, target.id)),
+				)
+				.orderBy(({ personnel }) => personnel.created_at, 'asc')
+				.select(({ personnel }) => ({
+					id: personnel.id,
+					personnelProfileId: personnel.personnel_profile_id,
+				})),
+	});
 
 	const rows = result.data;
 

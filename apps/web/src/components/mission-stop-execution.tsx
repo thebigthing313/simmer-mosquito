@@ -143,21 +143,18 @@ export function useMissionStopExecution(search: {
 	// The stop's own centroid, for the optimistic row when nothing was drawn.
 	// Subscribing also warms the on-demand stream this page is about to write
 	// against, which is what keeps the write's txid confirmation from timing out.
-	const stopResult = useLiveQuery(
-		{
-			gcTime: missionStopGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: mission_items() })
-					.where(({ item }) => eq(item.id, missionItemId ?? unmatchableId))
-					.select(({ item }) => ({
-						lat: item.lat,
-						lng: item.lng,
-						geomType: item.geom_type,
-					})),
-		},
-		[missionItemId],
-	);
+	const stopResult = useLiveQuery({
+		gcTime: missionStopGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: mission_items() })
+				.where(({ item }) => eq(item.id, missionItemId ?? unmatchableId))
+				.select(({ item }) => ({
+					lat: item.lat,
+					lng: item.lng,
+					geomType: item.geom_type,
+				})),
+	});
 	const stop = stopResult.data[0] ?? null;
 
 	const resolveLocation = (geometry: unknown, messages: LocationMessages): ResolvedActionLocation =>

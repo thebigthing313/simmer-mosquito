@@ -50,17 +50,15 @@ export function useUnitLabels(): {
 	readonly byId: ReadonlyMap<string, UnitLabel>;
 	readonly byCode: ReadonlyMap<string, UnitLabel>;
 } {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query.from({ unit: units() }).select(({ unit }) => ({
-				id: unit.id,
-				code: unit.code,
-				abbreviation: unit.abbreviation,
-				unitName: unit.unit_name,
-				unitType: unit.unit_type,
-				unitSystem: unit.unit_system,
-			})),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query.from({ unit: units() }).select(({ unit }) => ({
+			id: unit.id,
+			code: unit.code,
+			abbreviation: unit.abbreviation,
+			unitName: unit.unit_name,
+			unitType: unit.unit_type,
+			unitSystem: unit.unit_system,
+		})),
 	);
 
 	const rows = result.data;

@@ -59,57 +59,49 @@ export function useRecentCollections(
 	readonly isError: boolean;
 } {
 	const sinceInstant = localDayStartAsInstant(sinceDate, timeZone);
-	const sinceMs = sinceInstant.getTime();
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: collections() })
-					.where(({ collection }) =>
-						or(
-							gte(collection.collected_at, sinceInstant),
-							gte(collection.collection_date, sinceDate),
-						),
-					)
-					// `left` throughout: an ad-hoc collection names no trap and nobody need
-					// have been recorded as collector.
-					.join(
-						{ trap: traps() },
-						({ collection, trap }) => eq(collection.trap_id, trap.id),
-						'left',
-					)
-					.join(
-						{ method: collection_methods() },
-						({ collection, method }) => eq(collection.collection_method_id, method.id),
-						'left',
-					)
-					.join(
-						{ collector: profiles() },
-						({ collection, collector }) => eq(collection.collected_by_profile_id, collector.id),
-						'left',
-					)
-					.select(({ collection, trap, method, collector }) => ({
-						id: collection.id,
-						trapId: collection.trap_id,
-						trapName: coalesce(trap.trap_name, null),
-						trapCode: coalesce(trap.trap_code, null),
-						methodId: collection.collection_method_id,
-						methodName: coalesce(method.name, 'Unknown method'),
-						addressId: collection.address_id,
-						collectedAt: collection.collected_at,
-						collectionDate: collection.collection_date,
-						collectionTimingMode: collection.collection_timing_mode,
-						collectedByProfileId: collection.collected_by_profile_id,
-						collectedByName: coalesce(collector.display_name, null),
-						hasProblem: collection.has_problem,
-						isZeroResult: collection.is_zero_result,
-						hasBycatch: collection.has_bycatch,
-					})),
-		},
-		[sinceDate, sinceMs],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ collection: collections() })
+				.where(({ collection }) =>
+					or(
+						gte(collection.collected_at, sinceInstant),
+						gte(collection.collection_date, sinceDate),
+					),
+				)
+				// `left` throughout: an ad-hoc collection names no trap and nobody need
+				// have been recorded as collector.
+				.join({ trap: traps() }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
+				.join(
+					{ method: collection_methods() },
+					({ collection, method }) => eq(collection.collection_method_id, method.id),
+					'left',
+				)
+				.join(
+					{ collector: profiles() },
+					({ collection, collector }) => eq(collection.collected_by_profile_id, collector.id),
+					'left',
+				)
+				.select(({ collection, trap, method, collector }) => ({
+					id: collection.id,
+					trapId: collection.trap_id,
+					trapName: coalesce(trap.trap_name, null),
+					trapCode: coalesce(trap.trap_code, null),
+					methodId: collection.collection_method_id,
+					methodName: coalesce(method.name, 'Unknown method'),
+					addressId: collection.address_id,
+					collectedAt: collection.collected_at,
+					collectionDate: collection.collection_date,
+					collectionTimingMode: collection.collection_timing_mode,
+					collectedByProfileId: collection.collected_by_profile_id,
+					collectedByName: coalesce(collector.display_name, null),
+					hasProblem: collection.has_problem,
+					isZeroResult: collection.is_zero_result,
+					hasBycatch: collection.has_bycatch,
+				})),
+	});
 
 	const rows = result.data;
 	// Sorted here rather than in the query — see `compareByCollectionDateDesc`.

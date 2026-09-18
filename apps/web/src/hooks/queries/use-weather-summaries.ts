@@ -120,18 +120,15 @@ export function useWeatherSummaryYears(stationId: string | null): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: summariesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ summary: weather_summaries() })
-					.where(({ summary }) => eq(summary.weather_source_id, stationId ?? unmatchableId))
-					.orderBy(({ summary }) => summary.end_date, 'desc')
-					.select(({ summary }) => ({ id: summary.id, endDate: summary.end_date })),
-		},
-		[stationId],
-	);
+	const result = useLiveQuery({
+		gcTime: summariesGcTimeMs,
+		query: (query) =>
+			query
+				.from({ summary: weather_summaries() })
+				.where(({ summary }) => eq(summary.weather_source_id, stationId ?? unmatchableId))
+				.orderBy(({ summary }) => summary.end_date, 'desc')
+				.select(({ summary }) => ({ id: summary.id, endDate: summary.end_date })),
+	});
 
 	// Newest first off the query already, so the first sighting of a year is its
 	// place in the list and nothing is sorted here.
@@ -154,35 +151,32 @@ function useStationSummaries(
 	const source = stationId ?? unmatchableId;
 	const { from, to } = window;
 
-	const result = useLiveQuery(
-		{
-			gcTime: summariesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ summary: weather_summaries() })
-					.where(({ summary }) =>
-						and(
-							eq(summary.weather_source_id, source),
-							gte(summary.end_date, from),
-							lte(summary.end_date, to),
-						),
-					)
-					.orderBy(({ summary }) => summary.end_date, 'desc')
-					.select(({ summary }) => ({
-						id: summary.id,
-						startDate: summary.start_date,
-						endDate: summary.end_date,
-						temperatureMinF: summary.temperature_min_f,
-						temperatureMaxF: summary.temperature_max_f,
-						precipitationInches: summary.precipitation_inches,
-						relativeHumidityMin: summary.relative_humidity_min,
-						relativeHumidityMax: summary.relative_humidity_max,
-						windSpeedMinMph: summary.wind_speed_min_mph,
-						windSpeedMaxMph: summary.wind_speed_max_mph,
-					})),
-		},
-		[source, from, to],
-	);
+	const result = useLiveQuery({
+		gcTime: summariesGcTimeMs,
+		query: (query) =>
+			query
+				.from({ summary: weather_summaries() })
+				.where(({ summary }) =>
+					and(
+						eq(summary.weather_source_id, source),
+						gte(summary.end_date, from),
+						lte(summary.end_date, to),
+					),
+				)
+				.orderBy(({ summary }) => summary.end_date, 'desc')
+				.select(({ summary }) => ({
+					id: summary.id,
+					startDate: summary.start_date,
+					endDate: summary.end_date,
+					temperatureMinF: summary.temperature_min_f,
+					temperatureMaxF: summary.temperature_max_f,
+					precipitationInches: summary.precipitation_inches,
+					relativeHumidityMin: summary.relative_humidity_min,
+					relativeHumidityMax: summary.relative_humidity_max,
+					windSpeedMinMph: summary.wind_speed_min_mph,
+					windSpeedMaxMph: summary.wind_speed_max_mph,
+				})),
+	});
 
 	return { summaries: result.data, isReady: result.isReady, isError: result.isError };
 }

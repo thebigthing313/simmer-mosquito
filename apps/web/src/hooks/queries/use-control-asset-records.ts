@@ -37,22 +37,20 @@ export function useVehicleRecords(): CatalogRecords<ControlAssetRecord> {
 }
 
 function useVehicleHalf(isActive: boolean): readonly ControlAssetRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: vehicles() })
-				.where(({ row }) => eq(row.is_active, isActive))
-				.orderBy(({ row }) => row.vehicle_name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					name: row.vehicle_name,
-					// A literal rather than a column, so the two records are one shape
-					// and the page never asks which table a row came from.
-					serialNumber: null as string | null,
-					metadata: row.metadata,
-					isActive: row.is_active,
-				})),
-		[isActive],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: vehicles() })
+			.where(({ row }) => eq(row.is_active, isActive))
+			.orderBy(({ row }) => row.vehicle_name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				name: row.vehicle_name,
+				// A literal rather than a column, so the two records are one shape
+				// and the page never asks which table a row came from.
+				serialNumber: null as string | null,
+				metadata: row.metadata,
+				isActive: row.is_active,
+			})),
 	).data;
 }
 
@@ -64,19 +62,17 @@ export function useEquipmentRecords(): CatalogRecords<ControlAssetRecord> {
 }
 
 function useEquipmentHalf(isActive: boolean): readonly ControlAssetRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: equipment() })
-				.where(({ row }) => eq(row.is_active, isActive))
-				.orderBy(({ row }) => row.equipment_name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					name: row.equipment_name,
-					serialNumber: row.serial_number,
-					metadata: row.metadata,
-					isActive: row.is_active,
-				})),
-		[isActive],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: equipment() })
+			.where(({ row }) => eq(row.is_active, isActive))
+			.orderBy(({ row }) => row.equipment_name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				name: row.equipment_name,
+				serialNumber: row.serial_number,
+				metadata: row.metadata,
+				isActive: row.is_active,
+			})),
 	).data;
 }

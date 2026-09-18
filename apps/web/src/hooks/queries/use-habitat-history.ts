@@ -166,116 +166,104 @@ export interface HabitatHistory {
 }
 
 export function useHabitatHistory(habitatId: string): HabitatHistory {
-	const inspectionResult = useLiveQuery(
-		{
-			gcTime: historyGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: inspections() })
-					.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
-					.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
-					.select(({ inspection }) => ({
-						id: inspection.id,
-						inspectionDate: inspection.inspection_date,
-						inspectedByProfileId: inspection.inspected_by_profile_id,
-						isWet: inspection.is_wet,
-						dipCount: inspection.dip_count,
-						density: inspection.density,
-						larvaeCount: inspection.larvae_count,
-						hasEggs: inspection.has_eggs,
-						hasFirstInstar: inspection.has_first_instar,
-						hasSecondInstar: inspection.has_second_instar,
-						hasThirdInstar: inspection.has_third_instar,
-						hasFourthInstar: inspection.has_fourth_instar,
-						hasPupae: inspection.has_pupae,
-						samples: toArray(
-							query
-								.from({ sample: samples() })
-								.where(({ sample }) => eq(sample.inspection_id, inspection.id))
-								.select(({ sample }) => ({
-									id: sample.id,
-									inspectionId: sample.inspection_id,
-									displayName: sample.display_name,
-									isZeroLarvae: sample.is_zero_larvae,
-									hasNonMosquito: sample.has_non_mosquito,
-									unidentifiableReason: sample.unidentifiable_reason,
-									species: toArray(
-										query
-											.from({ species: sample_species() })
-											.where(({ species }) => eq(species.sample_id, sample.id))
-											.select(({ species }) => ({
-												id: species.id,
-												speciesId: species.species_id,
-												larvaeCount: species.larvae_count,
-											})),
-									),
-								})),
-						),
-					})),
-		},
-		[habitatId],
-	);
+	const inspectionResult = useLiveQuery({
+		gcTime: historyGcTimeMs,
+		query: (query) =>
+			query
+				.from({ inspection: inspections() })
+				.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
+				.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
+				.select(({ inspection }) => ({
+					id: inspection.id,
+					inspectionDate: inspection.inspection_date,
+					inspectedByProfileId: inspection.inspected_by_profile_id,
+					isWet: inspection.is_wet,
+					dipCount: inspection.dip_count,
+					density: inspection.density,
+					larvaeCount: inspection.larvae_count,
+					hasEggs: inspection.has_eggs,
+					hasFirstInstar: inspection.has_first_instar,
+					hasSecondInstar: inspection.has_second_instar,
+					hasThirdInstar: inspection.has_third_instar,
+					hasFourthInstar: inspection.has_fourth_instar,
+					hasPupae: inspection.has_pupae,
+					samples: toArray(
+						query
+							.from({ sample: samples() })
+							.where(({ sample }) => eq(sample.inspection_id, inspection.id))
+							.select(({ sample }) => ({
+								id: sample.id,
+								inspectionId: sample.inspection_id,
+								displayName: sample.display_name,
+								isZeroLarvae: sample.is_zero_larvae,
+								hasNonMosquito: sample.has_non_mosquito,
+								unidentifiableReason: sample.unidentifiable_reason,
+								species: toArray(
+									query
+										.from({ species: sample_species() })
+										.where(({ species }) => eq(species.sample_id, sample.id))
+										.select(({ species }) => ({
+											id: species.id,
+											speciesId: species.species_id,
+											larvaeCount: species.larvae_count,
+										})),
+								),
+							})),
+					),
+				})),
+	});
 
-	const applicationResult = useLiveQuery(
-		{
-			gcTime: historyGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: applications() })
-					.where(({ application }) => eq(application.habitat_id, habitatId))
-					.orderBy(({ application }) => application.application_date, 'desc')
-					.select(({ application }) => ({
-						id: application.id,
-						applicationDate: application.application_date,
-						applicatorProfileId: application.applicator_profile_id,
-						insecticideId: application.insecticide_id,
-						applicationMethodId: application.application_method_id,
-						amountApplied: application.amount_applied,
-						applicationUnitId: application.application_unit_id,
-					})),
-		},
-		[habitatId],
-	);
+	const applicationResult = useLiveQuery({
+		gcTime: historyGcTimeMs,
+		query: (query) =>
+			query
+				.from({ application: applications() })
+				.where(({ application }) => eq(application.habitat_id, habitatId))
+				.orderBy(({ application }) => application.application_date, 'desc')
+				.select(({ application }) => ({
+					id: application.id,
+					applicationDate: application.application_date,
+					applicatorProfileId: application.applicator_profile_id,
+					insecticideId: application.insecticide_id,
+					applicationMethodId: application.application_method_id,
+					amountApplied: application.amount_applied,
+					applicationUnitId: application.application_unit_id,
+				})),
+	});
 
-	const sourceReductionResult = useLiveQuery(
-		{
-			gcTime: historyGcTimeMs,
-			query: (query) =>
-				query
-					.from({ reduction: source_reductions() })
-					.where(({ reduction }) => eq(reduction.habitat_id, habitatId))
-					.orderBy(({ reduction }) => reduction.source_reduction_date, 'desc')
-					.select(({ reduction }) => ({
-						id: reduction.id,
-						sourceReductionDate: reduction.source_reduction_date,
-						technicianProfileId: reduction.technician_profile_id,
-						sourceReductionMethodId: reduction.source_reduction_method_id,
-						sourcesEliminatedAmount: reduction.sources_eliminated_amount,
-						sourcesEliminatedUnitId: reduction.sources_eliminated_unit_id,
-					})),
-		},
-		[habitatId],
-	);
+	const sourceReductionResult = useLiveQuery({
+		gcTime: historyGcTimeMs,
+		query: (query) =>
+			query
+				.from({ reduction: source_reductions() })
+				.where(({ reduction }) => eq(reduction.habitat_id, habitatId))
+				.orderBy(({ reduction }) => reduction.source_reduction_date, 'desc')
+				.select(({ reduction }) => ({
+					id: reduction.id,
+					sourceReductionDate: reduction.source_reduction_date,
+					technicianProfileId: reduction.technician_profile_id,
+					sourceReductionMethodId: reduction.source_reduction_method_id,
+					sourcesEliminatedAmount: reduction.sources_eliminated_amount,
+					sourcesEliminatedUnitId: reduction.sources_eliminated_unit_id,
+				})),
+	});
 
-	const requestResult = useLiveQuery(
-		{
-			gcTime: historyGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: requested_control_actions() })
-					.where(({ request }) => eq(request.habitat_id, habitatId))
-					.orderBy(({ request }) => request.requested_at, 'desc')
-					.select(({ request }) => ({
-						id: request.id,
-						requestedAt: request.requested_at,
-						requestedByProfileId: request.requested_by_profile_id,
-						controlType: request.control_type,
-						summary: request.summary,
-						resolvedAt: request.resolved_at,
-					})),
-		},
-		[habitatId],
-	);
+	const requestResult = useLiveQuery({
+		gcTime: historyGcTimeMs,
+		query: (query) =>
+			query
+				.from({ request: requested_control_actions() })
+				.where(({ request }) => eq(request.habitat_id, habitatId))
+				.orderBy(({ request }) => request.requested_at, 'desc')
+				.select(({ request }) => ({
+					id: request.id,
+					requestedAt: request.requested_at,
+					requestedByProfileId: request.requested_by_profile_id,
+					controlType: request.control_type,
+					summary: request.summary,
+					resolvedAt: request.resolved_at,
+				})),
+	});
 
 	const historyInspections = newestFirst(inspectionResult.data);
 

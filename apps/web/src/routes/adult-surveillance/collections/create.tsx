@@ -87,7 +87,7 @@ function CreateCollectionRoute() {
 	const assignmentItemId = search.assignmentItemId ?? null;
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
-	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
+	const { settings } = useOrganizationWorkspace(auth.snapshot);
 	const { traps } = useTrapOptions();
 	const methods = useCollectionMethodRoster();
 	const lures = useCollectionLureRoster();
@@ -192,7 +192,6 @@ function CreateCollectionRoute() {
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization.id}
 				profiles={profiles}
 				traps={traps}
 				units={units}

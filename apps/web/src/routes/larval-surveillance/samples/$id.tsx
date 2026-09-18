@@ -331,32 +331,26 @@ function IdentificationCard({
 
 	// The on-demand sample record — the source of truth for the disposition flags
 	// and label. Falls back to the one-shot seed until the subset is ready.
-	const recordResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
-		},
-		[sampleId],
-	);
-	const speciesResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sampleSpecies: sample_species() })
-					.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
-					.orderBy(({ sampleSpecies }) => sampleSpecies.larvae_count, 'desc')
-					.select(({ sampleSpecies }) => ({
-						id: sampleSpecies.id,
-						speciesId: sampleSpecies.species_id,
-						larvaeCount: sampleSpecies.larvae_count,
-						identifiedByProfileId: sampleSpecies.identified_by_profile_id,
-						identifiedAt: sampleSpecies.identified_at,
-					})),
-		},
-		[sampleId],
-	);
+	const recordResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
+	});
+	const speciesResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ sampleSpecies: sample_species() })
+				.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
+				.orderBy(({ sampleSpecies }) => sampleSpecies.larvae_count, 'desc')
+				.select(({ sampleSpecies }) => ({
+					id: sampleSpecies.id,
+					speciesId: sampleSpecies.species_id,
+					larvaeCount: sampleSpecies.larvae_count,
+					identifiedByProfileId: sampleSpecies.identified_by_profile_id,
+					identifiedAt: sampleSpecies.identified_at,
+				})),
+	});
 
 	const record = (recordResult.data ?? [])[0] as Sample | undefined;
 	const speciesRows = (speciesResult.data ?? []) as readonly SampleSpeciesEntry[];

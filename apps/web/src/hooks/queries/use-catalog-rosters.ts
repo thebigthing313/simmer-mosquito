@@ -90,14 +90,12 @@ export function useNotificationTypeRoster(): readonly CatalogListing[] {
 function usePlainCatalogRoster(
 	collection: ReturnType<typeof collection_lures>,
 ): readonly CatalogListing[] {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query.from({ row: collection }).select(({ row }) => ({
-				id: row.id,
-				name: row.name,
-				isActive: row.is_active,
-			})),
-		[collection],
+	const result = useLiveSuspenseQuery((query) =>
+		query.from({ row: collection }).select(({ row }) => ({
+			id: row.id,
+			name: row.name,
+			isActive: row.is_active,
+		})),
 	);
 
 	return result.data;
@@ -119,15 +117,13 @@ function useSchemaCatalogRoster<
 		readonly custom_schema: unknown;
 	},
 >(collection: Collection<TRow, string | number>): readonly SchemaCatalogListing[] {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query.from({ row: collection }).select(({ row }) => ({
-				id: row.id,
-				name: row.name,
-				isActive: row.is_active,
-				customSchema: row.custom_schema,
-			})),
-		[collection],
+	const result = useLiveSuspenseQuery((query) =>
+		query.from({ row: collection }).select(({ row }) => ({
+			id: row.id,
+			name: row.name,
+			isActive: row.is_active,
+			customSchema: row.custom_schema,
+		})),
 	);
 
 	return result.data;

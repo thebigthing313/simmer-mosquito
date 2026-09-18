@@ -36,21 +36,19 @@ export interface FormulationComponentRecord {
 
 /** Every recipe, active ones first and then by name. */
 export function useFormulationRecords(): readonly FormulationRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: formulations() })
-				.orderBy(({ row }) => row.is_active, 'desc')
-				.orderBy(({ row }) => row.formulation_name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					formulationName: row.formulation_name,
-					description: row.description,
-					batchSize: row.batch_size,
-					batchUnitId: row.batch_unit_id,
-					isActive: row.is_active,
-				})),
-		[],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: formulations() })
+			.orderBy(({ row }) => row.is_active, 'desc')
+			.orderBy(({ row }) => row.formulation_name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				formulationName: row.formulation_name,
+				description: row.description,
+				batchSize: row.batch_size,
+				batchUnitId: row.batch_unit_id,
+				isActive: row.is_active,
+			})),
 	).data;
 }
 
@@ -59,16 +57,14 @@ export function useFormulationComponents(): ReadonlyMap<
 	string,
 	readonly FormulationComponentRecord[]
 > {
-	const rows = useLiveSuspenseQuery(
-		(query) =>
-			query.from({ row: formulation_insecticides() }).select(({ row }) => ({
-				id: row.id,
-				formulationId: row.formulation_id,
-				insecticideId: row.insecticide_id,
-				amount: row.amount,
-				unitId: row.unit_id,
-			})),
-		[],
+	const rows = useLiveSuspenseQuery((query) =>
+		query.from({ row: formulation_insecticides() }).select(({ row }) => ({
+			id: row.id,
+			formulationId: row.formulation_id,
+			insecticideId: row.insecticide_id,
+			amount: row.amount,
+			unitId: row.unit_id,
+		})),
 	).data;
 
 	// A query returns rows and cannot return a lookup of them.

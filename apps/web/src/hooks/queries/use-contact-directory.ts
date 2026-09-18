@@ -36,26 +36,23 @@ export function useContactDirectory(): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: contacts() })
-					.orderBy(({ contact }) => contact.contact_name, 'asc')
-					.select(({ contact }) => ({
-						id: contact.id,
-						contactName: contact.contact_name,
-						company: contact.company,
-						department: contact.department,
-						title: contact.title,
-						email: contact.email,
-						preferredPhone: contact.preferred_phone,
-						alternatePhone: contact.alternate_phone,
-					})),
-		},
-		[],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ contact: contacts() })
+				.orderBy(({ contact }) => contact.contact_name, 'asc')
+				.select(({ contact }) => ({
+					id: contact.id,
+					contactName: contact.contact_name,
+					company: contact.company,
+					department: contact.department,
+					title: contact.title,
+					email: contact.email,
+					preferredPhone: contact.preferred_phone,
+					alternatePhone: contact.alternate_phone,
+				})),
+	});
 
 	return { contacts: result.data, isReady: result.isReady, isError: result.isError };
 }

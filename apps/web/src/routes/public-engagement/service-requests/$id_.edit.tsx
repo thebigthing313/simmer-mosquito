@@ -109,7 +109,6 @@ function EditServiceRequestLoader({
 				}}
 				hideLocation
 				onSave={onSave}
-				organizationId={request.organizationId}
 				profiles={profiles}
 				requireLocation={false}
 			/>

@@ -32,56 +32,49 @@ export function useMissionStops(missionId: string | null): {
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: mission_items() })
-					.where(({ item }) => eq(item.mission_id, missionId ?? unmatchableId))
-					.join(
-						{ request: requested_control_actions() },
-						({ item, request }) => eq(item.requested_control_action_id, request.id),
-						'left',
-					)
-					.join(
-						{ address: addresses() },
-						({ item, address }) => eq(item.address_id, address.id),
-						'left',
-					)
-					.orderBy(({ item }) => item.position, 'asc')
-					.select(({ item, request, address }) => ({
-						id: item.id,
-						missionId: item.mission_id,
-						position: item.position,
-						latitude: item.lat,
-						longitude: item.lng,
-						geometryKind: item.geom_type,
-						requestedControlActionId: item.requested_control_action_id,
-						// Guarded on the stop's own column, so a stop that names no request
-						// reads as `null` rather than as the `undefined` an unmatched join
-						// yields — and a summary is legitimately null on a real request, so
-						// nullness alone could not tell the two apart.
-						requestSummary: caseWhen(
-							isNull(item.requested_control_action_id),
-							null,
-							request.summary,
-						),
-						requestControlType: caseWhen(
-							isNull(item.requested_control_action_id),
-							null,
-							request.control_type,
-						),
-						addressId: item.address_id,
-						address: addressSelect(address),
-						completedAt: item.completed_at,
-						skippedAt: item.skipped_at,
-						skipReason: item.skip_reason,
-						updatedAt: item.updated_at,
-					})),
-		},
-		[missionId],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: mission_items() })
+				.where(({ item }) => eq(item.mission_id, missionId ?? unmatchableId))
+				.join(
+					{ request: requested_control_actions() },
+					({ item, request }) => eq(item.requested_control_action_id, request.id),
+					'left',
+				)
+				.join(
+					{ address: addresses() },
+					({ item, address }) => eq(item.address_id, address.id),
+					'left',
+				)
+				.orderBy(({ item }) => item.position, 'asc')
+				.select(({ item, request, address }) => ({
+					id: item.id,
+					missionId: item.mission_id,
+					position: item.position,
+					latitude: item.lat,
+					longitude: item.lng,
+					geometryKind: item.geom_type,
+					requestedControlActionId: item.requested_control_action_id,
+					// Guarded on the stop's own column, so a stop that names no request
+					// reads as `null` rather than as the `undefined` an unmatched join
+					// yields — and a summary is legitimately null on a real request, so
+					// nullness alone could not tell the two apart.
+					requestSummary: caseWhen(isNull(item.requested_control_action_id), null, request.summary),
+					requestControlType: caseWhen(
+						isNull(item.requested_control_action_id),
+						null,
+						request.control_type,
+					),
+					addressId: item.address_id,
+					address: addressSelect(address),
+					completedAt: item.completed_at,
+					skippedAt: item.skipped_at,
+					skipReason: item.skip_reason,
+					updatedAt: item.updated_at,
+				})),
+	});
 
 	return {
 		stops: result.data,

@@ -33,25 +33,22 @@ export function useMissionNotifications(missionId: string | null | undefined): {
 } {
 	const id = missionId ?? unmatchableId;
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ notification: mission_notifications() })
-					.where(({ notification }) => eq(notification.mission_id, id))
-					.select(({ notification }) => ({
-						id: notification.id,
-						contactId: notification.contact_id,
-						notificationRegistrationId: notification.notification_registration_id,
-						channel: notification.channel,
-						destination: notification.destination,
-						status: notification.status,
-						createdAt: notification.created_at,
-					})),
-		},
-		[id],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ notification: mission_notifications() })
+				.where(({ notification }) => eq(notification.mission_id, id))
+				.select(({ notification }) => ({
+					id: notification.id,
+					contactId: notification.contact_id,
+					notificationRegistrationId: notification.notification_registration_id,
+					channel: notification.channel,
+					destination: notification.destination,
+					status: notification.status,
+					createdAt: notification.created_at,
+				})),
+	});
 
 	return {
 		notifications: result.data,

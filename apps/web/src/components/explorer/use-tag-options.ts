@@ -17,18 +17,16 @@ export function useTagOptions(): {
 	readonly options: readonly FilterOption[];
 	readonly byId: ReadonlyMap<string, Tag>;
 } {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ tag: tags() })
-				.orderBy(({ tag }) => tag.tag_name, 'asc')
-				.select(({ tag }) => ({
-					id: tag.id,
-					name: tag.tag_name,
-					color: tag.color,
-					description: tag.description,
-				})),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ tag: tags() })
+			.orderBy(({ tag }) => tag.tag_name, 'asc')
+			.select(({ tag }) => ({
+				id: tag.id,
+				name: tag.tag_name,
+				color: tag.color,
+				description: tag.description,
+			})),
 	);
 
 	const catalog = result.data;

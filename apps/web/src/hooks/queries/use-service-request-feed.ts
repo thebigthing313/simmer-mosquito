@@ -79,34 +79,31 @@ export function useServiceRequestFeed(
 	// a fold dependency, and a fresh `Date` each render would re-plan the query.
 	const since = localDayStartAsInstant(sinceDate, timeZone);
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ comment: comments() })
-					// Persisted rows store entity_type in snake_case; an optimistic row that
-					// has not synced yet still carries the camelCase domain value. Match both.
-					.where(({ comment }) =>
-						and(
-							or(
-								eq(comment.entity_type, 'serviceRequest'),
-								eq(comment.entity_type, toDbEntityType('serviceRequest')),
-							),
-							gte(comment.commented_at, since),
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ comment: comments() })
+				// Persisted rows store entity_type in snake_case; an optimistic row that
+				// has not synced yet still carries the camelCase domain value. Match both.
+				.where(({ comment }) =>
+					and(
+						or(
+							eq(comment.entity_type, 'serviceRequest'),
+							eq(comment.entity_type, toDbEntityType('serviceRequest')),
 						),
-					)
-					.orderBy(({ comment }) => comment.commented_at, 'desc')
-					.select(({ comment }) => ({
-						id: comment.id,
-						entityId: comment.entity_id,
-						commentedAt: comment.commented_at,
-						commentText: comment.comment_text,
-						commentedByProfileId: comment.commented_by_profile_id,
-					})),
-		},
-		[since],
-	);
+						gte(comment.commented_at, since),
+					),
+				)
+				.orderBy(({ comment }) => comment.commented_at, 'desc')
+				.select(({ comment }) => ({
+					id: comment.id,
+					entityId: comment.entity_id,
+					commentedAt: comment.commented_at,
+					commentText: comment.comment_text,
+					commentedByProfileId: comment.commented_by_profile_id,
+				})),
+	});
 
 	const rows = result.data;
 	const events = deriveServiceRequestEvents(requests, rows, since);

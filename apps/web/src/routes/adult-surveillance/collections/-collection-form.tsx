@@ -199,7 +199,6 @@ export interface CollectionFormHeader {
 }
 
 export interface CollectionFormPageProps {
-	readonly organizationId: string;
 	readonly canSubmit: boolean;
 	readonly traps: readonly TrapOption[];
 	readonly collectionMethods: readonly SchemaCatalogListing[];
@@ -245,7 +244,6 @@ export function defaultCollectionFormValues(
 }
 
 export function CollectionFormPage({
-	organizationId,
 	canSubmit,
 	traps,
 	collectionMethods,
@@ -453,7 +451,6 @@ export function CollectionFormPage({
 											<LocationAddressField
 												location={location}
 												onChange={field.handleChange}
-												organizationId={organizationId}
 												value={field.state.value}
 											/>
 										)}

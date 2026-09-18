@@ -37,20 +37,18 @@ export function useUnitCatalog(): {
 	readonly units: readonly UnitListing[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ unit: units })
-				.orderBy(({ unit }) => unit.unit_name, 'asc')
-				.select(({ unit }) => ({
-					id: unit.id,
-					code: unit.code,
-					unitName: unit.unit_name,
-					abbreviation: unit.abbreviation,
-					unitType: unit.unit_type,
-					unitSystem: unit.unit_system,
-				})),
-		[],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ unit: units })
+			.orderBy(({ unit }) => unit.unit_name, 'asc')
+			.select(({ unit }) => ({
+				id: unit.id,
+				code: unit.code,
+				unitName: unit.unit_name,
+				abbreviation: unit.abbreviation,
+				unitType: unit.unit_type,
+				unitSystem: unit.unit_system,
+			})),
 	);
 
 	return { units: result.data as readonly UnitListing[], isReady: result.isReady };

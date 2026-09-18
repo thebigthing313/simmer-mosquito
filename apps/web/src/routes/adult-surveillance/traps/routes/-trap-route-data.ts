@@ -44,14 +44,12 @@ export function useTrapRoutes(): {
 	 */
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ route: routes() })
-				.where(({ route }) => eq(route.route_type, 'trap'))
-				.orderBy(({ route }) => route.route_name, 'asc')
-				.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
-		[],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ route: routes() })
+			.where(({ route }) => eq(route.route_type, 'trap'))
+			.orderBy(({ route }) => route.route_name, 'asc')
+			.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
 	);
 
 	return {
@@ -78,17 +76,14 @@ export function useRouteStopCounts(): {
 	readonly countByRouteId: ReadonlyMap<string, number>;
 	readonly isLoading: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: route_items() })
-					.where(({ item }) => eq(item.entity_type, 'trap'))
-					.select(({ item }) => ({ routeId: item.route_id })),
-		},
-		[],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: route_items() })
+				.where(({ item }) => eq(item.entity_type, 'trap'))
+				.select(({ item }) => ({ routeId: item.route_id })),
+	});
 
 	const rows = result.data;
 
@@ -112,44 +107,41 @@ export function useRouteStops(routeId: string | null): {
 	readonly itemCount: number;
 	readonly isLoading: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: route_items() })
-					.where(({ item }) =>
-						and(
-							// An unmatchable id keeps the hook order stable while no route is
-							// selected — a live query cannot be conditional.
-							eq(item.route_id, routeId ?? unmatchableId),
-							// Pushed into the predicate rather than filtered afterwards: a
-							// habitat route's items are rows this subset should never load.
-							eq(item.entity_type, 'trap'),
-						),
-					)
-					// `left`: a stop whose Trap has not streamed in yet still belongs in the
-					// itinerary, drawn as resolving rather than dropped.
-					.join({ trap: traps() }, ({ item, trap }) => eq(item.entity_id, trap.id), 'left')
-					.orderBy(({ item }) => item.position, 'asc')
-					.select(({ item, trap }) => ({
-						routeItemId: item.id,
-						trapId: item.entity_id,
-						position: item.position,
-						directionsToNextItem: item.directions_to_next_item,
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: route_items() })
+				.where(({ item }) =>
+					and(
+						// An unmatchable id keeps the hook order stable while no route is
+						// selected — a live query cannot be conditional.
+						eq(item.route_id, routeId ?? unmatchableId),
+						// Pushed into the predicate rather than filtered afterwards: a
+						// habitat route's items are rows this subset should never load.
+						eq(item.entity_type, 'trap'),
+					),
+				)
+				// `left`: a stop whose Trap has not streamed in yet still belongs in the
+				// itinerary, drawn as resolving rather than dropped.
+				.join({ trap: traps() }, ({ item, trap }) => eq(item.entity_id, trap.id), 'left')
+				.orderBy(({ item }) => item.position, 'asc')
+				.select(({ item, trap }) => ({
+					routeItemId: item.id,
+					trapId: item.entity_id,
+					position: item.position,
+					directionsToNextItem: item.directions_to_next_item,
 
-						// `undefined` here is the join still resolving, which is what
-						// `isResolving` reports below.
-						resolvedTrapId: trap.id,
-						trapName: coalesce(trap.trap_name, null),
-						trapCode: coalesce(trap.trap_code, null),
-						isActive: coalesce(trap.is_active, true),
-						lat: coalesce(trap.lat, null),
-						lng: coalesce(trap.lng, null),
-					})),
-		},
-		[routeId],
-	);
+					// `undefined` here is the join still resolving, which is what
+					// `isResolving` reports below.
+					resolvedTrapId: trap.id,
+					trapName: coalesce(trap.trap_name, null),
+					trapCode: coalesce(trap.trap_code, null),
+					isActive: coalesce(trap.is_active, true),
+					lat: coalesce(trap.lat, null),
+					lng: coalesce(trap.lng, null),
+				})),
+	});
 
 	const rows = result.data;
 

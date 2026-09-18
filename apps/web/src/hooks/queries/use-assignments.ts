@@ -39,32 +39,26 @@ export function useAssignments(
 	const fromBound = from === '' ? EARLIEST_DATE : from;
 	const toBound = to === '' ? LATEST_DATE : to;
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ assignment: assignments() })
-					.where(({ assignment }) =>
-						and(
-							gte(assignment.assignment_date, fromBound),
-							lte(assignment.assignment_date, toBound),
-						),
-					)
-					.orderBy(({ assignment }) => assignment.assignment_date, 'desc')
-					.select(({ assignment }) => ({
-						id: assignment.id,
-						assignmentName: assignment.assignment_name,
-						assignmentDate: assignment.assignment_date,
-						assignedToProfileId: assignment.assigned_to_profile_id,
-						dueAt: assignment.due_at,
-						startedAt: assignment.started_at,
-						completedAt: assignment.completed_at,
-						cancelledAt: assignment.cancelled_at,
-					})),
-		},
-		[fromBound, toBound],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ assignment: assignments() })
+				.where(({ assignment }) =>
+					and(gte(assignment.assignment_date, fromBound), lte(assignment.assignment_date, toBound)),
+				)
+				.orderBy(({ assignment }) => assignment.assignment_date, 'desc')
+				.select(({ assignment }) => ({
+					id: assignment.id,
+					assignmentName: assignment.assignment_name,
+					assignmentDate: assignment.assignment_date,
+					assignedToProfileId: assignment.assigned_to_profile_id,
+					dueAt: assignment.due_at,
+					startedAt: assignment.started_at,
+					completedAt: assignment.completed_at,
+					cancelledAt: assignment.cancelled_at,
+				})),
+	});
 
 	return {
 		assignments: result.data,

@@ -21,13 +21,11 @@ export function useHabitatTypeOptions(): {
 	readonly options: readonly FilterOption[];
 	readonly nameById: ReadonlyMap<string, string>;
 } {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ type: habitat_types() })
-				.orderBy(({ type }) => type.name, 'asc')
-				.select(({ type }) => ({ id: type.id, label: type.name })),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ type: habitat_types() })
+			.orderBy(({ type }) => type.name, 'asc')
+			.select(({ type }) => ({ id: type.id, label: type.name })),
 	);
 
 	const options = result.data;

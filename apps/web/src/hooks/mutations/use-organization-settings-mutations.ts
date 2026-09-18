@@ -153,7 +153,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 	// Not suspense: this is a write hook, and a form that has not been submitted
 	// should not be what holds a page behind a fallback. Until the row arrives
 	// `canWrite` is false and the surfaces disable their controls.
-	const result = useLiveQuery((query) => query.from({ organization: organizations() }), []);
+	const result = useLiveQuery((query) => query.from({ organization: organizations() }));
 	const row: Organization | undefined = result.data?.[0];
 
 	/**

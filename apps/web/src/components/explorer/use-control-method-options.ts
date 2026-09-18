@@ -86,13 +86,11 @@ export function useControlMethodNames(): ReadonlyMap<string, string> {
  * should have to read.
  */
 export function useInsecticideOptions(): CatalogOptions {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ product: insecticides() })
-				.orderBy(({ product }) => product.trade_name, 'asc')
-				.select(({ product }) => ({ id: product.id, label: product.trade_name })),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ product: insecticides() })
+			.orderBy(({ product }) => product.trade_name, 'asc')
+			.select(({ product }) => ({ id: product.id, label: product.trade_name })),
 	);
 
 	return indexed(result.data);
@@ -101,13 +99,11 @@ export function useInsecticideOptions(): CatalogOptions {
 function useNamedCatalog<TRow extends { readonly id: string; readonly name: string }>(
 	collection: Collection<TRow, string | number>,
 ): CatalogOptions {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: collection })
-				.orderBy(({ row }) => row.name, 'asc')
-				.select(({ row }) => ({ id: row.id, label: row.name })),
-		[collection],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: collection })
+			.orderBy(({ row }) => row.name, 'asc')
+			.select(({ row }) => ({ id: row.id, label: row.name })),
 	);
 
 	return indexed(result.data);

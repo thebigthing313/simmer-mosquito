@@ -41,15 +41,12 @@ export function useSelectedRowLabel<TRow extends IdentifiedRow>({
 	// The query builder resolves column refs off a concrete row type, so the lookup
 	// runs against the shared `id` shape every synced row satisfies.
 	const rows = collection as unknown as Collection<IdentifiedRow, string | number>;
-	const { data } = useLiveQuery(
-		{
-			gcTime: selectedGcTimeMs,
-			// No `limit` — an id equality already yields at most one row, and the query
-			// compiler rejects LIMIT without an ORDER BY.
-			query: (query) => query.from({ row: rows }).where(({ row }) => eq(row.id, queryId)),
-		},
-		[queryId],
-	);
+	const { data } = useLiveQuery({
+		gcTime: selectedGcTimeMs,
+		// No `limit` — an id equality already yields at most one row, and the query
+		// compiler rejects LIMIT without an ORDER BY.
+		query: (query) => query.from({ row: rows }).where(({ row }) => eq(row.id, queryId)),
+	});
 
 	if (value === null) {
 		return '';

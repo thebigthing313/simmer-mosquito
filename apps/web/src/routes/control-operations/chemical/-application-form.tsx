@@ -493,7 +493,6 @@ export function ApplicationFormPage({
 							<LocationAddressField
 								location={location}
 								onChange={field.handleChange}
-								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}
@@ -871,17 +870,14 @@ function InsecticideBatchOptions({
 	readonly insecticideId: string;
 	readonly children: (options: readonly FieldOption[]) => ReactNode;
 }) {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ batch: insecticide_batches() })
-					.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
-					.orderBy(({ batch }) => batch.batch_name, 'asc'),
-		},
-		[insecticideId],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ batch: insecticide_batches() })
+				.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
+				.orderBy(({ batch }) => batch.batch_name, 'asc'),
+	});
 	const batches = result.data;
 	// Spent and retired lots stay on offer, behind the ones still on the shelf —
 	// an application being keyed in after the fact used whatever it used.

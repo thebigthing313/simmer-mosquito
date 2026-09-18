@@ -263,7 +263,6 @@ export function OutreachFormPage({
 							<LocationAddressField
 								location={location}
 								onChange={field.handleChange}
-								organizationId={organizationId}
 								value={field.state.value}
 							/>
 						)}

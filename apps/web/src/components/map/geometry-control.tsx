@@ -84,7 +84,8 @@ export interface GeometryControlProps {
 	/**
 	 * The organization whose regions may be reused as a polygon. Pass it on any
 	 * form that captures areas — without it the "fill from a region" shortcut is
-	 * hidden, since there is no org to search.
+	 * hidden. The picker searches the organization-scoped shape and never reads
+	 * the id, so what the prop carries is the form's opt-in.
 	 */
 	readonly organizationId?: string;
 	/**
@@ -318,11 +319,9 @@ function GeometrySources({
 }) {
 	const [isImporting, setIsImporting] = useState(false);
 	// A region boundary is an area, so the shortcut belongs to that tool only,
-	// and there has to be an organization to search.
-	const regionOrganizationId =
-		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0
-			? organizationId
-			: null;
+	// and only on a form that opted in.
+	const offersRegionFill =
+		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0;
 	// What the record stores, filtered to what the file parser can produce. The
 	// parser reads all six shapes, so the filter drops nothing today and every
 	// record offers the file import. It stays because the register and the parser
@@ -332,7 +331,7 @@ function GeometrySources({
 		getOwnedGeometryPolicy(geometryKind).allowedTypes.filter(isImportGeometryKind);
 	const canImportFile = importableTypes.length > 0;
 
-	if (regionOrganizationId === null && !canImportFile) {
+	if (!offersRegionFill && !canImportFile) {
 		return null;
 	}
 
@@ -340,14 +339,13 @@ function GeometrySources({
 		<>
 			<div className="flex flex-wrap items-center gap-2 border-border/40 border-t pt-2">
 				<span className="text-muted-foreground text-xs">Fill from</span>
-				{regionOrganizationId === null ? null : (
+				{offersRegionFill ? (
 					<RegionBoundaryPicker
 						allowsParts={ownedGeometryAllowsParts(geometryKind, 'Polygon')}
 						disabled={isBusy}
 						onSelect={(boundary) => controller.commit(boundary)}
-						organizationId={regionOrganizationId}
 					/>
-				)}
+				) : null}
 				{canImportFile ? (
 					<Button
 						aria-label="Fill this geometry from a KML, KMZ, or GeoJSON file"

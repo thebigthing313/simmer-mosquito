@@ -55,22 +55,19 @@ function hasName(name: string | undefined): name is string {
 }
 
 export function useApplicationBatchNames(applicationId: string | null): readonly string[] {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ entry: application_batches() })
-					.where(({ entry }) => eq(entry.application_id, applicationId ?? unmatchableId))
-					.join(
-						{ batch: insecticide_batches() },
-						({ entry, batch }) => eq(entry.insecticide_batch_id, batch.id),
-						'left',
-					)
-					.select(({ batch }) => ({ name: batch.batch_name })),
-		},
-		[applicationId],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ entry: application_batches() })
+				.where(({ entry }) => eq(entry.application_id, applicationId ?? unmatchableId))
+				.join(
+					{ batch: insecticide_batches() },
+					({ entry, batch }) => eq(entry.insecticide_batch_id, batch.id),
+					'left',
+				)
+				.select(({ batch }) => ({ name: batch.batch_name })),
+	});
 
 	// Memoized rather than mapped inline: `result.data` is the observer's cached
 	// snapshot, so this hands back the same array until a batch actually changes.

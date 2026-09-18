@@ -39,19 +39,17 @@ export function useTrapOptions(): {
 	readonly traps: readonly TrapOption[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query.from({ trap: traps() }).select(({ trap }) => ({
-				id: trap.id,
-				trapName: trap.trap_name,
-				trapCode: trap.trap_code,
-				description: trap.description,
-				collectionMethodId: trap.collection_method_id,
-				collectionLureId: trap.collection_lure_id,
-				latitude: trap.lat,
-				longitude: trap.lng,
-			})),
-		[],
+	const result = useLiveQuery((query) =>
+		query.from({ trap: traps() }).select(({ trap }) => ({
+			id: trap.id,
+			trapName: trap.trap_name,
+			trapCode: trap.trap_code,
+			description: trap.description,
+			collectionMethodId: trap.collection_method_id,
+			collectionLureId: trap.collection_lure_id,
+			latitude: trap.lat,
+			longitude: trap.lng,
+		})),
 	);
 
 	return { traps: result.data, isReady: result.isReady };

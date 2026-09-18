@@ -97,13 +97,11 @@ export function LocationBand({
  */
 export function LocationAddressField({
 	location,
-	organizationId,
 	value,
 	onChange,
 	label,
 }: {
 	readonly location: DrawLocation;
-	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onChange: (addressId: string | null) => void;
 	readonly label?: string;
@@ -117,7 +115,6 @@ export function LocationAddressField({
 				location.clearError();
 				location.selectAddress(address);
 			}}
-			organizationId={organizationId}
 			value={value}
 		/>
 	);

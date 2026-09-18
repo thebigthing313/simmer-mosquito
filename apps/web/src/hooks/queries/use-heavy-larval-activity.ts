@@ -31,74 +31,71 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: inspections() })
-					.where(({ inspection }) =>
-						and(
-							gte(inspection.inspection_date, sinceDate),
-							inArray(inspection.density, heavyDensities),
-						),
-					)
-					// `left`, not `inner`: an Ad Hoc Inspection has no Habitat, and an
-					// `inner` join would drop every one of them — which on this panel would
-					// hide standing water found away from a known site.
-					.join(
-						{ habitat: habitats() },
-						({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
-						'left',
-					)
-					// `profiles` is eager, so this join costs no request — it reads rows the
-					// app already holds. It is a join rather than a lookup map built beside
-					// the query for the same reason the Habitat is: the row should arrive
-					// whole.
-					.join(
-						{ inspector: profiles() },
-						({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
-						'left',
-					)
-					.join(
-						{ type: habitat_types() },
-						({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
-						'left',
-					)
-					.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
-					.select(({ inspection, habitat, type, inspector }) => ({
-						id: inspection.id,
-						inspectionDate: inspection.inspection_date,
-						inspectedByProfileId: inspection.inspected_by_profile_id,
-						inspectedByName: caseWhen(
-							isNull(inspection.inspected_by_profile_id),
-							null,
-							inspector.display_name,
-						),
-						isWet: inspection.is_wet,
-						density: inspection.density,
-						larvaeCount: inspection.larvae_count,
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ inspection: inspections() })
+				.where(({ inspection }) =>
+					and(
+						gte(inspection.inspection_date, sinceDate),
+						inArray(inspection.density, heavyDensities),
+					),
+				)
+				// `left`, not `inner`: an Ad Hoc Inspection has no Habitat, and an
+				// `inner` join would drop every one of them — which on this panel would
+				// hide standing water found away from a known site.
+				.join(
+					{ habitat: habitats() },
+					({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
+					'left',
+				)
+				// `profiles` is eager, so this join costs no request — it reads rows the
+				// app already holds. It is a join rather than a lookup map built beside
+				// the query for the same reason the Habitat is: the row should arrive
+				// whole.
+				.join(
+					{ inspector: profiles() },
+					({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
+					'left',
+				)
+				.join(
+					{ type: habitat_types() },
+					({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
+					'left',
+				)
+				.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
+				.select(({ inspection, habitat, type, inspector }) => ({
+					id: inspection.id,
+					inspectionDate: inspection.inspection_date,
+					inspectedByProfileId: inspection.inspected_by_profile_id,
+					inspectedByName: caseWhen(
+						isNull(inspection.inspected_by_profile_id),
+						null,
+						inspector.display_name,
+					),
+					isWet: inspection.is_wet,
+					density: inspection.density,
+					larvaeCount: inspection.larvae_count,
 
-						habitatId: inspection.habitat_id,
-						// Guarded on the joined row and not on `habitat_id`: the row can be
-						// arriving, and `habitat-view.ts` says what that reads as (#998).
-						habitatName: joinedHabitatNameSelect(habitat),
-						habitatTypeId: inspection.habitat_type_id,
-						typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
+					habitatId: inspection.habitat_id,
+					// Guarded on the joined row and not on `habitat_id`: the row can be
+					// arriving, and `habitat-view.ts` says what that reads as (#998).
+					habitatName: joinedHabitatNameSelect(habitat),
+					habitatTypeId: inspection.habitat_type_id,
+					typeName: caseWhen(isNull(inspection.habitat_type_id), null, type.name),
 
-						latitude: inspection.lat,
-						longitude: inspection.lng,
+					latitude: inspection.lat,
+					longitude: inspection.lng,
 
-						hasEggs: inspection.has_eggs,
-						hasFirstInstar: inspection.has_first_instar,
-						hasSecondInstar: inspection.has_second_instar,
-						hasThirdInstar: inspection.has_third_instar,
-						hasFourthInstar: inspection.has_fourth_instar,
-						hasPupae: inspection.has_pupae,
-					})),
-		},
-		[sinceDate],
-	);
+					hasEggs: inspection.has_eggs,
+					hasFirstInstar: inspection.has_first_instar,
+					hasSecondInstar: inspection.has_second_instar,
+					hasThirdInstar: inspection.has_third_instar,
+					hasFourthInstar: inspection.has_fourth_instar,
+					hasPupae: inspection.has_pupae,
+				})),
+	});
 
 	return { rows: result.data, isReady: result.isReady, isError: result.isError };
 }

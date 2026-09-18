@@ -34,41 +34,38 @@ export function useHabitatSearch(
 	const pattern = `%${trimmed}%`;
 	const includeRetired = options.includeRetired ?? false;
 
-	const result = useLiveQuery(
-		{
-			query: (query) => {
-				const scoped = query
-					.from({ habitat: habitats() })
-					.where(({ habitat }) =>
-						includeRetired
-							? eq(habitat.organization_id, organizationId)
-							: and(eq(habitat.organization_id, organizationId), eq(habitat.is_active, true)),
-					);
+	const result = useLiveQuery({
+		query: (query) => {
+			const scoped = query
+				.from({ habitat: habitats() })
+				.where(({ habitat }) =>
+					includeRetired
+						? eq(habitat.organization_id, organizationId)
+						: and(eq(habitat.organization_id, organizationId), eq(habitat.is_active, true)),
+				);
 
-				const matching =
-					trimmed.length === 0
-						? scoped
-						: scoped.where(({ habitat }) =>
-								or(ilike(habitat.habitat_name, pattern), ilike(habitat.description, pattern)),
-							);
+			const matching =
+				trimmed.length === 0
+					? scoped
+					: scoped.where(({ habitat }) =>
+							or(ilike(habitat.habitat_name, pattern), ilike(habitat.description, pattern)),
+						);
 
-				// The `orderBy` is what lets the `limit` page lazily, and it pages lazily
-				// only because `habitat_name` is indexed where the collection is created.
-				// Without that index this sorts every loaded Habitat on each keystroke.
-				return matching
-					.orderBy(({ habitat }) => habitat.habitat_name, 'asc')
-					.limit(6)
-					.select(({ habitat }) => ({
-						id: habitat.id,
-						name: habitatNameSelect(habitat),
-						description: habitat.description,
-						latitude: habitat.lat,
-						longitude: habitat.lng,
-					}));
-			},
+			// The `orderBy` is what lets the `limit` page lazily, and it pages lazily
+			// only because `habitat_name` is indexed where the collection is created.
+			// Without that index this sorts every loaded Habitat on each keystroke.
+			return matching
+				.orderBy(({ habitat }) => habitat.habitat_name, 'asc')
+				.limit(6)
+				.select(({ habitat }) => ({
+					id: habitat.id,
+					name: habitatNameSelect(habitat),
+					description: habitat.description,
+					latitude: habitat.lat,
+					longitude: habitat.lng,
+				}));
 		},
-		[organizationId, trimmed, includeRetired],
-	);
+	});
 
 	return { matches: result.data, isReady: result.isReady, isError: result.isError };
 }

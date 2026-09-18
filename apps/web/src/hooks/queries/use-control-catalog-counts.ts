@@ -45,13 +45,11 @@ export function useControlCatalogCounts(): ControlCatalogCounts {
 function useActiveCount<TRow extends { readonly id: string; readonly is_active: boolean }>(
 	collection: Collection<TRow, string | number>,
 ): number {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ row: collection })
-				.where(({ row }) => eq(row.is_active, true))
-				.select(({ row }) => ({ total: count(row.id) })),
-		[collection],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ row: collection })
+			.where(({ row }) => eq(row.is_active, true))
+			.select(({ row }) => ({ total: count(row.id) })),
 	);
 
 	// An aggregate with no `groupBy` is one row; it is absent only before the

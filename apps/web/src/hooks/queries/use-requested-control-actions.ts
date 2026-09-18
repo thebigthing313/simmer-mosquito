@@ -49,30 +49,27 @@ export function useRequestedControlActions(
 	const toBound =
 		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone);
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: requested_control_actions() })
-					.where(({ request }) =>
-						and(gte(request.requested_at, fromBound), lte(request.requested_at, toBound)),
-					)
-					.orderBy(({ request }) => request.requested_at, 'desc')
-					.select(({ request }) => ({
-						id: request.id,
-						controlType: request.control_type,
-						summary: request.summary,
-						recommendedMethodId: request.recommended_method_id,
-						requestedByProfileId: request.requested_by_profile_id,
-						requestedAt: request.requested_at,
-						resolvedAt: request.resolved_at,
-						lat: request.lat,
-						lng: request.lng,
-					})),
-		},
-		[fromBound, toBound],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ request: requested_control_actions() })
+				.where(({ request }) =>
+					and(gte(request.requested_at, fromBound), lte(request.requested_at, toBound)),
+				)
+				.orderBy(({ request }) => request.requested_at, 'desc')
+				.select(({ request }) => ({
+					id: request.id,
+					controlType: request.control_type,
+					summary: request.summary,
+					recommendedMethodId: request.recommended_method_id,
+					requestedByProfileId: request.requested_by_profile_id,
+					requestedAt: request.requested_at,
+					resolvedAt: request.resolved_at,
+					lat: request.lat,
+					lng: request.lng,
+				})),
+	});
 
 	return {
 		requests: result.data,

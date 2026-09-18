@@ -75,20 +75,17 @@ export function useRegistrationSubscriptions(registrationId: string | null | und
 } {
 	const id = registrationId ?? unmatchableId;
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ link: notification_registration_types() })
-					.where(({ link }) => eq(link.notification_registration_id, id))
-					.select(({ link }) => ({
-						id: link.id,
-						notificationTypeId: link.notification_type_id,
-					})),
-		},
-		[id],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ link: notification_registration_types() })
+				.where(({ link }) => eq(link.notification_registration_id, id))
+				.select(({ link }) => ({
+					id: link.id,
+					notificationTypeId: link.notification_type_id,
+				})),
+	});
 
 	return { subscriptions: result.data, isReady: result.isReady };
 }

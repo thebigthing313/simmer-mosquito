@@ -23,13 +23,11 @@ export function useCollectionMethodOptions(): {
 	readonly options: readonly FilterOption[];
 	readonly nameById: ReadonlyMap<string, string>;
 } {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ method: collection_methods() })
-				.orderBy(({ method }) => method.name, 'asc')
-				.select(({ method }) => ({ id: method.id, label: method.name })),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ method: collection_methods() })
+			.orderBy(({ method }) => method.name, 'asc')
+			.select(({ method }) => ({ id: method.id, label: method.name })),
 	);
 
 	const options = result.data;
