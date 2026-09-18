@@ -2,6 +2,7 @@ import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import type { AuthContextResult } from './auth-context.js';
 import type { AuthSessionProvider } from './auth-session-provider.js';
 import type { LocalAuthIdentityResolver } from './local-auth-identity-resolver.js';
+import { unauthenticatedRefusal } from './unauthenticated-refusal.js';
 
 /**
  * Verify the session, then resolve the SIMMER identity behind it. A rotated
@@ -26,11 +27,7 @@ export async function resolveAuthContext(options: {
 	});
 
 	if (!session.authenticated) {
-		return {
-			ok: false,
-			status: 401,
-			error: { type: 'unauthenticated', reason: session.reason },
-		};
+		return unauthenticatedRefusal(session.reason);
 	}
 
 	const rotated =

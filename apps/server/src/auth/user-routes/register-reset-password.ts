@@ -1,11 +1,11 @@
 import type { ResetPasswordBody } from '@simmer-mosquito/auth/browser';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../middleware/auth-variables.js';
+import { answerAuthResult } from './answer-auth-result.js';
 import type { AuthUserRouteDeps } from './auth-user-flows.js';
 import { invalidPayloadBody } from './invalid-payload-body.js';
 import { readResetPasswordPayload } from './payloads/read-reset-password-payload.js';
 import { tooShortPassword } from './too-short-password.js';
-import { weakPasswordBody } from './weak-password-body.js';
 
 export function registerResetPassword(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -27,14 +27,6 @@ export function registerResetPassword(
 			newPassword: payload.value.newPassword,
 		});
 
-		if (result.status === 'ok') {
-			return context.json({ ok: true } satisfies ResetPasswordBody);
-		}
-
-		if (result.status === 'weak_password') {
-			return context.json(weakPasswordBody(result.message), 422);
-		}
-
-		return context.json({ ok: false, status: 'invalid_token' } satisfies ResetPasswordBody, 400);
+		return answerAuthResult<ResetPasswordBody>(context, deps.finalizeSession, result);
 	});
 }

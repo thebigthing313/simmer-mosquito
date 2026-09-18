@@ -1,8 +1,8 @@
-import type { RefusedMeBody } from '@simmer-mosquito/auth/browser';
 import { createMiddleware } from 'hono/factory';
-import { AUTH_REFUSAL_SENTENCES } from '../context/auth-refusal-sentences.js';
 import type { AuthSessionProvider } from '../context/auth-session-provider.js';
 import type { LocalAuthIdentityResolver } from '../context/local-auth-identity-resolver.js';
+import { toAuthFailureBody } from '../context/to-auth-failure-body.js';
+import { unauthenticatedRefusal } from '../context/unauthenticated-refusal.js';
 import { readSealedSession } from '../session-transport/read-sealed-session.js';
 import type { AuthVariables } from './auth-variables.js';
 import type { SetAuthCookie } from './set-auth-cookie.js';
@@ -30,15 +30,8 @@ export function createOperatorAuthContextMiddleware(options: {
 		});
 
 		if (!session.authenticated) {
-			return context.json(
-				{
-					authenticated: false,
-					error: 'unauthenticated',
-					reason: AUTH_REFUSAL_SENTENCES.unauthenticated,
-					detail: session.reason,
-				} satisfies RefusedMeBody,
-				401,
-			);
+			const refusal = unauthenticatedRefusal(session.reason);
+			return context.json(toAuthFailureBody(refusal), refusal.status);
 		}
 
 		if (session.sealedSession !== undefined) {

@@ -54,11 +54,6 @@
         "count": 1
       }
     },
-    "apps/server/src/auth/user-routes/register-accept-invitation.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/server/src/check-role-ladder.ts": {
       "crap_high": {
         "count": 1

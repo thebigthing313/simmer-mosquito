@@ -1,11 +1,11 @@
 import type { SelectOrganizationBody } from '@simmer-mosquito/auth/browser';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../middleware/auth-variables.js';
+import { answerAuthResult } from './answer-auth-result.js';
 import type { AuthUserRouteDeps } from './auth-user-flows.js';
 import { invalidPayloadBody } from './invalid-payload-body.js';
 import { readSelectOrganizationPayload } from './payloads/read-select-organization-payload.js';
 import { requestClientHints } from './request-client-hints.js';
-import { respondAuthenticated } from './respond-authenticated.js';
 
 /** Resolve a sign-in that is still pending an organization choice. */
 export function registerSelectOrganization(
@@ -24,13 +24,6 @@ export function registerSelectOrganization(
 			...requestClientHints(context),
 		});
 
-		if (result.status === 'authenticated') {
-			return respondAuthenticated(context, deps.finalizeSession, result.session);
-		}
-
-		return context.json(
-			{ ok: false, status: 'invalid_selection' } satisfies SelectOrganizationBody,
-			400,
-		);
+		return answerAuthResult<SelectOrganizationBody>(context, deps.finalizeSession, result);
 	});
 }
