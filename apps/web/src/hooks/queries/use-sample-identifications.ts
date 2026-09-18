@@ -22,40 +22,37 @@ export function useSampleIdentifications(sampleId: string): {
 	readonly identifications: readonly SampleIdentification[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ identification: sample_species() })
-					.where(({ identification }) => eq(identification.sample_id, sampleId))
-					// `inner`, and passed rather than left to the default, which is `left`:
-					// an identification whose taxonomy row this client does not hold is a
-					// count with nothing to attribute it to, and "Unknown species" beside a
-					// number reads as a broken record rather than as one still arriving.
-					// Safe against #1026's cold-page rule for the reason recorded in
-					// `use-record-tags.ts`: `species` is eager, so it is never lazy-loaded,
-					// and every `sample_species` subset carries the sample's id (#1028).
-					.join(
-						{ taxon: species() },
-						({ identification, taxon }) => eq(identification.species_id, taxon.id),
-						'inner',
-					)
-					.orderBy(({ identification }) => identification.larvae_count, 'desc')
-					.select(({ identification, taxon }) => ({
-						speciesId: identification.species_id,
-						// The `coalesce` is what makes this compile, not a fallback the engine
-						// reaches. The builder types a joined column as possibly absent
-						// whatever the join kind, and `SampleIdentification.speciesName` is a
-						// `string`, so deleting it fails `tsc`. An `inner` join emits only
-						// matched pairs, so "Unknown species" never reaches a row.
-						speciesName: coalesce(taxon.display_name, 'Unknown species'),
-						larvaeCount: identification.larvae_count,
-						identifiedAt: identification.identified_at,
-					})),
-		},
-		[sampleId],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ identification: sample_species() })
+				.where(({ identification }) => eq(identification.sample_id, sampleId))
+				// `inner`, and passed rather than left to the default, which is `left`:
+				// an identification whose taxonomy row this client does not hold is a
+				// count with nothing to attribute it to, and "Unknown species" beside a
+				// number reads as a broken record rather than as one still arriving.
+				// Safe against #1026's cold-page rule for the reason recorded in
+				// `use-record-tags.ts`: `species` is eager, so it is never lazy-loaded,
+				// and every `sample_species` subset carries the sample's id (#1028).
+				.join(
+					{ taxon: species() },
+					({ identification, taxon }) => eq(identification.species_id, taxon.id),
+					'inner',
+				)
+				.orderBy(({ identification }) => identification.larvae_count, 'desc')
+				.select(({ identification, taxon }) => ({
+					speciesId: identification.species_id,
+					// The `coalesce` is what makes this compile, not a fallback the engine
+					// reaches. The builder types a joined column as possibly absent
+					// whatever the join kind, and `SampleIdentification.speciesName` is a
+					// `string`, so deleting it fails `tsc`. An `inner` join emits only
+					// matched pairs, so "Unknown species" never reaches a row.
+					speciesName: coalesce(taxon.display_name, 'Unknown species'),
+					larvaeCount: identification.larvae_count,
+					identifiedAt: identification.identified_at,
+				})),
+	});
 
 	return { identifications: result.data, isReady: result.isReady };
 }

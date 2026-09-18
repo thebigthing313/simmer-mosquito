@@ -38,19 +38,17 @@ export function useTagCatalog(): {
 }
 
 function useTagHalf(isActive: boolean): readonly TagRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ tag: tags() })
-				.where(({ tag }) => eq(tag.is_active, isActive))
-				.orderBy(({ tag }) => tag.tag_name, 'asc')
-				.select(({ tag }) => ({
-					id: tag.id,
-					name: tag.tag_name,
-					description: tag.description,
-					color: tag.color,
-					isActive: tag.is_active,
-				})),
-		[isActive],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ tag: tags() })
+			.where(({ tag }) => eq(tag.is_active, isActive))
+			.orderBy(({ tag }) => tag.tag_name, 'asc')
+			.select(({ tag }) => ({
+				id: tag.id,
+				name: tag.tag_name,
+				description: tag.description,
+				color: tag.color,
+				isActive: tag.is_active,
+			})),
 	).data;
 }

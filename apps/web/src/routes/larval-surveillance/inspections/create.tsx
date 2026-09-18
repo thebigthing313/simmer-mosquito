@@ -92,16 +92,13 @@ function seededDefaults(
 function useNewInspectionDraft(): string {
 	const [inspectionId] = useState(() => newRecordId());
 	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
-	useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sample: samples() })
-					.where(({ sample }) => eq(sample.inspection_id, inspectionId)),
-		},
-		[inspectionId],
-	);
+	useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ sample: samples() })
+				.where(({ sample }) => eq(sample.inspection_id, inspectionId)),
+	});
 	return inspectionId;
 }
 

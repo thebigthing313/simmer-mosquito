@@ -65,21 +65,19 @@ export function useCollectionMethodRecords(): CatalogRecords<CollectionMethodRec
 }
 
 function useCollectionMethodHalf(isActive: boolean): readonly CollectionMethodRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: collection_methods() })
-				.where(({ row }) => eq(row.is_active, isActive))
-				.orderBy(({ row }) => row.name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					name: row.name,
-					description: row.description,
-					customSchema: row.custom_schema,
-					actionThreshold: row.action_threshold,
-					isActive: row.is_active,
-				})),
-		[isActive],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: collection_methods() })
+			.where(({ row }) => eq(row.is_active, isActive))
+			.orderBy(({ row }) => row.name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				name: row.name,
+				description: row.description,
+				customSchema: row.custom_schema,
+				actionThreshold: row.action_threshold,
+				isActive: row.is_active,
+			})),
 	).data;
 }
 
@@ -91,20 +89,18 @@ export function useHabitatTypeRecords(): CatalogRecords<SchemaCatalogRecord> {
 }
 
 function useHabitatTypeHalf(isActive: boolean): readonly SchemaCatalogRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: habitat_types() })
-				.where(({ row }) => eq(row.is_active, isActive))
-				.orderBy(({ row }) => row.name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					name: row.name,
-					description: row.description,
-					customSchema: row.custom_schema,
-					isActive: row.is_active,
-				})),
-		[isActive],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: habitat_types() })
+			.where(({ row }) => eq(row.is_active, isActive))
+			.orderBy(({ row }) => row.name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				name: row.name,
+				description: row.description,
+				customSchema: row.custom_schema,
+				isActive: row.is_active,
+			})),
 	).data;
 }
 
@@ -132,19 +128,17 @@ function useDescribedHalf(
 	collection: ReturnType<typeof collection_lures>,
 	isActive: boolean,
 ): readonly DescribedCatalogRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: collection })
-				.where(({ row }) => eq(row.is_active, isActive))
-				.orderBy(({ row }) => row.name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					name: row.name,
-					description: row.description,
-					isActive: row.is_active,
-				})),
-		[collection, isActive],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: collection })
+			.where(({ row }) => eq(row.is_active, isActive))
+			.orderBy(({ row }) => row.name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				name: row.name,
+				description: row.description,
+				isActive: row.is_active,
+			})),
 	).data;
 }
 
@@ -181,18 +175,16 @@ function useControlMethodHalf(
 	collection: ReturnType<typeof application_methods>,
 	isActive: boolean,
 ): readonly ControlMethodRecord[] {
-	return useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ row: collection })
-				.where(({ row }) => eq(row.is_active, isActive))
-				.orderBy(({ row }) => row.name, 'asc')
-				.select(({ row }) => ({
-					id: row.id,
-					name: row.name,
-					customSchema: row.custom_schema,
-					isActive: row.is_active,
-				})),
-		[collection, isActive],
+	return useLiveSuspenseQuery((query) =>
+		query
+			.from({ row: collection })
+			.where(({ row }) => eq(row.is_active, isActive))
+			.orderBy(({ row }) => row.name, 'asc')
+			.select(({ row }) => ({
+				id: row.id,
+				name: row.name,
+				customSchema: row.custom_schema,
+				isActive: row.is_active,
+			})),
 	).data;
 }

@@ -14,25 +14,23 @@ export function useWeatherStations(): {
 	readonly stations: readonly WeatherStation[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ source: weather_sources() })
-				.orderBy(({ source }) => source.source_name, 'asc')
-				.select(({ source }) => ({
-					id: source.id,
-					name: source.source_name,
-					sourceType: source.source_type,
-					sourceCode: source.source_code,
-					providerSourceId: source.provider_source_id,
-					isActive: source.is_active,
-					organizationId: source.organization_id,
-					latitude: source.lat,
-					longitude: source.lng,
-					geometryKind: source.geom_type,
-					metadata: source.metadata,
-				})),
-		[],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ source: weather_sources() })
+			.orderBy(({ source }) => source.source_name, 'asc')
+			.select(({ source }) => ({
+				id: source.id,
+				name: source.source_name,
+				sourceType: source.source_type,
+				sourceCode: source.source_code,
+				providerSourceId: source.provider_source_id,
+				isActive: source.is_active,
+				organizationId: source.organization_id,
+				latitude: source.lat,
+				longitude: source.lng,
+				geometryKind: source.geom_type,
+				metadata: source.metadata,
+			})),
 	);
 
 	return { stations: result.data, isReady: result.isReady };

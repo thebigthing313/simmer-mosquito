@@ -51,47 +51,40 @@ export interface AddressSurveillance {
 const maxAddressIds = 100;
 
 export function useAddressSurveillance(addressIds: readonly string[]): AddressSurveillance {
-	// Sorted as well as deduplicated so the same addresses in a different order
-	// are the same query, and a re-render that reshuffles a list does not look
-	// like a new subset.
+	// Sorted as well as deduplicated so the cap takes the same addresses whatever
+	// order a re-render hands them over in. The query identity needs neither: an
+	// `inArray` is read as a set.
 	const ids = [...new Set(addressIds)].sort().slice(0, maxAddressIds);
-	const idsKey = ids.join(',');
 	const queryIds = ids.length > 0 ? ids : [unmatchableId];
 
-	const habitatResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: habitats() })
-					.where(({ habitat }) => inArray(habitat.address_id, queryIds))
-					.select(({ habitat }) => ({
-						id: habitat.id,
-						addressId: habitat.address_id,
-						name: habitatNameSelect(habitat),
-						isActive: habitat.is_active,
-					})),
-		},
-		[idsKey],
-	);
+	const habitatResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ habitat: habitats() })
+				.where(({ habitat }) => inArray(habitat.address_id, queryIds))
+				.select(({ habitat }) => ({
+					id: habitat.id,
+					addressId: habitat.address_id,
+					name: habitatNameSelect(habitat),
+					isActive: habitat.is_active,
+				})),
+	});
 
-	const trapResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ trap: traps() })
-					.where(({ trap }) => inArray(trap.address_id, queryIds))
-					.select(({ trap }) => ({
-						id: trap.id,
-						addressId: trap.address_id,
-						trapName: trap.trap_name,
-						trapCode: trap.trap_code,
-						isActive: trap.is_active,
-					})),
-		},
-		[idsKey],
-	);
+	const trapResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ trap: traps() })
+				.where(({ trap }) => inArray(trap.address_id, queryIds))
+				.select(({ trap }) => ({
+					id: trap.id,
+					addressId: trap.address_id,
+					trapName: trap.trap_name,
+					trapCode: trap.trap_code,
+					isActive: trap.is_active,
+				})),
+	});
 
 	const habitatRows = habitatResult.data;
 	const trapRows = trapResult.data;

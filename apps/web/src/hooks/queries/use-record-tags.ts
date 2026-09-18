@@ -22,41 +22,38 @@ import { mapCardGcTimeMs } from './shared';
 import type { Tag } from './tag-view';
 
 export function useRecordTags(entityId: string): readonly Tag[] {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: tag_items() })
-					.where(({ item }) => eq(item.entity_id, entityId))
-					// `inner`, and passed rather than left to the default, which is `left`:
-					// an assignment whose catalog row this client does not hold has no name
-					// and no colour to draw, and a chip reading "Unknown tag" reads as a
-					// broken record rather than as one still arriving.
-					//
-					// Safe against #1026's cold-page rule because `tags` is eager: an
-					// `inner` join lazy-loads whichever side holds more rows at compile
-					// time, and an eager side has loaded its initial state, so it is never
-					// re-requested, while `tag_items` carries `entity_id` in every subset it
-					// sends. Measured in #1028 with the catalog populated and with it empty.
-					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id), 'inner')
-					.orderBy(({ tag }) => tag.tag_name, 'asc')
-					// The `coalesce` calls are what make this compile. The builder types a
-					// joined column as possibly absent whatever the join kind, and `Tag`
-					// requires a name, so deleting one fails `tsc` on the widened type.
-					// The fallbacks they name are not reachable: an `inner` join emits only
-					// matched pairs, so nothing here ever renders "Unknown tag".
-					// `item.tag_id` is the same uuid as `tag.id`, which is why the id needs
-					// no invented stand-in.
-					.select(({ item, tag }) => ({
-						id: coalesce(tag.id, item.tag_id),
-						name: coalesce(tag.tag_name, 'Unknown tag'),
-						color: coalesce(tag.color, null),
-						description: coalesce(tag.description, null),
-					})),
-		},
-		[entityId],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: tag_items() })
+				.where(({ item }) => eq(item.entity_id, entityId))
+				// `inner`, and passed rather than left to the default, which is `left`:
+				// an assignment whose catalog row this client does not hold has no name
+				// and no colour to draw, and a chip reading "Unknown tag" reads as a
+				// broken record rather than as one still arriving.
+				//
+				// Safe against #1026's cold-page rule because `tags` is eager: an
+				// `inner` join lazy-loads whichever side holds more rows at compile
+				// time, and an eager side has loaded its initial state, so it is never
+				// re-requested, while `tag_items` carries `entity_id` in every subset it
+				// sends. Measured in #1028 with the catalog populated and with it empty.
+				.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id), 'inner')
+				.orderBy(({ tag }) => tag.tag_name, 'asc')
+				// The `coalesce` calls are what make this compile. The builder types a
+				// joined column as possibly absent whatever the join kind, and `Tag`
+				// requires a name, so deleting one fails `tsc` on the widened type.
+				// The fallbacks they name are not reachable: an `inner` join emits only
+				// matched pairs, so nothing here ever renders "Unknown tag".
+				// `item.tag_id` is the same uuid as `tag.id`, which is why the id needs
+				// no invented stand-in.
+				.select(({ item, tag }) => ({
+					id: coalesce(tag.id, item.tag_id),
+					name: coalesce(tag.tag_name, 'Unknown tag'),
+					color: coalesce(tag.color, null),
+					description: coalesce(tag.description, null),
+				})),
+	});
 
 	return result.data;
 }

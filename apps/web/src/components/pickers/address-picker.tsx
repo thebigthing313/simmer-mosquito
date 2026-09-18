@@ -31,13 +31,11 @@ export interface AddressPickerCreateOptions {
 
 export function AddressPicker({
 	label = 'Address',
-	organizationId,
 	value,
 	onSelect,
 	create,
 }: {
 	readonly label?: string;
-	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (address: AddressOption | null) => void;
 	readonly create?: AddressPickerCreateOptions | undefined;
@@ -87,12 +85,7 @@ export function AddressPicker({
 				selectedLabel={selectedLabel}
 				value={value}
 			>
-				<AddressResults
-					onSelect={pick}
-					organizationId={organizationId}
-					search={deferredSearch}
-					selectedValue={value}
-				/>
+				<AddressResults onSelect={pick} search={deferredSearch} selectedValue={value} />
 				{create === undefined ? null : (
 					<>
 						<Separator />
@@ -128,55 +121,50 @@ export function AddressPicker({
 }
 
 function AddressResults({
-	organizationId,
 	search,
 	selectedValue,
 	onSelect,
 }: {
-	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
 	readonly onSelect: (address: AddressOption) => void;
 }) {
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
-	const { data, isReady, isError } = useLiveQuery(
-		{
-			gcTime: searchGcTimeMs,
-			query: (query) => {
-				// No organization predicate: the shape is scoped to the organization
-				// server-side, so re-stating it here is redundant — and a stale column
-				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ address: addresses() });
-				const filtered =
-					normalized.length === 0
-						? base
-						: base.where(({ address }) =>
-								or(
-									ilike(address.display_name, pattern),
-									ilike(address.address_line_1, pattern),
-									ilike(address.locality, pattern),
-									ilike(address.postal_code, pattern),
-								),
-							);
-				return filtered
-					.orderBy(({ address }) => address.display_name, 'asc')
-					.limit(6)
-					.select(({ address }) => ({
-						id: address.id,
-						lat: address.lat,
-						lng: address.lng,
-						displayName: address.display_name,
-						addressLine1: address.address_line_1,
-						addressLine2: address.address_line_2,
-						locality: address.locality,
-						region: address.region,
-						postalCode: address.postal_code,
-					}));
-			},
+	const { data, isReady, isError } = useLiveQuery({
+		gcTime: searchGcTimeMs,
+		query: (query) => {
+			// No organization predicate: the shape is scoped to the organization
+			// server-side, so re-stating it here is redundant — and a stale column
+			// spelling in one is what empties a list rather than narrowing it.
+			const base = query.from({ address: addresses() });
+			const filtered =
+				normalized.length === 0
+					? base
+					: base.where(({ address }) =>
+							or(
+								ilike(address.display_name, pattern),
+								ilike(address.address_line_1, pattern),
+								ilike(address.locality, pattern),
+								ilike(address.postal_code, pattern),
+							),
+						);
+			return filtered
+				.orderBy(({ address }) => address.display_name, 'asc')
+				.limit(6)
+				.select(({ address }) => ({
+					id: address.id,
+					lat: address.lat,
+					lng: address.lng,
+					displayName: address.display_name,
+					addressLine1: address.address_line_1,
+					addressLine2: address.address_line_2,
+					locality: address.locality,
+					region: address.region,
+					postalCode: address.postal_code,
+				}));
 		},
-		[organizationId, pattern],
-	);
+	});
 
 	if (isError) {
 		return <PickerFallback label="Addresses unavailable" />;

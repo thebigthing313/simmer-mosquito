@@ -137,18 +137,15 @@ export function useRecordById<TRow extends SyncedRow, TContext extends Context>(
 	readonly isError: boolean;
 } {
 	const { collection, id } = options;
-	const result = useLiveQuery(
-		{
-			gcTime: options.gcTime ?? mapCardGcTimeMs,
-			query: (query) =>
-				options.query(
-					query
-						.from({ record: collection })
-						.where(({ record }) => eq(record.id, id ?? unmatchableId)),
-				),
-		},
-		[collection, id],
-	);
+	const result = useLiveQuery({
+		gcTime: options.gcTime ?? mapCardGcTimeMs,
+		query: (query) =>
+			options.query(
+				query
+					.from({ record: collection })
+					.where(({ record }) => eq(record.id, id ?? unmatchableId)),
+			),
+	});
 
 	// The cast is the price of the callback being generic. `useLiveQuery` reads the
 	// row type off the builder its query returns, and here that builder is still

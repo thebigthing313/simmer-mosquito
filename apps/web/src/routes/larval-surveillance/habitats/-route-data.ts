@@ -83,14 +83,12 @@ export function useHabitatRoutes(): {
 	 */
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ route: routes() })
-				.where(({ route }) => eq(route.route_type, 'habitat'))
-				.orderBy(({ route }) => route.route_name, 'asc')
-				.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
-		[],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ route: routes() })
+			.where(({ route }) => eq(route.route_type, 'habitat'))
+			.orderBy(({ route }) => route.route_name, 'asc')
+			.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
 	);
 
 	return {
@@ -121,17 +119,14 @@ export function useRouteStopCounts(): {
 	readonly countByRouteId: ReadonlyMap<string, number>;
 	readonly isLoading: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: route_items() })
-					.where(({ item }) => eq(item.entity_type, 'habitat'))
-					.select(({ item }) => ({ routeId: item.route_id })),
-		},
-		[],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: route_items() })
+				.where(({ item }) => eq(item.entity_type, 'habitat'))
+				.select(({ item }) => ({ routeId: item.route_id })),
+	});
 
 	const stops = result.data;
 
@@ -164,58 +159,55 @@ export function useRouteStops(routeId: string | null): {
 	readonly itemCount: number;
 	readonly isLoading: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: route_items() })
-					.where(({ item }) =>
-						and(
-							// An unmatchable id keeps the hook order stable while no route is
-							// selected — a live query cannot be conditional.
-							eq(item.route_id, routeId ?? unmatchableId),
-							// Pushed into the predicate rather than filtered afterwards: a trap
-							// route's items are rows this subset should never have loaded.
-							eq(item.entity_type, 'habitat'),
-						),
-					)
-					// `left` throughout: a stop whose Habitat has not streamed in yet still
-					// belongs in the itinerary, drawn as resolving rather than dropped.
-					.join(
-						{ habitat: habitats() },
-						({ item, habitat }) => eq(item.entity_id, habitat.id),
-						'left',
-					)
-					.join(
-						{ address: addresses() },
-						({ habitat, address }) => eq(habitat.address_id, address.id),
-						'left',
-					)
-					.orderBy(({ item }) => item.position, 'asc')
-					.select(({ item, habitat, address }) => ({
-						routeItemId: item.id,
-						habitatId: item.entity_id,
-						position: item.position,
-						directionsToNextItem: item.directions_to_next_item,
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: route_items() })
+				.where(({ item }) =>
+					and(
+						// An unmatchable id keeps the hook order stable while no route is
+						// selected — a live query cannot be conditional.
+						eq(item.route_id, routeId ?? unmatchableId),
+						// Pushed into the predicate rather than filtered afterwards: a trap
+						// route's items are rows this subset should never have loaded.
+						eq(item.entity_type, 'habitat'),
+					),
+				)
+				// `left` throughout: a stop whose Habitat has not streamed in yet still
+				// belongs in the itinerary, drawn as resolving rather than dropped.
+				.join(
+					{ habitat: habitats() },
+					({ item, habitat }) => eq(item.entity_id, habitat.id),
+					'left',
+				)
+				.join(
+					{ address: addresses() },
+					({ habitat, address }) => eq(habitat.address_id, address.id),
+					'left',
+				)
+				.orderBy(({ item }) => item.position, 'asc')
+				.select(({ item, habitat, address }) => ({
+					routeItemId: item.id,
+					habitatId: item.entity_id,
+					position: item.position,
+					directionsToNextItem: item.directions_to_next_item,
 
-						// `undefined` here is the join still resolving, which is what
-						// `isResolving` reports below.
-						resolvedHabitatId: habitat.id,
-						name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
-						description: coalesce(habitat.description, ''),
-						habitatTypeId: coalesce(habitat.habitat_type_id, null),
-						lat: coalesce(habitat.lat, null),
-						lng: coalesce(habitat.lng, null),
-						isActive: coalesce(habitat.is_active, true),
-						isInaccessible: coalesce(habitat.is_inaccessible, false),
+					// `undefined` here is the join still resolving, which is what
+					// `isResolving` reports below.
+					resolvedHabitatId: habitat.id,
+					name: coalesce(habitat.habitat_name, concat(habitat.lat, ', ', habitat.lng)),
+					description: coalesce(habitat.description, ''),
+					habitatTypeId: coalesce(habitat.habitat_type_id, null),
+					lat: coalesce(habitat.lat, null),
+					lng: coalesce(habitat.lng, null),
+					isActive: coalesce(habitat.is_active, true),
+					isInaccessible: coalesce(habitat.is_inaccessible, false),
 
-						addressId: coalesce(habitat.address_id, null),
-						addressLabel: coalesce(address.display_name, null),
-					})),
-		},
-		[routeId],
-	);
+					addressId: coalesce(habitat.address_id, null),
+					addressLabel: coalesce(address.display_name, null),
+				})),
+	});
 
 	const rows = result.data;
 

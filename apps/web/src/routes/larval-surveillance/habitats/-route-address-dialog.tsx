@@ -19,7 +19,6 @@ interface RouteStopAddressDialogProps {
 	readonly onOpenChange: (open: boolean) => void;
 	readonly habitatId: string;
 	readonly habitatName: string;
-	readonly organizationId: string;
 	readonly currentAddressId: string | null;
 	readonly currentAddressLabel: string | null;
 }
@@ -38,7 +37,6 @@ export function RouteStopAddressDialog({
 	onOpenChange,
 	habitatId,
 	habitatName,
-	organizationId,
 	currentAddressId,
 	currentAddressLabel,
 }: RouteStopAddressDialogProps) {
@@ -94,7 +92,6 @@ export function RouteStopAddressDialog({
 				<AddressPicker
 					create={{}}
 					onSelect={(address) => setAddressId(address?.id ?? null)}
-					organizationId={organizationId}
 					value={addressId}
 				/>
 

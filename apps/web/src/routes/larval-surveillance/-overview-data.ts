@@ -92,20 +92,17 @@ export function useSpeciesComposition(sinceDate: string): {
 } & LoadState {
 	const nameById = useSpeciesNames();
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ identification: sample_species() })
-					.where(({ identification }) => gte(identification.identified_at, sinceDate))
-					.select(({ identification }) => ({
-						speciesId: identification.species_id,
-						larvaeCount: identification.larvae_count,
-					})),
-		},
-		[sinceDate],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ identification: sample_species() })
+				.where(({ identification }) => gte(identification.identified_at, sinceDate))
+				.select(({ identification }) => ({
+					speciesId: identification.species_id,
+					larvaeCount: identification.larvae_count,
+				})),
+	});
 
 	const rows = result.data;
 

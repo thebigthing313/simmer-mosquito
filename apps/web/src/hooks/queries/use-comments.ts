@@ -51,40 +51,37 @@ export interface CommentsResult {
 export function useComments(target: CommentTarget): CommentsResult {
 	const entityType = toDbEntityType(target.type);
 
-	const result = useLiveQuery(
-		{
-			gcTime: commentsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ comment: comments() })
-					.where(({ comment }) =>
-						and(eq(comment.entity_type, entityType), eq(comment.entity_id, target.id)),
-					)
-					// `left`: a comment whose author's Profile has not arrived is still a
-					// comment. An `inner` join would drop it from the thread entirely.
-					.join(
-						{ author: profiles() },
-						({ comment, author }) => eq(comment.commented_by_profile_id, author.id),
-						'left',
-					)
-					.orderBy(({ comment }) => comment.commented_at, 'desc')
-					.select(({ comment, author }) => ({
-						id: comment.id,
-						commentText: comment.comment_text,
-						commentedByProfileId: comment.commented_by_profile_id,
-						// Guarded on the comment's own column, so an unattributed comment reads
-						// as `null` rather than as the `undefined` an unmatched join yields.
-						authorName: caseWhen(
-							isNull(comment.commented_by_profile_id),
-							null,
-							coalesce(author.display_name, 'Unknown'),
-						),
-						commentedAt: comment.commented_at,
-						isPinned: comment.is_pinned,
-					})),
-		},
-		[entityType, target.id],
-	);
+	const result = useLiveQuery({
+		gcTime: commentsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ comment: comments() })
+				.where(({ comment }) =>
+					and(eq(comment.entity_type, entityType), eq(comment.entity_id, target.id)),
+				)
+				// `left`: a comment whose author's Profile has not arrived is still a
+				// comment. An `inner` join would drop it from the thread entirely.
+				.join(
+					{ author: profiles() },
+					({ comment, author }) => eq(comment.commented_by_profile_id, author.id),
+					'left',
+				)
+				.orderBy(({ comment }) => comment.commented_at, 'desc')
+				.select(({ comment, author }) => ({
+					id: comment.id,
+					commentText: comment.comment_text,
+					commentedByProfileId: comment.commented_by_profile_id,
+					// Guarded on the comment's own column, so an unattributed comment reads
+					// as `null` rather than as the `undefined` an unmatched join yields.
+					authorName: caseWhen(
+						isNull(comment.commented_by_profile_id),
+						null,
+						coalesce(author.display_name, 'Unknown'),
+					),
+					commentedAt: comment.commented_at,
+					isPinned: comment.is_pinned,
+				})),
+	});
 
 	return { comments: result.data, isReady: result.isReady, isError: result.isError };
 }

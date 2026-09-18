@@ -101,7 +101,7 @@ function ImportRegionsRoute() {
 	// connects, forcing a deterministic per-row confirmation timeout. Subscribing
 	// here guarantees the stream is connected and up-to-date before the first insert.
 	// The rows themselves are unused; we only need the subscription.
-	useLiveQuery({ query: (query) => query.from({ region: regions() }) }, []);
+	useLiveQuery({ query: (query) => query.from({ region: regions() }) });
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);

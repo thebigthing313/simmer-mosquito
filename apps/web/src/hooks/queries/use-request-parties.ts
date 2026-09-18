@@ -32,44 +32,34 @@ export interface RequestParties {
 export function useRequestParties(
 	requests: readonly { readonly contactId: string; readonly addressId: string }[],
 ): RequestParties {
-	// Sorted and deduplicated so the query key is stable: the same page of rows in
-	// a different order must not re-plan the query or move the subset.
-	const contactIds = [...new Set(requests.map((request) => request.contactId))].sort();
-	const addressIds = [...new Set(requests.map((request) => request.addressId))].sort();
-	const contactKey = contactIds.join(',');
-	const addressKey = addressIds.join(',');
+	const contactIds = [...new Set(requests.map((request) => request.contactId))];
+	const addressIds = [...new Set(requests.map((request) => request.addressId))];
 	const contactQueryIds = contactIds.length > 0 ? contactIds : [unmatchableId];
 	const addressQueryIds = addressIds.length > 0 ? addressIds : [unmatchableId];
 
-	const contactResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: contacts() })
-					.where(({ contact }) => inArray(contact.id, contactQueryIds))
-					.select(({ contact }) => ({
-						id: contact.id,
-						contactName: contact.contact_name,
-						company: contact.company,
-						email: contact.email,
-						preferredPhone: contact.preferred_phone,
-					})),
-		},
-		[contactKey],
-	);
+	const contactResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ contact: contacts() })
+				.where(({ contact }) => inArray(contact.id, contactQueryIds))
+				.select(({ contact }) => ({
+					id: contact.id,
+					contactName: contact.contact_name,
+					company: contact.company,
+					email: contact.email,
+					preferredPhone: contact.preferred_phone,
+				})),
+	});
 
-	const addressResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: addresses() })
-					.where(({ address }) => inArray(address.id, addressQueryIds))
-					.select(({ address }) => addressSelect(address)),
-		},
-		[addressKey],
-	);
+	const addressResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ address: addresses() })
+				.where(({ address }) => inArray(address.id, addressQueryIds))
+				.select(({ address }) => addressSelect(address)),
+	});
 
 	const contactRows = contactResult.data;
 	const addressRows = addressResult.data;

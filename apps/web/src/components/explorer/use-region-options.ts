@@ -25,18 +25,15 @@ export function useRegionOptions(): {
 } {
 	const organizationId = useOrganizationIdentity()?.id ?? unmatchableId;
 
-	const result = useLiveQuery(
-		{
-			gcTime: regionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ region: regions() })
-					.where(({ region }) => eq(region.organization_id, organizationId))
-					.orderBy(({ region }) => region.name, 'asc')
-					.select(({ region }) => ({ id: region.id, label: region.name })),
-		},
-		[organizationId],
-	);
+	const result = useLiveQuery({
+		gcTime: regionsGcTimeMs,
+		query: (query) =>
+			query
+				.from({ region: regions() })
+				.where(({ region }) => eq(region.organization_id, organizationId))
+				.orderBy(({ region }) => region.name, 'asc')
+				.select(({ region }) => ({ id: region.id, label: region.name })),
+	});
 
 	const options = result.data;
 

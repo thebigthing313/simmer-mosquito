@@ -44,34 +44,31 @@ export function useInspectionSamples(inspectionId: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: samplesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sample: samples() })
-					.where(({ sample }) => eq(sample.inspection_id, inspectionId))
-					.orderBy(({ sample }) => sample.created_at, 'asc')
-					.select(({ sample }) => ({
-						id: sample.id,
-						displayName: sample.display_name,
-						isZeroLarvae: sample.is_zero_larvae,
-						hasNonMosquito: sample.has_non_mosquito,
-						unidentifiableReason: sample.unidentifiable_reason,
-						species: toArray(
-							query
-								.from({ species: sample_species() })
-								.where(({ species }) => eq(species.sample_id, sample.id))
-								.select(({ species }) => ({
-									id: species.id,
-									speciesId: species.species_id,
-									larvaeCount: species.larvae_count,
-								})),
-						),
-					})),
-		},
-		[inspectionId],
-	);
+	const result = useLiveQuery({
+		gcTime: samplesGcTimeMs,
+		query: (query) =>
+			query
+				.from({ sample: samples() })
+				.where(({ sample }) => eq(sample.inspection_id, inspectionId))
+				.orderBy(({ sample }) => sample.created_at, 'asc')
+				.select(({ sample }) => ({
+					id: sample.id,
+					displayName: sample.display_name,
+					isZeroLarvae: sample.is_zero_larvae,
+					hasNonMosquito: sample.has_non_mosquito,
+					unidentifiableReason: sample.unidentifiable_reason,
+					species: toArray(
+						query
+							.from({ species: sample_species() })
+							.where(({ species }) => eq(species.sample_id, sample.id))
+							.select(({ species }) => ({
+								id: species.id,
+								speciesId: species.species_id,
+								larvaeCount: species.larvae_count,
+							})),
+					),
+				})),
+	});
 
 	return {
 		samples: (result.data ?? []) as unknown as readonly InspectionSample[],

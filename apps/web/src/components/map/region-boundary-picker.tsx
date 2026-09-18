@@ -49,12 +49,10 @@ interface RegionOption {
 }
 
 export function RegionBoundaryPicker({
-	organizationId,
 	allowsParts,
 	disabled = false,
 	onSelect,
 }: {
-	readonly organizationId: string;
 	/** Whether the record adopting the boundary can store one in several pieces. */
 	readonly allowsParts: boolean;
 	readonly disabled?: boolean;
@@ -115,7 +113,6 @@ export function RegionBoundaryPicker({
 				<RegionResults
 					loadingId={loadingId}
 					onSelect={(region) => void adoptRegion(region)}
-					organizationId={organizationId}
 					search={deferredSearch}
 				/>
 				{error === null ? null : <p className="m-0 px-1 text-destructive text-xs">{error}</p>}
@@ -125,12 +122,10 @@ export function RegionBoundaryPicker({
 }
 
 function RegionResults({
-	organizationId,
 	search,
 	loadingId,
 	onSelect,
 }: {
-	readonly organizationId: string;
 	readonly search: string;
 	readonly loadingId: string | null;
 	readonly onSelect: (region: RegionOption) => void;
@@ -138,32 +133,29 @@ function RegionResults({
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
 	const folderNames = useRegionFolderNames();
-	const { data, isReady, isError } = useLiveQuery(
-		{
-			gcTime: searchGcTimeMs,
-			query: (query) => {
-				// No organization predicate: the shape is scoped to the organization
-				// server-side, so re-stating it here is redundant — and a stale column
-				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ region: regions() });
-				const filtered =
-					normalized.length === 0
-						? base
-						: base.where(({ region }) =>
-								or(ilike(region.name, pattern), ilike(region.description, pattern)),
-							);
-				return filtered
-					.orderBy(({ region }) => region.name, 'asc')
-					.limit(resultLimit)
-					.select(({ region }) => ({
-						id: region.id,
-						name: region.name,
-						folderId: region.region_folder_id,
-					}));
-			},
+	const { data, isReady, isError } = useLiveQuery({
+		gcTime: searchGcTimeMs,
+		query: (query) => {
+			// No organization predicate: the shape is scoped to the organization
+			// server-side, so re-stating it here is redundant — and a stale column
+			// spelling in one is what empties a list rather than narrowing it.
+			const base = query.from({ region: regions() });
+			const filtered =
+				normalized.length === 0
+					? base
+					: base.where(({ region }) =>
+							or(ilike(region.name, pattern), ilike(region.description, pattern)),
+						);
+			return filtered
+				.orderBy(({ region }) => region.name, 'asc')
+				.limit(resultLimit)
+				.select(({ region }) => ({
+					id: region.id,
+					name: region.name,
+					folderId: region.region_folder_id,
+				}));
 		},
-		[organizationId, pattern],
-	);
+	});
 
 	if (isError) {
 		return <PickerFallback label="Regions unavailable" />;

@@ -69,14 +69,11 @@ function EditInspectionRoute() {
 	// samples subset below — are already streaming when the save fires; a write
 	// over a cold on-demand stream never sees its txid come back.
 	const personnel = useAdditionalPersonnel({ type: 'inspection', id });
-	useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
-		},
-		[id],
-	);
+	useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
+	});
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

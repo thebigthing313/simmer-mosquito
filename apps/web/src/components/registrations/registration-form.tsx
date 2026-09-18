@@ -255,7 +255,6 @@ function RegistrationLocation({
 							field.handleChange(address?.id ?? null);
 							onAddressSelected(address);
 						}}
-						organizationId={organizationId}
 						value={field.state.value}
 					/>
 				)}

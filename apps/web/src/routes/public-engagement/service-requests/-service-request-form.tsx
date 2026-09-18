@@ -149,7 +149,6 @@ export interface ServiceRequestFormHeader {
 }
 
 export interface ServiceRequestFormPageProps {
-	readonly organizationId: string;
 	readonly canSubmit: boolean;
 	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: ServiceRequestFormValues;
@@ -182,7 +181,6 @@ export function defaultServiceRequestFormValues(
 }
 
 export function ServiceRequestFormPage({
-	organizationId,
 	canSubmit,
 	profiles,
 	defaultValues,
@@ -257,11 +255,7 @@ export function ServiceRequestFormPage({
 			>
 				<form.FormErrorAlert title="Unable to Save Service Request" />
 
-				<ContactSection
-					disableNewContact={disableNewContact}
-					form={form}
-					organizationId={organizationId}
-				/>
+				<ContactSection disableNewContact={disableNewContact} form={form} />
 
 				{hideLocation ? null : (
 					<RequestLocation
@@ -275,7 +269,6 @@ export function ServiceRequestFormPage({
 						onClearPoint={location.clear}
 						onDrawPoint={location.startDraw}
 						onMoveToAddress={location.moveToAddress}
-						organizationId={organizationId}
 						requestMapPoint={location.requestMapPoint}
 						requireLocation={requireLocation}
 					/>
@@ -335,12 +328,10 @@ export function ServiceRequestFormPage({
 
 function ContactSection({
 	form,
-	organizationId,
 	disableNewContact,
 }: {
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
 	readonly form: any;
-	readonly organizationId: string;
 	readonly disableNewContact: boolean;
 }) {
 	return (
@@ -383,7 +374,6 @@ function ContactSection({
 							{(field: any) => (
 								<ContactPicker
 									onSelect={(contact) => field.handleChange(contact?.id ?? null)}
-									organizationId={organizationId}
 									value={field.state.value}
 								/>
 							)}
@@ -401,7 +391,6 @@ function ContactSection({
 
 function RequestLocation({
 	form,
-	organizationId,
 	geometry,
 	geometryType,
 	controller,
@@ -416,7 +405,6 @@ function RequestLocation({
 }: {
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
 	readonly form: any;
-	readonly organizationId: string;
 	readonly geometry: DrawGeometry | null;
 	readonly geometryType: DrawGeometryType;
 	readonly controller: MapDrawController;
@@ -450,7 +438,6 @@ function RequestLocation({
 							field.handleChange(address?.id ?? null);
 							onAddressSelected(address);
 						}}
-						organizationId={organizationId}
 						value={field.state.value}
 					/>
 				)}

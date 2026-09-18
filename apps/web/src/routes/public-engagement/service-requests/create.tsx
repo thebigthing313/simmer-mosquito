@@ -10,7 +10,6 @@ import { useContact } from '../../../hooks/queries/use-contact-record';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useServiceRequestRecord } from '../../../hooks/queries/use-service-request-record';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
@@ -49,7 +48,6 @@ function CreateServiceRequestRoute() {
 	const search = Route.useSearch();
 	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const profiles = useProfileRoster();
 	const contactWrites = useContactMutations();
 	const requestWrites = useServiceRequestMutations();
@@ -124,7 +122,6 @@ function CreateServiceRequestRoute() {
 			}}
 			initialGeometry={initialGeometry}
 			onSave={onSave}
-			organizationId={organization.id}
 			profiles={profiles}
 		/>
 	);

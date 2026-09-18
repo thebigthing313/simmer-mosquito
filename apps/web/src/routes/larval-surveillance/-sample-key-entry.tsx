@@ -46,22 +46,19 @@ export function SampleKeyEntryDialog({
 	const mutations = useSampleSpeciesMutations();
 	const timeZone = useOrganizationTimeZone();
 
-	const result = useLiveQuery(
-		{
-			query: (query) =>
-				query
-					.from({ sampleSpecies: sample_species() })
-					.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
-					.select(({ sampleSpecies }) => ({
-						id: sampleSpecies.id,
-						speciesId: sampleSpecies.species_id,
-						larvaeCount: sampleSpecies.larvae_count,
-						identifiedByProfileId: sampleSpecies.identified_by_profile_id,
-						identifiedAt: sampleSpecies.identified_at,
-					})),
-		},
-		[sampleId],
-	);
+	const result = useLiveQuery({
+		query: (query) =>
+			query
+				.from({ sampleSpecies: sample_species() })
+				.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
+				.select(({ sampleSpecies }) => ({
+					id: sampleSpecies.id,
+					speciesId: sampleSpecies.species_id,
+					larvaeCount: sampleSpecies.larvae_count,
+					identifiedByProfileId: sampleSpecies.identified_by_profile_id,
+					identifiedAt: sampleSpecies.identified_at,
+				})),
+	});
 	const rows = (result.data ?? []) as readonly KeyEntryRow[];
 
 	// See the adult dialog: commits set each row to baseline + tally so repeated

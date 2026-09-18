@@ -219,27 +219,24 @@ export function useAssignment(assignmentId: string | null): {
 	 */
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ assignment: assignments() })
-					.where(({ assignment }) => eq(assignment.id, assignmentId ?? unmatchableId))
-					.select(({ assignment }) => ({
-						id: assignment.id,
-						assignmentName: assignment.assignment_name,
-						assignmentDate: assignment.assignment_date,
-						assignedToProfileId: assignment.assigned_to_profile_id,
-						dueAt: assignment.due_at,
-						startedAt: assignment.started_at,
-						completedAt: assignment.completed_at,
-						cancelledAt: assignment.cancelled_at,
-						cancellationReason: assignment.cancellation_reason,
-					})),
-		},
-		[assignmentId],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ assignment: assignments() })
+				.where(({ assignment }) => eq(assignment.id, assignmentId ?? unmatchableId))
+				.select(({ assignment }) => ({
+					id: assignment.id,
+					assignmentName: assignment.assignment_name,
+					assignmentDate: assignment.assignment_date,
+					assignedToProfileId: assignment.assigned_to_profile_id,
+					dueAt: assignment.due_at,
+					startedAt: assignment.started_at,
+					completedAt: assignment.completed_at,
+					cancelledAt: assignment.cancelled_at,
+					cancellationReason: assignment.cancellation_reason,
+				})),
+	});
 
 	const row = result.data[0];
 
@@ -276,29 +273,26 @@ export function useAssignmentItems(assignmentId: string | null): {
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: assignment_items() })
-					.where(({ item }) => eq(item.assignment_id, assignmentId ?? unmatchableId))
-					.orderBy(({ item }) => item.position, 'asc')
-					.select(({ item }) => ({
-						id: item.id,
-						entityType: item.entity_type,
-						entityId: item.entity_id,
-						position: item.position,
-						directionsToNextItem: item.directions_to_next_item,
-						completedAt: item.completed_at,
-						completedByProfileId: item.completed_by_profile_id,
-						skippedAt: item.skipped_at,
-						skippedByProfileId: item.skipped_by_profile_id,
-						skipReason: item.skip_reason,
-					})),
-		},
-		[assignmentId],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: assignment_items() })
+				.where(({ item }) => eq(item.assignment_id, assignmentId ?? unmatchableId))
+				.orderBy(({ item }) => item.position, 'asc')
+				.select(({ item }) => ({
+					id: item.id,
+					entityType: item.entity_type,
+					entityId: item.entity_id,
+					position: item.position,
+					directionsToNextItem: item.directions_to_next_item,
+					completedAt: item.completed_at,
+					completedByProfileId: item.completed_by_profile_id,
+					skippedAt: item.skipped_at,
+					skippedByProfileId: item.skipped_by_profile_id,
+					skipReason: item.skip_reason,
+				})),
+	});
 
 	return {
 		items: result.data,
@@ -324,77 +318,64 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 } {
 	const { trapIds, habitatIds, requestIds } = targetIdsByType(items);
 
-	const trapKey = [...trapIds].sort().join(',');
-	const habitatKey = [...habitatIds].sort().join(',');
-	const requestKey = [...requestIds].sort().join(',');
-
 	// `traps` is eager, so this is a filter over rows already local rather than a
 	// subset request — but asking for the stops' traps by id keeps the three
 	// branches reading the same way.
-	const trapResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ trap: traps() })
-					.where(({ trap }) => inArray(trap.id, trapIds.length > 0 ? trapIds : [unmatchableId]))
-					.select(({ trap }) => ({
-						id: trap.id,
-						trapName: trap.trap_name,
-						trapCode: trap.trap_code,
-						description: trap.description,
-						addressId: trap.address_id,
-						lat: trap.lat,
-						lng: trap.lng,
-						isActive: trap.is_active,
-					})),
-		},
-		[trapKey],
-	);
+	const trapResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ trap: traps() })
+				.where(({ trap }) => inArray(trap.id, trapIds.length > 0 ? trapIds : [unmatchableId]))
+				.select(({ trap }) => ({
+					id: trap.id,
+					trapName: trap.trap_name,
+					trapCode: trap.trap_code,
+					description: trap.description,
+					addressId: trap.address_id,
+					lat: trap.lat,
+					lng: trap.lng,
+					isActive: trap.is_active,
+				})),
+	});
 
-	const habitatResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: habitats() })
-					.where(({ habitat }) =>
-						inArray(habitat.id, habitatIds.length > 0 ? habitatIds : [unmatchableId]),
-					)
-					.select(({ habitat }) => ({
-						id: habitat.id,
-						habitatName: habitat.habitat_name,
-						description: habitat.description,
-						addressId: habitat.address_id,
-						lat: habitat.lat,
-						lng: habitat.lng,
-						isActive: habitat.is_active,
-						isInaccessible: habitat.is_inaccessible,
-					})),
-		},
-		[habitatKey],
-	);
+	const habitatResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ habitat: habitats() })
+				.where(({ habitat }) =>
+					inArray(habitat.id, habitatIds.length > 0 ? habitatIds : [unmatchableId]),
+				)
+				.select(({ habitat }) => ({
+					id: habitat.id,
+					habitatName: habitat.habitat_name,
+					description: habitat.description,
+					addressId: habitat.address_id,
+					lat: habitat.lat,
+					lng: habitat.lng,
+					isActive: habitat.is_active,
+					isInaccessible: habitat.is_inaccessible,
+				})),
+	});
 
-	const requestResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: service_requests() })
-					.where(({ request }) =>
-						inArray(request.id, requestIds.length > 0 ? requestIds : [unmatchableId]),
-					)
-					.select(({ request }) => ({
-						id: request.id,
-						addressId: request.address_id,
-						details: request.details,
-						lat: request.lat,
-						lng: request.lng,
-						closedAt: request.closed_at,
-					})),
-		},
-		[requestKey],
-	);
+	const requestResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ request: service_requests() })
+				.where(({ request }) =>
+					inArray(request.id, requestIds.length > 0 ? requestIds : [unmatchableId]),
+				)
+				.select(({ request }) => ({
+					id: request.id,
+					addressId: request.address_id,
+					details: request.details,
+					lat: request.lat,
+					lng: request.lng,
+					closedAt: request.closed_at,
+				})),
+	});
 
 	const trapRows = trapResult.data;
 	const habitatRows = habitatResult.data;
@@ -402,21 +383,17 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 
 	// Second-level subset: all three label themselves by address.
 	const addressIds = addressIdsOf({ trapRows, habitatRows, requestRows });
-	const addressKey = addressIds.join(',');
 
-	const addressResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: addresses() })
-					.where(({ address }) =>
-						inArray(address.id, addressIds.length > 0 ? addressIds : [unmatchableId]),
-					)
-					.select(({ address }) => ({ id: address.id, displayName: address.display_name })),
-		},
-		[addressKey],
-	);
+	const addressResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ address: addresses() })
+				.where(({ address }) =>
+					inArray(address.id, addressIds.length > 0 ? addressIds : [unmatchableId]),
+				)
+				.select(({ address }) => ({ id: address.id, displayName: address.display_name })),
+	});
 
 	const addressById = addressNamesById(addressResult.data);
 
@@ -617,30 +594,26 @@ function usePendingTrapCollections(
 	items: readonly AssignmentItemView[],
 ): ReadonlyMap<string, string> {
 	const trapIds = trapIdsOf(items);
-	const trapKey = trapIds.join(',');
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: collections() })
-					.where(({ collection }) =>
-						and(
-							inArray(collection.trap_id, trapIds.length > 0 ? trapIds : [unmatchableId]),
-							// The pending state, spelled out: a date-plus-duration collection
-							// also has a null `collected_at` and is not waiting for anybody.
-							// `isNull`, not `eq(…, null)` — the query builder follows SQL
-							// three-valued logic, so an equality test against null matches
-							// nothing and every trap stop silently looks like a first visit.
-							isNull(collection.collected_at),
-							eq(collection.collection_timing_mode, 'exact_timestamps'),
-						),
-					)
-					.select(({ collection }) => ({ id: collection.id, trapId: collection.trap_id })),
-		},
-		[trapKey],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ collection: collections() })
+				.where(({ collection }) =>
+					and(
+						inArray(collection.trap_id, trapIds.length > 0 ? trapIds : [unmatchableId]),
+						// The pending state, spelled out: a date-plus-duration collection
+						// also has a null `collected_at` and is not waiting for anybody.
+						// `isNull`, not `eq(…, null)` — the query builder follows SQL
+						// three-valued logic, so an equality test against null matches
+						// nothing and every trap stop silently looks like a first visit.
+						isNull(collection.collected_at),
+						eq(collection.collection_timing_mode, 'exact_timestamps'),
+					),
+				)
+				.select(({ collection }) => ({ id: collection.id, trapId: collection.trap_id })),
+	});
 
 	return firstCollectionByTrapId(result.data);
 }
@@ -738,23 +711,20 @@ export function useOpenServiceRequests(): {
 	readonly requests: readonly OpenServiceRequest[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: service_requests() })
-					.where(({ request }) => isNull(request.closed_at))
-					.orderBy(({ request }) => request.request_date, 'desc')
-					.select(({ request }) => ({
-						id: request.id,
-						addressId: request.address_id,
-						details: request.details,
-						requestDate: request.request_date,
-					})),
-		},
-		[],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ request: service_requests() })
+				.where(({ request }) => isNull(request.closed_at))
+				.orderBy(({ request }) => request.request_date, 'desc')
+				.select(({ request }) => ({
+					id: request.id,
+					addressId: request.address_id,
+					details: request.details,
+					requestDate: request.request_date,
+				})),
+	});
 
 	return { requests: result.data, isReady: result.isReady };
 }
@@ -779,23 +749,20 @@ export function useRouteSnapshotItems(routeId: string | null): {
 	readonly items: readonly RouteSnapshotItem[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: route_items() })
-					.where(({ item }) => eq(item.route_id, routeId ?? unmatchableId))
-					.orderBy(({ item }) => item.position, 'asc')
-					.select(({ item }) => ({
-						routeItemId: item.id,
-						entityType: item.entity_type,
-						entityId: item.entity_id,
-						directionsToNextItem: item.directions_to_next_item,
-					})),
-		},
-		[routeId],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: route_items() })
+				.where(({ item }) => eq(item.route_id, routeId ?? unmatchableId))
+				.orderBy(({ item }) => item.position, 'asc')
+				.select(({ item }) => ({
+					routeItemId: item.id,
+					entityType: item.entity_type,
+					entityId: item.entity_id,
+					directionsToNextItem: item.directions_to_next_item,
+				})),
+	});
 
 	return {
 		items: result.data,

@@ -58,30 +58,27 @@ export function useOrganizationServiceRequests(): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: service_requests() })
-					.orderBy(({ request }) => request.request_date, 'desc')
-					.select(({ request }) => ({
-						id: request.id,
-						displayName: request.display_name,
-						requestDate: request.request_date,
-						details: request.details,
-						contactId: request.contact_id,
-						addressId: request.address_id,
-						latitude: request.lat,
-						longitude: request.lng,
-						createdAt: request.created_at,
-						createdByProfileId: request.created_by_profile_id,
-						closedAt: request.closed_at,
-						closedByProfileId: request.closed_by_profile_id,
-					})),
-		},
-		[],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ request: service_requests() })
+				.orderBy(({ request }) => request.request_date, 'desc')
+				.select(({ request }) => ({
+					id: request.id,
+					displayName: request.display_name,
+					requestDate: request.request_date,
+					details: request.details,
+					contactId: request.contact_id,
+					addressId: request.address_id,
+					latitude: request.lat,
+					longitude: request.lng,
+					createdAt: request.created_at,
+					createdByProfileId: request.created_by_profile_id,
+					closedAt: request.closed_at,
+					closedByProfileId: request.closed_by_profile_id,
+				})),
+	});
 
 	const requests = result.data;
 	const openRequests = requests.filter((request) => request.closedAt === null);

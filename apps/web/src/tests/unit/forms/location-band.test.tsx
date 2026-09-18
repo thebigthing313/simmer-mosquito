@@ -75,12 +75,7 @@ function BandHarness({
 				location={location}
 				organizationId="org-1"
 			>
-				<LocationAddressField
-					location={location}
-					onChange={onChange}
-					organizationId="org-1"
-					value={null}
-				/>
+				<LocationAddressField location={location} onChange={onChange} value={null} />
 			</LocationBand>
 		</>
 	);

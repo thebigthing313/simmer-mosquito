@@ -122,12 +122,7 @@ export function AddMissionStopForm({
 				location={location}
 				organizationId={mission.organizationId}
 			>
-				<LocationAddressField
-					location={location}
-					onChange={setAddressId}
-					organizationId={mission.organizationId}
-					value={addressId}
-				/>
+				<LocationAddressField location={location} onChange={setAddressId} value={addressId} />
 			</LocationBand>
 
 			<p className="m-0 text-muted-foreground text-sm">

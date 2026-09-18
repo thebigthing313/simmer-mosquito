@@ -25,14 +25,12 @@ export function useRegionFolders(): {
 	readonly folders: readonly RegionFolderListing[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query.from({ folder: region_folders() }).select(({ folder }) => ({
-				id: folder.id,
-				name: folder.name,
-				description: folder.description,
-			})),
-		[],
+	const result = useLiveQuery((query) =>
+		query.from({ folder: region_folders() }).select(({ folder }) => ({
+			id: folder.id,
+			name: folder.name,
+			description: folder.description,
+		})),
 	);
 
 	return { folders: result.data, isReady: result.isReady };

@@ -56,14 +56,12 @@ export function dailyWorkRoster(
 }
 
 export function useDailyWorkRoster(): DailyWorkRoster {
-	const result = useLiveQuery(
-		(query) =>
-			query.from({ profile: profiles() }).select(({ profile }) => ({
-				id: profile.id,
-				display_name: profile.display_name,
-				is_active: profile.is_active,
-			})),
-		[],
+	const result = useLiveQuery((query) =>
+		query.from({ profile: profiles() }).select(({ profile }) => ({
+			id: profile.id,
+			display_name: profile.display_name,
+			is_active: profile.is_active,
+		})),
 	);
 
 	const rows = result.data;

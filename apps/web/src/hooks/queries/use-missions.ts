@@ -38,33 +38,27 @@ export function useMissions(
 	const toBound =
 		to === '' ? LATEST_INSTANT : localDayStartAsInstant(addCalendarDays(to, 1), timeZone);
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ mission: missions() })
-					.where(({ mission }) =>
-						and(
-							gte(mission.scheduled_start_at, fromBound),
-							lte(mission.scheduled_start_at, toBound),
-						),
-					)
-					.orderBy(({ mission }) => mission.scheduled_start_at, 'desc')
-					.select(({ mission }) => ({
-						id: mission.id,
-						missionName: mission.mission_name,
-						controlType: mission.control_type,
-						plannedMethodId: mission.planned_method_id,
-						assignedToProfileId: mission.assigned_to_profile_id,
-						scheduledStartAt: mission.scheduled_start_at,
-						startedAt: mission.started_at,
-						completedAt: mission.completed_at,
-						cancelledAt: mission.cancelled_at,
-					})),
-		},
-		[fromBound, toBound],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ mission: missions() })
+				.where(({ mission }) =>
+					and(gte(mission.scheduled_start_at, fromBound), lte(mission.scheduled_start_at, toBound)),
+				)
+				.orderBy(({ mission }) => mission.scheduled_start_at, 'desc')
+				.select(({ mission }) => ({
+					id: mission.id,
+					missionName: mission.mission_name,
+					controlType: mission.control_type,
+					plannedMethodId: mission.planned_method_id,
+					assignedToProfileId: mission.assigned_to_profile_id,
+					scheduledStartAt: mission.scheduled_start_at,
+					startedAt: mission.started_at,
+					completedAt: mission.completed_at,
+					cancelledAt: mission.cancelled_at,
+				})),
+	});
 
 	return {
 		missions: result.data,

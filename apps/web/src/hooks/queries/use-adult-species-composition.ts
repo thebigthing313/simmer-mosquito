@@ -27,20 +27,17 @@ export function useAdultSpeciesComposition(sinceDate: string): {
 } {
 	const nameById = useSpeciesNames();
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ identification: collection_species() })
-					.where(({ identification }) => gte(identification.identified_date, sinceDate))
-					.select(({ identification }) => ({
-						speciesId: identification.species_id,
-						count: identification.count,
-					})),
-		},
-		[sinceDate],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ identification: collection_species() })
+				.where(({ identification }) => gte(identification.identified_date, sinceDate))
+				.select(({ identification }) => ({
+					speciesId: identification.species_id,
+					count: identification.count,
+				})),
+	});
 
 	const rows = result.data;
 

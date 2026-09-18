@@ -22,13 +22,11 @@ export function usePersonnelOptions(): {
 	readonly options: readonly FilterOption[];
 	readonly nameById: ReadonlyMap<string, string>;
 } {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ profile: profiles() })
-				.orderBy(({ profile }) => profile.display_name, 'asc')
-				.select(({ profile }) => ({ id: profile.id, label: profile.display_name })),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ profile: profiles() })
+			.orderBy(({ profile }) => profile.display_name, 'asc')
+			.select(({ profile }) => ({ id: profile.id, label: profile.display_name })),
 	);
 
 	const people = result.data;

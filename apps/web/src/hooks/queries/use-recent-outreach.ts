@@ -29,41 +29,38 @@ export function useRecentOutreachActions(sinceDate: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: outreach_actions() })
-					.where(({ action }) => gte(action.outreach_date, sinceDate))
-					.join(
-						{ method: outreach_methods() },
-						({ action, method }) => eq(action.outreach_method_id, method.id),
-						'left',
-					)
-					.join(
-						{ technician: profiles() },
-						({ action, technician }) => eq(action.technician_profile_id, technician.id),
-						'left',
-					)
-					.orderBy(({ action }) => action.outreach_date, 'desc')
-					.select(({ action, method, technician }) => ({
-						id: action.id,
-						outreachDate: action.outreach_date,
-						methodId: action.outreach_method_id,
-						methodName: coalesce(method.name, 'Unknown method'),
-						technicianProfileId: action.technician_profile_id,
-						technicianName: caseWhen(
-							isNull(action.technician_profile_id),
-							null,
-							technician.display_name,
-						),
-						reach: action.reach,
-						reachDescription: action.reach_description,
-					})),
-		},
-		[sinceDate],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ action: outreach_actions() })
+				.where(({ action }) => gte(action.outreach_date, sinceDate))
+				.join(
+					{ method: outreach_methods() },
+					({ action, method }) => eq(action.outreach_method_id, method.id),
+					'left',
+				)
+				.join(
+					{ technician: profiles() },
+					({ action, technician }) => eq(action.technician_profile_id, technician.id),
+					'left',
+				)
+				.orderBy(({ action }) => action.outreach_date, 'desc')
+				.select(({ action, method, technician }) => ({
+					id: action.id,
+					outreachDate: action.outreach_date,
+					methodId: action.outreach_method_id,
+					methodName: coalesce(method.name, 'Unknown method'),
+					technicianProfileId: action.technician_profile_id,
+					technicianName: caseWhen(
+						isNull(action.technician_profile_id),
+						null,
+						technician.display_name,
+					),
+					reach: action.reach,
+					reachDescription: action.reach_description,
+				})),
+	});
 
 	return { actions: result.data, isReady: result.isReady, isError: result.isError };
 }

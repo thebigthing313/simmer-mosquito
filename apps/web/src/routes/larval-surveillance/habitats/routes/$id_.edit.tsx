@@ -358,7 +358,6 @@ function RouteEditRoute() {
 					habitatName={addressTarget.name}
 					onOpenChange={(open) => !open && setAddressTarget(null)}
 					open={addressTarget !== null}
-					organizationId={organizationId}
 				/>
 			) : null}
 		</>

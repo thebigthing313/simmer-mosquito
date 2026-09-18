@@ -20,12 +20,10 @@ import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { species } from '../../lib/collections/species';
 
 export function useSpeciesNames(): ReadonlyMap<string, string> {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ taxon: species() })
-				.select(({ taxon }) => ({ id: taxon.id, name: taxon.display_name })),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ taxon: species() })
+			.select(({ taxon }) => ({ id: taxon.id, name: taxon.display_name })),
 	);
 
 	return new Map(result.data.map((taxon) => [taxon.id, taxon.name] as const));

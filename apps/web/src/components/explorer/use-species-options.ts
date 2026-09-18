@@ -28,21 +28,17 @@ export function useSpeciesOptions(): {
 } {
 	const nameById = useSpeciesNames();
 
-	const catalog = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ taxon: species() })
-				.orderBy(({ taxon }) => taxon.display_name, 'asc')
-				.select(({ taxon }) => ({ id: taxon.id, label: taxon.display_name })),
-		[],
+	const catalog = useLiveSuspenseQuery((query) =>
+		query
+			.from({ taxon: species() })
+			.orderBy(({ taxon }) => taxon.display_name, 'asc')
+			.select(({ taxon }) => ({ id: taxon.id, label: taxon.display_name })),
 	);
 
-	const adopted = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ adoption: organization_species() })
-				.select(({ adoption }) => ({ speciesId: adoption.species_id })),
-		[],
+	const adopted = useLiveSuspenseQuery((query) =>
+		query
+			.from({ adoption: organization_species() })
+			.select(({ adoption }) => ({ speciesId: adoption.species_id })),
 	);
 
 	const catalogOptions = catalog.data;

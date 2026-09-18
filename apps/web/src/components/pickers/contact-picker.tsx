@@ -26,12 +26,10 @@ export interface ContactOption {
 
 export function ContactPicker({
 	label = 'Contact',
-	organizationId,
 	value,
 	onSelect,
 }: {
 	readonly label?: string;
-	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (contact: ContactOption | null) => void;
 }) {
@@ -78,7 +76,6 @@ export function ContactPicker({
 					onSelect(contact);
 					setOpen(false);
 				}}
-				organizationId={organizationId}
 				search={deferredSearch}
 				selectedValue={value}
 			/>
@@ -87,50 +84,45 @@ export function ContactPicker({
 }
 
 function ContactResults({
-	organizationId,
 	search,
 	selectedValue,
 	onSelect,
 }: {
-	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
 	readonly onSelect: (contact: ContactOption) => void;
 }) {
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
-	const { data, isReady, isError } = useLiveQuery(
-		{
-			gcTime: searchGcTimeMs,
-			query: (query) => {
-				// No organization predicate: the shape is scoped to the organization
-				// server-side, so re-stating it here is redundant — and a stale column
-				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ contact: contacts() });
-				const filtered =
-					normalized.length === 0
-						? base
-						: base.where(({ contact }) =>
-								or(
-									ilike(contact.contact_name, pattern),
-									ilike(contact.company, pattern),
-									ilike(contact.email, pattern),
-								),
-							);
-				return filtered
-					.orderBy(({ contact }) => contact.contact_name, 'asc')
-					.limit(8)
-					.select(({ contact }) => ({
-						id: contact.id,
-						contactName: contact.contact_name,
-						company: contact.company,
-						email: contact.email,
-						preferredPhone: contact.preferred_phone,
-					}));
-			},
+	const { data, isReady, isError } = useLiveQuery({
+		gcTime: searchGcTimeMs,
+		query: (query) => {
+			// No organization predicate: the shape is scoped to the organization
+			// server-side, so re-stating it here is redundant — and a stale column
+			// spelling in one is what empties a list rather than narrowing it.
+			const base = query.from({ contact: contacts() });
+			const filtered =
+				normalized.length === 0
+					? base
+					: base.where(({ contact }) =>
+							or(
+								ilike(contact.contact_name, pattern),
+								ilike(contact.company, pattern),
+								ilike(contact.email, pattern),
+							),
+						);
+			return filtered
+				.orderBy(({ contact }) => contact.contact_name, 'asc')
+				.limit(8)
+				.select(({ contact }) => ({
+					id: contact.id,
+					contactName: contact.contact_name,
+					company: contact.company,
+					email: contact.email,
+					preferredPhone: contact.preferred_phone,
+				}));
 		},
-		[organizationId, pattern],
-	);
+	});
 
 	if (isError) {
 		return <PickerFallback label="Contacts unavailable" />;
