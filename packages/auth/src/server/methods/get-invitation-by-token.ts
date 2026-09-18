@@ -1,5 +1,5 @@
 import type { InvitationSummary } from '../auth-invitation.js';
-import { isNotFound } from '../errors/is-not-found.js';
+import { classifyWorkOsFailure } from '../errors/classify-workos-failure.js';
 import type { WorkOsAuthContext } from '../workos-auth-context.js';
 
 export async function getInvitationByToken(
@@ -15,7 +15,7 @@ export async function getInvitationByToken(
 			organizationId: invitation.organizationId,
 		};
 	} catch (error) {
-		if (isNotFound(error)) {
+		if (classifyWorkOsFailure(error).kind === 'not_found') {
 			return null;
 		}
 

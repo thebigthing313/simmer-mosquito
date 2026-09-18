@@ -533,11 +533,6 @@
         "count": 1
       }
     },
-    "packages/auth/src/server/methods/accept-invitation-with-password.ts": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "packages/db/src/domains/adult-surveillance.ts": {
       "complexity_high": {
         "count": 1

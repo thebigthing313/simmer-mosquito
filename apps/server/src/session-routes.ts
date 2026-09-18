@@ -18,7 +18,7 @@
  * `auth-user-commands.ts` needs the same function for the password flows.
  */
 
-import { WORKOS_SESSION_COOKIE_NAME, type WorkOsAuth } from '@simmer-mosquito/auth';
+import { WORKOS_SESSION_COOKIE_NAME, type WorkOsSessionAuth } from '@simmer-mosquito/auth';
 import type { Context, Hono } from 'hono';
 import { deleteCookie } from 'hono/cookie';
 import {
@@ -34,7 +34,7 @@ import type { FinalizeWorkOsSession } from './auth-user-commands.js';
 
 /** What the redirect routes need of the WorkOS client. */
 export type SessionAuth = Pick<
-	WorkOsAuth,
+	WorkOsSessionAuth,
 	'getAuthorizationUrl' | 'authenticateCode' | 'revokeSession'
 >;
 

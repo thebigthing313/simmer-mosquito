@@ -1,13 +1,8 @@
 import type { AuthFetch } from './fetch-types.js';
 
-export type AuthJsonBody = Record<string, unknown>;
+/** The parsed body of a JSON POST to an `/auth/*` path; an unreadable body reads as `{}`. */
+export type AuthJsonPost = (path: string, body: unknown) => Promise<unknown>;
 
-export type AuthJsonPost = (
-	path: string,
-	body: unknown,
-) => Promise<{ readonly httpOk: boolean; readonly data: AuthJsonBody }>;
-
-/** A JSON POST to an `/auth/*` path; an unreadable body reads as `{}`. */
 export function createAuthJsonPost(authFetch: AuthFetch): AuthJsonPost {
 	return async (path, body) => {
 		const response = await authFetch(path, {
@@ -16,7 +11,6 @@ export function createAuthJsonPost(authFetch: AuthFetch): AuthJsonPost {
 			body: JSON.stringify(body),
 		});
 
-		const data = (await response.json().catch(() => ({}))) as AuthJsonBody;
-		return { httpOk: response.ok, data };
+		return response.json().catch(() => ({}));
 	};
 }

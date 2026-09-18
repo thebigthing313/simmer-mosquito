@@ -1,7 +1,5 @@
 import { clientOrigin } from '../client-origin.js';
-import { isBadRequest } from '../errors/is-bad-request.js';
-import { isNotFound } from '../errors/is-not-found.js';
-import { isUnprocessable } from '../errors/is-unprocessable.js';
+import { classifyWorkOsFailure } from '../errors/classify-workos-failure.js';
 import type { SelectOrganizationResult } from '../password-auth-types.js';
 import { toAuthenticatedSession } from '../to-authenticated-session.js';
 import { sealSessionOptions, type WorkOsAuthContext } from '../workos-auth-context.js';
@@ -26,10 +24,13 @@ export async function authenticateWithOrganizationSelection(
 
 		return { status: 'authenticated', session: toAuthenticatedSession(response) };
 	} catch (error) {
-		if (isBadRequest(error) || isUnprocessable(error) || isNotFound(error)) {
-			return { status: 'invalid_selection' };
+		switch (classifyWorkOsFailure(error).kind) {
+			case 'bad_request':
+			case 'unprocessable':
+			case 'not_found':
+				return { status: 'invalid_selection' };
+			default:
+				throw error;
 		}
-
-		throw error;
 	}
 }

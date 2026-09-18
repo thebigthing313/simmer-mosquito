@@ -114,7 +114,7 @@ describe('resetPassword failure mapping', () => {
 
 		// The top-level message is "Could not reset password.", which tells the
 		// user nothing. The useful sentence is in `errors[]`.
-		await expect(auth.resetPassword(input)).resolves.toEqual({
+		await expect(auth.identity.resetPassword(input)).resolves.toEqual({
 			status: 'weak_password',
 			message:
 				'The provided password does not meet the minimum length requirements. Please try a password with 10 or more characters.',
@@ -135,7 +135,7 @@ describe('resetPassword failure mapping', () => {
 
 		const auth = createWorkOsAuth(config);
 
-		await expect(auth.resetPassword(input)).resolves.toEqual({
+		await expect(auth.identity.resetPassword(input)).resolves.toEqual({
 			status: 'weak_password',
 			message: 'Too short. Not strong enough.',
 		});
@@ -154,7 +154,7 @@ describe('resetPassword failure mapping', () => {
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.resetPassword(input);
+		const result = await auth.identity.resetPassword(input);
 
 		expect(result.status).not.toBe('invalid_token');
 	});
@@ -171,7 +171,7 @@ describe('resetPassword failure mapping', () => {
 
 		const auth = createWorkOsAuth(config);
 
-		await expect(auth.resetPassword(input)).resolves.toEqual({ status: 'invalid_token' });
+		await expect(auth.identity.resetPassword(input)).resolves.toEqual({ status: 'invalid_token' });
 	});
 
 	// Not observed in the reset flow, but this is `createUser`/`updateUser`'s
@@ -186,7 +186,7 @@ describe('resetPassword failure mapping', () => {
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.resetPassword(input);
+		const result = await auth.identity.resetPassword(input);
 
 		expect(result.status).toBe('weak_password');
 	});
@@ -204,7 +204,7 @@ describe('resetPassword failure mapping', () => {
 
 		const auth = createWorkOsAuth(config);
 
-		await expect(auth.resetPassword(input)).resolves.toEqual({ status: 'invalid_token' });
+		await expect(auth.identity.resetPassword(input)).resolves.toEqual({ status: 'invalid_token' });
 	});
 
 	it('keeps an unrelated failure as an invalid token', async () => {
@@ -214,7 +214,7 @@ describe('resetPassword failure mapping', () => {
 
 		const auth = createWorkOsAuth(config);
 
-		await expect(auth.resetPassword(input)).resolves.toEqual({ status: 'invalid_token' });
+		await expect(auth.identity.resetPassword(input)).resolves.toEqual({ status: 'invalid_token' });
 	});
 
 	it('passes a successful reset through', async () => {
@@ -222,6 +222,6 @@ describe('resetPassword failure mapping', () => {
 
 		const auth = createWorkOsAuth(config);
 
-		await expect(auth.resetPassword(input)).resolves.toEqual({ status: 'ok' });
+		await expect(auth.identity.resetPassword(input)).resolves.toEqual({ status: 'ok' });
 	});
 });

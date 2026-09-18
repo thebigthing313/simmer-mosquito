@@ -1,7 +1,7 @@
 /**
- * The server's WorkOS boundary. The client half is `./browser`, and the two
- * shapes both halves name are declared there and re-exported here as types, so
- * a browser bundle never reaches `@workos-inc/node`.
+ * The server's WorkOS boundary. The client half is `./browser`, and the shapes
+ * both halves name are declared there and re-exported here as types, so a
+ * browser bundle never reaches `@workos-inc/node`.
  */
 
 export type { AuthOrganizationChoice, AuthUser } from './browser.js';
@@ -29,13 +29,7 @@ export {
 	type SessionAuthenticationResult,
 	type UnauthenticatedSession,
 } from './server/session-authentication.js';
-export type { WorkOsAuth } from './server/workos-auth.js';
+export type { WorkOsAuth, WorkOsIdentityWrites, WorkOsSessionAuth } from './server/workos-auth.js';
 export type { WorkOsAuthConfig } from './server/workos-auth-config.js';
 export type { WorkOsClient } from './server/workos-client.js';
-export {
-	WORKOS_IDENTITY_WRITE_METHODS,
-	WORKOS_SESSION_AND_READ_METHODS,
-	type WorkOsIdentityWriteMethod,
-	type WorkOsSessionAndReadMethod,
-} from './server/workos-method-classification.js';
 export { WORKOS_SESSION_COOKIE_NAME } from './server/workos-session-cookie-name.js';

@@ -466,7 +466,10 @@ describe('the staging identity interlock', () => {
 
 		// `undefined` for the database: reaching a read would throw something
 		// other than the refusal, which is what proves nothing ran first.
-		const thrown = await secondSystem(undefined, withoutWorkOsIdentityWrites(workos))
+		const thrown = await secondSystem(
+			undefined,
+			withoutWorkOsIdentityWrites({ session: {}, identity: workos }).identity,
+		)
 			.before(build(intent, payload), authContext())
 			.catch((error: unknown) => error);
 

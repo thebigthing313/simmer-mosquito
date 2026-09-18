@@ -1,6 +1,6 @@
+import type { AuthChallenge } from '../client/wire.js';
 import { readErrorCode } from './errors/read-error-code.js';
 import { readRawData } from './errors/read-raw-data.js';
-import type { AuthChallenge } from './password-auth-types.js';
 import { readOrganizationChoices } from './read-organization-choices.js';
 
 /**

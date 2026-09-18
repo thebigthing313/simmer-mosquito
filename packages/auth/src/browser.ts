@@ -39,3 +39,23 @@ export type {
 export { SESSION_LOCK_NAME, type SessionLockManager } from './client/session-lock-manager.js';
 export { sessionLostDestination } from './client/session-lost-destination.js';
 export type { SessionTransport } from './client/session-transport.js';
+export type {
+	AcceptInvitationBody,
+	AuthChallenge,
+	AuthenticatedBody,
+	ChallengeBody,
+	DoneBody,
+	ForgotPasswordBody,
+	InvalidPayloadBody,
+	InvitationLookupBody,
+	OrganizationSelectionRequiredBody,
+	RefusedBody,
+	ResetPasswordBody,
+	SelectOrganizationBody,
+	SignInBody,
+	SignUpBody,
+	SwitchOrganizationBody,
+	VerificationRequiredBody,
+	VerifyEmailBody,
+	WeakPasswordBody,
+} from './client/wire.js';

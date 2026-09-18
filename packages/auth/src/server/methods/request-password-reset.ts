@@ -1,5 +1,4 @@
-import { isNotFound } from '../errors/is-not-found.js';
-import { isUnprocessable } from '../errors/is-unprocessable.js';
+import { classifyWorkOsFailure } from '../errors/classify-workos-failure.js';
 import type { WorkOsAuthContext } from '../workos-auth-context.js';
 
 /**
@@ -15,10 +14,12 @@ export async function requestPasswordReset(
 		const reset = await context.workos.userManagement.createPasswordReset({ email: input.email });
 		return { passwordResetToken: reset.passwordResetToken, email: reset.email };
 	} catch (error) {
-		if (isNotFound(error) || isUnprocessable(error)) {
-			return null;
+		switch (classifyWorkOsFailure(error).kind) {
+			case 'not_found':
+			case 'unprocessable':
+				return null;
+			default:
+				throw error;
 		}
-
-		throw error;
 	}
 }

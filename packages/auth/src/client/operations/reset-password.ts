@@ -1,23 +1,22 @@
 import type { AuthJsonPost } from '../create-auth-json-post.js';
 import type { ResetPasswordOutcome } from '../outcomes.js';
-import { readReason } from '../read-reason.js';
+import { readAuthOutcome } from '../read-auth-outcome.js';
+import { weakPasswordOutcome } from '../weak-password-outcome.js';
+import type { ResetPasswordBody } from '../wire.js';
 
 export async function resetPassword(
 	post: AuthJsonPost,
 	input: { readonly token: string; readonly newPassword: string },
 ): Promise<ResetPasswordOutcome> {
-	const { data } = await post('/auth/reset-password', input);
-	if (data.ok === true) {
-		return { status: 'ok' };
-	}
-
-	if (data.status === 'weak_password') {
-		return { status: 'weak_password', reason: readReason(data, 'Choose a stronger password.') };
-	}
-
-	if (data.status === 'invalid_token') {
-		return { status: 'invalid_token' };
-	}
-
-	return { status: 'error', reason: readReason(data, 'Unable to reset your password.') };
+	return readAuthOutcome<ResetPasswordBody, ResetPasswordOutcome>(
+		await post('/auth/reset-password', input),
+		{
+			ok: () => ({ status: 'ok' }),
+			refused: {
+				weak_password: weakPasswordOutcome,
+				invalid_token: () => ({ status: 'invalid_token' }),
+			},
+			fallback: 'Unable to reset your password.',
+		},
+	);
 }

@@ -1,8 +1,6 @@
 import { clientOrigin } from '../client-origin.js';
-import { isBadRequest } from '../errors/is-bad-request.js';
-import { isUnprocessable } from '../errors/is-unprocessable.js';
+import { classifyWorkOsFailure } from '../errors/classify-workos-failure.js';
 import type { VerifyEmailResult } from '../password-auth-types.js';
-import { readAuthChallenge } from '../read-auth-challenge.js';
 import { toAuthenticatedSession } from '../to-authenticated-session.js';
 import { sealSessionOptions, type WorkOsAuthContext } from '../workos-auth-context.js';
 
@@ -27,15 +25,18 @@ export async function verifyEmailCode(
 
 		return { status: 'authenticated', session: toAuthenticatedSession(response) };
 	} catch (error) {
-		const challenge = readAuthChallenge(error, '');
-		if (challenge?.status === 'organization_selection_required') {
-			return challenge;
+		const failure = classifyWorkOsFailure(error);
+		switch (failure.kind) {
+			case 'challenge':
+				if (failure.challenge.status === 'organization_selection_required') {
+					return failure.challenge;
+				}
+				return { status: 'invalid_code' };
+			case 'bad_request':
+			case 'unprocessable':
+				return { status: 'invalid_code' };
+			default:
+				throw error;
 		}
-
-		if (isBadRequest(error) || isUnprocessable(error)) {
-			return { status: 'invalid_code' };
-		}
-
-		throw error;
 	}
 }

@@ -17,10 +17,12 @@ import type {
 } from './session-authentication.js';
 
 /**
- * Every call this workspace makes to WorkOS. Written out rather than inferred
- * so a method whose signature drifts fails `tsc` at the definition.
+ * The calls that touch session state or read the directory. Every one of them
+ * runs on staging, which authenticates against WorkOS production (ADR 0017).
+ * `verifyEmailCode` marks an address verified, which is durable, but it is the
+ * second step of a sign-in WorkOS itself asked for, so it sits here.
  */
-export interface WorkOsAuth {
+export interface WorkOsSessionAuth {
 	getAuthorizationUrl(): string;
 	authenticateCode(options: {
 		readonly code: string;
@@ -36,7 +38,6 @@ export interface WorkOsAuth {
 		readonly workosOrganizationId: string;
 	}): Promise<SessionAuthenticationResult>;
 	signInWithPassword(input: PasswordSignInInput): Promise<PasswordAuthResult>;
-	signUpWithPassword(input: PasswordSignUpInput): Promise<SignUpResult>;
 	verifyEmailCode(input: {
 		readonly code: string;
 		readonly pendingAuthenticationToken: string;
@@ -49,23 +50,10 @@ export interface WorkOsAuth {
 		readonly ipAddress?: string;
 		readonly userAgent?: string;
 	}): Promise<SelectOrganizationResult>;
-	requestPasswordReset(input: {
-		readonly email: string;
-	}): Promise<{ readonly passwordResetToken: string; readonly email: string } | null>;
-	resetPassword(input: {
-		readonly token: string;
-		readonly newPassword: string;
-	}): Promise<ResetPasswordResult>;
 	getInvitationByToken(token: string): Promise<InvitationSummary | null>;
-	acceptInvitationWithPassword(input: AcceptInvitationInput): Promise<AcceptInvitationResult>;
 	getLogoutUrl(sealedSession: string | undefined): Promise<string | null>;
 	revokeSession(sealedSession: string | undefined): Promise<void>;
 	getOrganization(workosOrganizationId: string | null): Promise<AuthOrganization | null>;
-	createOrganization(input: { readonly name: string }): Promise<AuthOrganization>;
-	deactivateOrganizationMembership(input: {
-		readonly workosUserId: string;
-		readonly workosOrganizationId: string;
-	}): Promise<{ readonly status: 'deactivated' | 'not_a_member' }>;
 	findOrganizationMember(input: {
 		readonly email: string;
 		readonly workosOrganizationId: string;
@@ -73,6 +61,30 @@ export interface WorkOsAuth {
 		readonly workosUserId: string;
 		readonly status: 'active' | 'inactive' | 'pending';
 	} | null>;
+}
+
+/**
+ * The calls that change durable identity state: Accounts, Organizations,
+ * Memberships and invitations. Staging refuses every one of them, because each
+ * reaches the directory production reaches (ADR 0017). A method belongs here
+ * and not on {@link WorkOsSessionAuth} when running it on staging would mail a
+ * real address, revoke real access or create a real record.
+ */
+export interface WorkOsIdentityWrites {
+	signUpWithPassword(input: PasswordSignUpInput): Promise<SignUpResult>;
+	requestPasswordReset(input: {
+		readonly email: string;
+	}): Promise<{ readonly passwordResetToken: string; readonly email: string } | null>;
+	resetPassword(input: {
+		readonly token: string;
+		readonly newPassword: string;
+	}): Promise<ResetPasswordResult>;
+	acceptInvitationWithPassword(input: AcceptInvitationInput): Promise<AcceptInvitationResult>;
+	createOrganization(input: { readonly name: string }): Promise<AuthOrganization>;
+	deactivateOrganizationMembership(input: {
+		readonly workosUserId: string;
+		readonly workosOrganizationId: string;
+	}): Promise<{ readonly status: 'deactivated' | 'not_a_member' }>;
 	sendOrganizationInvitation(input: {
 		readonly email: string;
 		readonly workosOrganizationId: string;
@@ -81,4 +93,15 @@ export interface WorkOsAuth {
 	revokeInvitation(
 		invitationId: string,
 	): Promise<{ readonly status: 'revoked' | 'already_settled' }>;
+}
+
+/**
+ * Every call this workspace makes to WorkOS, in its two halves. The split is
+ * the classification the identity interlock enforces: it passes `session`
+ * through and refuses every call on `identity`, so a new method is classified
+ * by which half it is declared on and there is no list to keep in step.
+ */
+export interface WorkOsAuth {
+	readonly session: WorkOsSessionAuth;
+	readonly identity: WorkOsIdentityWrites;
 }

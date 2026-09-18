@@ -1,12 +1,7 @@
 import type { AcceptInvitationInput, AcceptInvitationResult } from '../accept-invitation-types.js';
 import { clientOrigin } from '../client-origin.js';
-import { isEmailTaken } from '../errors/is-email-taken.js';
-import { isPasswordRejection } from '../errors/is-password-rejection.js';
-import { isUnprocessable } from '../errors/is-unprocessable.js';
-import { readErrorCode } from '../errors/read-error-code.js';
-import { readErrorMessage } from '../errors/read-error-message.js';
+import { classifyWorkOsFailure } from '../errors/classify-workos-failure.js';
 import { findUserByEmail } from '../find-user-by-email.js';
-import { mapPasswordAuthFailure } from '../map-password-auth-failure.js';
 import { personNameFields } from '../person-name-fields.js';
 import { toAuthenticatedSession } from '../to-authenticated-session.js';
 import { sealSessionOptions, type WorkOsAuthContext } from '../workos-auth-context.js';
@@ -24,43 +19,35 @@ export async function acceptInvitationWithPassword(
 ): Promise<AcceptInvitationResult> {
 	const { workos, config } = context;
 	const existingUser = await findUserByEmail(workos, input.email);
-	if (existingUser !== null) {
-		if (existingUser.lastSignInAt !== null) {
-			return { status: 'account_exists' };
-		}
+	if (existingUser !== null && existingUser.lastSignInAt !== null) {
+		return { status: 'account_exists' };
+	}
 
-		try {
+	try {
+		if (existingUser !== null) {
 			await workos.userManagement.updateUser({
 				userId: existingUser.id,
 				password: input.password,
 				emailVerified: true,
 				...personNameFields(input),
 			});
-		} catch (error) {
-			if (isPasswordRejection(error)) {
-				return { status: 'weak_password', message: readErrorMessage(error) };
-			}
-
-			throw error;
-		}
-	} else {
-		try {
+		} else {
 			await workos.userManagement.createUser({
 				email: input.email,
 				password: input.password,
 				emailVerified: true,
 				...personNameFields(input),
 			});
-		} catch (error) {
-			if (isEmailTaken(error)) {
+		}
+	} catch (error) {
+		const failure = classifyWorkOsFailure(error);
+		switch (failure.kind) {
+			case 'email_taken':
 				return { status: 'account_exists' };
-			}
-
-			if (isUnprocessable(error)) {
-				return { status: 'weak_password', message: readErrorMessage(error) };
-			}
-
-			throw error;
+			case 'password_policy':
+				return { status: 'weak_password', message: failure.message };
+			default:
+				throw error;
 		}
 	}
 
@@ -76,10 +63,16 @@ export async function acceptInvitationWithPassword(
 
 		return { status: 'authenticated', session: toAuthenticatedSession(response) };
 	} catch (error) {
-		if (readErrorCode(error) === 'invitation_invalid') {
-			return { status: 'invalid_invitation' };
+		const failure = classifyWorkOsFailure(error, { fallbackEmail: input.email });
+		switch (failure.kind) {
+			case 'invitation_invalid':
+				return { status: 'invalid_invitation' };
+			case 'challenge':
+				return failure.challenge;
+			case 'invalid_credentials':
+				return { status: 'invalid_credentials' };
+			default:
+				throw error;
 		}
-
-		return mapPasswordAuthFailure(error, input.email);
 	}
 }

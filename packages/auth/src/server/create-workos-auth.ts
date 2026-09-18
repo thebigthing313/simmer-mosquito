@@ -36,27 +36,31 @@ export function createWorkOsAuth(config: WorkOsAuthConfig, client?: WorkOsClient
 	};
 
 	return {
-		getAuthorizationUrl: () => getAuthorizationUrl(context),
-		authenticateCode: (options) => authenticateCode(context, options),
-		authenticateSession: (sealedSession, options) =>
-			authenticateSession(context, sealedSession, options),
-		switchOrganization: (input) => switchOrganization(context, input),
-		signInWithPassword: (input) => signInWithPassword(context, input),
-		signUpWithPassword: (input) => signUpWithPassword(context, input),
-		verifyEmailCode: (input) => verifyEmailCode(context, input),
-		authenticateWithOrganizationSelection: (input) =>
-			authenticateWithOrganizationSelection(context, input),
-		requestPasswordReset: (input) => requestPasswordReset(context, input),
-		resetPassword: (input) => resetPassword(context, input),
-		getInvitationByToken: (token) => getInvitationByToken(context, token),
-		acceptInvitationWithPassword: (input) => acceptInvitationWithPassword(context, input),
-		getLogoutUrl: (sealedSession) => getLogoutUrl(context, sealedSession),
-		revokeSession: (sealedSession) => revokeSession(context, sealedSession),
-		getOrganization: (workosOrganizationId) => getOrganization(context, workosOrganizationId),
-		createOrganization: (input) => createOrganization(context, input),
-		deactivateOrganizationMembership: (input) => deactivateOrganizationMembership(context, input),
-		findOrganizationMember: (input) => findOrganizationMember(context, input),
-		sendOrganizationInvitation: (input) => sendOrganizationInvitation(context, input),
-		revokeInvitation: (invitationId) => revokeInvitation(context, invitationId),
+		session: {
+			getAuthorizationUrl: () => getAuthorizationUrl(context),
+			authenticateCode: (options) => authenticateCode(context, options),
+			authenticateSession: (sealedSession, options) =>
+				authenticateSession(context, sealedSession, options),
+			switchOrganization: (input) => switchOrganization(context, input),
+			signInWithPassword: (input) => signInWithPassword(context, input),
+			verifyEmailCode: (input) => verifyEmailCode(context, input),
+			authenticateWithOrganizationSelection: (input) =>
+				authenticateWithOrganizationSelection(context, input),
+			getInvitationByToken: (token) => getInvitationByToken(context, token),
+			getLogoutUrl: (sealedSession) => getLogoutUrl(context, sealedSession),
+			revokeSession: (sealedSession) => revokeSession(context, sealedSession),
+			getOrganization: (workosOrganizationId) => getOrganization(context, workosOrganizationId),
+			findOrganizationMember: (input) => findOrganizationMember(context, input),
+		},
+		identity: {
+			signUpWithPassword: (input) => signUpWithPassword(context, input),
+			requestPasswordReset: (input) => requestPasswordReset(context, input),
+			resetPassword: (input) => resetPassword(context, input),
+			acceptInvitationWithPassword: (input) => acceptInvitationWithPassword(context, input),
+			createOrganization: (input) => createOrganization(context, input),
+			deactivateOrganizationMembership: (input) => deactivateOrganizationMembership(context, input),
+			sendOrganizationInvitation: (input) => sendOrganizationInvitation(context, input),
+			revokeInvitation: (invitationId) => revokeInvitation(context, invitationId),
+		},
 	};
 }

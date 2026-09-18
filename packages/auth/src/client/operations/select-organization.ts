@@ -1,21 +1,20 @@
 import { authenticatedOutcome } from '../authenticated-outcome.js';
 import type { AuthJsonPost } from '../create-auth-json-post.js';
 import type { SelectOrganizationOutcome } from '../outcomes.js';
-import { readReason } from '../read-reason.js';
+import { readAuthOutcome } from '../read-auth-outcome.js';
+import type { SelectOrganizationBody } from '../wire.js';
 
 /** Resolve a sign-in that is still pending an organization choice. */
 export async function selectOrganization(
 	post: AuthJsonPost,
 	input: { readonly organizationId: string; readonly pendingAuthenticationToken: string },
 ): Promise<SelectOrganizationOutcome> {
-	const { data } = await post('/auth/select-organization', input);
-	if (data.ok === true) {
-		return authenticatedOutcome(data);
-	}
-
-	if (data.status === 'invalid_selection') {
-		return { status: 'invalid_selection' };
-	}
-
-	return { status: 'error', reason: readReason(data, 'Unable to select organization.') };
+	return readAuthOutcome<SelectOrganizationBody, SelectOrganizationOutcome>(
+		await post('/auth/select-organization', input),
+		{
+			ok: authenticatedOutcome,
+			refused: { invalid_selection: () => ({ status: 'invalid_selection' }) },
+			fallback: 'Unable to select organization.',
+		},
+	);
 }

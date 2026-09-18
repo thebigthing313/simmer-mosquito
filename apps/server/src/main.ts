@@ -72,7 +72,9 @@ const localIdentityResolver = {
 // every request authenticates as a fixed WorkOS user + organization instead of
 // validating the WorkOS session cookie. The real WorkOS `auth` object is kept
 // for the login/callback routes; only the per-request session check is swapped.
-const sessionProvider = env.devImpersonate ? createDevSessionProvider(env.devImpersonate) : auth;
+const sessionProvider = env.devImpersonate
+	? createDevSessionProvider(env.devImpersonate)
+	: auth.session;
 if (env.devImpersonate) {
 	console.warn(
 		`[dev-impersonation] AUTH BYPASS ACTIVE — every request is authenticated as workosUserId=${env.devImpersonate.workosUserId} workosOrganizationId=${env.devImpersonate.workosOrganizationId}. Never use this against production.`,
@@ -265,7 +267,7 @@ async function finalizeWorkOsSession(
 	context: Parameters<typeof setCookie>[0],
 	session: AuthenticatedSession,
 ): Promise<{ readonly organizationRequired: boolean }> {
-	const organization = await auth.getOrganization(session.workosOrganizationId);
+	const organization = await auth.session.getOrganization(session.workosOrganizationId);
 	const localIdentity = await upsertWorkOsIdentity(db, {
 		...session.user,
 		workosOrganizationId: session.workosOrganizationId,

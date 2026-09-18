@@ -1,6 +1,6 @@
-import type { AuthJsonBody } from './create-auth-json-post.js';
 import type { AuthenticatedOutcome } from './outcomes.js';
+import type { AuthenticatedBody } from './wire.js';
 
-export function authenticatedOutcome(data: AuthJsonBody): AuthenticatedOutcome {
-	return { status: 'authenticated', organizationRequired: data.organizationRequired === true };
+export function authenticatedOutcome(body: AuthenticatedBody): AuthenticatedOutcome {
+	return { status: 'authenticated', organizationRequired: body.organizationRequired === true };
 }

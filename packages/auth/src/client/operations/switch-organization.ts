@@ -1,6 +1,8 @@
 import type { AuthJsonPost } from '../create-auth-json-post.js';
 import type { SwitchOrganizationOutcome } from '../outcomes.js';
+import { readAuthOutcome } from '../read-auth-outcome.js';
 import { readReason } from '../read-reason.js';
+import type { SwitchOrganizationBody } from '../wire.js';
 
 /**
  * Move a signed-in session into another organization the user belongs to
@@ -10,14 +12,17 @@ export async function switchOrganization(
 	post: AuthJsonPost,
 	input: { readonly organizationId: string },
 ): Promise<SwitchOrganizationOutcome> {
-	const { data } = await post('/auth/switch-organization', input);
-	if (data.ok === true) {
-		return { status: 'switched' };
-	}
-
-	if (data.status === 'organization_switch_refused') {
-		return { status: 'refused', reason: readReason(data, 'That organization is not available.') };
-	}
-
-	return { status: 'error', reason: readReason(data, 'Unable to switch organization.') };
+	return readAuthOutcome<SwitchOrganizationBody, SwitchOrganizationOutcome>(
+		await post('/auth/switch-organization', input),
+		{
+			ok: () => ({ status: 'switched' }),
+			refused: {
+				organization_switch_refused: (body) => ({
+					status: 'refused',
+					reason: readReason(body, 'That organization is not available.'),
+				}),
+			},
+			fallback: 'Unable to switch organization.',
+		},
+	);
 }

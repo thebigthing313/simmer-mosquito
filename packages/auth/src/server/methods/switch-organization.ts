@@ -1,8 +1,6 @@
 import { asSwitchRefusal } from '../as-switch-refusal.js';
-import { isBlankSession } from '../is-blank-session.js';
-import { loadSealedSession } from '../load-sealed-session.js';
+import { openSealedSession } from '../sealed-session.js';
 import type { SessionAuthenticationResult } from '../session-authentication.js';
-import { type SealedSessionRefreshResult, toSwitchedSession } from '../to-switched-session.js';
 import type { WorkOsAuthContext } from '../workos-auth-context.js';
 
 /**
@@ -18,15 +16,16 @@ export async function switchOrganization(
 		readonly workosOrganizationId: string;
 	},
 ): Promise<SessionAuthenticationResult> {
-	if (isBlankSession(input.sealedSession)) {
+	const session = openSealedSession(context, input.sealedSession);
+	if (session === null) {
 		return { authenticated: false, reason: 'no_session_cookie_provided' };
 	}
 
-	const session = loadSealedSession(context, input.sealedSession);
-
-	let refreshResult: SealedSessionRefreshResult;
 	try {
-		refreshResult = await session.refresh({ organizationId: input.workosOrganizationId });
+		return await session.refresh({
+			organizationId: input.workosOrganizationId,
+			fallbackReason: 'organization_switch_refused',
+		});
 	} catch (error) {
 		const refusal = asSwitchRefusal(error);
 		if (refusal === null) {
@@ -35,6 +34,4 @@ export async function switchOrganization(
 
 		return refusal;
 	}
-
-	return toSwitchedSession(refreshResult);
 }

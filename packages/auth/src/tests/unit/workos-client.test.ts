@@ -72,14 +72,14 @@ describe('createWorkOsAuth', () => {
 	it('calls the injected client for a user management read', () => {
 		const auth = createWorkOsAuth(config, stubClient());
 
-		expect(auth.getAuthorizationUrl()).toBe('https://workos.test/authorize');
+		expect(auth.session.getAuthorizationUrl()).toBe('https://workos.test/authorize');
 		expect(calls).toEqual(['getAuthorizationUrl']);
 	});
 
 	it('calls the injected client for an organization read', async () => {
 		const auth = createWorkOsAuth(config, stubClient());
 
-		await expect(auth.getOrganization('org_1')).resolves.toEqual({
+		await expect(auth.session.getOrganization('org_1')).resolves.toEqual({
 			workosOrganizationId: 'org_1',
 			name: 'Delta Vector Control',
 		});

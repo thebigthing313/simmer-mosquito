@@ -481,9 +481,10 @@ the intended shape and not a gap.
 
 Read as the exact string `true`, and **absent means settle**, so the variable
 going missing in production cannot silently turn identity off. Production must
-not set it. `WORKOS_SESSION_AND_READ_METHODS` in `packages/auth` is the
-allowlist, and `apps/server/src/workos-identity-interlock.ts` is what reads it
-and refuses everything else; both carry the ADR-adjacent reasoning. The decision
+not set it. `WorkOsAuth` in `packages/auth` is declared in two halves, `session`
+and `identity`, and `apps/server/src/workos-identity-interlock.ts` passes the
+first through and refuses every call on the second; both carry the ADR-adjacent
+reasoning. The decision
 is issue #376.
 
 Set these on the Railway web service (all `VITE_*` are baked in at build time, so

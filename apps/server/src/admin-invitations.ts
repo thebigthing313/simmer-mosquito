@@ -1,4 +1,4 @@
-import type { WorkOsAuth } from '@simmer-mosquito/auth';
+import type { WorkOsIdentityWrites, WorkOsSessionAuth } from '@simmer-mosquito/auth';
 import {
 	assertOrganizationProfileCanBeInvited,
 	getOperatorOrganization,
@@ -21,10 +21,10 @@ import {
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
 /** What inviting somebody into an organization needs of the WorkOS client. */
-export type AdminInvitationAuth = Pick<
-	WorkOsAuth,
-	'findOrganizationMember' | 'sendOrganizationInvitation'
->;
+export interface AdminInvitationAuth {
+	readonly session: Pick<WorkOsSessionAuth, 'findOrganizationMember'>;
+	readonly identity: Pick<WorkOsIdentityWrites, 'sendOrganizationInvitation'>;
+}
 
 export function registerAdminInvitationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -45,7 +45,7 @@ export function registerAdminInvitationRoutes(
 			// refusal. So the interlock reaching only the WorkOS boundary would leave
 			// the operator console holding a staged Membership with no invitation and
 			// a status code that says the fault was upstream.
-			if (workOsIdentityWritesDisabled(options.auth)) {
+			if (workOsIdentityWritesDisabled(options.auth.identity)) {
 				return context.json(workOsIdentityWritesDisabledBody(), 403);
 			}
 
@@ -174,7 +174,9 @@ function toInvitationResponse(invitation: SentInvitation | null) {
 			};
 }
 
-type SentInvitation = Awaited<ReturnType<AdminInvitationAuth['sendOrganizationInvitation']>>;
+type SentInvitation = Awaited<
+	ReturnType<AdminInvitationAuth['identity']['sendOrganizationInvitation']>
+>;
 
 /**
  * The WorkOS half, which is sometimes nothing to do.
@@ -204,7 +206,7 @@ async function inviteUnlessAlreadyReached(
 	| { readonly ok: true; readonly invitation: SentInvitation | null }
 	| { readonly ok: false; readonly refusal: InvitationRefusal }
 > {
-	const existingMember = await auth.findOrganizationMember({
+	const existingMember = await auth.session.findOrganizationMember({
 		email: input.email,
 		workosOrganizationId: input.workosOrganizationId,
 	});
@@ -213,7 +215,7 @@ async function inviteUnlessAlreadyReached(
 	}
 
 	try {
-		const invitation = await auth.sendOrganizationInvitation({
+		const invitation = await auth.identity.sendOrganizationInvitation({
 			email: input.email,
 			workosOrganizationId: input.workosOrganizationId,
 			inviterWorkosUserId: input.inviterWorkosUserId,
