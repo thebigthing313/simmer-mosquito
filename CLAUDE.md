@@ -205,7 +205,16 @@ route mounted, so a `Link` resolves a real href without a loader having to be
 satisfiable. Importing that tree pulls in every route module and costs about 13
 seconds, and vitest isolates modules per file, so **a new link case goes in the
 existing file** rather than opening a second suite that pays it again. A case
-asserting only the `to` prop is not worth writing; assert the href.
+asserting only the `to` prop is not worth writing; assert the href. Since #1147
+a route suite mounted under `routerStandIn` can assert one too, because the
+stand-in's `Link` is an anchor whose `href` is the `to` template with each
+`$param` replaced by the param of that name, and a param the suite does not
+pass leaves its segment as written, so a missing id reads as `$id` rather than
+as an empty segment. That is the split: template plus id in the route suite,
+resolution in `link-destinations`. A substituted href is not proof the route
+exists: `tsc` holds `to` to the tree and `link-destinations` holds the
+resolution. The stand-in serialises no `search` either, so anything about
+search, index routes, trailing slashes or whether the path resolves goes there.
 
 **A route component has to be preloaded before a suite can render it.**
 `apps/web/vite.config.ts` runs the TanStack Router plugin with

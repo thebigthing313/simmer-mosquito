@@ -112,9 +112,51 @@ export function notifyRouterStandIn(): void {
 }
 
 /**
+ * What the stand-in `Link` reads off its props. `to` is a string here rather
+ * than the router's path union, because the stand-in never checks it against
+ * the tree; `tsc` does that at the call site, and `link-destinations.test.tsx`
+ * checks that the path resolves.
+ */
+interface LinkStandInProps {
+	readonly children?: ReactNode;
+	readonly to?: string;
+	readonly params?: Readonly<Record<string, string>>;
+	readonly search?: unknown;
+}
+
+/**
+ * The `to` template with each `$param` segment replaced by the param of that
+ * name. A segment `params` does not name stays as written, so a suite that
+ * forgot the id reads `$id` in its assertion rather than an empty segment.
+ * `search` is not serialised: the real router's search, index and
+ * trailing-slash rules are `link-destinations.test.tsx`'s, and a case that
+ * needs any of them goes there.
+ */
+function substitutedHref(to: string, params: Readonly<Record<string, string>>): string {
+	return to.replace(
+		/\$([A-Za-z0-9_]+)/g,
+		(segment: string, name: string) => params[name] ?? segment,
+	);
+}
+
+/**
+ * What {@link routerStandIn} writes over the real module, named so a suite of
+ * the stand-in itself can reach `Link` without a cast.
+ */
+interface RouterStandIn {
+	readonly createFileRoute: () => (options: Record<string, unknown>) => Record<string, unknown>;
+	readonly useSearch: () => Record<string, unknown>;
+	readonly useParams: () => Record<string, string>;
+	readonly useNavigate: () => () => Promise<undefined>;
+	readonly Link: (props: LinkStandInProps) => ReactNode;
+}
+
+/**
  * The router, reduced to what a route module needs to mount outside one: the
  * search and the path params a match would carry, a navigation that goes
- * nowhere, and a `Link` that is an anchor. `search` and `params` are read as a
+ * nowhere, and a `Link` that is an anchor whose `href` is `to` with the
+ * params written in (#1147), so a route suite pins which id a link carries
+ * without importing the route tree. `search` and `params` are read as a
  * store snapshot, so each must answer the same object until it changes, and a
  * suite that changes one calls {@link notifyRouterStandIn}. `params` defaults
  * to none, which is every route under a static path.
@@ -123,7 +165,7 @@ export function routerStandIn<TActual extends object>(
 	actual: TActual,
 	search: () => Record<string, unknown>,
 	params: () => Record<string, string> = () => ({}),
-): TActual {
+): TActual & RouterStandIn {
 	const useSearch = () => useSyncExternalStore(subscribe, search);
 	const useParams = () => useSyncExternalStore(subscribe, params);
 	return {
@@ -137,7 +179,17 @@ export function routerStandIn<TActual extends object>(
 		useSearch,
 		useParams,
 		useNavigate: () => async () => undefined,
-		Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,
+		Link: ({
+			children,
+			to = '',
+			params: linkParams = {},
+			search: _search,
+			...rest
+		}: LinkStandInProps) => (
+			<a href={substitutedHref(to, linkParams)} {...rest}>
+				{children}
+			</a>
+		),
 	};
 }
 
