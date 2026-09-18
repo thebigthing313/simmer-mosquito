@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthMe } from '../../../../auth';
 import {
 	shellDomainsForRole,
 	shellSearchCandidates,
@@ -9,6 +9,7 @@ import {
 	withDailyWorkGroup,
 } from '../../../../components/app-shell/navigation';
 import { writeSurfaceFloor } from '../../../../lib/write-surfaces';
+import { signedInSnapshotAs } from '../../routes/route-mock-stand-ins';
 import { stubItems } from './stub-items';
 
 /**
@@ -27,7 +28,7 @@ describe('shellDomainsForRole', () => {
 		// does not exist has no floor to be wrong. The route list is read off the
 		// generated route tree rather than written out here, since a hand-written
 		// one goes stale the same way the sidebar did.
-		const items = shellDomainsForRole(authWithRole('owner'))
+		const items = shellDomainsForRole(signedInSnapshotAs('owner'))
 			.flatMap((domain) => domain.groups)
 			.flatMap((group) => group.items);
 		const paths = createRoutePaths();
@@ -98,7 +99,7 @@ describe('shellDomainsForRole', () => {
 		// A request is raised before anything is scheduled against it, so the
 		// sidebar reads requests → assignments → missions rather than alphabetically
 		// or by what happened to be built first.
-		const operations = shellDomainsForRole(authWithRole('owner')).find(
+		const operations = shellDomainsForRole(signedInSnapshotAs('owner')).find(
 			(domain) => domain.id === 'operations',
 		);
 
@@ -114,7 +115,9 @@ describe('shellDomainsForRole', () => {
 		// Addresses and weather each own a group because each has more than one
 		// screen. A flat list put "Address Book" and "Weather" beside "Data Map"
 		// and left nowhere for their second screens to go.
-		const gis = shellDomainsForRole(authWithRole('owner')).find((domain) => domain.id === 'gis');
+		const gis = shellDomainsForRole(signedInSnapshotAs('owner')).find(
+			(domain) => domain.id === 'gis',
+		);
 
 		expect(gis?.groups.map((group) => group.label)).toEqual([
 			undefined,
@@ -125,7 +128,7 @@ describe('shellDomainsForRole', () => {
 	});
 
 	it('labels the weather explorer the way every other explorer is labelled', () => {
-		const weather = shellDomainsForRole(authWithRole('owner'))
+		const weather = shellDomainsForRole(signedInSnapshotAs('owner'))
 			.flatMap((domain) => domain.groups)
 			.find((group) => group.id === 'gis-weather');
 
@@ -140,7 +143,7 @@ describe('shellDomainsForRole', () => {
 		// The Dashboard is built and Today, Monthly and Annual are not, so the built
 		// page goes first and each of the other three carries the stub mark that
 		// draws the badge and keeps it out of the palette (#1082).
-		const overview = shellDomainsForRole(authWithRole('owner')).find(
+		const overview = shellDomainsForRole(signedInSnapshotAs('owner')).find(
 			(domain) => domain.id === 'overview',
 		);
 
@@ -156,8 +159,10 @@ describe('shellDomainsForRole', () => {
 		// A stub is a door onto nothing. The exclusion reads `stub` off the item
 		// rather than a list of paths, so the two new ones need no entry anywhere
 		// for this to hold, and the mark is what this pins.
-		const stubs = stubItems(shellDomainsForRole(authWithRole('owner'))).map((item) => item.id);
-		const { routes, actions } = shellSearchCandidates(authWithRole('owner'));
+		const stubs = stubItems(shellDomainsForRole(signedInSnapshotAs('owner'))).map(
+			(item) => item.id,
+		);
+		const { routes, actions } = shellSearchCandidates(signedInSnapshotAs('owner'));
 		const offered = new Set([...routes, ...actions].map((candidate) => candidate.id));
 
 		expect(stubs).toEqual(expect.arrayContaining(['today', 'monthly', 'annual']));
@@ -166,7 +171,7 @@ describe('shellDomainsForRole', () => {
 
 	it('drops no group or domain to an empty heading', () => {
 		for (const role of ['owner', 'manager', 'collector', 'viewer'] as const) {
-			for (const domain of shellDomainsForRole(authWithRole(role))) {
+			for (const domain of shellDomainsForRole(signedInSnapshotAs(role))) {
 				expect(domain.groups.length).toBeGreaterThan(0);
 				for (const group of domain.groups) {
 					expect(group.items.length).toBeGreaterThan(0);
@@ -245,7 +250,7 @@ describe('withDailyWorkGroup', () => {
 		// The palette reads the declared navigation, not the composed one. Global
 		// search already finds people, and a route row each would bury everything
 		// else.
-		const { routes, actions } = shellSearchCandidates(authWithRole('owner'));
+		const { routes, actions } = shellSearchCandidates(signedInSnapshotAs('owner'));
 
 		expect(
 			[...routes, ...actions].some((candidate) => candidate.id.startsWith('daily-work-')),
@@ -279,8 +284,8 @@ function createRoutePaths(): readonly string[] {
 	);
 }
 
-function formPathsFor(role: string): readonly string[] {
-	return formPaths(shellDomainsForRole(authWithRole(role)));
+function formPathsFor(role: SimmerRole): readonly string[] {
+	return formPaths(shellDomainsForRole(signedInSnapshotAs(role)));
 }
 
 function formPaths(domains: ReturnType<typeof shellDomainsForRole>): readonly string[] {
@@ -291,32 +296,9 @@ function formPaths(domains: ReturnType<typeof shellDomainsForRole>): readonly st
 		.filter((to) => writeSurfaceFloor(to) !== undefined);
 }
 
-function allPathsFor(role: string): readonly string[] {
-	return shellDomainsForRole(authWithRole(role))
+function allPathsFor(role: SimmerRole): readonly string[] {
+	return shellDomainsForRole(signedInSnapshotAs(role))
 		.flatMap((domain) => domain.groups)
 		.flatMap((group) => group.items)
 		.map((item) => String(item.to));
-}
-
-function authWithRole(role: string): AuthMe {
-	return {
-		authenticated: true,
-		user: {
-			workosUserId: 'user_1',
-			email: 'crew@example.test',
-			firstName: null,
-			lastName: null,
-			displayName: 'Crew',
-			emailVerified: true,
-			profilePictureUrl: null,
-		},
-		workosOrganizationId: 'org_1',
-		localIdentity: {
-			userId: 'user_1',
-			organizationId: 'org_1',
-			profileId: 'profile_1',
-			membershipId: 'membership_1',
-			role,
-		},
-	};
 }

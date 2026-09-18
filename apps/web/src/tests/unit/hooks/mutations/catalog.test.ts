@@ -37,12 +37,10 @@ vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
 });
-vi.mock('../../../../hooks/use-auth-snapshot', () => ({
-	useAuthSnapshot: () => ({
-		authenticated: true,
-		localIdentity: { organizationId: ORGANIZATION, profileId: PROFILE },
-	}),
-}));
+vi.mock('../../../../hooks/use-auth-snapshot', async () => {
+	const { signedInSnapshot } = await import('../../routes/route-mock-stand-ins');
+	return { useAuthSnapshot: () => signedInSnapshot(ORGANIZATION, PROFILE) };
+});
 
 const { dispatches, firstAttempt, lastChanges, lastIntents, lastWrite, resetDispatches, stubApi } =
 	await import('./dispatch-harness');

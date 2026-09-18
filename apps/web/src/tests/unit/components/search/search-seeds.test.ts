@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import type { AuthMe } from '../../../../auth';
 import { shellSearchCandidates } from '../../../../components/app-shell/navigation';
 import { seedNoun, seedSearch } from '../../../../components/search/search-seeds';
+import { signedInSnapshotAs } from '../../routes/route-mock-stand-ins';
 
 describe('seedSearch', () => {
 	it('names the search param each create route reads', () => {
@@ -31,7 +31,7 @@ describe('seedNoun', () => {
  */
 describe('seeded actions', () => {
 	it('seeds only routes that validate the param', () => {
-		const seeding = shellSearchCandidates(ownerAuth()).actions.filter(
+		const seeding = shellSearchCandidates(signedInSnapshotAs('owner')).actions.filter(
 			(candidate) => candidate.seedFrom !== undefined,
 		);
 
@@ -57,27 +57,4 @@ describe('seeded actions', () => {
 function routeSource(to: string): string {
 	const path = fileURLToPath(new URL(`../../../../routes${to}.tsx`, import.meta.url));
 	return readFileSync(path, 'utf8');
-}
-
-function ownerAuth(): AuthMe {
-	return {
-		authenticated: true,
-		user: {
-			workosUserId: 'user_1',
-			email: 'crew@example.test',
-			firstName: null,
-			lastName: null,
-			displayName: 'Crew',
-			emailVerified: true,
-			profilePictureUrl: null,
-		},
-		workosOrganizationId: 'org_1',
-		localIdentity: {
-			userId: 'user_1',
-			organizationId: 'org_1',
-			profileId: 'profile_1',
-			membershipId: 'membership_1',
-			role: 'owner',
-		},
-	};
 }

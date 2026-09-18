@@ -60,8 +60,33 @@ export function signedInSnapshotAs(
 	organizationId = 'org-1',
 	profileId: string | null = 'profile-1',
 ): AuthenticatedMe {
-	const snapshot = signedInSnapshot(organizationId, profileId);
-	return { ...snapshot, localIdentity: { ...snapshot.localIdentity, role } };
+	return signedInSnapshotWith({ localIdentity: { role, organizationId, profileId } });
+}
+
+/**
+ * What a suite may vary on the shared snapshot: any field of the Account or of
+ * the local identity. Each is optional, so a call site names only what its
+ * cases read and the rest is {@link signedInSnapshot}'s.
+ */
+export interface SnapshotOverrides {
+	readonly user?: Partial<AuthenticatedMe['user']>;
+	readonly localIdentity?: Partial<AuthenticatedMe['localIdentity']>;
+}
+
+/**
+ * {@link signedInSnapshot} with the given fields written over it, for a suite
+ * whose cases read a field the two builders above do not take: an email the
+ * page draws, or a role the ladder has not got. The role is a string here on
+ * purpose, because `readOrgRole`'s fallback is what a suite reaches for this
+ * to test, and {@link signedInSnapshotAs} refuses a role outside the ladder.
+ */
+export function signedInSnapshotWith(overrides: SnapshotOverrides): AuthenticatedMe {
+	const snapshot = signedInSnapshot('org-1', 'profile-1');
+	return {
+		...snapshot,
+		user: { ...snapshot.user, ...overrides.user },
+		localIdentity: { ...snapshot.localIdentity, ...overrides.localIdentity },
+	};
 }
 
 function subscribe(listener: () => void): () => void {

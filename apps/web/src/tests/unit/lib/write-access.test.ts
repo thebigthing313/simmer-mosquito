@@ -10,28 +10,15 @@ import {
 	isBelowRole,
 	readOrgRole,
 } from '../../../lib/write-access';
+import { signedInSnapshotWith } from '../routes/route-mock-stand-ins';
 
+/**
+ * The shared snapshot at a role, which here is a string rather than the ladder's
+ * vocabulary: `readOrgRole`'s fallback is the case, and the case needs a role
+ * the ladder has not got, and none at all.
+ */
 function authWithRole(role: string | null): AuthMe {
-	return {
-		authenticated: true,
-		user: {
-			workosUserId: 'user_1',
-			email: 'crew@example.test',
-			firstName: null,
-			lastName: null,
-			displayName: 'Crew',
-			emailVerified: true,
-			profilePictureUrl: null,
-		},
-		workosOrganizationId: 'org_1',
-		localIdentity: {
-			userId: 'user_1',
-			organizationId: 'org_1',
-			profileId: 'profile_1',
-			membershipId: 'membership_1',
-			role,
-		},
-	};
+	return signedInSnapshotWith({ localIdentity: { role } });
 }
 
 describe('readOrgRole', () => {
@@ -191,10 +178,10 @@ describe('canRemoveMember', () => {
 		);
 	});
 
-	// `authWithRole` is membership_1. Leaving is a different act with a different
-	// confirmation, and this control is not it.
+	// `authWithRole` is the shared snapshot's membership-1. Leaving is a
+	// different act with a different confirmation, and this control is not it.
 	it('never offers removing yourself', () => {
-		expect(canRemoveMember(authWithRole('owner'), { id: 'membership_1', role: 'owner' })).toBe(
+		expect(canRemoveMember(authWithRole('owner'), { id: 'membership-1', role: 'owner' })).toBe(
 			false,
 		);
 	});
