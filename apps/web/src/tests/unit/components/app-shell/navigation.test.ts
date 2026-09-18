@@ -10,7 +10,7 @@ import {
 } from '../../../../components/app-shell/navigation';
 import { writeSurfaceFloor } from '../../../../lib/write-surfaces';
 import { signedInSnapshotAs } from '../../routes/route-mock-stand-ins';
-import { stubItems } from './stub-items';
+import { shellItems, stubItems } from './stub-items';
 
 /**
  * The sidebar's half of the role ladder.
@@ -28,9 +28,7 @@ describe('shellDomainsForRole', () => {
 		// does not exist has no floor to be wrong. The route list is read off the
 		// generated route tree rather than written out here, since a hand-written
 		// one goes stale the same way the sidebar did.
-		const items = shellDomainsForRole(signedInSnapshotAs('owner'))
-			.flatMap((domain) => domain.groups)
-			.flatMap((group) => group.items);
+		const items = shellItems(shellDomainsForRole(signedInSnapshotAs('owner')));
 		const paths = createRoutePaths();
 
 		// Without this the assertion below passes on an empty list, which is what a
@@ -289,16 +287,11 @@ function formPathsFor(role: SimmerRole): readonly string[] {
 }
 
 function formPaths(domains: ReturnType<typeof shellDomainsForRole>): readonly string[] {
-	return domains
-		.flatMap((domain) => domain.groups)
-		.flatMap((group) => group.items)
+	return shellItems(domains)
 		.map((item) => String(item.to))
 		.filter((to) => writeSurfaceFloor(to) !== undefined);
 }
 
 function allPathsFor(role: SimmerRole): readonly string[] {
-	return shellDomainsForRole(signedInSnapshotAs(role))
-		.flatMap((domain) => domain.groups)
-		.flatMap((group) => group.items)
-		.map((item) => String(item.to));
+	return shellItems(shellDomainsForRole(signedInSnapshotAs(role))).map((item) => String(item.to));
 }
