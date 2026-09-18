@@ -21,6 +21,7 @@ import {
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
+import { errorMessageForSave } from '../../lib/save-error';
 import {
 	ImportNotes,
 	type ImportNoun,
@@ -142,7 +143,7 @@ export function GeometryImportDialog({
 			// A file holding exactly one usable shape needs no choosing.
 			setSelectedId(soleShapeId(shapes));
 		} catch (error) {
-			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
+			setParseError(errorMessageForSave(error, 'That file could not be read.'));
 		}
 	}
 

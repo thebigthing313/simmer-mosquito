@@ -4,6 +4,7 @@ import { Loader2Icon, MapPinnedIcon, SearchIcon } from '@simmer-mosquito/ui-web/
 import { useState } from 'react';
 import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../forms/domain-validation';
 import { useAddressMutations } from '../../hooks/mutations/use-address-mutations';
+import { errorMessageForSave } from '../../lib/save-error';
 import type { AddressOption } from './address-picker';
 import {
 	GeocoderDialog,
@@ -73,7 +74,7 @@ export function NewAddressForm({
 			setGeocoderResults(await searchGeocoder(query, country));
 			setGeocoderOpen(true);
 		} catch (error) {
-			setSaveError(error instanceof Error ? error.message : 'Unable to geocode address.');
+			setSaveError(errorMessageForSave(error, 'Unable to geocode address.'));
 		}
 		setIsGeocoding(false);
 	}
@@ -146,7 +147,7 @@ export function NewAddressForm({
 				lng: geometry.coordinates[0],
 			});
 		} catch (error) {
-			setSaveError(error instanceof Error ? error.message : 'Unable to create address.');
+			setSaveError(errorMessageForSave(error, 'Unable to create address.'));
 		}
 		setIsSaving(false);
 	}

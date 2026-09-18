@@ -14,6 +14,7 @@ import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { useRouteMutations } from '../../hooks/mutations/use-route-mutations';
+import { errorMessageForSave } from '../../lib/save-error';
 import { createLabel } from '../app-shell/navigation';
 import type { RoutePlanningSurface } from './surface';
 
@@ -57,7 +58,7 @@ export function RouteCreateDialog({
 			onOpenChange(false);
 			await navigate(surface.editLink(routeId));
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to create the route.');
+			setError(errorMessageForSave(cause, 'Unable to create the route.'));
 		}
 		setPending(false);
 	};

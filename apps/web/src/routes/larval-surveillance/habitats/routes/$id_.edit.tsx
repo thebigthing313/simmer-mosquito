@@ -48,6 +48,7 @@ import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutatio
 import type { Tag } from '../../../../hooks/queries/tag-view';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { useDebouncedValue } from '../../../../hooks/use-debounced-value';
+import { errorMessageForSave } from '../../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
@@ -149,7 +150,7 @@ function RouteEditRoute() {
 		try {
 			await rename(id, trimmed);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to rename the route.');
+			setError(errorMessageForSave(cause, 'Unable to rename the route.'));
 		}
 		setNameDraft(null);
 	};
@@ -166,7 +167,7 @@ function RouteEditRoute() {
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
 			});
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+			setError(errorMessageForSave(cause, 'Unable to add the stop.'));
 		}
 	};
 
@@ -175,7 +176,7 @@ function RouteEditRoute() {
 		try {
 			await moveStop(index, action);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
+			setError(errorMessageForSave(cause, 'Unable to reorder the route.'));
 		}
 	};
 
@@ -183,7 +184,7 @@ function RouteEditRoute() {
 		try {
 			await setDirections(routeItemId, value);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+			setError(errorMessageForSave(cause, 'Unable to save directions.'));
 		}
 	};
 
@@ -193,7 +194,7 @@ function RouteEditRoute() {
 			// description streams back on its own — no invalidation needed.
 			await updateHabitatDescription(habitatId, value.trim());
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save the description.');
+			setError(errorMessageForSave(cause, 'Unable to save the description.'));
 		}
 	};
 
@@ -207,7 +208,7 @@ function RouteEditRoute() {
 		try {
 			await removeStop(target.routeItemId);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
+			setError(errorMessageForSave(cause, 'Unable to remove the stop.'));
 		}
 	};
 
@@ -218,7 +219,7 @@ function RouteEditRoute() {
 			await removeRoute(id);
 			await navigate({ to: '/larval-surveillance/habitats/routes' });
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
+			setError(errorMessageForSave(cause, 'Unable to delete the route.'));
 		}
 	};
 

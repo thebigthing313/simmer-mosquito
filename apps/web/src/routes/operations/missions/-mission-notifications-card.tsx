@@ -21,6 +21,7 @@ import {
 	type MissionNotificationRecord,
 	useMissionNotifications,
 } from '../../../hooks/queries/use-mission-notifications';
+import { errorMessageForSave } from '../../../lib/save-error';
 
 /**
  * Who this mission has to warn, and the button that works it out.
@@ -79,7 +80,7 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 					break;
 			}
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Unable to work out who to notify.');
+			toast.error(errorMessageForSave(error, 'Unable to work out who to notify.'));
 		}
 		setIsGenerating(false);
 	};

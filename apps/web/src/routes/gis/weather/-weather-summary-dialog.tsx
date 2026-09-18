@@ -24,6 +24,7 @@ import {
 } from '../../../hooks/queries/use-weather-summaries';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { errorMessageForSave } from '../../../lib/save-error';
 
 /**
  * One dialog for both manual summary writes, `summary === null` records a new
@@ -119,7 +120,7 @@ function useSummaryForm(input: {
 			}
 			onClose();
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save summary.');
+			setError(errorMessageForSave(cause, 'Unable to save summary.'));
 		}
 		setIsSaving(false);
 	};

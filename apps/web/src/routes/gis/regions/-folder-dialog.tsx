@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionFolderMutations } from '../../../hooks/mutations/use-region-folder-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
+import { errorMessageForSave } from '../../../lib/save-error';
 
 /**
  * One dialog for both region-folder writes — `folder === null` creates, otherwise
@@ -65,7 +66,7 @@ export function RegionFolderDialog({
 			}
 			onClose();
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save folder.');
+			setError(errorMessageForSave(cause, 'Unable to save folder.'));
 		}
 		setIsSaving(false);
 	};

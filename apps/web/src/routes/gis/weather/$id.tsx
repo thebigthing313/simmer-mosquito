@@ -32,7 +32,7 @@ import { WriteOnly } from '../../../components/write-only';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { STATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-
+import { errorMessageForSave } from '../../../lib/save-error';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { WeatherSummariesCard } from './-weather-summaries-card';
 import { StationStatusBadge } from './-weather-ui';
@@ -189,7 +189,7 @@ function StationLifecycleCard({
 		try {
 			await mutations.setActive(station.id, !station.isActive);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to change the station.');
+			setError(errorMessageForSave(cause, 'Unable to change the station.'));
 		}
 		setIsBusy(false);
 	};
@@ -209,7 +209,7 @@ function StationLifecycleCard({
 				await navigate({ to: '/gis/weather' });
 			});
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to delete the station.');
+			setError(errorMessageForSave(cause, 'Unable to delete the station.'));
 		}
 		setIsBusy(false);
 		setConfirmingDelete(false);

@@ -4,7 +4,9 @@ import { errorMessageForSave } from '../../../lib/save-error';
 /**
  * The one rule for what a refused write says. `RecordDeleteDialog` and
  * `ServiceRequestDetailHeader` used to spell the ternary themselves (#1133),
- * so this is the sentence they now read instead.
+ * and 35 more call sites did after that (#1162), so this is the sentence they
+ * all read instead. The grep in that issue is the check that no copy came
+ * back: `instanceof Error ?` outside the tests trees names this module alone.
  */
 describe('errorMessageForSave', () => {
 	it('reads the message off an Error', () => {

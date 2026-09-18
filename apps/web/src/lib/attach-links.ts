@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { errorMessageForSave } from './save-error';
 
 /**
  * Attach a new record's link rows once the record itself has settled.
@@ -21,7 +22,7 @@ export async function attachLinksBestEffort(
 		await write();
 	} catch (error) {
 		toast.error(`Saved, but ${subject} could not be attached.`, {
-			description: `${error instanceof Error ? error.message : 'Unknown error.'} Add them from the record.`,
+			description: `${errorMessageForSave(error, 'Unknown error.')} Add them from the record.`,
 		});
 	}
 }

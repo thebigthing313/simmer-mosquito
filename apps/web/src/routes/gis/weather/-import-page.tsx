@@ -56,6 +56,7 @@ import { useAllWeatherSummaries } from '../../../hooks/queries/use-weather-summa
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { IMPORT_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { todayInTimeZone } from '../../../lib/local-date';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { assessParsedRows, type FileAssessment } from './-import-assessment';
 import {
 	commitWeatherImport,
@@ -142,7 +143,7 @@ function useWeatherUpload(stationId: string, canSubmit: boolean) {
 			);
 		})
 			.catch((cause: unknown) =>
-				setError(cause instanceof Error ? cause.message : 'Unable to import these readings.'),
+				setError(errorMessageForSave(cause, 'Unable to import these readings.')),
 			)
 			.finally(() => setIsBusy(false));
 	};
