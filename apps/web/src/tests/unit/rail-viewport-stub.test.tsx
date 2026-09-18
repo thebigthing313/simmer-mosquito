@@ -69,6 +69,24 @@ describe('stubRailViewportHeight under plain jsdom', () => {
 			restore();
 		}
 	});
+
+	// A suite driving a resize hands the stub a reader rather than a number, and
+	// the viewport answers whatever the reader says at the moment it is read.
+	// The number form is one read at install; this is one read per measurement.
+	it('reads a height handed as a function on every measurement', () => {
+		let height = STUB_ROW_HEIGHT;
+		const restore = stubRailViewportHeight(() => height);
+		try {
+			renderRail();
+			const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+			expect(viewport?.offsetHeight).toBe(STUB_ROW_HEIGHT);
+
+			height = ROWS.length * STUB_ROW_HEIGHT;
+			expect(viewport?.offsetHeight).toBe(ROWS.length * STUB_ROW_HEIGHT);
+		} finally {
+			restore();
+		}
+	});
 });
 
 describe('stubRailViewportHeight over stubPanelLayout', () => {
