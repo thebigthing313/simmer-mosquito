@@ -1,3 +1,8 @@
+# Pinned so a compose command from an agent worktree under `.claude/worktrees/`
+# addresses the running project instead of deriving a second one from its own
+# directory name and answering `service "postgres" is not running` (#1122).
+name: simmer-mosquito
+
 services:
   postgres:
     image: postgis/postgis:17-3.5

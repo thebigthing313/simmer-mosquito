@@ -32,12 +32,13 @@
  *
  * It reaches Postgres through `docker exec` on whichever container publishes
  * `55432`, the port `TEST_DATABASE_URL` reaches, rather than through `docker
- * compose exec`. Compose names its project after the directory holding the
- * compose file, so from an agent worktree under `.claude/worktrees/` it looks
- * for a project that does not exist and answers `service "postgres" is not
- * running` while the container is up. The port is the one fact every checkout
- * shares. `psql` runs inside the container, so nothing needs to be installed
- * on the host.
+ * compose exec`. The lookup shipped to route around the compose project name,
+ * which came from the directory holding the compose file until #1122 pinned
+ * it, so a worktree under `.claude/worktrees/` addressed a project that did
+ * not exist. It stays because a hand-started container is in no compose
+ * project at all, and the port is the one fact the script and the suites
+ * share either way. `psql` runs inside the container, so nothing needs to be
+ * installed on the host.
  *
  * ## It is a fixer, and it is not a gate
  *

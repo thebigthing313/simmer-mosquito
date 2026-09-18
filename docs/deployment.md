@@ -101,6 +101,12 @@ pnpm db:migrate
 pnpm --filter @simmer-mosquito/db seed:sync-baseline
 ```
 
+The compose file pins `name: simmer-mosquito`. Compose otherwise derives the
+project from the directory holding the file, so a `docker compose exec` from an
+agent worktree under `.claude/worktrees/` addressed a project that did not exist
+and answered `service "postgres" is not running` while the container was up
+(#1122). With the name pinned, every checkout addresses the one project.
+
 Use the `.env.example` values: Postgres on `localhost:55432`, Electric on
 `localhost:3001`, and `ELECTRIC_SECRET` **unset**, because the local Electric
 runs `ELECTRIC_INSECURE=true`. A `DATABASE_URL` or `ELECTRIC_URL` pointing at
