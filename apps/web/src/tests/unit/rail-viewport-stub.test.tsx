@@ -34,9 +34,9 @@ function mountedRows(): readonly (string | null)[] {
  * lifts is measured rather than assumed, and the third render proves the
  * restore: a stub that leaked past it would read eight there.
  *
- * The two describes are two environments. `stubPanelLayout` redefines
- * `offsetHeight` and never puts it back, so the second describe does that
- * itself and either can run first.
+ * The two describes are two environments. The second installs
+ * `stubPanelLayout` for its cases and restores it after, so either can run
+ * first.
  */
 describe('stubRailViewportHeight under plain jsdom', () => {
 	// A zero-height viewport mounts nothing: the virtualiser's range is null
@@ -72,13 +72,11 @@ describe('stubRailViewportHeight under plain jsdom', () => {
 });
 
 describe('stubRailViewportHeight over stubPanelLayout', () => {
-	const plain = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-	beforeAll(stubPanelLayout);
-	afterAll(() => {
-		if (plain !== undefined) {
-			Object.defineProperty(HTMLElement.prototype, 'offsetHeight', plain);
-		}
+	let restorePanel: () => void;
+	beforeAll(() => {
+		restorePanel = stubPanelLayout();
 	});
+	afterAll(() => restorePanel());
 
 	// One size for every element is a 700px viewport over 700px rows, which
 	// holds one row, and six of overscan make seven. This is the limit the
