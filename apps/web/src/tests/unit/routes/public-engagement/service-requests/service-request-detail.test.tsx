@@ -49,7 +49,11 @@ import { service_requests } from '../../../../../lib/collections/service_request
 import { tag_items } from '../../../../../lib/collections/tag_items';
 import { tags } from '../../../../../lib/collections/tags';
 import { recordNoun } from '../../../../../lib/record-nouns';
-import { installMemoryCollections, seedRows } from '../../../lib/collections/memory-collections';
+import {
+	holdUnsynced,
+	installMemoryCollections,
+	seedRows,
+} from '../../../lib/collections/memory-collections';
 import { preloadRouteComponent, stubPanelLayout } from '../../explorer-route-harness';
 
 const harness = vi.hoisted(() => ({
@@ -376,8 +380,9 @@ describe('the service request detail page header', () => {
 describe('the frame the service request header draws in', () => {
 	it('draws the skeleton at the page measure while the request loads', async () => {
 		// Held unsynced rather than empty: an empty collection is a request that
-		// is missing, and the page draws the unavailable state for that.
-		installMemoryCollections({ ready: false });
+		// is missing, and the page draws the unavailable state for that. Held
+		// alone, so the Organization the `beforeEach` seeded stays (#1140).
+		holdUnsynced(service_requests);
 		renderRoute();
 
 		const bar = await screen.findByRole('banner');
