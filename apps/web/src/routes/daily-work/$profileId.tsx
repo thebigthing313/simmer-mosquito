@@ -17,7 +17,8 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { activityPanelState, activityReach } from '../../components/activity/activity-data';
-import { ActivityFocusCard, ActivityLog } from '../../components/activity/activity-log';
+import { ActivityFocusCard } from '../../components/activity/activity-focus-card';
+import { ActivityLog } from '../../components/activity/activity-log';
 import {
 	DAILY_WORK_COPY,
 	DAILY_WORK_FILTER_CODECS,
