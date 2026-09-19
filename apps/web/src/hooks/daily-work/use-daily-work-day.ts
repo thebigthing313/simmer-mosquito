@@ -3,7 +3,7 @@ import {
 	DAILY_WORK_FILTER_CODECS,
 	type DailyWorkFilters,
 	dailyWorkDay,
-} from '../../routes/daily-work/-daily-work';
+} from '../../components/daily-work/daily-work';
 import { useSearchFilters } from '../use-search-filters';
 
 /**

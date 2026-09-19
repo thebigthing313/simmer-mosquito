@@ -1,9 +1,9 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
+import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
 import { useBiocontrolMethodMutations } from '../../../hooks/mutations/use-biocontrol-method-mutations';
 import { useBiocontrolMethodRecords } from '../../../hooks/queries/use-biocontrol-method-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { ControlMethodsPage } from '../-control-methods-page';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 

@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, useLiveQuery } from '@tanstack/react-db';
+import { targetTypeOf } from '../../components/operations/assignments/assignment-data';
 import { collections } from '../../lib/collections/collections';
-import { targetTypeOf } from '../../routes/operations/assignments/-assignment-data';
 import { activityGcTimeMs, unmatchableId } from '../queries/shared';
 import type { AssignmentItemView } from './use-assignment-items';
 

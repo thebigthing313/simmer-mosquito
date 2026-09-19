@@ -10,6 +10,11 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
+import {
+	formatActionDate,
+	formatMeasure,
+	usageTotal,
+} from '../../components/control-operations/control-display';
 import { PersonGroupBlock } from '../../components/person-group-block';
 import { WeekDayStrip } from '../../components/week-day-strip';
 import type { RecentControlAction } from '../../hooks/queries/recent-control-action-view';
@@ -28,7 +33,6 @@ import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone'
 import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
-import { formatActionDate, formatMeasure, usageTotal } from './-control-display';
 
 /** How far back the recent-activity panels reach. */
 const CONTROL_ACTIVITY_WINDOW_DAYS = 14;

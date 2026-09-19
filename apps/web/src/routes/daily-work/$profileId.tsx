@@ -16,6 +16,17 @@ import {
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { activityPanelState, activityReach } from '../../components/activity/activity-data';
+import { ActivityFocusCard } from '../../components/activity/activity-focus-card';
+import { ActivityLog } from '../../components/activity/activity-log';
+import {
+	DAILY_WORK_COPY,
+	DAILY_WORK_FILTER_CODECS,
+	dailyWorkStep,
+	dailyWorkWindow,
+	isProfileId,
+} from '../../components/daily-work/daily-work';
+import { dailyWorkLegend } from '../../components/daily-work/legend';
 import { ExplorerMapPage } from '../../components/explorer';
 import { MapCanvas } from '../../components/map';
 import { useActivityLookups } from '../../hooks/activity/use-activity-lookups';
@@ -27,16 +38,6 @@ import { usePersonnelOptions } from '../../hooks/explorer/use-personnel-options'
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../lib/local-date';
 import { searchValidator } from '../../lib/search-filters';
-import { activityPanelState, activityReach } from '../-activity-data';
-import { ActivityFocusCard, ActivityLog } from '../-activity-log';
-import {
-	DAILY_WORK_COPY,
-	DAILY_WORK_FILTER_CODECS,
-	dailyWorkStep,
-	dailyWorkWindow,
-	isProfileId,
-} from './-daily-work';
-import { dailyWorkLegend } from './-legend';
 
 /**
  * One Profile's field work for one day, on one map.

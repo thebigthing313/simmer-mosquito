@@ -33,6 +33,17 @@ import {
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { SampleMapCard } from '../../../components/larval-surveillance/sample-map-card';
+import type { SampleStatus } from '../../../components/larval-surveillance/samples/legend';
+import {
+	SAMPLE_STATUS_ORDER,
+	sampleLegend,
+	sampleStatusLabel,
+} from '../../../components/larval-surveillance/samples/legend';
+import {
+	type SampleFilters,
+	sampleFilterCodecs,
+} from '../../../components/larval-surveillance/samples-search';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
@@ -57,10 +68,6 @@ import {
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
-import { SampleMapCard } from '../-sample-map-card';
-import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
-import type { SampleStatus } from './-legend';
-import { SAMPLE_STATUS_ORDER, sampleLegend, sampleStatusLabel } from './-legend';
 
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;

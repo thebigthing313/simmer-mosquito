@@ -23,6 +23,8 @@ import {
 	type MapTileLayer,
 	type OutreachTileFilters,
 } from '../../../components/map';
+import { OutreachMapCard } from '../../../components/public-engagement/outreach-map-card';
+import { formatReach } from '../../../components/public-engagement/public-engagement-display';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
@@ -40,8 +42,6 @@ import {
 	idSetParam,
 	searchValidator,
 } from '../../../lib/search-filters';
-import { OutreachMapCard } from '../-outreach-map-card';
-import { formatReach } from '../-public-engagement-display';
 
 interface OutreachRow {
 	readonly id: string;

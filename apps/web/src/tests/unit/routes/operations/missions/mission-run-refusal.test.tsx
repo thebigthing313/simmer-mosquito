@@ -103,11 +103,11 @@ vi.mock('../../../../../components/app-shell/outlet/map-split-page', () => ({
 	MapSplitPage: ({ children }: { readonly children?: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../../../../../routes/operations/-worklist-map', () => ({
+vi.mock('../../../../../components/operations/worklist-map', () => ({
 	WorklistMap: () => null,
 }));
 
-vi.mock('../../../../../routes/operations/missions/-mission-notifications-card', () => ({
+vi.mock('../../../../../components/operations/missions/mission-notifications-card', () => ({
 	MissionNotificationsCard: () => <p>notifications</p>,
 }));
 

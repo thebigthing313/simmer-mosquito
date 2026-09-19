@@ -1,17 +1,17 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
-import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
-import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { recordNoun } from '../../../lib/record-nouns';
-import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	MISSION_FIELD_PATHS,
 	MissionFormPage,
 	type MissionPlan,
 	missionFormValuesFrom,
 	validateMissionPlan,
-} from './-mission-form';
+} from '../../../components/operations/missions/mission-form';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
+import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
+import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { recordNoun } from '../../../lib/record-nouns';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 export const Route = createFileRoute('/operations/missions/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

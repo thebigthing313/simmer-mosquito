@@ -28,6 +28,8 @@ import {
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
 } from '../../../components/explorer';
+import { AssignmentStatusBadge } from '../../../components/operations/assignments/assignment-display';
+import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
@@ -52,8 +54,6 @@ import {
 	idSetParam,
 	searchValidator,
 } from '../../../lib/search-filters';
-import { WorklistMap } from '../-worklist-map';
-import { AssignmentStatusBadge } from './-assignment-display';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 

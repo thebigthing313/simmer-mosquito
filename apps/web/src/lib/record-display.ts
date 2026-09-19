@@ -2,8 +2,8 @@
  * How a record's enum and JSON columns read on a surface.
  *
  * These started in the My Organization settings pages and are now read by the
- * catalogs too, so they sit here rather than in one route's `-components`
- * folder, which is private to that route.
+ * catalogs too, so they sit here rather than under one surface's folder in
+ * `components/`.
  */
 
 /** A snake_case or kebab-case value as a label: `source_reduction` is `Source Reduction`. */

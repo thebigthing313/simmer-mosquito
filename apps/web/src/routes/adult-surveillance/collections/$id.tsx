@@ -36,6 +36,20 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
+import {
+	CollectionFlagBadges,
+	collectionCrumb,
+	collectionEffectiveDate,
+	collectionTitle,
+	isPendingCollection,
+	SPECIES_SEX_VALUES,
+	SPECIES_STATUS_VALUES,
+	SpeciesSexBadge,
+	SpeciesStatusBadge,
+	speciesSexLabel,
+	speciesStatusLabel,
+} from '../../../components/adult-surveillance/adult-display';
+import { CollectionKeyEntryDialog } from '../../../components/adult-surveillance/collection-key-entry';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import { CommentsSection } from '../../../components/comments-section';
@@ -76,20 +90,6 @@ import {
 	operationalDayAsTimestamp,
 	todayInTimeZone,
 } from '../../../lib/local-date';
-import {
-	CollectionFlagBadges,
-	collectionCrumb,
-	collectionEffectiveDate,
-	collectionTitle,
-	isPendingCollection,
-	SPECIES_SEX_VALUES,
-	SPECIES_STATUS_VALUES,
-	SpeciesSexBadge,
-	SpeciesStatusBadge,
-	speciesSexLabel,
-	speciesStatusLabel,
-} from '../-adult-display';
-import { CollectionKeyEntryDialog } from '../-collection-key-entry';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 	component: RouteComponent,

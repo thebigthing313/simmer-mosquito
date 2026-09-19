@@ -15,9 +15,9 @@ import {
 	DeleteRecordButton,
 	EditRecordButton,
 } from '../../components/catalog';
+import { EMPTY_GENUS, GenusForm, type GenusFormValues } from '../../components/taxonomy/genus-form';
 import { type GenusListing, useGenusRoster } from '../../hooks/queries/use-genus-roster';
 import { createGenus, deleteGenus, updateGenus } from '../../lib/collections/writes';
-import { EMPTY_GENUS, GenusForm, type GenusFormValues } from './-genus-form';
 
 const GenusIcon = iconRegistry.generic.component.icon;
 const AddIcon = iconRegistry.actions.add.icon;

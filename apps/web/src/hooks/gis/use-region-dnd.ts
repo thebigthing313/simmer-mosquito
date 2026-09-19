@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RegionDnd, RegionDropTarget } from '../../routes/gis/regions/-region-dnd';
+import type { RegionDnd, RegionDropTarget } from '../../components/gis/regions/region-dnd';
 
 /**
  * Transient drag state for the region tree, plus the move it commits on drop.

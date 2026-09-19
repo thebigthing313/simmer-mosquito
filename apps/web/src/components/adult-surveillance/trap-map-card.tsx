@@ -1,0 +1,97 @@
+import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import {
+	CheckCircle2Icon,
+	CircleIcon,
+	iconRegistry,
+	LocateFixedIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
+import { Link } from '@tanstack/react-router';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { useRecordTags } from '../../hooks/queries/use-record-tags';
+import { useTrap } from '../../hooks/queries/use-trap';
+import { recordNoun } from '../../lib/record-nouns';
+import { MapCardAddress } from '../linked-address';
+import { MapCard, MapCardDetail, MapCardEyebrow, mapCardCoordinates } from '../map/map-card';
+import type { MapInset } from '../map/map-inset';
+import { TagBadge } from '../tag-badge';
+
+const TrapEntityIcon = iconRegistry.entities.trap.icon;
+
+/**
+ * The map focus card for a trap. One query brings the trap up with its method,
+ * lure and address joined ({@link useTrap}); the tags are keyed on the same id.
+ */
+export function TrapMapCard({
+	id,
+	inset,
+	onClose,
+}: {
+	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
+	readonly onClose: () => void;
+}) {
+	const { trap } = useTrap(id);
+	const tags = useRecordTags(id);
+
+	if (trap === undefined) {
+		return (
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('trap').title}>
+				<div className="grid gap-2">
+					<Skeleton className="h-4 w-2/3" />
+					<Skeleton className="h-4 w-1/2" />
+				</div>
+			</MapCard>
+		);
+	}
+
+	const lureName = trap.lureId === null ? null : (trap.lureName ?? 'Unknown lure');
+
+	return (
+		<MapCard
+			badges={
+				<>
+					<TrapStatusBadge isActive={trap.isActive} />
+					{tags.map((tag) => (
+						<TagBadge key={tag.id} tag={tag} />
+					))}
+				</>
+			}
+			eyebrow={<MapCardEyebrow recordType="trap" />}
+			inset={inset}
+			onClose={onClose}
+			title={trapDisplayName(trap)}
+			viewDetailLink={(content) => (
+				<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id">
+					{content}
+				</Link>
+			)}
+		>
+			<div className="grid gap-1.5">
+				<MapCardDetail icon={TrapEntityIcon}>
+					{trap.methodName}
+					{lureName === null ? '' : ` · ${lureName} lure`}
+				</MapCardDetail>
+				<MapCardAddress address={trap.address} addressId={trap.addressId} />
+				<MapCardDetail icon={LocateFixedIcon} mono>
+					{mapCardCoordinates({ lat: trap.latitude, lng: trap.longitude })}
+				</MapCardDetail>
+			</div>
+		</MapCard>
+	);
+}
+
+function TrapStatusBadge({ isActive }: { readonly isActive: boolean }) {
+	return isActive ? (
+		<Badge tone="success" variant="outline">
+			<CheckCircle2Icon aria-hidden="true" />
+			Active
+		</Badge>
+	) : (
+		<Badge tone="neutral" variant="outline">
+			<CircleIcon aria-hidden="true" />
+			Inactive
+		</Badge>
+	);
+}

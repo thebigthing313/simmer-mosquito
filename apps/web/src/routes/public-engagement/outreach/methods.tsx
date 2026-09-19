@@ -1,9 +1,9 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
+import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
 import { useOutreachMethodMutations } from '../../../hooks/mutations/use-outreach-method-mutations';
 import { useOutreachMethodRecords } from '../../../hooks/queries/use-outreach-method-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { ControlMethodsPage } from '../../control-operations/-control-methods-page';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
 

@@ -28,6 +28,12 @@ import {
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
 } from '../../../components/explorer';
+import {
+	MissionStatusBadge,
+	missionStopFeatures,
+	stopSummary,
+} from '../../../components/operations/operations-display';
+import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
 import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
@@ -56,8 +62,6 @@ import {
 	idSetParam,
 	searchValidator,
 } from '../../../lib/search-filters';
-import { MissionStatusBadge, missionStopFeatures, stopSummary } from '../-operations-display';
-import { WorklistMap } from '../-worklist-map';
 
 const MissionIcon = iconRegistry.entities.route.icon;
 

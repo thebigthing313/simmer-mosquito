@@ -24,6 +24,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ActivityEntry } from '../../components/activity/activity-data';
+import { ActivityLog } from '../../components/activity/activity-log';
+import { DAILY_WORK_COPY } from '../../components/daily-work/daily-work';
+import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
+import { DashboardPage } from '../../components/dashboard/dashboard-page';
+import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
+import { InspectionSurfaceSwitch } from '../../components/larval-surveillance/inspection-surface-switch';
+import { sharedInspectionSearch } from '../../components/larval-surveillance/inspections-search';
+import { PeopleSection } from '../../components/my-organization/people';
+import { ServiceRequestDetailHeader } from '../../components/public-engagement/service-requests/service-request-detail-header';
+import type {
+	NearbyCategory,
+	NearbyItem,
+} from '../../components/public-engagement/service-requests/service-request-nearby';
+import { NearbyResultList } from '../../components/public-engagement/service-requests/service-request-nearby-rows';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { memberships } from '../../lib/collections/memberships';
@@ -33,21 +48,6 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
-import type { ActivityEntry } from '../../routes/-activity-data';
-import { ActivityLog } from '../../routes/-activity-log';
-import type { DashboardResponse } from '../../routes/-dashboard-data';
-import { DashboardPage } from '../../routes/-dashboard-page';
-import { HabitatHistoryCard } from '../../routes/-habitat-detail';
-import { DAILY_WORK_COPY } from '../../routes/daily-work/-daily-work';
-import { InspectionSurfaceSwitch } from '../../routes/larval-surveillance/-inspection-surface-switch';
-import { sharedInspectionSearch } from '../../routes/larval-surveillance/-inspections-search';
-import { PeopleSection } from '../../routes/my-organization/-components/people';
-import { ServiceRequestDetailHeader } from '../../routes/public-engagement/service-requests/-service-request-detail-header';
-import type {
-	NearbyCategory,
-	NearbyItem,
-} from '../../routes/public-engagement/service-requests/-service-request-nearby';
-import { NearbyResultList } from '../../routes/public-engagement/service-requests/-service-request-nearby-rows';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';

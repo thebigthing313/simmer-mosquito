@@ -1,6 +1,6 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
-import type { ActivityEntry } from '../../routes/-activity-data';
+import type { ActivityEntry } from '../../components/activity/activity-data';
 import { useFlyToSelection } from '../explorer/use-fly-to-selection';
 import type { ActivityLayerConfig } from '../map/use-activity-layer';
 import { type ActivityView, useActivityView } from './use-activity-view';

@@ -22,6 +22,21 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
 import {
+	DensityFilter,
+	InspectionFilterChips,
+	type InspectionFilterSetters,
+	type InspectionFilterState,
+	WETNESS_OPTIONS,
+} from '../../../components/larval-surveillance/inspection-filters';
+import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
+import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
+import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
+import {
+	type InspectionFilters as InspectionSearchFilters,
+	inspectionFilterCodecs,
+	sharedInspectionSearch,
+} from '../../../components/larval-surveillance/inspections-search';
+import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
 	type InspectionTileFilters,
@@ -30,6 +45,7 @@ import {
 	type MapLegendEntry,
 	type MapTileLayer,
 } from '../../../components/map';
+import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
@@ -42,22 +58,6 @@ import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
-import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
-import {
-	DensityFilter,
-	InspectionFilterChips,
-	type InspectionFilterSetters,
-	type InspectionFilterState,
-	WETNESS_OPTIONS,
-} from '../-inspection-filters';
-import { InspectionMapCard } from '../-inspection-map-card';
-import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
-import {
-	type InspectionFilters as InspectionSearchFilters,
-	inspectionFilterCodecs,
-	sharedInspectionSearch,
-} from '../-inspections-search';
-import { inspectionLegend } from './-legend';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 

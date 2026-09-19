@@ -1,4 +1,4 @@
-import type { InspectionCatalogs } from '../../routes/larval-surveillance/-inspection-filters';
+import type { InspectionCatalogs } from '../../components/larval-surveillance/inspection-filters';
 import { useHabitatTypeOptions } from '../explorer/use-habitat-type-options';
 import { usePersonnelOptions } from '../explorer/use-personnel-options';
 

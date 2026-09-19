@@ -28,6 +28,12 @@ import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-ro
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { RegionFolderDialog } from '../../../components/gis/regions/folder-dialog';
+import {
+	MAX_REGIONS,
+	parseRegionsFromFile,
+	type RegionBoundary,
+} from '../../../components/gis/regions/import-parse';
 import { MapCanvas } from '../../../components/map';
 import {
 	ImportNotes,
@@ -42,8 +48,6 @@ import { regions } from '../../../lib/collections/regions';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { RegionFolderDialog } from './-folder-dialog';
-import { MAX_REGIONS, parseRegionsFromFile, type RegionBoundary } from './-import-parse';
 
 export const Route = createFileRoute('/gis/regions/import')({
 	beforeLoad: async ({ context }) => {

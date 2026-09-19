@@ -1,7 +1,7 @@
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../auth';
-import type { RouteHabitat } from '../../routes/larval-surveillance/habitats/-route-data';
+import type { RouteHabitat } from '../../components/larval-surveillance/habitats/route-data';
 
 const minSearchLength = 2;
 

@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import {
 	InsecticideBatchTrackingDrawer,
 	InsecticideLookupPointer,
-} from './-components/insecticides';
-import { DomainSection } from './-components/layout/layout';
-import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
+} from '../../components/my-organization/insecticides';
+import { DomainSection } from '../../components/my-organization/layout/domain-section';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/my-organization/insecticides')({
 	component: MyOrganizationInsecticidesRoute,

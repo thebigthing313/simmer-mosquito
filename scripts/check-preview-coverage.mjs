@@ -105,7 +105,7 @@
  * is the `fallow` baseline failure `CLAUDE.md` describes (#360).
  *
  * `chart.tsx` was a candidate in #611 and is not on the list. `ChartContainer`
- * renders, `apps/web/src/routes/-habitat-inspection-stats.tsx` draws a real
+ * renders, `apps/web/src/components/larval-surveillance/habitats/habitat-inspection-stats.tsx` draws a real
  * chart with it, and a preview section is a config object and a few rows of
  * data. It is in the backlog.
  *

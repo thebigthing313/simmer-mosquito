@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { LarvalSurveillanceSettings } from '../../components/my-organization/larval';
+import { LarvalSettingsDrawer } from '../../components/my-organization/larval-settings-drawer';
+import { DomainSection } from '../../components/my-organization/layout/domain-section';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { LarvalSettingsDrawer, LarvalSurveillanceSettings } from './-components/larval';
-import { DomainSection } from './-components/layout/layout';
-import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 
 export const Route = createFileRoute('/my-organization/larval-surveillance')({
 	component: MyOrganizationLarvalSurveillanceRoute,

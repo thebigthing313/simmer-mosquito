@@ -311,7 +311,7 @@ same shape; the build adds it in the same change.
 
 ### The client half
 
-One `useQuery` in `apps/web/src/routes/-dashboard-data.ts`, keyed
+One `useQuery` in `apps/web/src/components/dashboard/dashboard-data.ts`, keyed
 `['dashboard']`, with `refetchOnWindowFocus: true` and `refetchInterval` of
 five minutes. The app's default is `refetchOnWindowFocus: false`, so the hook
 sets it. No refresh control on the page: focus and the interval are the

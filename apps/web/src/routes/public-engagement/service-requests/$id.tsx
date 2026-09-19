@@ -14,11 +14,53 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
+import type { ActivityLookups } from '../../../components/activity/activity-data';
+import { CollectionMapCard } from '../../../components/adult-surveillance/collection-map-card';
+import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
+import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
+import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
+import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
+import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
+import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { MapCanvas } from '../../../components/map';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
+import {
+	contactDisplayName,
+	formatAddressLines,
+	formatRequestDate,
+	intakeTypeLabel,
+	serviceRequestTitle,
+} from '../../../components/public-engagement/public-engagement-display';
+import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
+import { ServiceRequestDetailHeader } from '../../../components/public-engagement/service-requests/service-request-detail-header';
+import {
+	buildNearbyMapData,
+	countNearbyByFamily,
+	formatRadiusLabel,
+	NEARBY_FAMILIES,
+	type NearbyCategory,
+	type NearbyFamily,
+	type NearbyItem,
+	type NearbyRead,
+	type NearbyResponse,
+	nearbyItemKey,
+	nearbySummary,
+	nearbyWindowLabel,
+	visibleNearbyItems,
+} from '../../../components/public-engagement/service-requests/service-request-nearby';
+import { NearbyResultList } from '../../../components/public-engagement/service-requests/service-request-nearby-rows';
+import {
+	isServiceRequestTab,
+	mapFamiliesForTab,
+	SERVICE_REQUEST_TAB_CODECS,
+	SERVICE_REQUEST_TAB_DEFAULTS,
+	SERVICE_REQUEST_TAB_LABEL,
+	SERVICE_REQUEST_TABS,
+	tabFamily,
+} from '../../../components/public-engagement/service-requests/service-request-tabs';
 import {
 	detailBodyClass,
 	type RecordDetailLayout,
@@ -40,48 +82,6 @@ import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-a
 import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { searchValidator } from '../../../lib/search-filters';
-import type { ActivityLookups } from '../../-activity-data';
-import { HabitatMapCard } from '../../-habitat-map-card';
-import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
-import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
-import { ApplicationMapCard } from '../../control-operations/-application-map-card';
-import { BiocontrolMapCard } from '../../control-operations/-biocontrol-map-card';
-import { SourceReductionMapCard } from '../../control-operations/-source-reduction-map-card';
-import { InspectionMapCard } from '../../larval-surveillance/-inspection-map-card';
-import {
-	contactDisplayName,
-	formatAddressLines,
-	formatRequestDate,
-	intakeTypeLabel,
-	serviceRequestTitle,
-} from '../-public-engagement-display';
-import { ServiceRequestMapCard } from '../-service-request-map-card';
-import { ServiceRequestDetailHeader } from './-service-request-detail-header';
-import {
-	buildNearbyMapData,
-	countNearbyByFamily,
-	formatRadiusLabel,
-	NEARBY_FAMILIES,
-	type NearbyCategory,
-	type NearbyFamily,
-	type NearbyItem,
-	type NearbyRead,
-	type NearbyResponse,
-	nearbyItemKey,
-	nearbySummary,
-	nearbyWindowLabel,
-	visibleNearbyItems,
-} from './-service-request-nearby';
-import { NearbyResultList } from './-service-request-nearby-rows';
-import {
-	isServiceRequestTab,
-	mapFamiliesForTab,
-	SERVICE_REQUEST_TAB_CODECS,
-	SERVICE_REQUEST_TAB_DEFAULTS,
-	SERVICE_REQUEST_TAB_LABEL,
-	SERVICE_REQUEST_TABS,
-	tabFamily,
-} from './-service-request-tabs';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id')({
 	component: ServiceRequestDetailRoute,

@@ -174,7 +174,7 @@
 	 * no fallback, just uncoloured text. Tailwind only emits a utility for a
 	 * `--color-*` it knows about, so the class looked right in the source and
 	 * silently did not exist in the stylesheet. There is a stray `text-warning`
-	 * in `apps/web/src/routes/-components.tsx` that has been inert for exactly
+	 * in `apps/web/src/components/landing/landing-page.tsx` that has been inert for exactly
 	 * this reason, and the workarounds elsewhere (`text-[var(--success)]`) are
 	 * people routing around the omission rather than preferring the long form.
 	 *

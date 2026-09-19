@@ -92,31 +92,26 @@ const COMPILER_PHASES = [
 		name: 'apps/web routes',
 		issue: 823,
 		/*
-		 * `operations/-worklist-map.tsx` is the one exclusion, held to phase 6
-		 * because it is a map surface. `routeTree.gen.ts` needs none: it sits at
-		 * `src/routeTree.gen.ts` rather than under `routes/`, so this pattern
-		 * never reaches it.
+		 * `routeTree.gen.ts` needs no exclusion: it sits at `src/routeTree.gen.ts`
+		 * rather than under `routes/`, so this pattern never reaches it. The
+		 * worklist map this once held back to phase 6 lives under `components/`
+		 * now, where phase 4 reaches it.
 		 */
-		include: [
-			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/](?!operations[\\/]-worklist-map[.]tsx$)/,
-		],
+		include: [/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/]/],
 	},
 	{
 		phase: 6,
 		name: 'apps/web map surfaces',
 		issue: 824,
 		/*
-		 * The last phase, and the three paths phases 4 and 5 held back. It is an
-		 * appended entry rather than the two lookahead deletions the phase 4
-		 * comment predicted, because the header rule is that a phase is one entry,
-		 * and an entry is also the record of which phase turned a path on. The two
-		 * spellings compile exactly the same set; only this one leaves the ordering
-		 * #656 §4 wrote readable afterwards.
+		 * The last phase, and the two paths phase 4 held back. It is an appended
+		 * entry rather than two lookahead deletions, because the header rule is
+		 * that a phase is one entry, and an entry is also the record of which
+		 * phase turned a path on.
 		 */
 		include: [
 			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/]map[\\/]/,
 			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]components[\\/]route-planning[\\/]/,
-			/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]routes[\\/]operations[\\/]-worklist-map[.]tsx$/,
 		],
 	},
 	{
@@ -124,17 +119,11 @@ const COMPILER_PHASES = [
 		name: 'apps/web forms',
 		issue: 838,
 		/*
-		 * The surface no phase named. `forms/` sits beside `lib`, `hooks`,
-		 * `components` and `routes` under `apps/web/src`, and phases 3 to 6
-		 * between them reach every one of those but this. Nothing failed,
-		 * because the gate's two halves are complementary and a compile-clean
-		 * module outside the allowlist sits quietly on the ratcheted side.
-		 *
-		 * A seventh entry rather than collapsing phases 3 to 7 into one
-		 * `apps/web[\\/]src[\\/]` pattern, which now compiles the same set. The
-		 * header rule is that a phase is one entry, and an entry is the record
-		 * of which phase turned a path on; collapsing would compile the same
-		 * modules and lose the ordering #656 §4 wrote.
+		 * The surface no phase named: `forms/` sat beside `lib`, `hooks`,
+		 * `components` and `routes` and phases 3 to 6 reached every one of those
+		 * but this. The directory has since moved under `components/forms`, where
+		 * phase 4 reaches it, so this pattern matches nothing and stays as the
+		 * record of which phase turned the surface on.
 		 */
 		include: [/(?:^|[\\/])apps[\\/]web[\\/]src[\\/]forms[\\/]/],
 	},

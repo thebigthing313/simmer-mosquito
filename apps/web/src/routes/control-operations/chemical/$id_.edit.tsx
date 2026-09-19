@@ -1,6 +1,14 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	ApplicationFormPage,
+	type DrawGeometry,
+} from '../../../components/control-operations/chemical/application-form';
+import {
+	type ApplicationFormValues,
+	noSelectionValue,
+} from '../../../components/control-operations/chemical/application-form-values';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
@@ -30,12 +38,6 @@ import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-o
 import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	ApplicationFormPage,
-	type ApplicationFormValues,
-	type DrawGeometry,
-	noSelectionValue,
-} from './-application-form';
 
 export const Route = createFileRoute('/control-operations/chemical/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

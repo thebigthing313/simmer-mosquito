@@ -217,7 +217,7 @@ about it. `--success`, `--warning`, `--attention`, `--info`, `--catalog`,
 `--danger`, and `--quiet` lived in `:root` for a long time without matching
 `--color-*` entries in `@theme`, which meant `text-warning` compiled to *nothing
 at all*: no error, no fallback, just uncoloured text that looked deliberate in
-review. A stray `text-warning` in `apps/web/src/routes/-components.tsx` was inert
+review. A stray `text-warning` in `apps/web/src/components/landing/landing-page.tsx` was inert
 for exactly this reason, and the `text-[var(--success)]` spellings elsewhere were
 people routing around the omission without naming it.
 
@@ -560,7 +560,7 @@ route folder: `FormSection` used to live under `routes/control-operations/` and
 three domains outside it reached across to import it.
 
 Operations forms hold their geometry in a `DrawLocation` controller rather than
-in separate pieces of form state, so `routes/operations/-location-section.tsx`
+in separate pieces of form state, so `components/forms/location-band.tsx`
 stays: it wraps the shared band and renders the geometry control off the
 controller. That is the one thing the band cannot know, and it is the only
 reason to wrap it.

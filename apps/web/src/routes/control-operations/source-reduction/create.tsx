@@ -1,6 +1,12 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	defaultSourceReductionFormValues,
+	SourceReductionFormPage,
+	type SourceReductionSaveInput,
+	sourceReductionFieldsFrom,
+} from '../../../components/control-operations/source-reduction/source-reduction-form';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
@@ -16,12 +22,6 @@ import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	defaultSourceReductionFormValues,
-	SourceReductionFormPage,
-	type SourceReductionSaveInput,
-	sourceReductionFieldsFrom,
-} from './-source-reduction-form';
 
 export const Route = createFileRoute('/control-operations/source-reduction/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard

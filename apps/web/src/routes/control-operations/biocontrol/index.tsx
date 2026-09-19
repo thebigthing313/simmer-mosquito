@@ -4,6 +4,11 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
+import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
+import {
+	controlContext,
+	formatAmount,
+} from '../../../components/control-operations/control-display';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -25,6 +30,7 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useBiocontrolMethodOptions } from '../../../hooks/explorer/use-biocontrol-method-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -45,9 +51,6 @@ import {
 	idSetParam,
 	searchValidator,
 } from '../../../lib/search-filters';
-import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
-import { BiocontrolMapCard } from '../-biocontrol-map-card';
-import { controlContext, formatAmount } from '../-control-display';
 
 interface BiocontrolRow {
 	readonly id: string;

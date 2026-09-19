@@ -1,4 +1,4 @@
-import { type ActivityLookups, activityLookups } from '../../routes/-activity-data';
+import { type ActivityLookups, activityLookups } from '../../components/activity/activity-data';
 import { useTagOptions } from '../explorer/use-tag-options';
 import { useApplicationMethodRoster } from '../queries/use-application-method-roster';
 import { useBiocontrolMethodRoster } from '../queries/use-biocontrol-method-roster';

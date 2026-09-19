@@ -849,7 +849,7 @@ A form's state machine, kept out of the component that draws it. Six pieces
 of state and a save that has to know about all of them is the whole of what
 the dialog is; leaving them inline made the render unreadable and the rules
 hard to find among the JSX. The rules themselves and the metric inputs live
-in `routes/gis/weather/-weather-summary-form.ts`, shared with the dialog.
+in `components/gis/weather/weather-summary-form.ts`, shared with the dialog.
 
 `onWriteYear` is called before the write, not after. The card lists one year
 at a time, and a write into a year its live query does not cover waits out a

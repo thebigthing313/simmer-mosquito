@@ -20,6 +20,9 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { weatherSourceTypeLabel } from '../../../components/gis/weather/weather-display';
+import { WeatherSummariesCard } from '../../../components/gis/weather/weather-summaries-card';
+import { StationStatusBadge } from '../../../components/gis/weather/weather-ui';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
@@ -33,9 +36,6 @@ import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/u
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { STATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { errorMessageForSave } from '../../../lib/save-error';
-import { weatherSourceTypeLabel } from './-weather-display';
-import { WeatherSummariesCard } from './-weather-summaries-card';
-import { StationStatusBadge } from './-weather-ui';
 
 export const Route = createFileRoute('/gis/weather/$id')({
 	component: RouteComponent,

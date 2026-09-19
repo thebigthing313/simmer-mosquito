@@ -16,13 +16,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DashboardResponse } from '../../../components/dashboard/dashboard-data';
 import { assignment_items } from '../../../lib/collections/assignment_items';
 import { collections } from '../../../lib/collections/collections';
 import { missions } from '../../../lib/collections/missions';
 import { organizations } from '../../../lib/collections/organizations';
 import { profiles } from '../../../lib/collections/profiles';
 import { service_requests } from '../../../lib/collections/service_requests';
-import type { DashboardResponse } from '../../../routes/-dashboard-data';
 import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
 
 const harness = vi.hoisted(() => ({
@@ -43,7 +43,7 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 		}),
 }));
 
-const { DashboardPage } = await import('../../../routes/-dashboard-page');
+const { DashboardPage } = await import('../../../components/dashboard/dashboard-page');
 
 /** Noon in New York on 2026-09-15, so `today` is fixed for every age below. */
 const NOW = new Date('2026-09-15T16:00:00Z');

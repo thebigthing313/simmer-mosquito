@@ -8,7 +8,7 @@
  * body names the commands it means. These six do not, and they are all that is
  * left of the older per-domain write surface (#634). The operator console seeds
  * a new Organization's geography, its three lookup catalogs and its first Trap
- * from `apps/admin/src/routes/organizations/$organizationId/-foundations-data.ts`,
+ * from `apps/admin/src/hooks/mutations/use-create-foundation.ts`,
  * which posts a flat body to a path and reads the created row back. Moving that
  * onto the table surface is a change to `apps/admin`, so it is not this module's
  * to make.

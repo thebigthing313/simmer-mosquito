@@ -1,11 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router';
+import {
+	US_STATE_SELECT_OPTIONS,
+	US_TIMEZONE_OPTIONS,
+} from '../../components/my-organization/constants';
+import { GeneralOrganizationSection } from '../../components/my-organization/general';
+import {
+	selectField,
+	textField,
+	unitDefaultFields,
+} from '../../components/my-organization/helpers';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
+import type { SettingField } from '../../components/my-organization/types';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { US_STATE_SELECT_OPTIONS, US_TIMEZONE_OPTIONS } from './-components/constants';
-import { GeneralOrganizationSection } from './-components/general';
-import { selectField, textField, unitDefaultFields } from './-components/helpers';
-import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import type { SettingField } from './-components/types';
 
 export const Route = createFileRoute('/my-organization/')({
 	component: MyOrganizationGeneralRoute,

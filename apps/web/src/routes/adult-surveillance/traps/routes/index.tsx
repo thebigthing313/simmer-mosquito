@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { trapRouteSurface } from '../../../../components/adult-surveillance/traps/trap-route-surface';
 import { RoutesIndexPage } from '../../../../components/route-planning';
 import { useTrapRouteStopCounts } from '../../../../hooks/adult-surveillance/use-trap-route-stop-counts';
 import { useTrapRouteStops } from '../../../../hooks/adult-surveillance/use-trap-route-stops';
 import { useTrapRoutes } from '../../../../hooks/adult-surveillance/use-trap-routes';
 import { useRouteSelection } from '../../../../hooks/route-planning/use-route-selection';
-import { trapRouteSurface } from './-trap-route-surface';
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/')({
 	component: TrapRoutesIndexRoute,

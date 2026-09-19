@@ -1,5 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	AddressFormPage,
+	type AddressFormSave,
+	type AddressFormValues,
+	type AddressPointGeometry,
+} from '../../../components/gis/addresses/address-form';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	seedAddressGeometryCache,
@@ -14,12 +20,6 @@ import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	AddressFormPage,
-	type AddressFormSave,
-	type AddressFormValues,
-	type AddressPointGeometry,
-} from './-address-form';
 
 export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

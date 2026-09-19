@@ -29,12 +29,12 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type ActivityEntry, activityRow } from '../../../../components/activity/activity-data';
 import type { ActivityLayerConfig } from '../../../../hooks/map/use-activity-layer';
 import { organizations } from '../../../../lib/collections/organizations';
 import { profiles } from '../../../../lib/collections/profiles';
 import { tags } from '../../../../lib/collections/tags';
 import type { MinimumRole } from '../../../../lib/write-access';
-import { type ActivityEntry, activityRow } from '../../../../routes/-activity-data';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 import { preloadRouteComponent, renderExplorer, stubPanelLayout } from '../explorer-route-harness';
 import { notifyRouterStandIn } from '../route-mock-stand-ins';

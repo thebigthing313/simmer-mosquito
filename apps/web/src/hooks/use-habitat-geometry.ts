@@ -3,7 +3,7 @@ import {
 	fetchHabitatGeometry,
 	type HabitatGeometry,
 	habitatGeometryQueryKey,
-} from '../routes/-habitat-geometry-cache';
+} from '../components/larval-surveillance/habitats/habitat-geometry-cache';
 
 /** Nothing fetches this key; it only keeps the disabled query's key well-formed. */
 const NO_HABITAT = 'none';

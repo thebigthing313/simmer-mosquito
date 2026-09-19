@@ -74,7 +74,7 @@ const { useAdditionalPersonnelMutations } = await import(
 	'../../../../hooks/mutations/use-additional-personnel-mutations'
 );
 const { routeAssignmentName } = await import(
-	'../../../../routes/operations/assignments/-assignment-form'
+	'../../../../components/operations/assignments/assignment-form'
 );
 
 beforeEach(() => {

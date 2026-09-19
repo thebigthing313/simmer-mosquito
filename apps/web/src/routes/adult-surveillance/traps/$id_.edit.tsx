@@ -1,5 +1,12 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	type DrawGeometry,
+	TrapFormPage,
+	type TrapFormValues,
+	trapFieldsFrom,
+	trapFormValuesFrom,
+} from '../../../components/adult-surveillance/traps/trap-form';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import type {
@@ -13,13 +20,6 @@ import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	TrapFormPage,
-	type TrapFormValues,
-	trapFieldsFrom,
-	trapFormValuesFrom,
-} from './-trap-form';
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

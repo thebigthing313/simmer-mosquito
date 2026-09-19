@@ -26,8 +26,8 @@
 import { cleanup, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AssignmentView } from '../../../../../components/operations/assignments/assignment-data';
 import type { ProgressCounts } from '../../../../../hooks/queries/assignment-view';
-import type { AssignmentView } from '../../../../../routes/operations/assignments/-assignment-data';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 import {
 	refusalHarness as harness,
@@ -105,7 +105,7 @@ vi.mock('../../../../../components/app-shell/outlet/map-split-page', () => ({
 	MapSplitPage: ({ children }: { readonly children?: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('../../../../../routes/operations/-worklist-map', () => ({
+vi.mock('../../../../../components/operations/worklist-map', () => ({
 	WorklistMap: () => null,
 }));
 

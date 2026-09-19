@@ -19,6 +19,12 @@ import {
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
+import type {
+	AccessFilter,
+	StatusFilter,
+} from '../../../components/larval-surveillance/habitats/legend';
+import { habitatLegend } from '../../../components/larval-surveillance/habitats/legend';
 import {
 	HABITAT_STATUS_COLORS,
 	type HabitatTileFilters,
@@ -44,9 +50,6 @@ import {
 	searchValidator,
 	textParam,
 } from '../../../lib/search-filters';
-import { HabitatMapCard } from '../../-habitat-map-card';
-import type { AccessFilter, StatusFilter } from './-legend';
-import { habitatLegend } from './-legend';
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
 const ACCESS_VALUES: readonly AccessFilter[] = ['all', 'accessible', 'inaccessible'];

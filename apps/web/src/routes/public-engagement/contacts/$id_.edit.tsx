@@ -1,17 +1,17 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import {
+	type ContactFormValues,
+	contactFieldsFromValues,
+	defaultsFromContact,
+} from '../../../components/public-engagement/contact-fields';
+import { ContactFormPage } from '../../../components/public-engagement/contacts/contact-form';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type ContactFormValues,
-	contactFieldsFromValues,
-	defaultsFromContact,
-} from '../-contact-fields';
-import { ContactFormPage } from './-contact-form';
 
 export const Route = createFileRoute('/public-engagement/contacts/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

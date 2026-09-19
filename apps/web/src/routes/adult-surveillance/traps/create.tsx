@@ -1,5 +1,12 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	type DrawGeometry,
+	defaultTrapFormValues,
+	TrapFormPage,
+	type TrapFormValues,
+	trapFieldsFrom,
+} from '../../../components/adult-surveillance/traps/trap-form';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
@@ -11,13 +18,6 @@ import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
 import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	defaultTrapFormValues,
-	TrapFormPage,
-	type TrapFormValues,
-	trapFieldsFrom,
-} from './-trap-form';
 
 export const Route = createFileRoute('/adult-surveillance/traps/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard

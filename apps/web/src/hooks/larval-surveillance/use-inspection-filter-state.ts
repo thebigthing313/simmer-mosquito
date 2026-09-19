@@ -1,16 +1,16 @@
 import type { LarvalDensity } from '@simmer-mosquito/domain';
-import type { FilterCounting } from '../../lib/search-filters';
 import type {
 	InspectionFilterBinding,
 	InspectionFilterSetters,
 	InspectionFilterState,
 	InspectionOpeningWindow,
-} from '../../routes/larval-surveillance/-inspection-filters';
+} from '../../components/larval-surveillance/inspection-filters';
 import {
 	type InspectionFilters,
 	inspectionFilterCodecs,
 	type WaterFilterValue,
-} from '../../routes/larval-surveillance/-inspections-search';
+} from '../../components/larval-surveillance/inspections-search';
+import type { FilterCounting } from '../../lib/search-filters';
 import { useSearchFilters } from '../use-search-filters';
 import { useInspectionFilterDefaults } from './use-inspection-filter-defaults';
 

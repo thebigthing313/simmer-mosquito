@@ -1,7 +1,7 @@
 import type { LarvalDensity } from '@simmer-mosquito/domain';
+import type { InspectionOpeningWindow } from '../../components/larval-surveillance/inspection-filters';
+import type { InspectionFilters } from '../../components/larval-surveillance/inspections-search';
 import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';
-import type { InspectionOpeningWindow } from '../../routes/larval-surveillance/-inspection-filters';
-import type { InspectionFilters } from '../../routes/larval-surveillance/-inspections-search';
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
 
 /** How far back the map opens, and what Clear all returns it to. */

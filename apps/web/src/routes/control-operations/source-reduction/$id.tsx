@@ -12,6 +12,10 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import {
+	formatActionDate,
+	formatMeasure,
+} from '../../../components/control-operations/control-display';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -34,7 +38,6 @@ import {
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { formatActionDate, formatMeasure } from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id')({
 	component: RouteComponent,

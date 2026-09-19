@@ -3,13 +3,13 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { trapRouteSurface } from '../../../../components/adult-surveillance/traps/trap-route-surface';
 import { RouteDetailPage, type StopSelection } from '../../../../components/route-planning';
 import {
 	type TrapRouteStopView,
 	useTrapRouteStops,
 } from '../../../../hooks/adult-surveillance/use-trap-route-stops';
 import { useTrapRoutes } from '../../../../hooks/adult-surveillance/use-trap-routes';
-import { trapRouteSurface } from './-trap-route-surface';
 
 const TrapIcon = iconRegistry.entities.trap.icon;
 

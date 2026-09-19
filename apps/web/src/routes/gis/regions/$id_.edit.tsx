@@ -1,6 +1,13 @@
 import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	type DrawGeometry,
+	noRegionFolderValue,
+	RegionFormPage,
+	type RegionFormValues,
+	regionFieldsFrom,
+} from '../../../components/gis/regions/region-form';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
@@ -11,13 +18,6 @@ import { type RegionRecord, useRegionRecord } from '../../../hooks/queries/use-r
 import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-region-geometry';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	noRegionFolderValue,
-	RegionFormPage,
-	type RegionFormValues,
-	regionFieldsFrom,
-} from './-region-form';
 
 export const Route = createFileRoute('/gis/regions/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

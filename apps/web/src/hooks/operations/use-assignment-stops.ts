@@ -4,7 +4,7 @@ import {
 	itemProgress,
 	progressCounts,
 	targetTypeOf,
-} from '../../routes/operations/assignments/-assignment-data';
+} from '../../components/operations/assignments/assignment-data';
 import type { RouteStopFeature } from '../map/use-route-layer';
 import type { ProgressCounts } from '../queries/assignment-view';
 import { useAssignmentItems } from './use-assignment-items';

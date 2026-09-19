@@ -6,11 +6,11 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect } from '@tanstack/react-router';
+import { AddMissionStopForm } from '../../../components/operations/missions/add-stop-form';
+import { canEditMissionPlan } from '../../../components/operations/operations-data';
 import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-item-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { canEditMissionPlan } from '../-operations-data';
-import { AddMissionStopForm } from './-add-stop-form';
 
 export const Route = createFileRoute('/operations/missions/$id_/add-stop')({
 	beforeLoad: async ({ context, params }) => {

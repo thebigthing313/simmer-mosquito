@@ -17,14 +17,14 @@ import {
 	CatalogNote,
 	CatalogPage,
 } from '../../../components/catalog';
+import type { InsecticideCatalog } from '../../../components/control-operations/chemical/insecticide-catalog';
+import { InsecticideDrawer } from '../../../components/control-operations/chemical/insecticide-drawer';
+import { InsecticideTable } from '../../../components/control-operations/chemical/insecticide-table';
 import { useInsecticideBatchMutations } from '../../../hooks/mutations/use-insecticide-batch-mutations';
 import { useInsecticideMutations } from '../../../hooks/mutations/use-insecticide-mutations';
 import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { type UnitType, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import type { InsecticideCatalog } from './-insecticide-catalog';
-import { InsecticideDrawer } from './-insecticide-drawer';
-import { InsecticideTable } from './-insecticide-table';
 
 export const Route = createFileRoute('/control-operations/chemical/insecticides')({
 	component: InsecticidesRoute,

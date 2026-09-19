@@ -4,6 +4,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	type DrawGeometry,
+	defaultRegionFormValues,
+	RegionFormPage,
+	type RegionFormValues,
+	regionFieldsFrom,
+} from '../../../components/gis/regions/region-form';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
@@ -11,13 +18,6 @@ import { useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	defaultRegionFormValues,
-	RegionFormPage,
-	type RegionFormValues,
-	regionFieldsFrom,
-} from './-region-form';
 
 export const Route = createFileRoute('/gis/regions/create')({
 	beforeLoad: async ({ context }) => {

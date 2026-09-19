@@ -31,6 +31,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { SampleKeyEntryDialog } from '../../../components/larval-surveillance/sample-key-entry';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import {
 	DetailPageShell,
@@ -61,7 +62,6 @@ import { todayInTimeZone } from '../../../lib/local-date';
 import { formatDateTime, formatFullDate, formatMonthDayYear } from '../../../lib/record-dates';
 import { sampleName } from '../../../lib/sample-name';
 import { errorMessageForSave } from '../../../lib/save-error';
-import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
 	component: RouteComponent,

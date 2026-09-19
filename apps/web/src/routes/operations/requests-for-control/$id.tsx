@@ -16,6 +16,7 @@ import { CommentsSection } from '../../../components/comments-section';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
+import { MissionStatusBadge } from '../../../components/operations/operations-display';
 import {
 	DetailPageShell,
 	type RecordDetailLayout,
@@ -50,7 +51,6 @@ import {
 } from '../../../hooks/use-owned-geometry';
 import { CONTROL_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
-import { MissionStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
 const ResolveIcon = iconRegistry.actions.select.icon;

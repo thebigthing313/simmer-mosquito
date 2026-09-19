@@ -1,4 +1,4 @@
-import type { RouteStopView } from '../../routes/larval-surveillance/habitats/-route-data';
+import type { RouteStopView } from '../../components/larval-surveillance/habitats/route-data';
 import { useEntityTags } from '../explorer/use-entity-tags';
 import type { Tag } from '../queries/tag-view';
 import { useHabitatTypeRoster } from '../queries/use-habitat-type-roster';

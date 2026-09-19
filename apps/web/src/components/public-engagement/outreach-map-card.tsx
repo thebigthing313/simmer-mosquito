@@ -1,0 +1,66 @@
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { Link } from '@tanstack/react-router';
+import { useOutreachAction } from '../../hooks/queries/use-outreach-action';
+import { recordNoun } from '../../lib/record-nouns';
+import { MapCardAddress } from '../linked-address';
+import { MapCard, MapCardDetail, MapCardEyebrow, MapCardLocation } from '../map/map-card';
+import type { MapInset } from '../map/map-inset';
+import { formatReach } from './public-engagement-display';
+
+const ReachIcon = iconRegistry.entities.outreachAction.icon;
+
+/**
+ * The map focus card for an outreach action. One query brings the action up with
+ * its method and address already joined ({@link useOutreachAction}).
+ */
+export function OutreachMapCard({
+	id,
+	inset,
+	onClose,
+}: {
+	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
+	readonly onClose: () => void;
+}) {
+	const { action } = useOutreachAction(id);
+
+	if (action === undefined) {
+		return (
+			<MapCard inset={inset} onClose={onClose} title={recordNoun('outreachAction').title}>
+				<div className="grid gap-2">
+					<Skeleton className="h-4 w-2/3" />
+					<Skeleton className="h-4 w-1/2" />
+				</div>
+			</MapCard>
+		);
+	}
+
+	return (
+		<MapCard
+			eyebrow={<MapCardEyebrow date={action.outreachDate} recordType="outreachAction" />}
+			inset={inset}
+			onClose={onClose}
+			title={action.methodName}
+			viewDetailLink={(content) => (
+				<Link params={{ id: action.id }} to="/public-engagement/outreach/$id">
+					{content}
+				</Link>
+			)}
+		>
+			<div className="grid gap-1.5">
+				<MapCardDetail icon={ReachIcon}>
+					{formatReach(action.reach)} reached
+					{action.reachDescription === null ? '' : ` · ${action.reachDescription}`}
+				</MapCardDetail>
+				<MapCardAddress address={action.address} addressId={action.addressId} />
+				<MapCardLocation
+					geomType={action.geometryKind}
+					lat={action.latitude}
+					lng={action.longitude}
+				/>
+			</div>
+		</MapCard>
+	);
+}

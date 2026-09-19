@@ -1,12 +1,12 @@
 import { and, coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
-import { addresses } from '../../lib/collections/addresses';
-import { habitats } from '../../lib/collections/habitats';
-import { route_items } from '../../lib/collections/route_items';
 import {
 	type RouteStopCluster,
 	type RouteStopView,
 	stopTone,
-} from '../../routes/larval-surveillance/habitats/-route-data';
+} from '../../components/larval-surveillance/habitats/route-data';
+import { addresses } from '../../lib/collections/addresses';
+import { habitats } from '../../lib/collections/habitats';
+import { route_items } from '../../lib/collections/route_items';
 import type { RouteStopFeature } from '../map/use-route-layer';
 import { activityGcTimeMs, unmatchableId } from '../queries/shared';
 

@@ -228,7 +228,7 @@ describe('a sample at no habitat, with no centroid', () => {
 
 	it('is named a sample by the sample map card', async () => {
 		const { SampleMapCard } = await import(
-			'../../../../routes/larval-surveillance/-sample-map-card'
+			'../../../../components/larval-surveillance/sample-map-card'
 		);
 		render(<SampleMapCard id={AD_HOC.id} onClose={() => undefined} />);
 
@@ -247,7 +247,7 @@ describe('a sample at no habitat, with no centroid', () => {
 
 	it('leaves the inspection map card beside it naming an inspection', async () => {
 		const { InspectionMapCard } = await import(
-			'../../../../routes/larval-surveillance/-inspection-map-card'
+			'../../../../components/larval-surveillance/inspection-map-card'
 		);
 		render(<InspectionMapCard id={AD_HOC_INSPECTION.id} onClose={() => undefined} />);
 

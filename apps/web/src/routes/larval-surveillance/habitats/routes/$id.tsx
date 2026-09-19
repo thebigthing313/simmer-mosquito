@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { RouteStopList } from '../../../../components/larval-surveillance/habitats/route-stop-list';
+import { habitatRouteSurface } from '../../../../components/larval-surveillance/habitats/route-surface';
 import { RouteDetailPage } from '../../../../components/route-planning';
 import { useHabitatRouteStops } from '../../../../hooks/larval-surveillance/use-habitat-route-stops';
 import { useHabitatRoutes } from '../../../../hooks/larval-surveillance/use-habitat-routes';
-import { RouteStopList } from '../-route-stop-list';
-import { habitatRouteSurface } from '../-route-surface';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id')({
 	component: RouteDetailRoute,

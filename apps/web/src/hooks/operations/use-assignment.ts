@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
+import type { AssignmentView } from '../../components/operations/assignments/assignment-data';
 import { assignments } from '../../lib/collections/assignments';
-import type { AssignmentView } from '../../routes/operations/assignments/-assignment-data';
 import { assignmentStatus } from '../queries/assignment-view';
 import { activityGcTimeMs, unmatchableId } from '../queries/shared';
 /** One assignment. Also the warm-stream anchor on pages that write before reading. */

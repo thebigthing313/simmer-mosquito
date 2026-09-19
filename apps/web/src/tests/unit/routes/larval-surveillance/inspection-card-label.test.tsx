@@ -117,7 +117,7 @@ afterEach(cleanup);
 async function titleFor(next: CardRow): Promise<string> {
 	row = next;
 	const { InspectionMapCard } = await import(
-		'../../../../routes/larval-surveillance/-inspection-map-card'
+		'../../../../components/larval-surveillance/inspection-map-card'
 	);
 	render(<InspectionMapCard id="inspection-1" onClose={() => undefined} />);
 	return screen.getByRole('heading', { level: 2 }).textContent ?? '';

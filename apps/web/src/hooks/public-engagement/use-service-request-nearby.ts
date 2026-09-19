@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
 	fetchNearby,
 	type NearbyRead,
-} from '../../routes/public-engagement/service-requests/-service-request-nearby';
+} from '../../components/public-engagement/service-requests/service-request-nearby';
 /**
  * The nearby records around a service request, scoped by the server's radius
  * and window, as the read the page's surfaces take.
