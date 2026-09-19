@@ -5,11 +5,13 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { contactFieldsFromValues } from '../../../components/public-engagement/contact-fields';
 import {
-	defaultServiceRequestFormValues,
 	ServiceRequestFormPage,
 	type ServiceRequestSaveInput,
-	serviceRequestFieldsFrom,
 } from '../../../components/public-engagement/service-requests/service-request-form';
+import {
+	defaultServiceRequestFormValues,
+	serviceRequestFieldsFrom,
+} from '../../../components/public-engagement/service-requests/service-request-form-values';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';

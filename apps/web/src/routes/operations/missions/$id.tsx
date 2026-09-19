@@ -25,10 +25,8 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { MissionNotificationsCard } from '../../../components/operations/missions/mission-notifications-card';
-import {
-	MissionStopList,
-	RequestStopPicker,
-} from '../../../components/operations/missions/mission-stops';
+import { MissionStopList } from '../../../components/operations/missions/mission-stops';
+import { RequestStopPicker } from '../../../components/operations/missions/request-stop-picker';
 import { formatOperationalDate } from '../../../components/operations/operations-data';
 import {
 	MissionStatusBadge,

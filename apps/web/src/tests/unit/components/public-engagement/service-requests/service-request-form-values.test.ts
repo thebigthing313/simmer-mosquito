@@ -5,7 +5,7 @@ import { defaultContactFormValues } from '../../../../../components/public-engag
 import {
 	type ServiceRequestFormValues,
 	validateServiceRequest,
-} from '../../../../../components/public-engagement/service-requests/service-request-form';
+} from '../../../../../components/public-engagement/service-requests/service-request-form-values';
 import type { DrawGeometry } from '../../../../../hooks/map/use-map-draw';
 
 const POINT: DrawGeometry = { type: 'Point', coordinates: [-74.35, 40.55] };

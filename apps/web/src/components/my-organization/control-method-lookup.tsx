@@ -25,7 +25,7 @@ import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog';
 import { CustomFieldsCell } from '../custom-fields-cell';
 import { AddIcon, CloseIcon, controlMethodListConfigs, EditIcon } from './constants';
-import { LookupListFrame } from './layout/layout';
+import { LookupListFrame } from './layout/lookup-list-frame';
 import type { ControlMethodCollectionKey } from './types';
 
 export function ControlMethodLookupList({

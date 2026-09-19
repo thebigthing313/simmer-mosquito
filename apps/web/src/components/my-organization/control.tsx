@@ -6,7 +6,7 @@ import { useBiocontrolMethodRecords } from '../../hooks/queries/use-biocontrol-m
 import { useSourceReductionMethodRecords } from '../../hooks/queries/use-source-reduction-method-records';
 import { ArrowRightIcon, controlMethodListConfigs } from './constants';
 import { EquipmentLookupList, VehicleLookupList } from './control-asset-lookup';
-import { LookupListFrame } from './layout/layout';
+import { LookupListFrame } from './layout/lookup-list-frame';
 import type { ControlMethodCollectionKey } from './types';
 
 export function ControlOperationsSettings({

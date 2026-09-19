@@ -28,7 +28,7 @@ import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog';
 import { CustomFieldsCell } from '../custom-fields-cell';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
-import { LookupListFrame } from './layout/layout';
+import { LookupListFrame } from './layout/lookup-list-frame';
 
 export function HabitatTypeLookupList({ canManage }: { readonly canManage: boolean }) {
 	const { activeRecords: activeHabitatTypes, inactiveRecords: inactiveHabitatTypes } =

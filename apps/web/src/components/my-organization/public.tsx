@@ -37,7 +37,8 @@ import {
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control-method-lookup';
 import { serviceRequestContextFrom } from './helpers';
-import { EditSettingsSheet, LookupListFrame } from './layout/layout';
+import { EditSettingsSheet } from './layout/edit-settings-sheet';
+import { LookupListFrame } from './layout/lookup-list-frame';
 
 export function PublicEngagementSettings({
 	canManage,

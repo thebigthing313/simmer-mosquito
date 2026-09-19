@@ -2,7 +2,7 @@ import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { createFileRoute } from '@tanstack/react-router';
 import { AdultSurveillanceSettings } from '../../components/my-organization/adult';
 import { requiredFormText, selectField } from '../../components/my-organization/helpers';
-import { DomainSection } from '../../components/my-organization/layout/layout';
+import { DomainSection } from '../../components/my-organization/layout/domain-section';
 import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
 import type { SettingField } from '../../components/my-organization/types';
 import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';

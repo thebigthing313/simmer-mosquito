@@ -4,7 +4,8 @@ import { Link } from '@tanstack/react-router';
 import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { useInsecticideRecords } from '../../hooks/queries/use-insecticide-records';
 import { ArrowRightIcon } from './constants';
-import { EditSettingsSheet, LookupListFrame } from './layout/layout';
+import { EditSettingsSheet } from './layout/edit-settings-sheet';
+import { LookupListFrame } from './layout/lookup-list-frame';
 
 /**
  * Insecticides and their batches are managed on the control operations route, next to the

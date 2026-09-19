@@ -1,7 +1,7 @@
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import type React from 'react';
 import type { SimmerRole } from '../types';
-import { PermissionPill } from './layout';
+import { PermissionPill } from './permission-pill';
 
 /**
  * The frame every my-organization section draws in. Section navigation is

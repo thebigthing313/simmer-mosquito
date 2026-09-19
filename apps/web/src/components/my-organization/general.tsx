@@ -13,7 +13,7 @@ import {
 	organizationDetailsFormValues,
 	unitDefaultsFormValues,
 } from './helpers';
-import { DomainSection } from './layout/layout';
+import { DomainSection } from './layout/domain-section';
 import { TagSections } from './tag-sections';
 import type { SettingField } from './types';
 

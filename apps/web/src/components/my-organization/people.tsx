@@ -12,8 +12,8 @@ import { EditProfileSheet } from './edit-profile-sheet';
 import { formatRole } from './helpers';
 import { HistoricalProfileSheet } from './historical-profile-sheet';
 import { InviteProfileSheet } from './invite-profile-sheet';
-import { OrgSurface } from './layout/layout';
 import { OrgSection } from './layout/org-section';
+import { OrgSurface } from './layout/org-surface';
 import { SectionHeader } from './layout/section-header';
 import type { SimmerRole } from './types';
 

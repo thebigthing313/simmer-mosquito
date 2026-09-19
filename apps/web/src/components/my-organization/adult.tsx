@@ -33,7 +33,8 @@ import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog';
 import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
 import { collectionTimingModeFromFields } from './helpers';
-import { LookupListFrame, SettingChoiceCard } from './layout/layout';
+import { LookupListFrame } from './layout/lookup-list-frame';
+import { SettingChoiceCard } from './layout/setting-choice-card';
 import type { SettingField } from './types';
 
 export function AdultSurveillanceSettings({

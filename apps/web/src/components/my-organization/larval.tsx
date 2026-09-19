@@ -10,7 +10,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { densityRangeKeys } from './constants';
 import { HabitatTypeLookupList } from './habitat-type-lookup';
 import { densityKeyForSettings, densityLabel, formatDensityRange } from './helpers';
-import { SettingChoiceCard } from './layout/layout';
+import { SettingChoiceCard } from './layout/setting-choice-card';
 
 export function LarvalSurveillanceSettings({
 	canManage,

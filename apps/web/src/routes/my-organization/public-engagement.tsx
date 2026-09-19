@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { DomainSection } from '../../components/my-organization/layout/layout';
+import { DomainSection } from '../../components/my-organization/layout/domain-section';
 import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
 import {
 	PublicEngagementSettings,

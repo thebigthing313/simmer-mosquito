@@ -11,9 +11,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	Link: ({ children, ...rest }: { children?: React.ReactNode }) => <a {...rest}>{children}</a>,
 }));
 
-const { CollectionRow } = await import(
-	'../../../../components/adult-surveillance/trap-collection-history'
-);
+const { CollectionRow } = await import('../../../../components/adult-surveillance/collection-row');
 
 afterEach(cleanup);
 

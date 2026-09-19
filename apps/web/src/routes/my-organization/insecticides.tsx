@@ -3,7 +3,7 @@ import {
 	InsecticideBatchTrackingDrawer,
 	InsecticideLookupPointer,
 } from '../../components/my-organization/insecticides';
-import { DomainSection } from '../../components/my-organization/layout/layout';
+import { DomainSection } from '../../components/my-organization/layout/domain-section';
 import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 

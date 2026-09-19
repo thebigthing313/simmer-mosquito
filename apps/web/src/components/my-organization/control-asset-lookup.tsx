@@ -35,7 +35,7 @@ import { EQUIPMENT_SAVE_REFUSALS, VEHICLE_SAVE_REFUSALS } from '../../lib/acknow
 import { hasMetadata } from '../../lib/record-display';
 import { commitCatalogSave } from '../catalog';
 import { AddIcon, CloseIcon, controlAssetListConfigs, EditIcon } from './constants';
-import { LookupListFrame } from './layout/layout';
+import { LookupListFrame } from './layout/lookup-list-frame';
 import type { ControlAssetCollectionKey } from './types';
 
 export function VehicleLookupList({ canManage }: { readonly canManage: boolean }) {
