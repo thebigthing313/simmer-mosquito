@@ -166,7 +166,7 @@ const REACT_RULE_BACKLOG = new Map([
 	['apps/web/src/hooks/search/use-palette-content.ts', 1],
 	['apps/web/src/hooks/search/use-search-result-list.ts', 1],
 	['apps/web/src/hooks/stop-order/use-stop-order.ts', 1],
-	['apps/web/src/components/auth/auth.tsx', 1],
+	['apps/web/src/components/auth/accept-invitation-page.tsx', 1],
 	['apps/web/src/components/larval-surveillance/habitats/route-address-dialog.tsx', 1],
 	['apps/web/src/routes/larval-surveillance/samples/$id.tsx', 2],
 	['apps/web/src/components/my-organization/general.tsx', 1],

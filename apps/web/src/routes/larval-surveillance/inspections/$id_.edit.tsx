@@ -7,13 +7,15 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
 import {
 	type DrawGeometry,
-	defaultInspectionFormValues,
 	InspectionFormPage,
+} from '../../../components/larval-surveillance/inspections/inspection-form';
+import {
+	defaultInspectionFormValues,
 	type InspectionFormValues,
 	inspectionResultOf,
 	noHabitatTypeValue,
 	unsetDensityValue,
-} from '../../../components/larval-surveillance/inspections/inspection-form';
+} from '../../../components/larval-surveillance/inspections/inspection-form-values';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { toDrawGeometry } from '../../../hooks/map/use-map-draw';

@@ -29,7 +29,7 @@ import { ActivityLog } from '../../components/activity/activity-log';
 import { DAILY_WORK_COPY } from '../../components/daily-work/daily-work';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
-import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-detail';
+import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
 import { InspectionSurfaceSwitch } from '../../components/larval-surveillance/inspection-surface-switch';
 import { sharedInspectionSearch } from '../../components/larval-surveillance/inspections-search';
 import { PeopleSection } from '../../components/my-organization/people';

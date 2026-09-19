@@ -4,12 +4,14 @@ import { z } from 'zod';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	type DrawGeometry,
-	defaultInspectionFormValues,
 	InspectionFormPage,
+} from '../../../components/larval-surveillance/inspections/inspection-form';
+import {
+	defaultInspectionFormValues,
 	type InspectionFormValues,
 	inspectionResultOf,
 	noHabitatTypeValue,
-} from '../../../components/larval-surveillance/inspections/inspection-form';
+} from '../../../components/larval-surveillance/inspections/inspection-form-values';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { useNewInspectionDraft } from '../../../hooks/larval-surveillance/use-new-inspection-draft';
