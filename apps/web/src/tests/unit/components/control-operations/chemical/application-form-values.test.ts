@@ -16,7 +16,7 @@ import {
 	type ApplicationMix,
 	noSelectionValue,
 	validateApplication,
-} from '../../../../../components/control-operations/chemical/application-form';
+} from '../../../../../components/control-operations/chemical/application-form-values';
 import type { FormulationComponentListing } from '../../../../../hooks/queries/chemical-roster-view';
 
 const POINT = { type: 'Point', coordinates: [-118.24, 34.05] } as const;

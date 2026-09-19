@@ -14,7 +14,7 @@ const CircleIcon = iconRegistry.generic.circle.icon;
  * detection — so this is a floor the page can check, not the whole rule. What
  * WorkOS refuses comes back as its own message and is shown verbatim.
  */
-export const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * The two fields every "choose a password" step uses.

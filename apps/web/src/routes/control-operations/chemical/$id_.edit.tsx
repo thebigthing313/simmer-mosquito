@@ -3,10 +3,12 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import {
 	ApplicationFormPage,
-	type ApplicationFormValues,
 	type DrawGeometry,
-	noSelectionValue,
 } from '../../../components/control-operations/chemical/application-form';
+import {
+	type ApplicationFormValues,
+	noSelectionValue,
+} from '../../../components/control-operations/chemical/application-form-values';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';

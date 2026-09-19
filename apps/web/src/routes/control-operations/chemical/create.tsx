@@ -5,11 +5,13 @@ import { toast } from 'sonner';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ApplicationFormPage,
-	type ApplicationFormValues,
 	type DrawGeometry,
+} from '../../../components/control-operations/chemical/application-form';
+import {
+	type ApplicationFormValues,
 	defaultApplicationFormValues,
 	noSelectionValue,
-} from '../../../components/control-operations/chemical/application-form';
+} from '../../../components/control-operations/chemical/application-form-values';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
