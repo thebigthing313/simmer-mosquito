@@ -36,6 +36,7 @@ export type {
 	VerificationRequiredOutcome,
 	VerifyEmailOutcome,
 } from './client/outcomes.js';
+export type { RefusedStatus, WireBody } from './client/read-auth-outcome.js';
 export { SESSION_LOCK_NAME, type SessionLockManager } from './client/session-lock-manager.js';
 export { sessionLostDestination } from './client/session-lost-destination.js';
 export type { SessionTransport } from './client/session-transport.js';

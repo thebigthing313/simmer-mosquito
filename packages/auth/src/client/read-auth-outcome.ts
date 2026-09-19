@@ -1,12 +1,15 @@
 import type { AuthErrorOutcome } from './outcomes.js';
 import { readReason } from './read-reason.js';
 
-type WireBody = { readonly ok: true } | { readonly ok: false; readonly status: string };
+export type WireBody = { readonly ok: true } | { readonly ok: false; readonly status: string };
 
-type Refused<TBody extends WireBody> = Extract<TBody, { readonly ok: false }>;
+export type Refused<TBody extends WireBody> = Extract<TBody, { readonly ok: false }>;
 
 /** Every refused status the body can carry except `invalid_payload`, which is always the error arm. */
-type RefusedStatus<TBody extends WireBody> = Exclude<Refused<TBody>['status'], 'invalid_payload'>;
+export type RefusedStatus<TBody extends WireBody> = Exclude<
+	Refused<TBody>['status'],
+	'invalid_payload'
+>;
 
 /**
  * Read a wire body as an outcome. `refused` is keyed by every status the body
