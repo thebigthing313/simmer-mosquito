@@ -7,7 +7,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useId, useState } from 'react';
-import type { DuplicateRecord } from '../../hooks/use-merge-candidates';
+import type { DuplicateRecord } from '../../hooks/merge-candidate-view';
 import { recordNoun } from '../../lib/record-nouns';
 import type { MergeFieldRow, MergeSuggestion } from './merge-field-plan';
 import { type RecordCleanupConfig, recordLabel } from './record-cleanup-config';

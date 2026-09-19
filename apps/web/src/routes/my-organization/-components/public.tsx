@@ -26,17 +26,13 @@ import {
 	catalogFormValues,
 	commitCatalogSave,
 } from '../../../components/catalog';
-import {
-	type CatalogMutations,
-	useNotificationTypeMutations,
-	useOutreachMethodMutations,
-} from '../../../hooks/mutations/use-catalog-mutations';
+import type { CatalogMutations } from '../../../hooks/mutations/catalog-fields';
+import { useNotificationTypeMutations } from '../../../hooks/mutations/use-notification-type-mutations';
 import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
-import {
-	type DescribedCatalogRecord,
-	useNotificationTypeRecords,
-	useOutreachMethodRecords,
-} from '../../../hooks/queries/use-catalog-records';
+import { useOutreachMethodMutations } from '../../../hooks/mutations/use-outreach-method-mutations';
+import type { DescribedCatalogRecord } from '../../../hooks/queries/catalog-record-view';
+import { useNotificationTypeRecords } from '../../../hooks/queries/use-notification-type-records';
+import { useOutreachMethodRecords } from '../../../hooks/queries/use-outreach-method-records';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control';

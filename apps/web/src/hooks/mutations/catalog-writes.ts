@@ -1,7 +1,7 @@
 /**
  * What every lookup catalog's write does, minus the row.
  *
- * The mirror of `hooks/queries/use-catalog-rosters.ts`: one question asked of
+ * The mirror of the `hooks/queries/use-*-roster.ts` hooks: one question asked of
  * eight tables, so it is answered once. The eight are the three org lookups
  * (`collection_methods`, `collection_lures`, `habitat_types`), the four control
  * methods, and `notification_types`.

@@ -42,7 +42,7 @@ import {
 	useRequestedControlAction,
 } from '../../../hooks/queries/use-requested-control-action';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,

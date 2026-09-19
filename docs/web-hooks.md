@@ -4,8 +4,8 @@ Every React hook in the frontend apps lives under that app's `src/hooks`
 folder, one hook per file, in a kebab-case file named `use-<hook>.ts`. A
 component, route or form module defines no hook of its own; it imports one.
 `apps/web/src/hooks` groups its files by the surface they serve (`map/`,
-`explorer/`, `search/`, `operations/`, and so on) beside the older `queries/`
-and `mutations/` folders, which keep their own rules.
+`explorer/`, `search/`, `operations/`, and so on) beside `queries/` and
+`mutations/`, which follow the same rule.
 
 A hook's docblock says what the hook does, what it takes and what it returns.
 The reasons behind a hook's shape, the alternatives that were measured and the
@@ -1157,6 +1157,274 @@ The URL is the shareable state and the field is what is being typed, so a
 link opened cold and a query typed here reach the same request. The
 navigation replaces rather than pushes, or Back would walk one keystroke at
 a time.
+
+### queries and mutations
+
+The two older folders were split to one hook per file in the same sweep.
+The types and pure helpers a family of hooks shared moved to a `*-view.ts`
+module beside the queries and a `*-fields.ts` module beside the mutations,
+which is the shape `hooks/queries` already used for its row views.
+
+#### The catalog roster hooks
+
+`useHabitatTypeRoster`, `useCollectionMethodRoster`, the four control method
+rosters, `useCollectionLureRoster` and `useNotificationTypeRoster` are one
+question asked of eight tables: what may this field be set to. The explorers
+ask a narrower one through `useNamedCatalog`, which returns filter options
+and an id to name lookup and drops everything else. A form needs two things
+those drop. `isActive`, because a retired catalog row stays selectable: these
+forms are where past seasons get keyed in, and a method the organization
+dropped last year is exactly what a record from last year was worked with,
+so `lifecycleOptions` marks the row and sorts it behind everything still in
+service. `customSchema`, because a catalog row can carry extra fields the
+organization defined, and picking the method is what decides which of them
+the form renders; `collection_lures` and `notification_types` are the
+catalogs without that column, which is why the roster comes in two shapes,
+`usePlainCatalogRoster` and `useSchemaCatalogRoster`. Every catalog here is
+eager, so the reads suspend: the rows are there before a form can be
+reached.
+
+The generic is a helper each named hook calls once, rather than one hook
+taking a collection: a caller passing a different collection between renders
+would change which query runs under the same hook slot, and naming them
+keeps the call sites reading as what they fetch.
+
+#### The catalog record hooks
+
+The wider read behind the rosters. A roster answers "what may this field be
+set to" and returns three columns; the management pages are where the
+catalog is maintained, so they need every column the dialog edits and both
+halves of the lifecycle split, active rows and retired ones, each already in
+name order. Two queries rather than one list the page partitions:
+`is_active` is a pushed-down predicate, and the split is what the page frame
+is built around. It is also what keeps the retired half from re-rendering
+when an active row is renamed. The eight catalogs are four shapes, so there
+are four half hooks, `useCollectionMethodHalf`, `useHabitatTypeHalf`,
+`useDescribedHalf` and `useControlMethodHalf`, and eight hooks in front of
+them, each fixing its own collection for the reason the rosters record.
+
+#### The chemical roster hooks
+
+`useInsecticideRoster`, `useVehicleRoster`, `useEquipmentRoster`,
+`useFormulationRoster` and `useFormulationComponentRoster` are separate
+from the catalog rosters because these are not the same question. Those
+seven tables are all one shape, an id, a name, a lifecycle flag and a custom
+schema. These five are each their own shape: a product carries the unit it
+is measured in, a formulation carries a batch size, a component carries how
+much of what. Flattening them into one listing would mean a picker reading
+fields its catalog does not have. All five are eager, so the reads suspend.
+Field names stay camelCase, as everywhere in `hooks/queries`: the columns
+are snake_case and this is the seam that turns them over.
+
+#### useInsecticideRecords and useInsecticideBatches
+
+Two reads with different sync modes behind them. Products are eager, since
+every application form picks one, so the list is one query over the whole
+table. Batches are on-demand, so they are read one product at a time, and
+through the status-gated `useLiveQuery` rather than the suspense variant,
+which sticks after a navigation unmount over an on-demand collection. The
+list is one query rather than the two halves the lookup catalogs use: the
+page renders retired products inline under a disclosure rather than as a
+second table, and the order, active first then by trade name, is what puts
+them there.
+
+#### useFormulationRecords and useFormulationComponents
+
+Both tables sync eagerly, since a formulation is picked on every mixed
+application, so this is two whole-table reads rather than a per-recipe
+subset like the insecticide batches. They are not joined. The page renders
+the components under the recipe row that was expanded, so what it needs is
+every component grouped by formulation, and a join would hand back one row
+per component with the recipe repeated on each. The grouping is a `Map`,
+which is the one thing a query cannot return.
+
+#### useVehicleRecords and useEquipmentRecords
+
+Two tables the organization owns that are not quite catalogs: an
+application names a vehicle and a piece of equipment, but neither carries a
+custom schema and both carry a free-form `metadata` bag instead. They
+differ from each other in two columns, the name column's spelling and a
+serial number equipment has and a vehicle does not. That difference is
+resolved in `control-asset-record-view.ts` rather than in the page. The old
+code carried a `VehicleRow | EquipmentRow` union all the way to the table
+cell and asked `isEquipmentRow(asset)` to decide what to render, which meant
+every consumer had to know both spellings. One record shape with
+`serialNumber: null` on a vehicle says the same thing once.
+
+#### useControlCatalogCounts
+
+The overview's catalog tiles used to read every row of five eager tables and
+count the active ones in JavaScript. Five `count()` aggregates instead,
+through `useActiveCount`. The aggregate is computed in the query pipeline,
+so a catalog that gains a row emits one changed number rather than a new
+array of every row in the table, and the filter is a predicate, so an
+organization's retired methods are never materialized at all.
+`useActiveCount` is called five times from one hook with five different
+collections; that is a fixed list in fixed order, so the rules of hooks
+hold.
+
+#### useRecentSourceReductions and useRecentBiocontrolActions
+
+The two right-hand panels of the control-operations overview, which read
+the same window and differ only in which table they read. Both are windowed
+on a `date` column, so the bound is a plain `YYYY-MM-DD` string, no zone
+and no instant. See `use-recent-collections.ts` for the adult case, where it
+is neither.
+
+#### usePeopleDirectory
+
+A Profile is who work is attributed to; a Membership is the access that
+links a login to it. The two are separate records on purpose, since a
+Profile outlives the access, which is what lets an organization end
+somebody's login without detaching every inspection they ever recorded, so
+this is a left join and the membership half is optional. The groups are
+what the section shows, not a filter a caller passes: active linked, a
+login still working; inactive linked, a login no longer working, whose
+records stay attributed; historical, no login at all, somebody the
+organization records work against who never signed in or left before
+SIMMER, active ones first because an inactive historical Profile is the
+deepest end of the list. Each group is its own query through
+`usePersonGroup` rather than one query grouped in JavaScript, because the
+predicates and the sort differ and both push down.
+
+#### useTagCatalog
+
+`useTagOptions` is the other read and answers a different question: which
+Tags a filter may offer, in one flat list including retired ones. This is
+where the catalog is defined, so it carries the colour and the description
+the dialog edits, and it splits the lifecycle the way the page is laid out.
+Two queries through `useTagHalf` rather than one list the page partitions,
+for the reason the catalog records record. No organization predicate: the
+shape is scoped to the organization server-side, so filtering by
+`organization_id` here re-states server-side authorization as a client-side
+filter, and a stale column spelling in one empties the list rather than
+narrowing it.
+
+#### useRegistration and useRegistrationSubscriptions
+
+Two queries rather than one join, because the subscriptions are a list and
+a join would repeat the registration once per row. The detail page and the
+edit form both want the pair, and both want the list separately from the
+record. The record reads through `useRecordById`, which holds the on-demand
+rule. The subscriptions do not: they are read by the registration's foreign
+key rather than by id, so that hook states the rule itself, status-gated
+`useLiveQuery` and never the suspense variant.
+
+#### useRouteCatalog and useRouteStopCounts
+
+The two planning surfaces read their own kind, `useHabitatRoutes` and
+`useTrapRoutes` each filtering on `route_type`, because a habitat route and
+a trap route are different screens with different stop pickers.
+`useRouteCatalog` is for the one caller that wants both: snapshotting a
+Route into an Assignment, which mixes trap, habitat and service-request
+stops by design. `useRouteStopCounts` is unfiltered by `entity_type` for
+the same caller: a picker that offers both kinds of route and reports zero
+stops for half of them is worse than one that reports none at all.
+
+#### The weather summary hooks
+
+A summary is one station's one reporting period and an organization
+accumulates them faster than any other weather record, so the table is
+on-demand: nothing wants the whole table, and one station's detail page is
+exactly the subset the mode exists for. `useLiveQuery` rather than the
+suspense variant, because the suspense hook sticks after a navigation
+unmounts it on an on-demand collection.
+
+Two reads, and they are not interchangeable. The detail card shows one year
+at a time, because a station logged daily for ten years is 3,650 rows in
+one table. The import page compares a parsed file against everything the
+station holds, because a year bound there would report a row that
+overwrites a 2019 reading as an insert. So the year is a parameter of
+`useWeatherSummaries`, and `useAllWeatherSummaries` is the import page's,
+named so that reaching for the whole set is a decision. Both are
+`useStationSummaries` with a different window. `useWeatherSummaryYears`
+reads two columns rather than eleven, because it fills a row of tabs and
+nothing on screen reads a metric off it; it is still the station's whole
+set, since which years have readings cannot be answered from one year's
+rows. A `null` year matches nothing: an empty card has no year to show, and
+reading a station's whole history to fill one is what the bound exists to
+avoid.
+
+The dates are strings and stay strings. `start_date` and `end_date` are
+Postgres `date` columns, which the row schema keeps as `YYYY-MM-DD` rather
+than parsing. A `Date` built from a bare date string is midnight UTC, and
+rendering that in a western timezone shows the day before, which is why
+`summaryYear` reads the parts directly.
+
+#### useDuplicateCandidates and useNearbyHabitats
+
+Both are live data behind an irreversible merge, so both refetch on focus,
+for the same reason `useDeleteImpact` does: a cleanup page left open over
+lunch would otherwise offer a merge over a set a colleague has already dealt
+with. The merge command re-checks every id inside its transaction regardless
+and refuses ids that are gone; the read is what lets the page stop proposing
+them rather than fail at the button. Two records for one catch basin agree
+about nothing except where they are, so a shared-value search finds neither
+and the nearby read is the only evidence a habitat merge has. The radius is
+the caller's because how far apart the two records landed depends on how
+each was filed: a GPS fix under tree cover and a point dropped on an aerial
+can be tens of metres apart for one ditch.
+
+#### useHabitatGeometry and useHabitatLocationContext
+
+Habitat geometry is not part of the Electric shape (ADR 0009), the synced
+row carrying only a centroid, so any surface that needs the real polygon
+reads it from `/map/habitats/:id`. The habitat detail page needs it to draw
+itself; the control-action detail pages need it to draw the habitat behind
+the action. Keyed on habitat id alone and not `updatedAt`, so an unrelated
+field edit does not refetch geometry and the create and edit flows can seed
+the exact key through `seedHabitatGeometryCache`. The context hook returns
+`undefined` rather than an empty context when there is no geometry, so the
+card falls back to its plain single-record behaviour instead of drawing an
+empty legend.
+
+#### The catalog mutation hooks
+
+Eight tables asked the same four questions: add one, edit one, retire or
+restore one, delete one. What differs between them is three columns and
+five command names, so that is all each hook states; the writes themselves
+are in `catalog-writes.ts` and the shared types in `catalog-fields.ts`. The
+eight are the three organization lookups, the four control method catalogs
+through `useControlMethodMutations`, and `notification_types`. `tags`,
+`units`, `insecticides` and `formulations` are catalogs too and are not
+here: each has a shape of its own, a colour and an assignment, a conversion
+factor, a chemical, a mixture, and folding them in would mean a fields type
+that is mostly absent members.
+
+Each hook writes its own row literal under `satisfies`, which is what makes
+a wrong column name a compile error rather than a body the server quietly
+drops. It is the reason these are short hooks rather than one generic taking
+a column descriptor: the descriptor would have to be cast into a row, and
+the cast is exactly what let camelCase rows through in silence. The four
+control method catalogs have identical columns, a name and a custom schema,
+so one row literal covers them and the collection is a parameter of
+`useControlMethodMutations`; the catalog is fixed per call site, so which
+query and which commands a given hook slot runs never changes between
+renders. Every catalog write reads the organization and the actor through
+`useWriterIdentity`, which was three identical private hooks before the
+split.
+
+#### useInsecticideMutations and useInsecticideBatchMutations
+
+Two tables with the five catalog commands each, so the writes come from
+`catalog-writes.ts` and only the columns are here. What makes them not
+quite catalogs is that a product carries nine editable columns and a batch
+belongs to one: the batch is the tin on the shelf, the product is what is in
+it. The lifecycle is a command on both; the old PATCH read `is_active` and
+worked out the direction. `inventory_unit_id` and `conversion_factor` are
+columns the form does not offer, so a create leaves them null and a save
+never names them. They exist for an organization that buys in one unit and
+applies in another, and nothing in the app sets them yet.
+
+#### useVehicleMutations and useEquipmentMutations
+
+The same five commands the lookup catalogs answer to, so the writes come
+from `catalog-writes.ts`; only the columns differ, in
+`control-asset-fields.ts`. A vehicle is a name and a metadata bag, equipment
+adds a serial number. These sit at the `MANAGER` floor, unlike the lookup
+catalogs, every one of `controlOperations.createVehicle` through
+`deleteEquipment`: vehicles and equipment are part of running the work
+rather than configuring the organization.
 
 ## apps/admin
 

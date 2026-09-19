@@ -1,5 +1,4 @@
-import { useHabitatTypeRoster } from '../queries/use-catalog-rosters';
-
+import { useHabitatTypeRoster } from '../queries/use-habitat-type-roster';
 /** The type's name, or `null` when the habitat names no type. */
 export function useHabitatTypeName(habitatTypeId: string | null): string | null {
 	const habitatTypes = useHabitatTypeRoster();

@@ -16,7 +16,7 @@ import { CustomFieldsSection } from '../../../forms/field-components/custom-fiel
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
-import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 export const noHabitatTypeValue = 'none';

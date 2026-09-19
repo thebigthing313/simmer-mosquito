@@ -58,10 +58,7 @@ import { useSpeciesName } from '../hooks/larval-surveillance/use-species-name';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { controlTypeLabel, requestStatus } from '../hooks/queries/operations-view';
-import {
-	useApplicationMethodRoster,
-	useSourceReductionMethodRoster,
-} from '../hooks/queries/use-catalog-rosters';
+import { useApplicationMethodRoster } from '../hooks/queries/use-application-method-roster';
 import {
 	type HabitatHistoryApplication,
 	type HabitatHistoryInspection,
@@ -76,6 +73,7 @@ import { useHabitatSuspense } from '../hooks/queries/use-habitat-suspense';
 import { useInsecticideRecords } from '../hooks/queries/use-insecticide-records';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useRecordRoutes } from '../hooks/queries/use-record-routes';
+import { useSourceReductionMethodRoster } from '../hooks/queries/use-source-reduction-method-roster';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import type { AskAcknowledged } from '../hooks/use-acknowledged-write';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';

@@ -1,7 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useApplicationMethodMutations } from '../../../hooks/mutations/use-catalog-mutations';
-import { useApplicationMethodRecords } from '../../../hooks/queries/use-catalog-records';
+import { useApplicationMethodMutations } from '../../../hooks/mutations/use-application-method-mutations';
+import { useApplicationMethodRecords } from '../../../hooks/queries/use-application-method-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { ControlMethodsPage } from '../-control-methods-page';
 

@@ -29,14 +29,10 @@ import {
 	type UsageById,
 	useHabitatTypeUsage,
 } from '../../../hooks/larval-surveillance/use-habitat-type-usage';
-import {
-	type CatalogMutations,
-	useHabitatTypeMutations,
-} from '../../../hooks/mutations/use-catalog-mutations';
-import {
-	type SchemaCatalogRecord,
-	useHabitatTypeRecords,
-} from '../../../hooks/queries/use-catalog-records';
+import type { CatalogMutations } from '../../../hooks/mutations/catalog-fields';
+import { useHabitatTypeMutations } from '../../../hooks/mutations/use-habitat-type-mutations';
+import type { SchemaCatalogRecord } from '../../../hooks/queries/catalog-record-view';
+import { useHabitatTypeRecords } from '../../../hooks/queries/use-habitat-type-records';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 

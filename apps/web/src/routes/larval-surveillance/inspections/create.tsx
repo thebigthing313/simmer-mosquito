@@ -8,7 +8,7 @@ import { useNewInspectionDraft } from '../../../hooks/larval-surveillance/use-ne
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';

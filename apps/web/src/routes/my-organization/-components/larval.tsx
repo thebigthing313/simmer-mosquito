@@ -53,15 +53,11 @@ import {
 import { useState } from 'react';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
-import {
-	type CatalogMutations,
-	useHabitatTypeMutations,
-} from '../../../hooks/mutations/use-catalog-mutations';
+import type { CatalogMutations } from '../../../hooks/mutations/catalog-fields';
+import { useHabitatTypeMutations } from '../../../hooks/mutations/use-habitat-type-mutations';
 import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
-import {
-	type SchemaCatalogRecord,
-	useHabitatTypeRecords,
-} from '../../../hooks/queries/use-catalog-records';
+import type { SchemaCatalogRecord } from '../../../hooks/queries/catalog-record-view';
+import { useHabitatTypeRecords } from '../../../hooks/queries/use-habitat-type-records';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { errorMessageForSave } from '../../../lib/save-error';
 import {

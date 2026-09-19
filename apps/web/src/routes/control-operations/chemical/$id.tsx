@@ -55,10 +55,10 @@ import type { ChemicalApplication } from '../../../hooks/queries/control-action-
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useApplication } from '../../../hooks/queries/use-application';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
-import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useApplicationMethodRoster } from '../../../hooks/queries/use-application-method-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';

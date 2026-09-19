@@ -24,15 +24,11 @@ import { CustomFieldsCell } from '../../components/custom-fields-cell';
 import { useCatalogDialogOpen } from '../../hooks/catalog/use-catalog-dialog-open';
 import { useCatalogSearch } from '../../hooks/catalog/use-catalog-search';
 import { useResetOnOpen } from '../../hooks/catalog/use-reset-on-open';
-import {
-	type CatalogMutations,
-	useCollectionMethodMutations,
-} from '../../hooks/mutations/use-catalog-mutations';
+import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
+import { useCollectionMethodMutations } from '../../hooks/mutations/use-collection-method-mutations';
+import type { CollectionMethodRecord } from '../../hooks/queries/catalog-record-view';
 import { useActiveTrapCountsByMethod } from '../../hooks/queries/use-active-trap-counts-by-method';
-import {
-	type CollectionMethodRecord,
-	useCollectionMethodRecords,
-} from '../../hooks/queries/use-catalog-records';
+import { useCollectionMethodRecords } from '../../hooks/queries/use-collection-method-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 

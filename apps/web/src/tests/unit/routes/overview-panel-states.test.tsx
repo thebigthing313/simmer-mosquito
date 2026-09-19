@@ -115,8 +115,10 @@ vi.mock('../../../hooks/queries/use-insecticide-usage', () => ({
 	useInsecticideUsage: () => ({ usage: [], ...reading() }),
 }));
 
-vi.mock('../../../hooks/queries/use-recent-control-actions', () => ({
+vi.mock('../../../hooks/queries/use-recent-source-reductions', () => ({
 	useRecentSourceReductions: () => ({ actions: [], ...reading() }),
+}));
+vi.mock('../../../hooks/queries/use-recent-biocontrol-actions', () => ({
 	useRecentBiocontrolActions: () => ({ actions: [], ...reading() }),
 }));
 

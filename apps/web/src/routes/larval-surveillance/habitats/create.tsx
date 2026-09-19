@@ -4,7 +4,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import { recordNoun } from '../../../lib/record-nouns';
 import { addressSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';

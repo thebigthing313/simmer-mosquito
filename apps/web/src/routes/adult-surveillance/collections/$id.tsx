@@ -58,11 +58,11 @@ import type { AdultCollection } from '../../../hooks/queries/collection-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
-import { useCollectionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import {
 	type CollectionIdentification,
 	useCollectionIdentifications,
 } from '../../../hooks/queries/use-collection-identifications';
+import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';

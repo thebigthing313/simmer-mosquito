@@ -1,6 +1,6 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import { lifecycleOptions } from '../../lib/lifecycle-options';
-import { useNotificationTypeRoster } from '../queries/use-catalog-rosters';
+import { useNotificationTypeRoster } from '../queries/use-notification-type-roster';
 import { useProfileRoster } from '../queries/use-profile-roster';
 import { useMethodsForControlType } from './use-methods-for-control-type';
 

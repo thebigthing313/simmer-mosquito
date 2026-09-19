@@ -25,15 +25,11 @@ import {
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
-import {
-	type CatalogMutations,
-	useCollectionLureMutations,
-} from '../../../hooks/mutations/use-catalog-mutations';
-import {
-	type DescribedCatalogRecord,
-	useCollectionLureRecords,
-	useCollectionMethodRecords,
-} from '../../../hooks/queries/use-catalog-records';
+import type { CatalogMutations } from '../../../hooks/mutations/catalog-fields';
+import { useCollectionLureMutations } from '../../../hooks/mutations/use-collection-lure-mutations';
+import type { DescribedCatalogRecord } from '../../../hooks/queries/catalog-record-view';
+import { useCollectionLureRecords } from '../../../hooks/queries/use-collection-lure-records';
+import { useCollectionMethodRecords } from '../../../hooks/queries/use-collection-method-records';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
 import { collectionTimingModeFromFields } from './helpers';

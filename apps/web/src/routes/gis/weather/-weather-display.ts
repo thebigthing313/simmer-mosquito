@@ -1,4 +1,4 @@
-import type { WeatherSummaryListing } from '../../../hooks/queries/use-weather-summaries';
+import type { WeatherSummaryListing } from '../../../hooks/queries/weather-summary-view';
 import { calendarDateParts } from '../../../lib/local-date';
 import { unreadable } from '../../../lib/unreadable-input';
 

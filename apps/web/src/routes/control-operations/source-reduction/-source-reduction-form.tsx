@@ -20,7 +20,7 @@ import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
-import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';

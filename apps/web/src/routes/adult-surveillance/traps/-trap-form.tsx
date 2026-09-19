@@ -14,7 +14,7 @@ import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
-} from '../../../hooks/queries/use-catalog-rosters';
+} from '../../../hooks/queries/catalog-roster-view';
 import type { TrapRecord } from '../../../hooks/queries/use-trap-record';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 

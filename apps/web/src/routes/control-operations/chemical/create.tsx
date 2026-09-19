@@ -7,22 +7,20 @@ import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
-import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import type {
 	FormulationComponentListing,
 	FormulationListing,
-} from '../../../hooks/queries/use-chemical-rosters';
-import {
-	useEquipmentRoster,
-	useFormulationComponentRoster,
-	useFormulationRoster,
-	useInsecticideRoster,
-	useVehicleRoster,
-} from '../../../hooks/queries/use-chemical-rosters';
+} from '../../../hooks/queries/chemical-roster-view';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
+import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
+import { useApplicationMethodRoster } from '../../../hooks/queries/use-application-method-roster';
+import { useEquipmentRoster } from '../../../hooks/queries/use-equipment-roster';
+import { useFormulationComponentRoster } from '../../../hooks/queries/use-formulation-component-roster';
+import { useFormulationRoster } from '../../../hooks/queries/use-formulation-roster';
+import { useInsecticideRoster } from '../../../hooks/queries/use-insecticide-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useVehicleRoster } from '../../../hooks/queries/use-vehicle-roster';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';

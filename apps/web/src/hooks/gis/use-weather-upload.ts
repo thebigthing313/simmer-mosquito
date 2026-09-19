@@ -9,7 +9,7 @@ import {
 } from '../../routes/gis/weather/-import-commit';
 import { type ParseResult, parseWeatherFile } from '../../routes/gis/weather/-import-parse';
 import { newRecordId } from '../mutations/shared';
-import { useAllWeatherSummaries } from '../queries/use-weather-summaries';
+import { useAllWeatherSummaries } from '../queries/use-all-weather-summaries';
 import { useAcknowledgedWrite } from '../use-acknowledged-write';
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
 

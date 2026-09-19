@@ -24,8 +24,7 @@ vi.mock('../../../../../routes/control-operations/chemical/-batch-drawer', () =>
 	},
 }));
 
-vi.mock('../../../../../hooks/queries/use-insecticide-records', async (importOriginal) => ({
-	...(await importOriginal<object>()),
+vi.mock('../../../../../hooks/queries/use-insecticide-batches', () => ({
 	useInsecticideBatches: () => ({ batches: [], isReady: true, isError: false }),
 }));
 

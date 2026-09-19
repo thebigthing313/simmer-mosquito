@@ -1,8 +1,7 @@
 import { createWeatherSummaryCommand, DomainValidationError } from '@simmer-mosquito/domain';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { WeatherMetrics } from '../../../hooks/mutations/use-weather-summary-mutations';
-import type { WeatherSummaryListing } from '../../../hooks/queries/use-weather-summaries';
-
+import type { WeatherSummaryListing } from '../../../hooks/queries/weather-summary-view';
 // The weather summary form's own rules and its metric inputs, shared by the
 // dialog that draws them and the hook that holds them.
 // Dash-prefixed so TanStack Router ignores this file as a route.

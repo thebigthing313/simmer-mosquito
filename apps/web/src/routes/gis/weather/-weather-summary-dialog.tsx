@@ -10,7 +10,7 @@ import {
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { useSummaryForm } from '../../../hooks/gis/use-summary-form';
-import type { WeatherSummaryListing } from '../../../hooks/queries/use-weather-summaries';
+import type { WeatherSummaryListing } from '../../../hooks/queries/weather-summary-view';
 import { METRIC_INPUTS, type MetricInputs } from './-weather-summary-form';
 
 /**

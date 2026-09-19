@@ -27,14 +27,14 @@ import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type {
 	FormulationComponentListing,
 	FormulationListing,
 	InsecticideListing,
 	RigListing,
-} from '../../../hooks/queries/use-chemical-rosters';
+} from '../../../hooks/queries/chemical-roster-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel, UnitType } from '../../../hooks/queries/use-unit-labels';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';

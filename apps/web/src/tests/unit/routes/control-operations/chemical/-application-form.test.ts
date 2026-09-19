@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { FormulationComponentListing } from '../../../../../hooks/queries/use-chemical-rosters';
+import type { FormulationComponentListing } from '../../../../../hooks/queries/chemical-roster-view';
 import {
 	type ApplicationFormValues,
 	type ApplicationMix,

@@ -7,12 +7,12 @@ import { createPortal } from 'react-dom';
 import type { DrawGeometryType } from '../../hooks/map/use-map-draw';
 import { newRecordId } from '../../hooks/mutations/shared';
 import { useNotificationRegistrationMutations } from '../../hooks/mutations/use-notification-registration-mutations';
-import { useNotificationTypeRoster } from '../../hooks/queries/use-catalog-rosters';
+import { useNotificationTypeRoster } from '../../hooks/queries/use-notification-type-roster';
 import {
 	type RegistrationRecord,
 	useRegistration,
-	useRegistrationSubscriptions,
 } from '../../hooks/queries/use-registration-record';
+import { useRegistrationSubscriptions } from '../../hooks/queries/use-registration-subscriptions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useRegistrationLocation } from '../../hooks/registrations/use-registration-location';
 import type { Acknowledgements } from '../../hooks/use-acknowledged-write';

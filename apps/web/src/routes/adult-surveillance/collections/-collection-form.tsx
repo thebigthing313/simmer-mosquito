@@ -30,7 +30,7 @@ import type { CollectionFields } from '../../../hooks/mutations/use-collection-m
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
-} from '../../../hooks/queries/use-catalog-rosters';
+} from '../../../hooks/queries/catalog-roster-view';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { TrapOption } from '../../../hooks/queries/use-trap-options';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';

@@ -5,18 +5,16 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import {
-	type SchemaCatalogListing,
-	useSourceReductionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
+import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import {

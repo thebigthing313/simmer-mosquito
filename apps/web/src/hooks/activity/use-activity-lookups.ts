@@ -1,14 +1,12 @@
 import { type ActivityLookups, activityLookups } from '../../routes/-activity-data';
 import { useTagOptions } from '../explorer/use-tag-options';
-import {
-	useApplicationMethodRoster,
-	useBiocontrolMethodRoster,
-	useCollectionMethodRoster,
-	useHabitatTypeRoster,
-	useOutreachMethodRoster,
-	useSourceReductionMethodRoster,
-} from '../queries/use-catalog-rosters';
+import { useApplicationMethodRoster } from '../queries/use-application-method-roster';
+import { useBiocontrolMethodRoster } from '../queries/use-biocontrol-method-roster';
+import { useCollectionMethodRoster } from '../queries/use-collection-method-roster';
+import { useHabitatTypeRoster } from '../queries/use-habitat-type-roster';
 import { useInsecticideRecords } from '../queries/use-insecticide-records';
+import { useOutreachMethodRoster } from '../queries/use-outreach-method-roster';
+import { useSourceReductionMethodRoster } from '../queries/use-source-reduction-method-roster';
 import { useUnitLabels } from '../queries/use-unit-labels';
 
 /** The catalog lookups an activity log names its records with. */

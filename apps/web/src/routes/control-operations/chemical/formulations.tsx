@@ -33,10 +33,10 @@ import {
 	type FormulationMutations,
 	useFormulationMutations,
 } from '../../../hooks/mutations/use-formulation-mutations';
+import { useFormulationComponents } from '../../../hooks/queries/use-formulation-components';
 import {
 	type FormulationComponentRecord,
 	type FormulationRecord,
-	useFormulationComponents,
 	useFormulationRecords,
 } from '../../../hooks/queries/use-formulation-records';
 import {

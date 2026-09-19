@@ -1,7 +1,3 @@
-import { sessionFetch } from '@simmer-mosquito/sync';
-import { useQuery } from '@tanstack/react-query';
-import { getServerUrl } from '../auth';
-
 /**
  * The record kinds a merge can fold together.
  *
@@ -67,35 +63,6 @@ export interface DuplicateGroup {
 	readonly records: readonly DuplicateRecord[];
 }
 
-/**
- * The duplicate sets this organization's records suggest.
- *
- * Live data, and a merge is irreversible, so this refetches on focus for the
- * same reason `useDeleteImpact` does: a cleanup page left open over lunch would
- * otherwise offer a merge over a set a colleague has already dealt with. The
- * merge command re-checks every id inside its transaction regardless, and
- * refuses ids that are gone; this read is what lets the page stop proposing them
- * rather than fail at the button.
- */
-export function useDuplicateCandidates(recordType: DuplicateRecordType) {
-	return useQuery({
-		queryKey: duplicateCandidatesQueryKey(recordType),
-		queryFn: async ({ signal }) => {
-			const response = await sessionFetch(
-				new URL(`/records/${recordType}/duplicates`, getServerUrl()),
-				{ signal },
-			);
-			if (!response.ok) {
-				throw new Error(`Could not look for duplicates (${response.status}).`);
-			}
-			const body = (await response.json()) as { readonly groups: readonly DuplicateGroup[] };
-			return body.groups;
-		},
-		staleTime: 15_000,
-		refetchOnWindowFocus: true,
-	});
-}
-
 export function duplicateCandidatesQueryKey(recordType: DuplicateRecordType): readonly unknown[] {
 	return ['duplicate-candidates', recordType];
 }
@@ -116,36 +83,6 @@ export interface NearbyHabitats {
 }
 
 /**
- * The habitats standing within a radius of one habitat.
- *
- * Two records for one catch basin agree about nothing except where they are, so
- * a shared-value search finds neither and this is the only evidence a habitat
- * merge has. The radius is the caller's because how far apart the two records
- * landed depends on how each was filed: a GPS fix under tree cover and a point
- * dropped on an aerial can be tens of metres apart for one ditch.
- *
- * Refetches on focus for the same reason the duplicate proposals do: a merge is
- * irreversible, and a page left open over lunch would otherwise offer one over a
- * habitat a colleague has already folded in.
- */
-export function useNearbyHabitats(habitatId: string, radiusMetres: number) {
-	return useQuery({
-		queryKey: nearbyHabitatsQueryKey(habitatId, radiusMetres),
-		queryFn: async ({ signal }) => {
-			const url = new URL(`/records/habitat/${habitatId}/nearby`, getServerUrl());
-			url.searchParams.set('radiusMetres', String(Math.round(radiusMetres)));
-			const response = await sessionFetch(url, { signal });
-			if (!response.ok) {
-				throw new Error(`Could not look for nearby habitats (${response.status}).`);
-			}
-			return (await response.json()) as NearbyHabitats;
-		},
-		staleTime: 15_000,
-		refetchOnWindowFocus: true,
-	});
-}
-
-/**
  * Every cached search around one habitat, whatever radius it ran at.
  *
  * What a merge invalidates. The retired habitats are gone from the answer at
@@ -163,6 +100,9 @@ export function nearbyHabitatsKey(habitatId: string): readonly unknown[] {
  * again lands back on the cached answer rather than on a third key that differs
  * by a fraction of a metre nobody asked for.
  */
-function nearbyHabitatsQueryKey(habitatId: string, radiusMetres: number): readonly unknown[] {
+export function nearbyHabitatsQueryKey(
+	habitatId: string,
+	radiusMetres: number,
+): readonly unknown[] {
 	return [...nearbyHabitatsKey(habitatId), Math.round(radiusMetres)];
 }

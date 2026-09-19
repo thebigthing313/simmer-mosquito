@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../components/app-shell';
 import { mergeMapData, searchBounds } from '../../components/cleanup/habitat-merge-map';
 import { useOrganizationSettings } from '../queries/use-organization-settings';
-import { useNearbyHabitats } from '../use-merge-candidates';
-
+import { useNearbyHabitats } from '../use-nearby-habitats';
 /**
  * The habitat merge page's search: a radius in the organization's distance
  * unit, the target and candidates the nearby read returned for it, the map

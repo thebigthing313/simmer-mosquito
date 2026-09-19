@@ -1,12 +1,12 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { resolveLinkedAddress } from '../../hooks/queries/address-view';
+import type { SchemaCatalogListing } from '../../hooks/queries/catalog-roster-view';
 import type {
 	MissionProgressCounts,
 	MissionStatus,
 	MissionStop,
 } from '../../hooks/queries/operations-view';
-import type { SchemaCatalogListing } from '../../hooks/queries/use-catalog-rosters';
 import { addressPrimaryLabel } from '../../lib/address-format';
 import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';

@@ -12,7 +12,7 @@ import {
 	useWeatherSummaryMutations,
 	type WeatherSummaryFields,
 } from '../mutations/use-weather-summary-mutations';
-import { summaryYear, type WeatherSummaryListing } from '../queries/use-weather-summaries';
+import { summaryYear, type WeatherSummaryListing } from '../queries/weather-summary-view';
 import { useOrganizationTimeZone } from '../use-organization-time-zone';
 
 /**

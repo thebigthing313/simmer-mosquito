@@ -1,8 +1,7 @@
 import type { RouteStopView } from '../../routes/larval-surveillance/habitats/-route-data';
 import { useEntityTags } from '../explorer/use-entity-tags';
 import type { Tag } from '../queries/tag-view';
-import { useHabitatTypeRoster } from '../queries/use-catalog-rosters';
-
+import { useHabitatTypeRoster } from '../queries/use-habitat-type-roster';
 /**
  * The habitat type names and tags for a set of route stops. Type names come
  * from the eager `habitat_types` collection; tags from `useEntityTags` over the

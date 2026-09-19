@@ -27,27 +27,23 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
-import type { CatalogMutations } from '../../../hooks/mutations/use-catalog-mutations';
-import {
-	type ControlAssetFields,
-	type ControlAssetMutations,
-	useEquipmentMutations,
-	useVehicleMutations,
-} from '../../../hooks/mutations/use-control-asset-mutations';
+import type { CatalogMutations } from '../../../hooks/mutations/catalog-fields';
+import type {
+	ControlAssetFields,
+	ControlAssetMutations,
+} from '../../../hooks/mutations/control-asset-fields';
+import { useEquipmentMutations } from '../../../hooks/mutations/use-equipment-mutations';
+import { useVehicleMutations } from '../../../hooks/mutations/use-vehicle-mutations';
 import type {
 	CatalogRecords,
 	ControlMethodRecord,
-} from '../../../hooks/queries/use-catalog-records';
-import {
-	useApplicationMethodRecords,
-	useBiocontrolMethodRecords,
-	useSourceReductionMethodRecords,
-} from '../../../hooks/queries/use-catalog-records';
-import {
-	type ControlAssetRecord,
-	useEquipmentRecords,
-	useVehicleRecords,
-} from '../../../hooks/queries/use-control-asset-records';
+} from '../../../hooks/queries/catalog-record-view';
+import type { ControlAssetRecord } from '../../../hooks/queries/control-asset-record-view';
+import { useApplicationMethodRecords } from '../../../hooks/queries/use-application-method-records';
+import { useBiocontrolMethodRecords } from '../../../hooks/queries/use-biocontrol-method-records';
+import { useEquipmentRecords } from '../../../hooks/queries/use-equipment-records';
+import { useSourceReductionMethodRecords } from '../../../hooks/queries/use-source-reduction-method-records';
+import { useVehicleRecords } from '../../../hooks/queries/use-vehicle-records';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { EQUIPMENT_SAVE_REFUSALS, VEHICLE_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { hasMetadata } from '../../../lib/record-display';

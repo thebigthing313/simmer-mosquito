@@ -39,11 +39,9 @@ import { useState } from 'react';
 import { WriteOnly } from '../../../components/write-only';
 import { useActiveYear } from '../../../hooks/gis/use-active-year';
 import { useWeatherSummaryMutations } from '../../../hooks/mutations/use-weather-summary-mutations';
-import {
-	useWeatherSummaries,
-	useWeatherSummaryYears,
-	type WeatherSummaryListing,
-} from '../../../hooks/queries/use-weather-summaries';
+import { useWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
+import { useWeatherSummaryYears } from '../../../hooks/queries/use-weather-summary-years';
+import type { WeatherSummaryListing } from '../../../hooks/queries/weather-summary-view';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { formatMeasure, formatRange, summaryPeriodLabel } from './-weather-display';
 import { WeatherSummaryDialog } from './-weather-summary-dialog';

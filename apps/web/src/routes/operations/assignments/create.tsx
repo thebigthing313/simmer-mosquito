@@ -16,7 +16,8 @@ import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-optio
 import { useAssignment } from '../../../hooks/operations/use-assignment';
 import { useAssignmentItems } from '../../../hooks/operations/use-assignment-items';
 import { useRouteSnapshotItems } from '../../../hooks/operations/use-route-snapshot-items';
-import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
+import { useRouteStopCounts } from '../../../hooks/queries/use-route-stop-counts';
+import { useRouteCatalog } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { errorMessageForSave } from '../../../lib/save-error';

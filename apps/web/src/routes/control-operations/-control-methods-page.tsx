@@ -21,8 +21,8 @@ import { CustomFieldsCell } from '../../components/custom-fields-cell';
 import { useCatalogDialogOpen } from '../../hooks/catalog/use-catalog-dialog-open';
 import { useCatalogSearch } from '../../hooks/catalog/use-catalog-search';
 import { useResetOnOpen } from '../../hooks/catalog/use-reset-on-open';
-import type { CatalogMutations } from '../../hooks/mutations/use-catalog-mutations';
-import type { CatalogRecords, ControlMethodRecord } from '../../hooks/queries/use-catalog-records';
+import type { CatalogMutations } from '../../hooks/mutations/catalog-fields';
+import type { CatalogRecords, ControlMethodRecord } from '../../hooks/queries/catalog-record-view';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 
 // Chemical, source reduction, biocontrol and outreach each manage their own method
@@ -38,7 +38,7 @@ function matchesMethod(row: ControlMethodRecord, query: string): boolean {
 }
 
 export interface ControlMethodsPageProps {
-	/** The catalog's two halves — see `hooks/queries/use-catalog-records.ts`. */
+	/** The catalog's two halves; see `hooks/queries/catalog-record-view.ts`. */
 	readonly records: CatalogRecords<ControlMethodRecord>;
 	/** The catalog's five commands — see `hooks/mutations/use-catalog-mutations.ts`. */
 	readonly mutations: CatalogMutations;

@@ -40,19 +40,17 @@ import {
 } from '../../../hooks/larval-surveillance/use-inspection-detail';
 import { useSpeciesName } from '../../../hooks/larval-surveillance/use-species-name';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
-import {
-	useBiocontrolMethodRoster,
-	useHabitatTypeRoster,
-	useOutreachMethodRoster,
-	useSourceReductionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { useInspectionSamples } from '../../../hooks/queries/use-inspection-samples';
 import {
 	type LinkedControlAction,
 	useLinkedControlActions,
 } from '../../../hooks/queries/use-linked-control-actions';
+import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
 import { useProfileNames } from '../../../hooks/queries/use-profile-names';
+import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';

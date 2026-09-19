@@ -12,12 +12,12 @@ import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { useHabitatSelection } from '../../hooks/cleanup/use-habitat-selection';
 import { useMergeSearch } from '../../hooks/cleanup/use-merge-search';
-import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
 import {
 	type DuplicateRecord,
 	type NearbyHabitat,
 	nearbyHabitatsKey,
-} from '../../hooks/use-merge-candidates';
+} from '../../hooks/merge-candidate-view';
+import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { MapCanvas } from '../map';
 import { WriteOnly } from '../write-only';

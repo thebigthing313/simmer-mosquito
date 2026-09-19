@@ -31,7 +31,7 @@ import {
 	assessWeatherSummaryImportRows,
 	type WeatherImportAssessmentAction,
 } from '@simmer-mosquito/domain';
-import type { WeatherSummaryListing } from '../../../hooks/queries/use-weather-summaries';
+import type { WeatherSummaryListing } from '../../../hooks/queries/weather-summary-view';
 import type { WeatherImportRow } from './-import-commit';
 import type { ParsedSummaryRow } from './-import-parse';
 

@@ -6,7 +6,7 @@ import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';

@@ -5,6 +5,7 @@ import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../c
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
@@ -12,10 +13,7 @@ import {
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
 import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
-import {
-	type SchemaCatalogListing,
-	useBiocontrolMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';

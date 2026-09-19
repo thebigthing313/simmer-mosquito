@@ -1,18 +1,4 @@
-/**
- * Formulations and their components, as the recipe catalog needs them.
- *
- * Both tables sync eagerly — a formulation is picked on every mixed application —
- * so this is two whole-table reads rather than a per-recipe subset like the
- * insecticide batches beside it.
- *
- * They are not joined. The page renders the components under the recipe row that
- * was expanded, so what it needs is every component grouped by formulation, and a
- * join would hand back one row per component with the recipe repeated on each.
- * The grouping is a `Map`, which is the one thing a query cannot return.
- */
-
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
-import { formulation_insecticides } from '../../lib/collections/formulation_insecticides';
 import { formulations } from '../../lib/collections/formulations';
 
 /** A recipe as the catalog lists and edits one. */
@@ -34,7 +20,7 @@ export interface FormulationComponentRecord {
 	readonly unitId: string;
 }
 
-/** Every recipe, active ones first and then by name. */
+/** Formulations as the recipe catalog lists them, in name order. */
 export function useFormulationRecords(): readonly FormulationRecord[] {
 	return useLiveSuspenseQuery((query) =>
 		query
@@ -52,27 +38,8 @@ export function useFormulationRecords(): readonly FormulationRecord[] {
 	).data;
 }
 
-/** Every component, grouped by the recipe it belongs to. */
-export function useFormulationComponents(): ReadonlyMap<
-	string,
-	readonly FormulationComponentRecord[]
-> {
-	const rows = useLiveSuspenseQuery((query) =>
-		query.from({ row: formulation_insecticides() }).select(({ row }) => ({
-			id: row.id,
-			formulationId: row.formulation_id,
-			insecticideId: row.insecticide_id,
-			amount: row.amount,
-			unitId: row.unit_id,
-		})),
-	).data;
-
-	// A query returns rows and cannot return a lookup of them.
-	return groupedByFormulation(rows);
-}
-
 /** The components grouped by recipe, in the order the query returned them. */
-function groupedByFormulation(
+export function groupedByFormulation(
 	rows: readonly FormulationComponentRecord[],
 ): ReadonlyMap<string, readonly FormulationComponentRecord[]> {
 	const byFormulation = new Map<string, FormulationComponentRecord[]>();

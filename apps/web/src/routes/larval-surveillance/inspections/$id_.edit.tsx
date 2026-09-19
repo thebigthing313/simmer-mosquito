@@ -12,15 +12,13 @@ import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import {
-	type SchemaCatalogListing,
-	useHabitatTypeRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import {
 	type InspectionRecord,
 	useInspectionRecord,

@@ -17,10 +17,8 @@ import {
 	CatalogNote,
 	CatalogPage,
 } from '../../../components/catalog';
-import {
-	useInsecticideBatchMutations,
-	useInsecticideMutations,
-} from '../../../hooks/mutations/use-insecticide-mutations';
+import { useInsecticideBatchMutations } from '../../../hooks/mutations/use-insecticide-batch-mutations';
+import { useInsecticideMutations } from '../../../hooks/mutations/use-insecticide-mutations';
 import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { type UnitType, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';

@@ -6,7 +6,7 @@ import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';

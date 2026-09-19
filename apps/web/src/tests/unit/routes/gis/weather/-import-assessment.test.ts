@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { WeatherSummaryListing } from '../../../../../hooks/queries/use-weather-summaries';
+import type { WeatherSummaryListing } from '../../../../../hooks/queries/weather-summary-view';
 import { assessParsedRows } from '../../../../../routes/gis/weather/-import-assessment';
 import type { ParsedSummaryRow } from '../../../../../routes/gis/weather/-import-parse';
 

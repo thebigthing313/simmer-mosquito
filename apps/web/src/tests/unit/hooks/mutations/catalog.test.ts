@@ -19,8 +19,8 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Erased at transform, so these do not import a module the mocks below replace.
-import type { CatalogFields } from '../../../../hooks/mutations/use-catalog-mutations';
-import type { ControlAssetFields } from '../../../../hooks/mutations/use-control-asset-mutations';
+import type { CatalogFields } from '../../../../hooks/mutations/catalog-fields';
+import type { ControlAssetFields } from '../../../../hooks/mutations/control-asset-fields';
 import type {
 	InsecticideBatchFields,
 	InsecticideFields,
@@ -56,22 +56,41 @@ const { outreach_methods } = await import('../../../../lib/collections/outreach_
 const { source_reduction_methods } = await import(
 	'../../../../lib/collections/source_reduction_methods'
 );
-const {
-	useApplicationMethodMutations,
-	useBiocontrolMethodMutations,
-	useCollectionLureMutations,
-	useCollectionMethodMutations,
-	useHabitatTypeMutations,
-	useNotificationTypeMutations,
-	useOutreachMethodMutations,
-	useSourceReductionMethodMutations,
-} = await import('../../../../hooks/mutations/use-catalog-mutations');
-const { useEquipmentMutations, useVehicleMutations } = await import(
-	'../../../../hooks/mutations/use-control-asset-mutations'
+const { useApplicationMethodMutations } = await import(
+	'../../../../hooks/mutations/use-application-method-mutations'
 );
-const { useInsecticideBatchMutations, useInsecticideMutations } = await import(
+const { useBiocontrolMethodMutations } = await import(
+	'../../../../hooks/mutations/use-biocontrol-method-mutations'
+);
+const { useCollectionLureMutations } = await import(
+	'../../../../hooks/mutations/use-collection-lure-mutations'
+);
+const { useCollectionMethodMutations } = await import(
+	'../../../../hooks/mutations/use-collection-method-mutations'
+);
+const { useHabitatTypeMutations } = await import(
+	'../../../../hooks/mutations/use-habitat-type-mutations'
+);
+const { useNotificationTypeMutations } = await import(
+	'../../../../hooks/mutations/use-notification-type-mutations'
+);
+const { useOutreachMethodMutations } = await import(
+	'../../../../hooks/mutations/use-outreach-method-mutations'
+);
+const { useSourceReductionMethodMutations } = await import(
+	'../../../../hooks/mutations/use-source-reduction-method-mutations'
+);
+const { useEquipmentMutations } = await import(
+	'../../../../hooks/mutations/use-equipment-mutations'
+);
+const { useVehicleMutations } = await import('../../../../hooks/mutations/use-vehicle-mutations');
+const { useInsecticideBatchMutations } = await import(
+	'../../../../hooks/mutations/use-insecticide-batch-mutations'
+);
+const { useInsecticideMutations } = await import(
 	'../../../../hooks/mutations/use-insecticide-mutations'
 );
+const { useWriterIdentity } = await import('../../../../hooks/mutations/use-writer-identity');
 
 beforeEach(() => {
 	installMemoryCollections();
@@ -99,6 +118,11 @@ function catalogFields(overrides: Partial<CatalogFields> = {}): CatalogFields {
 }
 
 describe('the rules every catalog write shares', () => {
+	it('reads the organization and the actor once for every catalog through useWriterIdentity', () => {
+		const { result } = renderHook(() => useWriterIdentity());
+		expect(result.current).toEqual({ organizationId: ORGANIZATION, actorProfileId: PROFILE });
+	});
+
 	// Read on collection methods and true for all twelve: `catalog-writes.ts` is
 	// one function per operation, so a change here changes every catalog page.
 
@@ -376,8 +400,9 @@ describe('the columns one catalog has and another does not', () => {
 });
 
 describe('the four control-method catalogs', () => {
-	// One table four times, so the collection and the command family are the only
-	// things telling them apart, and a copied call site is the mistake to catch.
+	// One table four times, so each of the four is `useControlMethodMutations`
+	// over its own collection and command family, and a copied call site is the
+	// mistake to catch.
 	const catalogs = [
 		{
 			label: 'application',

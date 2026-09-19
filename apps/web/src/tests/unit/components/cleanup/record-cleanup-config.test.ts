@@ -19,7 +19,7 @@ import {
 	RECORD_CLEANUP_CONFIGS,
 	recordCountLabel,
 } from '../../../../components/cleanup/record-cleanup-config';
-import type { DuplicateGroup, DuplicateRecord } from '../../../../hooks/use-merge-candidates';
+import type { DuplicateGroup, DuplicateRecord } from '../../../../hooks/merge-candidate-view';
 
 function group(overrides: Partial<DuplicateGroup>): DuplicateGroup {
 	return {

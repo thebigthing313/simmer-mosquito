@@ -12,8 +12,8 @@ import {
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { useEffect, useId, useState } from 'react';
+import type { DuplicateRecord, MergeableRecordType } from '../../hooks/merge-candidate-view';
 import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
-import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
 import { recordNoun } from '../../lib/record-nouns';
 import { errorMessageForSave } from '../../lib/save-error';
 import {

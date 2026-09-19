@@ -4,16 +4,16 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
+import type {
+	CatalogListing,
+	SchemaCatalogListing,
+} from '../../../hooks/queries/catalog-roster-view';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import {
-	type CatalogListing,
-	type SchemaCatalogListing,
-	useCollectionLureRoster,
-	useCollectionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
+import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import {
 	type CollectionRecord,
 	useCollectionRecord,

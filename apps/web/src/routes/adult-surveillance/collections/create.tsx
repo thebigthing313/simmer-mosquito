@@ -12,10 +12,8 @@ import {
 	useCollectionMutations,
 } from '../../../hooks/mutations/use-collection-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import {
-	useCollectionLureRoster,
-	useCollectionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
+import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
