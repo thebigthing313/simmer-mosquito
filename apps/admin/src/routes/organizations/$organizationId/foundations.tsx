@@ -12,8 +12,8 @@ import { OrganizationSessionGate } from '../../../components/organization-sessio
 import {
 	type DialogKind,
 	FoundationForm,
-	LOOKUP_LABELS,
 } from '../../../components/organizations/foundation-forms';
+import { LOOKUP_LABELS } from '../../../components/organizations/lookup-form';
 import { useCreateFoundation } from '../../../hooks/mutations/use-create-foundation';
 import { useOrganizationFoundations } from '../../../hooks/queries/use-organization-foundations';
 import { useOrganizationIdentity } from '../../../hooks/queries/use-organization-identity';
