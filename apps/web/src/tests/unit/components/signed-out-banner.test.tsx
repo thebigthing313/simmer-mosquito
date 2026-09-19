@@ -87,10 +87,13 @@ describe('SignedOutEnvironmentBanner', () => {
  * checked is the wiring rather than the markup.
  */
 describe('the signed-out frames', () => {
-	const routes = join(import.meta.dirname, '../../../routes');
+	const components = join(import.meta.dirname, '../../../components');
 
-	it.each(['-components.tsx', '-auth.tsx'])('wires the banner into %s', (file) => {
-		const source = readFileSync(join(routes, file), 'utf8');
+	it.each([
+		'landing/landing-page.tsx',
+		'auth/auth-shell.tsx',
+	])('wires the banner into %s', (file) => {
+		const source = readFileSync(join(components, file), 'utf8');
 
 		expect(source).toContain(
 			'<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />',

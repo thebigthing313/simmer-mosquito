@@ -34,10 +34,10 @@ import {
 	catalogFormValues,
 	commitCatalogSave,
 } from '../catalog';
-import { EditSettingsSheet, LookupListFrame } from './-components/layout/layout';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
-import { ControlMethodLookupList } from './control';
+import { ControlMethodLookupList } from './control-method-lookup';
 import { serviceRequestContextFrom } from './helpers';
+import { EditSettingsSheet, LookupListFrame } from './layout/layout';
 
 export function PublicEngagementSettings({
 	canManage,

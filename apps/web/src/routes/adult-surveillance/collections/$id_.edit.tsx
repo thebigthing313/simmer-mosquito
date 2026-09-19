@@ -3,12 +3,14 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import {
 	CollectionFormPage,
-	type CollectionFormValues,
 	type CollectionSaveInput,
+} from '../../../components/adult-surveillance/collections/collection-form';
+import {
+	type CollectionFormValues,
 	collectionFieldsFrom,
 	noLureValue,
 	noUnitValue,
-} from '../../../components/adult-surveillance/collections/collection-form';
+} from '../../../components/adult-surveillance/collections/collection-form-values';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';

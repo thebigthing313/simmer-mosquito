@@ -21,7 +21,7 @@ import {
 	noLureValue,
 	noUnitValue,
 	validateCollection,
-} from '../../../../../components/adult-surveillance/collections/collection-form';
+} from '../../../../../components/adult-surveillance/collections/collection-form-values';
 
 const POINT = { type: 'Point', coordinates: [-118.24, 34.05] } as const;
 const TRAP = '44444444-4444-4444-8444-444444444444';

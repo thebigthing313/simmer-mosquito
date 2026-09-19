@@ -3,8 +3,8 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Link } from '@tanstack/react-router';
 import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { useInsecticideRecords } from '../../hooks/queries/use-insecticide-records';
-import { EditSettingsSheet, LookupListFrame } from './-components/layout/layout';
 import { ArrowRightIcon } from './constants';
+import { EditSettingsSheet, LookupListFrame } from './layout/layout';
 
 /**
  * Insecticides and their batches are managed on the control operations route, next to the

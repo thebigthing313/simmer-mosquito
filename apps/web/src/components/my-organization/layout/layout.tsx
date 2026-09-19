@@ -25,11 +25,11 @@ import {
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import type React from 'react';
 import { useState } from 'react';
-import { titleCaseToken } from '../../../../lib/record-display';
-import { errorMessageForSave } from '../../../../lib/save-error';
-import { EditIcon } from '../../constants';
-import { collectionTimingModeFromFields, displayFieldValue } from '../../helpers';
-import type { SettingField, SetupCatalog, SimmerRole, SwitchSettingField } from '../../types';
+import { titleCaseToken } from '../../../lib/record-display';
+import { errorMessageForSave } from '../../../lib/save-error';
+import { EditIcon } from '../constants';
+import { collectionTimingModeFromFields, displayFieldValue } from '../helpers';
+import type { SettingField, SetupCatalog, SimmerRole, SwitchSettingField } from '../types';
 import { OrgSection } from './org-section';
 import { SectionHeader } from './section-header';
 

@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { OrganizationWorkspaceShell } from '../../components/my-organization/-components/layout/organization-workspace-shell';
 import {
 	US_STATE_SELECT_OPTIONS,
 	US_TIMEZONE_OPTIONS,
@@ -10,6 +9,7 @@ import {
 	textField,
 	unitDefaultFields,
 } from '../../components/my-organization/helpers';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
 import type { SettingField } from '../../components/my-organization/types';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';

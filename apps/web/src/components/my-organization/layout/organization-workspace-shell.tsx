@@ -1,6 +1,6 @@
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import type React from 'react';
-import type { SimmerRole } from '../../types';
+import type { SimmerRole } from '../types';
 import { PermissionPill } from './layout';
 
 /**

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { OrganizationWorkspaceShell } from '../../components/my-organization/-components/layout/organization-workspace-shell';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
 import { PeopleSection } from '../../components/my-organization/people';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 import { canManagePeople } from '../../lib/write-access';

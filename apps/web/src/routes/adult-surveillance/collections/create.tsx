@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { z } from 'zod';
 import {
 	CollectionFormPage,
-	type CollectionFormValues,
 	type CollectionSaveInput,
+} from '../../../components/adult-surveillance/collections/collection-form';
+import {
+	type CollectionFormValues,
 	collectionFieldsFrom,
 	defaultCollectionFormValues,
-} from '../../../components/adult-surveillance/collections/collection-form';
+} from '../../../components/adult-surveillance/collections/collection-form-values';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';

@@ -31,9 +31,9 @@ import { useCollectionLureRecords } from '../../hooks/queries/use-collection-lur
 import { useCollectionMethodRecords } from '../../hooks/queries/use-collection-method-records';
 import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../catalog';
-import { LookupListFrame, SettingChoiceCard } from './-components/layout/layout';
 import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
 import { collectionTimingModeFromFields } from './helpers';
+import { LookupListFrame, SettingChoiceCard } from './layout/layout';
 import type { SettingField } from './types';
 
 export function AdultSurveillanceSettings({

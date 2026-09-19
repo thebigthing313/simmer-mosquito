@@ -1,16 +1,6 @@
-import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
-import {
-	isCollectionDurationUnitType,
-	recordCollectedAdHocCollectionCommand,
-	recordCollectedTrapCollectionCommand,
-	setAdHocCollectionCommand,
-	setTrapCollectionCommand,
-} from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	FormSection,
 	LocationSection,
-	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
@@ -18,7 +8,6 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import { useState } from 'react';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
-import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
@@ -26,155 +15,24 @@ import type {
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { TrapOption } from '../../../hooks/queries/use-trap-options';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { unitOptions } from '../../../lib/unit-options';
 import { additionalPersonnelOptions } from '../../additional-personnel';
-import { DateControl } from '../../date-control';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar, GeometryControl } from '../../map/geometry-control';
-import { isPendingCollection as isPendingCollectionRow } from '../adult-display';
 import { TrapPicker } from '../adult-pickers';
-import { collectionTimingStamps } from './collection-timing';
-
-export type CollectionSourceMode = 'trap' | 'adhoc';
-
-/** Non-empty sentinels: Radix Select forbids empty-string item values. */
-export const noLureValue = 'none';
-export const noUnitValue = 'none';
-
-/**
- * Domain issue path → the form field holding it. Timing issues nest under the
- * `timing` object the builder validates, so they map onto whichever date field
- * the current timing mode shows.
- */
-const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
-	trapId: 'trapId',
-	collectionMethodId: 'collectionMethodId',
-	collectionLureId: 'collectionLureId',
-	addressId: 'addressId',
-	setByProfileId: 'setByProfileId',
-	collectedByProfileId: 'collectedByProfileId',
-	'timing.collectedAt': 'collectedAt',
-	'timing.startedAt': 'startedAt',
-	// The two set commands take `startedAt` directly rather than a timing, so the
-	// same field is reported under a second path and needs both entries.
-	startedAt: 'startedAt',
-	'timing.collectionDate': 'collectionDate',
-	'timing.durationAmount': 'durationAmount',
-	'timing.durationUnitId': 'durationUnitId',
-};
-
-/**
- * Whether the trap has been emptied yet, asked of the form's own values.
- *
- * The rule itself lives with the badge that reports it, so the form and the
- * record it produces cannot come to disagree about what "still out" means; only
- * the two field names differ.
- */
-function isPendingCollection(value: CollectionFormValues): boolean {
-	return isPendingCollectionRow({
-		collectedAt: value.collectedAt,
-		collectionTimingMode: value.timingMode,
-	});
-}
-
-/**
- * A collection has six command shapes — trap or ad-hoc, crossed with exact
- * timestamps, date-plus-duration, or not yet emptied — and the validator picks
- * the same one the save will, so the rules an operator is held to match what
- * actually runs.
- */
-export function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
-	const pending = isPendingCollection(value);
-	const timing =
-		value.timingMode === 'exact_timestamps'
-			? ({
-					mode: 'exact_timestamps',
-					startedAt: parseDateValue(value.startedAt),
-					collectedAt: parseDateValue(value.collectedAt),
-				} as never)
-			: ({
-					mode: 'collection_date_duration',
-					collectionDate: value.collectionDate ?? '',
-					durationAmount: value.durationAmount as number,
-					durationUnitId: value.durationUnitId === noUnitValue ? '' : value.durationUnitId,
-				} as never);
-	const base = {
-		...FORM_VALIDATION_CONTEXT,
-		collectionId: FORM_VALIDATION_CONTEXT.organizationId,
-		timing,
-		setByProfileId: value.setByProfileId,
-		collectedByProfileId: value.collectedByProfileId,
-	};
-	const adHoc = {
-		collectionMethodId: value.collectionMethodId,
-		locationSource: { kind: 'geometry' as const, geometry: (geometry ?? null) as never },
-		collectionLureId: value.collectionLureId === noLureValue ? null : value.collectionLureId,
-		addressId: value.addressId,
-	};
-
-	return domainValidator(() => {
-		if (pending) {
-			// The set commands take `startedAt` directly rather than a timing, and
-			// carry no collected half at all.
-			const startedAt = parseDateValue(value.startedAt);
-			return value.sourceMode === 'trap'
-				? setTrapCollectionCommand({ ...base, trapId: value.trapId ?? '', startedAt })
-				: setAdHocCollectionCommand({ ...base, ...adHoc, startedAt });
-		}
-		return value.sourceMode === 'trap'
-			? recordCollectedTrapCollectionCommand({ ...base, trapId: value.trapId ?? '' })
-			: recordCollectedAdHocCollectionCommand({ ...base, ...adHoc });
-	}, COLLECTION_FIELD_PATHS)({ value });
-}
-
-/** `YYYY-MM-DD` to a Date the builder can range-check; invalid stays invalid. */
-function parseDateValue(value: string | null): Date {
-	return new Date(value ?? '');
-}
-
-/** Where the chosen trap stands, as the context outline the map draws behind the form. */
-function trapPoint(trap: TrapOption | null): GeoJsonGeometry | null {
-	if (trap === null) {
-		return null;
-	}
-	return { type: 'Point', coordinates: [trap.longitude, trap.latitude] };
-}
-
-export interface CollectionFormValues {
-	readonly sourceMode: CollectionSourceMode;
-	/** Target trap when `sourceMode === 'trap'`. */
-	readonly trapId: string | null;
-	/** Ad-hoc address when `sourceMode === 'adhoc'`. */
-	readonly addressId: string | null;
-	/** Method id, or '' when unset. Derived from the trap in trap mode. */
-	readonly collectionMethodId: string;
-	/** `noLureValue` or a lure id. */
-	readonly collectionLureId: string;
-	readonly timingMode: AdultCollectionTimingMode;
-	/** `YYYY-MM-DD` the trap was set (exact mode, optional). */
-	readonly startedAt: string | null;
-	/** `YYYY-MM-DD` specimens were retrieved (exact mode, required). */
-	readonly collectedAt: string | null;
-	/** `YYYY-MM-DD` collection date (date + duration mode). */
-	readonly collectionDate: string | null;
-	readonly durationAmount: number | null;
-	/** `noUnitValue` until picked; required in date + duration mode. */
-	readonly durationUnitId: string;
-	readonly setByProfileId: string | null;
-	readonly collectedByProfileId: string | null;
-	/** Profile ids of everyone else who worked this collection. */
-	readonly additionalPersonnelIds: readonly string[];
-	readonly hasProblem: boolean;
-	/** Values for the custom fields the collection method declares. */
-	readonly metadata: MetadataValue;
-	/** Create only: saved as the collection's first comment. Ignored on edit. */
-	readonly comment: string;
-}
+import {
+	type CollectionFormValues,
+	isPendingCollectionDraft,
+	lureOptions,
+	noLureValue,
+	profileOptions,
+	trapPoint,
+	validateCollection,
+} from './collection-form-values';
+import { TimingSection } from './collection-timing-section';
 
 /** The resolved location + method a submit yields, once source mode is applied. */
 export interface CollectionSaveInput {
@@ -214,33 +72,6 @@ export interface CollectionFormPageProps {
 	readonly mode: 'create' | 'edit';
 	readonly header: CollectionFormHeader;
 	readonly onSave: (input: CollectionSaveInput) => Promise<void>;
-}
-
-export function defaultCollectionFormValues(
-	today: string,
-	trapId: string | null,
-	/** The default timing mode, from organization settings. */
-	timingMode: AdultCollectionTimingMode,
-): CollectionFormValues {
-	return {
-		sourceMode: 'trap',
-		trapId,
-		addressId: null,
-		collectionMethodId: '',
-		collectionLureId: noLureValue,
-		timingMode,
-		startedAt: null,
-		collectedAt: timingMode === 'exact_timestamps' ? today : null,
-		collectionDate: timingMode === 'collection_date_duration' ? today : null,
-		durationAmount: null,
-		durationUnitId: noUnitValue,
-		setByProfileId: null,
-		collectedByProfileId: null,
-		additionalPersonnelIds: [],
-		hasProblem: false,
-		metadata: null,
-		comment: '',
-	};
 }
 
 export function CollectionFormPage({
@@ -345,7 +176,7 @@ export function CollectionFormPage({
 						</form.AppField>
 						{/* Nobody has emptied a trap that is still out; the field appears on
 						    the visit that does. */}
-						<form.Subscribe selector={(state) => isPendingCollection(state.values)}>
+						<form.Subscribe selector={(state) => isPendingCollectionDraft(state.values)}>
 							{(pending) =>
 								pending ? null : (
 									<form.AppField name="collectedByProfileId">
@@ -529,176 +360,5 @@ export function CollectionFormPage({
 				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
-	);
-}
-
-// --- timing section ---------------------------------------------------------
-
-function TimingSection({
-	form,
-	units,
-}: {
-	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
-	readonly form: any;
-	readonly units: readonly UnitLabel[];
-}) {
-	// A date-plus-duration collection is saying how long the trap ran, so the only
-	// units that carry meaning are times.
-	const durationUnitOptions = unitOptions(units, isCollectionDurationUnitType);
-
-	return (
-		<FormSection title="Timing">
-			<form.AppField name="timingMode">
-				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-				{(field: any) => (
-					<ToggleGroup
-						aria-label="Timing mode"
-						className="w-full"
-						onValueChange={(next: string) => {
-							if (next === 'exact_timestamps' || next === 'collection_date_duration') {
-								field.handleChange(next);
-							}
-						}}
-						size="sm"
-						type="single"
-						value={field.state.value}
-						variant="outline"
-					>
-						<ToggleGroupItem className="flex-1 text-xs" value="exact_timestamps">
-							Set &amp; collected dates
-						</ToggleGroupItem>
-						<ToggleGroupItem className="flex-1 text-xs" value="collection_date_duration">
-							Date &amp; duration
-						</ToggleGroupItem>
-					</ToggleGroup>
-				)}
-			</form.AppField>
-
-			<form.Subscribe
-				selector={(state: { values: CollectionFormValues }) => ({
-					timingMode: state.values.timingMode,
-					// Which of the two dates is the required one swaps with this, so the
-					// section has to re-render when it changes and not only on the mode.
-					pending: isPendingCollection(state.values),
-				})}
-			>
-				{({ timingMode, pending }: { timingMode: AdultCollectionTimingMode; pending: boolean }) =>
-					timingMode === 'exact_timestamps' ? (
-						<div className="grid gap-5 sm:grid-cols-2">
-							<form.AppField name="startedAt">
-								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => (
-									<DateControl
-										label="Set date"
-										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
-										required={pending}
-										value={field.state.value}
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="collectedAt">
-								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => (
-									<DateControl
-										// Left empty, the trap is still out and the collection is
-										// saved pending, to be emptied on a later visit.
-										label="Collected date"
-										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
-										value={field.state.value}
-									/>
-								)}
-							</form.AppField>
-						</div>
-					) : (
-						<div className="grid gap-5 sm:grid-cols-3">
-							<form.AppField name="collectionDate">
-								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => (
-									<DateControl
-										label="Collection date"
-										required
-										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
-										value={field.state.value}
-									/>
-								)}
-							</form.AppField>
-							<form.AppField name="durationAmount">
-								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => (
-									<field.NumberField label="Duration" min={0} placeholder="e.g. 1" />
-								)}
-							</form.AppField>
-							<form.AppField name="durationUnitId">
-								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-								{(field: any) => (
-									<field.SelectField
-										label="Unit"
-										options={durationUnitOptions}
-										placeholder="Select a unit"
-										required
-									/>
-								)}
-							</form.AppField>
-						</div>
-					)
-				}
-			</form.Subscribe>
-		</FormSection>
-	);
-}
-
-// --- controls ---------------------------------------------------------------
-
-// --- validation + helpers ---------------------------------------------------
-
-/**
- * What the form holds, as the write seam takes it.
- *
- * Two conversions the form made for its own reasons: Radix forbids an empty
- * Select value, so "no lure" and "no unit" are sentinels. Both spellings stop
- * here. The typed days become the two instants they are stored at in the same
- * step, off one clock — see `collectionTimingStamps` for why that matters.
- */
-export function collectionFieldsFrom(
-	values: CollectionFormValues,
-	timeZone: string,
-): CollectionFields {
-	const exact = values.timingMode === 'exact_timestamps';
-	const stamps = collectionTimingStamps(values, timeZone);
-	return {
-		collectionMethodId: values.collectionMethodId,
-		collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
-		addressId: values.addressId,
-		timing: {
-			timingMode: values.timingMode,
-			startedAt: stamps.startedAt,
-			collectedAt: stamps.collectedAt,
-			collectionDate: exact ? null : values.collectionDate,
-			durationAmount: exact ? null : values.durationAmount,
-			durationUnitId: exact || values.durationUnitId === noUnitValue ? null : values.durationUnitId,
-		},
-		setByProfileId: values.setByProfileId,
-		collectedByProfileId: values.collectedByProfileId,
-		hasProblem: values.hasProblem,
-		metadata: values.metadata,
-	};
-}
-
-function lureOptions(lures: readonly CatalogListing[]) {
-	return [
-		{ label: 'No lure', value: noLureValue },
-		...lifecycleOptions(
-			lures,
-			(lure) => lure.isActive,
-			(lure) => lure.name,
-		),
-	];
-}
-
-function profileOptions(profiles: readonly ProfileListing[]) {
-	return lifecycleOptions(
-		profiles,
-		(profile) => profile.isActive,
-		(profile) => profile.displayName,
 	);
 }
