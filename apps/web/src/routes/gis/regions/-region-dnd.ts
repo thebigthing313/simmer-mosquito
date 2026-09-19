@@ -1,5 +1,4 @@
 import type React from 'react';
-import { useState } from 'react';
 
 /** Drag payload type. The dragged region's id travels as this MIME type's data. */
 export const REGION_DND_TYPE = 'application/x-simmer-region';
@@ -80,38 +79,6 @@ export function regionDropZoneProps(
 			if (id !== null) {
 				dnd.onDropRegion(id, dropTargetFolderId(target));
 			}
-		},
-	};
-}
-
-/**
- * Transient drag state for the region tree, plus the move it commits on drop.
- *
- * The drop clears `draggingId` itself rather than waiting for `dragend`: a drop
- * onto another folder re-parents the row, so React unmounts the element the
- * drag started from and its `dragend` never fires. Left to that handler alone,
- * the moved region would keep rendering in its dragging style until the next
- * full re-render.
- */
-export function useRegionDnd(
-	onMove: (regionId: string, folderId: string | null) => void | Promise<void>,
-): RegionDnd {
-	const [draggingId, setDraggingId] = useState<string | null>(null);
-	const [dropTarget, setDropTarget] = useState<RegionDropTarget | null>(null);
-
-	return {
-		draggingId,
-		dropTarget,
-		onDragStart: (id) => setDraggingId(id),
-		onDragEnd: () => {
-			setDraggingId(null);
-			setDropTarget(null);
-		},
-		onDragOverTarget: (target) => setDropTarget(target),
-		onDropRegion: (regionId, folderId) => {
-			setDraggingId(null);
-			setDropTarget(null);
-			void onMove(regionId, folderId);
 		},
 	};
 }

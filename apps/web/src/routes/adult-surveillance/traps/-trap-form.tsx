@@ -2,19 +2,19 @@ import { createTrapCommand } from '@simmer-mosquito/domain';
 import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
 import type {
 	CatalogListing,
 	SchemaCatalogListing,
-} from '../../../hooks/queries/use-catalog-rosters';
+} from '../../../hooks/queries/catalog-roster-view';
 import type { TrapRecord } from '../../../hooks/queries/use-trap-record';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
@@ -324,4 +324,4 @@ function lureOptions(lures: readonly CatalogListing[]) {
 	];
 }
 
-export type { DrawGeometry } from '../../../components/map/use-map-draw';
+export type { DrawGeometry } from '../../../hooks/map/use-map-draw';

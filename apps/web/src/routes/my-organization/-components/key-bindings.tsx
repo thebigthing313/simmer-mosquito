@@ -23,7 +23,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useState } from 'react';
-import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
+import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../hooks/explorer/use-species-options';
 import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import { errorMessageForSave } from '../../../lib/save-error';
 
@@ -66,7 +66,8 @@ export function KeyBindingsSettings({
 	readonly settings: OrganizationSettings;
 }) {
 	const { setSpeciesKeyBindings } = useOrganizationSettingsMutations();
-	const options = useSpeciesOptions();
+	// The adopted species, falling back to the full taxonomy when none are curated.
+	const options = useAdoptedSpeciesOptions().options;
 	const stored = settings.speciesKeyBindings.bindings;
 	const [error, setError] = useState<string | null>(null);
 	const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -303,12 +304,4 @@ function SectionLabel({ children }: { readonly children: React.ReactNode }) {
 			{children}
 		</span>
 	);
-}
-
-/**
- * The organization's adopted species, falling back to the full taxonomy when
- * none are curated — the same rule the sample identification picker follows.
- */
-function useSpeciesOptions(): readonly SpeciesOption[] {
-	return useAdoptedSpeciesOptions().options;
 }

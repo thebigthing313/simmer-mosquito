@@ -1,24 +1,5 @@
-/**
- * Writing the organization's insecticides and their batches.
- *
- * Two tables with the five catalog commands each, so the writes come from
- * `catalog-writes.ts` and only the columns are here. What makes them not quite
- * catalogs is that a product carries nine editable columns and a batch belongs to
- * one — the batch is the tin on the shelf, the product is what is in it.
- *
- * The lifecycle is a command on both, as everywhere else on this surface: the old
- * PATCH read `is_active` and worked out the direction.
- *
- * `inventory_unit_id` and `conversion_factor` are columns this form does not
- * offer, so a create leaves them null and a save never names them. They exist
- * for an organization that buys in one unit and applies in another, and nothing
- * in the app sets them yet.
- */
-
-import type { Insecticide, InsecticideBatch } from '@simmer-mosquito/sync';
-import { insecticide_batches } from '../../lib/collections/insecticide_batches';
+import type { Insecticide } from '@simmer-mosquito/sync';
 import { insecticides } from '../../lib/collections/insecticides';
-import { useAuthSnapshot } from '../use-auth-snapshot';
 import {
 	type CatalogCommandNames,
 	createCatalogRow,
@@ -27,6 +8,7 @@ import {
 	setCatalogRowActive,
 } from './catalog-writes';
 import { canAttributeWrite, newRecordId, optimisticStamp } from './shared';
+import { useWriterIdentity } from './use-writer-identity';
 
 /** A product as its drawer holds one. */
 export interface InsecticideFields {
@@ -132,8 +114,9 @@ function insecticideReferenceChanges(
 	return changes;
 }
 
+/** The five catalog writes for insecticides: create, save, deactivate, reactivate and delete. */
 export function useInsecticideMutations(): InsecticideMutations {
-	const { organizationId, actorProfileId } = useProductWriterIdentity();
+	const { organizationId, actorProfileId } = useWriterIdentity();
 
 	const create = async (fields: InsecticideFields) => {
 		if (organizationId === null) {
@@ -224,85 +207,10 @@ export interface InsecticideBatchMutations {
 	readonly canWrite: boolean;
 }
 
-const batchCommands: CatalogCommandNames = {
+export const batchCommands: CatalogCommandNames = {
 	create: 'controlOperations.createInsecticideBatch',
 	update: 'controlOperations.updateInsecticideBatch',
 	deactivate: 'controlOperations.deactivateInsecticideBatch',
 	reactivate: 'controlOperations.reactivateInsecticideBatch',
 	remove: 'controlOperations.deleteInsecticideBatch',
 };
-
-export function useInsecticideBatchMutations(): InsecticideBatchMutations {
-	const { organizationId, actorProfileId } = useProductWriterIdentity();
-
-	const create = async (fields: InsecticideBatchFields) => {
-		if (organizationId === null) {
-			throw new Error('Your profile is still loading.');
-		}
-		const now = optimisticStamp();
-		const row = {
-			id: newRecordId(),
-			organization_id: organizationId,
-			insecticide_id: fields.insecticideId,
-			batch_name: fields.batchName,
-			is_active: fields.isActive,
-			created_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-			created_at: now,
-			updated_at: now,
-		} satisfies InsecticideBatch;
-		await createCatalogRow(insecticide_batches(), batchCommands, row);
-		return row.id;
-	};
-
-	const save = async (
-		id: string,
-		fields: InsecticideBatchFields,
-		current: InsecticideBatchFields,
-		acknowledgements: Readonly<Record<string, boolean>> = {},
-	) => {
-		// Only the name: `updateInsecticideBatch` does not move a batch between
-		// products, because an application already recorded against it was made
-		// with what was in that tin.
-		const changes: Partial<InsecticideBatch> = {};
-		if (fields.batchName !== current.batchName) {
-			changes.batch_name = fields.batchName;
-		}
-		await saveCatalogRow(insecticide_batches(), batchCommands, id, {
-			changes,
-			isActive: fields.isActive,
-			wasActive: current.isActive,
-			// The name is the whole of what an application's batch link reads back
-			// under, so retiring a batch on its own answers nothing.
-			...(changes.batch_name === undefined
-				? {}
-				: {
-						acknowledgements: {
-							acknowledgedHistoricalBatchLabelChange:
-								acknowledgements.acknowledgedHistoricalBatchLabelChange === true,
-						},
-					}),
-		});
-	};
-
-	return {
-		create,
-		save,
-		setActive: (id, isActive) =>
-			setCatalogRowActive(insecticide_batches(), batchCommands, id, isActive),
-		remove: (id) => deleteCatalogRow(insecticide_batches(), batchCommands, id),
-		canWrite: canAttributeWrite({ organization: organizationId, actorProfileId }),
-	};
-}
-
-function useProductWriterIdentity(): {
-	readonly organizationId: string | null;
-	readonly actorProfileId: string | null;
-} {
-	const auth = useAuthSnapshot();
-	const identity = auth?.authenticated === true ? auth.localIdentity : null;
-	return {
-		organizationId: identity?.organizationId ?? null,
-		actorProfileId: identity?.profileId ?? null,
-	};
-}

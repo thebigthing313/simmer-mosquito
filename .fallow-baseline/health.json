@@ -265,22 +265,22 @@
         "count": 1
       }
     },
-    "apps/web/src/components/map/use-map-draw.ts": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/components/map/use-map-measure.ts": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/components/pickers/new-address-form.tsx": {
       "complexity_moderate": {
         "count": 1
       }
     },
     "apps/web/src/components/route-planning/route-detail-page.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/hooks/map/use-map-draw.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/hooks/map/use-map-measure.ts": {
       "complexity_moderate": {
         "count": 1
       }
@@ -331,6 +331,11 @@
     },
     "apps/web/src/hooks/mutations/use-source-reduction-mutations.ts": {
       "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/src/hooks/operations/use-assignment-targets.ts": {
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -471,11 +476,6 @@
         "count": 1
       },
       "crap_critical": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/operations/assignments/-assignment-data.ts": {
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -746,6 +746,7 @@
     "apps/web/src/components/map/map-canvas.tsx:complexity",
     "apps/web/src/components/comments-section.tsx:complexity",
     "apps/web/src/routes/operations/assignments/create.tsx:complexity",
+    "apps/web/src/lib/search-filters.ts:high impact",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
     "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",

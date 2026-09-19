@@ -29,7 +29,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ActivityLayerConfig } from '../../../../components/map/use-activity-layer';
+import type { ActivityLayerConfig } from '../../../../hooks/map/use-activity-layer';
 import { organizations } from '../../../../lib/collections/organizations';
 import { profiles } from '../../../../lib/collections/profiles';
 import { tags } from '../../../../lib/collections/tags';

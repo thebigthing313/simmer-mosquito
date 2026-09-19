@@ -90,8 +90,15 @@ vi.mock('../../../../components/explorer', async (importOriginal) => ({
 			readonly renderRow: (row: unknown) => ReactNode;
 		};
 	}) => <div>{results.rows.map((row) => results.renderRow(row))}</div>,
+}));
+
+vi.mock('../../../../hooks/explorer/use-explorer-panel', () => ({
 	useExplorerPanel: () => ({ inset: undefined, width: 0 }),
+}));
+vi.mock('../../../../hooks/explorer/use-date-range-filters', () => ({
 	useDateRangeFilters: () => ({}),
+}));
+vi.mock('../../../../hooks/explorer/use-explorer-resource', () => ({
 	useExplorerResource: () => ({
 		rows: [AD_HOC],
 		total: 1,
@@ -103,7 +110,11 @@ vi.mock('../../../../components/explorer', async (importOriginal) => ({
 		setPage: () => undefined,
 		selected: null,
 	}),
+}));
+vi.mock('../../../../hooks/explorer/use-region-options', () => ({
 	useRegionOptions: () => ({ options: [], nameById: new Map() }),
+}));
+vi.mock('../../../../hooks/explorer/use-species-options', () => ({
 	useSpeciesOptions: () => ({ options: [], nameById: new Map() }),
 }));
 
@@ -119,13 +130,15 @@ vi.mock('../../../../hooks/queries/use-sample-identifications', () => ({
 
 // --- the larval overview -----------------------------------------------------
 
-vi.mock('../../../../routes/larval-surveillance/-overview-data', () => ({
+vi.mock('../../../../hooks/larval-surveillance/use-samples-awaiting', () => ({
 	useSamplesAwaiting: () => ({
 		samples: [AD_HOC],
 		total: 1,
 		isLoading: false,
 		isError: false,
 	}),
+}));
+vi.mock('../../../../hooks/larval-surveillance/use-species-composition', () => ({
 	useSpeciesComposition: () => ({ totals: [], grandTotal: 0, isReady: true, isError: false }),
 }));
 

@@ -3,7 +3,7 @@ import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
@@ -11,47 +11,25 @@ import {
 	ExplorerRow,
 	FilterChip,
 	SegmentedFilter,
-	useExplorerPanel,
 } from '../../../components/explorer';
 import {
 	MapCanvas,
 	type MapLegendEntry,
 	WEATHER_STATION_STATUS_COLORS,
 } from '../../../components/map';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useFlyToStation } from '../../../hooks/gis/use-fly-to-station';
+import { useStationFilters } from '../../../hooks/gis/use-station-filters';
 import type { WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useWeatherStations } from '../../../hooks/queries/use-weather-stations';
 import type { RecordType } from '../../../lib/record-nouns';
 import { recordNoun } from '../../../lib/record-nouns';
-import {
-	choiceParam,
-	type FilterCodecs,
-	searchValidator,
-	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
-} from '../../../lib/search-filters';
+import { searchValidator } from '../../../lib/search-filters';
 import type { StatusFilter } from './-legend';
 import { weatherStationLegend } from './-legend';
+import { STATION_FILTER_CODECS, type StationFilterState } from './-station-filters';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { WeatherStationMapCard } from './-weather-station-map-card';
-
-interface StationFilters {
-	readonly search: string;
-	readonly status: StatusFilter;
-}
-
-const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
-
-/*
- * Active by default, matching Traps. A retired station keeps its readings and
- * stays reportable, so it is history rather than work, and a map that opens on
- * every station an organization ever ran is a map nobody can read.
- */
-const STATION_FILTER_DEFAULTS: StationFilters = { search: '', status: 'active' };
-const STATION_FILTER_CODECS: FilterCodecs<StationFilters> = {
-	search: textParam,
-	status: choiceParam(STATUS_VALUES, STATION_FILTER_DEFAULTS.status),
-};
 
 const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },
@@ -166,20 +144,6 @@ function emptyState(isFiltered: boolean): {
 			};
 }
 
-/** Fly to a station when it becomes focused, from either the list or the map. */
-function useFlyToStation(map: MapboxMap | null, focused: PlottedStation | null) {
-	useEffect(() => {
-		if (map === null || focused === null) {
-			return;
-		}
-		map.flyTo({
-			center: [focused.lng, focused.lat],
-			zoom: Math.max(map.getZoom(), 12),
-			duration: 600,
-		});
-	}, [map, focused]);
-}
-
 /** The map, and the card for whichever station is focused. */
 function StationMap({
 	bounds,
@@ -274,59 +238,6 @@ function stationFeatures(plotted: readonly PlottedStation[]): GeoJSON.GeoJSON | 
 
 function stationColor(isActive: boolean): string {
 	return isActive ? WEATHER_STATION_STATUS_COLORS.active : WEATHER_STATION_STATUS_COLORS.inactive;
-}
-
-/**
- * The filter state, on the URL, so a shared link and Back out of a station both
- * land on the list the operator had narrowed to.
- */
-function useStationFilters(): StationFilterState {
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount: activeFilterCount,
-	} = useSearchFilters(STATION_FILTER_DEFAULTS, STATION_FILTER_CODECS);
-	const commitSearch = (next: string) => setFilters({ search: next });
-	const {
-		input: value,
-		setInput: onChange,
-		clear: clearSearchInput,
-	} = useDebouncedTextFilter(query.search, commitSearch);
-
-	// Both halves: the field the operator is looking at, and the committed term on
-	// the URL that is actually cutting the list.
-	const onClearSearch = () => {
-		clearSearchInput();
-		commitSearch('');
-	};
-	const onClearAll = () => {
-		clearSearchInput();
-		reset();
-	};
-
-	return {
-		activeFilterCount,
-		onChange,
-		onClearAll,
-		onClearSearch,
-		onStatusChange: (next: StatusFilter) => setFilters({ status: next }),
-		search: query.search,
-		status: query.status,
-		value,
-	};
-}
-
-interface StationFilterState {
-	readonly activeFilterCount: number;
-	readonly onChange: (next: string) => void;
-	readonly onClearAll: () => void;
-	readonly onClearSearch: () => void;
-	readonly onStatusChange: (next: StatusFilter) => void;
-	readonly search: string;
-	readonly status: StatusFilter;
-	/** The search box's own value, which runs ahead of the committed term. */
-	readonly value: string;
 }
 
 /** The two controls this surface filters by, and the chips that undo them. */

@@ -1,7 +1,6 @@
 import { SplitPage } from '@simmer-mosquito/ui-web/components/app-shell/outlet/split-page';
 import type React from 'react';
 import { MapCanvas } from '../../map';
-
 /**
  * A split layout for map-paired record work: the routed content (a list, detail,
  * or form column) owns the left half while a persistent map owns the right.

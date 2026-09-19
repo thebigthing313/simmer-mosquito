@@ -5,7 +5,7 @@ import type {
 	DuplicateReason,
 	DuplicateRecordType,
 	MergeableRecordType,
-} from '../../hooks/use-merge-candidates';
+} from '../../hooks/merge-candidate-view';
 import { formatListDate, todayInTimeZone } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 

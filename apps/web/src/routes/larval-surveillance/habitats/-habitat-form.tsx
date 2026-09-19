@@ -10,13 +10,13 @@ import { getServerUrl } from '../../../auth';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { WriteOnly } from '../../../components/write-only';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
-import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 export const noHabitatTypeValue = 'none';
@@ -306,4 +306,4 @@ function habitatTypeOptions(habitatTypes: readonly SchemaCatalogListing[]) {
 	];
 }
 
-export type { DrawGeometry } from '../../../components/map/use-map-draw';
+export type { DrawGeometry } from '../../../hooks/map/use-map-draw';

@@ -13,12 +13,6 @@ import {
 	FilterGrid,
 	MultiSelectFilter,
 	toggle,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	usePersonnelOptions,
-	useRegionOptions,
-	useSourceReductionMethodOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
@@ -29,9 +23,16 @@ import {
 	type MapTileLayer,
 	type SourceReductionTileFilters,
 } from '../../../components/map';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useSourceReductionMethodOptions } from '../../../hooks/explorer/use-source-reduction-method-options';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
@@ -40,7 +41,6 @@ import {
 	type FilterCodecs,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
 import { formatAmount } from '../-control-display';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';

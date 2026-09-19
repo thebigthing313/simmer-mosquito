@@ -24,6 +24,8 @@ import {
 	speciesWindowSince,
 } from '../../components/species-composition-panel';
 import { WeekDayStrip } from '../../components/week-day-strip';
+import { useSamplesAwaiting } from '../../hooks/larval-surveillance/use-samples-awaiting';
+import { useSpeciesComposition } from '../../hooks/larval-surveillance/use-species-composition';
 import {
 	inspectionHabitatLabel,
 	inspectionTypeLabel,
@@ -36,7 +38,6 @@ import { adhocLabel } from '../../lib/coordinate-label';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 import type { InspectionsSearch } from './-inspections-search';
-import { useSamplesAwaiting, useSpeciesComposition } from './-overview-data';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 const ACTIVITY_WINDOW_DAYS = 14;

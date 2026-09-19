@@ -54,8 +54,7 @@
 import type { MultiRowCommandType, SingleRowCommandType } from '@simmer-mosquito/domain';
 import { CommandError, writeCommand } from '@simmer-mosquito/sync';
 import { getServerUrl } from '../../auth';
-import type { MergeableRecordType } from '../use-merge-candidates';
-
+import type { MergeableRecordType } from '../merge-candidate-view';
 /**
  * Values carried onto the survivor as part of the merge.
  *

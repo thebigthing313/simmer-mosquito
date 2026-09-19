@@ -8,13 +8,15 @@ import {
 import { useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import { useNotificationTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
-import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import {
+	NO_ASSIGNEE,
+	NO_METHOD,
+	NO_NOTIFICATION_TYPE,
+	useMissionFormOptions,
+} from '../../../hooks/operations/use-mission-form-options';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { localTimeAsInstant, localTimeOfDay, todayInTimeZone } from '../../../lib/local-date';
 import { ControlTypeToggle } from '../-control-type-toggle';
-import { useMethodsForControlType } from '../-operations-data';
 
 /**
  * The mission form, shared by scheduling one and editing one.
@@ -29,11 +31,6 @@ import { useMethodsForControlType } from '../-operations-data';
  * Stops are not here either. A mission's stops are added on its own page, where
  * there is a map to place them against.
  */
-
-/** Non-empty sentinels: Radix Select forbids empty-string item values. */
-const NO_METHOD = 'none';
-const NO_ASSIGNEE = 'none';
-const NO_NOTIFICATION_TYPE = 'none';
 
 const DEFAULT_START_TIME = '08:00';
 
@@ -377,40 +374,6 @@ export function MissionFormPage({
 			</RecordFormPage>
 		</form.AppForm>
 	);
-}
-
-/** The three catalogs the form picks from, each with its own "unset" first. */
-function useMissionFormOptions(controlType: ControlType) {
-	const { methods } = useMethodsForControlType(controlType);
-	const profiles = useProfileRoster();
-	const notificationTypes = useNotificationTypeRoster();
-
-	return {
-		methods: [
-			{ label: 'No planned method', value: NO_METHOD },
-			...lifecycleOptions(
-				methods,
-				(method) => method.isActive,
-				(method) => method.name,
-			),
-		],
-		assignees: [
-			{ label: 'Unassigned', value: NO_ASSIGNEE },
-			...lifecycleOptions(
-				profiles,
-				(profile) => profile.isActive,
-				(profile) => profile.displayName,
-			),
-		],
-		notificationTypes: [
-			{ label: 'No notifications', value: NO_NOTIFICATION_TYPE },
-			...lifecycleOptions(
-				notificationTypes,
-				(type) => type.isActive,
-				(type) => type.name,
-			),
-		],
-	};
 }
 
 /** Adapts the caller's builder to the form's `{ value }` validator signature. */

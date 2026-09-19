@@ -22,14 +22,13 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
-import {
-	ActiveFilterBar,
-	ExplorerMapPage,
-	FilterChip,
-	useExplorerPanel,
-} from '../../../components/explorer';
+import { ActiveFilterBar, ExplorerMapPage, FilterChip } from '../../../components/explorer';
 import { MapCanvas, type MapTileLayer } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useRegionDnd } from '../../../hooks/gis/use-region-dnd';
+import { useRegionEdits } from '../../../hooks/gis/use-region-edits';
+import { type RegionRename, useRegionRename } from '../../../hooks/gis/use-region-rename';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
 	type RegionListing,
@@ -39,14 +38,10 @@ import {
 	type RegionFolderListing,
 	useRegionFolders,
 } from '../../../hooks/queries/use-region-folders';
+import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	type FilterCodecs,
-	searchValidator,
-	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
-} from '../../../lib/search-filters';
+import { type FilterCodecs, searchValidator, textParam } from '../../../lib/search-filters';
 import { RegionFolderDialog } from './-folder-dialog';
 import {
 	isHoveredDropTarget,
@@ -54,10 +49,8 @@ import {
 	type RegionDnd,
 	type RegionDropTarget,
 	regionDropZoneProps,
-	useRegionDnd,
 } from './-region-dnd';
 import { RegionMapCard } from './-region-map-card';
-import { type RegionRename, useRegionRename } from './-region-rename';
 import { type FolderMatch, groupByFolder, type RegionTree, searchTree } from './-region-tree';
 
 interface RegionFilters {
@@ -255,51 +248,6 @@ function withIds(
 		}
 	}
 	return next;
-}
-
-/**
- * The two writes the tree makes in place.
- *
- * Both are guarded on the current row rather than sent blindly. Renaming a
- * region to the name it already has is a command with nothing to change, which
- * the domain refuses, and a drag that lands a region back in its own folder is
- * the same. The `null` folder means unfiled, which is why the move guard
- * compares the value rather than asking whether one arrived.
- *
- * The rows arrive as a value rather than through a ref. The ref existed to keep
- * these two handlers stable while still reading the latest rows, and writing it
- * during render is what the compiler refuses (`Refs`, #823). Naming `regions` in
- * the dependency lists is the honest form: the handlers read the rows, so they
- * change when the rows do, and nothing downstream depends on them not changing.
- */
-function useRegionEdits(
-	mutations: ReturnType<typeof useRegionMutations>,
-	regions: readonly RegionListing[],
-) {
-	const renameRegion = async (id: string, rawName: string) => {
-		const name = rawName.trim();
-		const current = regions.find((region) => region.id === id);
-		if (current === undefined || name.length === 0 || name === current.name) {
-			return;
-		}
-		try {
-			await mutations.rename(id, name);
-		} catch {
-			// Optimistic mutation rolled back; the tree already shows the synced name.
-		}
-	};
-	const moveRegion = async (id: string, folderId: string | null) => {
-		const current = regions.find((region) => region.id === id);
-		if (current === undefined || current.folderId === folderId) {
-			return;
-		}
-		try {
-			await mutations.move(id, folderId);
-		} catch {
-			// Optimistic mutation rolled back; the tree already shows the prior folder.
-		}
-	};
-	return { moveRegion, renameRegion };
 }
 
 function RegionsExplorerRoute() {

@@ -44,16 +44,16 @@ import { densityLabel, type LifeStageFlags } from '../../../components/larval-di
 import { MapCanvas } from '../../../components/map';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField } from '../../../forms/location-band';
+import { useHabitatLabel } from '../../../hooks/larval-surveillance/use-habitat-label';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
-import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
-import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useHabitatSearch } from '../../../hooks/queries/use-habitat-search';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -801,18 +801,6 @@ function SelectedHabitat({ habitatId }: { readonly habitatId: string | null }) {
 
 // --- habitat picker ---------------------------------------------------------
 
-/**
- * The display label for a habitat known only by id, or '' while it resolves.
- *
- * One id through the shared lookup rather than its own `findOne`: the naming rule
- * — a Habitat with no name reads out its coordinates — lives in one place, and a
- * form that already has the site in view pays nothing to ask again.
- */
-function useHabitatLabel(habitatId: string | null): string {
-	const names = useHabitatNames(habitatId === null ? [] : [habitatId]);
-	return habitatId === null ? '' : (names.get(habitatId) ?? '');
-}
-
 function HabitatPicker({
 	organizationId,
 	value,
@@ -1136,4 +1124,4 @@ export function inspectionResultOf(values: InspectionFormValues): InspectionResu
 	};
 }
 
-export type { DrawGeometry } from '../../../components/map/use-map-draw';
+export type { DrawGeometry } from '../../../hooks/map/use-map-draw';

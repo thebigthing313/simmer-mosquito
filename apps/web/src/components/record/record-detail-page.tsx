@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import type { RecordType } from '../../lib/record-nouns';
-import { type AskAcknowledged, useAcknowledgedWrite } from '../acknowledged-write';
 import { detailBodyClass } from './detail-page-shell';
 import type { RecordDetailLayout } from './record-detail-layout';
 import { RecordDetailSkeleton } from './record-detail-skeleton';

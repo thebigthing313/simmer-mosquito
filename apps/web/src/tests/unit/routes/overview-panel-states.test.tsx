@@ -69,9 +69,12 @@ vi.mock('../../../hooks/queries/use-heavy-larval-activity', () => ({
 	useHeavyLarvalActivity: () => ({ rows: [], ...reading() }),
 }));
 
-vi.mock('../../../routes/larval-surveillance/-overview-data', () => ({
+vi.mock('../../../hooks/larval-surveillance/use-species-composition', () => ({
 	useSpeciesComposition: () => ({ totals: [], grandTotal: 0, ...reading() }),
-	// The one hook exposing `isLoading` rather than `isReady`.
+}));
+
+// The one hook exposing `isLoading` rather than `isReady`.
+vi.mock('../../../hooks/larval-surveillance/use-samples-awaiting', () => ({
 	useSamplesAwaiting: () => ({
 		samples: [],
 		total: 0,
@@ -112,8 +115,10 @@ vi.mock('../../../hooks/queries/use-insecticide-usage', () => ({
 	useInsecticideUsage: () => ({ usage: [], ...reading() }),
 }));
 
-vi.mock('../../../hooks/queries/use-recent-control-actions', () => ({
+vi.mock('../../../hooks/queries/use-recent-source-reductions', () => ({
 	useRecentSourceReductions: () => ({ actions: [], ...reading() }),
+}));
+vi.mock('../../../hooks/queries/use-recent-biocontrol-actions', () => ({
 	useRecentBiocontrolActions: () => ({ actions: [], ...reading() }),
 }));
 
@@ -219,7 +224,7 @@ vi.mock('../../../hooks/queries/use-profile-roster', () => ({
 	useProfileRoster: () => [],
 }));
 
-vi.mock('../../../components/explorer/use-control-method-options', () => ({
+vi.mock('../../../hooks/explorer/use-control-method-names', () => ({
 	useControlMethodNames: () => new Map<string, string>(),
 }));
 

@@ -9,7 +9,8 @@ import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { useState } from 'react';
 import type { OrganizationFoundations } from '../../../api';
 import { GeometryFileInput, PointInput } from '../../../components/geometry-input';
-import type { LookupKind, useCreateFoundation } from './-foundations-data';
+import type { useCreateFoundation } from '../../../hooks/mutations/use-create-foundation';
+import type { LookupKind } from '../../../hooks/queries/use-organization-foundations';
 
 /**
  * The six create forms the foundations page opens, one per foundation kind.

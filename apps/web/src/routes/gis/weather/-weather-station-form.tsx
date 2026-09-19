@@ -4,8 +4,6 @@ import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -13,6 +11,8 @@ import {
 } from '../../../forms/domain-validation';
 import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { LocationBand } from '../../../forms/location-band';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { WeatherStationFields } from '../../../hooks/mutations/use-weather-station-mutations';
 
 /**
@@ -214,4 +214,4 @@ function MapLegend({ mode }: { readonly mode: 'create' | 'edit' }) {
 	);
 }
 
-export type { DrawGeometry } from '../../../components/map/use-map-draw';
+export type { DrawGeometry } from '../../../hooks/map/use-map-draw';

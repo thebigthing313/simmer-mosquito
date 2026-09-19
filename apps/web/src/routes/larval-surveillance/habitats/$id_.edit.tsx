@@ -4,17 +4,15 @@ import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
-import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { toDrawGeometry } from '../../../hooks/map/use-map-draw';
 import {
 	type HabitatRedraw,
 	useHabitatMutations,
 } from '../../../hooks/mutations/use-habitat-mutations';
-import {
-	type SchemaCatalogListing,
-	useHabitatTypeRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import { type HabitatRecord, useHabitatRecord } from '../../../hooks/queries/use-habitat-record';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';

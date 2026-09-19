@@ -1,16 +1,14 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
-import { activityGcTimeMs, unmatchableId } from '../../../hooks/queries/shared';
+import { useOpenServiceRequests } from '../../../hooks/operations/use-open-service-requests';
+import { useRequestAddresses } from '../../../hooks/operations/use-request-addresses';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import { type TrapListing, useActiveTraps } from '../../../hooks/queries/use-active-traps';
-import { addresses } from '../../../lib/collections/addresses';
 import { TrapPicker } from '../../adult-surveillance/-adult-pickers';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
-import type { OpenServiceRequest, TargetType } from './-assignment-data';
-import { useOpenServiceRequests } from './-assignment-data';
+import type { TargetType } from './-assignment-data';
 
 // Adding a stop to a worklist. An assignment mixes traps, habitats, and service
 // requests freely, so the control is a type switch over three pickers rather than
@@ -285,28 +283,4 @@ function ServiceRequestPicker({
 			)}
 		</PickerFrame>
 	);
-}
-
-/**
- * The addresses the open requests name themselves by.
- *
- * A request has no name of its own, so the picker is unusable until these
- * resolve. Addresses sync on demand (docs/sync.md), so this is a bounded subset
- * over exactly the request set — the same second-level join the stop list does.
- */
-function useRequestAddresses(requests: readonly OpenServiceRequest[]): ReadonlyMap<string, string> {
-	const addressIds = [...new Set(requests.map((request) => request.addressId))];
-
-	const result = useLiveQuery({
-		gcTime: activityGcTimeMs,
-		query: (query) =>
-			query
-				.from({ address: addresses() })
-				.where(({ address }) =>
-					inArray(address.id, addressIds.length > 0 ? addressIds : [unmatchableId]),
-				)
-				.select(({ address }) => ({ id: address.id, displayName: address.display_name })),
-	});
-
-	return new Map(result.data.map((address) => [address.id, address.displayName]));
 }

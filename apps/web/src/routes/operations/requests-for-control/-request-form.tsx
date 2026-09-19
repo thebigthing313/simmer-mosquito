@@ -9,15 +9,14 @@ import {
 import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
+import { useMethodsForControlType } from '../../../hooks/operations/use-methods-for-control-type';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
 import { ControlTypeToggle } from '../-control-type-toggle';
-import { useMethodsForControlType } from '../-operations-data';
-
 /**
  * The request-for-control form, shared by raising one and editing one.
  *

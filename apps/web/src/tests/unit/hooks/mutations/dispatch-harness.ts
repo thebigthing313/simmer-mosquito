@@ -30,7 +30,7 @@
 import { renderHook } from '@testing-library/react';
 import { expect, vi } from 'vitest';
 import { getServerUrl } from '../../../../auth';
-import { useAcknowledgedWrite } from '../../../../components/acknowledged-write';
+import { useAcknowledgedWrite } from '../../../../hooks/use-acknowledged-write';
 
 /** What a hook handed `mutateCollection`, and which collection it named. */
 export interface DispatchedWrite {

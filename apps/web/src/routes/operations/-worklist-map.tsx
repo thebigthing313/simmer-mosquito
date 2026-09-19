@@ -7,8 +7,9 @@ import {
 import { LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { MapCanvas, type RouteStopFeature } from '../../components/map';
+import { MapCanvas } from '../../components/map';
 import { MapControlButton, MapControlGroup } from '../../components/map/map-control';
+import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
 /**

@@ -1,20 +1,3 @@
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
-
-/**
- * Explorer filter state, held in the URL rather than in the component.
- *
- * An explorer's filters are part of where the operator is, not just how the page
- * looks. Held in component state they are lost the moment anything navigates:
- * open a record, press Back, and the list they had narrowed to comes back reset.
- * They also cannot be handed to a colleague, or kept in a bookmark, or reached
- * again after a reload.
- *
- * A filter change replaces the history entry rather than pushing one, so Back
- * still means "the page before this one" instead of walking backwards through
- * every checkbox the operator ticked.
- */
-
 export interface SearchCodec<TValue> {
 	/** Read a raw search value. Must never throw — a hand-edited URL is input. */
 	readonly decode: (raw: unknown) => TValue | undefined;
@@ -63,64 +46,6 @@ export interface FilterCounting<TFilters> {
  * the grouping is the same declaration on all of them.
  */
 export const DATE_RANGE_COUNTING = { groups: [['from', 'to']] } as const;
-
-/**
- * Bind a filter set to the current route's search params.
- *
- * `defaults`, `codecs` and `counting` must be stable across renders — module
- * constants, or `useMemo`'d where a default is derived (today's date, say).
- */
-export function useSearchFilters<TFilters extends object>(
-	defaults: TFilters,
-	codecs: FilterCodecs<TFilters>,
-	counting?: FilterCounting<TFilters>,
-): SearchFilters<TFilters> {
-	const search = useSearch({ strict: false }) as Record<string, unknown>;
-	const navigate = useNavigate();
-
-	const filters = resolveFilters(defaults, codecs, search);
-
-	const setFilters = (patch: Partial<TFilters>) => {
-		navigate({
-			replace: true,
-			search: (previous: Record<string, unknown>) => {
-				const result: Record<string, unknown> = { ...previous };
-				for (const key of filterKeys(patch)) {
-					const value = patch[key];
-					if (value === undefined) {
-						continue;
-					}
-					const encoded = codecs[key].encode(value);
-					if (encoded === undefined) {
-						delete result[key];
-					} else {
-						result[key] = encoded;
-					}
-				}
-				return result;
-			},
-			// This navigates within whatever route mounted the hook, which the
-			// router's typed `to` cannot express from a shared helper.
-		} as never);
-	};
-
-	const reset = () => {
-		navigate({
-			replace: true,
-			search: (previous: Record<string, unknown>) => {
-				const result: Record<string, unknown> = { ...previous };
-				for (const key of filterKeys(defaults)) {
-					delete result[key];
-				}
-				return result;
-			},
-		} as never);
-	};
-
-	const activeCount = countActiveFilters(defaults, filters, counting);
-
-	return { filters, setFilters, reset, activeCount };
-}
 
 /**
  * How many of a surface's filters are set.
@@ -185,11 +110,11 @@ function isDefaultValue(value: unknown, fallback: unknown): boolean {
 
 type Mutable<TValue> = { -readonly [Key in keyof TValue]: TValue[Key] };
 
-function filterKeys<TFilters extends object>(source: TFilters): (keyof TFilters & string)[] {
+export function filterKeys<TFilters extends object>(source: TFilters): (keyof TFilters & string)[] {
 	return Object.keys(source) as (keyof TFilters & string)[];
 }
 
-function resolveFilters<TFilters extends object>(
+export function resolveFilters<TFilters extends object>(
 	defaults: TFilters,
 	codecs: FilterCodecs<TFilters>,
 	raw: Record<string, unknown>,
@@ -228,55 +153,6 @@ export function searchValidator<TFilters extends object>(
 		}
 		return result;
 	};
-}
-
-/**
- * A text filter that types locally and lands in the URL on a pause.
- *
- * Committing per keystroke would put a navigation behind every letter, and the
- * list would re-query on each one. `clear` only resets the input — the caller's
- * `reset` is what drops the param.
- */
-export function useDebouncedTextFilter(
-	urlValue: string,
-	commit: (next: string) => void,
-	delayMs = 250,
-): {
-	readonly input: string;
-	readonly setInput: (next: string) => void;
-	readonly clear: () => void;
-} {
-	const [input, setInputState] = useState(urlValue);
-	const timer = useRef<number | undefined>(undefined);
-	const isEditing = useRef(false);
-
-	// Back/forward, or a filter reset, changes the URL from outside. Adopt it
-	// unless the operator is mid-edit, which would yank the text they are typing.
-	useEffect(() => {
-		if (!isEditing.current) {
-			setInputState(urlValue);
-		}
-	}, [urlValue]);
-
-	useEffect(() => () => window.clearTimeout(timer.current), []);
-
-	const setInput = (next: string) => {
-		setInputState(next);
-		isEditing.current = true;
-		window.clearTimeout(timer.current);
-		timer.current = window.setTimeout(() => {
-			isEditing.current = false;
-			commit(next.trim());
-		}, delayMs);
-	};
-
-	const clear = () => {
-		window.clearTimeout(timer.current);
-		isEditing.current = false;
-		setInputState('');
-	};
-
-	return { input, setInput, clear };
 }
 
 // --- codecs -----------------------------------------------------------------

@@ -435,12 +435,12 @@ const NOUN_CONSUMERS = [
 	{ name: 'ExplorerHeader', module: 'components/explorer/explorer-header.tsx', prop: 'counts' },
 	{
 		name: 'usePagedMapResource',
-		module: 'components/explorer/use-paged-map-resource.ts',
+		module: 'hooks/explorer/use-paged-map-resource.ts',
 		prop: 'recordType',
 	},
 	{
 		name: 'useExplorerResource',
-		module: 'components/explorer/use-explorer-resource.ts',
+		module: 'hooks/explorer/use-explorer-resource.ts',
 		prop: 'recordType',
 	},
 ];

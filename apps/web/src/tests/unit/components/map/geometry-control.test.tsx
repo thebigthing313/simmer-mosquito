@@ -12,13 +12,10 @@
 import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { MapDrawController } from '../../../../components/map/draw-controller';
 import { DrawToolbar, GeometryControl } from '../../../../components/map/geometry-control';
-import type {
-	DrawGeometryType,
-	DrawPartGeometry,
-	MapDrawController,
-} from '../../../../components/map/use-map-draw';
-import { geometryFromParts } from '../../../../components/map/use-map-draw';
+import type { DrawGeometryType, DrawPartGeometry } from '../../../../hooks/map/use-map-draw';
+import { geometryFromParts } from '../../../../hooks/map/use-map-draw';
 
 afterEach(cleanup);
 

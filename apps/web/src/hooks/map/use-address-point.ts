@@ -1,0 +1,89 @@
+import { useEffect, useRef, useState } from 'react';
+import type { DrawGeometry } from './use-map-draw';
+/** A finished point geometry, the only shape an address can produce. */
+export type DrawPoint = DrawGeometry & { readonly type: 'Point' };
+
+export interface AddressCoord {
+	readonly lat: number;
+	readonly lng: number;
+}
+
+export interface AddressPointController {
+	/** The picked address's coordinate, or null when no address is selected. */
+	readonly addressCoord: AddressCoord | null;
+	/** Wire to the address picker's `onSelect`, alongside the form field update. */
+	readonly selectAddress: (address: AddressPoint | null) => void;
+	/** Wire to the "move to address" affordance; a no-op with no address picked. */
+	readonly moveToAddress: () => void;
+}
+
+/**
+ * The address to location rule the record forms share. Picking an address
+ * remembers its coordinate and, only when the form has no geometry yet, places
+ * a point there through `onPlacePoint`. Geometry already drawn is never
+ * replaced; `moveToAddress` is the explicit act that moves the record onto it.
+ */
+export function useAddressPoint({
+	geometry,
+	onPlacePoint,
+}: {
+	readonly geometry: DrawGeometry | null;
+	readonly onPlacePoint: (point: DrawPoint) => void;
+}): AddressPointController {
+	const [addressCoord, setAddressCoord] = useState<AddressCoord | null>(null);
+	// Read through refs so neither callback closes over a stale geometry: a form
+	// re-renders as the user draws, and seeding against the geometry as it was at
+	// the last render is what would replace a shape the user had already put down.
+	const geometryRef = useRef(geometry);
+	const placeRef = useRef(onPlacePoint);
+	// The writes are an effect rather than render-phase assignments, which is what
+	// the React Compiler permits. Every read below happens after a commit, from an
+	// effect or from a Mapbox or user event, so the value each one sees is unchanged.
+	// The effect is declared above its readers, so the write lands first inside one
+	// commit.
+	useEffect(() => {
+		geometryRef.current = geometry;
+		placeRef.current = onPlacePoint;
+	});
+
+	const selectAddress = (address: AddressPoint | null) => {
+		const coord = addressCoordOf(address);
+		setAddressCoord(coord);
+		if (coord !== null && geometryRef.current === null) {
+			placeRef.current(pointAt(coord));
+		}
+	};
+
+	const moveToAddress = () => {
+		if (addressCoord === null) {
+			return;
+		}
+		placeRef.current(pointAt(addressCoord));
+	};
+
+	return { addressCoord, selectAddress, moveToAddress };
+}
+
+/** An address's synced centroid, or null when it is cleared or not yet streamed. */
+export function addressCoordOf(address: AddressPoint | null): AddressCoord | null {
+	if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
+		return null;
+	}
+	return { lat: address.lat, lng: address.lng };
+}
+
+export function pointAt(coord: AddressCoord): DrawPoint {
+	return { type: 'Point', coordinates: [coord.lng, coord.lat] };
+}
+
+/**
+ * The part of a picked address this needs.
+ *
+ * Structural rather than the row type: what arrives here is the picker's
+ * projection, and what this does with it is read two numbers.
+ */
+export interface AddressPoint {
+	/** Optional because a row can reach here before its centroid has streamed. */
+	readonly lat?: number | null;
+	readonly lng?: number | null;
+}

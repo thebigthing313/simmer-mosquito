@@ -10,7 +10,7 @@ import {
 	entryKeyFor,
 	type TallyEntry,
 	type TallyVariant,
-} from '../../components/key-entry/use-key-entry-tally';
+} from '../../hooks/key-entry/use-key-entry-tally';
 import { newRecordId } from '../../hooks/mutations/shared';
 import { useCollectionSpeciesMutations } from '../../hooks/mutations/use-collection-species-mutations';
 import {

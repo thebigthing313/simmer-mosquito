@@ -6,8 +6,8 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { AdminOrganization } from '../../api';
 import { AdminError, AdminPage } from '../../components/admin-page';
 import { CatalogBody } from '../../components/catalog';
+import { useOrganizations } from '../../hooks/queries/use-organizations';
 import { subscriptionTone } from '../../lib/tones';
-import { useOrganizations } from './-organization-data';
 
 const OrganizationIcon = iconRegistry.entities.organization.icon;
 const AddIcon = iconRegistry.actions.add.icon;

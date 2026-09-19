@@ -1,5 +1,4 @@
 import type { RoutePlanningSurface } from '../../../../components/route-planning';
-
 /** Route planning over traps. */
 export const trapRouteSurface: RoutePlanningSurface = {
 	routeType: 'trap',

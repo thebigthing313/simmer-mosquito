@@ -1,5 +1,5 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import type { RouteStopFeature } from '../map/use-route-layer';
+import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 
 /**
  * The tone vocabulary is the map layer's, so a stop's pin and its list badge can

@@ -11,7 +11,7 @@
  *
  * `tag_items.entity_id` is globally unique across every taggable table, so a
  * single-id lookup needs no entity-type discriminator. Compare
- * `components/explorer/use-entity-tags.ts`, which does take one — because it asks
+ * `hooks/explorer/use-entity-tags.ts`, which does take one, because it asks
  * about a page of records at once and the type is what bounds that subset.
  */
 

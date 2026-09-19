@@ -45,7 +45,7 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
  * Below this the filter is noise — you can see the whole list already.
  *
  * `apps/web` declares the same number in
- * `src/components/catalog/catalog-search.ts`. That is a deliberate second copy,
+ * `src/hooks/catalog/use-catalog-search.ts`. That is a deliberate second copy,
  * not a shared source. The two apps share no catalog component, and the hook
  * there is built around an active-versus-inactive split the global catalogs
  * have no concept of, so changing one number does not change the other.

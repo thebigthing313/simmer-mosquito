@@ -1,7 +1,7 @@
 /**
  * What every lookup catalog's write does, minus the row.
  *
- * The mirror of `hooks/queries/use-catalog-rosters.ts`: one question asked of
+ * The mirror of the `hooks/queries/use-*-roster.ts` hooks: one question asked of
  * eight tables, so it is answered once. The eight are the three org lookups
  * (`collection_methods`, `collection_lures`, `habitat_types`), the four control
  * methods, and `notification_types`.
@@ -39,8 +39,8 @@
 
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';
 import { settleWrite } from '@simmer-mosquito/sync';
-import type { Acknowledgements } from '../../components/acknowledged-write';
 import { mutateCollection } from '../../lib/collections/mutate';
+import type { Acknowledgements } from '../use-acknowledged-write';
 import { optimisticStamp } from './shared';
 
 /** A collection this module can write, as `mutateCollection` needs it. */

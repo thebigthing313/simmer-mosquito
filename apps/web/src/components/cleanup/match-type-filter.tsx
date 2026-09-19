@@ -9,7 +9,7 @@ import {
 	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import type { DuplicateGroup, DuplicateReason } from '../../hooks/use-merge-candidates';
+import type { DuplicateGroup, DuplicateReason } from '../../hooks/merge-candidate-view';
 import { DUPLICATE_REASON_LABELS, type DuplicatePageConfig } from './record-cleanup-config';
 
 const FilterIcon = iconRegistry.actions.filter.icon;

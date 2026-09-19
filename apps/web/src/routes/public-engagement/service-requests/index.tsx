@@ -37,11 +37,6 @@ import {
 	MultiSelectFilter,
 	SegmentedFilter,
 	toggle,
-	useEntityTags,
-	useExplorerPanel,
-	useExplorerResource,
-	useRegionOptions,
-	useTagOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
@@ -54,10 +49,17 @@ import {
 	type ServiceRequestTileFilters,
 } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
+import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { useRequestParties } from '../../../hooks/queries/use-request-parties';
+import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
@@ -65,8 +67,6 @@ import {
 	idSetParam,
 	searchValidator,
 	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
 } from '../../../lib/search-filters';
 import {
 	contactDisplayName,

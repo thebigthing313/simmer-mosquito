@@ -8,6 +8,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type CSSProperties, type ReactNode, type RefObject, useRef } from 'react';
+import type { ExplorerPanel } from '../../hooks/explorer/use-explorer-panel';
 import type { CountNoun } from '../../lib/format-count';
 import type { RecordType } from '../../lib/record-nouns';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
@@ -16,7 +17,6 @@ import { type EmptyRailCopy, type ExplorerEmptiness, emptyRailCopy } from './exp
 import { countNoun, type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
 import { ResultBody, ResultList, ResultRows } from './result-list';
 import { ResultMeta } from './result-meta';
-import type { ExplorerPanel } from './use-explorer-panel';
 
 type RegistryIcon = typeof iconRegistry.entities.sample.icon;
 

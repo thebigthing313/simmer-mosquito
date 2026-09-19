@@ -102,11 +102,11 @@ function setObservedBox(box: { width: number; height: number }) {
 }
 
 const { ExplorerMapPage } = await import('../../../../components/explorer/explorer-map-page');
-const { useExplorerPanel } = await import('../../../../components/explorer/use-explorer-panel');
-const { useFlyToSelection } = await import('../../../../components/explorer/use-fly-to-selection');
-const { useMapExtentFit } = await import('../../../../components/map/use-map-extent-fit');
-const { useMapPadding } = await import('../../../../components/map/use-map-padding');
-const { useMapBoundsParam } = await import('../../../../components/explorer/use-map-bounds');
+const { useExplorerPanel } = await import('../../../../hooks/explorer/use-explorer-panel');
+const { useFlyToSelection } = await import('../../../../hooks/explorer/use-fly-to-selection');
+const { useMapExtentFit } = await import('../../../../hooks/map/use-map-extent-fit');
+const { useMapPadding } = await import('../../../../hooks/map/use-map-padding');
+const { useMapBoundsParam } = await import('../../../../hooks/explorer/use-map-bounds-param');
 const { createFakeMap } = await import('../map/fake-map');
 
 afterEach(() => {

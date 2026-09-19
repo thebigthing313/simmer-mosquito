@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { DrawGeometry } from './use-map-draw';
-
+import type { DrawGeometry } from '../../hooks/map/use-map-draw';
 /**
  * The coordinate a create form can be opened at, carried in the URL.
  *

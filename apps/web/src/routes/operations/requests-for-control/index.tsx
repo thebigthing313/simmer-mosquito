@@ -2,14 +2,9 @@ import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
-import {
-	activeDatePresetId,
-	type DatePreset,
-	DateRangeFilter,
-	datePresetRange,
-} from '../../../components/date-range-filter';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -20,12 +15,17 @@ import {
 	MultiSelectFilter,
 	SegmentedFilter,
 	ToggleFilter,
-	useControlMethodNames,
-	useExplorerPanel,
-	usePersonnelOptions,
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { RequestStatusBadge } from '../../../components/request-status-badge';
+import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
+import {
+	type DateRangeBinding,
+	useDateRangeFilters,
+} from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useFlyToSelection } from '../../../hooks/explorer/use-fly-to-selection';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -37,6 +37,7 @@ import {
 import { useAssignedRequestIds } from '../../../hooks/queries/use-assigned-request-ids';
 import { useRequestedControlActions } from '../../../hooks/queries/use-requested-control-actions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import type { RecordType } from '../../../lib/record-nouns';
 import { recordNoun } from '../../../lib/record-nouns';
@@ -48,7 +49,6 @@ import {
 	flagParam,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
@@ -140,12 +140,12 @@ function RequestsForControlRoute() {
 	const bounds = boundsFromCoordinates(
 		mapped.map((request) => ({ lng: request.lng, lat: request.lat })),
 	);
-	useFlyToRequest(
+	useFlyToSelection(
 		map,
 		selectedId === null ? null : (visible.find((r) => r.id === selectedId) ?? null),
 	);
 
-	const dateRange = useRequestDateRange(filters, setFilters, today);
+	const dateRange = useDateRangeFilters({ from: filters.from, to: filters.to, today, setFilters });
 
 	return (
 		<ExplorerMapPage
@@ -229,59 +229,6 @@ function requestFeatures(mapped: readonly RequestListing[]): GeoJSON.GeoJSON | n
 	return features.length === 0 ? null : { type: 'FeatureCollection', features };
 }
 
-/** Fly to a request when it becomes selected, from either the list or the map. */
-function useFlyToRequest(map: MapboxMap | null, selected: RequestListing | null) {
-	useEffect(() => {
-		if (map === null || selected === null) {
-			return;
-		}
-		map.flyTo({
-			center: [selected.lng, selected.lat],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 600,
-		});
-	}, [map, selected]);
-}
-
-/**
- * The date range, and the two handlers that keep it in order.
- *
- * Moving one end past the other drags the other with it rather than leaving an
- * empty range on the URL.
- */
-function useRequestDateRange(
-	filters: RequestFilters,
-	setFilters: (patch: Partial<RequestFilters>) => void,
-	today: string,
-) {
-	const onFromChange = (next: string) => {
-		setFilters({
-			from: next,
-			...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
-		});
-	};
-	const onToChange = (next: string) => {
-		setFilters({
-			to: next,
-			...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
-		});
-	};
-	const onApplyPreset = (preset: DatePreset) => {
-		const range = datePresetRange(preset, today);
-		setFilters({ from: range.from, to: range.to });
-	};
-	const activePresetId = activeDatePresetId(filters.from, filters.to, today);
-	return {
-		activePresetId,
-		from: filters.from,
-		onApplyPreset,
-		onFromChange,
-		onToChange,
-		to: filters.to,
-		today,
-	};
-}
-
 /** The filter card's contents, and the chips that undo what is set. */
 function RequestControlFilters({
 	activeFilterCount,
@@ -293,7 +240,7 @@ function RequestControlFilters({
 	setFilters,
 }: {
 	readonly activeFilterCount: number;
-	readonly dateRange: ReturnType<typeof useRequestDateRange>;
+	readonly dateRange: DateRangeBinding;
 	readonly filters: RequestFilters;
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly onClearAll: () => void;

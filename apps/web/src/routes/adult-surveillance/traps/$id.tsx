@@ -22,7 +22,6 @@ import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import {
@@ -51,6 +50,7 @@ import {
 	type TrapCollection,
 	useTrapCollections,
 } from '../../../hooks/queries/use-trap-collections';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { usePagedRows } from '../../../hooks/use-paged-rows';
 import { TRAP_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';

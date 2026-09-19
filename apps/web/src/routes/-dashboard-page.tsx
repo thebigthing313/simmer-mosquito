@@ -34,6 +34,7 @@ import {
 import { ChevronRightIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
+import { useDashboard } from '../hooks/dashboard/use-dashboard';
 import type { ElectricQueue } from '../hooks/queries/shared';
 import { useDueMissionsQueue } from '../hooks/queries/use-due-missions-queue';
 import { useInProgressAssignmentsQueue } from '../hooks/queries/use-in-progress-assignments-queue';
@@ -50,7 +51,6 @@ import {
 	ageLabel,
 	deltaLabel,
 	type QueueCount,
-	useDashboard,
 } from './-dashboard-data';
 
 const HomeIcon = iconRegistry.generic.home.icon;

@@ -1,7 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useOutreachMethodMutations } from '../../../hooks/mutations/use-catalog-mutations';
-import { useOutreachMethodRecords } from '../../../hooks/queries/use-catalog-records';
+import { useOutreachMethodMutations } from '../../../hooks/mutations/use-outreach-method-mutations';
+import { useOutreachMethodRecords } from '../../../hooks/queries/use-outreach-method-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { ControlMethodsPage } from '../../control-operations/-control-methods-page';
 

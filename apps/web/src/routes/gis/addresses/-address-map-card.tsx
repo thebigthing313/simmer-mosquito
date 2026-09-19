@@ -11,11 +11,11 @@ import {
 } from '../../../components/map/map-card';
 import type { MapInset } from '../../../components/map/map-inset';
 import { TagBadge } from '../../../components/tag-badge';
+import { useAddressGeometry } from '../../../hooks/gis/use-address-geometry';
 import { useAddress } from '../../../hooks/queries/use-address';
 import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { formatAddressLine } from '../../../lib/address-format';
 import { recordNoun } from '../../../lib/record-nouns';
-import { useAddressGeometry } from './-address-data';
 
 /**
  * The map focus card for an address. Reads the address through {@link useAddress},

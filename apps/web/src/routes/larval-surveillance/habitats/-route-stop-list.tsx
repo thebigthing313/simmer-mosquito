@@ -9,10 +9,9 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { CSSProperties, ReactNode } from 'react';
-import { useEntityTags } from '../../../components/explorer/use-entity-tags';
 import { OrdinalBadge } from '../../../components/stop-order';
+import { useStopMeta } from '../../../hooks/larval-surveillance/use-stop-meta';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { hexWithAlpha } from '../../../lib/hex-color';
 import { type RouteStopCluster, type RouteStopView, stopTone } from './-route-data';
 
@@ -58,27 +57,6 @@ export function RouteStopList({ clusters, selectedId, onSelect, onHover }: Route
 			)}
 		</ol>
 	);
-}
-
-/**
- * Resolve the habitat type name and tags for a set of route stops. Type names come
- * from the eager `habitat_types` collection; tags from the on-demand `tag_items`
- * collection joined to eager `tags`. Shared by the read-only and edit stop lists.
- */
-export function useStopMeta(stops: readonly RouteStopView[]): {
-	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly tagsByHabitatId: ReadonlyMap<string, readonly Tag[]>;
-} {
-	const habitatTypes = useHabitatTypeRoster();
-
-	const typeNameById = new Map(habitatTypes.map((type) => [type.id, type.name]));
-
-	const habitatIds = [...new Set(stops.map((stop) => stop.habitatId))];
-
-	// Scoped to the habitats on screen, and grouped for us — see `useEntityTags`.
-	const { byId: tagsByHabitatId } = useEntityTags('habitat', habitatIds);
-
-	return { typeNameById, tagsByHabitatId };
 }
 
 function AddressCluster({

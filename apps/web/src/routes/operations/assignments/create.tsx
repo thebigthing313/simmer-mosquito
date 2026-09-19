@@ -12,17 +12,16 @@ import { createLabel } from '../../../components/app-shell/navigation';
 import type { RouteSummary } from '../../../components/route-planning/route-summary';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
-import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
+import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-options';
+import { useAssignment } from '../../../hooks/operations/use-assignment';
+import { useAssignmentItems } from '../../../hooks/operations/use-assignment-items';
+import { useRouteSnapshotItems } from '../../../hooks/operations/use-route-snapshot-items';
+import { useRouteStopCounts } from '../../../hooks/queries/use-route-stop-counts';
+import { useRouteCatalog } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	useAssigneeOptions,
-	useAssignment,
-	useAssignmentItems,
-	useRouteSnapshotItems,
-} from './-assignment-data';
 import {
 	AssignmentDetailFields,
 	type AssignmentDetailValues,

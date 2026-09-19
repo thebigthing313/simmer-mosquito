@@ -17,7 +17,7 @@ import {
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { Link } from '@tanstack/react-router';
 import { useId } from 'react';
-import type { NearbyHabitat } from '../../hooks/use-merge-candidates';
+import type { NearbyHabitat } from '../../hooks/merge-candidate-view';
 import { RECORD_CLEANUP_CONFIGS, recordLabel } from './record-cleanup-config';
 
 const config = RECORD_CLEANUP_CONFIGS.habitat;

@@ -42,7 +42,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NearbyLayerConfig } from '../../../../../components/map/use-nearby-layer';
+import type { NearbyLayerConfig } from '../../../../../hooks/map/use-nearby-layer';
 import { habitat_types } from '../../../../../lib/collections/habitat_types';
 import { organizations } from '../../../../../lib/collections/organizations';
 import { service_requests } from '../../../../../lib/collections/service_requests';

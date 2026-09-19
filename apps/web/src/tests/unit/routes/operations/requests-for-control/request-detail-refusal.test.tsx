@@ -105,8 +105,7 @@ vi.mock('../../../../../hooks/queries/use-profile-roster', () => ({
 	useProfileRoster: () => [],
 }));
 
-vi.mock('../../../../../components/explorer', async (importOriginal) => ({
-	...(await importOriginal<typeof import('../../../../../components/explorer')>()),
+vi.mock('../../../../../hooks/explorer/use-control-method-names', () => ({
 	useControlMethodNames: () => new Map<string, string>(),
 }));
 

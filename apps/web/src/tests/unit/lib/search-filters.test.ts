@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import {
 	choiceParam,
 	choiceSetParam,
@@ -12,7 +13,6 @@ import {
 	idSetParam,
 	searchValidator,
 	textParam,
-	useSearchFilters,
 } from '../../../lib/search-filters';
 
 // The hook reads the URL through the router and writes it through `navigate`,

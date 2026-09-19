@@ -23,10 +23,10 @@ import {
 	CatalogNote,
 } from '../../../components/catalog';
 import type { InsecticideBatchMutations } from '../../../hooks/mutations/use-insecticide-mutations';
-import {
-	type InsecticideBatchRecord,
-	type InsecticideRecord,
-	useInsecticideBatches,
+import { useInsecticideBatches } from '../../../hooks/queries/use-insecticide-batches';
+import type {
+	InsecticideBatchRecord,
+	InsecticideRecord,
 } from '../../../hooks/queries/use-insecticide-records';
 import { DeleteInsecticideBatchDialog, InsecticideBatchDrawer } from './-batch-drawer';
 import type { InsecticideCatalog } from './-insecticide-catalog';

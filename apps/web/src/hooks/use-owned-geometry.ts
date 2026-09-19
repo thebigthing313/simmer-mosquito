@@ -4,9 +4,8 @@ import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
 import { checkOwnedGeometry } from '../components/map/geojson-adapter';
-import type { DrawGeometry } from '../components/map/use-map-draw';
-import { toDrawGeometry } from '../components/map/use-map-draw';
-
+import type { DrawGeometry } from './map/use-map-draw';
+import { toDrawGeometry } from './map/use-map-draw';
 /**
  * Owned geometry is deliberately excluded from the Electric sync shapes — the
  * streamed rows carry only the `lat`/`lng`/`geomType` centroid (ADR 0009), which

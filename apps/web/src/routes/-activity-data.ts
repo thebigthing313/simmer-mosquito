@@ -4,24 +4,10 @@ import {
 	type ActivityInvolvement,
 	isLarvalDensity,
 } from '@simmer-mosquito/domain';
-import { refusalSentence, sessionFetch } from '@simmer-mosquito/sync';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { LinkProps } from '@tanstack/react-router';
-import { getServerUrl } from '../auth';
-import { useTagOptions } from '../components/explorer';
 import type { LifeStageFlags } from '../components/larval-display';
 import type { CollectionStatus } from '../components/map';
 import type { Tag } from '../hooks/queries/tag-view';
-import {
-	useApplicationMethodRoster,
-	useBiocontrolMethodRoster,
-	useCollectionMethodRoster,
-	useHabitatTypeRoster,
-	useOutreachMethodRoster,
-	useSourceReductionMethodRoster,
-} from '../hooks/queries/use-catalog-rosters';
-import { useInsecticideRecords } from './../hooks/queries/use-insecticide-records';
-import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import type { InspectionResult, LifecycleStatus, RecordBadgeFacts } from './-record-badges';
 import {
 	type ControlContext,
@@ -81,7 +67,7 @@ export interface ActivityEntry {
  */
 export type ActivityRecord = Omit<ActivityEntry, 'involvement' | 'role'>;
 
-interface ActivityResponse {
+export interface ActivityResponse {
 	readonly profileId: string;
 	readonly dateFrom: string;
 	readonly dateTo: string;
@@ -261,7 +247,7 @@ export interface ActivityLookups {
  * that contribute a name are three different shapes and only `id` and `name` are
  * read off any of them.
  */
-function activityLookups(
+export function activityLookups(
 	rosters: readonly (readonly { readonly id: string; readonly name: string }[])[],
 	insecticides: readonly { readonly id: string; readonly tradeName: string }[],
 	units: readonly { readonly id: string; readonly abbreviation: string }[],
@@ -284,32 +270,6 @@ function activityLookups(
 			formatAmount(amount, unitId === null ? undefined : unitById.get(unitId)),
 		tagById,
 	};
-}
-
-export function useActivityLookups(): ActivityLookups {
-	const habitatTypes = useHabitatTypeRoster();
-	const collectionMethods = useCollectionMethodRoster();
-	const applicationMethods = useApplicationMethodRoster();
-	const sourceReductionMethods = useSourceReductionMethodRoster();
-	const biocontrolMethods = useBiocontrolMethodRoster();
-	const outreachMethods = useOutreachMethodRoster();
-	const insecticides = useInsecticideRecords();
-	const { all: units } = useUnitLabels();
-	const { byId: tagById } = useTagOptions();
-
-	return activityLookups(
-		[
-			habitatTypes,
-			collectionMethods,
-			applicationMethods,
-			sourceReductionMethods,
-			biocontrolMethods,
-			outreachMethods,
-		],
-		insecticides,
-		units,
-		tagById,
-	);
 }
 
 /**
@@ -396,6 +356,20 @@ export function activityPanelState(
 		return { isEmpty: true, message: null, ...empty };
 	}
 	return { isEmpty: false, message, ...empty };
+}
+
+/**
+ * A refusal the page must repeat rather than swallow: the range was too wide,
+ * the dates were malformed. Carries the server's own reason.
+ */
+export class ActivityRequestError extends Error {
+	readonly refused: boolean;
+
+	constructor(message: string, refused: boolean) {
+		super(message);
+		this.name = 'ActivityRequestError';
+		this.refused = refused;
+	}
 }
 
 /** A refusal is the server declining the question, not the read failing. */
@@ -734,67 +708,15 @@ export function formatActivityTime(
 }
 
 /**
- * A refusal the page must repeat rather than swallow — the range was too wide,
- * the dates were malformed. Carries the server's own reason.
+ * How much of the whole answer this response carries.
+ *
+ * `total` is what the server counted for the question, which is larger than the
+ * list when the row cap bit; before a response arrives it is simply what is on
+ * screen, so the header never claims a total it does not have.
  */
-export class ActivityRequestError extends Error {
-	readonly refused: boolean;
-
-	constructor(message: string, refused: boolean) {
-		super(message);
-		this.name = 'ActivityRequestError';
-		this.refused = refused;
-	}
-}
-
-/** Fetch one Profile's activity. Whole set, server-capped — no paging. */
-export function useProfileActivity(input: {
-	readonly profileId: string | null;
-	readonly dateFrom: string;
-	readonly dateTo: string;
-}) {
-	const { profileId, dateFrom, dateTo } = input;
-	return useQuery({
-		queryKey: ['profile-activity', profileId, dateFrom, dateTo],
-		queryFn: ({ signal }) => fetchProfileActivity(profileId as string, dateFrom, dateTo, signal),
-		enabled: profileId !== null && dateFrom !== '' && dateTo !== '',
-		staleTime: 30_000,
-		// The person and the day are both in the key, so without this every change
-		// of the day drops a populated log back to placeholder rows. The previous
-		// log stays until the new one lands, which is what the rest of the
-		// explorers do when the map moves.
-		placeholderData: keepPreviousData,
-		// A refusal is a permanent answer. Retried, it spends the backoff looking
-		// like a slow load, and the operator never learns the window was refused.
-		retry: (failureCount, error) =>
-			!(error instanceof ActivityRequestError && error.refused) && failureCount < 2,
-	});
-}
-
-async function fetchProfileActivity(
-	profileId: string,
-	dateFrom: string,
-	dateTo: string,
-	signal: AbortSignal,
-): Promise<ActivityResponse> {
-	const url = new URL(`/map/profiles/${profileId}/activity`, getServerUrl());
-	url.searchParams.set('dateFrom', dateFrom);
-	url.searchParams.set('dateTo', dateTo);
-
-	const response = await sessionFetch(url, { signal });
-	if (!response.ok) {
-		throw new ActivityRequestError(await refusalReason(response), response.status === 400);
-	}
-	return (await response.json()) as ActivityResponse;
-}
-
-/** The server's own explanation where it gave one; the status code otherwise. */
-async function refusalReason(response: Response): Promise<string> {
-	const fallback = `Activity request failed (${response.status}).`;
-	try {
-		return refusalSentence(await response.json(), fallback);
-	} catch {
-		// Not JSON; fall through to the status.
-		return fallback;
-	}
+export function activityReach(
+	response: { readonly total: number; readonly truncated: boolean } | undefined,
+	shown: number,
+): { readonly total: number; readonly truncated: boolean } {
+	return response === undefined ? { total: shown, truncated: false } : response;
 }

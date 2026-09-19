@@ -1,6 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
-import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -28,20 +27,22 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useEffect, useId, useState } from 'react';
-import { getServerUrl } from '../../../auth';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import {
 	DetailPageShell,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
+import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../hooks/explorer/use-species-options';
+import {
+	type SampleGeoRow,
+	type SampleStatus,
+	useSampleGeoContext,
+} from '../../../hooks/larval-surveillance/use-sample-geo-context';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
@@ -49,6 +50,7 @@ import {
 	useSampleSpeciesMutations,
 } from '../../../hooks/mutations/use-sample-species-mutations';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -134,8 +136,6 @@ interface SampleDisposition {
 // Roles that may read but not manage sample results — they get a read-only view.
 const readOnlyRoles = new Set(['viewer']);
 
-type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
-
 interface StatusMeta {
 	readonly label: string;
 	readonly tone: 'success' | 'info' | 'neutral' | 'warning';
@@ -164,35 +164,6 @@ const STATUS_META: Record<SampleStatus, StatusMeta> = {
 		description: 'The specimens could not be identified to species.',
 	},
 };
-
-/**
- * The `/map/samples/:id` projection: the sample's own fields plus the parent
- * inspection's owned geometry and habitat labels. This is the single source for the
- * header, map, and context — the editable result fields (species counts, disposition
- * flags) are read back from the synced collections so optimistic edits reflect live.
- */
-interface SampleGeoRow {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly lat: number | null;
-	readonly lng: number | null;
-	readonly geojson: GeoJsonGeometry | null;
-	readonly geomType: string | null;
-	readonly displayName: string | null;
-	readonly inspectionId: string;
-	readonly inspectionDate: string;
-	readonly habitatId: string | null;
-	readonly habitatName: string | null;
-	readonly isZeroLarvae: boolean;
-	readonly hasNonMosquito: boolean;
-	readonly unidentifiableReason: string | null;
-	readonly createdByProfileId: string | null;
-	readonly status: SampleStatus;
-	readonly identifiedAt: string | null;
-	readonly larvaeTotal: number;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
 
 function SampleDetailContent({
 	geo,
@@ -357,7 +328,7 @@ function IdentificationCard({
 	const isReady = recordResult.isReady && speciesResult.isReady;
 	const isError = recordResult.isError || speciesResult.isError;
 
-	const { nameById, options } = useSpeciesCatalog();
+	const { nameById, options } = useAdoptedSpeciesOptions();
 
 	// Prefer the live record; fall back to the fetched seed while the subset loads.
 	const isZeroLarvae = record?.is_zero_larvae ?? seed.isZeroLarvae;
@@ -996,44 +967,6 @@ interface SpeciesOption {
 /** Species names are binomials, so they read italic wherever they appear. */
 function renderSpeciesOption(option: { readonly label: string }) {
 	return <span className="italic">{option.label}</span>;
-}
-
-/**
- * Species names + the org's species options for the add-species picker. Names
- * resolve from the eager global taxonomy; the picker offers only the species the
- * org has adopted (falling back to the full catalog if none are curated). Plain
- * (non-suspense) live queries over eager baseline collections.
- */
-function useSpeciesCatalog(): {
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly options: readonly SpeciesOption[];
-} {
-	return useAdoptedSpeciesOptions();
-}
-
-// --- data hook --------------------------------------------------------------
-
-function useSampleGeoContext(id: string) {
-	return useQuery({
-		queryKey: ['sample-detail', id],
-		queryFn: ({ signal }) => fetchSampleGeoContext(id, signal),
-		placeholderData: (previous) => previous,
-	});
-}
-
-async function fetchSampleGeoContext(
-	id: string,
-	signal: AbortSignal,
-): Promise<SampleGeoRow | null> {
-	const response = await sessionFetch(new URL(`/map/samples/${id}`, getServerUrl()), { signal });
-	if (response.status === 404) {
-		return null;
-	}
-	if (!response.ok) {
-		throw new Error(`Sample request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as { readonly sample?: SampleGeoRow };
-	return body.sample ?? null;
 }
 
 // --- presentational states --------------------------------------------------

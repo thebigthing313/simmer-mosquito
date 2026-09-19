@@ -4,7 +4,7 @@ import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import type { RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
-import type { CatalogSearch } from './catalog-search';
+import type { CatalogSearch } from '../../hooks/catalog/use-catalog-search';
 
 /** The uppercase label a catalog groups its rows under. */
 export const CATALOG_GROUP_HEADING =

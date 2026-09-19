@@ -14,7 +14,6 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
-import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
@@ -27,6 +26,8 @@ import {
 	RecordUnavailable,
 	type RecordUnavailableReason,
 } from '../../../components/record';
+import { useActivityLookups } from '../../../hooks/activity/use-activity-lookups';
+import { useServiceRequestNearby } from '../../../hooks/public-engagement/use-service-request-nearby';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useContact } from '../../../hooks/queries/use-contact-record';
@@ -35,9 +36,11 @@ import {
 	type ServiceRequestRecord,
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
-import { type ActivityLookups, useActivityLookups } from '../../-activity-data';
+import { searchValidator } from '../../../lib/search-filters';
+import type { ActivityLookups } from '../../-activity-data';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
 import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
@@ -67,7 +70,6 @@ import {
 	nearbyItemKey,
 	nearbySummary,
 	nearbyWindowLabel,
-	useServiceRequestNearby,
 	visibleNearbyItems,
 } from './-service-request-nearby';
 import { NearbyResultList } from './-service-request-nearby-rows';

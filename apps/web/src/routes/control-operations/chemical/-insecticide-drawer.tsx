@@ -12,7 +12,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	CatalogDeleteDialog,
 	CatalogDrawerCancel,
@@ -25,6 +24,7 @@ import type {
 } from '../../../hooks/mutations/use-insecticide-mutations';
 import type { InsecticideRecord } from '../../../hooks/queries/use-insecticide-records';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { INSECTICIDE_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { jsonObjectValue } from '../../../lib/record-display';
 

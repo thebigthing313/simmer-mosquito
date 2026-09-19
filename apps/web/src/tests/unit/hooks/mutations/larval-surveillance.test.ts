@@ -16,7 +16,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DrawGeometry } from '../../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../../hooks/map/use-map-draw';
 import { createFakeMap } from '../../components/map/fake-map';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
@@ -64,7 +64,7 @@ const { assignment_items } = await import('../../../../lib/collections/assignmen
 const { HABITAT_DELETE_REFUSALS, INSPECTION_DELETE_REFUSALS, SAMPLE_DELETE_REFUSALS } =
 	await import('../../../../lib/acknowledgement-copy');
 const { useHabitatMutations } = await import('../../../../hooks/mutations/use-habitat-mutations');
-const { useDrawLocation } = await import('../../../../components/map/use-draw-location');
+const { useDrawLocation } = await import('../../../../hooks/map/use-draw-location');
 const { useInspectionMutations } = await import(
 	'../../../../hooks/mutations/use-inspection-mutations'
 );

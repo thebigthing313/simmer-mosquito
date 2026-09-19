@@ -15,12 +15,6 @@ import {
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
-	useEntityTags,
-	useExplorerPanel,
-	useExplorerResource,
-	useHabitatTypeOptions,
-	useRegionOptions,
-	useTagOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
@@ -32,7 +26,15 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import type { Tag } from '../../../hooks/queries/tag-view';
+import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
@@ -41,8 +43,6 @@ import {
 	idSetParam,
 	searchValidator,
 	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
 } from '../../../lib/search-filters';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import type { AccessFilter, StatusFilter } from './-legend';

@@ -21,6 +21,7 @@ import {
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
+import type { DrawGeometry } from '../../hooks/map/use-map-draw';
 import { errorMessageForSave } from '../../lib/save-error';
 import {
 	ImportNotes,
@@ -32,7 +33,6 @@ import {
 	importSkippedCount,
 	importSkippedSentence,
 } from './import-notes';
-import type { DrawGeometry } from './use-map-draw';
 
 /**
  * "Fill this geometry from a file."

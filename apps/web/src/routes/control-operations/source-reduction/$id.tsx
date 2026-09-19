@@ -9,7 +9,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -25,10 +24,11 @@ import {
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,

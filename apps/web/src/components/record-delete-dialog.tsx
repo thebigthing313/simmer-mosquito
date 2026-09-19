@@ -14,6 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type LinkProps, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import type { Acknowledgements, AskAcknowledged } from '../hooks/use-acknowledged-write';
 import {
 	type DeletableRecordType,
 	type DeleteImpact,
@@ -26,7 +27,6 @@ import { type RecordType, recordNoun } from '../lib/record-nouns';
 import { errorMessageForSave } from '../lib/save-error';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
-import type { Acknowledgements, AskAcknowledged } from './acknowledged-write';
 
 /**
  * The role each delete needs, from `apps/server/src/command-permissions.ts`.

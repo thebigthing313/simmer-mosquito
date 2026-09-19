@@ -2,6 +2,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, describe, expect, it, type Mock, vi } from 'vitest';
+import { useRegionDnd } from '../../../../../hooks/gis/use-region-dnd';
 import {
 	allowRegionDrop,
 	dropTargetFolderId,
@@ -10,7 +11,6 @@ import {
 	type RegionDnd,
 	readDraggedRegionId,
 	regionDropZoneProps,
-	useRegionDnd,
 } from '../../../../../routes/gis/regions/-region-dnd';
 
 afterEach(cleanup);

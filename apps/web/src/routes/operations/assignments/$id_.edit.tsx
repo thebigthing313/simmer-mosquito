@@ -17,11 +17,9 @@ import { ArrowLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/r
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import type { RouteStopFeature } from '../../../components/map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	InlineEditField,
@@ -30,25 +28,23 @@ import {
 	OrdinalBadge,
 	StopList,
 	StopReorderControls,
-	useStopOrder,
 } from '../../../components/stop-order';
+import type { RouteStopFeature } from '../../../hooks/map/use-route-layer';
 import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
+import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-options';
+import { useAssignment } from '../../../hooks/operations/use-assignment';
+import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
 import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
+import { useStopOrder } from '../../../hooks/stop-order/use-stop-order';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { WorklistMap } from '../-worklist-map';
-import {
-	type AssignmentStopView,
-	assignmentStopTone,
-	canEditPlan,
-	useAssigneeOptions,
-	useAssignment,
-	useAssignmentStops,
-} from './-assignment-data';
+import { type AssignmentStopView, assignmentStopTone, canEditPlan } from './-assignment-data';
 import {
 	AssignmentStatusBadge,
 	ItemProgressBadge,

@@ -1,7 +1,7 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useBiocontrolMethodMutations } from '../../../hooks/mutations/use-catalog-mutations';
-import { useBiocontrolMethodRecords } from '../../../hooks/queries/use-catalog-records';
+import { useBiocontrolMethodMutations } from '../../../hooks/mutations/use-biocontrol-method-mutations';
+import { useBiocontrolMethodRecords } from '../../../hooks/queries/use-biocontrol-method-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { ControlMethodsPage } from '../-control-methods-page';
 

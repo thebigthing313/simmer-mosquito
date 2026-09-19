@@ -17,8 +17,6 @@ import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -27,14 +25,16 @@ import {
 import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type {
 	FormulationComponentListing,
 	FormulationListing,
 	InsecticideListing,
 	RigListing,
-} from '../../../hooks/queries/use-chemical-rosters';
+} from '../../../hooks/queries/chemical-roster-view';
+import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel, UnitType } from '../../../hooks/queries/use-unit-labels';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
@@ -914,4 +914,4 @@ function placeholderApplicationId(index: number): string {
 	return `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
 }
 
-export type { DrawGeometry } from '../../../components/map/use-map-draw';
+export type { DrawGeometry } from '../../../hooks/map/use-map-draw';

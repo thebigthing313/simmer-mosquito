@@ -2,7 +2,7 @@ import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
 import { formatGeometryTypeLabel } from '@simmer-mosquito/mapping';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { customFieldEntries } from '@simmer-mosquito/ui-web/components/form';
 import { PanelRows, type PanelRowsMessage } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
@@ -33,7 +33,6 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense } from 'react';
-import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { CustomFieldsList } from '../components/custom-fields-card';
@@ -52,14 +51,14 @@ import {
 	RecordUnavailable,
 } from '../components/record';
 import { RequestStatusBadge } from '../components/request-status-badge';
+import { useHabitatTypeName } from '../hooks/larval-surveillance/use-habitat-type-name';
+import { useHabitatTypeSchema } from '../hooks/larval-surveillance/use-habitat-type-schema';
+import { useLarvalEntryMode } from '../hooks/larval-surveillance/use-larval-entry-mode';
+import { useSpeciesName } from '../hooks/larval-surveillance/use-species-name';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { controlTypeLabel, requestStatus } from '../hooks/queries/operations-view';
-import {
-	useApplicationMethodRoster,
-	useHabitatTypeRoster,
-	useSourceReductionMethodRoster,
-} from '../hooks/queries/use-catalog-rosters';
+import { useApplicationMethodRoster } from '../hooks/queries/use-application-method-roster';
 import {
 	type HabitatHistoryApplication,
 	type HabitatHistoryInspection,
@@ -72,11 +71,11 @@ import {
 } from '../hooks/queries/use-habitat-history';
 import { useHabitatSuspense } from '../hooks/queries/use-habitat-suspense';
 import { useInsecticideRecords } from '../hooks/queries/use-insecticide-records';
-import { useOrganizationSettings } from '../hooks/queries/use-organization-settings';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
 import { useRecordRoutes } from '../hooks/queries/use-record-routes';
-import { useSpeciesNames } from '../hooks/queries/use-species-names';
+import { useSourceReductionMethodRoster } from '../hooks/queries/use-source-reduction-method-roster';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
+import type { AskAcknowledged } from '../hooks/use-acknowledged-write';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { usePagedRows } from '../hooks/use-paged-rows';
@@ -1081,22 +1080,6 @@ function AmountWithUnit({ amount, unitId }: { readonly amount: number; readonly 
 	);
 }
 
-function useHabitatTypeSchema(habitatTypeId: string | null): unknown {
-	return customSchemaFor(useHabitatTypeRoster(), habitatTypeId);
-}
-
-/** The type's name, or `null` when the habitat names no type. */
-function useHabitatTypeName(habitatTypeId: string | null): string | null {
-	const habitatTypes = useHabitatTypeRoster();
-
-	if (habitatTypeId === null) {
-		return null;
-	}
-
-	const match = habitatTypes.find((habitatType) => habitatType.id === habitatTypeId);
-	return match?.name ?? 'Unknown type';
-}
-
 interface InspectionColumns {
 	readonly dips: boolean;
 	readonly density: boolean;
@@ -1112,15 +1095,6 @@ function inspectionColumnsForMode(mode: LarvalInspectionEntryMode): InspectionCo
 		default:
 			return { dips: true, density: true, larvae: true };
 	}
-}
-
-function useLarvalEntryMode(): LarvalInspectionEntryMode {
-	return useOrganizationSettings().larvalSurveillance.inspectionEntryPolicy.mode;
-}
-
-/** One id through the shared taxonomy read — the catalog is eager and small. */
-function useSpeciesName(speciesId: string): string {
-	return useSpeciesNames().get(speciesId) ?? 'Unknown species';
 }
 
 function HistorySkeleton() {

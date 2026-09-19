@@ -20,7 +20,7 @@ import { type ReactNode, Suspense, useEffect } from 'react';
 import { webShellDomains } from '../../../components/app-shell/navigation';
 import type { MapTileLayer } from '../../../components/map/tile-layers';
 import { tileLayerExtentUrl } from '../../../components/map/tile-layers';
-import { useMapExtent } from '../../../components/map/use-map-extent-fit';
+import { useMapExtent } from '../../../hooks/map/use-map-extent';
 import type { MinimumRole } from '../../../lib/write-access';
 import { createFakeMap } from '../components/map/fake-map';
 

@@ -12,6 +12,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { PersonGroupBlock } from '../../components/person-group-block';
 import { WeekDayStrip } from '../../components/week-day-strip';
+import type { RecentControlAction } from '../../hooks/queries/recent-control-action-view';
 import {
 	type ControlActionKind,
 	type DailyControlAction,
@@ -20,11 +21,8 @@ import {
 import { useControlCatalogCounts } from '../../hooks/queries/use-control-catalog-counts';
 import { useInsecticideUsage } from '../../hooks/queries/use-insecticide-usage';
 import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
-import {
-	type RecentControlAction,
-	useRecentBiocontrolActions,
-	useRecentSourceReductions,
-} from '../../hooks/queries/use-recent-control-actions';
+import { useRecentBiocontrolActions } from '../../hooks/queries/use-recent-biocontrol-actions';
+import { useRecentSourceReductions } from '../../hooks/queries/use-recent-source-reductions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';

@@ -15,7 +15,7 @@ import {
 	type TallyEntry,
 	type TallyState,
 	tallyEntries,
-} from '../../../../components/key-entry/use-key-entry-tally';
+} from '../../../../hooks/key-entry/use-key-entry-tally';
 
 const aegypti = 'species-aegypti';
 const pipiens = 'species-pipiens';

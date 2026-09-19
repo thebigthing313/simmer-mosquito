@@ -220,25 +220,30 @@ const MARKER_WORD = 'hex-color-ignore';
  *
  * - `MINIMUM_WEB_MODULES`, that the walk still reaches `apps/web/src` at all.
  *   880 modules today, suites included.
- * - `MINIMUM_MAP_MODULES`, that it still descends into the map directory. 66
- *   modules there today, against a floor of 61, which is where #640 put it when
- *   `draw-vertex-edit.ts` moved to `packages/mapping` and took the count from
- *   62 to 61. The modules added since have not been used to raise it, so the
- *   floor now sits five under the count. That headroom is deliberate: this is a
- *   tripwire against a directory that has gone missing, not a ratchet on how
- *   many modules it holds.
+ * - `MINIMUM_MAP_MODULES`, that it still descends into the map directory. 54
+ *   modules there today, against a floor of 50. #640 put it at 61 when
+ *   `draw-vertex-edit.ts` moved to `packages/mapping`, and the hooks sweep
+ *   moved the seventeen `use-*.ts` modules out to `hooks/map`, which took the
+ *   count from 66 to 54 once the three modules the split added are counted.
+ *   The floor sits four under the count on purpose: this is a tripwire against
+ *   a directory that has gone missing, not a ratchet on how many modules it
+ *   holds.
  * - `MINIMUM_PALETTE_IMPORTERS`, that the files are being read and not merely
  *   listed, measured inside the map directory where every module is a consumer
- *   of the register. Twenty-two and not twenty-six: four of the six modules
- *   holding a private block were already reading the register for part of what
- *   they paint, which is how a colour drifts in a file that looks consolidated.
+ *   of the register. It was twenty-two and not twenty-six when #618 set it:
+ *   four of the six modules holding a private block were already reading the
+ *   register for part of what they paint, which is how a colour drifts in a
+ *   file that looks consolidated. Sixteen import it today and the floor is
+ *   fourteen, because the hooks sweep moved the layer hooks that paint from
+ *   the register out to `hooks/map`, and they are counted under
+ *   `MINIMUM_WEB_MODULES`'s corpus rather than here.
  *
  * `PROBES` is the fourth guard and is not a floor, because what it asks has no
  * count over the tree behind it. See it below.
  */
 const MINIMUM_WEB_MODULES = 800;
-const MINIMUM_MAP_MODULES = 61;
-const MINIMUM_PALETTE_IMPORTERS = 22;
+const MINIMUM_MAP_MODULES = 50;
+const MINIMUM_PALETTE_IMPORTERS = 14;
 
 /**
  * A hex colour, six digits or eight.

@@ -5,8 +5,7 @@ import {
 	type GeoJsonFeature,
 	type GeoJsonFeatureCollection,
 } from '@simmer-mosquito/mapping';
-import type { DuplicateRecord, NearbyHabitat } from '../../hooks/use-merge-candidates';
-
+import type { DuplicateRecord, NearbyHabitat } from '../../hooks/merge-candidate-view';
 /**
  * The map overlay: the radius, the habitat being kept, and what stands near it.
  *

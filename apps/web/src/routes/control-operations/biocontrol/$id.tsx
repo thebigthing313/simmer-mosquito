@@ -9,7 +9,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -26,9 +25,10 @@ import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-bioco
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
-import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { ContextBadge, controlContext, formatActionDate, formatMeasure } from '../-control-display';

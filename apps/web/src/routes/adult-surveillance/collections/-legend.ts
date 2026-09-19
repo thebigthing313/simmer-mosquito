@@ -3,7 +3,6 @@ import {
 	type CollectionStatus,
 	type MapLegendEntry,
 } from '../../../components/map';
-
 /** The status the server resolves for a collection, by precedence. */
 export type CollectionStatusValue = CollectionStatus;
 

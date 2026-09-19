@@ -1,8 +1,9 @@
 import type { Contact } from '@simmer-mosquito/sync';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
+import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
 import { contacts } from '../../lib/collections/contacts';
-import { OptionRow, PickerFallback, PickerFrame, useSelectedRowLabel } from './entity-picker';
+import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
 
 // Contacts sync on demand, so the results come from a live subset query (an `ilike`
 // across the identity fields) rather than a client-side filter over an eager set.
