@@ -24,6 +24,20 @@ import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import { MultiSelectFilter, SegmentedFilter, ToggleFilter } from '../../../components/explorer';
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
+import {
+	DensityFilter,
+	INSPECTION_TABLE_COUNTING,
+	type InspectionCatalogs,
+	type InspectionFilterBinding,
+	InspectionFilterChips,
+	inspectionTableFilters,
+	WETNESS_OPTIONS,
+} from '../../../components/larval-surveillance/inspection-filters';
+import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
+import {
+	inspectionFilterCodecs,
+	sharedInspectionSearch,
+} from '../../../components/larval-surveillance/inspections-search';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useHeldRows } from '../../../hooks/larval-surveillance/use-held-rows';
 import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
@@ -48,17 +62,6 @@ import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { choiceParam, type FilterCodecs, searchValidator } from '../../../lib/search-filters';
-import {
-	DensityFilter,
-	INSPECTION_TABLE_COUNTING,
-	type InspectionCatalogs,
-	type InspectionFilterBinding,
-	InspectionFilterChips,
-	inspectionTableFilters,
-	WETNESS_OPTIONS,
-} from '../-inspection-filters';
-import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
-import { inspectionFilterCodecs, sharedInspectionSearch } from '../-inspections-search';
 
 /**
  * The sort lives in the URL, so a sorted table is a link somebody can send.

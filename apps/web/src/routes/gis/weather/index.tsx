@@ -12,6 +12,14 @@ import {
 	FilterChip,
 	SegmentedFilter,
 } from '../../../components/explorer';
+import type { StatusFilter } from '../../../components/gis/weather/legend';
+import { weatherStationLegend } from '../../../components/gis/weather/legend';
+import {
+	STATION_FILTER_CODECS,
+	type StationFilterState,
+} from '../../../components/gis/weather/station-filters';
+import { weatherSourceTypeLabel } from '../../../components/gis/weather/weather-display';
+import { WeatherStationMapCard } from '../../../components/gis/weather/weather-station-map-card';
 import {
 	MapCanvas,
 	type MapLegendEntry,
@@ -25,11 +33,6 @@ import { useWeatherStations } from '../../../hooks/queries/use-weather-stations'
 import type { RecordType } from '../../../lib/record-nouns';
 import { recordNoun } from '../../../lib/record-nouns';
 import { searchValidator } from '../../../lib/search-filters';
-import type { StatusFilter } from './-legend';
-import { weatherStationLegend } from './-legend';
-import { STATION_FILTER_CODECS, type StationFilterState } from './-station-filters';
-import { weatherSourceTypeLabel } from './-weather-display';
-import { WeatherStationMapCard } from './-weather-station-map-card';
 
 const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
 	{ value: 'all', label: 'All' },

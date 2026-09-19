@@ -1,0 +1,75 @@
+import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { Link } from '@tanstack/react-router';
+import { useWeatherStation } from '../../../hooks/queries/use-weather-station';
+import { recordNoun } from '../../../lib/record-nouns';
+import { MapCard, MapCardDetail, MapCardEyebrow, mapCardCoordinates } from '../../map/map-card';
+import type { MapInset } from '../../map/map-inset';
+import { weatherSourceTypeLabel } from './weather-display';
+import { StationStatusBadge } from './weather-ui';
+
+const WeatherIcon = iconRegistry.domains.weather.icon;
+
+/**
+ * The map focus card for a weather station. The one card that needs no join and
+ * no HTTP: a station's geometry is a single synced point and it names nothing
+ * else, so {@link useWeatherStation} is the whole read.
+ */
+export function WeatherStationMapCard({
+	id,
+	inset,
+	onClose,
+}: {
+	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
+	readonly onClose: () => void;
+}) {
+	const { station } = useWeatherStation(id);
+
+	if (station === undefined) {
+		return (
+			<MapCard
+				className="max-w-[420px]"
+				inset={inset}
+				onClose={onClose}
+				title={recordNoun('weatherStation').title}
+			>
+				<div className="grid gap-2">
+					<Skeleton className="h-4 w-2/3" />
+					<Skeleton className="h-4 w-1/2" />
+				</div>
+			</MapCard>
+		);
+	}
+
+	const { latitude: lat, longitude: lng } = station;
+
+	return (
+		<MapCard
+			badges={<StationStatusBadge isActive={station.isActive} />}
+			className="max-w-[420px]"
+			eyebrow={<MapCardEyebrow recordType="weatherStation" />}
+			inset={inset}
+			onClose={onClose}
+			title={station.name}
+			viewDetailLink={(content) => (
+				<Link params={{ id: station.id }} to="/gis/weather/$id">
+					{content}
+				</Link>
+			)}
+		>
+			<div className="grid gap-1.5">
+				<MapCardDetail icon={WeatherIcon}>
+					{weatherSourceTypeLabel(station.sourceType)}
+					{station.sourceCode === null ? null : ` · ${station.sourceCode}`}
+				</MapCardDetail>
+				{typeof lat !== 'number' || typeof lng !== 'number' ? null : (
+					<MapCardDetail icon={LocateFixedIcon} mono>
+						{mapCardCoordinates({ lat, lng })}
+					</MapCardDetail>
+				)}
+			</div>
+		</MapCard>
+	);
+}

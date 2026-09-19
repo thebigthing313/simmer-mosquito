@@ -48,6 +48,15 @@ import {
 	SERVICE_REQUEST_STATUS_COLORS,
 	type ServiceRequestTileFilters,
 } from '../../../components/map';
+import {
+	contactDisplayName,
+	formatAddressLine,
+	isServiceRequestOpen,
+	serviceRequestTitle,
+} from '../../../components/public-engagement/public-engagement-display';
+import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
+import type { StatusFilter } from '../../../components/public-engagement/service-requests/legend';
+import { serviceRequestLegend } from '../../../components/public-engagement/service-requests/legend';
 import { TagBadge } from '../../../components/tag-badge';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -68,15 +77,6 @@ import {
 	searchValidator,
 	textParam,
 } from '../../../lib/search-filters';
-import {
-	contactDisplayName,
-	formatAddressLine,
-	isServiceRequestOpen,
-	serviceRequestTitle,
-} from '../-public-engagement-display';
-import { ServiceRequestMapCard } from '../-service-request-map-card';
-import type { StatusFilter } from './-legend';
-import { serviceRequestLegend } from './-legend';
 
 /**
  * A service request as `/map/service-requests` lists it: what the row shows,

@@ -1,5 +1,5 @@
 import type { ControlType } from '@simmer-mosquito/domain';
-import { methodsForControlType } from '../../routes/operations/-operations-data';
+import { methodsForControlType } from '../../components/operations/operations-data';
 import type { SchemaCatalogListing } from '../queries/catalog-roster-view';
 import { useApplicationMethodRoster } from '../queries/use-application-method-roster';
 import { useBiocontrolMethodRoster } from '../queries/use-biocontrol-method-roster';

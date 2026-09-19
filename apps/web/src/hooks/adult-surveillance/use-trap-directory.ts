@@ -2,7 +2,7 @@ import {
 	ALL_METHODS,
 	type DirectoryFilters,
 	type TrapDirectory,
-} from '../../routes/adult-surveillance/-trap-directory-data';
+} from '../../components/adult-surveillance/trap-directory-data';
 import { trapDisplayName } from '../queries/trap-view';
 import { useActiveTraps } from '../queries/use-active-traps';
 

@@ -3,10 +3,10 @@ import { FormSection, LocationSection } from '@simmer-mosquito/ui-web/components
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { useId } from 'react';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../forms/domain-validation';
 import type { DrawLocation } from '../../hooks/map/use-draw-location';
 import type { DrawGeometry, DrawGeometryType } from '../../hooks/map/use-map-draw';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../lib/domain-validation';
 import { unitOptions } from '../../lib/unit-options';
 import type { MapDrawController } from '../map/draw-controller';
 import { GeometryControl } from '../map/geometry-control';

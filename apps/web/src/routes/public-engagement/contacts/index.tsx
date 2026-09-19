@@ -14,13 +14,16 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import {
+	contactDisplayName,
+	contactSecondaryLine,
+} from '../../../components/public-engagement/public-engagement-display';
 import { WriteOnly } from '../../../components/write-only';
 import {
 	type ContactListing,
 	useContactDirectory,
 } from '../../../hooks/queries/use-contact-directory';
 import { recordNoun } from '../../../lib/record-nouns';
-import { contactDisplayName, contactSecondaryLine } from '../-public-engagement-display';
 
 export const Route = createFileRoute('/public-engagement/contacts/')({
 	component: ContactsExplorerRoute,

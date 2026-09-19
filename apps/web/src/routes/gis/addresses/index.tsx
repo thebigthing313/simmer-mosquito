@@ -16,6 +16,7 @@ import {
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { AddressMapCard } from '../../../components/gis/addresses/address-map-card';
 import {
 	type AddressTileFilters,
 	MAP_CREATE_TARGETS,
@@ -34,7 +35,6 @@ import {
 	searchValidator,
 	textParam,
 } from '../../../lib/search-filters';
-import { AddressMapCard } from './-address-map-card';
 
 /**
  * An address as `/map/addresses` lists it: what the row shows, and where on

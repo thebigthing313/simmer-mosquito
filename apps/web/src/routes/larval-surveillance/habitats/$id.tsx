@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { HabitatDetail } from '../../-habitat-detail';
+import { HabitatDetail } from '../../../components/larval-surveillance/habitats/habitat-detail';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/$id')({
 	component: RouteComponent,

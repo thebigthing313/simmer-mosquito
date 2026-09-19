@@ -9,6 +9,18 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	AssignmentDetailFields,
+	type AssignmentDetailValues,
+	applyGeneratedName,
+	assigneeOrNull,
+	assignmentNameOrNull,
+	deadlineHalfEntered,
+	defaultAssignmentDetails,
+	RoutePicker,
+	routeAssignmentName,
+	toDueAt,
+} from '../../../components/operations/assignments/assignment-form';
 import type { RouteSummary } from '../../../components/route-planning/route-summary';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
@@ -22,18 +34,6 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { todayInTimeZone } from '../../../lib/local-date';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	AssignmentDetailFields,
-	type AssignmentDetailValues,
-	applyGeneratedName,
-	assigneeOrNull,
-	assignmentNameOrNull,
-	deadlineHalfEntered,
-	defaultAssignmentDetails,
-	RoutePicker,
-	routeAssignmentName,
-	toDueAt,
-} from './-assignment-form';
 
 export const Route = createFileRoute('/operations/assignments/create')({
 	beforeLoad: async ({ context }) => {

@@ -31,9 +31,9 @@ vi.mock('../../../../hooks/mutations/use-membership-mutations', () => ({
 }));
 
 const { signedInSnapshotAs } = await import('../route-mock-stand-ins');
-const { ReinviteControl } = await import('../../../../routes/my-organization/-components/reinvite');
+const { ReinviteControl } = await import('../../../../components/my-organization/reinvite');
 const { RemoveMemberControl } = await import(
-	'../../../../routes/my-organization/-components/remove-member'
+	'../../../../components/my-organization/remove-member'
 );
 
 const INVITED_PERSON = {

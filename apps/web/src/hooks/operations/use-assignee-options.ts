@@ -1,5 +1,5 @@
+import { NO_ASSIGNEE } from '../../components/operations/assignments/assignment-data';
 import { type LifecycleOption, lifecycleOptions } from '../../lib/lifecycle-options';
-import { NO_ASSIGNEE } from '../../routes/operations/assignments/-assignment-data';
 import { useProfileRoster } from '../queries/use-profile-roster';
 /** Assignee choices, with "Unassigned" first. */
 export function useAssigneeOptions(): {

@@ -9,10 +9,14 @@ import type { OrganizationFoundations } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
 import { CatalogList, CatalogRow, RecordDialog } from '../../../components/catalog';
 import { OrganizationSessionGate } from '../../../components/organization-session';
+import {
+	type DialogKind,
+	FoundationForm,
+	LOOKUP_LABELS,
+} from '../../../components/organizations/foundation-forms';
 import { useCreateFoundation } from '../../../hooks/mutations/use-create-foundation';
 import { useOrganizationFoundations } from '../../../hooks/queries/use-organization-foundations';
 import { useOrganizationIdentity } from '../../../hooks/queries/use-organization-identity';
-import { type DialogKind, FoundationForm, LOOKUP_LABELS } from './-foundation-forms';
 
 const FoundationsIcon = iconRegistry.generic.settings.icon;
 const RegionIcon = iconRegistry.entities.region.icon;

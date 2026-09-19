@@ -2,6 +2,14 @@ import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	type DrawGeometry,
+	defaultInspectionFormValues,
+	InspectionFormPage,
+	type InspectionFormValues,
+	inspectionResultOf,
+	noHabitatTypeValue,
+} from '../../../components/larval-surveillance/inspections/inspection-form';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { useNewInspectionDraft } from '../../../hooks/larval-surveillance/use-new-inspection-draft';
@@ -19,14 +27,6 @@ import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	defaultInspectionFormValues,
-	InspectionFormPage,
-	type InspectionFormValues,
-	inspectionResultOf,
-	noHabitatTypeValue,
-} from './-inspection-form';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard

@@ -1,7 +1,10 @@
 import { refusalSentence, sessionFetch } from '@simmer-mosquito/sync';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../auth';
-import { ActivityRequestError, type ActivityResponse } from '../../routes/-activity-data';
+import {
+	ActivityRequestError,
+	type ActivityResponse,
+} from '../../components/activity/activity-data';
 
 /**
  * Fetches one Profile's activity over a date range. The whole set, server

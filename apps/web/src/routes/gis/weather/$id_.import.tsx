@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
+import { ImportWeatherPage } from '../../../components/gis/weather/import-page';
 import { RecordUnavailable } from '../../../components/record';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useWeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { ImportWeatherPage } from './-import-page';
 
 export const Route = createFileRoute('/gis/weather/$id_/import')({
 	beforeLoad: async ({ context, params }) => {

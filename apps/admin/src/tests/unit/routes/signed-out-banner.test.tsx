@@ -39,7 +39,7 @@ describe('the operator sign-in banner', () => {
 	// Read as text rather than rendered, because the frame needs a router. The
 	// check is that the variable reaches it at all: #390's banner shipped inert.
 	it('is wired into the auth frame', () => {
-		const source = readFileSync(join(import.meta.dirname, '../../../routes/-auth.tsx'), 'utf8');
+		const source = readFileSync(join(import.meta.dirname, '../../../components/auth.tsx'), 'utf8');
 
 		expect(source).toContain(
 			'<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />',

@@ -5,7 +5,7 @@ import {
 	activityEntryKey,
 	buildActivityMapData,
 	groupActivityByFamily,
-} from '../../routes/-activity-data';
+} from '../../components/activity/activity-data';
 
 /** What a page derives from one activity response. */
 export interface ActivityView {

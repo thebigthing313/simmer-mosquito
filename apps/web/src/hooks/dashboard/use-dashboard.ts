@@ -1,7 +1,7 @@
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../auth';
-import type { DashboardResponse } from '../../routes/-dashboard-data';
+import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 
 /** Five minutes: the interval the server half is re-read on. */
 const DASHBOARD_REFETCH_INTERVAL_MS = 5 * 60_000;

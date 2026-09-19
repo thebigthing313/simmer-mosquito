@@ -15,10 +15,15 @@ import {
 	DeleteRecordButton,
 	EditRecordButton,
 } from '../../components/catalog';
+import {
+	EMPTY_SPECIES,
+	NO_GENUS,
+	SpeciesForm,
+	type SpeciesFormValues,
+} from '../../components/taxonomy/species-form';
 import { type GenusListing, useGenusRoster } from '../../hooks/queries/use-genus-roster';
 import { type SpeciesListing, useSpeciesRoster } from '../../hooks/queries/use-species-roster';
 import { createSpecies, deleteSpecies, updateSpecies } from '../../lib/collections/writes';
-import { EMPTY_SPECIES, NO_GENUS, SpeciesForm, type SpeciesFormValues } from './-species-form';
 
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const AddIcon = iconRegistry.actions.add.icon;

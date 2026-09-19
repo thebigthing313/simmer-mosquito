@@ -1,6 +1,12 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	BiocontrolFormPage,
+	type BiocontrolFormValues,
+	biocontrolFieldsFrom,
+	type DrawGeometry,
+} from '../../../components/control-operations/biocontrol/biocontrol-form';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
@@ -21,12 +27,6 @@ import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use
 import { noTechnicianValue } from '../../../lib/no-technician';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	BiocontrolFormPage,
-	type BiocontrolFormValues,
-	biocontrolFieldsFrom,
-	type DrawGeometry,
-} from './-biocontrol-form';
 
 export const Route = createFileRoute('/control-operations/biocontrol/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

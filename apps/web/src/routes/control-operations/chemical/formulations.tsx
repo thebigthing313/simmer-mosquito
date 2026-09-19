@@ -28,6 +28,12 @@ import {
 	toggleCatalogActive,
 } from '../../../components/catalog';
 import {
+	formatAmountValue,
+	formatAmountWithUnit,
+	sortedComponents,
+} from '../../../components/control-operations/chemical/formulation-math';
+import { insecticideDisplayName } from '../../../components/control-operations/control-display';
+import {
 	type FormulationComponentFields,
 	type FormulationFields,
 	type FormulationMutations,
@@ -51,8 +57,6 @@ import {
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
-import { insecticideDisplayName } from '../-control-display';
-import { formatAmountValue, formatAmountWithUnit, sortedComponents } from './-formulation-math';
 
 export const Route = createFileRoute('/control-operations/chemical/formulations')({
 	component: FormulationsRoute,

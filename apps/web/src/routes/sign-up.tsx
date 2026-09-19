@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { SignUpPage } from './-auth';
+import { SignUpPage } from '../components/auth/auth';
 
 export const Route = createFileRoute('/sign-up')({
 	validateSearch: (search): { readonly redirect?: string } => {

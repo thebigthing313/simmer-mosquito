@@ -21,6 +21,26 @@ import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
+import {
+	type AssignmentStopView,
+	type AssignmentView,
+	assignmentStopTone,
+	canCompleteAssignment,
+	canProgressItems,
+	canRecordStopWork,
+	canStartAssignment,
+	type ItemAction,
+	itemActionsFor,
+} from '../../../components/operations/assignments/assignment-data';
+import {
+	AssignmentStatusBadge,
+	ItemProgressBadge,
+	TargetLink,
+	TargetTypePill,
+} from '../../../components/operations/assignments/assignment-display';
+import { StopProgressSummary } from '../../../components/operations/operations-display';
+import { WorklistMap } from '../../../components/operations/worklist-map';
+import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
@@ -42,26 +62,6 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import { StopProgressSummary } from '../-operations-display';
-import { WorklistMap } from '../-worklist-map';
-import { WorklistTabs } from '../-worklist-tabs';
-import {
-	type AssignmentStopView,
-	type AssignmentView,
-	assignmentStopTone,
-	canCompleteAssignment,
-	canProgressItems,
-	canRecordStopWork,
-	canStartAssignment,
-	type ItemAction,
-	itemActionsFor,
-} from './-assignment-data';
-import {
-	AssignmentStatusBadge,
-	ItemProgressBadge,
-	TargetLink,
-	TargetTypePill,
-} from './-assignment-display';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 const EditIcon = iconRegistry.actions.edit.icon;

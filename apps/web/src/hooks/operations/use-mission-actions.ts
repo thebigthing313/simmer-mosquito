@@ -1,5 +1,8 @@
+import type {
+	MissionItemAction,
+	MissionStopView,
+} from '../../components/operations/operations-data';
 import type { MoveAction } from '../../components/stop-order';
-import type { MissionItemAction, MissionStopView } from '../../routes/operations/-operations-data';
 import type { MissionItemMutations } from '../mutations/use-mission-item-mutations';
 import type { useMissionMutations } from '../mutations/use-mission-mutations';
 import type { CommandRunner } from '../operations/use-command-runner';

@@ -4,6 +4,8 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
+import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
+import { formatAmount } from '../../../components/control-operations/control-display';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -42,8 +44,6 @@ import {
 	idSetParam,
 	searchValidator,
 } from '../../../lib/search-filters';
-import { ApplicationMapCard } from '../-application-map-card';
-import { formatAmount } from '../-control-display';
 
 interface ApplicationRow {
 	readonly id: string;

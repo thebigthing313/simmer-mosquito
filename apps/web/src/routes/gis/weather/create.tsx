@@ -2,17 +2,17 @@ import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
-import { newRecordId } from '../../../hooks/mutations/shared';
-import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
-import { recordNoun } from '../../../lib/record-nouns';
-import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultWeatherStationFormValues,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
-} from './-weather-station-form';
+} from '../../../components/gis/weather/weather-station-form';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
+import { recordNoun } from '../../../lib/record-nouns';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 export const Route = createFileRoute('/gis/weather/create')({
 	beforeLoad: async ({ context }) => {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { MissionStopView } from '../../routes/operations/-operations-data';
+import type { MissionStopView } from '../../components/operations/operations-data';
 
 /** What the page has picked out: on the map, and in whatever dialog is open. */
 export interface MissionSelection {

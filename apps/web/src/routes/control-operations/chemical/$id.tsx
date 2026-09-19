@@ -41,6 +41,13 @@ import { useState } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import {
+	ContextBadge,
+	controlContext,
+	formatActionDate,
+	formatMeasure,
+	nameById,
+} from '../../../components/control-operations/control-display';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -62,13 +69,6 @@ import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-c
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
-import {
-	ContextBadge,
-	controlContext,
-	formatActionDate,
-	formatMeasure,
-	nameById,
-} from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,

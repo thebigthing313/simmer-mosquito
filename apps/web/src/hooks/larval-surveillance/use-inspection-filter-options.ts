@@ -1,4 +1,4 @@
-import type { InspectionCatalogs } from '../../routes/larval-surveillance/-inspection-filters';
+import type { InspectionCatalogs } from '../../components/larval-surveillance/inspection-filters';
 import { useRegionOptions } from '../explorer/use-region-options';
 import { useInspectionCatalogs } from './use-inspection-catalogs';
 

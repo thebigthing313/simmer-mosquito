@@ -1,9 +1,9 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
+import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
 import { useApplicationMethodMutations } from '../../../hooks/mutations/use-application-method-mutations';
 import { useApplicationMethodRecords } from '../../../hooks/queries/use-application-method-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { ControlMethodsPage } from '../-control-methods-page';
 
 export const Route = createFileRoute('/control-operations/chemical/methods')({
 	component: ApplicationMethodsRoute,

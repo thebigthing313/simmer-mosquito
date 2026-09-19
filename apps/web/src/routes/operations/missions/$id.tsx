@@ -24,6 +24,19 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { MissionNotificationsCard } from '../../../components/operations/missions/mission-notifications-card';
+import {
+	MissionStopList,
+	RequestStopPicker,
+} from '../../../components/operations/missions/mission-stops';
+import { formatOperationalDate } from '../../../components/operations/operations-data';
+import {
+	MissionStatusBadge,
+	StopProgressSummary,
+	stopSummary,
+} from '../../../components/operations/operations-display';
+import { WorklistMap } from '../../../components/operations/worklist-map';
+import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { WriteOnly } from '../../../components/write-only';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
@@ -34,12 +47,6 @@ import { type Acknowledgements, useAcknowledgedWrite } from '../../../hooks/use-
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { MISSION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
-import { formatOperationalDate } from '../-operations-data';
-import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
-import { WorklistMap } from '../-worklist-map';
-import { WorklistTabs } from '../-worklist-tabs';
-import { MissionNotificationsCard } from './-mission-notifications-card';
-import { MissionStopList, RequestStopPicker } from './-mission-stops';
 
 const MissionIcon = iconRegistry.entities.route.icon;
 const EditIcon = iconRegistry.actions.edit.icon;

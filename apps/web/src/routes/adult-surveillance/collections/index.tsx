@@ -3,6 +3,13 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { collectionEffectiveDate } from '../../../components/adult-surveillance/adult-display';
+import { CollectionMapCard } from '../../../components/adult-surveillance/collection-map-card';
+import type { CollectionStatusValue } from '../../../components/adult-surveillance/collections/legend';
+import {
+	collectionLegend,
+	collectionStatusLabel,
+} from '../../../components/adult-surveillance/collections/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -26,6 +33,7 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
 import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -45,11 +53,6 @@ import {
 	idSetParam,
 	searchValidator,
 } from '../../../lib/search-filters';
-import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
-import { collectionEffectiveDate } from '../-adult-display';
-import { CollectionMapCard } from '../-collection-map-card';
-import type { CollectionStatusValue } from './-legend';
-import { collectionLegend, collectionStatusLabel } from './-legend';
 
 interface CollectionRow {
 	readonly id: string;

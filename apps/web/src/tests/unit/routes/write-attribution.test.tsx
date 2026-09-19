@@ -165,46 +165,49 @@ function SubmitProbe({ canSubmit }: { readonly canSubmit: boolean | undefined })
 	);
 }
 
-vi.mock('../../../routes/control-operations/biocontrol/-biocontrol-form', async (original) => ({
+vi.mock('../../../components/control-operations/biocontrol/biocontrol-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	BiocontrolFormPage: SubmitProbe,
 }));
-vi.mock('../../../routes/control-operations/chemical/-application-form', async (original) => ({
+vi.mock('../../../components/control-operations/chemical/application-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	ApplicationFormPage: SubmitProbe,
 }));
 vi.mock(
-	'../../../routes/control-operations/source-reduction/-source-reduction-form',
+	'../../../components/control-operations/source-reduction/source-reduction-form',
 	async (original) => ({
 		...(await original<Record<string, unknown>>()),
 		SourceReductionFormPage: SubmitProbe,
 	}),
 );
-vi.mock('../../../routes/gis/addresses/-address-form', async (original) => ({
+vi.mock('../../../components/gis/addresses/address-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	AddressFormPage: SubmitProbe,
 }));
-vi.mock('../../../routes/larval-surveillance/inspections/-inspection-form', async (original) => ({
-	...(await original<Record<string, unknown>>()),
-	InspectionFormPage: SubmitProbe,
-}));
-vi.mock('../../../routes/operations/missions/-mission-form', async (original) => ({
+vi.mock(
+	'../../../components/larval-surveillance/inspections/inspection-form',
+	async (original) => ({
+		...(await original<Record<string, unknown>>()),
+		InspectionFormPage: SubmitProbe,
+	}),
+);
+vi.mock('../../../components/operations/missions/mission-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	MissionFormPage: SubmitProbe,
 }));
-vi.mock('../../../routes/operations/requests-for-control/-request-form', async (original) => ({
+vi.mock('../../../components/operations/requests-for-control/request-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	RequestFormPage: SubmitProbe,
 }));
-vi.mock('../../../routes/public-engagement/outreach/-outreach-form', async (original) => ({
+vi.mock('../../../components/public-engagement/outreach/outreach-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	OutreachFormPage: SubmitProbe,
 }));
-vi.mock('../../../routes/gis/weather/-import-page', async (original) => ({
+vi.mock('../../../components/gis/weather/import-page', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	ImportWeatherPage: SubmitProbe,
 }));
-vi.mock('../../../routes/operations/missions/-add-stop-form', async (original) => ({
+vi.mock('../../../components/operations/missions/add-stop-form', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	AddMissionStopForm: SubmitProbe,
 }));
@@ -224,7 +227,7 @@ vi.mock('../../../components/route-planning', async (original) => ({
 	...(await original<Record<string, unknown>>()),
 	RouteMap: () => null,
 }));
-vi.mock('../../../routes/operations/-worklist-map', () => ({
+vi.mock('../../../components/operations/worklist-map', () => ({
 	WorklistMap: () => null,
 }));
 

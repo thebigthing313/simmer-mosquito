@@ -1,13 +1,13 @@
 import { inArray, useLiveQuery } from '@tanstack/react-db';
+import type {
+	AssignmentTarget,
+	TargetType,
+} from '../../components/operations/assignments/assignment-data';
+import { targetTypeOf } from '../../components/operations/assignments/assignment-data';
 import { addresses } from '../../lib/collections/addresses';
 import { habitats } from '../../lib/collections/habitats';
 import { service_requests } from '../../lib/collections/service_requests';
 import { traps } from '../../lib/collections/traps';
-import type {
-	AssignmentTarget,
-	TargetType,
-} from '../../routes/operations/assignments/-assignment-data';
-import { targetTypeOf } from '../../routes/operations/assignments/-assignment-data';
 import { activityGcTimeMs, unmatchableId } from '../queries/shared';
 import { trapDisplayName } from '../queries/trap-view';
 import type { AssignmentItemView } from './use-assignment-items';

@@ -2,7 +2,7 @@ import {
 	type MissionStopView,
 	missionProgressCounts,
 	toMissionStop,
-} from '../../routes/operations/-operations-data';
+} from '../../components/operations/operations-data';
 import type { MissionProgressCounts } from '../queries/operations-view';
 import { useMissionStops } from '../queries/use-mission-stops';
 import { useMissionItemShapes } from './use-mission-item-shapes';

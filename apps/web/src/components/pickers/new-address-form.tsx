@@ -2,8 +2,8 @@ import { createAddressCommand } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Loader2Icon, MapPinnedIcon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
-import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../forms/domain-validation';
 import { useAddressMutations } from '../../hooks/mutations/use-address-mutations';
+import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../lib/domain-validation';
 import { errorMessageForSave } from '../../lib/save-error';
 import type { AddressOption } from './address-picker';
 import {

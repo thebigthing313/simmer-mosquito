@@ -4,6 +4,13 @@ import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
+import {
+	type DrawGeometry,
+	HabitatFormPage,
+	type HabitatFormValues,
+	noHabitatTypeValue,
+} from '../../../components/larval-surveillance/habitats/habitat-form';
+import { seedHabitatGeometryCache } from '../../../components/larval-surveillance/habitats/habitat-geometry-cache';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { toDrawGeometry } from '../../../hooks/map/use-map-draw';
 import {
@@ -15,13 +22,6 @@ import { type HabitatRecord, useHabitatRecord } from '../../../hooks/queries/use
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
-import {
-	type DrawGeometry,
-	HabitatFormPage,
-	type HabitatFormValues,
-	noHabitatTypeValue,
-} from './-habitat-form';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

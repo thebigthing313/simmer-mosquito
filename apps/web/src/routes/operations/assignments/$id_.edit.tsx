@@ -20,6 +20,32 @@ import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import {
+	type AssignmentStopView,
+	assignmentStopTone,
+	canEditPlan,
+} from '../../../components/operations/assignments/assignment-data';
+import {
+	AssignmentStatusBadge,
+	ItemProgressBadge,
+	TargetLink,
+	TargetTypePill,
+} from '../../../components/operations/assignments/assignment-display';
+import {
+	AssignmentDetailFields,
+	type AssignmentDetailValues,
+	assigneeOrNull,
+	assignmentNameOrNull,
+	deadlineHalfEntered,
+	sameAssignmentDetails,
+	toAssignmentDetails,
+	toDueAt,
+} from '../../../components/operations/assignments/assignment-form';
+import {
+	AssignmentTargetPicker,
+	type AssignmentTargetSelection,
+} from '../../../components/operations/assignments/assignment-target-picker';
+import { WorklistMap } from '../../../components/operations/worklist-map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	InlineEditField,
@@ -43,28 +69,6 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { WorklistMap } from '../-worklist-map';
-import { type AssignmentStopView, assignmentStopTone, canEditPlan } from './-assignment-data';
-import {
-	AssignmentStatusBadge,
-	ItemProgressBadge,
-	TargetLink,
-	TargetTypePill,
-} from './-assignment-display';
-import {
-	AssignmentDetailFields,
-	type AssignmentDetailValues,
-	assigneeOrNull,
-	assignmentNameOrNull,
-	deadlineHalfEntered,
-	sameAssignmentDetails,
-	toAssignmentDetails,
-	toDueAt,
-} from './-assignment-form';
-import {
-	AssignmentTargetPicker,
-	type AssignmentTargetSelection,
-} from './-assignment-target-picker';
 
 /** Module-level so the ordering hook's identity stays stable across renders. */
 const stopKey = (stop: AssignmentStopView) => stop.assignmentItemId;

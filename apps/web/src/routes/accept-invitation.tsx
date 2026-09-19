@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AcceptInvitationPage } from './-auth';
+import { AcceptInvitationPage } from '../components/auth/auth';
 
 export const Route = createFileRoute('/accept-invitation')({
 	// WorkOS appends `?invitation_token=` to the configured User invitation URL;

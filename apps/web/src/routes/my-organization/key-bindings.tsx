@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { DomainSection } from '../../components/my-organization/-components/layout/layout';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/-components/layout/organization-workspace-shell';
+import { KeyBindingsSettings } from '../../components/my-organization/key-bindings';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { KeyBindingsSettings } from './-components/key-bindings';
-import { DomainSection } from './-components/layout/layout';
-import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 
 export const Route = createFileRoute('/my-organization/key-bindings')({
 	component: MyOrganizationKeyBindingsRoute,

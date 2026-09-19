@@ -1,9 +1,9 @@
-import type { StatusFilter } from '../../routes/gis/weather/-legend';
+import type { StatusFilter } from '../../components/gis/weather/legend';
 import {
 	STATION_FILTER_CODECS,
 	STATION_FILTER_DEFAULTS,
 	type StationFilterState,
-} from '../../routes/gis/weather/-station-filters';
+} from '../../components/gis/weather/station-filters';
 import { useDebouncedTextFilter } from '../use-debounced-text-filter';
 import { useSearchFilters } from '../use-search-filters';
 

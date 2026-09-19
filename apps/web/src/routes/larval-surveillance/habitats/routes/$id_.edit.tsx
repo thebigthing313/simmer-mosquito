@@ -31,6 +31,18 @@ import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-ro
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
+import { RouteStopAddressDialog } from '../../../../components/larval-surveillance/habitats/route-address-dialog';
+import {
+	type RouteHabitat,
+	type RouteStopView,
+	stopTone,
+	updateHabitatDescription,
+} from '../../../../components/larval-surveillance/habitats/route-data';
+import {
+	StopStatus,
+	StopTagChips,
+	StopTypePill,
+} from '../../../../components/larval-surveillance/habitats/route-stop-list';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
 import { RouteMap } from '../../../../components/route-planning';
 import {
@@ -54,14 +66,6 @@ import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { useDebouncedValue } from '../../../../hooks/use-debounced-value';
 import { errorMessageForSave } from '../../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
-import { RouteStopAddressDialog } from '../-route-address-dialog';
-import {
-	type RouteHabitat,
-	type RouteStopView,
-	stopTone,
-	updateHabitatDescription,
-} from '../-route-data';
-import { StopStatus, StopTagChips, StopTypePill } from '../-route-stop-list';
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;

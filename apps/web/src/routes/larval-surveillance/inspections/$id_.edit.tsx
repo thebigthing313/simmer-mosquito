@@ -5,6 +5,15 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
+import {
+	type DrawGeometry,
+	defaultInspectionFormValues,
+	InspectionFormPage,
+	type InspectionFormValues,
+	inspectionResultOf,
+	noHabitatTypeValue,
+	unsetDensityValue,
+} from '../../../components/larval-surveillance/inspections/inspection-form';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { toDrawGeometry } from '../../../hooks/map/use-map-draw';
@@ -29,15 +38,6 @@ import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	defaultInspectionFormValues,
-	InspectionFormPage,
-	type InspectionFormValues,
-	inspectionResultOf,
-	noHabitatTypeValue,
-	unsetDensityValue,
-} from './-inspection-form';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

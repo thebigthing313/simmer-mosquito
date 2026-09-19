@@ -1,6 +1,12 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	SourceReductionFormPage,
+	type SourceReductionFormValues,
+	type SourceReductionSaveInput,
+	sourceReductionFieldsFrom,
+} from '../../../components/control-operations/source-reduction/source-reduction-form';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
@@ -24,12 +30,6 @@ import {
 import { noTechnicianValue } from '../../../lib/no-technician';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	SourceReductionFormPage,
-	type SourceReductionFormValues,
-	type SourceReductionSaveInput,
-	sourceReductionFieldsFrom,
-} from './-source-reduction-form';
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

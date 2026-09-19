@@ -4,6 +4,9 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
+import type { StatusFilter } from '../../../components/adult-surveillance/traps/legend';
+import { trapLegend } from '../../../components/adult-surveillance/traps/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
@@ -40,9 +43,6 @@ import {
 	searchValidator,
 	textParam,
 } from '../../../lib/search-filters';
-import { TrapMapCard } from '../-trap-map-card';
-import type { StatusFilter } from './-legend';
-import { trapLegend } from './-legend';
 
 interface TrapRow {
 	readonly id: string;

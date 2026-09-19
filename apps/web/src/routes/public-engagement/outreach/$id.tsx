@@ -11,10 +11,12 @@ import { createFileRoute } from '@tanstack/react-router';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { formatActionDate } from '../../../components/control-operations/control-display';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
+import { formatReach } from '../../../components/public-engagement/public-engagement-display';
 import {
 	DetailPageShell,
 	type RecordDetailLayout,
@@ -28,8 +30,6 @@ import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-met
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { formatActionDate } from '../../control-operations/-control-display';
-import { formatReach } from '../-public-engagement-display';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
 

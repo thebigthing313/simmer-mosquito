@@ -1,12 +1,12 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { createFileRoute } from '@tanstack/react-router';
+import { DomainSection } from '../../components/my-organization/-components/layout/layout';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/-components/layout/organization-workspace-shell';
+import { AdultSurveillanceSettings } from '../../components/my-organization/adult';
+import { requiredFormText, selectField } from '../../components/my-organization/helpers';
+import type { SettingField } from '../../components/my-organization/types';
 import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { AdultSurveillanceSettings } from './-components/adult';
-import { requiredFormText, selectField } from './-components/helpers';
-import { DomainSection } from './-components/layout/layout';
-import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import type { SettingField } from './-components/types';
 
 export const Route = createFileRoute('/my-organization/adult-surveillance')({
 	component: MyOrganizationAdultSurveillanceRoute,

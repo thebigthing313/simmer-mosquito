@@ -23,6 +23,21 @@ import { useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { ActiveFilterBar, ExplorerMapPage, FilterChip } from '../../../components/explorer';
+import { RegionFolderDialog } from '../../../components/gis/regions/folder-dialog';
+import {
+	isHoveredDropTarget,
+	REGION_DND_TYPE,
+	type RegionDnd,
+	type RegionDropTarget,
+	regionDropZoneProps,
+} from '../../../components/gis/regions/region-dnd';
+import { RegionMapCard } from '../../../components/gis/regions/region-map-card';
+import {
+	type FolderMatch,
+	groupByFolder,
+	type RegionTree,
+	searchTree,
+} from '../../../components/gis/regions/region-tree';
 import { MapCanvas, type MapTileLayer } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
@@ -42,16 +57,6 @@ import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter
 import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { type FilterCodecs, searchValidator, textParam } from '../../../lib/search-filters';
-import { RegionFolderDialog } from './-folder-dialog';
-import {
-	isHoveredDropTarget,
-	REGION_DND_TYPE,
-	type RegionDnd,
-	type RegionDropTarget,
-	regionDropZoneProps,
-} from './-region-dnd';
-import { RegionMapCard } from './-region-map-card';
-import { type FolderMatch, groupByFolder, type RegionTree, searchTree } from './-region-tree';
 
 interface RegionFilters {
 	readonly search: string;

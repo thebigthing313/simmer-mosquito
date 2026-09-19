@@ -16,9 +16,14 @@ import {
 	DeleteRecordButton,
 	EditRecordButton,
 } from '../../components/catalog';
+import {
+	EMPTY_UNIT,
+	UNIT_SYSTEM_OPTIONS,
+	UnitForm,
+	type UnitFormValues,
+} from '../../components/units/unit-form';
 import { type UnitListing, useUnitCatalog } from '../../hooks/queries/use-unit-catalog';
 import { createUnit, deleteUnit, type UnitType, updateUnit } from '../../lib/collections/writes';
-import { EMPTY_UNIT, UNIT_SYSTEM_OPTIONS, UnitForm, type UnitFormValues } from './-unit-form';
 
 const UnitIcon = iconRegistry.entities.unit.icon;
 const AddIcon = iconRegistry.actions.add.icon;
