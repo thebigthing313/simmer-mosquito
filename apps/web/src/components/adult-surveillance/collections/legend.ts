@@ -23,10 +23,8 @@ export function collectionStatusLabel(status: CollectionStatusValue): string {
 }
 
 /**
- * The key, cut down to the colours the current filters can actually draw.
- *
- * Problems only leaves one colour on the map, so a key still listing the other
- * three would be describing dots that are not there.
+ * The key, cut down to the colours the current filters can draw. Problems only
+ * leaves one colour on the map.
  */
 export function collectionLegend(problemOnly: boolean): readonly MapLegendEntry[] {
 	const shown: readonly CollectionStatusValue[] = problemOnly ? ['problem'] : STATUS_ORDER;

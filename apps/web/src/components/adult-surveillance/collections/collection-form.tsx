@@ -64,7 +64,7 @@ export interface CollectionFormPageProps {
 	readonly profiles: readonly ProfileListing[];
 	readonly units: readonly UnitLabel[];
 	readonly defaultValues: CollectionFormValues;
-	/** Edit locks the trap/ad-hoc choice — the two are distinct command paths. */
+	/** Edit locks the trap/ad-hoc choice, the two are distinct command paths. */
 	readonly lockSourceMode?: boolean;
 	/** The ad-hoc collection's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -92,9 +92,9 @@ export function CollectionFormPage({
 		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
 	);
 	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
-	// carries its own drawn point (the address, if any, is reference only). Only
-	// the first value is read, so the trap the form opens on frames the map from
-	// the first paint and later picks come through `setReferenceGeometry`.
+	// carries its own drawn point. Only the first value is read, so the trap the
+	// form opens on frames the map from the first paint and later picks come
+	// through `setReferenceGeometry`.
 	const location = useDrawLocation({
 		geometryKind: 'collection',
 		initialGeometry,

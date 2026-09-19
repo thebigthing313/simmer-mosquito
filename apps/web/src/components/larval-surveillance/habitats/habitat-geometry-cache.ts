@@ -6,18 +6,10 @@ import { checkOwnedGeometry } from '../../map/geojson-adapter';
 
 /**
  * The habitat geometry query: its key, its fetcher, and the cache seed the
- * create/edit flows call after a save.
- *
- * This lives apart from `-habitat-detail` on purpose. `seedHabitatGeometryCache`
- * is a handful of lines, but the habitat create and edit routes import it from
- * module scope — and a module import is all-or-nothing. While it sat inside the
- * 1600-line detail module it dragged that module's whole dependency graph into
- * the eager route graph with it, including the only `recharts` import in the
- * app. That put ~315 KB of charting library in the boot payload to support a
- * pie chart on one detail page.
- *
- * The rule this encodes: a small utility that eager code imports must not share
- * a module with a heavy component, however related they read.
+ * create/edit flows call after a save. Apart from `habitat-detail` because the
+ * create and edit routes import `seedHabitatGeometryCache` from module scope,
+ * and a module import drags the whole detail module into the eager route
+ * graph, `recharts` included.
  */
 
 export interface HabitatGeometry {
@@ -27,28 +19,22 @@ export interface HabitatGeometry {
 	readonly geomType: string | null;
 	/**
 	 * Set when the column held a shape a Habitat may not store, for the detail's
-	 * Location card to print. Resolved here rather than at render, so it is
-	 * decided once per fetch of this record (#761).
+	 * Location card to print. Resolved once per fetch.
 	 */
 	readonly unsupportedShape: string | null;
 }
 
 /**
- * Keyed on habitatId alone (not updatedAt): an unrelated field edit shouldn't
- * refetch geometry, and a geometry edit seeds this exact key via
- * {@link seedHabitatGeometryCache}, so the detail renders the new shape
- * immediately instead of flashing "No geometry recorded" while a freshly-keyed
- * query loads.
+ * Keyed on habitatId alone: an unrelated field edit does not refetch geometry,
+ * and a geometry edit seeds this exact key via {@link seedHabitatGeometryCache}.
  */
 export function habitatGeometryQueryKey(habitatId: string): readonly unknown[] {
 	return ['habitat-geometry', habitatId];
 }
 
 /**
- * Prime the geometry cache so navigating to a habitat's detail right after a
- * create/edit shows the saved geometry instantly. Then invalidate so the detail
- * still revalidates against the server on mount — the cached value stays visible
- * during that refetch, so there's no empty-state flash.
+ * Prime the geometry cache so the detail shows the saved geometry at once after
+ * a create or edit, then invalidate so it still revalidates on mount.
  */
 export function seedHabitatGeometryCache(
 	queryClient: QueryClient,

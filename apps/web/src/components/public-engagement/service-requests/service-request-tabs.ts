@@ -6,7 +6,6 @@ import {
 } from './service-request-nearby';
 // The five tabs the service request page splits into, the search param that
 // names the active one, and what the map is handed per tab.
-// Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
  * The tabs in the order the strip draws them: the request's own record, one
@@ -36,8 +35,7 @@ export const SERVICE_REQUEST_TAB_DEFAULTS: ServiceRequestTabSearch = {
 /**
  * `?tab=` as a search codec, so the route's `validateSearch` and the page's
  * read are one declaration. A value that is not a tab decodes to nothing and
- * the page lands on Details, which is what a hand-edited or truncated link
- * should do rather than an error boundary.
+ * the page lands on Details.
  */
 export const SERVICE_REQUEST_TAB_CODECS: FilterCodecs<ServiceRequestTabSearch> = {
 	tab: choiceParam(SERVICE_REQUEST_TABS, DEFAULT_SERVICE_REQUEST_TAB),
@@ -63,14 +61,11 @@ export function tabFamily(tab: ServiceRequestTab): NearbyTabFamily | null {
 }
 
 /**
- * Which nearby families the map draws for a tab.
- *
- * A family tab draws its own family and nothing else, so the pins on the map
- * are the rows in the list. Details and Comments draw the other service
- * requests in the radius and window, and no operational family (#1090). What
- * a reader wants beside the request's own facts and its thread is what else
- * was reported around it, and the operational records have a tab each. No tab
- * lists those requests, so this function is the one place they come from.
+ * Which nearby families the map draws for a tab. A family tab draws its own
+ * family, so the pins on the map are the rows in the list. Details and
+ * Comments draw the other service requests in the radius and window, and no
+ * operational family; no tab lists those requests, so this is the one place
+ * they come from.
  */
 export function mapFamiliesForTab(tab: ServiceRequestTab): ReadonlySet<NearbyFamily> {
 	const family = tabFamily(tab);

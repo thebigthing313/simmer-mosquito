@@ -23,9 +23,9 @@ interface KeyEntryRow extends SampleSpeciesFields {
 }
 
 /**
- * Larval identification counts larvae per species and nothing else — no sex or
- * physiological status — so the modal runs without a mode bar and `sample_species`
- * holds at most one row per species.
+ * Larval identification counts larvae per species and nothing else, so the
+ * modal runs without a mode bar and `sample_species` holds at most one row per
+ * species.
  */
 export function SampleKeyEntryDialog({
 	open,
@@ -63,9 +63,7 @@ export function SampleKeyEntryDialog({
 	const insertedRef = useRef<Map<string, string>>(new Map());
 	const flushedRef = useRef<ReadonlySet<string>>(new Set());
 
-	// See the adult dialog: the rows are read when the modal opens and must not
-	// re-run the effect. The latest-value ref that used to do it was written
-	// during render, which the compiler refuses (#779, group A).
+	// The rows are read when the modal opens and must not re-run the effect.
 	const captureBaseline = useEffectEvent(() => {
 		baselineRef.current = new Map(
 			rows.map(
@@ -107,9 +105,8 @@ export function SampleKeyEntryDialog({
 			}
 
 			const id = newRecordId();
-			// Remember the id only once the insert sticks. A rejected insert is rolled
-			// back out of the collection, so recording it up front would leave the next
-			// flush trying to update a row that no longer exists.
+			// Remember the id only once the insert sticks; a rejected insert is rolled
+			// back out of the collection.
 			return mutations
 				.add({
 					sampleSpeciesId: id,
@@ -118,7 +115,7 @@ export function SampleKeyEntryDialog({
 						speciesId: step.speciesId,
 						larvaeCount: step.count,
 						identifiedByProfileId: actorProfileId,
-						// A calendar date, not a timestamp — the domain builder validates
+						// A calendar date, not a timestamp, the domain builder validates
 						// identifiedAt against YYYY-MM-DD and rejects a full ISO string.
 						identifiedAt: todayInTimeZone(timeZone),
 					},

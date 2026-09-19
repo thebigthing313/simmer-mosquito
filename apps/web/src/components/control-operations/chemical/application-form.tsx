@@ -50,9 +50,8 @@ export interface ApplicationFormPageProps {
 	readonly applicationMethods: readonly SchemaCatalogListing[];
 	readonly insecticides: readonly InsecticideListing[];
 	/**
-	 * The organization's saved mixes. Passing them turns on formulation entry —
-	 * leave them out where a single application row is being edited, since the
-	 * record itself only ever holds one product.
+	 * The organization's saved mixes. Passing them turns on formulation entry;
+	 * leave them out where a single application row is being edited.
 	 */
 	readonly formulations?: readonly FormulationListing[];
 	/** Every mix's component rows; the chosen mix's are picked out of these. */
@@ -133,10 +132,8 @@ export function ApplicationFormPage({
 		(row) => row.name,
 	);
 	const unitTypeById = new Map(units.map((unit) => [unit.id, unit.unitType]));
-	// A product is measured one way — a pound of granules is never four fluid
-	// ounces — so the unit list narrows to the kind its default unit is in. Until
-	// a product is chosen (or if its default unit is missing) every unit a
-	// treatment can be measured in stays on offer.
+	// The unit list narrows to the kind the product's default unit is in. Until a
+	// product is chosen every unit a treatment can be measured in stays on offer.
 	const unitTypeFor = (insecticideId: string): UnitType | null => {
 		const product = insecticides.find((row) => row.id === insecticideId);
 		return product === undefined ? null : (unitTypeById.get(product.defaultUnitId) ?? null);
@@ -427,10 +424,8 @@ export function ApplicationFormPage({
 												required
 												onValueChange={(next, previousValue) => {
 													const chosen = insecticides.find((row) => row.id === next);
-													// The unit follows the product's default usage unit unless
-													// the user has explicitly chosen a different one — and
-													// always when the one they chose measures a different kind
-													// of quantity.
+													// The unit follows the product's default usage unit unless the user chose
+													// one of the same kind.
 													const previous = insecticides.find((row) => row.id === previousValue);
 													const currentUnit = form.state.values.applicationUnitId;
 													const unitIsDerived =

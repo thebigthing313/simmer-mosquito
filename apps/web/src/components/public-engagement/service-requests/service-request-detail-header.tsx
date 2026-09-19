@@ -21,32 +21,13 @@ const ReopenIcon = iconRegistry.actions.reset.icon;
 
 /**
  * The bar the service request page opens with, and the dialog its one command
- * needs.
- *
- * It is the header every other record detail page draws, in the `panel` frame
- * because this page keeps its column beside a map rather than spanning the
- * stage (#1088). What used to sit here was a bar of its own: a back link, an
- * Edit button and a Close button under the title, and a Danger zone card at the
- * foot of the column. `DetailPageHeader`'s docblock says why the back link
- * went and `DangerZoneCard`'s why the card did, on every other record page
- * before this one.
- *
- * Close and reopen are one menu item, whichever the request's state allows.
- * Both write a comment on the request in the same transaction, so the reason
- * dialog is not a confirmation step: it is where the comment's text comes from.
- * The reason is an argument to the command rather than a change to the row, so
- * the optimistic row never pretends it is a column.
- *
- * Neither reason is required. The command insists on non-empty text, so an
- * empty box falls back to the plain fact, the bargain the mission cancel dialog
- * strikes. A close nobody explained is still a close, and refusing to record it
- * over a blank field would be the worse failure.
- *
- * The dialog is a sibling of the header rather than something the menu item
- * owns, because a menu unmounts its items on the click that chooses one. A
- * failure is a toast, the way the delete dialog reports one: the item that
- * asked is gone by the time the answer arrives, and the request is still on
- * screen to try again from.
+ * needs: `DetailPageHeader` in the `panel` frame, because this page keeps its
+ * column beside a map. Close and reopen are one menu item, whichever the
+ * request's state allows, and both write a comment on the request in the same
+ * transaction, so the reason dialog is where the comment's text comes from.
+ * Neither reason is required; an empty box falls back to the plain fact. The
+ * dialog is a sibling of the header because a menu unmounts its items on the
+ * click that chooses one, and a failure is a toast.
  */
 export function ServiceRequestDetailHeader({
 	request,
@@ -127,9 +108,8 @@ export function ServiceRequestDetailHeader({
 }
 
 /**
- * Everything that differs between the close dialog and the reopen dialog. The
- * two are one item and one dialog with one of these picked once, so a wording
- * change lands in exactly one place and cannot drift between the halves.
+ * Everything that differs between the close dialog and the reopen dialog, so a
+ * wording change lands in one place.
  */
 interface LifecycleCopy {
 	readonly action: string;

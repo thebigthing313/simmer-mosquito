@@ -3,13 +3,9 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ComponentType, SVGProps } from 'react';
 
 /**
- * The brand stage every unauthenticated surface stands on: a drenched-green
- * "map room" column carrying the real SIMMER logo, what the acronym stands for,
- * the value line, and the capability list.
- *
- * It lives in its own module because the landing page and the auth pages both
- * render it. They are the same doorway to the same product, and a visitor who
- * clicks "Sign In" should not feel handed off to a different one.
+ * The brand stage every unauthenticated surface stands on: the SIMMER logo,
+ * what the acronym stands for, the value line, and the capability list. The
+ * landing page and the auth pages both render it.
  */
 
 const SurveillanceIcon = iconRegistry.generic.scanEye.icon;
@@ -23,10 +19,8 @@ type LandingCapability = {
 };
 
 /**
- * The three capabilities are the three integrated mosquito management tactics
- * SIMMER covers today, ordered the way a program runs them. Copy stays
- * descriptive: the reader runs a mosquito control organization and does not
- * need the value of surveillance explained back to them.
+ * The three integrated mosquito management tactics SIMMER covers today,
+ * ordered the way a program runs them.
  */
 const CAPABILITIES: readonly LandingCapability[] = [
 	{
@@ -50,18 +44,11 @@ const CAPABILITIES: readonly LandingCapability[] = [
 ];
 
 /**
- * The committed brand stage: real logo, the full product name, value
- * proposition, and capability list.
- *
- * `variant` says what the stage is on the surface rendering it, and two things
- * follow from that:
- *
- * - `page` (the landing page) — the stage *is* the page, so its display line is
- *   the document's `h1` and every block shows at every width.
- * - `aside` (the auth pages) — the page's heading is the task beside it ("Sign
- *   In to Your Workspace"), so the display line drops to a paragraph, and below
- *   `lg`, where there is no left-hand side and both layouts stack, everything
- *   under the logo band collapses rather than pushing the form off the fold.
+ * The brand stage. `variant` says what the stage is on the surface rendering
+ * it: on `page` the stage is the page, so its display line is the document's
+ * `h1` and every block shows at every width; on `aside` the page's heading is
+ * the task beside it, so the display line drops to a paragraph and below `lg`
+ * everything under the logo band collapses.
  */
 export function LandingStage({ variant = 'page' }: { readonly variant?: 'page' | 'aside' }) {
 	const isAside = variant === 'aside';

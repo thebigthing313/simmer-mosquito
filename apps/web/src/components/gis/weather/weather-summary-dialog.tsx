@@ -14,24 +14,10 @@ import type { WeatherSummaryListing } from '../../../hooks/queries/weather-summa
 import { METRIC_INPUTS, type MetricInputs } from './weather-summary-form';
 
 /**
- * One dialog for both manual summary writes, `summary === null` records a new
- * bucket, otherwise it corrects one. Callers mount it only while open, so the
- * fields start from the summary being edited without a sync-back effect.
- *
- * ## Why the end date defaults to the start date
- *
- * A bucket is inclusive at both ends and a single-day reading stores the same
- * date twice; the domain never emits an open end. Most entry is daily, so the end
- * follows the start until the user separates them, and a three-day rain gauge is
- * the case where they do.
- *
- * ## Why every metric is on screen at once
- *
- * The seven are what a summary can hold, and an empty box means "no reading",
- * which on an edit means "clear the one that is there". Hiding the empty ones
- * behind a picker would make clearing a value harder than setting one, and
- * clearing is the commoner correction, a gauge misread is fixed by emptying the
- * box, not by typing a different wrong number.
+ * One dialog for both manual summary writes: `summary === null` records a new
+ * bucket, otherwise it corrects one. Callers mount it only while open. The end
+ * date follows the start until the user separates them, and every metric is
+ * on screen at once because an empty box on an edit clears the reading.
  */
 export function WeatherSummaryDialog({
 	stationId,
@@ -42,10 +28,7 @@ export function WeatherSummaryDialog({
 	readonly stationId: string;
 	readonly summary: WeatherSummaryListing | null;
 	readonly onClose: () => void;
-	/**
-	 * The year the save is about to write into, so the card can move its tabs to
-	 * it. Called before the write, see {@link useSummaryForm}.
-	 */
+	/** The year the save is about to write into, so the card can move its tabs to it. Called before the write. */
 	readonly onWriteYear: (year: number) => void;
 }) {
 	const form = useSummaryForm({ stationId, summary, onClose, onWriteYear });

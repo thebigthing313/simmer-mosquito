@@ -16,8 +16,8 @@ import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
 
 /**
- * Domain issue path → the form field holding it. Geometry is placed on the map,
- * so its issues land on the form alert rather than a field.
+ * Domain issue path to the form field holding it. Geometry is placed on the
+ * map, so its issues land on the form alert.
  */
 const STATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	stationName: 'name',
@@ -55,11 +55,9 @@ export interface WeatherStationFormPageProps {
 }
 
 /**
- * The form's values, as the write seam takes them.
- *
- * The code is empty-to-null rather than empty-to-empty. It is unique per
- * organization where it is non-null, so a second station saved with a blank
- * code box would collide with the first if the empty string were stored.
+ * The form's values, as the write seam takes them. The code is empty-to-null:
+ * it is unique per organization where non-null, so two blank codes would
+ * collide as empty strings.
  */
 export function weatherStationFieldsFrom(values: WeatherStationFormValues): WeatherStationFields {
 	const code = values.code.trim();
@@ -75,12 +73,8 @@ export function defaultWeatherStationFormValues(): WeatherStationFormValues {
 }
 
 /**
- * Adding or editing a weather station.
- *
- * Point-only, by the domain's rule: a station is a thermometer on a post, not an
- * area. It also does not reference an Address, looking one up is a fine way to
- * find the spot on the map, but the station stores the coordinates it was given
- * rather than borrowing an address's.
+ * Adding or editing a weather station. Point-only, by the domain's rule, and
+ * with no Address reference: the station stores the coordinates it was given.
  */
 export function WeatherStationFormPage({
 	mode,
@@ -108,12 +102,9 @@ export function WeatherStationFormPage({
 						stationName: value.name,
 						stationCode: value.code,
 						metadata: value.metadata,
-						// The stand-in, not the real `null`. The builder requires a point and
-						// fails on a null one with "geometry must be a GeoJSON geometry
-						// object", which pre-empts the whole validator, so a form submitted
-						// with no name *and* no point complains only about the point, and the
-						// form's own guard below never runs to say where to fix it. The
-						// absence of a point is this form's to report, against the map.
+						// The stand-in, not the real `null`: the builder fails a null point with a
+						// GeoJSON message that pre-empts the whole validator. The absence of a point
+						// is this form's to report, against the map.
 						geometry: geometry ?? FORM_VALIDATION_GEOMETRY,
 					}),
 				STATION_FIELD_PATHS,

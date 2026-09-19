@@ -12,27 +12,19 @@ import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 
 /**
- * The reads and writes behind the operations section — requested control actions
- * and missions.
- *
- * What is left here is the write half plus the reads the write surfaces depend
- * on. The queue and the schedule read through `hooks/queries` instead; these stay
- * on `webCollections` because a page that writes a row has to read it through the
- * same collection, or the write's txid lands on a stream nothing is watching and
- * the save never settles.
- *
- * Assignments deliberately keep their own module: they are field-work commands
- * against a different set of tables, and the only thing the two share is the
- * navigation group they sit in.
+ * The reads and writes behind the operations section: requested control
+ * actions and missions. The queue and the schedule read through
+ * `hooks/queries`; a page that writes a row reads it through the same
+ * collection, or the write's txid lands on a stream nothing is watching.
+ * Assignments keep their own module.
  */
 
 // --- derived state ----------------------------------------------------------
 
 /**
- * A mission needs somewhere to go before it can be dispatched.
- *
- * The server enforces this one itself (`checkStartMission`), so the button is
- * disabled rather than hidden — the reason is the empty stop list right below it.
+ * A mission needs somewhere to go before it can be dispatched. The server
+ * enforces this (`checkStartMission`), so the button is disabled rather than
+ * hidden.
  */
 export function canStartMission(status: MissionStatus, counts: MissionProgressCounts): boolean {
 	return status === 'scheduled' && counts.total > 0;
@@ -50,13 +42,9 @@ export function canProgressMissionItems(status: MissionStatus): boolean {
 
 /**
  * Recording the action a stop was dispatched for, which is a wider gate than
- * {@link canProgressMissionItems}.
- *
- * Done and Skip need a running mission. Recording does not: `autoStartMission`
- * defaults true so the crew's first record of the day starts the mission, and
- * the server permits it. Sharing the progress gate made that unreachable — the
- * mirror of the same mistake on the assignment side. See
- * `docs/mission-dispatch-domain.md`.
+ * {@link canProgressMissionItems}: Done and Skip need a running mission, and
+ * recording does not, because `autoStartMission` lets the crew's first record
+ * of the day start the mission. See `docs/mission-dispatch-domain.md`.
  */
 export function canRecordMissionStopWork(status: MissionStatus): boolean {
 	return status === 'scheduled' || status === 'inProgress';
@@ -71,11 +59,8 @@ export type MissionItemAction = 'complete' | 'skip' | 'unskip' | 'reopen';
 
 /**
  * The controls a stop offers, in the order the server resolves them.
- *
  * `readItemLifecycleTransition` checks `skippedAt` before `completedAt`, so a
- * skipped stop must never be offered Complete: the PATCH would be read as a
- * skip-then-complete and the row would keep reading as skipped until sync
- * corrected it. Unskip first is the only legal path.
+ * skipped stop is offered Unskip and never Complete.
  */
 export function missionItemActionsFor(progress: MissionItemProgress): readonly MissionItemAction[] {
 	if (progress === 'skipped') {
@@ -142,18 +127,13 @@ export interface MissionStopView {
 	readonly lng: number;
 	/**
 	 * The shape the stop was drawn as, once the display endpoint has answered.
-	 *
-	 * Null until then, and for a stop whose shape is a plain point — the pin at
-	 * `lat`/`lng` already is that point, and drawing it twice gains nothing.
+	 * Null until then, and for a stop whose shape is a plain point.
 	 */
 	readonly geometry: GeoJsonGeometry | null;
 	readonly requestedControlActionId: string | null;
 	/**
-	 * What the request this stop came from is called, once its row has streamed.
-	 *
-	 * The three fields anything showing a stop reads, rather than the request row:
-	 * a stop is *named* by its request, and the request's other thirty columns are
-	 * its own page's business.
+	 * What the request this stop came from is called, once its row has streamed:
+	 * the three fields anything showing a stop reads.
 	 */
 	readonly request: MissionStopRequest | null;
 	readonly addressId: string | null;
@@ -168,11 +148,9 @@ export interface MissionStopView {
 }
 
 /**
- * A `date` column as the day it names — a mission's rain date, not an instant.
- *
- * The opposite hazard to `formatScheduledStart`: naming a zone here would
- * *introduce* the shift. `new Date('2026-08-04')` is UTC midnight, so a zone
- * west of Greenwich renders it as the 3rd. Rebuilt in UTC, where it cannot move.
+ * A `date` column as the day it names, rebuilt in UTC where it cannot move.
+ * `new Date('2026-08-04')` is UTC midnight, so naming a zone would introduce
+ * the shift.
  */
 export function formatOperationalDate(value: string): string {
 	const parts = calendarDateParts(value);
@@ -204,9 +182,8 @@ export function toMissionStop(
 		lng: row.longitude,
 		geometry: shapeById.get(row.id) ?? null,
 		requestedControlActionId: row.requestedControlActionId,
-		// Rebuilt from the projected columns rather than carried as a row: what
-		// names a stop is a summary and a control type, and the request's other
-		// thirty columns are not something this page reads.
+		// Rebuilt from the projected columns rather than carried as a row: what names
+		// a stop is a summary and a control type.
 		request:
 			row.requestedControlActionId === null
 				? null

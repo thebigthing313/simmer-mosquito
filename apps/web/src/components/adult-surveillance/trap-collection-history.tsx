@@ -7,23 +7,15 @@ import { CollectionYears } from './collection-years';
 import { type DirectoryCollection, groupByYear } from './trap-directory-data';
 import { TrapHeader } from './trap-header';
 
-/**
- * How many seasons load without being asked for. The window itself, and why it
- * exists, are in {@link useTrapCollections}.
- */
+/** How many seasons load without being asked for. The window is {@link useTrapCollections}'s. */
 const DEFAULT_SEASONS = 3;
 
 /**
- * Everything one trap has produced, read as a season at a time.
- *
- * The directory's right half. A trap's collections are a long, flat run of dates
- * that only becomes navigable once it is cut by year — an operator asking "what
- * did this trap do last summer" is asking a question about a season, not about
- * the most recent ten rows. Each collection stays collapsed until it is opened,
- * so the year reads as a run of dates first and a specimen list only on request.
+ * Everything one trap has produced, a season at a time. Each collection stays
+ * collapsed until it is opened.
  */
 export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) {
-	// Older seasons are asked for, not loaded up front — see DEFAULT_SEASONS.
+	// Older seasons are asked for, not loaded up front, see DEFAULT_SEASONS.
 	const [allSeasons, setAllSeasons] = useState(false);
 	const timeZone = useOrganizationTimeZone();
 

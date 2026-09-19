@@ -11,9 +11,8 @@ import { formatMeasure } from './control-display';
 const UnitIcon = iconRegistry.entities.unit.icon;
 
 /**
- * The map focus card for a source-reduction action. One query brings the action
- * up with its method, unit and address already joined
- * ({@link useSourceReduction}).
+ * The map focus card for a source-reduction action. One query brings the
+ * action up with its method, unit and address joined ({@link useSourceReduction}).
  */
 export function SourceReductionMapCard({
 	id,

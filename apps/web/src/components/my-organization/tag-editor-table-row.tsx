@@ -32,9 +32,8 @@ export function TagEditorTableRow({
 
 	function saveTag() {
 		try {
-			// `current` comes back through the same round trip as the edited values,
-			// so a field nobody touched compares equal to itself and the save names
-			// only the commands it has changed fields for.
+			// `current` comes back through the same round trip as the edited values, so
+			// a field nobody touched compares equal to itself.
 			const write = mutations.save(
 				tag.id,
 				tagFieldsFrom(values),

@@ -58,12 +58,7 @@ export function ParsedFileCard({
 	);
 }
 
-/**
- * What the file would do, not merely that it parsed.
- *
- * A column mapped to the wrong field still reports "412 readable". "412 would
- * overwrite" is the number somebody stops on.
- */
+/** What the file would do, not merely that it parsed. */
 function AssessmentCounts({
 	assessment,
 	parsed,
@@ -106,11 +101,7 @@ function AssessmentCounts({
 }
 
 /**
- * The lines that will not be sent, named individually.
- *
- * "3 rows were skipped" is a dead end; "line 84 has no readings" is something a
- * person can open their own file and fix. Ten is enough to see the pattern
- * without turning the review into the failure list.
+ * The lines that will not be sent, named individually, up to ten.
  */
 function SkippedLines({
 	rejected,

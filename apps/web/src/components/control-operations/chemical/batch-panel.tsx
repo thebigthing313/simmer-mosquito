@@ -1,9 +1,6 @@
 /**
- * The batches under one product.
- *
- * The route owns the batch-tracking gate; this renders what a product's batches
- * look like once the gate has been read, which is a disabled list rather than no
- * list at all.
+ * The batches under one product. The route owns the batch-tracking gate; a
+ * product under a closed gate draws a disabled list.
  */
 
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -31,9 +28,8 @@ const AddIcon = iconRegistry.actions.add.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
 /**
- * Batches for one product, revealed when its row is expanded. Mounting lazily
- * (only while expanded) keeps the on-demand batch subscription scoped to the
- * products a user actually opens.
+ * Batches for one product, mounted only while its row is expanded so the
+ * on-demand batch subscription stays scoped to the products a user opens.
  */
 export function InsecticideBatchPanel({
 	catalog,

@@ -294,8 +294,7 @@ function NotificationTypeDrawer({
 						? 'Unable to create notification type.'
 						: `Unable to save ${notificationType.name}.`,
 				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
-				// refusal too, so dismissing on the way past would take the form away
-				// before the question could be asked.
+				// refusal too, and the form has to stay for the question.
 				save: () =>
 					run(async (acknowledgements) => {
 						if (notificationType === undefined) {

@@ -11,26 +11,11 @@ import { type AssessedRow, actionLabel } from './import-assessment';
 import type { ParsedSummaryRow } from './import-parse';
 
 /**
- * The readings a file holds, and what each one would do.
- *
- * Counts alone tell somebody the file parsed; they do not tell them it parsed
- * correctly. A column mapped to the wrong field, a date read a day off, a decimal
- * point in the wrong place: each of those produces a perfectly healthy "412
- * readable" and a spreadsheet's worth of wrong data. Seeing the first rows as
- * SIMMER understood them is what catches it, and it has to happen here, because
- * after the commit the fix is deleting rows one at a time.
- *
- * The verdict column is the other half, and the one the spec asks for by name:
- * "User reviews insert/update/no-change/fail counts and row details". A row that
- * would overwrite a reading already recorded is the one worth stopping on, and it
- * looks identical to every other row until something says so.
- *
- * ## Only the columns the file carried
- *
- * A summary can hold seven metrics and most files carry two or three. Rendering
- * all seven would be four columns of dashes wide enough to push the real ones off
- * screen, and would say nothing: an absent column and an empty cell are already
- * the same thing to the writer. So the columns are derived from what arrived.
+ * The readings a file holds, and what each one would do. The first rows as
+ * SIMMER understood them are what catch a column mapped to the wrong field or
+ * a date read a day off, and the verdict column is what the spec asks for:
+ * "User reviews insert/update/no-change/fail counts and row details". Only
+ * the columns the file carried are rendered.
  */
 export function ImportPreview({ assessed }: { readonly assessed: readonly AssessedRow[] }) {
 	if (assessed.length === 0) {
@@ -118,12 +103,8 @@ const METRIC_COLUMNS = [
 }[];
 
 /**
- * The bucket a row covers.
- *
- * The raw `YYYY-MM-DD` rather than a formatted date, on purpose: this table is
- * for checking that SIMMER read the file the way the file meant it, and a
- * reformatted date is one more step between what the user typed and what they are
- * being shown.
+ * The bucket a row covers, as the raw `YYYY-MM-DD`, so the user compares it
+ * against what they typed.
  */
 function periodLabel(row: { readonly startDate: string; readonly endDate: string }): string {
 	return row.startDate === row.endDate ? row.startDate : `${row.startDate} → ${row.endDate}`;

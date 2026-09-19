@@ -1,22 +1,3 @@
-/**
- * The Dashboard: the state of the Organization, for the person deciding what
- * happens next.
- *
- * Four sections, top to bottom: the two backlog panels, the untreated habitats
- * banner, the last-7-days strip, and the people in the field today. Nothing
- * here is a list of records except the people table; a queue shows a count
- * and the age of the oldest and links to the explorer that lists them, with
- * the explorer's filters set so it shows the rows the count counted.
- *
- * Every number has one of two sources. Four queues read Electric through the
- * hooks under `hooks/queries`, so the row moves the instant a Collector saves.
- * Everything else is one server round-trip in `-dashboard-data.ts`, up to five
- * minutes stale, and nothing on the page says which is which. Each panel
- * answers for its own loading and error states, the way the overviews do.
- * `docs/dashboard-spec.md` is the brief; the names on screen are the ones the
- * prototype settled, except that every record noun reads `recordNoun`.
- */
-
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -41,8 +22,7 @@ const PEOPLE_UNAVAILABLE = 'Activity is unavailable right now.';
 
 /**
  * Everyone who logged field work today, most records first, each name a link
- * to their day on the Activity Monitor. Names resolve off the eager `profiles`
- * collection the way every other surface resolves them.
+ * to their day on the Activity Monitor.
  */
 export function PeopleTodayPanel({
 	server,

@@ -8,9 +8,9 @@ import { EditSettingsSheet } from './layout/edit-settings-sheet';
 import { LookupListFrame } from './layout/lookup-list-frame';
 
 /**
- * Insecticides and their batches are managed on the control operations route, next to the
- * applications that use them. This keeps their counts visible in settings and points at the one
- * place that edits them.
+ * Insecticides and their batches are managed on the control operations route,
+ * next to the applications that use them; this shows their counts and points
+ * there.
  */
 export function InsecticideLookupPointer() {
 	const products = useInsecticideRecords();

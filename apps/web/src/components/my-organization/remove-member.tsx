@@ -19,15 +19,10 @@ import { DeleteIcon } from './constants';
 import { SaveErrorNote, saveFailureMessage } from './helpers';
 
 /**
- * Ending somebody's access (ADR 0011).
- *
- * Below the form rather than in it: saving a display name and revoking a login
- * are not the same act, and one submit button for both would make the second
- * one an accident waiting to happen.
- *
- * The profile is deliberately left alone. It is what every record this person
- * created still points at, and it goes on being assignable field history. What
- * ends is the login's reach into this organization, not the person.
+ * Ending somebody's access (ADR 0011). Below the form rather than in it,
+ * because saving a display name and revoking a login are not the same act. The
+ * profile is left alone: it is what every record this person created still
+ * points at.
  */
 export function RemoveMemberControl({
 	auth,
@@ -39,8 +34,7 @@ export function RemoveMemberControl({
 	readonly onRemoved: () => void;
 }) {
 	// Both halves have to be present for the ladder question to mean anything: a
-	// historical Profile has no access to end, and `canRemoveMember` compares
-	// against a role there is none of.
+	// historical Profile has no access to end.
 	if (person.membershipId == null || person.role == null) {
 		return null;
 	}

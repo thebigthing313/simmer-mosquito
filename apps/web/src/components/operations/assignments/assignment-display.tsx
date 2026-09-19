@@ -39,9 +39,8 @@ export function AssignmentStatusBadge({ status }: { readonly status: AssignmentS
 }
 
 /**
- * A stop's progress. Pending is deliberately unbadged — most stops on an open
- * worklist are pending, and a badge on every row would say nothing while burying
- * the two states that do.
+ * A stop's progress. Pending is unbadged: most stops on an open worklist are
+ * pending, and a badge on every row would bury the two states that matter.
  */
 export function ItemProgressBadge({ progress }: { readonly progress: ItemProgress }) {
 	if (progress === 'pending') {
@@ -58,7 +57,7 @@ export function ItemProgressBadge({ progress }: { readonly progress: ItemProgres
 	);
 }
 
-/** What kind of record a stop points at — assignments mix all three. */
+/** What kind of record a stop points at, assignments mix all three. */
 export function TargetTypePill({ type }: { readonly type: TargetType | null }) {
 	if (type === null) {
 		return (
@@ -77,12 +76,9 @@ export function TargetTypePill({ type }: { readonly type: TargetType | null }) {
 }
 
 /**
- * A stop's target, linked to its own record.
- *
- * An assignment stores only a type and an id, so a target that has been deleted
- * simply stops resolving. That reads as a gap in the worklist unless it is named,
- * hence the explicit unavailable state — the stop still happened and still holds
- * its place in the sequence.
+ * A stop's target, linked to its own record. An assignment stores only a type
+ * and an id, so a deleted target stops resolving; the unavailable state names
+ * that, because the stop still holds its place in the sequence.
  */
 export function TargetLink({
 	target,

@@ -39,13 +39,8 @@ export function RequestLocation({
 			description="The point is the request’s exact location. Use an address to frame the map, then refine the point to the precise spot."
 			error={locationError}
 		>
-			{/*
-			 * One way in to a new address: the picker's own "Create Address", which
-			 * geocodes the entry and can place its point on this form's map. The form
-			 * used to carry a second, thinner set of address fields beside it that did
-			 * neither, so which one an intake taker reached for decided whether the
-			 * address came out geocoded.
-			 */}
+			{/* One way in to a new address: the picker's own "Create Address", which
+			    geocodes the entry and can place its point on this form's map. */}
 			<form.AppField name="addressId">
 				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 				{(field: any) => (

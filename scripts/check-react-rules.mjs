@@ -169,7 +169,7 @@ const REACT_RULE_BACKLOG = new Map([
 	['apps/web/src/components/auth/accept-invitation-page.tsx', 1],
 	['apps/web/src/components/larval-surveillance/habitats/route-address-dialog.tsx', 1],
 	['apps/web/src/routes/larval-surveillance/samples/$id.tsx', 2],
-	['apps/web/src/components/my-organization/general.tsx', 1],
+	['apps/web/src/components/my-organization/tag-editor-table-row.tsx', 1],
 	['apps/web/src/routes/public-engagement/contacts/index.tsx', 2],
 	['apps/web/src/routes/search.tsx', 1],
 	['apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx', 4],

@@ -16,18 +16,8 @@ import {
 import { ActivityRow } from './activity-row';
 
 /**
- * One family of the day's work, collapsible.
- *
- * The families are the top level of the log. A day heading used to sit over
- * them, carried from the surface this page replaced, which read a window of
- * days and needed a way past four hundred rows; this page reads one day and the
- * stepper already names it, so the heading repeated the header and the fold hid
- * the whole log behind one click (#1003). Do not put it back: the way to scan
- * past days here is the stepper.
- *
- * A family still folds, because a day where one family did forty things and the
- * rest did two is common, and a reader after the two should not scroll the
- * forty. Open by default, so the usual day is read without a click.
+ * One family of the day's work, collapsible and open by default. There is no
+ * day heading over the families: the stepper names the day.
  */
 export function ActivityFamilySection({
 	group,
@@ -66,13 +56,7 @@ function familyLabel(family: ActivityFamily): string {
 	return ACTIVITY_FAMILY_LABELS.find((entry) => entry.key === family)?.label ?? family;
 }
 
-/**
- * A heading with its count, folding the rows under it.
- *
- * One weight, flush with the panel edge, because the log has one level: the
- * indent and the lighter type that once marked a family as nested under a day
- * went with the day (#1003).
- */
+/** A heading with its count, folding the rows under it. */
 function CollapsibleSection({
 	title,
 	count,

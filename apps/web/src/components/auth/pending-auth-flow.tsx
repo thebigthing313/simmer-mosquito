@@ -8,12 +8,9 @@ import type {
 import { AuthFormError, VerificationCodeFields } from '@simmer-mosquito/ui-web/components/auth';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { FieldGroup } from '@simmer-mosquito/ui-web/components/ui/field';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { type FormEvent, useState } from 'react';
 import { selectOrganization, verifyEmail } from '../../auth';
 import { AuthShell } from './auth-shell';
-
-const _SpinnerIcon = iconRegistry.actions.loading.icon;
 
 export type PendingStep =
 	| { readonly kind: 'verify'; readonly email: string; readonly pendingAuthenticationToken: string }

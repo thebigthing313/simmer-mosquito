@@ -38,12 +38,7 @@ export function CollectionRow({
 }: {
 	readonly collection: DirectoryCollection;
 	readonly speciesNameById: ReadonlyMap<string, string>;
-	/**
-	 * Passed down rather than read here. A row is a leaf rendered once per
-	 * collection in a season, and subscribing each one to the organization
-	 * collection would open a live query per row to answer a question the pane
-	 * already knows the answer to.
-	 */
+	/** Passed down rather than read here, so a row opens no live query of its own. */
 	readonly timeZone: string;
 }) {
 	const date = collectionEffectiveDate(collection, timeZone);

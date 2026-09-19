@@ -38,9 +38,9 @@ export function ControlMethodLookupList({
 	/** Owner/admin: adding a method, and flipping one active or inactive. */
 	readonly canManage: boolean;
 	/**
-	 * Manager-and-above: renaming a method and editing its custom fields. The
-	 * server splits these two floors (`update*Method` is `MANAGER`, everything
-	 * else about a method is `ADMIN`), so this list needs both.
+	 * Manager-and-above: renaming a method and editing its custom fields.
+	 * `update*Method` is `MANAGER` and everything else about a method is `ADMIN`,
+	 * so this list needs both floors.
 	 */
 	readonly canEditMethods: boolean;
 	readonly collectionKey: ControlMethodCollectionKey;
@@ -189,8 +189,7 @@ function ControlMethodDrawer({
 						? `Unable to create ${config.singularLabel}.`
 						: `Unable to save ${method.name}.`,
 				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
-				// refusal too, so dismissing on the way past would take the form away
-				// before the question could be asked.
+				// refusal too, and the form has to stay for the question.
 				save: () =>
 					run(async (acknowledgements) => {
 						if (method === undefined) {

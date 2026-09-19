@@ -4,17 +4,11 @@ import type { WeatherSummaryListing } from '../../../hooks/queries/weather-summa
 import { FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
 // The weather summary form's own rules and its metric inputs, shared by the
 // dialog that draws them and the hook that holds them.
-// Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
- * What is wrong with the summary on screen, in words, or `null`.
- *
- * The domain's own builder decides almost all of it: metric bounds, two-decimal
- * precision, min-before-max, the date range, and "at least one reading".
- * Re-stating any of those here would be a second copy to drift from the one the
- * server runs, which `forms/domain-validation.ts` argues against at length.
- *
- * The future-date rule is the exception, and has to be, because it depends on
+ * What is wrong with the summary on screen, in words, or `null`. The domain
+ * builder decides metric bounds, precision, min-before-max, the date range and
+ * "at least one reading"; the future-date rule is here because it depends on
  * the organization's timezone and the domain is handed no clock.
  */
 export function summaryIssue(input: {
@@ -43,12 +37,8 @@ export function summaryIssue(input: {
 }
 
 /**
- * The first thing the domain objects to, in words, or `null`.
- *
- * The builder reports every issue it finds; the dialog has one line to say them
- * in, and the first is the one to fix. `humanizeIssue` is not reachable from
- * here, so the path is dropped rather than half-translated: the messages that
- * matter here name a bound or an ordering and read on their own.
+ * The first thing the domain objects to, in words, or `null`. The dialog has
+ * one line to say it in. The path is dropped rather than half-translated.
  */
 function firstIssue(build: () => unknown): string | null {
 	try {
@@ -63,12 +53,9 @@ function firstIssue(build: () => unknown): string | null {
 }
 
 /**
- * The seven metrics, with their units in the label.
- *
- * The canonical units are Fahrenheit, inches, percent and miles per hour, and
- * they are fixed rather than following the organization's unit defaults, a
- * stored summary carries no unit of its own, so a form that offered a choice
- * would be writing one number under two meanings.
+ * The seven metrics, with their units in the label. The units are fixed
+ * (Fahrenheit, inches, percent, miles per hour) because a stored summary
+ * carries no unit of its own.
  */
 export const METRIC_INPUTS = [
 	{ key: 'temperatureMinF', label: 'Min temp (°F)', placeholder: 'e.g. 54' },
@@ -110,13 +97,10 @@ export function metricInputsFrom(summary: WeatherSummaryListing | null): MetricI
 }
 
 /**
- * The typed readings, or `null` when a box holds something that is not one.
- *
- * An empty box is a deliberate `null` rather than a refusal: that is how a
- * reading is cleared. Anything else that is not a finite number with at most two
- * decimals fails the whole parse, because the domain rejects extra precision
- * rather than rounding it, silently keeping two of a user's four decimals would
- * be the form deciding what they meant.
+ * The typed readings, or `null` when a box holds something that is not one. An
+ * empty box is a deliberate `null`, which is how a reading is cleared; anything
+ * else that is not a finite number with at most two decimals fails the parse,
+ * because the domain rejects extra precision rather than rounding it.
  */
 export function parseMetrics(inputs: MetricInputs): WeatherMetrics | null {
 	const parsed: Record<string, number | null> = {};

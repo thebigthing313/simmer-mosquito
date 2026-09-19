@@ -7,23 +7,15 @@ const CheckIcon = iconRegistry.actions.check.icon;
 const CircleIcon = iconRegistry.generic.circle.icon;
 
 /**
- * The shortest password the server will take.
- *
- * Mirrors `MIN_PASSWORD_LENGTH` in the server's auth endpoints. WorkOS applies
- * the organization's own policy on top — length plus breached-password
- * detection — so this is a floor the page can check, not the whole rule. What
- * WorkOS refuses comes back as its own message and is shown verbatim.
+ * The shortest password the server will take, mirroring `MIN_PASSWORD_LENGTH`
+ * in the server's auth endpoints. WorkOS applies the organization's own policy
+ * on top, and what it refuses is shown verbatim.
  */
 const MIN_PASSWORD_LENGTH = 8;
 
 /**
- * The two fields every "choose a password" step uses.
- *
- * A single password box on an account-creation form is a typo waiting to lock
- * someone out of an account they have not signed into yet, so the password is
- * always confirmed. The requirement list is stated up front and answers live:
- * before this, the only signal that a password was too weak arrived after
- * submitting, and on the invitation page it did not arrive at all.
+ * The two fields every "choose a password" step uses. The password is always
+ * confirmed, and the requirement list answers live.
  */
 export function NewPasswordFields({
 	idPrefix,
@@ -83,9 +75,8 @@ function PasswordRequirements({
 }
 
 /**
- * One requirement line. `met: null` marks a rule only the server can settle —
- * it is stated so the user knows it exists, without a checkbox that would be
- * lying either way.
+ * One requirement line. `met: null` marks a rule only the server can settle: it
+ * is stated without a checkbox.
  */
 function Requirement({
 	met,

@@ -24,11 +24,8 @@ export function summaryPeriodLabel(summary: WeatherSummaryListing): string {
 }
 
 /**
- * A low-to-high reading, or `null` when the summary recorded neither end.
- *
- * The absence is `null` rather than a dash so that the caller draws it. A
- * formatter that bakes in a display string is how these two drifted from the
- * component every other column used.
+ * A low-to-high reading, or `null` when the summary recorded neither end, so
+ * the caller draws the absence.
  */
 export function formatRange(min: number | null, max: number | null, unit: string): string | null {
 	if (min === null && max === null) {
@@ -46,12 +43,9 @@ export function formatMeasure(value: number | null, unit: string): string | null
 }
 
 /**
- * `Aug 4, 2026` — a summary's day, built from the parts rather than rendered
- * through `Intl`, so no zone can move it.
- *
- * The month name is looked up rather than formatted, which is why a month
- * outside 1 to 12 is unreadable here and is only a rollover elsewhere: there is
- * no thirteenth name to print.
+ * `Aug 4, 2026`, a summary's day built from the parts rather than rendered
+ * through `Intl`, so no zone can move it. A month outside 1 to 12 is
+ * unreadable here.
  */
 export function formatDate(value: string): string {
 	const parts = calendarDateParts(value);

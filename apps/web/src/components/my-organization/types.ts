@@ -1,9 +1,8 @@
 import type { RangeDensity, UnitDefaults } from '@simmer-mosquito/domain';
 import type React from 'react';
 
-// Re-exported rather than re-declared: two identical unions under one name are
-// what `fallow dead-code` calls a duplicate export, and the ladder's names have
-// exactly one home (`packages/domain`).
+// Re-exported rather than re-declared: two identical unions under one name
+// are what `fallow dead-code` calls a duplicate export.
 export type { SimmerRole } from '@simmer-mosquito/domain';
 export type OrganizationSectionId =
 	| 'general'

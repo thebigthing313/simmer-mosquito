@@ -5,8 +5,7 @@ export const REGION_DND_TYPE = 'application/x-simmer-region';
 
 /**
  * Where a drop would put the region. `unfiled` is a place in the tree, not a
- * folder, so it gets its own arm rather than a sentinel id sharing the string
- * space real folder ids live in.
+ * folder, so it gets its own arm rather than a sentinel id.
  */
 export type RegionDropTarget =
 	| { readonly kind: 'folder'; readonly folderId: string }
@@ -54,12 +53,9 @@ export function readDraggedRegionId(event: React.DragEvent<HTMLElement>): string
 }
 
 /**
- * The handlers that make an element a drop zone for `target`.
- *
- * Spread onto the element that wraps a group's header *and* its rows, not the
- * header alone: a region already in the group is part of the target you are
- * aiming at, and the empty-group hint that says so renders below the header.
- * Rows set no drop handler of their own, so a drop on one bubbles up to here.
+ * The handlers that make an element a drop zone for `target`. Spread onto the
+ * element that wraps a group's header and its rows; rows set no drop handler
+ * of their own, so a drop on one bubbles up to here.
  */
 export function regionDropZoneProps(
 	dnd: RegionDnd,

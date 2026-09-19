@@ -55,8 +55,8 @@ const APPLICATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 
 /**
  * The same map for a formulation entry, where the product and the amount are the
- * mix's. Anything the expansion reports per component (`components.0.ratio`) has
- * no field of its own and lands on the form alert.
+ * mix's. Anything the expansion reports per component (`components.0.ratio`)
+ * lands on the form alert.
  */
 const FORMULATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	...APPLICATION_FIELD_PATHS,
@@ -76,11 +76,10 @@ export function isApplicationUnitType(unitType: UnitType): boolean {
 }
 
 /**
- * Whether the operator is entering one product or a saved mix.
- *
- * A formulation is a calculator, not a record: choosing one splits the total
- * into an ordinary single-insecticide application per component product. Nothing
- * downstream stores which mix it came from (see `docs/control-operations-domain.md`).
+ * Whether the operator is entering one product or a saved mix. A formulation is
+ * a calculator, not a record: choosing one splits the total into one
+ * single-insecticide application per component product
+ * (`docs/control-operations-domain.md`).
  */
 export type ApplicationProductMode = 'insecticide' | 'formulation';
 
@@ -93,18 +92,10 @@ export interface ApplicationMix {
 }
 
 /**
- * The form's rules, straight from the domain builder.
- *
- * A mix is validated as what it becomes: the same expansion the save runs, so a
- * rule that would reject one of the generated applications is reported here
- * rather than after the first row lands. An unchosen mix reaches the expansion
- * as no components and a `NaN` batch size, and both of those issues map onto the
- * formulation field.
- *
- * The builder is the only channel. A second pass over the product, the amount,
- * the unit and the date used to run in `onSubmit` and throw a bare string into
- * the page alert, which told an operator a save had failed without saying where
- * to look.
+ * The form's rules, straight from the domain builder. A mix is validated as
+ * what it becomes, through the same expansion the save runs; an unchosen mix
+ * reaches the expansion as no components and a `NaN` batch size, and both
+ * issues map onto the formulation field.
  */
 export function validateApplication(
 	value: ApplicationFormValues,
@@ -161,11 +152,11 @@ export interface ApplicationFormValues {
 	readonly insecticideId: string;
 	/** A formulation id, or '' when unset. Formulation entry. */
 	readonly formulationId: string;
-	/** The amount that went out — of the product, or of the whole mix. */
+	/** The amount that went out, of the product, or of the whole mix. */
 	readonly amountApplied: number | null;
 	/** A unit id, or '' when unset. Defaults from the chosen insecticide. */
 	readonly applicationUnitId: string;
-	/** `YYYY-MM-DD` — the day the application was made. */
+	/** `YYYY-MM-DD`: the day the application was made. */
 	readonly applicationDate: string;
 	/** `noSelectionValue` or an application method id. */
 	readonly applicationMethodId: string;
@@ -182,8 +173,8 @@ export interface ApplicationFormValues {
 	/** `noSelectionValue` or an equipment id. */
 	readonly equipmentId: string;
 	/**
-	 * Optional address the application was made at — reference data only. The
-	 * application's own point (its geometry) is the authoritative location.
+	 * Optional address the application was made at, reference data only. The
+	 * application's own point is the authoritative location.
 	 */
 	readonly addressId: string | null;
 	/** Optional larval context: the habitat this treatment was performed against. */

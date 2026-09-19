@@ -7,13 +7,9 @@ import { CommentsSection } from '../comments-section';
 const CommentIcon = iconRegistry.actions.comment.icon;
 
 /**
- * The rail below a worklist's header: its stops, and the thread about it.
- *
- * Missions and assignments both hand the right half of the page to a map, which
- * leaves one column for everything else — and a stop list wants every pixel of
- * it. Stacking a comment thread underneath would put two long scrolls in one
- * narrow column, so the two take turns instead. Whichever is showing gets the
- * full height and owns its own scrolling.
+ * The rail below a worklist's header: its stops, and the thread about it. The
+ * two take turns in the one column beside the map, and whichever is showing
+ * owns its own scrolling.
  */
 export function WorklistTabs({
 	target,

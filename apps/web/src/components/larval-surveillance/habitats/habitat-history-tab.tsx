@@ -14,14 +14,9 @@ import { ExplorerPagination } from '../../explorer-pagination';
 const historyPageSize = 25;
 
 /**
- * The failure the card draws for all five tabs.
- *
- * `useHabitatHistory` calls the inspections half the whole card, because the
- * samples tab is built from it too and the tab counts on the strip would read
- * zero rather than unknown. The three side subsets each fail into their own tab.
- *
- * So this is drawn around the tabs rather than inside one, and the inspections
- * and samples tabs name it as the failure of rows they never get to report.
+ * The failure the card draws for all five tabs. `useHabitatHistory` calls the
+ * inspections half the whole card, so it is drawn around the tabs; the three
+ * side subsets each fail into their own tab.
  */
 export const HISTORY_UNAVAILABLE = {
 	description: 'Inspection and sample history could not be loaded.',
@@ -30,14 +25,8 @@ export const HISTORY_UNAVAILABLE = {
 
 /**
  * One tab of the history card: the ladder, the scrolling table and the pager.
- *
- * The five tabs differ in their columns and their rows and in nothing else, and
- * before #865 each wrote the chrome around those out again. What is left per tab
- * is the head cells, the row, and the words for a tab with nothing in it.
- *
- * `isReady` is true by construction: the card above draws the tabs only once
- * `useHabitatHistory` has answered, so a tab is never rendered mid-read. What a
- * tab can still carry is its own failure, which the three side subsets have.
+ * `isReady` is true by construction, because the card draws the tabs only once
+ * `useHabitatHistory` has answered; a tab can still carry its own failure.
  */
 export function HistoryTab<Row extends { readonly id: string }>({
 	rows,

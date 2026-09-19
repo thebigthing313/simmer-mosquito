@@ -4,18 +4,13 @@ import { OptionRow, PickerFallback, PickerFrame } from '../pickers/entity-picker
 
 // The trap picker searches the eager `traps` set client-side, over whatever set
 // the caller handed it. Picking an address is `LocationAddressField`'s, in
-// `forms/location-band.tsx`, because that pick also moves the map.
+// `components/forms/location-band.tsx`, because that pick also moves the map.
 
 /**
- * The three things this picker reads off a trap.
- *
- * Structural rather than `TrapRow`, and the component is generic over it, so a
- * caller holding a query hook's projection can pass that and get the same shape
- * back from `onSelect`. A caller still holding the full row passes that instead —
- * it satisfies this — and its `onSelect` still receives a whole trap.
- *
- * `is_active` is not among them: which traps are pickable is the caller's
- * question, not this component's. See the search below.
+ * The three things this picker reads off a trap. Structural rather than
+ * `TrapRow`, and the component is generic over it, so `onSelect` hands back
+ * whatever shape the caller passed. Which traps are pickable is the caller's
+ * question; see the search below.
  */
 export interface PickableTrap extends TrapName {
 	readonly description: string | null;
@@ -53,17 +48,10 @@ export function TrapPicker<TTrap extends PickableTrap>({
 	const anchorRef = useRef<HTMLDivElement>(null);
 
 	const normalized = search.trim().toLowerCase();
-	// Every trap the caller passed, retired ones included. A trap retired
-	// yesterday still needs last week's collection recorded, and this picker used
-	// to be the one place that refused: the collection form seeds a retired trap
-	// from a trap page and shows it, but clearing the field could not get it back.
-	//
-	// The caller decides instead, and the two that plan future work already do —
-	// the route editor and the assignment target picker both pass
-	// `useActiveTraps`, which excludes retired traps in its predicate. The
-	// collection form passes `useTrapOptions`, which carries them. The habitat
-	// picker on the inspection form settles the same question the same way, and
-	// marks nothing in the list, so neither does this.
+	// Every trap the caller passed, retired ones included. Callers that plan
+	// future work pass `useActiveTraps`; the collection form passes
+	// `useTrapOptions`, because a trap retired yesterday still needs last week's
+	// collection recorded.
 	const matches = trapMatches(traps, normalized);
 
 	return (

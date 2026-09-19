@@ -2,16 +2,10 @@ import type { ContactFields } from '../../hooks/mutations/use-contact-mutations'
 import type { Contact } from '../../hooks/queries/contact-view';
 
 /**
- * The contact's own fields, as a form holds them.
- *
- * A contact is filled in from two places — its own page, and inline while a
- * service request is being logged — and the two were carrying different subsets
- * of the record. Both read this shape now, so an intake taker keying a caller in
- * captures everything the directory does.
- *
- * What the fields are called on the way *out* is `ContactFields`, which the write
- * seam owns: this module's job is the round trip between a form's strings and
- * that shape.
+ * The contact's own fields, as a form holds them, read by the contact page and
+ * by the inline path while a service request is logged. `ContactFields` is
+ * the shape on the way out; this module's job is the round trip between a
+ * form's strings and that shape.
  */
 
 export interface ContactFormValues {
@@ -28,13 +22,10 @@ export interface ContactFormValues {
 }
 
 /**
- * The contact fields a domain issue can name, in the order the block draws them.
- *
- * The builder reports each one under `contact.<field>`, since
- * `normalizeCreateContactDetails` is handed that prefix, so both callers map the
- * same names onto whatever they call the block's fields. The three preference switches are on the list because
- * the builder refuses each of them without the channel it needs, and a caller
- * whose map stopped at `email` sent those three to the page alert.
+ * The contact fields a domain issue can name, in the order the block draws
+ * them. The builder reports each one under `contact.<field>`. The three
+ * preference switches are on the list because the builder refuses each
+ * without the channel it needs.
  */
 export const CONTACT_FIELD_PATHS: readonly (keyof ContactFormValues & string)[] = [
 	'contactName',

@@ -6,17 +6,13 @@ import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-sourc
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { formatAmount } from '../../../lib/format-count';
 
-/**
- * One eager read of the whole roster rather than a subset per name rendered.
- * Profiles number in the tens and every row on this page names an actor, so a
- * query each would be dozens of identical suspending reads for one small table.
- */
+/** One eager read of the whole roster rather than a subset per name rendered. */
 export function ProfileName({ profileId }: { readonly profileId: string }) {
 	return <>{useProfileNames().get(profileId) ?? 'Unknown'}</>;
 }
 
 // insecticides, units, and application methods are eager baseline collections, so
-// suspense is safe — unlike the on-demand applications subset they decorate.
+// suspense is safe, unlike the on-demand applications subset they decorate.
 export function InsecticideName({ insecticideId }: { readonly insecticideId: string }) {
 	const match = useInsecticideRecords().find((product) => product.id === insecticideId);
 	return <>{match?.tradeName ?? 'Unknown insecticide'}</>;
@@ -64,13 +60,8 @@ export function AmountWithUnit({
 }
 
 /**
- * A stamp, in the organization's zone.
- *
- * Takes a `Date` as well as a string: the read seam hands back `created_at` and
- * `updated_at` as `Date` — `coerce.date()` in the row schema — where the row
- * type this page used to hold spelled them as ISO strings. Accepting both is
- * what keeps the two remaining string call sites working while the surfaces
- * around this one still speak the old shape.
+ * A stamp, in the organization's zone. Takes a `Date` or a string, because
+ * the read seam hands back `Date` and older call sites hand back ISO strings.
  */
 export function formatDateTime(value: string | Date, timeZone: string | undefined): string {
 	const date = value instanceof Date ? value : new Date(value);

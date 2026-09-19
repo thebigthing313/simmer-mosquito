@@ -36,9 +36,8 @@ export function EditOrganizationDetailsSheet({
 		},
 		onSubmit: ({ value }) => {
 			try {
-				// The conversion throws on an empty required field, so it runs before
-				// the sheet closes — a save that never left should not look like one
-				// that did.
+				// The conversion throws on an empty required field, so it runs before the
+				// sheet closes.
 				const fields = organizationDetailsFieldsFrom(value);
 				setOpen(false);
 				watchWrite(saveOrganizationDetails(fields), 'Unable to save organization details.');

@@ -33,11 +33,9 @@ const STATUS_META: Record<
 };
 
 /**
- * The map focus card for a larval Sample.
- *
- * Two queries: the Sample with its Inspection and site joined, and what was found
- * in it. The lifecycle status is derived here rather than stored, the same way the
- * server derives it.
+ * The map focus card for a larval Sample. Two queries: the Sample with its
+ * Inspection and site joined, and what was found in it. The lifecycle status
+ * is derived here the way the server derives it.
  */
 export function SampleMapCard({
 	id,
@@ -69,16 +67,15 @@ export function SampleMapCard({
 		unidentifiableReason: sample.unidentifiableReason,
 	});
 	const meta = STATUS_META[status];
-	// The most recent identification dates the Sample: a technician may record
-	// several species across more than one sitting, and the last one is when the
-	// jar was finished with.
+	// The most recent identification dates the Sample: the last sitting is when
+	// the jar was finished with.
 	const identifiedAt = identifications.reduce<string | null>(
 		(latest, row) => (latest === null || row.identifiedAt > latest ? row.identifiedAt : latest),
 		null,
 	);
-	// The row is mapped at the call rather than renamed at the seam, the way the
-	// inspection card maps it (#907). `habitatName` is `null` while the habitat's
-	// row is arriving, and the id arm is what the link reads then (#998).
+	// The row is mapped at the call rather than renamed at the seam. `habitatName`
+	// is `null` while the habitat's row is arriving, and the id arm is what the
+	// link reads then.
 	const habitat = habitatLabel(
 		{
 			habitatId: sample.habitatId,

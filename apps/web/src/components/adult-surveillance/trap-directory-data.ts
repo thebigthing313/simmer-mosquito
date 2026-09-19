@@ -5,12 +5,8 @@ import { collectionEffectiveDate, isPendingCollection } from './adult-display';
 
 /**
  * The fold behind the trap directory's right half: a trap's flat run of
- * collections, cut into the seasons an operator reads it by.
- *
- * Kept apart from the component because every way this can be wrong is a way
- * the screen still looks right — a year that silently swallows the collections
- * of the year before it, or a specimen total that counts a row twice, reads as
- * plausible data rather than as a defect.
+ * collections, cut into seasons. Pure, so a year that swallows the year before
+ * it or a total that counts a row twice can be asserted.
  */
 
 /** The bucket undated collections fall into, kept ahead of the dated years. */
@@ -41,9 +37,8 @@ export interface TrapDirectory {
 	readonly selectedTrap: TrapListing | null;
 	readonly hasActiveTraps: boolean;
 	/**
-	 * Whether a filter is holding traps back. An empty list means two different
-	 * things — an organization with no traps deployed, and a search that matched
-	 * none — and only one of them is the reader's to fix.
+	 * Whether a filter is holding traps back. An empty list is either an
+	 * organization with no traps or a search that matched none.
 	 */
 	readonly isNarrowed: boolean;
 }
@@ -59,9 +54,8 @@ export interface DirectorySpecies {
 export interface DirectoryCollection {
 	readonly id: string;
 	/**
-	 * A `Date` off `useTrapCollections`, which is what the row schema parses a
-	 * `timestamptz` into. Stated as either because these are the shapes the pure
-	 * functions below work over, and a fixture is easier to read as a string.
+	 * A `Date` off `useTrapCollections`, or a string, because a fixture is easier
+	 * to read as a string.
 	 */
 	readonly collectedAt: Date | string | null;
 	readonly collectionDate: string | null;
@@ -85,14 +79,9 @@ export interface SpecimenTotals {
 
 /**
  * Cut a trap's collections into years, most recent first, with the undated ones
- * ahead of them.
- *
- * The year comes off the *effective* date — the two collection timing modes
- * store it in different columns, and reading `collectedAt` alone would file
- * every date-and-duration collection under "undated". What is left after that
- * fallback is genuinely undated: a trap still out, or a record whose date was
- * never filled in. Both belong at the top, where work that is not finished is
- * what an operator is looking for.
+ * ahead of them. The year comes off the effective date, because the two timing
+ * modes store it in different columns. What is left is a trap still out, or a
+ * record whose date was never filled in.
  */
 export function groupByYear(
 	collections: readonly DirectoryCollection[],
@@ -127,9 +116,8 @@ export function groupByYear(
 	return [
 		{
 			key: UNDATED_GROUP_KEY,
-			// "Trap out" is the domain name for this, but only while every row in the
-			// bucket is genuinely pending — a date-and-duration collection missing its
-			// date is undated for an unrelated reason and should not be called set.
+			// "Trap out" only while every row in the bucket is pending; a
+			// date-and-duration collection missing its date is undated for another reason.
 			label: undated.every(isPendingCollection) ? 'Trap out' : 'Undated',
 			collections: undated,
 		},
@@ -139,7 +127,7 @@ export function groupByYear(
 
 /**
  * What a collection caught. Non-positive counts are ignored, so a zero row
- * neither inflates the specimen total nor claims a species was present.
+ * neither inflates the total nor claims a species was present.
  */
 export function specimenTotals(species: readonly DirectorySpecies[]): SpecimenTotals {
 	let specimens = 0;
@@ -156,11 +144,8 @@ export function specimenTotals(species: readonly DirectorySpecies[]): SpecimenTo
 }
 
 /**
- * The one line a closed row carries.
- *
- * A collection that is still out, or empty by declaration, says so rather than
- * showing a zero: "0 species · 0 specimens" is a tally, and reads as a trap that
- * caught nothing rather than as a sample nobody has keyed out yet.
+ * The one line a closed row carries. A collection still out, or empty by
+ * declaration, says so rather than showing "0 species · 0 specimens".
  */
 export function summaryLabel(collection: DirectoryCollection, totals: SpecimenTotals): string {
 	if (isPendingCollection(collection)) {

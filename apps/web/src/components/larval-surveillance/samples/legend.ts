@@ -20,11 +20,8 @@ const STATUS_LABEL: Record<SampleStatus, string> = {
 };
 
 /**
- * The key, cut down to the colours the current filter can actually draw.
- *
- * The status filter is single-select, so narrowing to one status leaves one
- * colour on the map. A key still listing the other three would be describing
- * dots that are not there.
+ * The key, cut down to the colours the current filter can draw. The status
+ * filter is single-select, so narrowing to one status leaves one colour.
  */
 /** What one sample reads as in the chips, the rail and the key. */
 export function sampleStatusLabel(status: SampleStatus): string {

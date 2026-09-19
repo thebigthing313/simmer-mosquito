@@ -41,13 +41,8 @@ const BIOCONTROL_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The form's rules, straight from the domain builder.
- *
- * The builder is the only channel: it holds the method, the amount, the unit and
- * the date, and every issue it raises comes back attributed to the field that
- * holds it. A second pass over the same four rules used to run in `onSubmit` and
- * throw a bare string into the page alert, which told an operator a save had
- * failed without saying where to look.
+ * The form's rules, straight from the domain builder: the method, the amount,
+ * the unit and the date, each issue attributed to the field that holds it.
  */
 export function validateBiocontrol(
 	value: BiocontrolFormValues,
@@ -75,8 +70,8 @@ export function validateBiocontrol(
 
 export interface BiocontrolFormValues {
 	/**
-	 * Optional address the release happened at — reference data only. The action's
-	 * own point (its geometry) is the authoritative location.
+	 * Optional address the release happened at, reference data only. The action's
+	 * own point is the authoritative location.
 	 */
 	readonly addressId: string | null;
 	/** Optional larval context: the habitat the agents were released into. */
@@ -87,7 +82,7 @@ export interface BiocontrolFormValues {
 	readonly technicianProfileId: string;
 	/** Profile ids of everyone else who worked this release. */
 	readonly additionalPersonnelIds: readonly string[];
-	/** `YYYY-MM-DD` — the date the agents were released. */
+	/** `YYYY-MM-DD`: the date the agents were released. */
 	readonly biocontrolDate: string;
 	readonly amountReleased: number | null;
 	/** A unit id, or '' when unset (placeholder shown). */
@@ -160,9 +155,8 @@ export function BiocontrolFormPage({
 	header,
 	onSave,
 }: BiocontrolFormPageProps) {
-	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
-	// geometry for context — never the action's geometry itself, which the draw
-	// layer renders.
+	// `referenceGeometry` is a habitat's shape, shown for context; the draw layer
+	// renders the action's own geometry.
 	const location = useDrawLocation({
 		geometryKind: 'controlAction',
 		initialGeometry,
@@ -176,7 +170,7 @@ export function BiocontrolFormPage({
 		(method) => method.isActive,
 		(method) => method.name,
 	);
-	// Biocontrol releases are counted, measured by volume, or weighed — the domain
+	// Biocontrol releases are counted, measured by volume, or weighed, the domain
 	// rejects any other unit type.
 	const releaseUnitOptions = unitOptions(units, isBiocontrolUnitType);
 
@@ -270,9 +264,8 @@ export function BiocontrolFormPage({
 									organizationId={organizationId}
 									onSelect={(habitat) => {
 										field.handleChange(habitat?.id ?? null);
-										// The habitat is larval context, not the action's location, but
-										// framing the map on it (and seeding unplaced geometry) saves the
-										// crew a pan across the county.
+										// The habitat is larval context, not the action's location; framing the
+										// map on it seeds unplaced geometry.
 										location.selectReference(
 											habitat === null ? null : { lat: habitat.latitude, lng: habitat.longitude },
 										);
@@ -355,11 +348,8 @@ export function BiocontrolFormPage({
 // --- helpers ----------------------------------------------------------------
 
 /**
- * What the form holds, as the write seam takes it.
- *
- * The sentinel stops here: Radix forbids an empty Select value, so "Unassigned"
- * is a string the domain has never heard of. Create and edit both map the same
- * way, so they map through here.
+ * What the form holds, as the write seam takes it. The "Unassigned" sentinel
+ * stops here.
  */
 export function biocontrolFieldsFrom(values: BiocontrolFormValues) {
 	return {

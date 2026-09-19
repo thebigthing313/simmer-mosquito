@@ -27,9 +27,9 @@ import {
 export type AddressPointGeometry = DrawPoint;
 
 /**
- * Domain issue path → the form field holding it. The point is placed on the map
- * rather than typed, so its issues land on the alert, and `geocoderResponse` is
- * the geocoder's own answer, which no operator can fix on a field either.
+ * Domain issue path to the form field holding it. The point is placed on the
+ * map rather than typed, so its issues land on the alert, and so does
+ * `geocoderResponse`, which no operator can fix on a field.
  */
 const ADDRESS_FIELD_PATHS: Readonly<Record<string, string>> = {
 	displayName: 'displayName',
@@ -52,17 +52,10 @@ export interface AddressFormValues {
 }
 
 /**
- * The form's rules, straight from the domain builder.
- *
- * They used to be copied out of it by hand and had already drifted: the
- * display-name length cap and the postal and region formats were never checked
- * here, so each of them came back as a save that failed for no stated reason.
- *
- * The point is the one input the builder is not handed as it stands. An address
- * without one is a real refusal, but it is `requireGeometry`'s to report, on the
- * location band and in words an operator can act on. Passing the null instead
- * puts "Geometry must be a GeoJSON geometry object." in the alert and stops
- * every other rule from being reached.
+ * The form's rules, straight from the domain builder. The point is not handed
+ * to it as it stands: a missing point is `requireGeometry`'s to report on the
+ * location band, and passing the null would put a GeoJSON message in the alert
+ * and stop every other rule from being reached.
  */
 export function validateAddress(
 	value: AddressFormValues,
@@ -97,14 +90,10 @@ export interface AddressFormHeader {
 }
 
 /**
- * What a save is handed, and where the geocoder's answer sits in it.
- *
- * `values` is the form's; the other three are the point's. The response is the
- * provenance of a point the geocoder placed: nobody types it, no field shows it,
- * and it is stored so a later reader can see which match this address came from.
- * So it travels beside the geometry it explains rather than as an eighth form
- * value. A point placed by hand keeps whatever response the address already had,
- * which is the one the row was geocoded to.
+ * What a save is handed. `values` is the form's; the other three are the
+ * point's. The geocoder response is the provenance of a point the geocoder
+ * placed, stored so a later reader can see which match the address came from.
+ * A point placed by hand keeps the response the address already had.
  */
 export interface AddressFormSave {
 	readonly values: AddressFormValues;
@@ -166,8 +155,7 @@ export function AddressFormPage({
 				return;
 			}
 			if (!isOwnedGeometry('address', geometry)) {
-				// Unreachable while the register says Point and nothing else, which is
-				// what leaves this form one tool. Thrown rather than returned so a
+				// Unreachable while the register says Point and nothing else. Thrown so a
 				// widened policy says so in the alert instead of dropping the save.
 				throw new Error('An address stores a single point.');
 			}
@@ -283,9 +271,8 @@ export function AddressFormPage({
 				onSelect={(result) => {
 					const point = pointFromGeocoderResult(result);
 					if (point !== null) {
-						// Through the controller, so the map draws the point it holds and
-						// the redraw flag is set in the one place every other source of a
-						// geometry sets it.
+						// Through the controller, so the map draws the point it holds and the
+						// redraw flag is set where every other source of a geometry sets it.
 						draw.commit(point);
 						setGeocoderResponse(result);
 					}

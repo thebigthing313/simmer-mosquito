@@ -1,12 +1,8 @@
 /**
  * The contact input block, shared by the contact page and the service request
- * form's inline "new contact" path.
- *
- * `prefix` is what the two callers differ by: the contact page owns the fields at
- * the root of its form, the service request form nests them under `newContact`.
- * Everything else — which fields exist, how they are grouped, what the
- * placeholders say — stays one definition, so a caller keying a contact in during
- * intake is offered the same record as one filling in the directory.
+ * form's inline "new contact" path. `prefix` is what the two callers differ
+ * by: the contact page owns the fields at the root of its form, the service
+ * request form nests them under `newContact`.
  */
 export function ContactFieldsBlock({
 	form,

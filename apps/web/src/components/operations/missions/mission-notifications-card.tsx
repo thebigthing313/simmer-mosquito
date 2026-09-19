@@ -24,25 +24,16 @@ import { errorMessageForSave } from '../../../lib/save-error';
 import { WriteOnly } from '../../write-only';
 
 /**
- * Who this mission has to warn, and the button that works it out.
- *
- * The list is here rather than a toast because the generation's most confusing
- * answer is an empty one, and it is only confusing without the list. Pressed a
- * second time it creates nothing, which is correct; beside a list of twelve
- * people it plainly reads as "already done", and on its own it reads as a button
- * that did not work.
- *
- * Every answer that is not a failure gets its own sentence, and the two that are
- * not failures but look like them get an inline alert rather than a toast: a
- * retired notification type and an unpriceable buffer unit are conditions
- * somebody has to go and fix, and a toast is gone before they have read it.
+ * Who this mission has to warn, and the button that works it out. The list is
+ * here rather than a toast because an empty generation is only readable
+ * beside the list. A retired notification type and an unpriceable buffer unit
+ * get an inline alert rather than a toast, because somebody has to go and fix
+ * them.
  */
 /**
- * What the toast says after a generation run added rows.
- *
- * Named rather than interpolated at the call site because that call site is
- * inside a try block, where the React Compiler cannot lower the conditional and
- * bails the whole component (#856).
+ * What the toast says after a generation run added rows. Named here because
+ * the call site is inside a try block the React Compiler cannot lower with a
+ * conditional in it.
  */
 function addedNotifications(count: number): string {
 	return `Added ${count} ${count === 1 ? 'notification' : 'notifications'}.`;
@@ -128,11 +119,7 @@ export type StandingMessage =
 	| { readonly kind: 'type_retired' }
 	| { readonly kind: 'refused'; readonly refusal: GenerationRefusal };
 
-/**
- * Exported for its test: the card around it reads three collections and a
- * router, and the thing worth pinning is which of the six refusals renders a
- * list and what it links to.
- */
+/** Exported for its test: which of the six refusals renders a list and what it links to. */
 export function StandingAlert({ message }: { readonly message: StandingMessage }) {
 	if (message.kind === 'type_retired') {
 		return (

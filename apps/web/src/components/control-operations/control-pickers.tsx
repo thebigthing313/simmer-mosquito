@@ -4,11 +4,10 @@ import { useHabitatNames } from '../../hooks/queries/use-habitat-names';
 import { useHabitatSearch } from '../../hooks/queries/use-habitat-search';
 import { OptionRow, PickerFallback, PickerFrame } from '../pickers/entity-picker';
 
-// A control action picks a habitat when the work was done against a known larval
-// site. Habitats sync on demand (docs/sync.md), so results come from a live
-// `ilike` subset query rather than a client-side filter over an eager set.
-// Picking an address is `LocationAddressField`'s, in `forms/location-band.tsx`,
-// because that pick also moves the map.
+// A control action picks a habitat when the work was done against a known
+// larval site. Habitats sync on demand, so results come from a live `ilike`
+// subset query. Picking an address is `LocationAddressField`'s, in
+// `components/forms/location-band.tsx`, because that pick also moves the map.
 
 export function HabitatPicker({
 	label = 'Habitat',
@@ -30,10 +29,7 @@ export function HabitatPicker({
 	/*
 	 * A habitat this picker did not pick still has to say its name: a form opened
 	 * on a record already holding one, or a create form seeded from the habitat's
-	 * own page. Without this the field drew its placeholder over a value that was
-	 * set, so the operator read an empty picker and picked the habitat they had
-	 * just come from. Habitats sync on demand, so the name is a subset read
-	 * rather than a lookup in a set this client holds.
+	 * page. Habitats sync on demand, so the name is a subset read.
 	 */
 	const names = useHabitatNames(value === null || pickedLabel !== '' ? [] : [value]);
 	const selectedLabel = pickedLabel !== '' ? pickedLabel : (names.get(value ?? '') ?? '');

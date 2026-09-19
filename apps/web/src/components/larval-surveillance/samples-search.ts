@@ -6,11 +6,10 @@ import {
 	idSetParam,
 } from '../../lib/search-filters';
 
-// The samples explorer's URL filter contract. It lives outside the route module
-// so overview panels can build deep links into the explorer with a preset filter
-// state, and the route can validate incoming params from the same definition.
-// Every codec drops what it cannot read, so a malformed or hand-edited URL
-// degrades to the explorer's own defaults instead of erroring.
+// The samples explorer's URL filter contract, outside the route module so
+// overview panels can build deep links from the same definition. Every codec
+// drops what it cannot read, so a malformed URL degrades to the explorer's
+// defaults.
 
 /** Sample lifecycle states the explorer can filter to; mirrors the server enum. */
 const sampleStatusValues = [

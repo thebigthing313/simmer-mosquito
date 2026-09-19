@@ -1,13 +1,10 @@
 import { AuthSubmitButton } from '@simmer-mosquito/ui-web/components/auth';
 import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { requestPasswordReset } from '../../auth';
 import { AuthShell } from './auth-shell';
-
-const _SpinnerIcon = iconRegistry.actions.loading.icon;
 
 export function ForgotPasswordPage() {
 	const [email, setEmail] = useState('');

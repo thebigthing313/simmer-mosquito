@@ -1,8 +1,4 @@
-/**
- * The add/edit surface for a lot or batch of a product, and the delete beside
- * each row. A batch is its own record with its own commands, so it has its own
- * drawer rather than a section of the product's.
- */
+/** The add/edit surface for a lot or batch of a product, and the delete beside each row. */
 
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -38,10 +34,7 @@ export function InsecticideBatchDrawer({
 	mutations,
 	trigger,
 }: {
-	/**
-	 * Every product, not the subset a table happens to be drawing. Narrowing
-	 * this narrows what a batch can be filed under.
-	 */
+	/** Every product, not the subset a table happens to be drawing. */
 	readonly allProducts: readonly InsecticideRecord[];
 	readonly batch?: InsecticideBatchRecord | undefined;
 	readonly canManage: boolean;
@@ -58,9 +51,8 @@ export function InsecticideBatchDrawer({
 	const fallbackInsecticideId = defaultInsecticideId ?? selectableProducts[0]?.id ?? '';
 	const defaultValues = insecticideBatchFormValues(batch, fallbackInsecticideId);
 	const insecticideChoices = selectableProducts.map(insecticideOption);
-	// Held on the drawer component rather than inside the drawer's content, which
-	// unmounts: `commitCatalogSave` closes on the way past, before the server has
-	// answered, so a question raised here has to outlive the close.
+	// Held on the drawer component rather than inside its content, which
+	// unmounts: `commitCatalogSave` closes before the server has answered.
 	const { run, dialog } = useAcknowledgedWrite({
 		askable: INSECTICIDE_BATCH_SAVE_REFUSALS,
 		ask: true,
@@ -75,9 +67,8 @@ export function InsecticideBatchDrawer({
 				failureMessage:
 					batch === undefined ? 'Unable to create batch.' : `Unable to save ${batch.batchName}.`,
 				onWritten: () => setOpen(false),
-				// A create has no history to relabel, so only the edit goes through
-				// `run`. `run` swallows a refusal a flag can answer and turns it into
-				// the dialog; anything else still reaches the toast here.
+				// A create has no history to relabel, so only the edit goes through `run`,
+				// which turns a refusal a flag can answer into the dialog.
 				save: () =>
 					batch === undefined
 						? mutations.create(batchFields(value)).then(() => undefined)
@@ -205,12 +196,7 @@ function insecticideOption(insecticide: InsecticideRecord) {
 	};
 }
 
-/**
- * Open the batch drawer on a record, or on a blank one under a product.
- *
- * Written as two cases rather than three `??` defaults over an optional record,
- * the same way the product drawer's values are. A saved batch has all three.
- */
+/** Open the batch drawer on a record, or on a blank one under a product. */
 function insecticideBatchFormValues(
 	batch: InsecticideBatchRecord | undefined,
 	defaultInsecticideId: string,

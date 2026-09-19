@@ -1,14 +1,11 @@
 import { AuthFormError, AuthSubmitButton } from '@simmer-mosquito/ui-web/components/auth';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { FieldGroup } from '@simmer-mosquito/ui-web/components/ui/field';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { resetPassword } from '../../auth';
 import { AuthShell } from './auth-shell';
 import { NewPasswordFields } from './new-password-fields';
-
-const _SpinnerIcon = iconRegistry.actions.loading.icon;
 
 export function ResetPasswordPage({ token }: { readonly token: string }) {
 	const navigate = useNavigate();

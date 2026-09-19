@@ -6,13 +6,10 @@ import { useOpenRequestedControlActions } from '../../../hooks/queries/use-open-
 import { OptionRow, PickerFallback, PickerFrame } from '../../pickers/entity-picker';
 
 /**
- * The add-a-stop control: pick an open request, add it to the end.
- *
- * Requests are the only stop source offered because they are the only one the
- * server can place without a drawn shape — it copies the request's own geometry.
- * Requests already on this mission drop out of the list; one already on a
- * *different* mission stays, because sending two crews to the same site is a
- * legitimate plan the domain flags rather than forbids.
+ * The add-a-stop control: pick an open request, add it to the end. Requests
+ * are the only stop source the server can place without a drawn shape.
+ * Requests already on this mission drop out; one on a different mission stays,
+ * because the domain flags that rather than forbids it.
  */
 export function RequestStopPicker({
 	existingRequestIds,

@@ -52,11 +52,7 @@ export function UnitForm({
 }) {
 	const form = useAppForm({
 		defaultValues: values,
-		/*
-		 * The rejection is left to escape. `useAppForm` records it as a
-		 * `SaveFailure` and `form.FormErrorAlert` renders it, which is what keeps
-		 * Save pressable so a dropped write can be tried again (#754).
-		 */
+		/* The rejection escapes so `form.FormErrorAlert` renders it and Save stays pressable. */
 		onSubmit: async ({ value }) => {
 			await onSubmit(value);
 		},

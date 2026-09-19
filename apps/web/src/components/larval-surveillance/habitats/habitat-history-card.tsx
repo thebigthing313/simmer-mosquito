@@ -23,19 +23,16 @@ import {
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 
 /**
- * The card's own read has no rows: each tab counts its own, and the strip is
- * what an operator picks between. So the `PanelRows` around the tabs is the
- * failure and the placeholder, and everything past those is `children`.
+ * The card's own read has no rows: each tab counts its own. So the `PanelRows`
+ * around the tabs is the failure and the placeholder, and everything past those
+ * is `children`.
  */
 const NO_CARD_ROWS: readonly never[] = [];
 
 /**
- * What has happened at this habitat, a tab per kind of record.
- *
- * Exported for `tests/unit/link-destinations.test.tsx`, which reads the five
- * destinations the rows carry. The card is the smallest thing that has them:
- * they are built from four different id fields across five tabs, and only a
- * `Tabs` renders one tab's rows at a time.
+ * What has happened at this habitat, a tab per kind of record. Exported for
+ * `tests/unit/link-destinations.test.tsx`, which reads the five destinations
+ * the rows carry.
  */
 export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 	const {

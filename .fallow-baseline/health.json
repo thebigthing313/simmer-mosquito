@@ -5,14 +5,14 @@
         "count": 1
       }
     },
+    "apps/admin/src/components/auth.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
     "apps/admin/src/lib/tones.ts": {
       "crap_moderate": {
         "count": 1
-      }
-    },
-    "apps/admin/src/routes/-auth.tsx": {
-      "crap_moderate": {
-        "count": 2
       }
     },
     "apps/admin/src/routes/organizations/$organizationId/foundations.tsx": {
@@ -178,11 +178,24 @@
         "count": 1
       }
     },
+    "apps/web/src/components/auth/accept-invitation-page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
     "apps/web/src/components/comments-section.tsx": {
       "complexity_high": {
         "count": 2
       },
       "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/control-operations/chemical/application-form.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
         "count": 1
       }
     },
@@ -193,6 +206,11 @@
       "complexity_moderate": {
         "count": 1
       },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/larval-surveillance/habitats/habitat-inspection-stats.tsx": {
       "crap_moderate": {
         "count": 1
       }
@@ -262,6 +280,31 @@
     },
     "apps/web/src/components/map/trap-tiles.ts": {
       "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/my-organization/control-asset-lookup.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/my-organization/helpers.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/my-organization/people.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/operations/assignments/assignment-target-picker.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/components/operations/missions/mission-stop-row.tsx": {
+      "complexity_moderate": {
         "count": 1
       }
     },
@@ -344,16 +387,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/-auth.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/-habitat-inspection-stats.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/adult-surveillance/collections/create.tsx": {
       "complexity_moderate": {
         "count": 1
@@ -382,14 +415,6 @@
     },
     "apps/web/src/routes/control-operations/chemical/$id_.edit.tsx": {
       "complexity_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/control-operations/chemical/-application-form.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -448,21 +473,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/my-organization/-components/control.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/my-organization/-components/helpers.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/my-organization/-components/people.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/operations/assignments/$id.tsx": {
       "complexity_high": {
         "count": 1
@@ -479,11 +489,6 @@
         "count": 1
       }
     },
-    "apps/web/src/routes/operations/assignments/-assignment-target-picker.tsx": {
-      "complexity_moderate": {
-        "count": 1
-      }
-    },
     "apps/web/src/routes/operations/assignments/create.tsx": {
       "complexity_high": {
         "count": 1
@@ -497,11 +502,6 @@
         "count": 1
       },
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/web/src/routes/operations/missions/-mission-stops.tsx": {
-      "complexity_moderate": {
         "count": 1
       }
     },

@@ -13,11 +13,8 @@ import { useHabitatSearch } from '../../../hooks/queries/use-habitat-search';
 import { LabeledControl } from './inspection-form-controls';
 
 /**
- * The habitat an inspection is already recorded against, as a read-only line.
- *
- * A picker here would offer a change the update command drops: an inspection's
- * habitat, and the type/address/geometry snapshotted from it, are fixed once
- * recorded.
+ * The habitat an inspection is already recorded against, as a read-only line,
+ * because the update command cannot move it.
  */
 export function SelectedHabitat({ habitatId }: { readonly habitatId: string | null }) {
 	const name = useHabitatLabel(habitatId);
@@ -45,10 +42,9 @@ export function HabitatPicker({
 	const [pickedLabel, setPickedLabel] = useState('');
 	const deferredSearch = useDeferredValue(search);
 	const anchorRef = useRef<HTMLDivElement>(null);
-	// A value can arrive without a pick — a stop's "Record inspection" seeds the
-	// habitat it was sent to — and then there is no label to show. Resolving it
-	// from the id covers both routes in; the picked label still wins so typing
-	// never flickers against a query.
+	// A value can arrive without a pick (a stop's "Record inspection" seeds the
+	// habitat), so the label is resolved from the id; the picked label still
+	// wins so typing never flickers against a query.
 	const seededLabel = useHabitatLabel(pickedLabel === '' ? value : null);
 	const selectedLabel = pickedLabel === '' ? seededLabel : pickedLabel;
 
@@ -58,11 +54,7 @@ export function HabitatPicker({
 				<PopoverAnchor asChild>
 					<div ref={anchorRef}>
 						<SearchInput
-							/*
-							 * The trailing control clears the picked habitat, not the text, so
-							 * it is this form's own addon and shows against the selection
-							 * rather than against what is typed.
-							 */
+							/* The trailing control clears the picked habitat, not the text. */
 							endAddon={
 								value === null ? null : (
 									<InputGroupButton
@@ -128,9 +120,8 @@ function HabitatSearchResults({
 	readonly selectedValue: string | null;
 	readonly onSelect: (habitat: HabitatMatch) => void;
 }) {
-	// `includeRetired`, because this picker always has: an inspection is also how
-	// a site the organization retired gets looked at again. The control pickers
-	// exclude.
+	// `includeRetired`: an inspection is also how a retired site gets looked at
+	// again. The control pickers exclude.
 	const {
 		matches: habitats,
 		isReady,

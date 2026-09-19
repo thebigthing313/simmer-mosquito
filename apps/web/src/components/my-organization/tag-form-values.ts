@@ -3,10 +3,8 @@ import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
 import type { TagFormValues } from './types';
 
 /**
- * A Tag as its inline form holds one, and back.
- *
- * The boundary between what the row shows — a `null` colour is no colour — and
- * what an input can hold, which is only ever a string.
+ * A Tag as its inline form holds one, and back: a `null` colour is no colour,
+ * and an input can hold only a string.
  */
 export function tagFormValues(tag: TagRecord): TagFormValues {
 	return {

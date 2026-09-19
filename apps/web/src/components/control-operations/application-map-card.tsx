@@ -14,9 +14,8 @@ const MethodIcon = iconRegistry.entities.application.icon;
 
 /**
  * The map focus card for a chemical application. One query brings the
- * application up with its product, method, unit, applicator and address already
- * joined ({@link useApplication}); the batch names come alongside it, keyed on
- * the same id the card was opened with.
+ * application up with its product, method, unit, applicator and address joined
+ * ({@link useApplication}); the batch names are keyed on the same id.
  */
 export function ApplicationMapCard({
 	id,

@@ -22,12 +22,10 @@ import type { MapInset } from '../../map/map-inset';
 import { TagBadge } from '../../tag-badge';
 
 /**
- * The map focus card for a Habitat.
- *
- * The Habitat arrives with its type name already joined; the address and the tags
- * are resolved by the shared components that show them. `detailTo` selects the
- * detail route the "View details" link targets; the habitats explorer under
- * larval-surveillance passes the route its own list rows link to.
+ * The map focus card for a Habitat. The Habitat arrives with its type name
+ * joined; the address and the tags are resolved by the shared components that
+ * show them. `detailTo` selects the detail route the "View details" link
+ * targets.
  */
 export function HabitatMapCard({
 	id,
@@ -55,8 +53,7 @@ export function HabitatMapCard({
 		);
 	}
 
-	// `name` is never empty — an unnamed Habitat reads out its coordinates, which is
-	// what the short-id fallback used to stand in for.
+	// `name` is never empty: an unnamed Habitat reads out its coordinates.
 	const typeName =
 		habitat.typeId === null ? 'Unassigned type' : (habitat.typeName ?? 'Unknown type');
 	const description = habitat.description.trim();

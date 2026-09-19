@@ -64,8 +64,8 @@ export function defaultHabitatFormValues(): HabitatFormValues {
 }
 
 /**
- * Domain issue path → the form field that holds it. Geometry is captured on the
- * map rather than in a field, so its issues land on the form's alert.
+ * Domain issue path to the form field that holds it. Geometry is captured on
+ * the map, so its issues land on the form's alert.
  */
 const HABITAT_FIELD_PATHS: Readonly<Record<string, string>> = {
 	description: 'description',
@@ -95,9 +95,8 @@ export function HabitatFormPage({
 		defaultValues,
 		validators: {
 			/*
-			 * The domain builder is the validation contract — the server runs this
-			 * same function and rejects with these same issues. Running it here turns
-			 * a round-trip and a generic "Unable to save" into a message on the field.
+			 * The domain builder is the validation contract; the server runs this same
+			 * function and rejects with these same issues.
 			 */
 			onSubmit: domainValidator(
 				({ value }: { readonly value: HabitatFormValues }) =>
@@ -192,7 +191,7 @@ export function HabitatFormPage({
 					</WriteOnly>
 				</div>
 
-				{/* Address above geometry, in one section — the same Location block
+				{/* Address above geometry, in one section, the same Location block
 							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
 					<LocationBand

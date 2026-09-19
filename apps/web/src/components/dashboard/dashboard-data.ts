@@ -1,19 +1,11 @@
 /**
  * The Dashboard's server half as the page reads it, and the arithmetic the
- * page does on dates.
- *
- * One `useQuery` for `GET /dashboard`, which answers every panel the client
- * cannot read off a synced table: the two awaiting queues, the unassigned
- * requests, the untreated flag, the activity strip and the people in the field
- * today. One query is one timer, which is why five panels are one endpoint
- * rather than five, and why the page carries no refresh control: focus and the
- * five-minute interval are the cadence. `docs/dashboard-spec.md` is the rest.
- *
- * The wire types are written here rather than imported: `apps/web` has no
- * dependency on `packages/db`, and an edge from the browser app to the Kysely
- * package to type one response is the worse trade. `DashboardResponse` in
- * `packages/db/src/domains/dashboard.ts` is the other half, and the route suite
- * in `apps/server` holds the shape.
+ * page does on dates. One `useQuery` for `GET /dashboard` answers every panel
+ * the client cannot read off a synced table, refreshed on focus and every five
+ * minutes. The wire types are written here because `apps/web` has no
+ * dependency on `packages/db`; `DashboardResponse` in
+ * `packages/db/src/domains/dashboard.ts` is the other half.
+ * `docs/dashboard-spec.md` is the rest.
  */
 
 /** A pending queue: how many, and the date of the oldest. */
@@ -75,12 +67,8 @@ export interface DashboardResponse {
 // --- the arithmetic ----------------------------------------------------------
 
 /**
- * Calendar days from `date` to `today`, both `YYYY-MM-DD` in the same zone.
- *
- * UTC throughout, because both are already calendar days and no zone should
- * move either. Never negative: a row dated after today, which the domain
- * refuses but a clock could produce, reads as today rather than as a negative
- * age.
+ * Calendar days from `date` to `today`, both `YYYY-MM-DD` in the same zone,
+ * computed in UTC. Never negative.
  */
 export function ageInDays(date: string, today: string): number {
 	const from = Date.parse(`${date}T00:00:00Z`);

@@ -17,22 +17,11 @@ import { DrawToolbar } from '../../map/geometry-control';
 import { addStopDescription } from '../operations-display';
 
 /**
- * The form for one stop, beside the route the way every create route keeps its
- * form in a `-*-form.tsx`.
- *
- * `canSubmit` is the route's, read off `useMissionItemMutations().canWrite`,
- * which is `canAttributeWrite` over the snapshot. This used to write the actor
- * half of that predicate itself, `actorProfileId === null`, and drop the
- * Organization half; #888 swept that shape out of sixteen other routes (#944).
- *
- * A refused save stays on the page, in the `Alert` above the location band,
- * rather than going to the toast the mission page reports a refused lifecycle
- * write through. That is the rule `DetailPageHeader`'s docblock carries: a
- * form is something the person can fix and resubmit, and the refusal the
- * server sends here can be one of those, a shape it will not store or an
- * address it will not link. So this holds its own busy flag and message
- * instead of calling `useCommandRunner`, which reports through the toast
- * since #1100 and has nothing left for a form to draw.
+ * The form for one stop. `canSubmit` is the route's, read off
+ * `useMissionItemMutations().canWrite`. A refused save stays on the page, in
+ * the `Alert` above the location band, because a form is something the person
+ * can fix and resubmit; so this holds its own busy flag and message instead of
+ * calling `useCommandRunner`, which reports through the toast.
  */
 export function AddMissionStopForm({
 	mission,

@@ -1,18 +1,13 @@
 import { addCalendarDays } from '../../lib/local-date';
 import { dateParam, type FilterCodecs } from '../../lib/search-filters';
 import type { ActivityCopy } from '../activity/activity-data';
-// The three rules Daily Work is: which day it is showing, what that day sends to
-// the activity endpoint, and whether the path names a Profile at all.
-// Dash-prefixed so TanStack Router ignores this file as a route.
+// The three rules Daily Work is: which day it is showing, what that day sends
+// to the activity endpoint, and whether the path names a Profile at all.
 
 /**
- * The day the page shows.
- *
- * `today` is already the organization's today rather than the browser's, so a
- * supervisor two zones away opens the same day a collector on the road does.
- * A future day is pulled back to today: the picker refuses to select one, and a
- * hand-typed or stale URL must land on a day that can hold work rather than on
- * an empty page that reads as a quiet one.
+ * The day the page shows. `today` is the organization's today, and a future
+ * day is pulled back to it, so a hand-typed or stale URL lands on a day that
+ * can hold work.
  */
 export function dailyWorkDay(requested: string, today: string): string {
 	return requested === '' || requested > today ? today : requested;
@@ -20,23 +15,15 @@ export function dailyWorkDay(requested: string, today: string): string {
 
 /**
  * The day either side of the one on screen, for the stepper's two arrows.
- *
- * Forward stops at today, the same bound the picker refuses to cross, so the
- * arrow at today returns the day it was given rather than a tomorrow the page
- * would draw as a quiet day. Backward has no floor: a Profile's field work goes
- * back as far as the organization's records do.
+ * Forward stops at today; backward has no floor.
  */
 export function dailyWorkStep(day: string, days: number, today: string): string {
 	return dailyWorkDay(addCalendarDays(day, days), today);
 }
 
 /**
- * One day, as the window the endpoint takes.
- *
- * `GET /map/profiles/:profileId/activity` is a `dateFrom`/`dateTo` read, so a
- * single day is both ends of it. Named rather than spelled inline at the call
- * site, because "both ends are the same day" is the whole difference between
- * this page and the range it came from.
+ * One day, as the window the endpoint takes. `GET /map/profiles/:profileId/activity`
+ * is a `dateFrom`/`dateTo` read, so a single day is both ends of it.
  */
 export function dailyWorkWindow(
 	profileId: string,
@@ -52,12 +39,9 @@ export function dailyWorkWindow(
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Whether the path segment could name a Profile.
- *
- * Ids are UUIDs, so anything else is a mistyped or truncated link and is worth
- * saying so before a read goes out for it. It is only the cheap half: the page
- * still has to find the id among this organization's own profiles, because a
- * valid UUID belonging to another organization is the same wrong link.
+ * Whether the path segment could name a Profile. Ids are UUIDs, so anything
+ * else is a mistyped link. The page still has to find the id among this
+ * organization's own profiles.
  */
 export function isProfileId(value: string): boolean {
 	return UUID.test(value);

@@ -3,7 +3,6 @@ import type { StatusFilter } from './legend';
 
 // The weather station list's filters: the declaration the route validates
 // against and the state `useStationFilters` hands the rail.
-// Dash-prefixed so TanStack Router ignores this file as a route.
 
 export interface StationFilters {
 	readonly search: string;
@@ -14,8 +13,7 @@ const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
 
 /*
  * Active by default, matching Traps. A retired station keeps its readings and
- * stays reportable, so it is history rather than work, and a map that opens on
- * every station an organization ever ran is a map nobody can read.
+ * stays reportable, so it is history rather than work.
  */
 export const STATION_FILTER_DEFAULTS: StationFilters = { search: '', status: 'active' };
 export const STATION_FILTER_CODECS: FilterCodecs<StationFilters> = {

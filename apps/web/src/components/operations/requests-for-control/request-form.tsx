@@ -18,12 +18,8 @@ import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
 import { ControlTypeToggle } from '../control-type-toggle';
 /**
- * The request-for-control form, shared by raising one and editing one.
- *
- * Both surfaces capture exactly the same thing — a shape, a kind of work, and
- * the records it hangs off — so they share the fields, the map, and the
- * client-side validation. What differs is where the values come from and what
- * the save does with them, and both of those are the caller's.
+ * The request-for-control form, shared by raising one and editing one. Where
+ * the values come from and what the save does with them are the caller's.
  */
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */

@@ -1,22 +1,3 @@
-/**
- * The Dashboard: the state of the Organization, for the person deciding what
- * happens next.
- *
- * Four sections, top to bottom: the two backlog panels, the untreated habitats
- * banner, the last-7-days strip, and the people in the field today. Nothing
- * here is a list of records except the people table; a queue shows a count
- * and the age of the oldest and links to the explorer that lists them, with
- * the explorer's filters set so it shows the rows the count counted.
- *
- * Every number has one of two sources. Four queues read Electric through the
- * hooks under `hooks/queries`, so the row moves the instant a Collector saves.
- * Everything else is one server round-trip in `-dashboard-data.ts`, up to five
- * minutes stale, and nothing on the page says which is which. Each panel
- * answers for its own loading and error states, the way the overviews do.
- * `docs/dashboard-spec.md` is the brief; the names on screen are the ones the
- * prototype settled, except that every record noun reads `recordNoun`.
- */
-
 import { PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import type { useDashboard } from '../../hooks/dashboard/use-dashboard';
@@ -40,9 +21,9 @@ const ACTIVITY_LABELS: Readonly<Record<ActivityTypeKey, string>> = {
 };
 
 /**
- * One ruled strip rather than a `Panel`: a heading, the window's dates, and a
- * bordered row of cells, seven across on a wide screen, four at `sm`, two
- * below. A type the Organization has never recorded is not a cell.
+ * One ruled strip: a heading, the window's dates, and a bordered row of cells,
+ * seven across on a wide screen, four at `sm`, two below. A type the
+ * Organization has never recorded is not a cell.
  */
 export function ActivityStrip({ server }: { readonly server: ServerRead }) {
 	const activity = server.data?.activity;

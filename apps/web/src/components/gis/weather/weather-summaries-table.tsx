@@ -25,12 +25,7 @@ import { formatMeasure, formatRange, summaryPeriodLabel } from './weather-displa
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
-/**
- * The four states one year of readings can be in.
- *
- * Its own component so the card above it is the header, the tabs and the two
- * dialogs, which is the shape every record surface in the app has.
- */
+/** The four states one year of readings can be in. */
 export function SummariesBody({
 	isError,
 	isReady,
@@ -79,11 +74,8 @@ export function SummariesBody({
 }
 
 /**
- * One tab per year, newest first.
- *
- * Drawn only when there are two, because a single tab is a label that looks
- * pressable. One sideways-scrolling row rather than the wrapping `line` variant,
- * which breaks over a decade of years.
+ * One tab per year, newest first, drawn only when there are two. One
+ * sideways-scrolling row rather than the wrapping `line` variant.
  */
 export function YearTabs({
 	years,

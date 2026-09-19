@@ -16,9 +16,8 @@ import type { RegionFolderListing } from '../../../hooks/queries/use-region-fold
 import { errorMessageForSave } from '../../../lib/save-error';
 
 /**
- * One dialog for both region-folder writes — `folder === null` creates, otherwise
- * it edits in place. Callers mount it only while open, so the fields start from
- * the folder being edited without a sync-back effect.
+ * One dialog for both region-folder writes: `folder === null` creates,
+ * otherwise it edits in place. Callers mount it only while open.
  */
 export function RegionFolderDialog({
 	folder,

@@ -13,25 +13,11 @@ import {
 import { appAuthController } from '../app-auth';
 
 /**
- * Operator sign-in.
- *
- * The same in-app email + password flow `apps/web` uses (ADR 0010), posting to
- * the same public `/auth/*` endpoints — `/auth/*` CORS already admits
- * `ADMIN_APP_ORIGIN`, so this needed no server change. Same flow, so the fields
- * are the workspace's: `@simmer-mosquito/ui-web/components/auth`. What is here
- * is the console's own front door and its own answers.
- *
- * What is deliberately *not* here: sign-up, and a link to it. Operator accounts
- * are provisioned, not self-served — a stranger who reaches this page cannot
- * create their way into the SIMMER organization, so offering the door would only
- * lead somewhere that refuses them one step later.
- *
- * WorkOS can still interrupt before it will mint a session: with a verification
- * code, or with an organization choice when the account belongs to more than
- * one — which operators routinely do, since `createAdminOrganization`'s
- * `linkRequesterAsOwner` makes them the new organization's first owner.
- *
- * The code is collected. The organization is not: see `resolveOrganization`.
+ * Operator sign-in: the in-app email + password flow `apps/web` uses (ADR
+ * 0010), posting to the same public `/auth/*` endpoints. There is no sign-up
+ * link, because operator accounts are provisioned. WorkOS may still ask for a
+ * verification code or an organization choice; the code is collected and the
+ * organization is answered by `resolveOrganization`.
  */
 
 /** The only challenge this console asks the operator to answer. */
@@ -57,12 +43,8 @@ function AuthShell({
 	readonly description: string;
 	readonly children: ReactNode;
 }) {
-	// The strip goes above the centring grid, not inside it: a child of
-	// `place-items-center` is centred rather than pinned to the top, and the
-	// grid is `min-h-svh`, so a strip in a row of its own overflows the window.
-	// A flex column outside it rather than two rows, because the strip renders
-	// `null` everywhere but staging and an empty row would take the height the
-	// card centres in.
+	// The strip sits outside the centring grid so it pins to the top and takes
+	// no height when it renders `null`.
 	return (
 		<div className="flex min-h-svh flex-col bg-simmer-green-900">
 			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
@@ -112,12 +94,8 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 
 	/**
 	 * Answer WorkOS's organization challenge with the SIMMER organization, or
-	 * refuse.
-	 *
-	 * There is no picker. Being in the SIMMER organization *is* the operator
-	 * boundary, so an account that is not in it has no business here whichever
-	 * organization it would otherwise have chosen — offering a list would be
-	 * asking a question where the only acceptable answer is already known.
+	 * refuse. There is no picker: an account outside the SIMMER organization is
+	 * not an operator whichever organization it would pick.
 	 */
 	async function resolveOrganization(
 		token: string,
@@ -167,11 +145,8 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 
 		if (outcome.status === 'authenticated') {
 			/*
-			 * No challenge means this account is in exactly one organization, so
-			 * WorkOS issued the session outright and there was nothing to choose. It
-			 * may not be SIMMER — the server compares the session's organization
-			 * against `SIMMER_OPERATOR_ORG_ID` and refuses that case on the first
-			 * `/admin/*` call.
+			 * No challenge means the account is in exactly one organization. It may not
+			 * be SIMMER; the server refuses that case on the first `/admin/*` call.
 			 */
 			await finish();
 			return;

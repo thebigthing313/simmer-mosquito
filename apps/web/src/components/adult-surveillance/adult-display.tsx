@@ -12,26 +12,12 @@ import { formatFullDate, formatMonthDayYear } from '../../lib/record-dates';
 
 /**
  * The calendar day a collection is anchored to, `YYYY-MM-DD`, or null when
- * genuinely pending.
- *
- * The two timing modes store it in different columns: `exact_timestamps` keeps
- * an instant in `collectedAt` (null until the trap is retrieved — a real pending
- * state), while `collection_date_duration` keeps a plain day in `collectionDate`
- * and always leaves `collectedAt` null. Reading only `collectedAt` mislabels
- * every date+duration collection as "Pending", so fall back to `collectionDate`.
- *
- * The instant becomes a day in the *organization's* zone, matching how the
- * server windows and orders these rows (`collectionEffectiveDateExpr`).
- * Returning the raw timestamp let every caller take its UTC prefix, so a trap
- * emptied at 10:30pm read as the next day on screen while the server filed it
- * under the day the crew worked — the two halves of the same record
- * disagreeing.
- *
- * `collectedAt` is taken as a `Date` or a string because the two read paths spell
- * it differently: the query hooks in `hooks/queries` hand up the `Date` the row
- * schema parses, while the surfaces still on the old collections hand up the raw
- * timestamp string. Both name the same instant, and this is the one function that
- * has to know it.
+ * pending. `exact_timestamps` keeps an instant in `collectedAt` (null until the
+ * trap is retrieved) and `collection_date_duration` keeps a plain day in
+ * `collectionDate`, so this reads whichever the mode filled. The instant becomes
+ * a day in the organization's zone, matching `collectionEffectiveDateExpr` on
+ * the server. `collectedAt` arrives as a `Date` from the query hooks and as a
+ * string from the older read paths.
  */
 export function collectionEffectiveDate(
 	collection: {
@@ -55,15 +41,8 @@ export function collectionEffectiveDate(
 
 /**
  * Heading for a collection detail page: `August 12, 2026`, or `Pending
- * collection` when the trap has not been retrieved.
- *
- * The long month is the rule every detail page titled by its record's date
- * follows, which is the inspection page's `formatFullDate`. It read `8/12/2026`
- * here, and a numeric date at the top of a page is the one place the year has to
- * be decoded rather than read: `8/12` is August in this product and December in
- * the parts of the world that write it the other way round.
- *
- * The breadcrumb takes the short form instead. See {@link collectionCrumb}.
+ * collection` when the trap has not been retrieved. The breadcrumb takes the
+ * short form; see {@link collectionCrumb}.
  */
 export function collectionTitle(
 	collection: {
@@ -76,13 +55,7 @@ export function collectionTitle(
 	return date === null ? 'Pending collection' : formatFullDate(date);
 }
 
-/**
- * The same collection in the breadcrumb trail: `Collection · Aug 12, 2026`.
- *
- * A trail is read across rather than down, so it takes the short month the
- * inspection and sample trails take, and it names the record type because a
- * bare date in a chain of links says nothing about what it leads to.
- */
+/** The same collection in the breadcrumb trail: `Collection · Aug 12, 2026`. */
 export function collectionCrumb(
 	collection: {
 		readonly collectedAt: Date | string | null;
@@ -95,11 +68,8 @@ export function collectionCrumb(
 }
 
 /**
- * A collection's date as a *row* reads it: `Wed, Aug 12, 2026`.
- *
- * Distinct from {@link collectionTitle}, which heads a page and a breadcrumb,
- * where a weekday is noise. In a list the weekday is the point — a trap's run is
- * weekly, so it says whether a gap is a missed visit or a weekend.
+ * A collection's date as a row reads it: `Wed, Aug 12, 2026`. The weekday says
+ * whether a gap in a weekly run is a missed visit or a weekend.
  */
 export function collectionRowDate(
 	collection: {
@@ -112,20 +82,16 @@ export function collectionRowDate(
 	return date === null ? 'Pending collection' : formatWeekdayDate(date);
 }
 
-// Shared, read-only presentation for adult-surveillance values. Mirrors the
-// vocabulary used across the traps/collections detail screens so overview,
-// explorer, and detail read identically.
+// Shared, read-only presentation for adult-surveillance values, so overview,
+// explorer and detail read identically.
 
 type Tone = 'neutral' | 'info' | 'catalog' | 'warning' | 'danger' | 'success';
 
 // --- specimen sex -----------------------------------------------------------
 
 /**
- * Sex is categorical, not a status, so it reads on the two non-status tones:
- * `catalog` (pink) for female and `info` (blue) for male. Females are what the
- * organization acts on — they are the biters, the ones tested for virus, the
- * ones driving thresholds — so they take the tone that stands out against a
- * table of neutral rows.
+ * Sex is categorical, not a status: `catalog` (pink) for female and `info`
+ * (blue) for male.
  */
 const sexMeta: Record<SpeciesSex, { readonly label: string; readonly tone: Tone }> = {
 	female: { label: 'Female', tone: 'catalog' },
@@ -173,13 +139,7 @@ export function SpeciesStatusBadge({ status }: { readonly status: SpeciesStatus 
 	);
 }
 
-/**
- * Ordered option lists for form selects, low to high salience, which is not the
- * order the column stores.
- *
- * Female first because a male is not what a count is usually after, and
- * `damaged` last because it is the outcome rather than a physiological state.
- */
+/** Ordered option lists for form selects, low to high salience. */
 export const SPECIES_SEX_VALUES: readonly SpeciesSex[] = [...SPECIES_SEXES].reverse();
 export const SPECIES_STATUS_VALUES: readonly SpeciesStatus[] = [
 	...SPECIES_STATUSES.filter((status) => status !== 'damaged'),
@@ -197,11 +157,8 @@ interface CollectionFlags {
 }
 
 /**
- * A trap that was set and has not been emptied yet.
- *
- * Only exact-timestamps collections can be in this state: one recorded as a
- * date plus a duration is by definition already in hand, and its `collectedAt`
- * is null for a different reason entirely.
+ * A trap that was set and has not been emptied yet. Only exact-timestamps
+ * collections can be in this state.
  */
 export function isPendingCollection(collection: {
 	readonly collectedAt: Date | string | null;
@@ -210,13 +167,7 @@ export function isPendingCollection(collection: {
 	return collection.collectionTimingMode === 'exact_timestamps' && collection.collectedAt === null;
 }
 
-/**
- * Bycatch, alone.
- *
- * The other three flags are the collection's status, and where a surface draws
- * that status some other way, this is what is left. A collection with bycatch in
- * it is an ordinary collection that also caught something else.
- */
+/** Bycatch, alone, for a surface that draws the other three flags as status. */
 export function BycatchBadge({ hasBycatch }: { readonly hasBycatch: boolean }) {
 	return hasBycatch ? (
 		<Badge tone={BYCATCH_FLAG.tone} variant="outline">

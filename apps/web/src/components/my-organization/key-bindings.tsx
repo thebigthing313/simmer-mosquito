@@ -35,10 +35,8 @@ interface SpeciesOption {
 }
 
 /**
- * The species with no key yet, narrowed by the search box.
- *
- * The filter narrows the unassigned list only. Bound keys stay visible, so an
- * admin can always see what a key is already taken by while searching.
+ * The species with no key yet, narrowed by the search box. Bound keys stay
+ * visible.
  */
 function unboundOptions(
 	options: readonly SpeciesOption[],
@@ -54,9 +52,8 @@ function unboundOptions(
 
 /**
  * Key binding setup: one key per species, assigned against the organization's
- * adopted species list. The same set drives adult and larval key entry, so the
- * editor keeps both a bound list and an unbound list visible rather than hiding
- * what is left.
+ * adopted species list. The same set drives adult and larval key entry, so
+ * both a bound list and an unbound list stay visible.
  */
 export function KeyBindingsSettings({
 	canManage,

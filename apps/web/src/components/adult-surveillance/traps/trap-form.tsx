@@ -32,17 +32,10 @@ const TRAP_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The form's rules, straight from the domain builder.
- *
- * The builder is the only channel: it requires the collection method and holds
- * the name-or-code rule, and every issue comes back attributed to the field that
- * holds it. A second check on the method used to run in `onSubmit` and throw a
- * bare string into the page alert, which told an operator a save had failed
- * without saying where to look.
- *
- * The edit page does not require a redraw, so an untouched trap keeps its point
- * and the builder is handed the stand-in rather than a null it would report
- * against a map the operator was never asked to draw on.
+ * The form's rules, straight from the domain builder, which requires the
+ * collection method and holds the name-or-code rule. The edit page does not
+ * require a redraw, so an untouched trap keeps its point and the builder is
+ * handed a stand-in rather than a null.
  */
 export function validateTrap(
 	value: TrapFormValues,
@@ -68,9 +61,8 @@ export function validateTrap(
 
 export interface TrapFormValues {
 	/**
-	 * Optional address the trap is at — reference data only. The trap's own point
-	 * (its geometry) is the authoritative location and can be refined off the
-	 * address (to a backyard, treeline, etc.).
+	 * Optional address the trap is at, reference data only. The trap's own point
+	 * is the authoritative location.
 	 */
 	readonly addressId: string | null;
 	/** A collection method id, or '' when unset (placeholder shown). */
@@ -274,12 +266,8 @@ export function TrapFormPage({
 // --- reusable form controls -------------------------------------------------
 
 /**
- * What the form holds, as the write seam takes it.
- *
- * Three conversions, and each of them is a decision the form made for its own
- * reasons rather than the domain's: a text field cannot hold `null`, so an
- * emptied one is a blank string; and Radix forbids an empty Select value, so
- * "no lure" is a sentinel. Both spellings stop here.
+ * What the form holds, as the write seam takes it. An emptied text field is a
+ * blank string and "no lure" is a sentinel; both spellings stop here.
  */
 export function trapFieldsFrom(values: TrapFormValues): TrapFields {
 	return {

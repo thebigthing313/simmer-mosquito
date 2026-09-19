@@ -24,7 +24,7 @@ export const noLureValue = 'none';
 export const noUnitValue = 'none';
 
 /**
- * Domain issue path → the form field holding it. Timing issues nest under the
+ * Domain issue path to the form field holding it. Timing issues nest under the
  * `timing` object the builder validates, so they map onto whichever date field
  * the current timing mode shows.
  */
@@ -46,11 +46,8 @@ const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Whether the trap has been emptied yet, asked of the form's own values.
- *
- * The rule itself lives with the badge that reports it, so the form and the
- * record it produces cannot come to disagree about what "still out" means; only
- * the two field names differ.
+ * Whether the trap has been emptied yet, asked of the form's own values. The
+ * rule is the badge's, so the form and the record cannot disagree.
  */
 export function isPendingCollectionDraft(value: CollectionFormValues): boolean {
 	return isPendingCollectionRow({
@@ -60,10 +57,9 @@ export function isPendingCollectionDraft(value: CollectionFormValues): boolean {
 }
 
 /**
- * A collection has six command shapes — trap or ad-hoc, crossed with exact
- * timestamps, date-plus-duration, or not yet emptied — and the validator picks
- * the same one the save will, so the rules an operator is held to match what
- * actually runs.
+ * A collection has six command shapes (trap or ad-hoc, crossed with exact
+ * timestamps, date-plus-duration, or not yet emptied) and the validator picks
+ * the same one the save will.
  */
 export function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
 	const pending = isPendingCollectionDraft(value);
@@ -181,12 +177,9 @@ export function defaultCollectionFormValues(
 }
 
 /**
- * What the form holds, as the write seam takes it.
- *
- * Two conversions the form made for its own reasons: Radix forbids an empty
- * Select value, so "no lure" and "no unit" are sentinels. Both spellings stop
- * here. The typed days become the two instants they are stored at in the same
- * step, off one clock — see `collectionTimingStamps` for why that matters.
+ * What the form holds, as the write seam takes it. The "no lure" and "no unit"
+ * sentinels stop here, and the typed days become instants off one clock; see
+ * `collectionTimingStamps`.
  */
 export function collectionFieldsFrom(
 	values: CollectionFormValues,

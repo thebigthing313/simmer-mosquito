@@ -24,9 +24,8 @@ import {
 } from './adult-display';
 
 /**
- * Adult identification defaults to females with no status recorded — the counts a
- * surveillance program acts on. The mode bar carries whatever the tech selects to
- * every subsequent press, so a tray sorted by status is entered in one pass per pile.
+ * Adult identification defaults to females with no status recorded. The mode
+ * bar carries whatever the tech selects to every subsequent press.
  */
 const ADULT_VARIANT_MODE: VariantMode = {
 	sexOptions: [
@@ -66,9 +65,7 @@ export function CollectionKeyEntryDialog({
 	const insertedRef = useRef<Map<string, string>>(new Map());
 	const flushedRef = useRef<ReadonlySet<string>>(new Set());
 
-	// The rows are read when the modal opens and must not re-run the effect, which
-	// is what a latest-value ref written during render used to buy. That write is
-	// a render-phase ref access the compiler refuses (#779, group A).
+	// The rows are read when the modal opens and must not re-run the effect.
 	const captureBaseline = useEffectEvent(() => {
 		baselineRef.current = baselineFrom(identifications);
 		insertedRef.current = new Map();
@@ -100,9 +97,8 @@ export function CollectionKeyEntryDialog({
 			}
 
 			const collectionSpeciesId = newRecordId();
-			// Remember the id only once the insert sticks. A rejected insert is rolled
-			// back out of the collection, so recording it up front would leave the next
-			// flush trying to update a row that no longer exists.
+			// Remember the id only once the insert sticks; a rejected insert is rolled
+			// back out of the collection.
 			return mutations
 				.add({
 					collectionId,
@@ -140,12 +136,8 @@ export function CollectionKeyEntryDialog({
 
 /**
  * The first active row per species/sex/status. `collection_species` carries no
- * uniqueness constraint, so a duplicate pair can exist; keying off the earliest row
- * leaves any other alone rather than silently folding them together.
- *
- * The read seam hands `created_at` up as the `Date` the row schema parses, so the
- * ordering is by instant rather than by the lexical compare the raw string
- * allowed.
+ * uniqueness constraint, so a duplicate pair is left alone rather than folded.
+ * `created_at` is a `Date` here, so the ordering is by instant.
  */
 function baselineFrom(
 	rows: readonly CollectionIdentification[],

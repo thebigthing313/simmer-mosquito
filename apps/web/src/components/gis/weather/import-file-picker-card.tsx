@@ -53,11 +53,8 @@ export function FilePickerCard({
 }
 
 /**
- * The headings a file may name its columns with, before one is chosen.
- *
- * Every spelling comes off the parser's own map, so this cannot drift from what
- * a file is actually matched against. Without it a user learned the headings by
- * uploading a file and reading back the list of columns that went unmapped.
+ * The headings a file may name its columns with, before one is chosen. Every
+ * spelling comes off the parser's own map.
  */
 function ColumnGuide() {
 	return (

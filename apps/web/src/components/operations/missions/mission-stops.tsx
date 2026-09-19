@@ -4,13 +4,9 @@ import type { MissionItemAction, MissionStopView } from '../operations-data';
 import { MissionStopRow } from './mission-stop-row';
 
 /**
- * A mission's stop list: what the crew works, in order.
- *
- * Two sets of controls sit on each row and they answer to different roles. The
- * progress buttons are the assigned collector's — that is the mission being
- * worked. The move and remove controls are a manager's, because they change what
- * the mission *is*. Both are gated by the caller rather than here, so this
- * component only decides what a stop looks like.
+ * A mission's stop list: what the crew works, in order. The progress buttons
+ * are the assigned collector's and the move and remove controls are a
+ * manager's; both are gated by the caller.
  */
 export function MissionStopList({
 	stops,

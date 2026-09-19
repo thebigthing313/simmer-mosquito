@@ -8,32 +8,19 @@ import { unreadable } from '../../../lib/unreadable-input';
 
 /**
  * Reading a formulation: what one batch of a mix takes, and what an application
- * of it works out to.
- *
- * A formulation is a recipe stated the way a label states it — one batch makes
- * `batchSize` of finished mix (26 gallons) and takes `amount` of each product
- * (0.5 pounds). Nothing is dimensionless and nothing is converted: the batch
- * amount and every product amount stay in the unit they were entered in, which
- * is what lets a weight of product come out of a mix measured by volume.
- *
- * The scaling itself is the domain's own helper, so a preview cannot drift from
- * what the save writes.
+ * of it works out to. One batch makes `batchSize` of finished mix and takes
+ * `amount` of each product, each in the unit it was entered in. The scaling is
+ * the domain's own helper.
  */
 
-/**
- * One product's share of a mix, as much of it as the arithmetic needs.
- *
- * Structural rather than the row type, for the reason `formatAmount` is: both
- * read paths satisfy it — the camelCase rows the unmigrated surfaces still hold,
- * and the projections the query hooks return. Only these three are ever read.
- */
+/** One product's share of a mix, structural so both read paths satisfy it. */
 export interface FormulationComponentAmounts {
 	readonly insecticideId: string;
 	readonly amount: number;
 	readonly unitId: string;
 }
 
-/** Components in display order — largest first, so the main product leads. */
+/** Components in display order, largest first, so the main product leads. */
 export function sortedComponents<TComponent extends FormulationComponentAmounts>(
 	components: readonly TComponent[],
 ): readonly TComponent[] {
@@ -41,9 +28,8 @@ export function sortedComponents<TComponent extends FormulationComponentAmounts>
 }
 
 /**
- * Scale a mix's components to the amount applied, or `null` when that is not yet
- * a mix that can be scaled — no products, no amount, a batch size the domain
- * rejects. Callers render a hint instead of a breakdown.
+ * Scale a mix's components to the amount applied, or `null` when that is not
+ * yet a mix that can be scaled. Callers render a hint instead of a breakdown.
  */
 export function componentAmounts(input: {
 	readonly components: readonly FormulationComponentAmounts[];
@@ -71,26 +57,21 @@ export function componentAmounts(input: {
 	}
 }
 
-/** `0.5`, `26`, `1.5` — a recipe amount with no trailing zeros. */
+/** `0.5`, `26`, `1.5`: a recipe amount with no trailing zeros. */
 export function formatAmountValue(value: number): string {
 	return trimNumber(value, 4);
 }
 
-/** `0.5 lb` — an amount against its unit, or bare when the unit is unknown. */
+/** `0.5 lb`: an amount against its unit, or bare when the unit is unknown. */
 export function formatAmountWithUnit(value: number, unit: UnitLabel | undefined): string {
 	const amount = formatAmountValue(value);
 	return unit === undefined ? amount : `${amount} ${unit.abbreviation}`;
 }
 
 /**
- * The same shape as `formatAmount` in `lib/format-count`, and not the same
- * function.
- *
- * `Intl.NumberFormat` puts a separator in a thousand, and a recipe amount is a
- * measurement rather than a count: `1,000 mL` is a comma in a number somebody
- * has to type back into a mix. So this stays a `toFixed` and a `parseFloat`,
- * which trims the trailing zeros and separates nothing. What it adopted from
- * #609 is the answer to a number it cannot render, which was the em dash.
+ * The same shape as `formatAmount` in `lib/format-count` without the thousands
+ * separator, because a recipe amount is typed back into a mix. Hands back the
+ * value it cannot render, per `lib/unreadable-input`.
  */
 function trimNumber(value: number, maxDecimals: number): string {
 	if (!Number.isFinite(value)) {

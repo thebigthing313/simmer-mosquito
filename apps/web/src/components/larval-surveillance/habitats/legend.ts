@@ -5,12 +5,9 @@ export type StatusFilter = 'all' | 'active' | 'inactive';
 export type AccessFilter = 'all' | 'accessible' | 'inaccessible';
 
 /**
- * The key, cut down to the colours the current filters can actually draw.
- *
- * The paint expression reads inaccessible first, then active, so an
- * inaccessible Habitat is red whether or not it is also active. Status All with
- * Access Accessible therefore paints green and grey and no red, and a key that
- * still listed red would be describing dots that are not there.
+ * The key, cut down to the colours the current filters can draw. The paint
+ * expression reads inaccessible first, then active, so Status All with Access
+ * Accessible paints green and grey and no red.
  */
 export function habitatLegend(
 	status: StatusFilter,

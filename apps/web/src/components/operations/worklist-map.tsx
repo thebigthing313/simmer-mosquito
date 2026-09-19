@@ -15,17 +15,9 @@ import { MapControlButton, MapControlGroup } from '../map/map-control';
 /**
  * The worklist map: numbered stops in sequence, auto-framed when the worklist
  * changes, with a manual reframe control. Selection and hover flow both ways
- * between here and the stop list through the layer's feature-state.
- *
- * Both ordered worklists in this section render through it. An assignment's
- * stops are typed entity targets and a mission's are owned geometry, but by the
- * time either reaches a map it is the same thing: a place in the order, a
- * progress tone, and, where the stop owns one, a shape. The record type is the
- * only thing that differs, and it only ever reaches the operator-facing
+ * between here and the stop list through the layer's feature-state. Both
+ * ordered worklists render through it; the record type only reaches the
  * strings, through the noun register.
- *
- * Bounds come straight off the features rather than a domain view model, because
- * everything the frame needs is already on them.
  */
 export function WorklistMap({
 	features,
@@ -119,15 +111,12 @@ export function WorklistMap({
 
 /**
  * SW/NE bounds across every located stop, or null when none has coordinates.
- *
  * A stop that owns a shape is framed by the whole shape rather than by the pin
- * at its centroid: fitting a treated block on its centre point zooms past three
- * of its four edges.
+ * at its centroid.
  */
 /**
- * Frame a map on a worklist's targets. It takes the features as an argument
- * rather than closing over them so the auto-fit effect can depend on the
- * features themselves.
+ * Frame a map on a worklist's targets. It takes the features as an argument so
+ * the auto-fit effect can depend on them.
  */
 function fitToWorklist(
 	instance: MapboxMap,

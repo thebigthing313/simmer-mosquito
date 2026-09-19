@@ -14,15 +14,10 @@ import {
 } from './operations-data';
 
 /**
- * The badges and one-line summaries the operations surfaces share.
- *
- * Split out because a mission reads the same on its map page, its detail page,
- * and inside the card floating over the map. Nothing here fetches — every
- * function takes what it renders.
- *
- * A request's status badge used to live here and now sits in
+ * The badges and one-line summaries the operations surfaces share. Nothing
+ * here fetches. A request's status badge is in
  * `components/request-status-badge.tsx`, because the habitat's History card
- * shows one too and pulling this module in would drag the mission reads with it.
+ * shows one too.
  */
 
 const missionStatusTones = {
@@ -41,9 +36,8 @@ export function MissionStatusBadge({ status }: { readonly status: MissionStatus 
 }
 
 /**
- * A stop's progress. Pending is deliberately unbadged — most stops on a running
- * mission are pending, and a badge on every row would say nothing while burying
- * the two states that do.
+ * A stop's progress. Pending is unbadged: most stops on a running mission are
+ * pending, and a badge on every row would bury the two states that matter.
  */
 export function MissionItemProgressBadge({ progress }: { readonly progress: MissionItemProgress }) {
 	if (progress === 'pending') {
@@ -73,16 +67,10 @@ export function missionStopTone(item: {
 }
 
 /**
- * A mission's stops as the map draws them.
- *
- * Ordinals come off the array's order rather than each stop's own, so a caller
- * holding a pending reorder gets its numbering renumbered on the same frame the
- * list rearranges rather than a frame later.
- *
- * `geometry` rides along so a stop is drawn as what it is — a line for a ditch
- * run, an area for a block — with the numbered pin at its centroid as the
- * ordinal marker. Stops whose shape has not arrived yet, or that are plain
- * points, fall back to the pin alone.
+ * A mission's stops as the map draws them. Ordinals come off the array's
+ * order, so a pending reorder renumbers on the same frame. `geometry` rides
+ * along so a stop is drawn as a line or an area with the numbered pin at its
+ * centroid; a plain point falls back to the pin alone.
  */
 export function missionStopFeatures(
 	stops: readonly MissionStopView[],
@@ -101,12 +89,8 @@ export function missionStopFeatures(
 }
 
 /**
- * How far through a worklist the crew is.
- *
- * Typed on the counts it actually reads rather than on either worklist's own
- * counts type, so the assignment and the mission share one bar. `emptyLabel` is
- * the caller's because the two say different things about having no stops: an
- * assignment cannot start without one, and neither can a mission.
+ * How far through a worklist the crew is. Typed on the counts it reads, so the
+ * assignment and the mission share one bar. `emptyLabel` is the caller's.
  */
 export function StopProgressSummary({
 	counts,
@@ -136,7 +120,7 @@ export function StopProgressSummary({
 	);
 }
 
-/** "8 stops · 3 of 8 done" — the mission's size and how far through it is. */
+/** "8 stops · 3 of 8 done": the mission's size and how far through it is. */
 export function stopSummary(counts: MissionProgressCounts | null): string {
 	if (counts === null || counts.total === 0) {
 		return 'No stops';
@@ -146,14 +130,9 @@ export function stopSummary(counts: MissionProgressCounts | null): string {
 }
 
 /**
- * The add-stop screen's one-line description.
- *
- * The instruction stands on its own and the mission follows it, because
- * `missionDisplayName` answers a phrase rather than a noun for a mission with
- * no name of its own. Embedded in a sentence carrying its own preposition, that
- * phrase read "Draw where the crew has to go on Source Reduction on Aug 4"
- * (#676). Splitting the two reads the same either way, so nothing here has to
- * ask which kind of name it was handed.
+ * The add-stop screen's one-line description. The instruction stands on its
+ * own and the mission follows it, because `missionDisplayName` answers a
+ * phrase for a mission with no name and reads wrongly inside a sentence.
  */
 export function addStopDescription(missionName: string): string {
 	return `Draw where the crew has to go. This stop is for ${missionName}.`;

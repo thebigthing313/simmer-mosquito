@@ -7,12 +7,8 @@ import { recordNoun } from '../../../lib/record-nouns';
 import type { InspectionSampleDraft } from './inspection-form-values';
 
 /**
- * The specimens collected on this inspection.
- *
- * They are drafted here and written once the inspection lands, so a crew keys a
- * habitat and everything they took from it in one pass rather than saving, then
- * hunting the record down to add each sample. A blank label records an unlabeled
- * sample, which the domain has its own command for.
+ * The specimens collected on this inspection, drafted here and written once the
+ * inspection lands. A blank label records an unlabeled sample.
  */
 export function SamplesSection({
 	value,

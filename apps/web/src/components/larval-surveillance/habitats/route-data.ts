@@ -2,7 +2,7 @@ import { commandPathFor, writeCommand } from '@simmer-mosquito/sync';
 import { getServerUrl } from '../../../auth';
 import type { RouteStopFeature } from '../../../hooks/map/use-route-layer';
 
-/** The slice of a habitat the route surfaces need — geometry, status, address. */
+/** The slice of a habitat the route surfaces need, geometry, status, address. */
 export interface RouteHabitat {
 	readonly id: string;
 	readonly habitatName: string | null;
@@ -58,9 +58,8 @@ export function stopTone(stop: {
 }
 
 /**
- * Update a habitat's description in place (the stop's own record, not the route
- * item). Writes go through the command endpoint; the on-demand habitat subset the
- * route reads then streams the change back, so no manual cache invalidation.
+ * Update a habitat's description in place. The on-demand habitat subset the
+ * route reads streams the change back, so nothing is invalidated.
  */
 export async function updateHabitatDescription(
 	habitatId: string,
@@ -74,9 +73,8 @@ export async function updateHabitatDescription(
 }
 
 /**
- * Link (or unlink, with `null`) the habitat behind a stop to an address book record.
- * Same PATCH endpoint as the description edit; the synced habitat/address subsets
- * reflect the new label without invalidation.
+ * Link (or unlink, with `null`) the habitat behind a stop to an address book
+ * record. Same PATCH endpoint as the description edit.
  */
 export async function updateHabitatAddress(
 	habitatId: string,
@@ -90,18 +88,11 @@ export async function updateHabitatAddress(
 }
 
 /**
- * One PATCH on `/commands/habitats/{id}`, with the command it means named.
- *
- * A raw request rather than a collection mutation, because both callers edit a
- * habitat the route page reads through an on-demand subset it does not own. The
- * subset streams the change back, so there is no optimistic row to keep and
- * nothing to invalidate.
- *
- * Each caller names its own intent rather than calling `habitatUpdatePlan` in
- * `hooks/mutations/use-habitat-mutations.ts`. That plan reads a whole form
- * against the row it started from and answers with every command the save
- * means; these two change one field from a dialog and already know which one
- * that is. The server refuses an intent whatever either side says.
+ * One PATCH on `/commands/habitats/{id}`, with the command it means named. A
+ * raw request rather than a collection mutation, because both callers edit a
+ * habitat the route page reads through an on-demand subset it does not own.
+ * Each caller names its own intent rather than calling `habitatUpdatePlan`,
+ * which reads a whole form; these change one field and know which.
  */
 async function patchHabitat(
 	habitatId: string,

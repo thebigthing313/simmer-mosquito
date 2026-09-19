@@ -43,11 +43,8 @@ export interface InspectionFormValues {
 }
 
 /**
- * A specimen the crew is recording alongside the inspection.
- *
- * The id is minted here rather than at save time so a row keeps its identity
- * while the form is open — React keys off it, and the save writes it straight
- * through.
+ * A specimen the crew is recording alongside the inspection. The id is minted
+ * here so a row keeps its identity while the form is open.
  */
 export interface InspectionSampleDraft {
 	readonly id: string;
@@ -68,10 +65,8 @@ export const INSPECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * `inspectedByProfileId` is seeded with the acting profile rather than left null
- * for the server to fill in. The field then names the person the inspection will
- * be attributed to, which is what the operator needs to check before saving —
- * "Default to me" said only that a default existed.
+ * `inspectedByProfileId` is seeded with the acting profile rather than left
+ * null, so the field names the person the inspection will be attributed to.
  */
 export function defaultInspectionFormValues(
 	today: string,
@@ -108,13 +103,9 @@ interface ResultColumns {
 
 /**
  * Which abundance inputs the organization's entry policy makes meaningful, and
- * which of them it insists on. Mirrors `normalizeLarvalInspectionResult` so the
- * form asks for exactly what the command will accept — under density-only entry
- * a larvae count is rejected outright, and under count-and-dips both counts are
- * required, so neither should be presented the same way as an optional field.
- *
- * Hybrid requires density *or* the count pair, which no single field can be
- * marked for; the section's own note carries that rule instead.
+ * which it insists on, mirroring `normalizeLarvalInspectionResult`. Hybrid
+ * requires density or the count pair, which no single field can be marked
+ * for; the section's note carries that rule.
  */
 export function resultColumnsForMode(
 	mode: ResolvedLarvalInspectionEntryPolicy['mode'],
@@ -199,13 +190,9 @@ export function profileOptions(profiles: readonly ProfileListing[]) {
 }
 
 /**
- * What the inspector found, in the vocabulary the write hook takes.
- *
- * Here rather than in either route because both of them need it and it is a
- * statement about this form's values. The wet/dry rule lives here too: a dry
- * inspection carries no abundance and no life stages, and the command refuses
- * one that does — so the values are reduced to a consistent result before they
- * leave the form that collected them.
+ * What the inspector found, in the vocabulary the write hook takes. A dry
+ * inspection carries no abundance and no life stages, so the values are
+ * reduced to a consistent result here.
  */
 export function inspectionResultOf(values: InspectionFormValues): InspectionResult {
 	const wet = values.isWet;

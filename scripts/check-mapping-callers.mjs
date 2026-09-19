@@ -100,7 +100,7 @@ const SOURCE_ROOT = join(PACKAGE_DIR, 'src');
  *
  * `import { a } from`, `import type { a } from`, `export { a } from` and
  * `export type { a } from` all reach one. `apps/web` writes the third of those
- * over this package, in `routes/gis/regions/-import-parse.ts`, so reading only
+ * over this package, in `components/gis/regions/import-parse.ts`, so reading only
  * imports would report `parseKmlCoordinates` as having no caller.
  */
 const NAMED = /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;

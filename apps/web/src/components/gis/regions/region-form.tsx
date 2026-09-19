@@ -13,8 +13,8 @@ import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
 
 /**
- * Domain issue path → the form field holding it. Geometry is drawn on the map,
- * so its issues land on the form alert rather than a field.
+ * Domain issue path to the form field holding it. Geometry is drawn on the
+ * map, so its issues land on the form alert.
  */
 const REGION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	name: 'name',
@@ -59,11 +59,8 @@ export interface RegionFormPageProps {
 }
 
 /**
- * The form's values, as the write seam takes them.
- *
- * Where the select's non-empty sentinel stops being a thing the routes have to
- * remember: `'none'` exists because Radix forbids an empty item value, and the
- * column it becomes is `null`.
+ * The form's values, as the write seam takes them. The select's `'none'`
+ * sentinel becomes `null` here.
  */
 export function regionFieldsFrom(values: RegionFormValues): RegionFields {
 	const description = values.description.trim();

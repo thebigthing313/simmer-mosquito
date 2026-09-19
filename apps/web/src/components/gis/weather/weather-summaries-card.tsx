@@ -17,21 +17,11 @@ import { WeatherSummaryDialog } from './weather-summary-dialog';
 
 /**
  * A station's readings, a year at a time, and the three ways to change them.
- *
- * ## Why a year at a time
- *
- * A station logged daily for ten years is 3,650 readings, and the card used to
- * put all of them in one table. The tabs are the years the station has readings
- * in, newest first, and the table under them is one year's.
- *
- * ## Why the tab follows the write
- *
- * `weather_summaries` is on-demand, and a write into a subset the live query
- * does not cover waits out a txid that never arrives on it. `settleWrite`
- * swallows that five-second timeout, so it is a slow save over a row the user
- * cannot see rather than a failure, and moving the tab to the written year fixes
- * both. This is also why the dialog is mounted here rather than on a route of
- * its own: the card is what keeps the station's subset queried at all.
+ * The tabs are the years the station has readings in, newest first. The tab
+ * follows a write, because `weather_summaries` is on-demand and a write into
+ * a subset the live query does not cover waits out a txid that never arrives;
+ * that is also why the dialog is mounted here, since the card is what keeps
+ * the station's subset queried.
  */
 export function WeatherSummariesCard({
 	stationId,

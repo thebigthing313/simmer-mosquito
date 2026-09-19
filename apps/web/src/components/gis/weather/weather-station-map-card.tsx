@@ -11,9 +11,9 @@ import { StationStatusBadge } from './weather-ui';
 const WeatherIcon = iconRegistry.domains.weather.icon;
 
 /**
- * The map focus card for a weather station. The one card that needs no join and
- * no HTTP: a station's geometry is a single synced point and it names nothing
- * else, so {@link useWeatherStation} is the whole read.
+ * The map focus card for a weather station. No join and no HTTP: a station's
+ * geometry is a single synced point, so {@link useWeatherStation} is the whole
+ * read.
  */
 export function WeatherStationMapCard({
 	id,

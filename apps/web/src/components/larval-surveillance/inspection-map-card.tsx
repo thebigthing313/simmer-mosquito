@@ -21,13 +21,9 @@ import type { MapInset } from '../map/map-inset';
 const StagesIcon = iconRegistry.domains.larvalSurveillance.icon;
 
 /**
- * The map focus card for a Habitat Inspection.
- *
- * Everything about the inspection arrives in one row from `useInspection`: the
- * habitat, the type and the inspector are joined rather than looked up in
- * sequence.
- * The Address is the exception, resolved here because {@link MapCardAddress}
- * resolves it too and one hook against one collection is one subset.
+ * The map focus card for a Habitat Inspection. Everything about the inspection
+ * arrives in one row from `useInspection`; the Address is resolved here
+ * because {@link MapCardAddress} resolves it too.
  */
 export function InspectionMapCard({
 	id,
@@ -53,13 +49,8 @@ export function InspectionMapCard({
 	}
 
 	// The row is mapped at the call rather than renamed at the seam: `lat` and
-	// `lng` are what every other reader of this label speaks, and `useInspection`
-	// answers in `latitude` and `longitude` because that is what the rest of the
-	// card reads (#907).
-	//
-	// The Address is the card's own full postal line rather than the row's
-	// `display_name`, which is the one thing this surface asks for that the
-	// explorer does not.
+	// `lng` are what every other reader of this label speaks. The Address is the
+	// card's own full postal line rather than the row's `display_name`.
 	const label = habitatLabel(
 		{
 			habitatId: inspection.habitatId,

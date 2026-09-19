@@ -6,9 +6,8 @@ import { ContextBadge, type ControlContext } from '../control-operations/control
 import { DensityBadge, type LifeStageFlags, LifeStageStrip, WetnessBadge } from '../larval-display';
 import type { CollectionStatus } from '../map';
 
-// What each of the nine record kinds puts in the badge group beside its title,
-// declared once for the two surfaces that draw it.
-// Dash-prefixed so TanStack Router ignores this file as a route.
+// What each of the nine record kinds puts in the badge group beside its
+// title, declared once for the two surfaces that draw it.
 
 /**
  * A habitat's or a trap's lifecycle state. Traps have no inaccessible state;
@@ -17,11 +16,8 @@ import type { CollectionStatus } from '../map';
 export type LifecycleStatus = 'active' | 'inactive' | 'inaccessible';
 
 /**
- * What an inspection found.
- *
- * Dry and "wet with nothing counted" are different statements and never
- * collapse into one, which is why the wetness is its own field rather than
- * being read off a null density.
+ * What an inspection found. Dry and "wet with nothing counted" are different
+ * statements, which is why the wetness is its own field.
  */
 export interface InspectionResult {
 	readonly isWet: boolean;
@@ -34,12 +30,10 @@ export interface InspectionResult {
 type NoBadgeFacts = Record<never, never>;
 
 /**
- * The facts each category contributes, keyed by category.
- *
- * Typed as a record over the domain's own `ActivityCategory` union, so a record
- * kind that is added to the log and forgotten here fails `tsc` rather than
- * drawing a row with no badges on it. A category with nothing to contribute
- * says so with an empty object rather than by being absent.
+ * The facts each category contributes, keyed by category and typed over the
+ * domain's own `ActivityCategory` union, so a record kind added to the log and
+ * forgotten here fails `tsc`. A category with nothing to contribute says so
+ * with an empty object.
  */
 interface BadgeFactsByCategory extends Record<ActivityCategory, object> {
 	readonly habitat: { readonly status: LifecycleStatus };
@@ -63,31 +57,17 @@ export type RecordBadgeFacts = {
 
 /**
  * Whether the caller has already drawn the record's state as the row's swatch.
- *
- * The one thing the two surfaces genuinely differ on, and it is a layout fact
- * rather than a taste. An explorer paints one record kind, so its row's leading
- * dot is free to be that record's state and the key above the map names the
- * colours. Daily Work paints nine kinds at once and spends the dot on which
- * family the work belongs to, so the state has nowhere to go but a pill.
+ * An explorer paints one record kind, so its row's dot is that record's
+ * state; Daily Work paints nine kinds at once and spends the dot on the
+ * family, so the state is a pill.
  */
 export type StatusPlacement = 'dot' | 'badge';
 
 /**
  * The badges beside a record's title, for an explorer row or a log row alike.
- *
- * The two surfaces list the same nine record kinds through the same
- * `ExplorerRow`, and until this existed each decided the badges itself. They
- * had already drifted: an inspection read as a density pill in the Daily Work
- * log and as a life-stage strip on its own map page, so the same record said
- * one of two different things depending on which page reached it, and neither
- * page said the other's.
- *
  * A row takes this through {@link recordBadges} rather than as an element,
- * and that is the whole of #1107. `ExplorerRow` lays its badge container out
- * on the prop being there, and an element is there whatever it draws, so a
- * kind with nothing to draw still spent a line under its subtitle. The
- * decision has to be made before the element exists, and one function making
- * it is what keeps a sixth caller from writing the element bare.
+ * because `ExplorerRow` lays its badge container out on the prop being there,
+ * and an element is there whatever it draws.
  */
 function RecordBadges({
 	facts,
@@ -114,13 +94,9 @@ export function recordBadges(facts: RecordBadgeFacts, status: StatusPlacement): 
 
 /**
  * Whether the badge group draws anything for this record under this
- * placement.
- *
- * The one answer to "does this row have badges". An application or a source
- * reduction has none under either placement; a habitat's state is a pill under
- * `'badge'` and the row's dot under `'dot'`; a collected collection with no
- * bycatch has none even as a pill, because the log's verb already says it was
- * collected.
+ * placement. An application or a source reduction has none; a habitat's state
+ * is a pill under `'badge'` and the row's dot under `'dot'`; a collected
+ * collection with no bycatch has none even as a pill.
  */
 export function hasBadges(facts: RecordBadgeFacts, status: StatusPlacement): boolean {
 	return (status === 'badge' && hasStateBadge(facts)) || hasDetailBadges(facts);
@@ -134,13 +110,9 @@ type FactsFor<Category extends ActivityCategory> = Extract<
 
 /**
  * What one record kind puts in the badge group, as four answers over its own
- * narrowed facts.
- *
- * The predicate and the renderer for one kind are one entry, so "is there a
- * pill" and "which pill" cannot answer differently, and the same for the
- * second line. `hasState` is asked before `state` draws and `hasDetail` before
- * `detail`, because the row lays its container out on the answer and never on
- * the element.
+ * narrowed facts. The predicate and the renderer for one kind are one entry,
+ * and `hasState` is asked before `state` draws because the row lays its
+ * container out on the answer.
  */
 interface CategoryBadges<Category extends ActivityCategory> {
 	/** Whether this record has a state to draw as a pill. */
@@ -162,22 +134,11 @@ const NO_BADGES = {
 } as const;
 
 /**
- * The register: every category in the domain's union, each answering over
- * its own facts. Keyed by `ActivityCategory` so a category added to the log
- * fails `tsc` here until it says what it draws, and a category removed from
- * the union fails on the entry left behind.
- *
- * The state pill is only drawn where the row's dot is spent on something
- * else. A collection that was simply collected gets none: the log already
- * says "Collected" as the verb leading its subtitle, and a pill repeating that
- * on every row of a round stands where an exception would be. It is the one
- * record with a state and no pill for it.
- *
- * The detail badges take a line of their own under the row, which is why each
- * `hasDetail` is the exact condition its `detail` draws under: an inspection's
- * density plus its six-cell strip is 175px, which in a 380px panel left the
- * record with no room for its name. A dry site has no stages to report, and a
- * wet one that found none says so through the pill beside it.
+ * The register: every category in the domain's union, each answering over its
+ * own facts, keyed by `ActivityCategory` so a category added or removed fails
+ * `tsc` here. A collection that was collected gets no state pill, because the
+ * log's verb already says so. Each `hasDetail` is the exact condition its
+ * `detail` draws under, because the detail badges take a line of their own.
  */
 const BADGES_BY_CATEGORY: { readonly [Category in ActivityCategory]: CategoryBadges<Category> } = {
 	habitat: {
@@ -225,13 +186,9 @@ const BADGES_BY_CATEGORY: { readonly [Category in ActivityCategory]: CategoryBad
 };
 
 /**
- * The register's entry for this record, typed to take it.
- *
- * Generic over the category rather than over the union, because indexing the
- * register with the union hands back a union of entries, and an entry for one
- * kind does not take another kind's facts. Every caller passes the whole
- * union, so `Category` is the whole union there and the entry takes it; the
- * pairing of a key to the facts of that key is the mapped type's.
+ * The register's entry for this record, typed to take it. Generic over the
+ * category rather than the union, because indexing the register with the
+ * union hands back a union of entries.
  */
 function badgesFor<Category extends ActivityCategory>(
 	facts: FactsFor<Category>,
@@ -264,9 +221,8 @@ function RecordDetailBadges({ facts }: { readonly facts: RecordBadgeFacts }): Re
 }
 
 /**
- * Whether this record draws anything beyond its state, which is what the row
- * asks before it lays the badges out: a state pill on its own sits beside the
- * title, and anything more takes a line of its own.
+ * Whether this record draws anything beyond its state: a state pill on its
+ * own sits beside the title, and anything more takes a line of its own.
  */
 export function hasDetailBadges(facts: RecordBadgeFacts): boolean {
 	return badgesFor(facts).hasDetail(facts);

@@ -4,19 +4,14 @@ import type { ComponentProps } from 'react';
 
 /**
  * The tab strips the directory is filtered by: collection methods on the left,
- * seasons on the right. Both are as long as the organization's own data makes
- * them — an organization running six trap types, a trap collecting since 2014 —
- * so neither can be laid out as if it were three tabs.
- *
- * {@link TabStrip} is that strip. What is left here is this page's own: the
- * strip fills its half of the row, so a filter of two tabs does not read as two
- * half-pane buttons.
+ * seasons on the right, each as long as the organization's data makes it. The
+ * strip fills its half of the row.
  */
 export function DirectoryTabsList({
 	label,
 	children,
 }: {
-	/** Names the strip for screen readers — "Collection method", "Season". */
+	/** Names the strip for screen readers, "Collection method", "Season". */
 	readonly label: string;
 	readonly children: ComponentProps<typeof TabsList>['children'];
 }) {

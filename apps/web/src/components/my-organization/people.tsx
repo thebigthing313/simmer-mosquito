@@ -41,9 +41,8 @@ export function PeopleSection({
 	const email = user?.email ?? null;
 	const [isAddingHistorical, setIsAddingHistorical] = useState(false);
 	const [isInviting, setIsInviting] = useState(false);
-	// Managing people and handing out a role are two floors, not one: an admin
-	// onboards, an owner promotes. Offering the control to an admin would mean a
-	// form filled in and then 403'd on save.
+	// Managing people and handing out a role are two floors: an admin onboards,
+	// an owner promotes.
 	const canEditRole = canManageRoles(auth);
 
 	return (

@@ -37,9 +37,8 @@ export function CollectionYears({
 	/** Lifts the default season window. Absent once every season is loaded. */
 	readonly onLoadEarlier?: (() => void) | undefined;
 }) {
-	// The open year is held here rather than in the URL: it belongs to the trap in
-	// view, and a year that is meaningful for one trap need not exist for the next.
-	// Falling back to the first group re-anchors on every trap change.
+	// The open year belongs to the trap in view, so it is component state and
+	// re-anchors on the first group whenever the trap changes.
 	const [openYear, setOpenYear] = useState<string | null>(null);
 	const active = years.find((year) => year.key === openYear) ?? years[0];
 
@@ -127,15 +126,7 @@ export function CollectionYears({
 	);
 }
 
-/**
- * The pane's geometry: the trap and its years pinned, the collections scrolling
- * under them.
- *
- * A season runs to seventy-odd dates. Let the header scroll with them and by row
- * twenty the reader has a column of dates with no trap name over it, no year
- * strip to move between seasons, and the Record Collection button somewhere
- * above the viewport.
- */
+/** The pane's geometry: the trap and its years pinned, the collections scrolling under them. */
 function HistoryFrame({
 	header,
 	tabs,

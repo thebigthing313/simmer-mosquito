@@ -33,11 +33,9 @@ const RECORD_ROUTE: Readonly<Record<ControlType, { readonly to: string; readonly
 	};
 
 /**
- * The control action a mission stop exists to produce.
- *
- * The mission is typed once at the parent, so the stop does not choose — it
- * offers the one kind of record this mission is for. Recording it writes the
- * action, links it to the stop, and completes the stop together.
+ * The control action a mission stop exists to produce. The mission is typed
+ * once at the parent, so the stop offers the one kind of record. Recording it
+ * writes the action, links it to the stop, and completes the stop together.
  */
 function RecordMissionWorkButton({
 	stop,
@@ -193,12 +191,8 @@ export function MissionStopRow({
 }
 
 /**
- * What a stop is called.
- *
- * A stop owns its geometry, so it is never nameless in the way an assignment
- * stop with a deleted target is — it is simply a place on the map. The request
- * it came from names it when there is one, and links back so the reason for the
- * visit is one click away.
+ * What a stop is called. A stop owns its geometry, so it is never nameless;
+ * the request it came from names it when there is one, and links back.
  */
 function StopName({ stop }: { readonly stop: MissionStopView }) {
 	if (stop.request !== null) {

@@ -69,7 +69,7 @@ export interface InspectionFormHeader {
 export interface InspectionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	/** The organization's larval entry policy — decides which abundance fields exist. */
+	/** The organization's larval entry policy, decides which abundance fields exist. */
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly profiles: readonly ProfileListing[];
 	readonly habitatTypes: readonly SchemaCatalogListing[];
@@ -79,13 +79,9 @@ export interface InspectionFormPageProps {
 	/** Geometry to frame the map on immediately (edit pre-fill). */
 	readonly initialPreviewGeometry?: GeoJsonGeometry | null;
 	/**
-	 * Create records a new inspection; edit revises one in place.
-	 *
-	 * Editing locks where the inspection happened. Habitat and ad-hoc are distinct
-	 * commands, and the update command cannot move an inspection to a different
-	 * habitat either — its type, address, and geometry were snapshotted from the
-	 * one it was recorded against. Offering either as an editable field would be
-	 * offering a change the server silently drops.
+	 * Create records a new inspection; edit revises one in place. Editing locks
+	 * where the inspection happened: habitat and ad-hoc are distinct commands, and
+	 * the update command cannot move an inspection to a different habitat.
 	 */
 	readonly mode: 'create' | 'edit';
 	readonly header: InspectionFormHeader;
@@ -93,12 +89,9 @@ export interface InspectionFormPageProps {
 		readonly values: InspectionFormValues;
 		readonly adhocGeometry: DrawGeometry | null;
 		/**
-		 * The selected habitat's own shape, as the map is showing it.
-		 *
-		 * Passed out because the caller needs a centroid for the optimistic row and
-		 * this is where that shape already lives — the server snapshots the same one
-		 * at commit. `null` in ad-hoc mode, and on the rare habitat save whose
-		 * geometry fetch failed.
+		 * The selected habitat's own shape, as the map is showing it, for the
+		 * optimistic row's centroid. `null` in ad-hoc mode and when the geometry fetch
+		 * failed.
 		 */
 		readonly habitatGeometry: GeoJsonGeometry | null;
 	}) => Promise<void>;
@@ -126,8 +119,8 @@ export function InspectionFormPage({
 	// Habitat mode reports against the same band as the drawn location, but it is
 	// a missing pick rather than a missing shape, so the hook does not own it.
 	const [habitatError, setHabitatError] = useState<string | null>(null);
-	// Switching to dry throws away whatever abundance was keyed in — the command
-	// rejects a dry inspection that carries any — so the crew is asked first.
+	// Switching to dry throws away whatever abundance was keyed in, because the command
+	// rejects a dry inspection that carries any, so the crew is asked first.
 	const [pendingDry, setPendingDry] = useState(false);
 	// `referenceGeometry` is the selected habitat's shape, shown for reference in
 	// habitat mode. Ad-hoc geometry is rendered by the draw layer instead.

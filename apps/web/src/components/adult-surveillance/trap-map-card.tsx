@@ -20,9 +20,7 @@ const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
 /**
  * The map focus card for a trap. One query brings the trap up with its method,
- * lure and address already joined ({@link useTrap}); the tags come alongside it,
- * keyed on the same id the card was opened with rather than on anything the trap
- * row has to return first.
+ * lure and address joined ({@link useTrap}); the tags are keyed on the same id.
  */
 export function TrapMapCard({
 	id,

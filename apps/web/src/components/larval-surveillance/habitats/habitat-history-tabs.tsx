@@ -49,8 +49,7 @@ export function InspectionHistory({
 	readonly habitatId: string;
 }) {
 	// The organization's larval data mode decides which abundance columns are
-	// meaningful: density-only entry hides larvae, count-and-dips entry hides the
-	// derived density, and hybrid shows all three.
+	// meaningful.
 	const columns = inspectionColumnsForMode(useLarvalEntryMode());
 
 	return (
@@ -255,11 +254,8 @@ export function ApplicationHistory({
 }
 
 /**
- * Source reductions carried out at this habitat.
- *
- * Every one of them, because the table has no lifecycle column to weigh a row
- * against. A source reduction is a record that the work happened, so the tab
- * shows what happened, which is what the card is for.
+ * Source reductions carried out at this habitat, every one, because the table
+ * has no lifecycle column.
  */
 export function SourceReductionHistory({
 	sourceReductions,
@@ -337,10 +333,7 @@ export function SourceReductionHistory({
 
 /**
  * Requests for control raised against this habitat, open and resolved alike.
- *
- * Resolved rows stay: the tab answers "has anyone asked for work here", and a
- * request that was dealt with last week is part of that answer. The status
- * column is what separates the two.
+ * The status column separates the two.
  */
 export function RequestHistory({
 	requests,
@@ -455,11 +448,8 @@ function inspectionColumnsForMode(mode: LarvalInspectionEntryMode): InspectionCo
 }
 
 /**
- * A request's summary, or nothing.
- *
- * `requestDisplayName` in the read seam falls back to "Application requested",
- * which is the right subject line where a request has no other name. Here the
- * Type column already says that, so a blank summary is a dash instead.
+ * A request's summary, or nothing. `requestDisplayName` falls back to
+ * "Application requested", which the Type column already says here.
  */
 function requestSummary(request: HabitatHistoryRequest): string | null {
 	return request.summary?.trim() || null;

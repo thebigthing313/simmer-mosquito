@@ -1,13 +1,10 @@
 import { CredentialsFields } from '@simmer-mosquito/ui-web/components/auth';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { signIn } from '../../auth';
 import { useAuthSuccess } from '../../hooks/auth/use-auth-success';
 import { AuthShell } from './auth-shell';
 import { PendingAuthFlow, type PendingStep, toPendingStep } from './pending-auth-flow';
-
-const _SpinnerIcon = iconRegistry.actions.loading.icon;
 
 export function SignInPage({ redirectTo }: { readonly redirectTo: string }) {
 	const onAuthenticated = useAuthSuccess();

@@ -15,12 +15,10 @@ import type { LifeStageFlags } from '../larval-display';
 import type { CollectionStatus } from '../map';
 import type { InspectionResult, LifecycleStatus, RecordBadgeFacts } from '../record/record-badges';
 
-// Data + display helpers for one Profile's field work: the response shape, the
-// grouping into families, and the wording the page states around it. Daily Work
-// reads one day. The endpoint behind it still answers a `dateFrom`/`dateTo`
-// range, so the response carries both ends, and `dailyWorkWindow` is what makes
-// them the same day; nothing below groups by date.
-// Dash-prefixed so TanStack Router ignores this file as a route.
+// Data and display helpers for one Profile's field work: the response shape,
+// the grouping into families, and the wording the page states around it. The
+// endpoint answers a `dateFrom`/`dateTo` range and `dailyWorkWindow` makes
+// both ends the same day; nothing below groups by date.
 
 export interface ActivityEntry {
 	readonly category: ActivityCategory;
@@ -32,19 +30,19 @@ export interface ActivityEntry {
 	readonly lng: number;
 	readonly date: string;
 	readonly occurredAt: string | null;
-	/** The record's own name where it has one — a habitat, a trap, a request number. */
+	/** The record's own name where it has one, a habitat, a trap, a request number. */
 	readonly label: string | null;
-	/** The place it hangs off — habitat, trap or address — already resolved server-side. */
+	/** The place it hangs off (habitat, trap or address) already resolved server-side. */
 	readonly placeName: string | null;
 	/** The lookup that names its kind (type/method/insecticide). */
 	readonly refId: string | null;
-	/** A second lookup where one exists — an application's method, beside its product. */
+	/** A second lookup where one exists, an application's method, beside its product. */
 	readonly methodRefId: string | null;
 	/** What the record measured: applied, eliminated, released, reached. */
 	readonly amount: number | null;
 	/** The unit `amount` is in; null where the quantity is a bare count. */
 	readonly unitId: string | null;
-	/** One short, category-specific extra — a density, a status, a reach description. */
+	/** One short, category-specific extra, a density, a status, a reach description. */
 	readonly detail: string | null;
 	/** The life stages an inspection found, as the `E1234P` codes the strip draws. */
 	readonly stages: string | null;
@@ -57,13 +55,9 @@ export interface ActivityEntry {
 }
 
 /**
- * The record half of an entry: everything but whose entry it is.
- *
- * `involvement` and `role` say what a person did to the record, and only Daily
- * Work has a person to ask about. The nearby list on a service request draws
- * the same seven kinds of record with no person in the question, so the
- * describer, the badge facts and the Tags below read this rather than the
- * whole entry, and one row shape serves both surfaces.
+ * The record half of an entry: everything but whose entry it is. The nearby
+ * list on a service request reads this shape too, so `involvement` and `role`
+ * stay on the entry.
  */
 export type ActivityRecord = Omit<ActivityEntry, 'involvement' | 'role'>;
 
@@ -101,10 +95,8 @@ const ACTIVITY_CATEGORY_LABEL: Readonly<Record<ActivityCategory, string>> = {
 
 /**
  * What the person did to the record, in the past tense the list reads in.
- *
- * `created` is the one to read carefully: habitats and traps carry no domain
- * attribution column, so creating the site record is the only signal there is —
- * the pin means "recorded this site", not "stood here".
+ * Habitats and traps carry no domain attribution column, so `created` there
+ * means "recorded this site", not "stood here".
  */
 export const ACTIVITY_ROLE_LABEL: Readonly<Record<string, string>> = {
 	created: 'Created',
@@ -120,13 +112,7 @@ export const ACTIVITY_ROLE_LABEL: Readonly<Record<string, string>> = {
 	assisted: 'Assisted',
 };
 
-/**
- * Where each record kind's detail page lives. Every one takes an `$id`.
- *
- * Read through {@link activityRow} by the Daily Work log and by the nearby
- * list on a service request, so the chevron on a row goes to the same page
- * whichever list drew it.
- */
+/** Where each record kind's detail page lives. Every one takes an `$id`. */
 const ACTIVITY_DETAIL_ROUTE = {
 	habitat: '/larval-surveillance/habitats/$id',
 	inspection: '/larval-surveillance/inspections/$id',
@@ -140,10 +126,8 @@ const ACTIVITY_DETAIL_ROUTE = {
 } as const satisfies Record<ActivityCategory, string>;
 
 /**
- * The key one entry is selected by.
- *
- * A collection set on Monday and collected on Thursday is two entries sharing
- * one record id, so the id alone cannot say which visit is selected.
+ * The key one entry is selected by. A collection set on Monday and collected
+ * on Thursday is two entries sharing one record id.
  */
 export function activityEntryKey(entry: ActivityEntry): string {
 	return `${entry.category}:${entry.id}:${entry.role}`;
@@ -156,17 +140,9 @@ export interface ActivityFamilyGroup {
 
 /**
  * The log, as families in {@link ACTIVITY_FAMILY_LABELS} order, empty ones left
- * out.
- *
- * Within a family the entries run oldest-first, but only partly: six of the nine
- * categories are dated by a `date` with no time of day, so entries without a
- * timestamp keep the order the server sent and sit after the timed ones.
- *
- * There is no day level. The page sends one day as both ends of the window, so
- * every entry here carries the same `date`, and a heading naming it would repeat
- * the stepper. Handed two days, this would fold them into one set of families
- * with nothing on a row to say which day it fell on, so a page that ever reads a
- * range again owes the grouping a date rather than reaching for this.
+ * out. Within a family, timed entries run oldest-first and entries dated by a
+ * bare `date` keep the server's order after them. There is no day level: the
+ * page sends one day as both ends of the window.
  */
 export function groupActivityByFamily(
 	items: readonly ActivityEntry[],
@@ -193,11 +169,8 @@ function byMoment(first: ActivityEntry, second: ActivityEntry): number {
 }
 
 /**
- * The pin cloud.
- *
- * `id` is the *entry* key rather than the record id, because that is what the
- * map's click handler hands back and what selection is keyed on; the record id
- * rides along as `recordId` for the card to fetch by.
+ * The pin cloud. `id` is the entry key, which is what the map's click handler
+ * hands back; the record id rides along as `recordId` for the card to fetch by.
  */
 export function buildActivityMapData(
 	items: readonly ActivityEntry[],
@@ -223,29 +196,20 @@ export function buildActivityMapData(
 }
 
 /**
- * One id → name map over every lookup an activity entry can reference, plus the
- * unit formatter its quantity needs.
- *
- * Ids are globally unique, so one map serves every category's `refId` and
- * `methodRefId` alike — the same trick the nearby context view takes. All of
- * these stream eagerly, so this needs no fetch.
+ * One id to name map over every lookup an activity entry can reference, plus
+ * the unit formatter its quantity needs. Ids are globally unique, so one map
+ * serves every category's `refId` and `methodRefId`.
  */
 export interface ActivityLookups {
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly formatQuantity: (amount: number, unitId: string | null) => string;
-	/**
-	 * The Tag catalog, for the two categories that carry Tags. Retired Tags are
-	 * in it, because a record tagged in the past still wears the label.
-	 */
+	/** The Tag catalog, retired Tags included: a record tagged in the past still wears the label. */
 	readonly tagById: ReadonlyMap<string, Tag>;
 }
 
 /**
- * The maps themselves, beside the hook rather than inside it.
- *
- * The rosters are structural rather than the catalog row types, because the six
- * that contribute a name are three different shapes and only `id` and `name` are
- * read off any of them.
+ * The maps themselves. The rosters are structural because only `id` and `name`
+ * are read off any of them.
  */
 export function activityLookups(
 	rosters: readonly (readonly { readonly id: string; readonly name: string }[])[],
@@ -272,14 +236,7 @@ export function activityLookups(
 	};
 }
 
-/**
- * The wording a page states around the log.
- *
- * The log, the panel states and the pin cloud are all shared; what a page says
- * about them is a sentence about dates, and that is the only part it owns.
- * Collected here so a page states its wording once rather than having the shared
- * parts guess at the window it chose.
- */
+/** The wording a page states around the log: the only part of it a page owns. */
 export interface ActivityCopy {
 	/** Nothing was recorded. The explorer frame draws this. */
 	readonly empty: { readonly title: string; readonly body: string };
@@ -292,13 +249,8 @@ export interface ActivityCopy {
 }
 
 /**
- * Which of the three non-log states the panel is in, if any.
- *
- * A pure resolution rather than a chain of early returns in the component,
- * because the distinction that matters here is a product one: an outage must
- * never read as an empty day. The two are indistinguishable on the page unless
- * something says which is which, and one of them is a conclusion about a
- * colleague.
+ * Which of the three non-log states the panel is in, if any. An outage must
+ * never read as an empty day.
  */
 export function activityPanelMessage(
 	state: {
@@ -308,9 +260,8 @@ export function activityPanelMessage(
 	},
 	copy: ActivityCopy,
 ): { readonly title: string; readonly body: string } | 'loading' | null {
-	// Loading with entries already on screen is not a loading state: the reader
-	// changed the day and the previous log stays until the new one lands, rather
-	// than the panel blanking under them.
+	// Loading with entries already on screen is not a loading state: the previous
+	// log stays until the new day lands.
 	if (state.isLoading && state.isEmpty) {
 		return 'loading';
 	}
@@ -328,12 +279,9 @@ export function activityPanelMessage(
 }
 
 /**
- * How the panel's non-log states split between the frame and the body.
- *
- * The frame owns the placeholder rows and the empty state on all fifteen
- * explorers, so this hands it those two and keeps the rest. What it keeps names
- * a reason the frame's copy has nowhere to put: a refusal repeating the window
- * the server declined, or an outage that must never read as a quiet day.
+ * How the panel's non-log states split between the frame and the body. The
+ * frame owns the placeholder rows and the empty state; the body keeps a refusal
+ * naming the window the server declined, and an outage.
  */
 export function activityPanelState(
 	state: {
@@ -378,18 +326,9 @@ function isRefusal(error: Error): boolean {
 }
 
 /**
- * One entry, as the shared badge register reads a record.
- *
- * The server sends short tokens rather than a column per kind, so this is where
- * they become the facts the badge register switches on. It is a pure
- * resolution rather than a chain of conditions inside the row, because the
- * wrong answers here are the silent ones: a density this build does not know
- * rendering nothing, or a token from a server that predates a column.
- *
- * Every unreadable token falls back to the honest weaker statement rather than
- * to an assertion. A wet site whose density will not resolve says "Wet"; a
- * collection whose status will not resolve says it was collected, which is what
- * the row's own verb already said.
+ * One entry, as the shared badge register reads a record. The server sends
+ * short tokens; an unreadable token falls back to the weaker statement rather
+ * than an assertion (a wet site whose density will not resolve says "Wet").
  */
 export function activityBadgeFacts(entry: ActivityRecord): RecordBadgeFacts {
 	const detail = text(entry.detail);
@@ -447,11 +386,8 @@ function controlContextOf(context: string | null): ControlContext {
 }
 
 /**
- * What an inspection found, from the two fields the server sends for it.
- *
- * `dry` and a density are the same field, because a dry site has no density to
- * report; the stages ride separately, and an inspection that found none sends
- * nothing rather than six falses.
+ * What an inspection found. `dry` and a density are the same field; the stages
+ * ride separately, and an inspection that found none sends nothing.
  */
 function inspectionResult(entry: ActivityRecord): InspectionResult {
 	const detail = text(entry.detail);
@@ -465,12 +401,7 @@ function inspectionResult(entry: ActivityRecord): InspectionResult {
 	};
 }
 
-/**
- * The `E1234P` codes back into the flags the strip draws.
- *
- * Read by code rather than by position, so a server that gains or loses a stage
- * moves one entry in this table rather than shifting every flag after it.
- */
+/** The `E1234P` codes back into the flags the strip draws, read by code rather than by position. */
 const LIFE_STAGE_CODES: readonly (readonly [string, keyof LifeStageFlags])[] = [
 	['E', 'hasEggs'],
 	['1', 'hasFirstInstar'],
@@ -502,12 +433,8 @@ function lifeStageFlags(codes: string | null): LifeStageFlags | null {
 }
 
 /**
- * The Tags on one entry, named and coloured from the synced catalog.
- *
- * Ordered by name, which is the order `useEntityTags` returns them in on the
- * explorers, so one record's chips read the same on both surfaces. A tag id
- * this client holds no catalog row for draws nothing: there is no chip to make
- * out of an id.
+ * The Tags on one entry, named and coloured from the synced catalog, ordered by
+ * name as `useEntityTags` orders them. A tag id with no catalog row draws nothing.
  */
 export function activityTags(
 	entry: ActivityRecord,
@@ -541,17 +468,9 @@ export interface ActivityRowParts {
 }
 
 /**
- * One activity record, resolved to what both of its rows draw.
- *
- * The Daily Work row and the nearby row each read the describer, the category
- * label, the detail route, the badge register and the Tags. This answers those
- * once, so a habitat near a request is titled, linked and badged the way the
- * same habitat is in a Profile's log by construction. What each surface adds stays with it: the log's verb and time
- * of day around the subtitle, the nearby list's category ahead of it, and each
- * one's own colour on the dot.
- *
- * A pure resolution rather than a hook or a component, so the nine categories
- * can be asserted through one function.
+ * One activity record, resolved to what both of its rows draw: the describer,
+ * the category label, the detail route, the badge register and the Tags. A pure
+ * resolution so the nine categories can be asserted through one function.
  */
 export function activityRow(record: ActivityRecord, lookups: ActivityLookups): ActivityRowParts {
 	const { title, subtitle } = describeActivityEntry(
@@ -576,18 +495,9 @@ export interface ActivityDescription {
 }
 
 /**
- * One entry, described the way its own explorer describes it.
- *
- * The nine categories do not share a shape — an application is named by its
- * product and measured in gallons, a source reduction is named by its method,
- * an inspection by the site it was performed at — so a single "label" line
- * reads as "Inspection · Inspected", which tells a supervisor nothing they did
- * not already know from the page they are on. Each row therefore composes what
- * its explorer composes.
- *
- * `nameById` resolves the lookup ids (types, methods, products) from the eagerly
- * synced collections; `placeName` is already text, because habitats and addresses
- * are not synced to the client.
+ * One entry, described the way its own explorer describes it. `nameById`
+ * resolves the lookup ids from the eagerly synced collections; `placeName` is
+ * already text, because habitats and addresses are not synced to the client.
  */
 export function describeActivityEntry(
 	entry: ActivityRecord,
@@ -627,12 +537,7 @@ interface DescriptionParts {
 	readonly fallback: string;
 }
 
-/**
- * How each category is titled, one line apiece.
- *
- * A table rather than a switch: nine shapes in one function is nine reasons to
- * edit it, and the interesting thing about each is a single expression.
- */
+/** How each category is titled, one line apiece. */
 const DESCRIBE_BY_CATEGORY: Readonly<
 	Record<ActivityCategory, (parts: DescriptionParts) => ActivityDescription>
 > = {
@@ -683,12 +588,8 @@ function joinParts(parts: readonly (string | null | undefined)[]): string | null
 }
 
 /**
- * The time of day, where the record genuinely carries one, in the
- * organization's zone.
- *
- * The server sends an instant; which clock reading that is depends on where you
- * ask. A collector on the road and a supervisor two time zones away have to see
- * the same 9pm, so the organization's zone is the one that answers.
+ * The time of day, where the record carries one, in the organization's zone so
+ * every reader sees the same clock reading.
  */
 export function formatActivityTime(
 	occurredAt: string | null,
@@ -708,11 +609,8 @@ export function formatActivityTime(
 }
 
 /**
- * How much of the whole answer this response carries.
- *
- * `total` is what the server counted for the question, which is larger than the
- * list when the row cap bit; before a response arrives it is simply what is on
- * screen, so the header never claims a total it does not have.
+ * How much of the whole answer this response carries. `total` is the server's
+ * count, which is larger than the list when the row cap bit.
  */
 export function activityReach(
 	response: { readonly total: number; readonly truncated: boolean } | undefined,

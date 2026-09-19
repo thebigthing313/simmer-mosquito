@@ -9,35 +9,25 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 
 /**
  * The two whole-window states of the authenticated root route: the workspace is
- * still resolving, or it threw before the shell mounted. Both are pre-shell, so
- * neither can read the shell context. Once a page is inside the shell, the
- * in-region states are `OutletContentFallback` and the page's own boundaries.
+ * still resolving, or it threw before the shell mounted. Neither can read the
+ * shell context. Inside the shell, the states are `OutletContentFallback` and
+ * the page's own boundaries.
  */
 
 const BrandMark = iconRegistry.simmer.brandMark.icon;
 
-/**
- * One width class per placeholder row. `SkeletonRows` explains why they are
- * uneven; the counts here are what the real rail and navigation column hold.
- */
+/** One width class per placeholder row; the counts are what the real rail and navigation column hold. */
 const RAIL_ROW_WIDTHS = ['w-full', 'w-11/12', 'w-full', 'w-10/12', 'w-full', 'w-9/12'] as const;
 const COLLAPSED_RAIL_ROW_WIDTHS = ['w-9', 'w-9', 'w-9', 'w-9', 'w-9', 'w-9'] as const;
 const NAV_ROW_WIDTHS = ['w-full', 'w-5/6', 'w-full', 'w-2/3', 'w-11/12'] as const;
 const CONTENT_ROW_WIDTHS = ['w-full', 'w-full', 'w-full', 'w-full', 'w-full'] as const;
 
 /**
- * The whole-window state while the authenticated shell resolves.
- *
- * It draws the shell's own bands rather than a card in an empty field: green
- * rail, navigation column, header, content stage. The reader watches the
- * workspace arrive in place, and nothing shifts sideways when `AppShellRoot`
- * commits over the top of it.
- *
- * Widths restate `ui-web`'s chrome (`w-60` or `w-16` rail, `w-60` navigation,
- * `h-16` header) rather than import it, because the real chrome needs the shell
- * context, identity, and navigation model this surface is still waiting on. The
- * one value that is shared is the rail's collapse key, so an operator who works
- * with a collapsed rail is not shown an expanded one for a second.
+ * The whole-window state while the authenticated shell resolves. It draws the
+ * shell's own bands (rail, navigation column, header, content stage) so nothing
+ * shifts when `AppShellRoot` commits over it. Widths restate `ui-web`'s chrome
+ * rather than import it, because the real chrome needs the shell context this
+ * surface is waiting on; the rail's collapse key is shared.
  */
 export function WorkspaceChromeFallback() {
 	const [railCollapsed] = usePersistentFlag(PRIMARY_SIDEBAR_COLLAPSED_KEY, false);
@@ -115,16 +105,11 @@ function FallbackStage() {
 }
 
 /**
- * The workspace failed before the shell mounted.
- *
- * Same report as every other error surface, in the frame that fits this one: a
- * centred card on an empty stage, because with no shell there is nothing else on
- * screen to sit beside. A route that throws *inside* the shell gets
- * `RouteErrorPage` instead, which keeps the navigation the reader still needs.
- *
- * `error`, `info`, and `reset` arrive from TanStack Router's `errorComponent`.
- * All three are optional because `SuspenseQueryBoundary` renders this surface
- * too, and it only ever caught an error.
+ * The workspace failed before the shell mounted: the same report as every other
+ * error surface, on an empty stage. A route that throws inside the shell gets
+ * `RouteErrorPage`. `error`, `info` and `reset` arrive from TanStack Router's
+ * `errorComponent` and are optional because `SuspenseQueryBoundary` renders
+ * this too.
  */
 export function WorkspaceChromeError({
 	error,

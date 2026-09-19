@@ -1,10 +1,8 @@
 /**
  * The product table, one row per insecticide, each expanding to its batches.
- *
- * The route renders this twice, once for the active products and once inside
- * the retired disclosure, which is why the rows it draws arrive separately from
- * the catalog: the batch drawer picks from every product, not from the half
- * this table happens to be showing.
+ * The route renders it twice, for the active products and for the retired
+ * ones, so the rows arrive separately from the catalog the batch drawer picks
+ * from.
  */
 
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';

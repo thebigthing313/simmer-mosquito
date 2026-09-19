@@ -41,13 +41,8 @@ const SOURCE_REDUCTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The form's rules, straight from the domain builder.
- *
- * The builder is the only channel: it holds the method, the amount, the unit and
- * the date, and every issue it raises comes back attributed to the field that
- * holds it. A second hand-rolled pass over the same five rules used to run in
- * `onSubmit` and throw a bare string into the page alert, which told an operator
- * a save had failed without saying where to look.
+ * The form's rules, straight from the domain builder: the method, the amount,
+ * the unit and the date, each issue attributed to the field that holds it.
  */
 export function validateSourceReduction(
 	value: SourceReductionFormValues,
@@ -80,15 +75,15 @@ export interface SourceReductionFormValues {
 	readonly sourcesEliminatedAmount: number | null;
 	/** A unit id, or '' when unset (placeholder shown). */
 	readonly sourcesEliminatedUnitId: string;
-	/** `YYYY-MM-DD` — the operational date the work was performed. */
+	/** `YYYY-MM-DD`: the operational date the work was performed. */
 	readonly sourceReductionDate: string;
 	/** `noTechnicianValue` or a profile id. */
 	readonly technicianProfileId: string;
 	/** Profile ids of everyone else who worked this source reduction. */
 	readonly additionalPersonnelIds: readonly string[];
 	/**
-	 * Optional address the work was done at — reference data only. The action's own
-	 * point (its geometry) is the authoritative location.
+	 * Optional address the work was done at, reference data only. The action's
+	 * own point is the authoritative location.
 	 */
 	readonly addressId: string | null;
 	/** Optional larval context: the habitat whose breeding sources were eliminated. */
@@ -165,9 +160,8 @@ export function SourceReductionFormPage({
 	header,
 	onSave,
 }: SourceReductionFormPageProps) {
-	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
-	// geometry for context — never the action's geometry itself, which the draw
-	// layer renders.
+	// `referenceGeometry` is a habitat's shape, shown for context; the draw layer
+	// renders the action's own geometry.
 	const location = useDrawLocation({
 		geometryKind: 'controlAction',
 		initialGeometry,
@@ -274,9 +268,8 @@ export function SourceReductionFormPage({
 									organizationId={organizationId}
 									onSelect={(habitat) => {
 										field.handleChange(habitat?.id ?? null);
-										// The habitat is larval context, not the action's location, but
-										// framing the map on it (and seeding unplaced geometry) saves the
-										// crew a pan across the county.
+										// The habitat is larval context, not the action's location; framing the
+										// map on it seeds unplaced geometry.
 										location.selectReference(
 											habitat === null ||
 												typeof habitat.latitude !== 'number' ||
@@ -360,11 +353,8 @@ export function SourceReductionFormPage({
 // --- validation + helpers ---------------------------------------------------
 
 /**
- * What the form holds, as the write seam takes it.
- *
- * The two sentinels stop here: Radix forbids an empty Select value, so
- * "Unassigned" is a string the domain has never heard of. Create and edit both
- * map the same way, so they map through here.
+ * What the form holds, as the write seam takes it. The "Unassigned" sentinels
+ * stop here.
  */
 export function sourceReductionFieldsFrom(values: SourceReductionFormValues) {
 	return {

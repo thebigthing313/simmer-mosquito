@@ -1,30 +1,11 @@
 /**
- * What a file would do to a station, worked out before anything is written.
- *
- * `docs/weather-domain.md` puts this on the client deliberately, as steps 5 and 6
- * of the upload flow: "Web assesses rows against loaded existing station
- * summaries" and "User reviews insert/update/no-change/fail counts and row
- * details". The user then "commits selected attemptable rows", which is step 7.
- *
- * ## Why the server's answer is still the one that counts
- *
- * The summaries this reads are whatever the client has synced, and they can be
- * stale by the time the button is pressed. So the server re-assesses inside the
- * write transaction against the rows actually stored, and its verdict is what
- * writes. This one is an estimate the user acts on, which is exactly what a
- * review screen is for: it turns "412 readable" into "3 of these overwrite
- * readings you already have, and 2 cannot be written", before the decision.
- *
- * ## And why it is not just a nicety
- *
- * Only attemptable rows are submitted. A row this pass fails never reaches the
- * command, which matters because the batch is one request: the server assesses
- * the rows it is given, and a file whose own lines collide is better resolved
- * here, against a screen, than reported back afterwards.
- *
- * The assessment itself is `assessWeatherSummaryImportRows` from the domain, the
- * same function the server runs. Re-implementing the rules here would be a second
- * copy of insert/update/no-change/fail to drift from the one that writes.
+ * What a file would do to a station, worked out before anything is written:
+ * steps 5 and 6 of the upload flow in `docs/weather-domain.md`. The summaries
+ * this reads are whatever the client has synced, so the server re-assesses
+ * inside the write transaction and its verdict is what writes; this is the
+ * estimate the user reviews. Only attemptable rows are submitted. The
+ * assessment is `assessWeatherSummaryImportRows` from the domain, the same
+ * function the server runs.
  */
 
 import {
@@ -56,20 +37,17 @@ export interface FileAssessment {
 }
 
 /**
- * Assess parsed lines against the readings a station already holds.
- *
- * `newId` mints the client-generated id each insert carries. Passed in rather
- * than called here so a test can make the output predictable, and so the ids are
- * minted once per assessment rather than once per render.
+ * Assess parsed lines against the readings a station already holds. `newId`
+ * mints the client-generated id each insert carries, passed in so a test can
+ * make the output predictable.
  */
 export function assessParsedRows(
 	parsed: readonly ParsedSummaryRow[],
 	existing: readonly WeatherSummaryListing[],
 	newId: () => string,
 	/**
-	 * The organization's calendar day. Passed so the review fails a future-dated
-	 * row the way the server will: without it the screen says "Add" for a line
-	 * the commit is about to refuse, which is the one thing a review must not do.
+	 * The organization's calendar day, so the review fails a future-dated row the
+	 * way the server will.
 	 */
 	currentLocalDate: string,
 ): FileAssessment {

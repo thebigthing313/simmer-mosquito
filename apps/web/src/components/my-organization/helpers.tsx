@@ -80,13 +80,9 @@ export function organizationDetailsFormValues(
 }
 
 /**
- * What the details sheet typed, as the write takes it.
- *
- * The form holds strings because an emptied input is `''`; the columns are
- * nullable because an organization that has no second address line has none.
- * Trimming and that conversion is the whole of what a form owes a write — every
- * other rule about these values belongs to the domain, which is what the seven
- * routes run.
+ * What the details sheet typed, as the write takes it: trimmed, with an
+ * emptied input as `null`. Every other rule about these values is the
+ * domain's.
  */
 export function organizationDetailsFieldsFrom(
 	values: OrganizationDetailsFormValues,
@@ -118,11 +114,9 @@ export function unitDefaultsFrom(values: UnitDefaultsFormValues): UnitDefaults {
 }
 
 /**
- * The service request context, from the four inputs that describe it.
- *
- * The radius may be fractional and the day windows may not, which is why they
- * are checked apart. The server checks the thing this cannot: that the unit code
- * names a distance unit that exists.
+ * The service request context, from the four inputs that describe it. The
+ * radius may be fractional and the day windows may not. The server checks that
+ * the unit code names a distance unit that exists.
  */
 export function serviceRequestContextFrom(
 	values: PublicSettingsFormValues,
@@ -140,12 +134,9 @@ export function serviceRequestContextFrom(
 }
 
 /**
- * Report a failed write, without holding the surface open for it.
- *
- * The hooks in `hooks/mutations` return a promise rather than a transaction —
- * they call `settleWrite` themselves, because naming the command is their job and
- * the caller has no transaction to hold. A form closes on submit and this is what
- * tells the user if the write it started did not land.
+ * Report a failed write, without holding the surface open for it. The hooks in
+ * `hooks/mutations` return a promise rather than a transaction, and a form
+ * that closed on submit has nothing else to tell the user with.
  */
 export function watchWrite(write: Promise<unknown>, fallback: string): void {
 	void write.catch((error) => {
@@ -154,13 +145,9 @@ export function watchWrite(write: Promise<unknown>, fallback: string): void {
 }
 
 /**
- * A refused write, said where the control that made it still is.
- *
- * A toast is the whole report for a surface that closed on submit, and it is not
- * enough for one that did not: the sheet stays open, the row reads the way it
- * read before, and nothing on it distinguishes a write that landed from one that
- * was refused (#219). `role="alert"` because the sheet holds focus and the reason
- * arrives after the click that asked for it.
+ * A refused write, said where the control that made it still is. A toast is
+ * not enough for a sheet that stays open. `role="alert"` because the sheet
+ * holds focus and the reason arrives after the click.
  */
 export function SaveErrorNote({ message }: { readonly message: string | null }) {
 	if (message === null) {
@@ -180,10 +167,8 @@ function reportSaveFailure(error: unknown, fallback: string): void {
 
 /**
  * The refusal to show, or the caller's own words when there are none.
- *
- * `errorMessageForSave` answers for every write in the app, so its generic string
- * is what arrives whenever the thrown value carries nothing better. A caller that
- * knows which write it made says so instead.
+ * `errorMessageForSave`'s generic string arrives whenever the thrown value
+ * carries nothing better.
  */
 export function saveFailureMessage(error: unknown, fallback: string): string {
 	const message = errorMessageForSave(error);
@@ -191,11 +176,8 @@ export function saveFailureMessage(error: unknown, fallback: string): string {
 }
 
 /**
- * A required choice, read out of the settings sheet's `FormData`.
- *
- * `EditSettingsSheet` renders its fields from a list and hands back a `FormData`
- * keyed by the label it drew, which is why the caller names the label rather
- * than a field.
+ * A required choice, read out of the settings sheet's `FormData`, which
+ * `EditSettingsSheet` keys by the label it drew.
  */
 export function requiredFormText(formData: FormData, name: string): string {
 	const value = formData.get(name);
@@ -266,13 +248,10 @@ function densityRangeFormValue(range: LarvalDensityRange): DensityRangeFormValue
 }
 
 /**
- * The density bands to save, or `null` when the Organization keys plain counts.
- *
- * The branch lives here rather than at the call site because that call site is
- * inside a try block, and the React Compiler bails on a whole component when a
- * try block holds a branching expression (#856). Throwing is the point: an
- * out-of-order band has to refuse the save, so the validation stays inside the
- * caller's try.
+ * The density bands to save, or `null` when the Organization keys plain
+ * counts. The branch lives here rather than at the call site, which is inside
+ * a try block the React Compiler cannot lower with a branch in it. Throwing is
+ * the point: an out-of-order band has to refuse the save.
  */
 export function densityRangesOrNull(
 	enabled: boolean,

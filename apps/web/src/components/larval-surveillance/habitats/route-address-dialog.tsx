@@ -24,13 +24,9 @@ interface RouteStopAddressDialogProps {
 }
 
 /**
- * Link the habitat behind a route stop to an address: search the address book, create
- * a new record inline if it isn't there, then persist the link. Reuses the same
- * {@link AddressPicker} every form uses; Save PATCHes the habitat's `addressId`.
- *
- * No `requestMapPoint`: this dialog has no map, so a new address is placed by
- * geocoding and the picker hides the draw-a-point path rather than offering one
- * that cannot work.
+ * Link the habitat behind a route stop to an address: search the address book,
+ * create a new record inline, then persist the link. Save PATCHes the
+ * habitat's `addressId`. No `requestMapPoint`, because this dialog has no map.
  */
 export function RouteStopAddressDialog({
 	open,
@@ -44,7 +40,7 @@ export function RouteStopAddressDialog({
 	const [isSaving, setIsSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Re-seed when the dialog (re)opens — it's reused across stops from one mount.
+	// Re-seed when the dialog (re)opens, it's reused across stops from one mount.
 	useEffect(() => {
 		if (open) {
 			setAddressId(currentAddressId);

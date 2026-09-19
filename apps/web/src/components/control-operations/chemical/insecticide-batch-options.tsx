@@ -6,10 +6,8 @@ import { insecticide_batches } from '../../../lib/collections/insecticide_batche
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 /**
- * The chosen product's lots, as picker options. They sync on demand, so the list
- * comes from a live subset scoped to that product rather than a client-side
- * filter over an eager set — which is why this sits in its own component,
- * mounted only once a product is chosen.
+ * The chosen product's lots, as picker options, from a live subset scoped to
+ * that product. Mounted only once a product is chosen.
  */
 export function InsecticideBatchOptions({
 	insecticideId,

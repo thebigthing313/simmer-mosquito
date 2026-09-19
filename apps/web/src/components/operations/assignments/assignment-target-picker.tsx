@@ -10,11 +10,9 @@ import { HabitatPicker } from '../../control-operations/control-pickers';
 import { OptionRow, PickerFallback, PickerFrame } from '../../pickers/entity-picker';
 import type { TargetType } from './assignment-data';
 
-// Adding a stop to a worklist. An assignment mixes traps, habitats, and service
-// requests freely, so the control is a type switch over three pickers rather than
-// one combined search — each catalog already searches the way it wants to (eager
-// filter, live `ilike` subset, open-requests list), and merging them would mean
-// rebuilding all three to agree on one.
+// Adding a stop to a worklist. An assignment mixes traps, habitats, and
+// service requests, so the control is a type switch over three pickers, each
+// searching the way its catalog already does.
 
 const TYPE_TABS: readonly { readonly type: TargetType; readonly label: string }[] = [
 	{ type: 'habitat', label: 'Habitat' },
@@ -29,13 +27,9 @@ export interface AssignmentTargetSelection {
 }
 
 /**
- * The add-a-stop control: pick a kind, pick a record, add it.
- *
- * Pickers only offer records still in service — an active trap, an active
- * habitat, an open request. That is deliberately narrower than what the stop
- * list *displays*: an assignment is a snapshot, so a stop whose target was
- * retired afterwards stays on the worklist with its place in the order. You
- * simply cannot plan new work against it.
+ * The add-a-stop control: pick a kind, pick a record, add it. Pickers only
+ * offer records still in service, which is narrower than what the stop list
+ * displays: a stop whose target was retired afterwards stays on the worklist.
  */
 export function AssignmentTargetPicker({
 	organizationId,
@@ -175,18 +169,12 @@ function TrapTargetPicker({
 }
 
 /**
- * Open service requests, searched in memory.
- *
- * The other two catalogs already have a picker; this one did not, because
- * nothing else plans work against a request. It filters the open requests
- * already streaming — the same set the worklist map reads — rather than opening
- * a second subset. No organization is passed: the shape is scoped server-side,
- * so the only rows it could ever hold are this organization's.
+ * Open service requests, searched in memory over the open requests already
+ * streaming. No organization is passed: the shape is scoped server-side.
  */
 /**
- * The first eight open requests the search matches, each with the label the row
- * draws. A request is searched by its address and by its details, because an
- * address is what most of them are known by and the rest have only the text.
+ * The first eight open requests the search matches, each with the label the
+ * row draws. A request is searched by its address and by its details.
  */
 function requestMatches<
 	TRequest extends {

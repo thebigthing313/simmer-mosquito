@@ -14,12 +14,10 @@ import { type AddressOption, AddressPicker } from '../pickers/address-picker';
 import type { RequestMapPoint } from '../pickers/new-address-form';
 
 /**
- * What a form holds, which is strings where the command takes numbers and ids.
- *
- * `bufferDistance` is a string because that is what a number input produces, and
- * an empty one means no buffer rather than zero. Both halves of the buffer are
- * kept together for the same reason the command takes them together: a distance
- * with no unit is not a buffer.
+ * What a form holds, which is strings where the command takes numbers and
+ * ids. An empty `bufferDistance` means no buffer rather than zero, and both
+ * halves of the buffer are kept together because a distance with no unit is
+ * not a buffer.
  */
 export interface RegistrationFormValues {
 	readonly contactId: string | null;
@@ -65,12 +63,9 @@ const REGISTRATION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The create builder's rules, run against what the form holds.
- *
- * Worth running the real builder rather than restating its rules: the purpose
- * rule below is the one a form would get wrong, and it is not a field rule at
- * all. A registration has to be *for* something, and the three things it can be
- * for sit in two different sections, so no single field can carry the error.
+ * The create builder's rules, run against what the form holds. The purpose
+ * rule is not a field rule: a registration has to be for something, and the
+ * three things it can be for sit in two sections.
  */
 export function validateRegistration(value: RegistrationFormValues, geometry: DrawGeometry | null) {
 	return domainValidator(
@@ -110,16 +105,9 @@ export interface RegistrationFormFieldsProps {
 }
 
 /**
- * A registration's fields, without a page around them.
- *
- * They sit in the results panel of the contact's manage page, beside the map
- * they draw on, which is why this is fields rather than a form: the map belongs
- * to the page, and a form that owned its own canvas would put a second map
- * beside the one already there.
- *
- * The contact is not among them. A registration is always somebody's, the column
- * is `not null`, and this is only ever reached from the contact it belongs to, so
- * a picker here would be a second answer to a question the route already settled.
+ * A registration's fields, without a page around them: the map belongs to the
+ * page. The contact is not among them, because this is only reached from the
+ * contact it belongs to.
  */
 export function RegistrationFormFields({
 	form,
@@ -130,9 +118,8 @@ export function RegistrationFormFields({
 }: RegistrationFormFieldsProps) {
 	const { draw, geometry, geometryType } = location;
 
-	// Distance only. The domain checks this server-side too, but a select that
-	// offers gallons is a select somebody eventually picks gallons from, and the
-	// refusal it causes blocks generation for every mission in the organization.
+	// Distance only. A select that offers gallons is a select somebody picks
+	// gallons from, and the refusal blocks generation for every mission.
 	const bufferUnitOptions = unitOptions(units, (unitType) => unitType === 'distance');
 
 	return (
@@ -185,11 +172,8 @@ export function RegistrationFormFields({
 }
 
 /**
- * Where the registration is, as the boxed band every located record uses.
- *
- * A box rather than a heading because the controls in it move each other:
- * picking an address can reframe the map and place the point, and changing the
- * geometry type replaces the shape. The border is what says they are one answer.
+ * Where the registration is, as the boxed band every located record uses. A
+ * box because the controls in it move each other.
  */
 function RegistrationLocation({
 	addressCoord,
@@ -259,11 +243,8 @@ function RegistrationLocation({
 
 /**
  * What the registration is for, which is the one thing it cannot be without.
- *
- * The domain refuses a registration that is neither a bees warning, a no-spray
- * request, nor a subscription to anything, and those three sit in one section
- * because that rule is about all of them together. Split across two sections,
- * the refusal would arrive pointing at neither.
+ * The three purposes sit in one section because the domain's rule is about
+ * all of them together.
  */
 function PurposeSection({
 	form,

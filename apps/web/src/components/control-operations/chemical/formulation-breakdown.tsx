@@ -14,9 +14,8 @@ import {
 } from './formulation-math';
 
 /**
- * What the chosen mix will be saved as: one application per component product,
- * each carrying its share of the total. The split is the domain's own, so this
- * is a preview of the rows, not an estimate of them.
+ * What the chosen mix will be saved as: one application per component product.
+ * The split is the domain's own, so this is a preview of the rows.
  */
 export function FormulationBreakdown({
 	components,

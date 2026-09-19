@@ -30,7 +30,7 @@ export function ControlMethodDialog({
 	trigger,
 }: MethodDialogContext & {
 	readonly method?: ControlMethodRecord | undefined;
-	/** Controlled open handler — pair with `open` when there is no `trigger`. */
+	/** Controlled open handler, pair with `open` when there is no `trigger`. */
 	readonly onOpenChange?: ((open: boolean) => void) | undefined;
 	readonly open?: boolean | undefined;
 	/** Uncontrolled mode: the element that opens the dialog (Add button, empty-state CTA). */
@@ -51,8 +51,7 @@ export function ControlMethodDialog({
 					? `Unable to save ${method.name}.`
 					: `Unable to create ${singularLabel}.`,
 				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
-				// refusal too, so dismissing on the way past would take the form away
-				// before the question could be asked.
+				// refusal too, and the form has to stay for the question.
 				save: () =>
 					run(async (acknowledgements) => {
 						if (isEditing) {
@@ -116,11 +115,8 @@ export function ControlMethodDialog({
 }
 
 /**
- * The record as the save compares against.
- *
- * `save` decides which commands it means from what moved, so it needs the record
- * in the same vocabulary the form produces — which is what `catalogFields` of the
- * record's own values is.
+ * The record as the save compares against, in the vocabulary the form
+ * produces, because `save` decides which commands it means from what moved.
  */
 function catalogFormRecord(method: ControlMethodRecord) {
 	return catalogFields(catalogFormValues(method));

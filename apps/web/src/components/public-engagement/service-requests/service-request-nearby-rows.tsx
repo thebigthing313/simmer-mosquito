@@ -10,25 +10,15 @@ import {
 	nearbyRow,
 	visibleNearbyItems,
 } from './service-request-nearby';
-// The nearby records around a service request, drawn as the rows an explorer's
-// results rail draws, with the distance from the request in a slot of its own.
-// Takes the families to show rather than a list, so the page hands each family
-// tab its family and nothing else changes.
-// Dash-prefixed so TanStack Router ignores this file as a route.
+// The nearby records around a service request, drawn as the rows an
+// explorer's results rail draws, with the distance from the request in a slot
+// of its own. Takes the families to show rather than a list.
 
 /**
- * The list, or the rail's own state standing in for it.
- *
- * The placeholders, the empty state and the failed state are `ResultList`'s,
- * because the page used to draw a skeleton, a dashed box and a sentence of its
- * own for each, and the sentence for a failed read told the reader to try
- * again shortly with nothing to try. The rail's failed state carries the retry.
- *
- * The rows are the rail's own virtualised list, which scrolls itself. They were
- * a plain list while the nearby panel was a card in a column that scrolled,
- * because a second scroller inside the first is what `ResultRows` would have
- * put there; a family tab owns the column's height now, so the list is the
- * scroller and gets the product's scrollbar the way every explorer's rail does.
+ * The list, or the rail's own state standing in for it. The placeholders, the
+ * empty state and the failed state are `ResultList`'s, so the failed state
+ * carries the retry. The rows are the rail's virtualised list, which scrolls
+ * itself; a family tab owns the column's height.
  */
 export function NearbyResultList({
 	nearby,
@@ -86,11 +76,9 @@ export function NearbyResultList({
 
 /**
  * One nearby record as `ExplorerRow` draws it: the family colour as the dot,
- * the describer's title and subtitle, the date, the badge register's badges,
- * the Tags, the distance and the chevron to the record's own page.
- *
- * The state rides as a pill rather than as the dot, for Daily Work's reason:
- * the dot is spent on which family the record belongs to.
+ * the describer's title and subtitle, the date, the badges, the Tags, the
+ * distance and the chevron. The state is a pill because the dot is the
+ * family.
  */
 function NearbyExplorerRow({
 	item,

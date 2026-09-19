@@ -1,7 +1,6 @@
 import { AuthFormError, AuthSubmitButton } from '@simmer-mosquito/ui-web/components/auth';
 import { Field, FieldGroup, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { signUp } from '../../auth';
@@ -9,8 +8,6 @@ import { useAuthSuccess } from '../../hooks/auth/use-auth-success';
 import { AuthShell } from './auth-shell';
 import { NewPasswordFields } from './new-password-fields';
 import { PendingAuthFlow, type PendingStep, toPendingStep } from './pending-auth-flow';
-
-const _SpinnerIcon = iconRegistry.actions.loading.icon;
 
 export function SignUpPage({ redirectTo }: { readonly redirectTo: string }) {
 	const onAuthenticated = useAuthSuccess();

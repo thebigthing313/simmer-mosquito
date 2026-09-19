@@ -63,8 +63,8 @@ export function EditProfileSheet({
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
 			const plan = profileSavePlan({ displayName: nextDisplayName, isActive, role }, person);
 			// The role first, and only if it moved: it is a different command with a
-			// different floor (owner, not admin), and a refusal there must not leave
-			// the profile half saved and the sheet closed.
+			// different floor (owner, not admin), and a refusal there must not leave the
+			// profile half saved and the sheet closed.
 			if (plan.roleChange !== null) {
 				if (membershipId !== null) {
 					await changeRole(membershipId, plan.roleChange);

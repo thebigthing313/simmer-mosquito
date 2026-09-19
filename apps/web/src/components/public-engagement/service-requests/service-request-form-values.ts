@@ -15,12 +15,8 @@ import {
 export type ContactMode = 'existing' | 'new';
 
 /**
- * The form's values, as the write seam takes them.
- *
- * The boundary between what a form holds — strings, because that is what an
- * input produces — and what a command takes. An unset "received by" is the empty
- * string in a select and `null` in the column, and this is where that stops
- * being the route's problem to remember.
+ * The form's values, as the write seam takes them. An unset "received by" is
+ * the empty string in a select and `null` in the column.
  */
 export function serviceRequestFieldsFrom(values: ServiceRequestFormValues): ServiceRequestFields {
 	return {
@@ -40,14 +36,14 @@ export interface ServiceRequestFormValues {
 	readonly receivedByProfileId: string;
 	readonly contactMode: ContactMode;
 	readonly contactId: string | null;
-	/** The inline "new contact" subform — the same fields the contact page owns. */
+	/** The inline "new contact" subform, the same fields the contact page owns. */
 	readonly newContact: ContactFormValues;
 	readonly addressId: string | null;
 }
 
 /**
- * Domain issue path → the form field holding it. The inline contact subform nests
- * under `contact.details`, matching the shape the builder validates.
+ * Domain issue path to the form field holding it. The inline contact subform
+ * nests under `contact.details`, matching the shape the builder validates.
  */
 const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 	intakeType: 'intakeType',
@@ -63,12 +59,9 @@ const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 
 /**
  * The form's rules, straight from the domain builder: intake type, date,
- * details, and whichever of the contact/address subforms is in play.
- *
- * Both surfaces run it, which the create path alone used to. The edit page does
- * not own the point, and the builder requires one, so it is handed the stand-in
- * and reports on everything else. Skipping it there left the edit page with only
- * a hand-rolled channel that threw a bare string into the page alert.
+ * details, and whichever of the contact/address subforms is in play. The edit
+ * page does not own the point, so it is handed the stand-in and the builder
+ * reports on everything else.
  */
 export function validateServiceRequest(
 	value: ServiceRequestFormValues,

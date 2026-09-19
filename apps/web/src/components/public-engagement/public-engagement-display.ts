@@ -1,9 +1,6 @@
-// Shared label + formatting helpers for the public-engagement routes. Dash-prefixed
-// so TanStack Router ignores this file as a route.
-//
-// Every parameter here is structural rather than a row type, so both read paths
-// satisfy it: the camelCase rows the unmigrated surfaces still hold, and the
-// projections the query hooks return.
+// Shared label and formatting helpers for the public-engagement routes. Every
+// parameter is structural rather than a row type, so both read paths satisfy
+// it.
 
 import { calendarDateParts } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
@@ -64,17 +61,15 @@ export function intakeTypeLabel(intakeType: string): string {
 	return INTAKE_TYPE_LABELS[intakeType] ?? intakeType;
 }
 
-/** `24 people` — outreach is counted in people reached, never a volume. */
+/** `24 people`: outreach is counted in people reached, never a volume. */
 export function formatReach(reach: number): string {
 	return reach === 1 ? '1 person' : `${reach.toLocaleString('en-US')} people`;
 }
 
 /**
- * A request is open until it is closed; deletion is a separate (soft) state.
- *
- * `closedAt` is a `Date` off the query hooks and the raw timestamp string on the
- * surfaces still reading the old collections. Only its presence is read here, so
- * both do.
+ * A request is open until it is closed; deletion is a separate soft state.
+ * `closedAt` is a `Date` off the query hooks and a string on the older read
+ * paths; only its presence is read.
  */
 export function isServiceRequestOpen(request: {
 	readonly closedAt: Date | string | null;
@@ -84,11 +79,8 @@ export function isServiceRequestOpen(request: {
 
 /**
  * Format a `YYYY-MM-DD` request date as a readable, timezone-stable label.
- *
- * The `Date` is a local one and the formatter names no zone, so the two cancel
- * and the day is the day that was recorded. This and `formatActionDate` are the
- * two that do it this way round; everything else builds in UTC and formats in
- * UTC, which lands in the same place.
+ * The `Date` is a local one and the formatter names no zone, so the day is
+ * the day recorded.
  */
 export function formatRequestDate(value: string): string {
 	const parts = calendarDateParts(value);

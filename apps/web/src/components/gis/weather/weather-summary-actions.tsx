@@ -19,11 +19,8 @@ const AddIcon = iconRegistry.actions.add.icon;
 const ImportIcon = iconRegistry.actions.upload.icon;
 
 /**
- * The question a hard delete has to ask.
- *
- * A summary has no `deleted_at` and nothing restores it, and the domain says so:
- * "Summary deletes are hard deletes and are not idempotent". The station delete
- * beside it asks first, and so does every other destructive action in the app.
+ * The question a hard delete has to ask. A summary has no `deleted_at` and
+ * nothing restores it.
  */
 export function ConfirmSummaryDelete({
 	summary,

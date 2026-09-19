@@ -31,8 +31,8 @@ import { formatRequestDate } from '../public-engagement-display';
 
 /**
  * The families this page asks the endpoint for: all four, since the endpoint's
- * own default is the three operational ones and the Details and Comments tabs
- * draw the other requests around this one (#1090).
+ * default is the three operational ones and the Details and Comments tabs draw
+ * the other requests around this one.
  */
 const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = ACTIVITY_FAMILIES;
 
@@ -41,19 +41,18 @@ export type NearbyCategory = Exclude<ActivityCategory, 'outreach'>;
 
 /**
  * The categories it asks for beside the families, which are the eight it
- * draws. The page used to take `publicEngagement` whole and drop the outreach
- * off the answer, and the endpoint's cap ran before that, so dense outreach
- * could cut a nearer request (#1114). `NearbyRecordsInput.categories` in
- * `packages/db` carries the mechanism.
+ * draws, so the endpoint's nearest-first cap is not spent on outreach the page
+ * would drop. `NearbyRecordsInput.categories` in `packages/db` carries the
+ * mechanism.
  */
 const NEARBY_REQUEST_CATEGORIES: readonly NearbyCategory[] = ACTIVITY_CATEGORIES.filter(
 	(category): category is NearbyCategory => category !== 'outreach',
 );
 
 /**
- * The page's own grouping of those kinds. The first three are its family tabs,
- * which list and draw the operational records; the fourth is the other service
- * requests, which the map draws under Details and Comments and no tab lists.
+ * The page's grouping of those kinds: three family tabs listing the
+ * operational records, and the other service requests, which the map draws
+ * under Details and Comments and no tab lists.
  */
 export type NearbyFamily = NearbyTabFamily | 'publicEngagement';
 
@@ -62,9 +61,7 @@ export type NearbyTabFamily = 'infrastructure' | 'surveillance' | 'control';
 
 /**
  * One record near the request: the activity row for that record, less the two
- * fields that say whose entry it is, plus how far away it is. One shape on
- * both endpoints is what lets Daily Work's describer and badge register draw a
- * nearby record too.
+ * fields that say whose entry it is, plus how far away it is.
  */
 export interface NearbyItem extends Omit<ActivityRecord, 'category'> {
 	readonly category: NearbyCategory;
@@ -105,7 +102,7 @@ const NEARBY_FAMILY_OF: Readonly<Record<NearbyCategory, NearbyFamily>> = {
 
 /**
  * The family's name, as the tab strip and the row's dot spell it. The fourth
- * reads the register because it names a record type rather than a group.
+ * reads the register because it names a record type.
  */
 export const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
 	infrastructure: 'Infrastructure',
@@ -151,8 +148,8 @@ export function visibleNearbyItems(
 
 /**
  * The read as the page's surfaces take it: the answer and the three facts the
- * rail draws its states from. One object rather than four props, so a tab
- * hands the query on whole and a suite can build one without a query client.
+ * rail draws its states from. One object so a suite can build one without a
+ * query client.
  */
 export interface NearbyRead {
 	readonly data: NearbyResponse | undefined;
@@ -175,23 +172,16 @@ export async function fetchNearby(id: string, signal: AbortSignal): Promise<Near
 
 /**
  * The key one nearby record is selected by, on the list and on the map alike.
- *
- * The record id alone is not one: the eight categories are eight tables, and
- * nothing stops a habitat and an inspection sharing a UUID. It is the shape
- * `activityEntryKey` gives Daily Work, less the role, because a record is near
- * a request once however many visits it took.
+ * The record id alone is not one: the eight categories are eight tables.
  */
 export function nearbyItemKey(item: Pick<NearbyItem, 'category' | 'id'>): string {
 	return `${item.category}:${item.id}`;
 }
 
 /**
- * The date the list shows beside a nearby record, or null for a place.
- *
- * The row dates a habitat or a trap by the day its record was created, which
- * is the activity register's rule and what places a person on Daily Work. Next
- * to a request it says nothing about the place, so the list leaves it off, as
- * it did when the row carried no date for a place at all.
+ * The date the list shows beside a nearby record, or null for a place. A
+ * habitat or a trap is dated by the day its record was created, which says
+ * nothing about the place next to a request.
  */
 export function nearbyItemDate(item: NearbyItem): string | null {
 	return NEARBY_FAMILY_OF[item.category] === 'infrastructure' ? null : item.date;
@@ -214,18 +204,11 @@ export interface NearbyRow {
 
 /**
  * One nearby record, as its explorer's rail would draw it, plus the distance.
- *
  * The title, the subtitle, the link, the badges and the Tags are the shared
- * row's, so a habitat near a request is titled and badged the way the same
- * habitat is in a Profile's log. What this list adds over that log is the
- * category ahead of the subtitle, because the log's verb is what said
- * "Inspection" there and there is no verb here: an inspection's title is the
- * place it was performed at, and beside a request a reader has to be told it
- * was a visit rather than the place. The distance, the date and the family
- * colour are the other three parts that are this list's own.
- *
- * A pure resolution rather than a component, so the rule this list adds can be
- * asserted through one function and the row that draws it stays a mapping.
+ * row's. This list adds the category ahead of the subtitle, because there is
+ * no verb here to say an inspection is a visit rather than a place, and the
+ * distance, the date and the family colour. Pure, so the rule can be asserted
+ * through one function.
  */
 export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: string): NearbyRow {
 	const { title, subtitle, categoryLabel, link, facts, tags } = activityRow(item, lookups);
@@ -250,13 +233,9 @@ export function nearbyRow(item: NearbyItem, lookups: ActivityLookups, unitCode: 
 
 /**
  * The map overlay for the context view: the proximity ring, the request's own
- * marker, and the nearby records (points) for the families the active tab
- * draws, each tagged with the `role`/`family` properties the nearby layer
- * paints on.
- *
- * `id` is the item key rather than the record id, because that is what the
- * layer hands back on a click and what selection is keyed on; the record id
- * rides along as `recordId`.
+ * marker, and the nearby records for the families the active tab draws, each
+ * tagged with the `role`/`family` properties the nearby layer paints on. `id`
+ * is the item key, which is what the layer hands back on a click.
  */
 export function buildNearbyMapData(
 	center: { readonly lat: number; readonly lng: number },
@@ -304,13 +283,9 @@ const NEARBY_WINDOW_END_CLAUSE: Readonly<Record<NearbyWindowEnd, string>> = {
 };
 
 /**
- * The window as one phrase: the range, and the clause naming which end set
- * it when the setting did not.
- *
- * The summary and the map caption both read it, so the caption cannot draw a
- * six-week range under a setting that says 14 with nothing saying the close or
- * today passed it, which it did while it wrote the two dates itself (#1109).
- * The range is an unspaced en dash in one template, which is the shape
+ * The window as one phrase: the range, and the clause naming which end set it
+ * when the setting did not. The summary and the map caption both read it. The
+ * range is an unspaced en dash in one template, which is the shape
  * `check:copy-dashes` reads.
  */
 export function nearbyWindowLabel(
@@ -321,23 +296,11 @@ export function nearbyWindowLabel(
 }
 
 /**
- * What the panel says it is showing, before and after the fetch lands.
- *
- * The count is of the records the family tabs list, so it is the three tab
- * counts added up. The other requests around this one are in the response too,
- * for the map under Details and Comments, and a count that took them in would
- * be one no tab accounts for.
- *
- * The range alone used to be the whole sentence, and it was enough while the
- * window ended `daysAfter` past the request date. That setting is a floor now,
- * and the window runs on to the close, or to today while the request is open
- * (#1084), so a six-week range beside a setting that says 14 needs the
- * sentence to say which end won.
- *
- * The endpoint caps the read nearest-first and says when the cap cut it, and
- * a second sentence says so here, because a radius denser than the cap drew a
- * map that looked complete (#1141). The cap is the answer's own number, so the
- * page never spells it. With the flag clear the summary reads as it did.
+ * What the panel says it is showing, before and after the fetch lands. The
+ * count is the three tab counts added up; the other requests in the response
+ * are counted by no tab. The window runs on to the close, or to today while
+ * the request is open, so the sentence says which end won. A second sentence
+ * says when the endpoint's nearest-first cap cut the read.
  */
 export function nearbySummary(response: NearbyResponse | undefined): string {
 	if (response === undefined) {

@@ -82,9 +82,7 @@ function ControlAssetLookupContent({
 			detail={config.detail}
 			title={config.title}
 			action={
-				// Hidden rather than disabled, per `components/write-only.tsx`. A
-				// collector on this page used to see a greyed-out Add vehicle with
-				// nothing saying why, which every other catalog surface avoids.
+				// Hidden rather than disabled, per `components/write-only.tsx`.
 				canManage ? (
 					<ControlAssetDrawer
 						canManage={canManage}
@@ -191,11 +189,9 @@ function ControlAssetDrawer({
 	const [open, setOpen] = useState(false);
 	const config = controlAssetListConfigs[collectionKey];
 	const defaultValues = controlAssetFormValues(asset);
-	// One drawer serves both kinds, and each takes its own flag, so the map is
-	// picked by the kind rather than shared: a vehicle's page must not be able to
-	// offer an answer about equipment. Held out here rather than inside the
-	// drawer's content, which unmounts — `commitCatalogSave` closes on the way
-	// past, before the server has answered.
+	// One drawer serves both kinds and each takes its own flag, so the map is
+	// picked by the kind. Held out here rather than inside the drawer's content,
+	// which unmounts before the server has answered.
 	const { run, dialog } = useAcknowledgedWrite({
 		askable: collectionKey === 'vehicles' ? VEHICLE_SAVE_REFUSALS : EQUIPMENT_SAVE_REFUSALS,
 		ask: true,
@@ -212,9 +208,8 @@ function ControlAssetDrawer({
 						? `Unable to create ${config.singularLabel}.`
 						: `Unable to save ${asset.name}.`,
 				onWritten: () => setOpen(false),
-				// A create has no history to relabel, so only the edit goes through
-				// `run`. `run` swallows a refusal a flag can answer and turns it into
-				// the dialog; anything else still reaches the toast here.
+				// A create has no history to relabel, so only the edit goes through `run`,
+				// which turns a refusal a flag can answer into the dialog.
 				save: () =>
 					asset === undefined
 						? mutations.create(controlAssetFields(value)).then(() => undefined)
@@ -319,11 +314,8 @@ function ControlAssetDrawer({
 }
 
 /**
- * The drawer's values as the write hook takes them.
- *
- * A blank serial number is `null` rather than `''`, for the reason
- * `catalogFields` trims a description: a column that can hold both has two
- * spellings of "not set".
+ * The drawer's values as the write hook takes them. A blank serial number is
+ * `null` rather than `''`.
  */
 function controlAssetFields(values: {
 	readonly name: string;

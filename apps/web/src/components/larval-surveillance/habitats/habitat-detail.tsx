@@ -59,9 +59,8 @@ const MergeIcon = iconRegistry.actions.merge.icon;
 
 /**
  * The habitat's readiness is a Suspense boundary rather than a flag, so this
- * page hands the frame a body. The placeholder is still the frame's, and so is
- * the unavailable state — the loader below reports it, because nothing outside
- * a suspended tree can find out there is no record.
+ * page hands the frame a body. The loader below reports the unavailable state,
+ * because nothing outside a suspended tree can find out there is no record.
  */
 const layout: RecordDetailLayout = {
 	aside: 'wide',
@@ -119,9 +118,8 @@ function HabitatDetailContent({
 	// Surface the habitat's name in the breadcrumb trail in place of its uuid.
 	useBreadcrumbLabel(habitat.id, habitat.name);
 
-	// Geometry is not part of the Electric shape (ADR 0009), so it is fetched from
-	// the server display endpoint. Keying on updatedAt makes it refetch whenever
-	// the synced record changes, keeping the map in step with edits.
+	// Geometry is not part of the Electric shape (ADR 0009), so it is fetched
+	// from the server display endpoint.
 	const { data: geometry, isPending: isGeometryPending } = useHabitatGeometry(habitat.id);
 	const resolvedGeometry = geometry ?? null;
 	const mutations = useHabitatMutations();
@@ -148,11 +146,8 @@ function HabitatDetailContent({
 					]),
 					{
 						/*
-						 * Merging is reached from a habitat rather than from a list of
-						 * proposals, because two records for one catch basin agree about
-						 * nothing except where they are. The habitat somebody is already
-						 * looking at is the one that survives, which is the choice a
-						 * cleanup page has to make with a radio and get wrong in silence.
+						 * Merging is reached from a habitat rather than from a list of proposals; the
+						 * habitat somebody is already looking at is the one that survives.
 						 */
 						icon: MergeIcon,
 						id: 'merge',
@@ -197,12 +192,8 @@ function HabitatDetailContent({
 }
 
 /**
- * The habitat's type in a fact row, which is nothing at all when it has none.
- *
- * `null` rather than a sentence, because a `DetailRow` handed nothing draws the
- * absent mark, and one mark down a column of labels is what makes the missing
- * values findable. The subtitle needs words instead: it is the only line under
- * the title, and a lone dash there reads as a glyph nobody placed. See
+ * The habitat's type in a fact row, or `null` when it has none so the
+ * `DetailRow` draws the absent mark. The subtitle needs words instead; see
  * {@link HabitatTypeSubtitle}.
  */
 function HabitatTypeLabel({ habitatTypeId }: { readonly habitatTypeId: string | null }) {
@@ -299,14 +290,10 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 }
 
 /**
- * The habitat's metadata, read through its type's custom schema so declared fields
- * get their configured label and order (and yes/no fields read as words). Values
- * the schema no longer declares still render, so history is never hidden.
- *
- * The habitat form is the only one that sets `allowExtra`, so a key its type
- * never declared is a note somebody typed rather than a field that went away.
- * That is what `allowsExtraKeys` tells the list, which otherwise badges every
- * undeclared key Retired.
+ * The habitat's metadata, read through its type's custom schema. Values the
+ * schema no longer declares still render. The habitat form is the only one that
+ * sets `allowExtra`, so an undeclared key here is a note somebody typed rather
+ * than a retired field, which is what `allowsExtraKeys` tells the list.
  */
 function HabitatMetadata({
 	habitatTypeId,
@@ -356,17 +343,10 @@ function AuditValue({
 }
 
 /**
- * The routes this habitat is a stop on.
- *
- * `docs/sync.md` notes that "the same habitat may appear in multiple routes",
- * which is exactly why the detail page should say so: a crew lead looking at a
- * site needs to know whose run it is already on before adding it to another,
- * and until now the only way to find out was to open every route.
- *
- * `route_items` is on-demand, so this reads through a non-suspense
- * `useLiveQuery` gated on status rather than `useLiveSuspenseQuery`, which
- * hangs permanently after unmount over an on-demand collection. `routes` is
- * eager, so suspense is safe there.
+ * The routes this habitat is a stop on. `route_items` is on-demand, so this
+ * reads through a non-suspense `useLiveQuery` gated on status rather than
+ * `useLiveSuspenseQuery`, which hangs after unmount over an on-demand
+ * collection.
  */
 function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 	const { routes, isReady, isError } = useRecordRoutes({ type: 'habitat', id: habitatId });
@@ -392,7 +372,7 @@ function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 					>
 						{routeName}
 					</Link>
-					{/* Where in the run it falls — the thing a crew lead is actually
+					{/* Where in the run it falls, the thing a crew lead is actually
 					    asking when they ask which route a site is on. */}
 					<span className="text-muted-foreground text-xs tabular-nums">stop {position}</span>
 				</li>

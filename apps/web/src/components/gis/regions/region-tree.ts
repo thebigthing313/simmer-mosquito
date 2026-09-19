@@ -1,17 +1,11 @@
 /**
  * The region tree's two pure halves: folding the flat region list under its
- * folders, and narrowing the folded tree by a search term.
+ * folders, and narrowing the folded tree by a search term. They take the
+ * listings the two query hooks hand back and touch no state.
  *
- * Both sat inline in the explorer route until #937, where the tree rendering
- * around them made a 917-line module that `fallow dupes` could never flag,
- * since it was one copy of everything. They take the listings the two query
- * hooks hand back and touch no state, which is what lets the two-level search
- * rule be held by a suite without standing a tree up.
- *
- * `groupByFolder` is not the overviews' `groupRows`: that one buckets rows by
- * a key it is handed, and this one splits by a nullable column into a map and
- * a root list, because the tree draws the unfiled regions as a group of their
- * own. Sharing the two is out of scope by the issue's own line.
+ * `groupByFolder` is not the overviews' `groupRows`: this one splits by a
+ * nullable column into a map and a root list, because the tree draws the
+ * unfiled regions as a group of their own.
  */
 
 import type { RegionListing } from '../../../hooks/queries/use-region-directory';
@@ -58,15 +52,10 @@ export function groupByFolder(regions: readonly RegionListing[]): RegionsByFolde
 }
 
 /**
- * The tree, narrowed by the search term.
- *
- * Search spans both levels: a folder hit keeps all of its regions, since you
- * searched for the folder and so want its contents, and a region hit keeps just
- * that region under its folder. Folders that end up with nothing drop out. A
- * folder matches on its name or its description; a region on its name alone.
- *
- * `query` arrives trimmed and lowercased, which is the route's job, and an
- * empty one is the whole tree in `sortedFolders`' order.
+ * The tree, narrowed by the search term. A folder hit keeps all of its
+ * regions; a region hit keeps just that region under its folder; folders left
+ * with nothing drop out. A folder matches on its name or description, a region
+ * on its name alone. `query` arrives trimmed and lowercased.
  */
 export function searchTree(
 	sortedFolders: readonly RegionFolderListing[],

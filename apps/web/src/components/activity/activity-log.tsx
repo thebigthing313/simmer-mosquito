@@ -18,8 +18,7 @@ export function ActivityLog({
 	readonly families: readonly ActivityFamilyGroup[];
 	/**
 	 * A reason the frame's empty copy cannot carry: a refusal naming the day the
-	 * server declined, or an outage. Loading and an empty day are the frame's,
-	 * so they never arrive here.
+	 * server declined, or an outage.
 	 */
 	readonly message: { readonly title: string; readonly body: string } | null;
 	readonly truncated: boolean;
@@ -99,5 +98,5 @@ function PanelMessage({
 
 // --- record dispatch ----------------------------------------------------------
 //
-// Nine self-fetching cards, all sharing the `{ id, inset, onClose }` signature,
-// so the union carries ids alone and each card resolves its own content.
+// Nine self-fetching cards sharing the `{ id, inset, onClose }` signature, so
+// the union carries ids alone.

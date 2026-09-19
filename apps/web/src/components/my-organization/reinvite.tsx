@@ -18,19 +18,11 @@ import { formatRole, SaveErrorNote, saveFailureMessage } from './helpers';
 import type { SimmerRole } from './types';
 
 /**
- * Sending somebody's invitation again.
- *
- * An action on a row that is already invited, not a second trip through the
- * invite dialog. A second `identity.invite` for the same address is a retry the
- * server swallows, and there is no key that could tell a retry from a deliberate
- * redo — so the redo is its own command, reached from the row it is about.
- *
- * Only shown on a Membership still at `invited`. An active member has no link to
- * replace, and an ended one is a fresh invitation.
- *
- * No role check: this renders inside the edit sheet, which the People page draws
- * only for somebody past the people floor. A second check here would be the same
- * question asked twice and answerable two ways.
+ * Sending somebody's invitation again: its own command, reached from the row
+ * it is about, because a second `identity.invite` for the same address is a
+ * retry the server swallows. Only shown on a Membership still at `invited`.
+ * No role check, because this renders inside the edit sheet the People page
+ * draws only past the people floor.
  */
 export function ReinviteControl({ person }: { readonly person: PersonListing }) {
 	if (person.membershipId == null || person.membershipStatus !== 'invited') {
@@ -48,12 +40,9 @@ export function ReinviteControl({ person }: { readonly person: PersonListing }) 
 }
 
 /**
- * The dialog is the confirmation, and there is no step after it.
- *
- * It names all three things that change: who the mail goes to, the role the new
- * invitation grants, and that the link they are holding stops working. Anything
- * less and the destructive half — killing a link somebody may be about to use —
- * is the half nobody read.
+ * The dialog is the confirmation. It names all three things that change: who
+ * the mail goes to, the role the new invitation grants, and that the link they
+ * are holding stops working.
  */
 function ReinviteAction({
 	email,

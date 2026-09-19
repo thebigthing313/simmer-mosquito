@@ -4,16 +4,10 @@ import type { SimmerRole } from '../types';
 import { PermissionPill } from './permission-pill';
 
 /**
- * The frame every my-organization section draws in. Section navigation is
- * the sidebar's, one entry per route under `/my-organization` in
- * `navigation.ts`, so the shell sets the measure and puts the permission
- * state above the active section and does nothing else.
- *
- * The measure is `record`, the 112rem cap the route-loading skeleton
- * reserves, so a section arrives at the width the skeleton stood in for
- * rather than 416px narrower (#1043). What is inside keeps its own width: a
- * settings form's fields and the people table are laid out by the section,
- * and widening the frame moves neither.
+ * The frame every my-organization section draws in. Section navigation is the
+ * sidebar's, so the shell sets the measure and puts the permission state above
+ * the active section. The measure is `record`, the cap the route-loading
+ * skeleton reserves.
  */
 export function OrganizationWorkspaceShell({
 	canManage,

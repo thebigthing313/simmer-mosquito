@@ -78,8 +78,8 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 }
 
 /**
- * Methods are managed on the adult surveillance route, next to the traps that use them.
- * This keeps their counts visible in settings and points at the one place that edits them.
+ * Methods are managed on the adult surveillance route, next to the traps that
+ * use them; this shows their counts and points there.
  */
 function CollectionMethodLookupPointer() {
 	const { activeRecords, inactiveRecords } = useCollectionMethodRecords();

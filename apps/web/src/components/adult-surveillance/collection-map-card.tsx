@@ -13,10 +13,8 @@ import { CollectionFlagBadges, collectionEffectiveDate } from './adult-display';
 const CollectionEntityIcon = iconRegistry.entities.collection.icon;
 
 /**
- * The map focus card for an adult collection. One query brings the collection up
- * with its trap, method and address already joined ({@link useAdultCollection}),
- * so the card fills in as they arrive rather than in four steps. Drop
- * `<CollectionMapCard id onClose />` beside any MapCanvas that plots collections.
+ * The map focus card for an adult collection. One query brings the collection
+ * up with its trap, method and address joined ({@link useAdultCollection}).
  */
 export function CollectionMapCard({
 	id,
@@ -73,10 +71,7 @@ export function CollectionMapCard({
 	);
 }
 
-/**
- * A collection is titled by the trap it came from — named for good when there is
- * no trap, named in a moment when the join has not landed yet.
- */
+/** A collection is titled by the trap it came from, or a placeholder while the join lands. */
 function collectionTitle(collection: {
 	readonly trapId: string | null;
 	readonly resolvedTrapId: string | undefined;

@@ -8,11 +8,10 @@ import {
 	idSetParam,
 } from '../../lib/search-filters';
 
-// The inspections explorer's URL filter contract. It lives outside the route
-// module so the overview panels can build deep links into the explorer with a
-// preset filter state, and the route can validate incoming params from the same
-// definition. Every codec drops what it cannot read, so a malformed or
-// hand-edited URL degrades to the explorer's own defaults instead of erroring.
+// The inspections explorer's URL filter contract, outside the route module so
+// the overview panels can build deep links from the same definition. Every
+// codec drops what it cannot read, so a malformed URL degrades to the
+// explorer's defaults.
 
 const waterValues = ['all', 'wet', 'dry'] as const;
 export type WaterFilterValue = (typeof waterValues)[number];
@@ -46,8 +45,8 @@ export const inspectionFilterCodecs: FilterCodecs<InspectionFilters> = {
 
 /**
  * The encoded shape, as a deep link supplies it. A type alias rather than an
- * interface so it carries an implicit index signature and satisfies the router's
- * search type.
+ * interface so it carries an implicit index signature and satisfies the
+ * router's search type.
  */
 export type InspectionsSearch = {
 	readonly from?: string;
@@ -61,18 +60,11 @@ export type InspectionsSearch = {
 };
 
 /**
- * What a move between the two Inspections surfaces carries.
- *
- * The Map and the Table share this filter contract and nothing else: the
- * Table's search is these codecs plus its own sort, and the Map has no sort to
- * put one under. So the switch between them keeps the keys named here and drops
- * the rest, which is why a table sorted by dips does not hand the map two params
- * its validator would strip on arrival.
- *
- * It takes the surface's own validated search rather than the decoded filter
- * state, so the values that travel are the ones already on the address bar. A
- * filter sitting at its default is not on it, and stays off, which is what lets
- * each surface keep its own opening window.
+ * What a move between the two Inspections surfaces carries: the keys named
+ * here and nothing else, because the Table's search adds its own sort and the
+ * Map has nowhere to put one. It takes the surface's validated search, so a
+ * filter at its default stays off the address bar and each surface keeps its
+ * own opening window.
  */
 export function sharedInspectionSearch(search: Record<string, unknown>): Record<string, unknown> {
 	const carried: Record<string, unknown> = {};

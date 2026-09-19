@@ -19,27 +19,18 @@ import { DateControl } from '../../date-control';
 import { ControlTypeToggle } from '../control-type-toggle';
 
 /**
- * The mission form, shared by scheduling one and editing one.
- *
- * A mission is entirely plan — what kind of work, when, and who — so both
- * surfaces carry the same fields. What differs is the defaults they open with
- * and what the save sends, and both of those are the caller's. The one thing
- * neither touches is a lifecycle timestamp: the PATCH handler builds both command
- * families from one body, so an edit that normalised `completedAt` back to null
- * would reopen a finished mission nobody meant to touch.
- *
- * Stops are not here either. A mission's stops are added on its own page, where
- * there is a map to place them against.
+ * The mission form, shared by scheduling one and editing one. The defaults
+ * and what the save sends are the caller's. Neither touches a lifecycle
+ * timestamp: the PATCH handler builds both command families from one body, so
+ * an edit that normalised `completedAt` back to null would reopen a finished
+ * mission. Stops are added on the mission's own page.
  */
 
 const DEFAULT_START_TIME = '08:00';
 
 /**
- * Domain issue path → the form field holding it.
- *
- * Shared by both surfaces because the edit builders name their fields the same
- * way the create one does — `scheduledStartAt` lands on the start date on either
- * page, and a mapping that drifted would drop a message on the floor.
+ * Domain issue path to the form field holding it, shared by both surfaces
+ * because the edit builders name their fields the way the create one does.
  */
 export const MISSION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	controlType: 'controlType',
@@ -79,18 +70,10 @@ export interface MissionPlan {
 }
 
 /**
- * The plan's rules, straight from the domain builder.
- *
- * The five update builders the server runs on an edit each validate a slice of
- * these fields; `createMissionCommand` covers all of them in one pass, which is
- * what a form needs: it validates the whole thing at once rather than whichever
- * slice happens to have changed. So both surfaces run this one, and the server
- * still runs the real builders.
- *
- * A start the form could not read arrives as null and the builder reports it
- * against `scheduledStartAt`, which the field map lands on the start date. The
- * form used to throw a bare string about the same missing start from `onSubmit`,
- * putting it in the page alert instead.
+ * The plan's rules, straight from the domain builder. `createMissionCommand`
+ * covers every field in one pass, which is what a form needs, so both surfaces
+ * run it and the server still runs the real update builders. A start the form
+ * could not read arrives as null and lands on the start date.
  */
 export function validateMissionPlan(plan: MissionPlan): unknown {
 	return createMissionCommand({
@@ -122,13 +105,9 @@ export function defaultMissionFormValues(timeZone: string): MissionFormValues {
 }
 
 /**
- * A stored mission back into form values.
- *
- * `scheduled_start_at` is one `timestamptz`; the form splits it into the local
- * date and the local time, read off the local parts rather than the UTC ones so a
- * mission scheduled at 06:00 does not open as the previous evening west of
- * Greenwich. The end time is read the same way and is assumed to be on the start's
- * day, which is the only shape the form can produce.
+ * A stored mission back into form values. `scheduled_start_at` is one
+ * `timestamptz`, split into the local date and time off the local parts. The
+ * end time is assumed to be on the start's day.
  */
 export function missionFormValuesFrom(
 	mission: {
@@ -173,19 +152,11 @@ function scheduleFieldsFrom(
 }
 
 /**
- * The form's values as the mission the command describes.
- *
- * Every "unset" the form carries is a placeholder the storage layer does not
- * share — Radix forbids an empty-string option value, so absence is spelled with
- * a sentinel, and a cleared text field is `''` rather than null. Both the
- * validator and the save need the same translation, and reading it twice is how
- * the two drift into validating one payload and sending another.
- *
- * The scheduled start is split across a date and a time because that is how a
- * dispatcher thinks about it, while the column is one `timestamptz`; the end is a
- * time on the same day, since a v1 mission does not run overnight. An unreadable
- * pair yields null rather than an Invalid Date, so the domain builder reports the
- * missing field instead of the browser reporting NaN.
+ * The form's values as the mission the command describes. The sentinels and
+ * the empty strings are translated here, once, for both the validator and the
+ * save. The scheduled start is a date and a time; the end is a time on the
+ * same day. An unreadable pair yields null so the domain builder reports the
+ * missing field.
  */
 export function readMissionPlan(values: MissionFormValues, timeZone: string): MissionPlan {
 	const trimmedName = values.missionName.trim();
@@ -204,11 +175,8 @@ export function readMissionPlan(values: MissionFormValues, timeZone: string): Mi
 }
 
 /**
- * A day and a wall time as the instant they name on the organization's clock.
- *
- * The zone is the organization's, not the browser's: a dispatcher scheduling a
- * 6am muster from another zone was writing their own 6am, while the mission
- * list and detail page have always shown the yard's.
+ * A day and a wall time as the instant they name on the organization's clock,
+ * not the browser's.
  */
 function organizationInstant(date: string, time: string, timeZone: string): Date | null {
 	const instant = localTimeAsInstant(date, time, timeZone);
@@ -226,7 +194,7 @@ export function MissionFormPage({
 }: {
 	readonly header: RecordFormHeader;
 	readonly defaultValues: MissionFormValues;
-	/** The domain builder the caller validates against — create and edit differ. */
+	/** The domain builder the caller validates against, create and edit differ. */
 	readonly validate: (plan: MissionPlan) => unknown;
 	/** Domain issue path → the form field holding it. */
 	readonly fieldPaths: Readonly<Record<string, string>>;

@@ -17,11 +17,9 @@ import {
 import { RequestStatusBadge } from './public-engagement-ui';
 
 /**
- * The map focus card for a service request. One query brings the request up with
- * its contact and address already joined ({@link useServiceRequest}); the tags
- * come alongside it, keyed on the same id the card was opened with. Drop
- * `<ServiceRequestMapCard id onClose />` beside any MapCanvas that plots service
- * requests.
+ * The map focus card for a service request. One query brings the request up
+ * with its contact and address joined ({@link useServiceRequest}); the tags
+ * are keyed on the same id.
  */
 export function ServiceRequestMapCard({
 	id,

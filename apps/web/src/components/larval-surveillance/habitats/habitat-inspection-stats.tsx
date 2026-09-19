@@ -25,10 +25,7 @@ const InspectionIcon = iconRegistry.entities.inspection.icon;
 interface InspectionStatsRow {
 	readonly id: string;
 	readonly isWet: boolean;
-	/**
-	 * Taken from the row schema rather than a hand-written union, so a migration
-	 * that adds a density band reaches this without anything being edited.
-	 */
+	/** Taken from the row schema rather than a hand-written union. */
 	readonly density: Inspection['density'];
 	readonly larvaeCount: number | null;
 	readonly hasEggs: boolean;
@@ -51,7 +48,7 @@ interface Segment {
 
 // Dry = not holding water. Wet inspections split on breeding evidence: any
 // recorded life stage, a positive larvae count, or a non-"none" density means
-// immatures were present (wet-positive); otherwise the wet habitat read clean.
+// immatures were present.
 function isBreeding(row: InspectionStatsRow): boolean {
 	if (
 		row.hasEggs ||

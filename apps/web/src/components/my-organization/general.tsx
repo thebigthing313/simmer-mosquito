@@ -32,8 +32,7 @@ export function GeneralOrganizationSection({
 	readonly canManage: boolean;
 	/**
 	 * The tag catalog is `MANAGER` on the server (`fieldWork.createTag` and its
-	 * four siblings), not `ADMIN` like the organization profile and unit defaults
-	 * above it. Same page, two floors.
+	 * siblings), not `ADMIN` like the organization profile and unit defaults.
 	 */
 	readonly canManageTags: boolean;
 	readonly organization: Organization;

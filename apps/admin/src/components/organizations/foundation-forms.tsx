@@ -16,14 +16,7 @@ export type DialogKind =
 	| { readonly kind: 'trap' }
 	| { readonly kind: 'lookup'; readonly lookupKind: LookupKind };
 
-/**
- * One form per foundation kind.
- *
- * These were a single component with a six-way switch in its body and another in
- * its submit, over fifteen `useState` hooks. It read as one form that could not
- * decide what it was, and the complexity gate agreed. Each kind owns only its
- * own fields and its own submit, and this picks between them.
- */
+/** One form per foundation kind; this picks between them. */
 export function FoundationForm({
 	dialog,
 	foundations,

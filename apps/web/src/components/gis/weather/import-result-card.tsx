@@ -74,12 +74,9 @@ export function ImportResultCard({
 }
 
 /**
- * The rows the server would not write, and what it said about each.
- *
- * The server's verdict rather than the parser's: these are lines that read fine
- * and were still refused, usually for overlapping a bucket the station already
- * holds. `clientRowId` is the spreadsheet line, so the reason points at somewhere
- * in the file the user can open.
+ * The rows the server would not write, and what it said about each: lines
+ * that read fine and were still refused, usually for overlapping a bucket the
+ * station already holds. `clientRowId` is the spreadsheet line.
  */
 function FailedRows({ rows }: { readonly rows: readonly WeatherImportRowResult[] }) {
 	if (rows.length === 0) {

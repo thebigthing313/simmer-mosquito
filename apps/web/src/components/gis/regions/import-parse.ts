@@ -1,11 +1,9 @@
 /**
- * The bulk region import's view of an uploaded KML, KMZ, or GeoJSON file: every
- * feature in the file becomes one region, named after its Feature/Placemark.
- *
- * The parsing itself lives in `@simmer-mosquito/mapping` (shared with the record forms'
- * "fill geometry from a file" convenience); this module only adds the region-side
- * policy: which shapes a Region may store, region naming, the `MAX_REGIONS` cap,
- * and withholding shapes whose coordinates are not WGS84.
+ * The bulk region import's view of an uploaded KML, KMZ, or GeoJSON file:
+ * every feature becomes one region, named after its Feature/Placemark. The
+ * parsing is `@simmer-mosquito/mapping`'s; this adds the region-side policy:
+ * which shapes a Region may store, naming, the `MAX_REGIONS` cap, and
+ * withholding shapes whose coordinates are not WGS84.
  */
 
 import { getOwnedGeometryPolicy, type OwnedGeometryTypeFor } from '@simmer-mosquito/domain';
@@ -24,14 +22,9 @@ import {
 export { declareMissingNamespaces, parseKmlCoordinates } from '@simmer-mosquito/mapping';
 
 /**
- * What a Region's boundary may be, read off the register rather than named here.
- *
- * The parser's union narrowed to the shapes a Region stores, which is the same
- * list {@link REGION_IMPORT_KINDS} is filtered down to below. It used to be
- * `ImportArealGeometry`, a hand-written pair that agreed with the register by
- * coincidence: widen the policy and the filter widens with it, while this type
- * did not, and `boundaryPositions` in `import.tsx` would have read a Point's
- * `[lng, lat]` as a ring list with nothing failing to compile.
+ * What a Region's boundary may be: the parser's union narrowed to the shapes
+ * the register says a Region stores, the same list {@link REGION_IMPORT_KINDS}
+ * is filtered to.
  */
 export type RegionBoundary = Extract<
 	ImportGeometry,
@@ -56,10 +49,8 @@ export interface ParseResult {
 	/** True when the file held more than `MAX_REGIONS` and only the first were kept. */
 	readonly truncated: boolean;
 	/**
-	 * Boundaries withheld because their coordinates are not WGS84 lng/lat. Exports
-	 * from an Organization are often in State Plane feet or UTM metres, which
-	 * parse as valid GeoJSON and land nowhere on earth: every write would fail the
-	 * domain position validator, and the preview map would fit to nothing.
+	 * Boundaries withheld because their coordinates are not WGS84 lng/lat. State
+	 * Plane feet or UTM metres parse as valid GeoJSON and land nowhere on earth.
 	 */
 	readonly projected: number;
 	/** Set when the file could not be parsed at all. */
@@ -67,20 +58,15 @@ export interface ParseResult {
 }
 
 /**
- * Hard cap on how many regions a single import may contribute.
- *
- * It counts features rather than pieces, because a feature is a write. A file of
- * 400 parks averaging three lots each costs 400 rather than 1200.
+ * Hard cap on how many regions a single import may contribute. It counts
+ * features rather than pieces, because a feature is a write.
  */
 export const MAX_REGIONS = 1000;
 
 /**
- * What a Region may store, filtered to what the file parser can produce.
- *
- * Read from the register rather than named here, so widening a Region's shapes
- * is one edit in `packages/domain` and not a second one nobody finds. The filter
- * is what stops a shape the register allows and the parser has no arm for from
- * being asked for.
+ * What a Region may store, filtered to what the file parser can produce. Read
+ * from the register so widening a Region's shapes is one edit in
+ * `packages/domain`.
  */
 const REGION_IMPORT_KINDS: readonly ImportGeometryKind[] =
 	getOwnedGeometryPolicy('region').allowedTypes.filter(isImportGeometryKind);
@@ -128,12 +114,9 @@ function finalize(groups: readonly ImportGroup[]): ParseResult {
 }
 
 /**
- * Whether a parsed shape is one a Region stores.
- *
- * The parser was already asked for these kinds and answers with nothing else, so
- * this is a narrowing rather than a second gate. Both halves come off the
- * register: the check reads the list the parser was handed, and
- * {@link RegionBoundary} is that list as a type.
+ * Whether a parsed shape is one a Region stores. A narrowing rather than a
+ * second gate: the parser was asked for these kinds and answers with nothing
+ * else.
  */
 function isRegionBoundary(geometry: ImportGeometry): geometry is RegionBoundary {
 	return REGION_IMPORT_KINDS.includes(geometry.type);

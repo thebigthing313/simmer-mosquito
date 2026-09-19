@@ -1,17 +1,9 @@
 /**
  * Sending a parsed spreadsheet to the one weather endpoint that is not a
- * collection write.
- *
- * Every other weather write goes through `mutateCollection`, which turns one row
- * into one command and waits for the txid that confirms it synced. This one
- * cannot: it is up to 5,000 rows against one station, and its answer is a
- * per-row verdict rather than a row. There is no optimistic state to apply
- * either, which rows insert, which update and which fail is the server's
- * decision, taken against the station's stored buckets, so guessing it locally
- * would put rows on screen that the commit is about to reject.
- *
- * The rows arrive through the ordinary Electric stream once the transaction
- * commits, the same way they would after any other write.
+ * collection write. It is up to 5,000 rows against one station, its answer is
+ * a per-row verdict, and there is no optimistic state: which rows insert,
+ * update or fail is the server's decision. The rows arrive through the
+ * ordinary Electric stream once the transaction commits.
  */
 
 import { sessionFetch } from '@simmer-mosquito/sync';
@@ -52,12 +44,10 @@ export interface WeatherImportRow {
 }
 
 /**
- * Commit an import, or throw the refusal it was answered with.
- *
- * A refusal comes back as `CommandError` with the server's body attached, which
- * is what lets `useAcknowledgedWrite` recognise the two acknowledgeable ones and
- * offer the retry. Reducing it to a message here would leave the caller with a
- * sentence and no way to act on it.
+ * Commit an import, or throw the refusal it was answered with. A refusal is a
+ * `CommandError` with the server's body attached, which is what lets
+ * `useAcknowledgedWrite` recognise the acknowledgeable ones and offer the
+ * retry.
  */
 export async function commitWeatherImport(input: {
 	readonly weatherStationId: string;

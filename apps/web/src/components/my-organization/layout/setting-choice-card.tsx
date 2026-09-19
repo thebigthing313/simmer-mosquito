@@ -2,10 +2,9 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import type React from 'react';
 
 /**
- * How a setting's options are shown: one card per option, each a worked example
- * of what that option does, with the selected one tinted. `badge` defaults to
- * the "Current" marker while active; density inference passes its own badge
- * instead, because "configured or not" is a different reading from "current".
+ * How a setting's options are shown: one card per option, each a worked
+ * example, with the selected one tinted. `badge` defaults to the "Current"
+ * marker while active.
  */
 export function SettingChoiceCard({
 	active = false,

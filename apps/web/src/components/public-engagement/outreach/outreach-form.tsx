@@ -38,13 +38,8 @@ const OUTREACH_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The form's rules, straight from the domain builder.
- *
- * The builder is the only channel: it holds the method, the reach and the date,
- * and every issue it raises comes back attributed to the field that holds it. A
- * second pass over the same three rules used to run in `onSubmit` and throw a
- * bare string into the page alert, which told an operator a save had failed
- * without saying where to look.
+ * The form's rules, straight from the domain builder: the method, the reach
+ * and the date, each issue attributed to the field that holds it.
  */
 export function validateOutreach(
 	value: OutreachFormValues,
@@ -72,7 +67,7 @@ export function validateOutreach(
 
 export interface OutreachFormValues {
 	/**
-	 * Optional address the outreach happened at — reference data only. The action's
+	 * Optional address the outreach happened at, reference data only. The action's
 	 * own geometry is the authoritative location.
 	 */
 	readonly addressId: string | null;
@@ -82,7 +77,7 @@ export interface OutreachFormValues {
 	readonly technicianProfileId: string;
 	/** Profile ids of everyone else who worked this action. */
 	readonly additionalPersonnelIds: readonly string[];
-	/** `YYYY-MM-DD` — the date the outreach happened. */
+	/** `YYYY-MM-DD`: the date the outreach happened. */
 	readonly outreachDate: string;
 	/** How many people or households were reached. */
 	readonly reach: number | null;

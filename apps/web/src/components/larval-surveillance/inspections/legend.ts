@@ -4,27 +4,17 @@ import { INSPECTION_DENSITY_COLORS, INSPECTION_DRY_COLOR, type MapLegendEntry } 
 import type { WaterFilterValue } from '../inspections-search';
 
 /**
- * What a band reads as in the key.
- *
- * Everywhere else `none` is a density on a record that was already found to hold
- * water, and the record says so beside it. In the key there is nothing beside
- * it, and a dot labelled None sits next to one labelled Dry with nothing to tell
- * a reader that the first one is water with no larvae in it.
+ * What a band reads as in the key. `none` is water with no larvae in it, and
+ * in the key there is nothing beside it to say so.
  */
 function legendLabel(density: LarvalDensity): string {
 	return density === 'none' ? 'Wet only' : densityLabel(density);
 }
 
 /**
- * The key, cut down to the colours the current filters can actually draw.
- *
- * The paint expression reads wetness first: a dry site is the neutral tone
- * whatever its density, and only a wet one is coloured by the density ramp. So
- * Water Dry paints one colour and no ramp, and a key that still listed five
- * densities would be describing dots that are not there.
- *
- * A density filter narrows the ramp the same way. With none set, every band can
- * appear, so all five are listed.
+ * The key, cut down to the colours the current filters can draw. The paint
+ * expression reads wetness first, so Water Dry paints one colour and no ramp;
+ * a density filter narrows the ramp the same way.
  */
 export function inspectionLegend(
 	wetness: WaterFilterValue,

@@ -9,16 +9,9 @@ export interface GenusFormValues {
 export const EMPTY_GENUS: GenusFormValues = { abbreviation: '', name: '' };
 
 /**
- * The genus create-and-edit form, mounted inside the catalog dialog.
- *
- * It owns the `useAppForm` rather than the dialog, the way
- * `apps/web/src/components/catalog/catalog-record-dialog.tsx` documents: the
- * fields are what a catalog is for, and the field and action nodes resolve
- * their context from the `form.AppForm` around them.
- *
- * It sits beside the route rather than in it because a route file's job here is
- * the query, the writes, and the dialog. The leading dash keeps it out of the
- * route tree.
+ * The genus create-and-edit form, mounted inside the catalog dialog. It owns
+ * the `useAppForm`; the field and action nodes resolve their context from the
+ * `form.AppForm` around them.
  */
 export function GenusForm({
 	values,
@@ -33,11 +26,7 @@ export function GenusForm({
 }) {
 	const form = useAppForm({
 		defaultValues: values,
-		/*
-		 * The rejection is left to escape. `useAppForm` records it as a
-		 * `SaveFailure` and `form.FormErrorAlert` renders it, which is what keeps
-		 * Save pressable so a dropped write can be tried again (#754).
-		 */
+		/* The rejection escapes so `form.FormErrorAlert` renders it and Save stays pressable. */
 		onSubmit: async ({ value }) => {
 			await onSubmit(value);
 		},

@@ -5,27 +5,19 @@ import { CONTACT_FIELD_PATHS, type ContactFormValues } from '../contact-fields';
 import { ContactFieldsBlock } from '../contact-fields-block';
 
 /**
- * Domain issue path → the form field holding it.
- *
- * `createContactCommand` validates the details under the `contact` prefix, so a
- * map naming the bare field sent every issue to the page alert. The fields sit
- * at the root of this form, so the prefix comes off and nothing else changes.
+ * Domain issue path to the form field holding it. `createContactCommand`
+ * validates the details under the `contact` prefix; the fields sit at the root
+ * of this form, so the prefix comes off.
  */
 const FIELD_PATHS: Readonly<Record<string, string>> = Object.fromEntries(
 	CONTACT_FIELD_PATHS.map((field) => [`contact.${field}`, field]),
 );
 
 /**
- * The form's rules, straight from the domain builder.
- *
- * The builder holds all of them: at least one identifier, an alternate phone
- * needs a preferred one, and each notification preference needs the channel it
- * would be sent on. A hand-rolled mirror of the same four used to run in
- * `onSubmit` and throw a bare string into the page alert.
- *
- * The "at least one identifier" rule is reported against the details object
- * rather than a field, since no single box is the wrong one, so it stays in the
- * alert where the block's own description repeats it.
+ * The form's rules, straight from the domain builder: at least one
+ * identifier, an alternate phone needs a preferred one, and each notification
+ * preference needs its channel. The identifier rule is reported against the
+ * details object rather than a field, so it stays in the alert.
  */
 export function validateContact(value: ContactFormValues) {
 	return domainValidator(

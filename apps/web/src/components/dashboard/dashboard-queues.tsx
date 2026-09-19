@@ -32,8 +32,7 @@ interface QueueRowModel {
 
 /**
  * The explorer window a queue links with: from the oldest row's date to today,
- * so the explorer shows the rows the count counted rather than its own default
- * window. Empty at zero, where the explorer's default is as good as any.
+ * so the explorer shows the rows the count counted. Empty at zero.
  */
 function windowSearch(
 	oldest: string | null,
@@ -187,8 +186,7 @@ export function OperationsBacklog({
 
 /**
  * One backlog panel: a muted header row, then a line per queue. The count pill
- * is withheld until every hook it draws has answered, so the two panels can
- * finish at different times.
+ * is withheld until every hook it draws has answered.
  */
 function QueuePanel({
 	title,

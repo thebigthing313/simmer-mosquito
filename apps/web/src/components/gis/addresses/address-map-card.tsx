@@ -13,9 +13,8 @@ import type { MapInset } from '../../map/map-inset';
 import { TagBadge } from '../../tag-badge';
 
 /**
- * The map focus card for an address. Reads the address through {@link useAddress},
- * its tags alongside it, and its point geometry — which is kept out of the sync
- * shape — over HTTP, to fly the map to it and to show its coordinates.
+ * The map focus card for an address. Reads the address through
+ * {@link useAddress}, its tags alongside it, and its point geometry over HTTP.
  */
 export function AddressMapCard({
 	id,

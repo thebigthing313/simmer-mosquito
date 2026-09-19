@@ -25,9 +25,9 @@ interface RouteStopListProps {
 }
 
 /**
- * The read-only route itinerary: numbered stops in order, with consecutive stops
- * at one address drawn as a single grouped cluster. Each stop shows its habitat's
- * type and tags. Hovering or selecting a stop drives the map through the handlers.
+ * The read-only route itinerary: numbered stops in order, with consecutive
+ * stops at one address drawn as a single grouped cluster. Hovering or selecting
+ * a stop drives the map through the handlers.
  */
 export function RouteStopList({ clusters, selectedId, onSelect, onHover }: RouteStopListProps) {
 	const allStops = clusters.flatMap((cluster) => cluster.stops);
@@ -161,11 +161,7 @@ function StopRow({
 	);
 }
 
-/**
- * The habitat's type, as a neutral pill sitting beside the stop name. It reads as
- * part of the stop's identity ("Roadside Ditch"), not as one more tag, so it is
- * kept out of the tag row.
- */
+/** The habitat's type, as a neutral pill beside the stop name, kept out of the tag row. */
 export function StopTypePill({ typeName }: { readonly typeName: string | null }) {
 	if (typeName === null) {
 		return null;

@@ -16,24 +16,21 @@ function matchesMethod(row: ControlMethodRecord, query: string): boolean {
 export interface ControlMethodsPageProps {
 	/** The catalog's two halves; see `hooks/queries/catalog-record-view.ts`. */
 	readonly records: CatalogRecords<ControlMethodRecord>;
-	/** The catalog's five commands — see `hooks/mutations/use-catalog-mutations.ts`. */
+	/** The catalog's five commands, see `hooks/mutations/use-catalog-mutations.ts`. */
 	readonly mutations: CatalogMutations;
 	/** Owner/admin: adding a method, and deactivating or reactivating one. */
 	readonly canManage: boolean;
 	/**
 	 * Manager-and-above: renaming a method and editing its custom fields.
-	 *
-	 * The server splits the catalog across two floors —
 	 * `controlOperations.update*Method` is `MANAGER` while `create*`,
-	 * `deactivate*`, `reactivate*` and `delete*` are `ADMIN` — so this page
-	 * needs both. Gating all of it at `canManage` was #65: a manager who may
-	 * rename a method saw no Edit control at all.
+	 * `deactivate*`, `reactivate*` and `delete*` are `ADMIN`, so this page needs
+	 * both floors.
 	 */
 	readonly canEditMethods: boolean;
 	/** e.g. "Application methods" */
 	readonly title: string;
 	readonly description: string;
-	/** e.g. "application method" — used in buttons, dialogs, and empty states. */
+	/** e.g. "application method", used in buttons, dialogs, and empty states. */
 	readonly singularLabel: string;
 	readonly namePlaceholder: string;
 	readonly customFieldsDescription: string;

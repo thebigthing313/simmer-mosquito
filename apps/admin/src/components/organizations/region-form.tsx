@@ -16,12 +16,7 @@ import {
 	UNFILED,
 } from './foundation-form-shell';
 
-/**
- * What a Region may store, filtered to what the file parser can produce.
- *
- * Read from the geometry register rather than named here. Module scope keeps it
- * a stable reference; a literal in the render would be a new array every pass.
- */
+/** What a Region may store, filtered to what the file parser can produce. */
 const REGION_IMPORT_KINDS: readonly ImportGeometryKind[] =
 	getOwnedGeometryPolicy('region').allowedTypes.filter(isImportGeometryKind);
 

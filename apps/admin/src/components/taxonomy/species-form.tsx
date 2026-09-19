@@ -21,10 +21,8 @@ export const EMPTY_SPECIES: SpeciesFormValues = {
 
 /**
  * The species create-and-edit form, mounted inside the catalog dialog.
- *
- * `suggestDisplayName` is the page's, because only the page holds the genus
- * roster the binomial is built from. It is read on every keystroke so the
- * placeholder names the value that will be stored when the field is left blank.
+ * `suggestDisplayName` is read on every keystroke so the placeholder names the
+ * value stored when the field is left blank.
  */
 export function SpeciesForm({
 	values,
@@ -43,11 +41,7 @@ export function SpeciesForm({
 }) {
 	const form = useAppForm({
 		defaultValues: values,
-		/*
-		 * The rejection is left to escape. `useAppForm` records it as a
-		 * `SaveFailure` and `form.FormErrorAlert` renders it, which is what keeps
-		 * Save pressable so a dropped write can be tried again (#754).
-		 */
+		/* The rejection escapes so `form.FormErrorAlert` renders it and Save stays pressable. */
 		onSubmit: async ({ value }) => {
 			await onSubmit(value);
 		},

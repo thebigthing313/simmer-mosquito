@@ -13,8 +13,8 @@ import { TagBadge } from '../../tag-badge';
 
 /**
  * The map focus card for a region. Reads the region through {@link useRegion},
- * its tags alongside it, and its polygon — which is kept out of the sync shape —
- * over HTTP, to fit the map to its bounds.
+ * its tags alongside it, and its polygon over HTTP to fit the map to its
+ * bounds.
  */
 export function RegionMapCard({
 	id,

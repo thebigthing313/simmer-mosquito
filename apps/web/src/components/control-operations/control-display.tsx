@@ -9,25 +9,16 @@ interface MeasureUnit {
 	readonly abbreviation: string;
 }
 
-// Shared labelling for the control-operations routes. Control actions reference
-// methods, units, profiles, and (optionally) a habitat or address, so most screens
-// need the same handful of name lookups.
+// Shared labelling for the control-operations routes.
 
-/**
- * Insecticides display by trade name everywhere. `shorthand` is an
- * organization's internal abbreviation for data entry, not a name operators
- * should have to read.
- */
+/** Insecticides display by trade name; `shorthand` is a data-entry abbreviation. */
 export function insecticideDisplayName(insecticide: { readonly tradeName: string }): string {
 	return insecticide.tradeName;
 }
 
 /**
- * `12 gal` — the compact amount+unit pairing used across tables and cards.
- *
- * The unit is structural rather than a `UnitRow` so that both read paths satisfy
- * it: the camelCase rows the unmigrated surfaces still hold, and the projections
- * the query hooks return. Only the abbreviation is ever read.
+ * `12 gal`, the compact amount+unit pairing used across tables and cards. The
+ * unit is structural so both read paths satisfy it.
  */
 export function formatAmount(
 	amount: number,
@@ -37,12 +28,9 @@ export function formatAmount(
 }
 
 /**
- * The same, taking the abbreviation the query joined rather than a row to look it
- * up in. What the surfaces reading through `hooks/queries` call.
- *
- * Stays a function rather than becoming a projection because the rule is
- * conditional on the value: a whole number keeps its form and a fraction takes
- * two places, which no compiled `select` can express.
+ * The same, taking the abbreviation the query joined. A function rather than a
+ * projection because a whole number keeps its form and a fraction takes two
+ * places.
  */
 export function formatMeasure(amount: number, abbreviation: string | null): string {
 	const value = readAmount(amount);
@@ -50,13 +38,8 @@ export function formatMeasure(amount: number, abbreviation: string | null): stri
 }
 
 /**
- * The number half of {@link formatMeasure}, so its guard is one branch rather
- * than a repeat of the unit rule.
- *
- * A non-finite amount already read as `NaN` or `Infinity` on screen, since
- * neither is an integer and `toFixed` writes them out. It still does, and now it
- * warns: an application recorded against a broken amount is a record somebody
- * has to fix, not a cell to leave sitting there.
+ * The number half of {@link formatMeasure}. A non-finite amount is handed back
+ * and warned about; see `lib/unreadable-input`.
  */
 function readAmount(amount: number): string {
 	if (!Number.isFinite(amount)) {
@@ -66,12 +49,9 @@ function readAmount(amount: number): string {
 }
 
 /**
- * Date-only columns arrive as `YYYY-MM-DD`; render them without a timezone shift.
- *
- * The `Date` here is a local one on purpose. `toLocaleDateString` with no zone
- * reads the local parts back, so the two cancel and the day is the day that was
- * recorded. Building it in UTC instead would shift it by one everywhere east of
- * Greenwich, which is the mirror of the bug the UTC formatters exist to avoid.
+ * Date-only columns arrive as `YYYY-MM-DD`; render them without a timezone
+ * shift. The `Date` is a local one on purpose, so `toLocaleDateString` with no
+ * zone reads the same parts back.
  */
 export function formatActionDate(value: string): string {
 	const parts = calendarDateParts(value);
@@ -96,11 +76,9 @@ export function nameById<TRow extends { readonly id: string }>(
 export type ControlContext = 'larval' | 'adult' | 'standalone';
 
 /**
- * The context a control action's own links put it in.
- *
- * Separated from the badge because the profile activity log resolves the same
- * three arms in SQL, over a record it never loads: the log carries the answer
- * rather than the ids, and both surfaces then draw it through one badge.
+ * The context a control action's own links put it in. Separate from the badge
+ * because the profile activity log resolves the same three arms in SQL and
+ * carries the answer rather than the ids.
  */
 export function controlContext({
 	habitatId,
@@ -136,18 +114,10 @@ export function ContextBadge({ context }: { readonly context: ControlContext }) 
 }
 
 /**
- * One product's usage, as one number where that is honest and several where it
- * is not.
- *
- * The same product can be recorded in gallons on one job and fluid ounces on
- * the next, and `12 gal · 128 fl oz` is a true answer to a question nobody
- * asked. Where the units convert, they are totalled into whichever the
- * organization has chosen for that kind of quantity (`settings.unitDefaults`)
- * and the originals are named, so an operator who recorded ounces can tell why
- * the screen says gallons.
- *
- * Where they do not convert — a larvicide applied both as pouches and by
- * weight — the separated list stands. Nothing is lost and nothing is invented.
+ * One product's usage, as one number where the units convert and several where
+ * they do not. Convertible amounts are totalled into the organization's default
+ * unit for that kind of quantity (`settings.unitDefaults`) with the originals
+ * named; a larvicide applied both as pouches and by weight stays a list.
  */
 export function usageTotal({
 	totalsByUnitId,
@@ -156,10 +126,8 @@ export function usageTotal({
 	unitDefaults,
 }: {
 	readonly totalsByUnitId: ReadonlyMap<string, number>;
-	// Structural, so both read paths satisfy it: the camelCase `UnitRow` the
-	// unmigrated surfaces hold, and the `UnitLabel` the query hook returns. The
-	// code is the conversion key and the abbreviation is what gets printed;
-	// nothing here reads anything else off a unit.
+	// Structural, so both read paths satisfy it. The code is the conversion key
+	// and the abbreviation is what gets printed.
 	readonly unitById: ReadonlyMap<string, MeasureUnit>;
 	readonly unitByCode: ReadonlyMap<string, MeasureUnit>;
 	readonly unitDefaults: UnitDefaults;
@@ -199,12 +167,8 @@ export function usageTotal({
 	}
 
 	return {
-		// Converting introduces drift a reader should never see: twelve gallons
-		// plus a hundred and twenty-eight fluid ounces is exactly thirteen
-		// gallons, and doubles make it 12.999999999999998, which then formats as
-		// "13.00 gal" and looks like a measurement rather than a total. Six places
-		// is far finer than any amount anybody applies, so this only ever removes
-		// the arithmetic's own noise.
+		// Rounded to six places so a total like 12.999999999999998 formats as the
+		// 13 it is.
 		text: formatAmount(Number.parseFloat(total.toFixed(6)), targetUnit),
 		convertedFrom: `Totalled from ${separated}`,
 	};

@@ -13,18 +13,11 @@ function isControlType(value: string): value is ControlType {
 }
 
 /**
- * The control-type choice, as one row of four segments.
- *
- * A toggle rather than a select because there are exactly four and they are the
- * first decision on the form. It is a plain controlled control rather than a
- * `field.SelectField` because picking a type has to reset the method beside it —
- * the method id is polymorphic by type, so one chosen for the old type points at
- * the wrong catalog — and the shared select field deliberately swallows change
- * events it cannot tell apart from a Radix option-set reset.
- *
- * Both operations forms that carry a control type render this: a request says
- * what kind of work a site needs, a mission says what kind its crew will do, and
- * the control is the same in both.
+ * The control-type choice, as one row of four segments. A plain controlled
+ * control rather than a `field.SelectField` because picking a type has to
+ * reset the method beside it, and the shared select field swallows change
+ * events it cannot tell apart from a Radix option-set reset. Both operations
+ * forms that carry a control type render this.
  */
 export function ControlTypeToggle({
 	value,

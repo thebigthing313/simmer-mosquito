@@ -1,10 +1,4 @@
-/**
- * The add/edit surface for a product, and the delete inside it.
- *
- * Split out of the route with the batch modules beside it (#169): insecticides
- * and batches are two record types with two sets of commands, and one file held
- * both.
- */
+/** The add/edit surface for a product, and the delete inside it. */
 
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { useAppForm, validateMetadataValue } from '@simmer-mosquito/ui-web/components/form';
@@ -56,9 +50,8 @@ export function InsecticideDrawer({
 	const [open, setOpen] = useState(false);
 	const defaultValues = insecticideFormValues(insecticide, units[0]?.id ?? '');
 	const unitChoices = units.map(unitOption);
-	// Held on the drawer component rather than inside the drawer's content, which
-	// unmounts: `commitCatalogSave` closes on the way past, before the server has
-	// answered, so a question raised here has to outlive the close.
+	// Held on the drawer component rather than inside its content, which
+	// unmounts: `commitCatalogSave` closes before the server has answered.
 	const { run, dialog } = useAcknowledgedWrite({
 		askable: INSECTICIDE_SAVE_REFUSALS,
 		ask: true,
@@ -75,9 +68,8 @@ export function InsecticideDrawer({
 						? 'Unable to create insecticide.'
 						: `Unable to save ${insecticide.tradeName}.`,
 				onWritten: () => setOpen(false),
-				// A create has no history to rewrite, so only the edit goes through
-				// `run`. `run` swallows a refusal a flag can answer and turns it into
-				// the dialog; anything else still reaches the toast here.
+				// A create has no history to rewrite, so only the edit goes through `run`,
+				// which turns a refusal a flag can answer into the dialog.
 				save: () =>
 					insecticide === undefined
 						? mutations.create(insecticideFields(value)).then(() => undefined)
@@ -222,9 +214,8 @@ function requiredText(label: string) {
 }
 
 /**
- * Deletion is a rare, destructive action, so it lives inside the edit drawer
- * rather than as a per-row control. Reversible lifecycle changes belong to the
- * row's own `CatalogLifecycleButton` instead.
+ * Deletion lives inside the edit drawer rather than as a per-row control;
+ * reversible lifecycle changes are the row's `CatalogLifecycleButton`.
  */
 function DeleteInsecticideDialog({
 	insecticide,
@@ -283,16 +274,8 @@ const emptyInsecticideValues = {
 };
 
 /**
- * Open the product drawer on a record, or on a blank one.
- *
- * `defaultUnitId` is the first offered unit when there is no record, because a
- * product without one cannot be applied and the field would otherwise open
- * empty on a list of one.
- *
- * The two cases are written apart rather than as eleven `??` defaults over an
- * optional record. Every field of a saved product is already the value the form
- * wants, apart from the three nullable columns, and defaulting each one against
- * `undefined` said so eleven times.
+ * Open the product drawer on a record, or on a blank one. `defaultUnitId` is
+ * the first offered unit when there is no record.
  */
 function insecticideFormValues(insecticide: InsecticideRecord | undefined, defaultUnitId: string) {
 	if (insecticide === undefined) {

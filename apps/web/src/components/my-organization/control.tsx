@@ -13,10 +13,8 @@ export function ControlOperationsSettings({
 	canManageAssets,
 }: {
 	/**
-	 * Vehicles and equipment are `MANAGER` on the server, not `ADMIN` — every
-	 * one of `controlOperations.createVehicle` through `deleteEquipment`. The
-	 * method entries beside them are links rather than editors, so this is the
-	 * only floor this section needs.
+	 * Vehicles and equipment are `MANAGER` on the server, not `ADMIN`. The method
+	 * entries beside them are links, so this is the only floor this section needs.
 	 */
 	readonly canManageAssets: boolean;
 }) {
@@ -53,8 +51,8 @@ export function ControlOperationsSettings({
 }
 
 /**
- * Methods are managed on the control operations routes, next to the work that uses them.
- * This keeps their counts visible in settings and points at the one place that edits them.
+ * Methods are managed on the control operations routes, next to the work that
+ * uses them; this shows their counts and points there.
  */
 function ControlMethodLookupPointer({
 	collectionKey,

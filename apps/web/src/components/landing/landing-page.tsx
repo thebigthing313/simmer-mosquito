@@ -6,14 +6,10 @@ import { Link } from '@tanstack/react-router';
 import { LandingStage } from './landing-stage';
 
 /**
- * The unauthenticated landing page. The root route's whole-window loading and
- * error surfaces are in `-workspace-chrome`, and the authenticated shell is in
- * `components/app-shell`.
- *
- * The landing page is the one product surface that earns a committed brand
- * treatment: a drenched-green "map room" stage carrying the real SIMMER logo,
- * paired with a calm, focused sign-in panel. The auth pages stand on the same
- * stage — see `-landing-stage`.
+ * The unauthenticated landing page: the brand stage beside the sign-in panel.
+ * The root route's whole-window loading and error surfaces are in
+ * `app-shell/workspace-chrome`, and the auth pages stand on the same stage; see
+ * `landing-stage`.
  */
 
 const WarningIcon = iconRegistry.actions.warning.icon;
@@ -27,18 +23,9 @@ export function LandingPage({
 }) {
 	const redirectPath = toRedirectPath(redirectTo);
 
-	// Locked to the viewport at desktop widths, like the shell it introduces:
-	// each column owns its own overflow, so the window itself never scrolls.
-	//
-	// The banner sits in a wrapper outside the split rather than inside it, for
-	// the reason `OutletShell` grew a slot in #380: the split is `lg:h-svh`, so a
-	// strip added as a sibling row pushes the page off the bottom of the window.
-	// The brand stage loses the strip's height instead.
-	//
-	// A flex column and not a two-row grid, which is `OutletShell`'s shape for
-	// the same reason: the banner renders `null` everywhere but staging, so a
-	// grid row of its own leaves the split in the `auto` row and hands the empty
-	// `1fr` row the rest of the window. `flex-1` measures what is there.
+	// Locked to the viewport at desktop widths: each column owns its own
+	// overflow. The banner sits outside the `lg:h-svh` split, in a flex column so
+	// the split fills the window where the banner renders `null`.
 	return (
 		<div className="flex min-h-svh flex-col lg:h-svh">
 			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
@@ -60,8 +47,7 @@ function LandingEntry({
 }) {
 	// `m-auto` rather than `items-center`: a centred flex child in a scroll
 	// container puts its own overflowing top out of reach. The entry animation
-	// rides the panel, not the section — translating a full-height grid item
-	// pushes the window into overflow for as long as it runs.
+	// rides the panel, not the section.
 	return (
 		<section className="flex min-h-0 overflow-y-auto bg-(--app-stage) px-6 py-12 sm:px-10">
 			<div className="landing-fade m-auto flex w-full max-w-[420px] flex-col gap-7">

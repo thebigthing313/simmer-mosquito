@@ -1,16 +1,8 @@
 /**
- * The inspection filters, shared by the map explorer and the table.
- *
- * Both surfaces answer questions about the same rows and both hold what the
- * reader narrowed to on the URL, through the codecs in `-inspections-search.ts`.
- * So the window they open on, the controls that set a filter, the chips that
- * undo one and the words on both are here rather than written out twice: a link
- * built on one surface opens the same set on the other because both read this,
- * not because two copies happen to agree.
- *
- * What is not here is layout. The explorer stacks its controls in a narrow panel
- * beside a map and the table lays them across a bar above rows, so each route
- * arranges the pieces itself.
+ * The inspection filters, shared by the map explorer and the table. Both hold
+ * what the reader narrowed to on the URL through the codecs in
+ * `inspections-search.ts`, so the window, the controls, the chips and the
+ * words are here rather than written out twice. Layout is each route's own.
  */
 
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
@@ -26,14 +18,9 @@ import type { InspectionFilters, WaterFilterValue } from './inspections-search';
 
 /**
  * How much of the record a surface opens on when the address names no dates.
- *
- * The two differ, and the difference is the surfaces rather than an oversight.
- * The map draws every matching record at once, so a season of inspections is a
- * solid block of dots over the same streets and it opens on the last 30 days.
- * The table shows 50 rows whatever the reach, and its header says it holds every
- * inspection the crews have recorded, so it opens on all of them. Once a reader
- * sets a date, both surfaces read it out of the same two params and answer the
- * same window.
+ * The map opens on the last 30 days, because a season of inspections is a
+ * solid block of dots; the table shows 50 rows whatever the reach, so it opens
+ * on all of them.
  */
 export type InspectionOpeningWindow = 'last-30-days' | 'all-time';
 
@@ -48,12 +35,9 @@ export const WETNESS_OPTIONS: readonly {
 ];
 
 /**
- * How the table counts what is set.
- *
- * `regions` is on the URL and no control on the table writes it, so it is
- * counted nowhere and drawn as no chip. It stays in the filter set so a link
- * that came from the map keeps its region selection through a trip to the table
- * and back, and Clear all still drops it.
+ * How the table counts what is set. `regions` is on the URL and no control on
+ * the table writes it, so it is counted nowhere and drawn as no chip, but it
+ * stays in the filter set so a link from the map keeps its region selection.
  */
 export const INSPECTION_TABLE_COUNTING: FilterCounting<InspectionFilters> = {
 	groups: [['from', 'to']],
@@ -105,10 +89,8 @@ export interface InspectionFilterBinding {
 }
 
 /**
- * The filter set as the table's read wants it: one field per column.
- *
- * Region is dropped here rather than forgotten. The table has no region
- * predicate to give it to, and {@link InspectionTableFilters} says why.
+ * The filter set as the table's read wants it: one field per column. Region is
+ * dropped; {@link InspectionTableFilters} says why.
  */
 export function inspectionTableFilters(state: InspectionFilterState): InspectionTableFilters {
 	return {
@@ -123,13 +105,9 @@ export function inspectionTableFilters(state: InspectionFilterState): Inspection
 }
 
 /**
- * Larval density as a chip row, each chip carrying the heat colour it maps to on
- * the map, so the filter doubles as the map's key.
- *
- * The bands come from `LARVAL_DENSITIES`, which is the register
- * `check:column-vocabularies` holds the `larval_density` type to. Their order is
- * part of that contract, so the row reads `none` through `very_heavy` here, in
- * the legend and on the ramp.
+ * Larval density as a chip row, each chip carrying the heat colour it maps to
+ * on the map, so the filter doubles as the map's key. The bands and their
+ * order come from `LARVAL_DENSITIES`.
  */
 export function DensityFilter({
 	selected,
@@ -173,10 +151,8 @@ export function DensityFilter({
 }
 
 /**
- * The chips for the filters both surfaces carry, and Clear all.
- *
- * A surface with a filter of its own passes its chips as children, which puts
- * them after these and before Clear all. The map does that with Region.
+ * The chips for the filters both surfaces carry, and Clear all. A surface with
+ * a filter of its own passes its chips as children.
  */
 export function InspectionFilterChips({
 	catalogs,
