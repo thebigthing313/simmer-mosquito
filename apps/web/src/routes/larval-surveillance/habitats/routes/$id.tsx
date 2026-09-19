@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { RouteDetailPage } from '../../../../components/route-planning';
-import { useHabitatRoutes, useRouteStops } from '../-route-data';
+import { useHabitatRouteStops } from '../../../../hooks/larval-surveillance/use-habitat-route-stops';
+import { useHabitatRoutes } from '../../../../hooks/larval-surveillance/use-habitat-routes';
 import { RouteStopList } from '../-route-stop-list';
 import { habitatRouteSurface } from '../-route-surface';
 
@@ -11,7 +12,7 @@ export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id')
 function RouteDetailRoute() {
 	const { id } = Route.useParams();
 	const { routes, isReady } = useHabitatRoutes();
-	const { stops, clusters, features, itemCount, isLoading } = useRouteStops(id);
+	const { stops, clusters, features, itemCount, isLoading } = useHabitatRouteStops(id);
 
 	return (
 		<RouteDetailPage

@@ -20,7 +20,6 @@ import {
 	parseLocalDate,
 } from '../../../lib/local-date';
 import { NO_ASSIGNEE } from './-assignment-data';
-
 /** The planning fields an assignment carries, shared by create and edit. */
 export interface AssignmentDetailValues {
 	readonly assignmentName: string;

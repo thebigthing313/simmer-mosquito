@@ -1,6 +1,6 @@
 import { CompassIcon, NorthIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useState } from 'react';
+import { useMapBearing } from '../../hooks/map/use-map-bearing';
 import { MapControlButton, MapControlGroup } from './map-control';
 
 /**
@@ -36,30 +36,4 @@ export function NorthControl({ map }: { readonly map: MapboxMap | null }) {
 			</MapControlButton>
 		</MapControlGroup>
 	);
-}
-
-/**
- * Track the map's bearing so the arrow stays pointed at true north.
- *
- * On `move`, not `rotate`. Every camera change fires `move`, while `rotate`
- * fires only for the paths Mapbox counts as a rotation, so a bearing that
- * arrives through a fit or a jump can land without one and leave the arrow
- * describing a camera the map no longer has.
- */
-function useMapBearing(map: MapboxMap | null): number {
-	const [bearing, setBearing] = useState(0);
-
-	useEffect(() => {
-		if (map === null) {
-			return;
-		}
-		const sync = () => setBearing(map.getBearing());
-		sync();
-		map.on('move', sync);
-		return () => {
-			map.off('move', sync);
-		};
-	}, [map]);
-
-	return bearing;
 }

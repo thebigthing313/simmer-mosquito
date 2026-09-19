@@ -1,7 +1,7 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Progress } from '@simmer-mosquito/ui-web/components/ui/progress';
-import type { RouteStopFeature } from '../../components/map';
 import type { StopTone } from '../../components/stop-order';
+import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
 import {
 	MISSION_STATUS_LABELS,
 	type MissionProgressCounts,

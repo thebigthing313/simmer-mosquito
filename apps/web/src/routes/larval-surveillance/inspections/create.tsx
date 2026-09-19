@@ -1,25 +1,21 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
 import { z } from 'zod';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useRecordExtras } from '../../../forms/record-extras';
-import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
+import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
+import { useNewInspectionDraft } from '../../../hooks/larval-surveillance/use-new-inspection-draft';
+import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
-import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
-import { samples } from '../../../lib/collections/samples';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
@@ -79,27 +75,6 @@ function seededDefaults(
 		return { ...base, locationMode: 'habitat', habitatId };
 	}
 	return seed === null ? base : { ...base, locationMode: 'adhoc' };
-}
-
-/**
- * The id a not-yet-saved inspection will be written under, with its on-demand
- * streams already warm.
- *
- * Minted up front so the samples, crew, and comment can be written the moment
- * the inspection lands, and so their streams are live before the save fires — a
- * write against a cold stream times out waiting for its txid confirmation.
- */
-function useNewInspectionDraft(): string {
-	const [inspectionId] = useState(() => newRecordId());
-	useAdditionalPersonnel({ type: 'inspection', id: inspectionId });
-	useLiveQuery({
-		gcTime: activityGcTimeMs,
-		query: (query) =>
-			query
-				.from({ sample: samples() })
-				.where(({ sample }) => eq(sample.inspection_id, inspectionId)),
-	});
-	return inspectionId;
 }
 
 function CreateInspectionRoute() {

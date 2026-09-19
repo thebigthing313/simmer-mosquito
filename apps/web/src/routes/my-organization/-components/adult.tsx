@@ -24,7 +24,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import {
 	type CatalogMutations,
@@ -35,6 +34,7 @@ import {
 	useCollectionLureRecords,
 	useCollectionMethodRecords,
 } from '../../../hooks/queries/use-catalog-records';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
 import { collectionTimingModeFromFields } from './helpers';
 import { LookupListFrame, SettingChoiceCard } from './layout/layout';

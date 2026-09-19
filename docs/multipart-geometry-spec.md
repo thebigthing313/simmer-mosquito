@@ -890,7 +890,7 @@ for the same reason the corpus does.
 
 ## The draw control
 
-`apps/web/src/components/map/use-map-draw.ts` is our own state machine, not
+`apps/web/src/hooks/map/use-map-draw.ts` is our own state machine, not
 mapbox-gl-draw, so nothing is imposed on us. Today `geometryFromVertices`
 (`:458-470`) always builds `coordinates: [closeRing(vertices)]`: one ring, one
 part. Settled in #417, with a prototype on `prototype/417-part-ring-model`.

@@ -1,6 +1,6 @@
 import { addCalendarDays } from '../../lib/local-date';
+import { dateParam, type FilterCodecs } from '../../lib/search-filters';
 import type { ActivityCopy } from '../-activity-data';
-
 // The three rules Daily Work is: which day it is showing, what that day sends to
 // the activity endpoint, and whether the path names a Profile at all.
 // Dash-prefixed so TanStack Router ignores this file as a route.
@@ -73,3 +73,10 @@ export const DAILY_WORK_COPY: ActivityCopy = {
 	truncationAdvice: null,
 	loadFailureBody: 'The read failed. Try again in a moment.',
 };
+
+/** The one search param the page reads: the day. */
+export interface DailyWorkFilters {
+	readonly date: string;
+}
+
+export const DAILY_WORK_FILTER_CODECS: FilterCodecs<DailyWorkFilters> = { date: dateParam };

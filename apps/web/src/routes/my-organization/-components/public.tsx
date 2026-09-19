@@ -20,7 +20,6 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	type CatalogFormValues,
 	catalogFields,
@@ -38,6 +37,7 @@ import {
 	useNotificationTypeRecords,
 	useOutreachMethodRecords,
 } from '../../../hooks/queries/use-catalog-records';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control';
 import { serviceRequestContextFrom } from './helpers';

@@ -31,7 +31,6 @@ import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-ro
 import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
-import type { RouteStopFeature } from '../../../../components/map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
 import { RouteMap } from '../../../../components/route-planning';
 import {
@@ -41,11 +40,16 @@ import {
 	OrdinalBadge,
 	StopList,
 	StopReorderControls,
-	useStopOrder,
 } from '../../../../components/stop-order';
+import { useHabitatRouteStops } from '../../../../hooks/larval-surveillance/use-habitat-route-stops';
+import { useHabitatRoutes } from '../../../../hooks/larval-surveillance/use-habitat-routes';
+import { useRouteHabitatSearch } from '../../../../hooks/larval-surveillance/use-route-habitat-search';
+import { useStopMeta } from '../../../../hooks/larval-surveillance/use-stop-meta';
+import type { RouteStopFeature } from '../../../../hooks/map/use-route-layer';
 import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-item-mutations';
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import type { Tag } from '../../../../hooks/queries/tag-view';
+import { useStopOrder } from '../../../../hooks/stop-order/use-stop-order';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
 import { useDebouncedValue } from '../../../../hooks/use-debounced-value';
 import { errorMessageForSave } from '../../../../lib/save-error';
@@ -56,11 +60,8 @@ import {
 	type RouteStopView,
 	stopTone,
 	updateHabitatDescription,
-	useHabitatRoutes,
-	useHabitatSearch,
-	useRouteStops,
 } from '../-route-data';
-import { StopStatus, StopTagChips, StopTypePill, useStopMeta } from '../-route-stop-list';
+import { StopStatus, StopTagChips, StopTypePill } from '../-route-stop-list';
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -91,7 +92,7 @@ function RouteEditRoute() {
 
 	const { routes, isReady, isError } = useHabitatRoutes();
 	const route = routes.find((candidate) => candidate.id === id) ?? null;
-	const { stops, itemCount, isLoading } = useRouteStops(id);
+	const { stops, itemCount, isLoading } = useHabitatRouteStops(id);
 
 	// Show the route's name in the breadcrumb trail instead of its raw id.
 	useBreadcrumbLabel(id, route?.routeName ?? null);
@@ -383,7 +384,7 @@ function AddStopBar({
 }) {
 	const [searchInput, setSearchInput] = useState('');
 	const { debounced: search, settle } = useDebouncedValue(searchInput, 220);
-	const { results, isFetching, isTooShort } = useHabitatSearch(search);
+	const { results, isFetching, isTooShort } = useRouteHabitatSearch(search);
 	const open = search.trim().length >= 2;
 
 	return (

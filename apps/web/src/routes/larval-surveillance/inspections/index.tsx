@@ -15,10 +15,6 @@ import {
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	useRegionOptions,
 	whenAny,
 	whenOn,
 	whenText,
@@ -34,6 +30,14 @@ import {
 	type MapLegendEntry,
 	type MapTileLayer,
 } from '../../../components/map';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type InspectionFilterOptions,
+	useInspectionFilterOptions,
+} from '../../../hooks/larval-surveillance/use-inspection-filter-options';
+import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
@@ -41,12 +45,9 @@ import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filter
 import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
 import {
 	DensityFilter,
-	type InspectionCatalogs,
 	InspectionFilterChips,
 	type InspectionFilterSetters,
 	type InspectionFilterState,
-	useInspectionCatalogs,
-	useInspectionFilterState,
 	WETNESS_OPTIONS,
 } from '../-inspection-filters';
 import { InspectionMapCard } from '../-inspection-map-card';
@@ -97,13 +98,6 @@ interface InspectionRow {
 
 const PATH = '/map/inspections';
 
-/** The catalogs the filter controls read from: the shared two, plus Region. */
-function useInspectionFilterOptions(): InspectionFilterOptions {
-	const catalogs = useInspectionCatalogs();
-	const regions = useRegionOptions();
-	return { catalogs, regions };
-}
-
 const RECORD_TYPE: RecordType = 'inspection';
 
 /** The placeholder's height, matched to the two-line row it stands in for. */
@@ -146,12 +140,6 @@ function inspectionQueryParams(filters: InspectionTileFilters) {
 		dateFrom: filters.dateFrom,
 		dateTo: filters.dateTo,
 	};
-}
-
-/** The catalogs the filter controls offer, and the names their chips read by. */
-interface InspectionFilterOptions {
-	readonly catalogs: InspectionCatalogs;
-	readonly regions: ReturnType<typeof useRegionOptions>;
 }
 
 function InspectionsExplorerRoute() {

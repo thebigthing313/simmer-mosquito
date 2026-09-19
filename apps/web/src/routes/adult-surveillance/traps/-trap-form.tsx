@@ -2,14 +2,14 @@ import { createTrapCommand } from '@simmer-mosquito/domain';
 import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
 import type {
 	CatalogListing,
@@ -324,4 +324,4 @@ function lureOptions(lures: readonly CatalogListing[]) {
 	];
 }
 
-export type { DrawGeometry } from '../../../components/map/use-map-draw';
+export type { DrawGeometry } from '../../../hooks/map/use-map-draw';

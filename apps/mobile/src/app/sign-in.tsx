@@ -1,10 +1,10 @@
 import type { SignInOutcome } from '@simmer-mosquito/auth/browser';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useAuth } from '../auth/auth-context';
 import { Button } from '../components/button';
 import { Screen } from '../components/screen';
 import { TextField } from '../components/text-field';
+import { useAuth } from '../hooks/use-auth';
 import { theme } from '../theme/theme';
 
 export default function SignInScreen() {

@@ -2,8 +2,7 @@ import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/f
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { type CreateAdminOrganizationInput, createAdminOrganization } from '../../api';
-import { useInvalidateOrganizations } from './-organization-data';
-
+import { useInvalidateOrganizations } from '../../hooks/queries/use-invalidate-organizations';
 export const Route = createFileRoute('/organizations/create')({
 	component: CreateOrganizationRoute,
 });

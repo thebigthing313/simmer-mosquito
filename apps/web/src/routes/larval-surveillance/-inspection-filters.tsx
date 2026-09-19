@@ -16,28 +16,13 @@
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
-import {
-	ActiveFilterBar,
-	FilterChip,
-	type FilterOption,
-	toggle,
-	useHabitatTypeOptions,
-	usePersonnelOptions,
-} from '../../components/explorer';
+import { ActiveFilterBar, FilterChip, type FilterOption, toggle } from '../../components/explorer';
 import { densityLabel } from '../../components/larval-display';
 import { INSPECTION_DENSITY_COLORS } from '../../components/map';
 import type { InspectionTableFilters } from '../../hooks/queries/use-inspection-table';
-import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { addDaysToDateString, dateRangeLabel, todayInTimeZone } from '../../lib/local-date';
-import { type FilterCounting, useSearchFilters } from '../../lib/search-filters';
-import {
-	type InspectionFilters,
-	inspectionFilterCodecs,
-	type WaterFilterValue,
-} from './-inspections-search';
-
-/** How far back the map opens, and what Clear all returns it to. */
-const DEFAULT_WINDOW_DAYS = 30;
+import { dateRangeLabel } from '../../lib/local-date';
+import type { FilterCounting } from '../../lib/search-filters';
+import type { InspectionFilters, WaterFilterValue } from './-inspections-search';
 
 /**
  * How much of the record a surface opens on when the address names no dates.
@@ -105,33 +90,6 @@ export interface InspectionCatalogs {
 	readonly personnelNameById: ReadonlyMap<string, string>;
 }
 
-/**
- * What an address with no filter params means, and the Organization's today.
- *
- * The map's window is a fixed number of days back rather than a calendar month,
- * so it opens on the same amount of work whenever it is opened. `today` is
- * separate from the window because the date control needs it either way: it is
- * the upper bound on both pickers and what a preset counts back from.
- */
-function useInspectionFilterDefaults(opening: InspectionOpeningWindow): {
-	readonly defaults: InspectionFilters;
-	readonly today: string;
-} {
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
-	const defaults: InspectionFilters = {
-		from: opening === 'all-time' ? '' : addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		to: opening === 'all-time' ? '' : today,
-		water: 'all',
-		density: new Set<LarvalDensity>(),
-		positive: false,
-		types: new Set<string>(),
-		inspectors: new Set<string>(),
-		regions: new Set<string>(),
-	};
-	return { defaults, today };
-}
-
 /** Everything a surface needs to read and write the filter set. */
 export interface InspectionFilterBinding {
 	readonly activeCount: number;
@@ -144,59 +102,6 @@ export interface InspectionFilterBinding {
 	readonly state: InspectionFilterState;
 	/** Today in the Organization's zone, which bounds the date pickers. */
 	readonly today: string;
-}
-
-/**
- * The filter set, held on the URL.
- *
- * A deep link from an overview panel, a shared link, and Back out of a record
- * all land on the same view, so the state cannot live in a component. What a
- * component wants back is a plain value and a setter per filter, and building
- * those out of one patch function is the bulk of what either route would
- * otherwise do before it renders anything.
- *
- * `state` and `set` are memoized rather than rebuilt per render, so a caller can
- * derive a query from them and have the derivation hold still.
- */
-export function useInspectionFilterState(
-	counting: FilterCounting<InspectionFilters>,
-	opening: InspectionOpeningWindow,
-): InspectionFilterBinding {
-	const { defaults, today } = useInspectionFilterDefaults(opening);
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount,
-	} = useSearchFilters(defaults, inspectionFilterCodecs, counting);
-
-	const setWetness = (next: WaterFilterValue) => setFilters({ water: next });
-	const setDensities = (next: ReadonlySet<LarvalDensity>) => setFilters({ density: next });
-	const setPositiveOnly = (next: boolean) => setFilters({ positive: next });
-	const setTypeIds = (next: ReadonlySet<string>) => setFilters({ types: next });
-	const setInspectorIds = (next: ReadonlySet<string>) => setFilters({ inspectors: next });
-	const setRegionIds = (next: ReadonlySet<string>) => setFilters({ regions: next });
-
-	const state: InspectionFilterState = {
-		dateFrom: query.from,
-		dateTo: query.to,
-		densities: query.density,
-		inspectorIds: query.inspectors,
-		positiveOnly: query.positive,
-		regionIds: query.regions,
-		typeIds: query.types,
-		wetness: query.water,
-	};
-	const set: InspectionFilterSetters = {
-		setDensities,
-		setInspectorIds,
-		setPositiveOnly,
-		setRegionIds,
-		setTypeIds,
-		setWetness,
-	};
-
-	return { activeCount, defaults, reset, set, setFilters, state, today };
 }
 
 /**
@@ -214,18 +119,6 @@ export function inspectionTableFilters(state: InspectionFilterState): Inspection
 		larvaeFound: state.positiveOnly,
 		habitatTypeIds: state.typeIds,
 		inspectedByProfileIds: state.inspectorIds,
-	};
-}
-
-/** The two eager catalogs a filtered row is labelled from. */
-export function useInspectionCatalogs(): InspectionCatalogs {
-	const habitatTypes = useHabitatTypeOptions();
-	const personnel = usePersonnelOptions();
-	return {
-		habitatTypes: habitatTypes.options,
-		personnel: personnel.options,
-		typeNameById: habitatTypes.nameById,
-		personnelNameById: personnel.nameById,
 	};
 }
 

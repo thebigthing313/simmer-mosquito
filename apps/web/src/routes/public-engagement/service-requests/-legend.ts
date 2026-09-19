@@ -1,5 +1,4 @@
 import { type MapLegendEntry, SERVICE_REQUEST_STATUS_COLORS } from '../../../components/map';
-
 /** What the Status filter can be set to. Mirrors the segmented control's options. */
 export type StatusFilter = 'all' | 'open' | 'closed';
 

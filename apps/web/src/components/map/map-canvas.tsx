@@ -3,6 +3,16 @@ import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
+import { type ActivityLayerConfig, useActivityLayer } from '../../hooks/map/use-activity-layer';
+import { useContextGeoJsonLayer } from '../../hooks/map/use-context-geojson-layer';
+import { type GeoJsonLayerInteraction, useGeoJsonLayer } from '../../hooks/map/use-geojson-layer';
+import { type MapExtentFitSource, useMapExtentFit } from '../../hooks/map/use-map-extent-fit';
+import { useMapMeasure } from '../../hooks/map/use-map-measure';
+import { useMapPadding } from '../../hooks/map/use-map-padding';
+import { isMapLive, useMapboxMap } from '../../hooks/map/use-mapbox-map';
+import { type NearbyLayerConfig, useNearbyLayer } from '../../hooks/map/use-nearby-layer';
+import { type RouteLayerConfig, useRouteLayer } from '../../hooks/map/use-route-layer';
+import { useTileLayer } from '../../hooks/map/use-tile-layer';
 import { BasemapSwitcher } from './basemap-switcher';
 import type { MapSourceGeoJson } from './geojson-adapter';
 import { GeolocateControl } from './geolocate-control';
@@ -17,16 +27,6 @@ import { MapZoomControls } from './map-zoom-controls';
 import { MeasureControl, MeasureControlButton } from './measure-control';
 import { NorthControl } from './north-control';
 import { type MapTileLayer, tileLayerExtentUrl } from './tile-layers';
-import { type ActivityLayerConfig, useActivityLayer } from './use-activity-layer';
-import { useContextGeoJsonLayer } from './use-context-geojson-layer';
-import { type GeoJsonLayerInteraction, useGeoJsonLayer } from './use-geojson-layer';
-import { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
-import { useMapMeasure } from './use-map-measure';
-import { useMapPadding } from './use-map-padding';
-import { isMapLive, useMapboxMap } from './use-mapbox-map';
-import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
-import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
-import { useTileLayer } from './use-tile-layer';
 
 /**
  * Which on-map controls to render. Every control defaults to on; a consuming

@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { act, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeyEntryDialog } from '../../../../components/key-entry/key-entry-dialog';
-import type { TallyEntry } from '../../../../components/key-entry/use-key-entry-tally';
+import type { TallyEntry } from '../../../../hooks/key-entry/use-key-entry-tally';
 import type { SpeciesKeyBindingsView } from '../../../../hooks/use-species-key-bindings';
 
 /**

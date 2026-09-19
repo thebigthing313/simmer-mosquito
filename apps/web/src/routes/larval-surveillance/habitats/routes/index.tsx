@@ -1,6 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { RoutesIndexPage, useRouteSelection } from '../../../../components/route-planning';
-import { useHabitatRoutes, useRouteStopCounts, useRouteStops } from '../-route-data';
+import { RoutesIndexPage } from '../../../../components/route-planning';
+import { useHabitatRouteStopCounts } from '../../../../hooks/larval-surveillance/use-habitat-route-stop-counts';
+import { useHabitatRouteStops } from '../../../../hooks/larval-surveillance/use-habitat-route-stops';
+import { useHabitatRoutes } from '../../../../hooks/larval-surveillance/use-habitat-routes';
+import { useRouteSelection } from '../../../../hooks/route-planning/use-route-selection';
 import { habitatRouteSurface } from '../-route-surface';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/routes/')({
@@ -9,9 +12,9 @@ export const Route = createFileRoute('/larval-surveillance/habitats/routes/')({
 
 function RoutesIndexRoute() {
 	const { routes, isLoading } = useHabitatRoutes();
-	const { countByRouteId, isLoading: countsLoading } = useRouteStopCounts();
+	const { countByRouteId, isLoading: countsLoading } = useHabitatRouteStopCounts();
 	const selection = useRouteSelection(routes);
-	const selectedStops = useRouteStops(selection.effectiveRouteId);
+	const selectedStops = useHabitatRouteStops(selection.effectiveRouteId);
 
 	return (
 		<RoutesIndexPage

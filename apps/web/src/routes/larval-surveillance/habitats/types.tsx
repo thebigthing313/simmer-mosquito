@@ -1,4 +1,3 @@
-import { sessionFetch } from '@simmer-mosquito/sync';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -6,11 +5,8 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { getServerUrl } from '../../../auth';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	CatalogActionsHead,
 	CatalogDialogCancel,
@@ -24,11 +20,15 @@ import {
 	catalogFormValues,
 	commitCatalogSave,
 	toggleCatalogActive,
-	useCatalogDialogOpen,
-	useCatalogSearch,
-	useResetOnOpen,
 } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
+import { useCatalogDialogOpen } from '../../../hooks/catalog/use-catalog-dialog-open';
+import { useCatalogSearch } from '../../../hooks/catalog/use-catalog-search';
+import { useResetOnOpen } from '../../../hooks/catalog/use-reset-on-open';
+import {
+	type UsageById,
+	useHabitatTypeUsage,
+} from '../../../hooks/larval-surveillance/use-habitat-type-usage';
 import {
 	type CatalogMutations,
 	useHabitatTypeMutations,
@@ -37,6 +37,7 @@ import {
 	type SchemaCatalogRecord,
 	useHabitatTypeRecords,
 } from '../../../hooks/queries/use-catalog-records';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/types')({
@@ -46,32 +47,6 @@ export const Route = createFileRoute('/larval-surveillance/habitats/types')({
 const TaxonomyIcon = iconRegistry.entities.taxonomy.icon;
 const AddIcon = iconRegistry.actions.add.icon;
 const HabitatIcon = iconRegistry.entities.habitat.icon;
-
-type UsageById = ReadonlyMap<string, number>;
-const EMPTY_USAGE: UsageById = new Map();
-
-/** Active-habitat counts per habitat type — habitats sync on-demand, so this is a server aggregate. */
-function useHabitatTypeUsage(): { readonly usageById: UsageById; readonly isLoading: boolean } {
-	const query = useQuery({
-		queryKey: ['habitat-type-usage'],
-		queryFn: ({ signal }) => fetchHabitatTypeUsage(signal),
-		staleTime: 30_000,
-	});
-	return { usageById: query.data ?? EMPTY_USAGE, isLoading: query.isLoading };
-}
-
-async function fetchHabitatTypeUsage(signal: AbortSignal): Promise<UsageById> {
-	const response = await sessionFetch(new URL('/map/habitats/type-usage', getServerUrl()), {
-		signal,
-	});
-	if (!response.ok) {
-		throw new Error(`Habitat type usage request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as {
-		readonly usage?: readonly { readonly habitatTypeId: string; readonly activeCount: number }[];
-	};
-	return new Map((body.usage ?? []).map((row) => [row.habitatTypeId, row.activeCount]));
-}
 
 function matchesHabitatType(row: SchemaCatalogRecord, query: string): boolean {
 	return (

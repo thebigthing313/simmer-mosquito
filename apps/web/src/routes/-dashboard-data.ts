@@ -16,10 +16,6 @@
  * in `apps/server` holds the shape.
  */
 
-import { sessionFetch } from '@simmer-mosquito/sync';
-import { useQuery } from '@tanstack/react-query';
-import { getServerUrl } from '../auth';
-
 /** A pending queue: how many, and the date of the oldest. */
 export interface QueueCount {
 	readonly count: number;
@@ -74,35 +70,6 @@ export interface DashboardResponse {
 		readonly types: Readonly<Record<ActivityTypeKey, ActivityCount | null>>;
 	};
 	readonly peopleToday: readonly PersonToday[];
-}
-
-/** Five minutes: the interval the server half is re-read on. */
-const DASHBOARD_REFETCH_INTERVAL_MS = 5 * 60_000;
-
-export function useDashboard(): {
-	readonly data: DashboardResponse | undefined;
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-} {
-	const query = useQuery({
-		queryKey: ['dashboard'],
-		queryFn: ({ signal }) => fetchDashboard(signal),
-		// The app's default is `false`; this page is opened and left open, and
-		// the tab coming back into focus is the moment a stale number matters.
-		refetchOnWindowFocus: true,
-		refetchInterval: DASHBOARD_REFETCH_INTERVAL_MS,
-		placeholderData: (previous) => previous,
-	});
-
-	return { data: query.data, isLoading: query.isLoading, isError: query.isError };
-}
-
-async function fetchDashboard(signal: AbortSignal): Promise<DashboardResponse> {
-	const response = await sessionFetch(new URL('/dashboard', getServerUrl()), { signal });
-	if (!response.ok) {
-		throw new Error(`Dashboard request failed (${response.status}).`);
-	}
-	return (await response.json()) as DashboardResponse;
 }
 
 // --- the arithmetic ----------------------------------------------------------

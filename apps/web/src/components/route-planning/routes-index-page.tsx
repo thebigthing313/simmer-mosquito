@@ -16,10 +16,11 @@ import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-we
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import type { RouteStopFeature } from '../../hooks/map/use-route-layer';
+import type { RouteSelection } from '../../hooks/route-planning/use-route-selection';
 import { useHasRole } from '../../hooks/use-can-write';
 import { createLabel } from '../app-shell/navigation';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
-import type { RouteStopFeature } from '../map';
 import { WriteOnly } from '../write-only';
 import { RouteCreateDialog } from './route-create-dialog';
 import { RouteMap } from './route-map';
@@ -34,31 +35,6 @@ export interface SelectedRouteStops {
 	readonly stops: readonly RouteStop[];
 	readonly features: readonly RouteStopFeature[];
 	readonly itemCount: number;
-}
-
-/** The selected route, and the setter that changes it. */
-export interface RouteSelection {
-	readonly effectiveRouteId: string | null;
-	readonly select: (routeId: string) => void;
-}
-
-/**
- * The selected route, defaulted to the first and kept valid as the list moves.
- *
- * Lifted out of {@link RoutesIndexPage} so each domain can call its own stops
- * hook with the id. The page used to take that hook as a prop and call it,
- * which is a hook reached through a value rather than a static reference, and
- * the React Compiler refuses it (`Hooks`, #823). Two callers share the fallback
- * rule from here rather than copying it.
- */
-export function useRouteSelection(routes: readonly RouteSummary[]): RouteSelection {
-	const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-	// Default to the first route; fall back if the selection filtered/deleted away.
-	const effectiveRouteId =
-		selectedRouteId !== null && routes.some((route) => route.id === selectedRouteId)
-			? selectedRouteId
-			: (routes[0]?.id ?? null);
-	return { effectiveRouteId, select: setSelectedRouteId };
 }
 
 /**

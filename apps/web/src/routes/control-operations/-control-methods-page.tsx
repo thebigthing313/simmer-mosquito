@@ -3,7 +3,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../components/acknowledged-write';
 import {
 	CatalogActionsHead,
 	CatalogDialogCancel,
@@ -17,13 +16,14 @@ import {
 	catalogFormValues,
 	commitCatalogSave,
 	toggleCatalogActive,
-	useCatalogDialogOpen,
-	useCatalogSearch,
-	useResetOnOpen,
 } from '../../components/catalog';
 import { CustomFieldsCell } from '../../components/custom-fields-cell';
+import { useCatalogDialogOpen } from '../../hooks/catalog/use-catalog-dialog-open';
+import { useCatalogSearch } from '../../hooks/catalog/use-catalog-search';
+import { useResetOnOpen } from '../../hooks/catalog/use-reset-on-open';
 import type { CatalogMutations } from '../../hooks/mutations/use-catalog-mutations';
 import type { CatalogRecords, ControlMethodRecord } from '../../hooks/queries/use-catalog-records';
+import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 
 // Chemical, source reduction, biocontrol and outreach each manage their own method
 // catalog. The catalogs are the same shape (name + lifecycle + optional custom

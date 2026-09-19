@@ -4,7 +4,6 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AskAcknowledged } from '../../../../components/acknowledged-write';
 import {
 	DetailPageShell,
 	EditFormSkeleton,
@@ -12,6 +11,7 @@ import {
 	RecordDetailPage,
 	type RecordReading,
 } from '../../../../components/record';
+import type { AskAcknowledged } from '../../../../hooks/use-acknowledged-write';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),

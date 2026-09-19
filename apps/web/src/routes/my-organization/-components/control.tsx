@@ -25,7 +25,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import type { CatalogMutations } from '../../../hooks/mutations/use-catalog-mutations';
@@ -49,6 +48,7 @@ import {
 	useEquipmentRecords,
 	useVehicleRecords,
 } from '../../../hooks/queries/use-control-asset-records';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { EQUIPMENT_SAVE_REFUSALS, VEHICLE_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { hasMetadata } from '../../../lib/record-display';
 import {

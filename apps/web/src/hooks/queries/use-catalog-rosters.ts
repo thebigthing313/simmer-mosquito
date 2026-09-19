@@ -3,7 +3,7 @@
  *
  * One file for all of them, because they are one question asked of seven tables:
  * what may this field be set to. The explorers ask a narrower one — see
- * `components/explorer/use-control-method-options.ts`, which returns filter
+ * `hooks/explorer/use-named-catalog.ts` and its callers, which return filter
  * options and an id→name lookup and drops everything else.
  *
  * A form needs two things those drop:

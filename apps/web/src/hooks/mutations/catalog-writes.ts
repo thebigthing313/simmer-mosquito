@@ -39,8 +39,8 @@
 
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';
 import { settleWrite } from '@simmer-mosquito/sync';
-import type { Acknowledgements } from '../../components/acknowledged-write';
 import { mutateCollection } from '../../lib/collections/mutate';
+import type { Acknowledgements } from '../use-acknowledged-write';
 import { optimisticStamp } from './shared';
 
 /** A collection this module can write, as `mutateCollection` needs it. */

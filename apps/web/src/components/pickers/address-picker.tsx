@@ -4,9 +4,10 @@ import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
+import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
 import { addressPrimaryLabel, addressSecondaryLabel } from '../../lib/address-format';
 import { addresses } from '../../lib/collections/addresses';
-import { OptionRow, PickerFallback, PickerFrame, useSelectedRowLabel } from './entity-picker';
+import { OptionRow, PickerFallback, PickerFrame } from './entity-picker';
 import { NewAddressForm, type RequestMapPoint } from './new-address-form';
 
 // Addresses sync on demand, so the results come from a live subset query (an

@@ -7,9 +7,9 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { AdminOrganization } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
+import { useOrganizations } from '../../../hooks/queries/use-organizations';
 import { formatDate } from '../../../lib/format-date';
 import { subscriptionTone } from '../../../lib/tones';
-import { useOrganizations } from '../-organization-data';
 
 const OrganizationIcon = iconRegistry.entities.organization.icon;
 const ContactIcon = iconRegistry.entities.contact.icon;

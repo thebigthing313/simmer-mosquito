@@ -2,14 +2,14 @@ import { createNotificationRegistrationCommand } from '@simmer-mosquito/domain';
 import { FormSection, LocationSection } from '@simmer-mosquito/ui-web/components/form';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { useId } from 'react';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../forms/domain-validation';
+import type { DrawLocation } from '../../hooks/map/use-draw-location';
+import type { DrawGeometry, DrawGeometryType } from '../../hooks/map/use-map-draw';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
 import { unitOptions } from '../../lib/unit-options';
+import type { MapDrawController } from '../map/draw-controller';
 import { GeometryControl } from '../map/geometry-control';
-import { type DrawLocation, useDrawLocation } from '../map/use-draw-location';
-import type { DrawGeometry, DrawGeometryType, MapDrawController } from '../map/use-map-draw';
 import { type AddressOption, AddressPicker } from '../pickers/address-picker';
 import type { RequestMapPoint } from '../pickers/new-address-form';
 
@@ -182,26 +182,6 @@ export function RegistrationFormFields({
 			<PurposeSection form={form} notificationTypes={notificationTypes} />
 		</>
 	);
-}
-
-/**
- * The map half of a registration, as the shared record-form controller.
- *
- * The canvas belongs to the page, which draws every registration this contact
- * already has whether or not one is being edited, so the map is handed in rather
- * than claimed: a controller that owned the map would mean a second map beside
- * the one already on screen.
- */
-export function useRegistrationLocation(
-	map: MapboxMap | null,
-	initialGeometry: DrawGeometry | null,
-): DrawLocation {
-	return useDrawLocation({
-		geometryKind: 'notificationRegistration',
-		initialGeometry,
-		map,
-		missingMessage: 'Draw the place this registration covers.',
-	});
 }
 
 /**

@@ -6,14 +6,14 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-item-mutations';
+import { useMissionStopViews } from '../../../hooks/operations/use-mission-stop-views';
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { errorMessageForSave } from '../../../lib/save-error';
-import { useMissionStopViews } from '../-operations-data';
 import { addStopDescription } from '../-operations-display';
 
 /**

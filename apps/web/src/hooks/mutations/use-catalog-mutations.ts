@@ -30,7 +30,6 @@ import type {
 	HabitatType,
 	NotificationType,
 } from '@simmer-mosquito/sync';
-import type { Acknowledgements } from '../../components/acknowledged-write';
 import {
 	CATALOG_SAVE_REFUSALS,
 	NOTIFICATION_TYPE_SAVE_REFUSALS,
@@ -43,6 +42,7 @@ import { habitat_types } from '../../lib/collections/habitat_types';
 import { notification_types } from '../../lib/collections/notification_types';
 import { outreach_methods } from '../../lib/collections/outreach_methods';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
+import type { Acknowledgements } from '../use-acknowledged-write';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import {
 	type CatalogCollection,

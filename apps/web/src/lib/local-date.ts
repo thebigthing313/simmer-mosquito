@@ -486,7 +486,7 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
 // --- calendar-date labels and day arithmetic --------------------------------
 
 // The helpers below read and render a `YYYY-MM-DD` string. They lived in
-// `routes/larval-surveillance/-overview-data.ts` and were re-exported from three
+// `routes/larval-surveillance/-overview-data.ts`, since split into hooks, and were re-exported from three
 // more route-private modules, so four domains reached one implementation through
 // four doors and two files imported it through both of theirs (#906). They are
 // here for the reason `todayInTimeZone` is: a week strip, a list date and a day

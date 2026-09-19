@@ -58,27 +58,27 @@ vi.mock('../../../../../hooks/use-auth-snapshot', async () => {
 	return authSnapshotStandIn();
 });
 
-vi.mock(
-	'../../../../../routes/operations/assignments/-assignment-data',
-	async (importOriginal) => ({
-		...(await importOriginal<
-			typeof import('../../../../../routes/operations/assignments/-assignment-data')
-		>()),
-		useAssignment: () => ({
-			assignment: page.assignment,
-			isLoading: false,
-			isReady: true,
-			isError: false,
-		}),
-		useAssignmentStops: () => ({
-			stops: [],
-			features: [],
-			counts: page.counts,
-			isLoading: false,
-		}),
-		useAssigneeOptions: () => ({ options: [], nameById: new Map<string, string>() }),
+vi.mock('../../../../../hooks/operations/use-assignment', () => ({
+	useAssignment: () => ({
+		assignment: page.assignment,
+		isLoading: false,
+		isReady: true,
+		isError: false,
 	}),
-);
+}));
+
+vi.mock('../../../../../hooks/operations/use-assignment-stops', () => ({
+	useAssignmentStops: () => ({
+		stops: [],
+		features: [],
+		counts: page.counts,
+		isLoading: false,
+	}),
+}));
+
+vi.mock('../../../../../hooks/operations/use-assignee-options', () => ({
+	useAssigneeOptions: () => ({ options: [], nameById: new Map<string, string>() }),
+}));
 
 vi.mock('../../../../../hooks/mutations/use-assignment-mutations', async () => {
 	const { lifecycleWrite } = await import('../refusal-harness');

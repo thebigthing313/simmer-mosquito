@@ -6,7 +6,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { useControlMethodNames } from '../../components/explorer';
+import { useControlMethodNames } from '../../hooks/explorer/use-control-method-names';
 import { assignmentStatus } from '../../hooks/queries/assignment-view';
 import {
 	controlTypeLabel,

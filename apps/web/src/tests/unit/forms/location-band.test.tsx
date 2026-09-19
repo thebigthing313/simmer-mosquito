@@ -48,7 +48,7 @@ vi.mock('../../../components/pickers/address-picker', () => ({
 	),
 }));
 
-const { useDrawLocation } = await import('../../../components/map/use-draw-location');
+const { useDrawLocation } = await import('../../../hooks/map/use-draw-location');
 const { LocationAddressField, LocationBand } = await import('../../../forms/location-band');
 
 const MISSING = 'Place the trap point on the map.';

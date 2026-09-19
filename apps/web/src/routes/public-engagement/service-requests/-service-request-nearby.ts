@@ -11,10 +11,9 @@ import {
 	type GeoJsonFeatureCollection,
 } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { useQuery } from '@tanstack/react-query';
 import type { LinkProps } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
-import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
+import { NEARBY_FAMILY_COLORS } from '../../../hooks/map/use-nearby-layer';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { formatCount } from '../../../lib/format-count';
 import { formatListDate } from '../../../lib/local-date';
@@ -144,15 +143,6 @@ export function visibleNearbyItems(
 	return items
 		.filter((item) => visibleFamilies.has(NEARBY_FAMILY_OF[item.category]))
 		.sort((first, second) => first.distanceMeters - second.distanceMeters);
-}
-
-/** Fetch the nearby records around a service request (server-scoped by radius + window). */
-export function useServiceRequestNearby(id: string): NearbyRead {
-	return useQuery({
-		queryKey: ['service-request-nearby', id],
-		queryFn: ({ signal }) => fetchNearby(id, signal),
-		staleTime: 30_000,
-	});
 }
 
 /**

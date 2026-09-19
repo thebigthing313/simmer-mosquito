@@ -30,18 +30,18 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useState } from 'react';
+import {
+	NO_VARIANT,
+	type TallyEntry,
+	type TallyVariant,
+	useKeyEntryTally,
+} from '../../hooks/key-entry/use-key-entry-tally';
 import type {
 	ResolvedSpeciesKeyBinding,
 	SpeciesKeyBindingsView,
 } from '../../hooks/use-species-key-bindings';
 import { errorMessageForSave } from '../../lib/save-error';
 import { createCommitQueue } from './commit-queue';
-import {
-	NO_VARIANT,
-	type TallyEntry,
-	type TallyVariant,
-	useKeyEntryTally,
-} from './use-key-entry-tally';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 

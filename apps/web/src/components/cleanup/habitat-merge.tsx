@@ -1,9 +1,4 @@
-import {
-	convertUnitAmount,
-	type ProximitySearchUnit,
-	proximityLabel,
-	proximitySearchUnit,
-} from '@simmer-mosquito/domain';
+import { type ProximitySearchUnit, proximityLabel } from '@simmer-mosquito/domain';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page/list-states';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -15,19 +10,17 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
+import { useHabitatSelection } from '../../hooks/cleanup/use-habitat-selection';
+import { useMergeSearch } from '../../hooks/cleanup/use-merge-search';
 import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
-import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
 import {
 	type DuplicateRecord,
 	type NearbyHabitat,
 	nearbyHabitatsKey,
-	useNearbyHabitats,
 } from '../../hooks/use-merge-candidates';
-import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { MapCanvas } from '../map';
 import { WriteOnly } from '../write-only';
-import { mergeMapData, searchBounds } from './habitat-merge-map';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
 import { CandidateRow } from './nearby-habitat-row';
 import { RECORD_CLEANUP_CONFIGS, recordCountLabel, recordLabel } from './record-cleanup-config';
@@ -251,71 +244,6 @@ function CandidateList({
 			))}
 		</ItemGroup>
 	);
-}
-
-/**
- * The search this page is: a radius, what came back, and what the map draws.
- *
- * Its own hook so the component stays about what it shows. The radius is held
- * in the organization's units and converted once, here, because the buttons say
- * feet and `st_dwithin` over geography takes metres, and a page that converted
- * at the call site would be one refactor away from sending 250 metres.
- */
-function useMergeSearch(habitatId: string) {
-	const unit = proximitySearchUnit(useOrganizationSettings().unitDefaults.distance);
-	const [radius, setRadius] = useState(unit.steps[0] ?? 100);
-
-	// Through the domain's conversion table rather than a factor written here.
-	// `record-merge-reads.ts` and `coverage-features.ts` already convert that way,
-	// and a second copy of 0.3048 is a second place for the two to disagree.
-	const radiusMetres = convertUnitAmount(radius, unit.unitCode, 'meter') ?? radius;
-	const nearby = useNearbyHabitats(habitatId, radiusMetres);
-	const target = nearby.data?.target;
-	const candidates = nearby.data?.candidates ?? [];
-
-	// The uuid otherwise stands in the trail where the habitat's name belongs, the
-	// way it does on every other by-id page.
-	useBreadcrumbLabel(habitatId, target?.label ?? '');
-
-	const mapData = mergeMapData(target, candidates, radiusMetres);
-
-	const bounds = searchBounds(target, radiusMetres);
-
-	return {
-		bounds,
-		candidates,
-		mapData,
-		nearby,
-		radius,
-		setRadius,
-		target,
-		unit,
-	};
-}
-
-/**
- * Which habitats are ticked.
- *
- * Its own hook so the page body stays about what it shows. The set is rebuilt
- * rather than mutated, because a `Set` changed in place is the same object and
- * React would keep the previous render.
- */
-function useHabitatSelection() {
-	const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
-
-	const toggle = (habitatId: string) => {
-		setSelected((current) => {
-			const next = new Set(current);
-			if (!next.delete(habitatId)) {
-				next.add(habitatId);
-			}
-			return next;
-		});
-	};
-
-	const clear = () => setSelected(new Set());
-
-	return { selected, toggle, clear };
 }
 
 /**

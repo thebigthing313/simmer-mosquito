@@ -16,23 +16,22 @@ import {
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useEffect } from 'react';
-import { ExplorerMapPage, useExplorerPanel, usePersonnelOptions } from '../../components/explorer';
+import { ExplorerMapPage } from '../../components/explorer';
 import { MapCanvas } from '../../components/map';
+import { useActivityLookups } from '../../hooks/activity/use-activity-lookups';
+import { useActivitySelection } from '../../hooks/activity/use-activity-selection';
+import { useProfileActivity } from '../../hooks/activity/use-profile-activity';
+import { useDailyWorkDay } from '../../hooks/daily-work/use-daily-work-day';
+import { useExplorerPanel } from '../../hooks/explorer/use-explorer-panel';
+import { usePersonnelOptions } from '../../hooks/explorer/use-personnel-options';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { formatLocalDate, parseLocalDate, todayInTimeZone } from '../../lib/local-date';
-import {
-	dateParam,
-	type FilterCodecs,
-	searchValidator,
-	useSearchFilters,
-} from '../../lib/search-filters';
-import { activityPanelState, useActivityLookups, useProfileActivity } from '../-activity-data';
+import { searchValidator } from '../../lib/search-filters';
+import { activityPanelState, activityReach } from '../-activity-data';
 import { ActivityFocusCard, ActivityLog } from '../-activity-log';
-import { activityReach, useActivitySelection } from '../-activity-view';
 import {
 	DAILY_WORK_COPY,
-	dailyWorkDay,
+	DAILY_WORK_FILTER_CODECS,
 	dailyWorkStep,
 	dailyWorkWindow,
 	isProfileId,
@@ -51,12 +50,6 @@ import { dailyWorkLegend } from './-legend';
  * work is a cloud with no order in it, because six of the nine record kinds
  * carry no time of day; a day is a round somebody drove.
  */
-
-interface DailyWorkFilters {
-	readonly date: string;
-}
-
-const DAILY_WORK_FILTER_CODECS: FilterCodecs<DailyWorkFilters> = { date: dateParam };
 
 export const Route = createFileRoute('/daily-work/$profileId')({
 	component: DailyWorkRoute,
@@ -160,37 +153,6 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 			toolbar={<DayStepper onChange={setDay} today={today} value={day} />}
 		/>
 	);
-}
-
-/**
- * The day, held in the URL so one person's one day is a link.
- *
- * Clearing the picker lands on today rather than on no day at all: the page has
- * to be showing something, and today is what it opens on.
- */
-function useDailyWorkDay(today: string): {
-	readonly day: string;
-	readonly setDay: (next: string) => void;
-} {
-	const defaults: DailyWorkFilters = { date: today };
-	// No filter counting: the page has no filter card to report a count to, since
-	// the day is what the page is rather than a way of narrowing it.
-	const { filters, setFilters } = useSearchFilters(defaults, DAILY_WORK_FILTER_CODECS);
-	const day = dailyWorkDay(filters.date, today);
-
-	// A stale or hand-typed future day is drawn as today, so the address has to
-	// say today as well. Left alone, the link is one that names a day it does not
-	// show, and it stays wrong every time it is opened or copied.
-	useEffect(() => {
-		if (filters.date !== day) {
-			setFilters({ date: day });
-		}
-	}, [filters.date, day, setFilters]);
-
-	return {
-		day,
-		setDay: (next: string) => setFilters({ date: next === '' ? today : next }),
-	};
 }
 
 /**

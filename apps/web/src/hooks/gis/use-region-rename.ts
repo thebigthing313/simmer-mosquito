@@ -1,0 +1,29 @@
+import { useState } from 'react';
+
+/** Shared inline-rename state + actions threaded down to every region row. */
+export interface RegionRename {
+	readonly renamingId: string | null;
+	readonly start: (id: string) => void;
+	readonly commit: (id: string, name: string) => void;
+	readonly cancel: () => void;
+}
+
+/**
+ * Transient inline-rename state for the region tree, plus the write it commits.
+ * Committing closes the field before the write is awaited.
+ */
+export function useRegionRename(
+	onRename: (id: string, name: string) => void | Promise<void>,
+): RegionRename {
+	const [renamingId, setRenamingId] = useState<string | null>(null);
+
+	return {
+		renamingId,
+		start: (id) => setRenamingId(id),
+		commit: (id, name) => {
+			setRenamingId(null);
+			void onRename(id, name);
+		},
+		cancel: () => setRenamingId(null),
+	};
+}

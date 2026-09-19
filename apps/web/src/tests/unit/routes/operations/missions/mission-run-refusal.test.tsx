@@ -72,8 +72,7 @@ vi.mock('../../../../../hooks/queries/use-mission', () => ({
 	}),
 }));
 
-vi.mock('../../../../../routes/operations/-operations-data', async (importOriginal) => ({
-	...(await importOriginal<typeof import('../../../../../routes/operations/-operations-data')>()),
+vi.mock('../../../../../hooks/operations/use-mission-stop-views', () => ({
 	useMissionStopViews: () => ({
 		stops: [],
 		counts: page.counts,

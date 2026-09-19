@@ -2,8 +2,8 @@ import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
 import { LocationSection } from '@simmer-mosquito/ui-web/components/form';
 import type { ReactNode } from 'react';
 import { GeometryControl } from '../components/map/geometry-control';
-import type { DrawLocation } from '../components/map/use-draw-location';
 import { AddressPicker } from '../components/pickers/address-picker';
+import type { DrawLocation } from '../hooks/map/use-draw-location';
 
 /**
  * The location band, wired to a {@link DrawLocation} controller.

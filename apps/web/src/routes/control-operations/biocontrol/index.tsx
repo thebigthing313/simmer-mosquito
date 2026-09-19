@@ -14,12 +14,6 @@ import {
 	MultiSelectFilter,
 	ToggleFilter,
 	toggle,
-	useBiocontrolMethodOptions,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	usePersonnelOptions,
-	useRegionOptions,
 	whenAny,
 	whenOn,
 	whenText,
@@ -31,9 +25,16 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { useBiocontrolMethodOptions } from '../../../hooks/explorer/use-biocontrol-method-options';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
@@ -43,7 +44,6 @@ import {
 	flagParam,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
 import { type RecordBadgeFacts, recordBadges } from '../../-record-badges';
 import { BiocontrolMapCard } from '../-biocontrol-map-card';

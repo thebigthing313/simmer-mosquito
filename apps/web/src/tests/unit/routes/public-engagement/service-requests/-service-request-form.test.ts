@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { describe, expect, it } from 'vitest';
-import type { DrawGeometry } from '../../../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../../../hooks/map/use-map-draw';
 import { defaultContactFormValues } from '../../../../../routes/public-engagement/-contact-fields';
 import {
 	type ServiceRequestFormValues,

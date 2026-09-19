@@ -6,9 +6,6 @@ import { SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
-import type { DrawPoint } from '../../../components/map/use-address-point';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	GeocoderDialog,
 	type GeocoderResult,
@@ -21,6 +18,9 @@ import {
 	FORM_VALIDATION_GEOMETRY,
 } from '../../../forms/domain-validation';
 import { LocationBand } from '../../../forms/location-band';
+import type { DrawPoint } from '../../../hooks/map/use-address-point';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import { errorMessageForSave } from '../../../lib/save-error';
 
 /** The one shape an address stores, which is the shape the geocoder returns. */

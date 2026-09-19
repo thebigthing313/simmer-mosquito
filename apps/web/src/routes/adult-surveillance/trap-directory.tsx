@@ -11,23 +11,15 @@ import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { ExplorerHeader, ExplorerRow } from '../../components/explorer';
+import { useTrapDirectory } from '../../hooks/adult-surveillance/use-trap-directory';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import type { TrapListing } from '../../hooks/queries/use-active-traps';
+import { useDebouncedTextFilter } from '../../hooks/use-debounced-text-filter';
+import { useSearchFilters } from '../../hooks/use-search-filters';
 import type { RecordType } from '../../lib/record-nouns';
-import {
-	type FilterCodecs,
-	searchValidator,
-	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
-} from '../../lib/search-filters';
+import { type FilterCodecs, searchValidator, textParam } from '../../lib/search-filters';
 import { TrapCollectionHistory } from './-trap-collection-history';
-import {
-	ALL_METHODS,
-	type DirectoryFilters,
-	type MethodTab,
-	useTrapDirectory,
-} from './-trap-directory-data';
+import { ALL_METHODS, type DirectoryFilters, type MethodTab } from './-trap-directory-data';
 import { DirectoryTab, DirectoryTabsList } from './-trap-directory-tabs';
 
 const TrapIcon = iconRegistry.entities.trap.icon;

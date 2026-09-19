@@ -51,7 +51,6 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import {
@@ -63,6 +62,7 @@ import {
 	type SchemaCatalogRecord,
 	useHabitatTypeRecords,
 } from '../../../hooks/queries/use-catalog-records';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { errorMessageForSave } from '../../../lib/save-error';
 import {
 	AddIcon,

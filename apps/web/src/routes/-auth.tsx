@@ -20,7 +20,6 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
-import { appAuthController } from '../app-auth';
 import {
 	acceptInvitation,
 	fetchInvitation,
@@ -31,6 +30,7 @@ import {
 	signUp,
 	verifyEmail,
 } from '../auth';
+import { useAuthSuccess } from '../hooks/auth/use-auth-success';
 import { LandingStage } from './-landing-stage';
 
 /**
@@ -186,28 +186,6 @@ function Requirement({
 			{children}
 		</li>
 	);
-}
-
-/**
- * Shared "we authenticated" handoff: refresh the cached auth snapshot, then send
- * the user to their intended route — or to the org-required landing when their
- * WorkOS session has no SIMMER organization yet.
- */
-function useAuthSuccess() {
-	const navigate = useNavigate();
-
-	return async (outcome: AuthenticatedOutcome, redirectTo: string) => {
-		if (outcome.organizationRequired) {
-			await navigate({
-				to: '/landing',
-				search: { auth: 'organization_required', redirect: '/' },
-			});
-			return;
-		}
-
-		await appAuthController.refresh();
-		await navigate({ to: redirectTo });
-	};
 }
 
 // --- Sign in (with inline email-verification step) ---

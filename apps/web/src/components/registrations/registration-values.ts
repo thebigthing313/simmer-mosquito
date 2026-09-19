@@ -7,7 +7,6 @@ import type {
 	RegistrationSubscriptionRecord,
 } from '../../hooks/queries/use-registration-record';
 import type { RegistrationFormValues } from './registration-form';
-
 /** A saved registration as the form holds it: strings where the row has numbers. */
 export function formValuesOf(
 	registration: RegistrationRecord,

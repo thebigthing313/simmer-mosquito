@@ -37,6 +37,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { WriteOnly } from '../../../components/write-only';
+import { useActiveYear } from '../../../hooks/gis/use-active-year';
 import { useWeatherSummaryMutations } from '../../../hooks/mutations/use-weather-summary-mutations';
 import {
 	useWeatherSummaries,
@@ -148,35 +149,6 @@ export function WeatherSummariesCard({
 }
 
 /**
- * Which year the card is showing, and which years it offers.
- *
- * The station rides along with the chosen year because the router keeps the card
- * mounted across a move from one station to another, and 2019 chosen on one
- * station is not a year the next one has.
- */
-function useActiveYear(
-	stationId: string,
-	years: readonly number[],
-): {
-	/** The newest year until the user picks one, and the picked year after that. */
-	readonly activeYear: number | null;
-	readonly tabYears: readonly number[];
-	readonly chooseYear: (year: number) => void;
-} {
-	const [chosen, setChosen] = useState<{
-		readonly stationId: string;
-		readonly year: number;
-	} | null>(null);
-	const chosenYear = chosen?.stationId === stationId ? chosen.year : null;
-
-	return {
-		activeYear: chosenYear ?? years[0] ?? null,
-		tabYears: tabbedYears(years, chosenYear),
-		chooseYear: (year: number) => setChosen({ stationId, year }),
-	};
-}
-
-/**
  * The four states one year of readings can be in.
  *
  * Its own component so the card above it is the header, the tabs and the two
@@ -227,22 +199,6 @@ function SummariesBody({
 		);
 	}
 	return <SummariesTable onEdit={onEdit} onRemove={onRemove} summaries={summaries} />;
-}
-
-/**
- * The years the tabs offer.
- *
- * The years the station has readings in, plus the one the user is looking at.
- * The second half is for the moment after a write into a year that had none: the
- * optimistic row lands in the collection immediately, but a refused or failed
- * write never does, and a tab that vanished under the user would take the empty
- * state with it.
- */
-export function tabbedYears(years: readonly number[], chosen: number | null): readonly number[] {
-	if (chosen === null || years.includes(chosen)) {
-		return years;
-	}
-	return [...years, chosen].sort((left, right) => right - left);
 }
 
 /**

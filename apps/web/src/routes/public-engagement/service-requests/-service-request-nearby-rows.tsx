@@ -10,7 +10,6 @@ import {
 	nearbyRow,
 	visibleNearbyItems,
 } from './-service-request-nearby';
-
 // The nearby records around a service request, drawn as the rows an explorer's
 // results rail draws, with the distance from the request in a slot of its own.
 // Takes the families to show rather than a list, so the page hands each family

@@ -17,8 +17,6 @@ import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
 import { locationDescription } from '../../../components/map/location-description';
-import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -27,6 +25,8 @@ import {
 import { CustomFieldsSection } from '../../../forms/field-components/custom-fields-section';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../../forms/location-band';
+import { useDrawLocation } from '../../../hooks/map/use-draw-location';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type {
@@ -914,4 +914,4 @@ function placeholderApplicationId(index: number): string {
 	return `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
 }
 
-export type { DrawGeometry } from '../../../components/map/use-map-draw';
+export type { DrawGeometry } from '../../../hooks/map/use-map-draw';

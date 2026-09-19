@@ -99,7 +99,7 @@
  * the transports an app installs, not callers of one, and the literal is the
  * whole of what `cookieFetch` does.
  *
- * `apps/web/src/components/map/use-mapbox-map.ts` hands Mapbox GL a
+ * `apps/web/src/hooks/map/use-mapbox-map.ts` hands Mapbox GL a
  * `transformRequest`. Mapbox's tile worker fetches the authenticated MVT tiles
  * itself and never reaches `sessionFetch`, and it defaults a cross-origin
  * request to `same-origin` credentials, so without the literal every tile 401s.

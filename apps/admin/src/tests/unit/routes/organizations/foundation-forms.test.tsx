@@ -2,11 +2,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OrganizationFoundations } from '../../../../api';
+import type { useCreateFoundation } from '../../../../hooks/mutations/use-create-foundation';
 import {
 	type DialogKind,
 	FoundationForm,
 } from '../../../../routes/organizations/$organizationId/-foundation-forms';
-import type { useCreateFoundation } from '../../../../routes/organizations/$organizationId/-foundations-data';
 
 /**
  * What the foundation forms decide now that their rules are validators rather

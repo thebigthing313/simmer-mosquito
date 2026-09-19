@@ -1,9 +1,9 @@
 import { Loader2Icon, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap, Marker } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { type GeolocationCoords, useGeolocation } from '../../hooks/map/use-geolocation';
 import { MapControlButton, MapControlGroup } from './map-control';
 import { loadMapboxGl } from './mapbox-gl-loader';
-import { type GeolocationCoords, useGeolocation } from './use-geolocation';
 
 /**
  * "Show your location" control. Requests the device position through

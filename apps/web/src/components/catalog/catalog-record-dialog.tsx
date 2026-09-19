@@ -10,7 +10,7 @@ import {
 	DialogTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { type ReactNode, useEffect, useEffectEvent, useState } from 'react';
+import type { ReactNode } from 'react';
 
 const CloseIcon = iconRegistry.actions.close.icon;
 
@@ -77,54 +77,4 @@ export function CatalogDialogCancel() {
 			</Button>
 		</DialogClose>
 	);
-}
-
-/**
- * The open state of a record dialog that serves two callers: its own Add trigger
- * and a row menu's Edit.
- *
- * Pass the controlled pair through and it defers to them; pass neither and it
- * keeps the state itself. Either way the page reads one `open` and calls one
- * `setOpen(false)` when a save succeeds.
- */
-export function useCatalogDialogOpen(
-	controlledOpen: boolean | undefined,
-	onOpenChange: ((open: boolean) => void) | undefined,
-): readonly [boolean, (next: boolean) => void] {
-	const [internalOpen, setInternalOpen] = useState(false);
-	const isControlled = controlledOpen !== undefined;
-
-	function setOpen(next: boolean) {
-		if (isControlled) {
-			onOpenChange?.(next);
-		} else {
-			setInternalOpen(next);
-		}
-	}
-
-	return [isControlled ? controlledOpen : internalOpen, setOpen];
-}
-
-/**
- * Refill a record dialog's form whenever it opens, and whenever the row behind
- * it changes while it is open.
- *
- * Opening is the only moment the defaults are right: a dialog mounted by a row
- * menu keeps its form instance across every row it edits.
- */
-export function useResetOnOpen(open: boolean, record: unknown, reset: () => void): void {
-	// `reset` is read at effect time and must not re-run the effect, which is
-	// what a latest-value ref written during render used to buy. That write is
-	// a render-phase ref access the compiler refuses, and `useEffectEvent` is
-	// the hook that shape predates (#779, group A).
-	const refill = useEffectEvent(() => {
-		reset();
-	});
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `record` is the trigger, not a read — a row that changes under an open dialog refills it.
-	useEffect(() => {
-		if (open) {
-			refill();
-		}
-	}, [open, record]);
 }

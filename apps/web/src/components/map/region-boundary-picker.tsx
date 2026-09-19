@@ -11,10 +11,10 @@ import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue, useState } from 'react';
 import { OptionRow, PickerFallback } from '../../components/pickers/entity-picker';
-import { useRegionFolders } from '../../hooks/queries/use-region-folders';
+import { type DrawGeometry, drawParts, toDrawGeometry } from '../../hooks/map/use-map-draw';
+import { useRegionFolderNames } from '../../hooks/map/use-region-folder-names';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
 import { regions } from '../../lib/collections/regions';
-import { type DrawGeometry, drawParts, toDrawGeometry } from './use-map-draw';
 
 /**
  * "Use one of the organization's regions as this polygon."
@@ -193,18 +193,6 @@ function RegionResults({
 			)}
 		</div>
 	);
-}
-
-/**
- * Region names repeat across folders — every district has a "Zone 1" — so the
- * folder is what tells two same-named results apart. Folders sync eagerly and
- * are few, so the whole list is read once and matched in memory; a non-suspense
- * query keeps the popover from suspending the page around it.
- */
-function useRegionFolderNames(): ReadonlyMap<string, string> {
-	const { folders } = useRegionFolders();
-
-	return new Map(folders.map((folder) => [folder.id, folder.name] as const));
 }
 
 function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, string>): string {

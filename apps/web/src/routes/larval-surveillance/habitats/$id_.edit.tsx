@@ -4,8 +4,8 @@ import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
-import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { toDrawGeometry } from '../../../hooks/map/use-map-draw';
 import {
 	type HabitatRedraw,
 	useHabitatMutations,

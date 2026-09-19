@@ -30,8 +30,8 @@ import type { Map as MapboxMap } from 'mapbox-gl';
  * puts on `event.target`, and a rule that reads true in a browser and false in
  * every test is worse than no rule.
  *
- * Shared by {@link import('./use-map-draw').useMapDraw} and
- * {@link import('./use-map-measure').useMapMeasure}, which are siblings rather
+ * Shared by {@link import('../../hooks/map/use-map-draw').useMapDraw} and
+ * {@link import('../../hooks/map/use-map-measure').useMapMeasure}, which are siblings rather
  * than one built on the other, so it lives here instead of in either of them.
  */
 export function isAimedAtMap(map: MapboxMap, target: EventTarget | null): boolean {

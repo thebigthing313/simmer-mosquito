@@ -1,6 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
+import {
+	seedAddressGeometryCache,
+	useAddressGeometry,
+} from '../../../hooks/gis/use-address-geometry';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import {
 	type AddressFields,
@@ -10,7 +14,6 @@ import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
 	AddressFormPage,
 	type AddressFormSave,

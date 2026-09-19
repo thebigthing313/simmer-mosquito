@@ -28,11 +28,6 @@ import {
 	MultiSelectFilter,
 	ToggleFilter,
 	toggle,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	useRegionOptions,
-	useSpeciesOptions,
 	whenAny,
 	whenOn,
 	whenText,
@@ -45,7 +40,13 @@ import {
 	SAMPLE_STATUS_COLORS,
 	type SampleTileFilters,
 } from '../../../components/map';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import {
 	addDaysToDateString,
@@ -55,11 +56,7 @@ import {
 } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
-import {
-	DATE_RANGE_COUNTING,
-	searchValidator,
-	useSearchFilters,
-} from '../../../lib/search-filters';
+import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 import { SampleMapCard } from '../-sample-map-card';
 import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
 import type { SampleStatus } from './-legend';

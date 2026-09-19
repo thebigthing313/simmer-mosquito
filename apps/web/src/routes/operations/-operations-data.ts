@@ -1,22 +1,12 @@
 import type { ControlType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { sessionFetch } from '@simmer-mosquito/sync';
-import { useQuery } from '@tanstack/react-query';
-import { getServerUrl } from '../../auth';
 import { resolveLinkedAddress } from '../../hooks/queries/address-view';
 import type {
 	MissionProgressCounts,
 	MissionStatus,
 	MissionStop,
 } from '../../hooks/queries/operations-view';
-import {
-	type SchemaCatalogListing,
-	useApplicationMethodRoster,
-	useBiocontrolMethodRoster,
-	useOutreachMethodRoster,
-	useSourceReductionMethodRoster,
-} from '../../hooks/queries/use-catalog-rosters';
-import { useMissionStops } from '../../hooks/queries/use-mission-stops';
+import type { SchemaCatalogListing } from '../../hooks/queries/use-catalog-rosters';
 import { addressPrimaryLabel } from '../../lib/address-format';
 import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
@@ -110,7 +100,7 @@ export function missionItemProgress(row: {
 	return row.completedAt === null ? 'pending' : 'completed';
 }
 
-function missionProgressCounts(
+export function missionProgressCounts(
 	items: readonly { readonly completedAt: Date | null; readonly skippedAt: Date | null }[],
 ): MissionProgressCounts {
 	let completed = 0;
@@ -199,97 +189,7 @@ export function formatOperationalDate(value: string): string {
 
 // --- reads ------------------------------------------------------------------
 
-/**
- * Every stop's real shape on a mission, by mission item id.
- *
- * The Electric shape streams only the centroid (ADR 0009), so a stop that is a
- * ditch run or a treated block arrives as a dot. The drawn shapes come from the
- * mission's own display endpoint instead — one request for the whole mission,
- * because both surfaces that draw stops draw all of a mission's at once.
- *
- * The cache key carries every item's `updatedAt`, so redrawing a stop, adding
- * one, or removing one refetches; nothing else does.
- */
-function useMissionItemShapes(
-	missionId: string | null,
-	items: readonly { readonly id: string; readonly updatedAt: Date }[],
-): ReadonlyMap<string, GeoJsonGeometry> {
-	const version = items
-		.map((item) => `${item.id}:${item.updatedAt.getTime()}`)
-		.sort()
-		.join('|');
-
-	const query = useQuery({
-		queryKey: ['mission-item-geometry', missionId ?? 'none', version],
-		queryFn: ({ signal }) =>
-			missionId === null || items.length === 0
-				? Promise.resolve([])
-				: fetchMissionItemGeometry(missionId, signal),
-		placeholderData: (previous) => previous,
-		staleTime: Number.POSITIVE_INFINITY,
-	});
-
-	return new Map((query.data ?? []).map((row) => [row.id, row.geojson] as const));
-}
-
-interface MissionItemGeometryRow {
-	readonly id: string;
-	readonly geojson: GeoJsonGeometry | null;
-}
-
-async function fetchMissionItemGeometry(
-	missionId: string,
-	signal: AbortSignal,
-): Promise<readonly { readonly id: string; readonly geojson: GeoJsonGeometry }[]> {
-	const url = new URL(`/map/missions/${missionId}/items`, getServerUrl());
-	const response = await sessionFetch(url, { signal });
-	if (response.status === 404) {
-		return [];
-	}
-	if (!response.ok) {
-		throw new Error(`Mission stop geometry request failed with ${response.status}`);
-	}
-
-	const body = (await response.json()) as {
-		readonly missionItems?: readonly MissionItemGeometryRow[];
-	};
-	return (body.missionItems ?? []).flatMap((row) =>
-		row.geojson === null ? [] : [{ id: row.id, geojson: row.geojson }],
-	);
-}
-
-/**
- * A mission's stops, joined to whatever names them and to the shapes they were
- * drawn as, ready to render or map.
- *
- * The joins are in `hooks/queries/use-mission-stops.ts`. What is composed here is
- * what a *page* adds to them: the shape each stop was actually drawn as, which
- * comes from a `/map/*` endpoint rather than a collection, and the ordinal, which
- * is a fact about the list rather than about any row in it.
- *
- * A stop owns its geometry outright — unlike an assignment stop, which is a
- * pointer at a trap or a habitat — so it always has a place on the map even when
- * nothing it links to has loaded. What the joins add is a *name*: the request it
- * came from, or failing that the address it sits at.
- */
-export function useMissionStopViews(missionId: string | null): {
-	readonly stops: readonly MissionStopView[];
-	readonly counts: MissionProgressCounts;
-	readonly isLoading: boolean;
-} {
-	const { stops: rows, isLoading, isReady } = useMissionStops(missionId);
-	const shapeById = useMissionItemShapes(missionId, rows);
-
-	const stops: readonly MissionStopView[] = rows.map((row, index) =>
-		toMissionStop(row, index, shapeById, isReady),
-	);
-
-	const counts = missionProgressCounts(stops);
-
-	return { stops, counts, isLoading };
-}
-
-function toMissionStop(
+export function toMissionStop(
 	row: MissionStop,
 	index: number,
 	shapeById: ReadonlyMap<string, GeoJsonGeometry>,
@@ -329,7 +229,7 @@ function toMissionStop(
 }
 
 /** Which of the four rosters a control type's method id points into. */
-function methodsForControlType(
+export function methodsForControlType(
 	controlType: ControlType | '',
 	rosters: {
 		readonly applicationMethods: readonly SchemaCatalogListing[];
@@ -350,31 +250,6 @@ function methodsForControlType(
 		default:
 			return [];
 	}
-}
-
-/**
- * The method catalog for a control type.
- *
- * `recommendedMethodId` and `plannedMethodId` are both polymorphic by control
- * type — the id points at a different table for each — so a form that lets the
- * type change has to re-source its options from here rather than hold one list.
- */
-export function useMethodsForControlType(controlType: ControlType | ''): {
-	readonly methods: readonly SchemaCatalogListing[];
-} {
-	const applicationMethods = useApplicationMethodRoster();
-	const sourceReductionMethods = useSourceReductionMethodRoster();
-	const biocontrolMethods = useBiocontrolMethodRoster();
-	const outreachMethods = useOutreachMethodRoster();
-
-	return {
-		methods: methodsForControlType(controlType, {
-			applicationMethods,
-			sourceReductionMethods,
-			biocontrolMethods,
-			outreachMethods,
-		}),
-	};
 }
 
 // --- writes -----------------------------------------------------------------
