@@ -3,10 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import type { ReactNode } from 'react';
-import { act, StrictMode } from 'react';
+import { act, StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExplorerEmptyReason } from '../../../../components/explorer/explorer-empty-state';
+import type { ExplorerPanel } from '../../../../hooks/explorer/use-explorer-panel';
 import type { MinimumRole } from '../../../../lib/write-access';
 import { stubRailViewportHeight } from '../../rail-viewport-stub';
 
@@ -516,22 +517,37 @@ describe('the inset the panel hands the map', () => {
 		const container = document.createElement('div');
 		document.body.append(container);
 		const root = createRoot(container);
-		const panel = { current: null as ReturnType<typeof useExplorerPanel> | null };
+		const panel = { current: null as ExplorerPanel | null };
 
-		function Probe() {
+		// Two things the compiler reads wrong about the obvious shape, measured
+		// on `eslint-plugin-react-hooks@7.1.1` (#1184). Writing `panel.current =
+		// state` during render is a mutation of the enclosing scope, so the state
+		// is handed out through a prop after the commit. And `state.stageRef`,
+		// which is the callback ref the page hands `OutletFullPageMap`, is read as
+		// a ref access in render when reached through the member expression, and
+		// so is `state.inset` beside it, because the object then holds a ref; the
+		// page itself destructures the hook's result, and so does this.
+		function Probe({ report }: { readonly report: (state: ExplorerPanel) => void }) {
 			const state = useExplorerPanel();
-			panel.current = state;
+			const { inset, stageRef } = state;
+			useEffect(() => {
+				report(state);
+			});
 			useFlyToSelection(fake.map as MapboxMap, selected);
-			useMapPadding(fake.map as MapboxMap, true, state.inset);
-			useMapExtentFit(fake.map as MapboxMap, true, { bounds: BOX }, state.inset);
-			return <div ref={state.stageRef} />;
+			useMapPadding(fake.map as MapboxMap, true, inset);
+			useMapExtentFit(fake.map as MapboxMap, true, { bounds: BOX }, inset);
+			return <div ref={stageRef} />;
 		}
 
 		act(() => {
 			root.render(
 				<StrictMode>
 					<QueryClientProvider client={new QueryClient()}>
-						<Probe />
+						<Probe
+							report={(state) => {
+								panel.current = state;
+							}}
+						/>
 					</QueryClientProvider>
 				</StrictMode>,
 			);

@@ -1,6 +1,6 @@
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../auth';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 
@@ -85,14 +85,14 @@ export function usePagedMapResource<TRow>({
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
 	readonly normalizeRow?: (row: TRow) => TRow;
 }): PagedMapResource<TRow> {
-	const [page, setPage] = useState(0);
 	const paramsKey = stableParamsKey(params);
-
-	// A new filter set (or a new viewport) always starts at the first page.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the request.
-	useEffect(() => {
-		setPage(0);
-	}, [paramsKey]);
+	// The page is held beside the request it was turned to. A new filter set
+	// (or a new viewport) always starts at the first page, so a page turned
+	// under another request reads as the first, and the request for the new
+	// filter set never goes out with the old page's offset.
+	const [held, setHeld] = useState({ paramsKey, page: 0 });
+	const page = held.paramsKey === paramsKey ? held.page : 0;
+	const setPage = (next: number) => setHeld({ paramsKey, page: next });
 
 	const query = useQuery({
 		enabled,
@@ -103,12 +103,14 @@ export function usePagedMapResource<TRow>({
 
 	const total = query.data?.total ?? 0;
 	const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
-	// Clamp if the row count shrinks under the current page (e.g. after a delete).
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
+	// Clamp if the row count shrinks under the current page (a delete on the
+	// last page), in this render rather than an effect one later: React
+	// re-renders before committing, so the empty page is never drawn. It cannot
+	// be a plain derivation, because the page is part of the query key and the
+	// total that clamps it arrives on the query it keys.
+	if (page > pageCount - 1) {
+		setPage(pageCount - 1);
+	}
 
 	const rows = normalized(query.data?.rows, normalizeRow);
 	// `status` alone is not enough: `placeholderData` keeps it at `success` while
