@@ -5,7 +5,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { TableCell, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useTagMutations } from '../../hooks/mutations/use-tag-mutations';
 import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
@@ -24,11 +24,14 @@ export function TagEditorTableRow({
 	readonly tag: TagRecord;
 }) {
 	const mutations = useTagMutations();
-	const [values, setValues] = useState<TagFormValues>(() => tagFormValues(tag));
-
-	useEffect(() => {
-		setValues(tagFormValues(tag));
-	}, [tag]);
+	// The draft is held beside the row it was edited from. A row that changes
+	// under the editor (a sync) starts a fresh draft, with no reset and no
+	// render drawing the old draft over the new row.
+	const [held, setHeld] = useState<{ readonly tag: TagRecord; readonly values: TagFormValues }>(
+		() => ({ tag, values: tagFormValues(tag) }),
+	);
+	const values = held.tag === tag ? held.values : tagFormValues(tag);
+	const setValues = (next: TagFormValues) => setHeld({ tag, values: next });
 
 	function saveTag() {
 		try {

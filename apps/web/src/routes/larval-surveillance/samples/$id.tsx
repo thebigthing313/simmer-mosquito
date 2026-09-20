@@ -4,7 +4,6 @@ import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -14,24 +13,20 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input';
-import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
-import {
-	CalendarIcon,
-	iconRegistry,
-	KeyboardIcon,
-	Loader2Icon,
-	PlusIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { CalendarIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useEffect, useId, useState } from 'react';
+import { useState } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { SampleKeyEntryDialog } from '../../../components/larval-surveillance/sample-key-entry';
+import { DispositionSection } from '../../../components/larval-surveillance/samples/disposition-section';
+import {
+	AddSpeciesRow,
+	type SampleSpeciesEntry,
+	SpeciesResultList,
+} from '../../../components/larval-surveillance/samples/species-result-list';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import {
 	DetailPageShell,
@@ -46,10 +41,7 @@ import {
 } from '../../../hooks/larval-surveillance/use-sample-geo-context';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
-import {
-	type SampleSpeciesFields,
-	useSampleSpeciesMutations,
-} from '../../../hooks/mutations/use-sample-species-mutations';
+import { useSampleSpeciesMutations } from '../../../hooks/mutations/use-sample-species-mutations';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
@@ -107,32 +99,6 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const InspectionIcon = iconRegistry.entities.inspection.icon;
 const HabitatIcon = iconRegistry.entities.habitat.icon;
-
-/**
- * One identification as this page holds it.
- *
- * The same four fields `useSampleSpeciesMutations` compares against, plus the
- * id — so a count correction can be handed straight to `save` without the page
- * rebuilding the current values from somewhere else.
- */
-interface SampleSpeciesEntry extends SampleSpeciesFields {
-	readonly id: string;
-}
-
-/**
- * The four disposition writes, named.
- *
- * A record of callbacks rather than one `onPatch` taking a draft mutator: each
- * of these is a different domain command, and the control that fires it is the
- * only thing that knows which.
- */
-interface SampleDisposition {
-	readonly setZeroLarvae: (next: boolean) => Promise<void>;
-	readonly setNonMosquito: (next: boolean) => Promise<void>;
-	readonly setUnidentifiableReason: (next: string) => Promise<void>;
-	readonly rename: (next: string) => Promise<void>;
-}
-
 // Roles that may read but not manage sample results — they get a read-only view.
 const readOnlyRoles = new Set(['viewer']);
 
@@ -538,375 +504,6 @@ function IdentificationCard({
 	);
 }
 
-function SpeciesResultList({
-	rows,
-	total,
-	nameById,
-	canManage,
-	onUpdateCount,
-	onRemove,
-}: {
-	readonly rows: readonly SampleSpeciesEntry[];
-	readonly total: number;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly canManage: boolean;
-	readonly onUpdateCount: (rowId: string, count: number) => Promise<void>;
-	readonly onRemove: (rowId: string) => Promise<void>;
-}) {
-	if (rows.length === 0) {
-		return (
-			<div className="grid gap-1.5">
-				<SectionLabel>Identified species</SectionLabel>
-				<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-4 text-muted-foreground text-sm">
-					No species identified yet.
-					{canManage ? ' Add one below, or mark the sample’s disposition.' : ''}
-				</p>
-			</div>
-		);
-	}
-
-	return (
-		<div className="grid gap-1.5">
-			<div className="flex items-baseline justify-between gap-3">
-				<SectionLabel>Identified species</SectionLabel>
-				<span className="text-muted-foreground text-xs">
-					{total.toLocaleString('en-US')} larvae total
-				</span>
-			</div>
-			<ul className="grid gap-2">
-				{rows.map((row) => (
-					<SpeciesResultRow
-						canManage={canManage}
-						key={row.id}
-						name={nameById.get(row.speciesId) ?? 'Unknown species'}
-						onRemove={onRemove}
-						onUpdateCount={onUpdateCount}
-						row={row}
-					/>
-				))}
-			</ul>
-		</div>
-	);
-}
-
-function SpeciesResultRow({
-	row,
-	name,
-	canManage,
-	onUpdateCount,
-	onRemove,
-}: {
-	readonly row: SampleSpeciesEntry;
-	readonly name: string;
-	readonly canManage: boolean;
-	readonly onUpdateCount: (rowId: string, count: number) => Promise<void>;
-	readonly onRemove: (rowId: string) => Promise<void>;
-}) {
-	const [draft, setDraft] = useState<number | null>(row.larvaeCount);
-	const [busy, setBusy] = useState(false);
-
-	// Keep the input in sync when the persisted value changes out from under us.
-	useEffect(() => {
-		setDraft(row.larvaeCount);
-	}, [row.larvaeCount]);
-
-	// Commits on blur, Enter, and stepper click; a blank or negative entry reverts to
-	// the stored count rather than writing a value the server would reject.
-	const commit = async (next: number | null) => {
-		if (next === null || !Number.isFinite(next) || next < 0) {
-			setDraft(row.larvaeCount);
-			return;
-		}
-		const resolved = Math.trunc(next);
-		setDraft(resolved);
-		if (resolved === row.larvaeCount) {
-			return;
-		}
-		setBusy(true);
-		await onUpdateCount(row.id, resolved).finally(() => setBusy(false));
-	};
-
-	const remove = async () => {
-		setBusy(true);
-		await onRemove(row.id).finally(() => setBusy(false));
-	};
-
-	return (
-		<li className="flex items-center gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2">
-			<SpeciesIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-			<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm italic">
-				{name}
-			</span>
-			{canManage ? (
-				<>
-					<NumberInput
-						aria-label={`Larvae count for ${name}`}
-						className="w-28"
-						disabled={busy}
-						min={0}
-						onCommit={(next) => void commit(next)}
-						onValueChange={setDraft}
-						value={draft}
-					/>
-					<Button
-						aria-label={`Remove ${name}`}
-						disabled={busy}
-						onClick={() => void remove()}
-						size="icon-xs"
-						title="Remove Species"
-						variant="ghost"
-					>
-						<XIcon aria-hidden="true" />
-					</Button>
-				</>
-			) : (
-				<Badge tone="success" variant="outline">
-					<span className="tabular-nums">{row.larvaeCount.toLocaleString('en-US')}</span> larvae
-				</Badge>
-			)}
-		</li>
-	);
-}
-
-function AddSpeciesRow({
-	options,
-	takenSpeciesIds,
-	onAdd,
-}: {
-	readonly options: readonly SpeciesOption[];
-	readonly takenSpeciesIds: ReadonlySet<string>;
-	readonly onAdd: (speciesId: string, count: number) => Promise<void>;
-}) {
-	const [speciesId, setSpeciesId] = useState<string | null>(null);
-	const [count, setCount] = useState<number | null>(1);
-	const [busy, setBusy] = useState(false);
-
-	// `sample_species` holds one row per species, so anything already identified is
-	// edited in the list above rather than offered again here.
-	const available = options
-		.filter((option) => !takenSpeciesIds.has(option.id))
-		.map((option) => ({ value: option.id, label: option.label }));
-
-	const canAdd =
-		speciesId !== null && count !== null && Number.isFinite(count) && count >= 0 && !busy;
-
-	const submit = async () => {
-		if (speciesId === null || count === null || !Number.isFinite(count) || count < 0 || busy) {
-			return;
-		}
-		setBusy(true);
-		await onAdd(speciesId, Math.trunc(count)).finally(() => setBusy(false));
-		setSpeciesId(null);
-		setCount(1);
-	};
-
-	return (
-		<div className="grid gap-1.5">
-			<SectionLabel>Add species</SectionLabel>
-			<div className="flex flex-wrap items-center gap-2">
-				<div className="min-w-48 flex-1">
-					<Autocomplete
-						aria-label="Choose species"
-						onValueChange={setSpeciesId}
-						options={available}
-						placeholder="Search species…"
-						renderOption={renderSpeciesOption}
-						renderSelectedValue={renderSpeciesOption}
-						value={speciesId}
-					/>
-				</div>
-				<NumberInput
-					aria-label="Larvae count"
-					className="w-28"
-					min={0}
-					onKeyDown={(event) => {
-						if (event.key === 'Enter' && canAdd) {
-							event.preventDefault();
-							void submit();
-						}
-					}}
-					onValueChange={setCount}
-					placeholder="Count"
-					value={count}
-				/>
-				<Button disabled={!canAdd} onClick={() => void submit()} size="sm" type="button">
-					{busy ? (
-						<Loader2Icon aria-hidden="true" className="animate-spin" />
-					) : (
-						<PlusIcon aria-hidden="true" />
-					)}
-					Add
-				</Button>
-			</div>
-		</div>
-	);
-}
-
-function DispositionSection({
-	isZeroLarvae,
-	hasNonMosquito,
-	unidentifiableReason,
-	displayName,
-	hasSpecies,
-	canManage,
-	disposition,
-}: {
-	readonly isZeroLarvae: boolean;
-	readonly hasNonMosquito: boolean;
-	readonly unidentifiableReason: string | null;
-	readonly displayName: string | null;
-	readonly hasSpecies: boolean;
-	readonly canManage: boolean;
-	readonly disposition: SampleDisposition;
-}) {
-	return (
-		<div className="grid gap-3 border-border/50 border-t pt-4">
-			<SectionLabel>Disposition</SectionLabel>
-
-			{hasSpecies ? (
-				<p className="m-0 text-muted-foreground text-xs">
-					A sample with identified species always reads as <em>Identified</em>, regardless of the
-					flags below.
-				</p>
-			) : null}
-
-			<SwitchRow
-				checked={isZeroLarvae}
-				description="Examined and held no mosquito larvae."
-				disabled={!canManage || hasSpecies}
-				label="No larvae found"
-				onCheckedChange={(next) => void disposition.setZeroLarvae(next)}
-			/>
-			<SwitchRow
-				checked={hasNonMosquito}
-				description="Contains non-mosquito organisms or debris."
-				disabled={!canManage}
-				label="Non-mosquito material"
-				onCheckedChange={(next) => void disposition.setNonMosquito(next)}
-			/>
-
-			<TextPatchField
-				canManage={canManage}
-				description="Note why the specimens could not be identified. Clearing it removes the flag."
-				label="Unidentifiable reason"
-				onCommit={(value) => disposition.setUnidentifiableReason(value)}
-				placeholder="e.g. specimens too damaged to key out"
-				value={unidentifiableReason ?? ''}
-			/>
-
-			<TextPatchField
-				canManage={canManage}
-				description="An optional label to identify this sample in lists."
-				label="Sample label"
-				onCommit={(value) => disposition.rename(value)}
-				placeholder="e.g. North culvert, jar 3"
-				value={displayName ?? ''}
-			/>
-		</div>
-	);
-}
-
-function SwitchRow({
-	label,
-	description,
-	checked,
-	disabled,
-	onCheckedChange,
-}: {
-	readonly label: string;
-	readonly description: string;
-	readonly checked: boolean;
-	readonly disabled: boolean;
-	readonly onCheckedChange: (next: boolean) => void;
-}) {
-	// Radix Switch renders a button, not a native input, so associate the text via
-	// aria-labelledby rather than nesting the control in a <label>.
-	const labelId = `switch-${useId()}`;
-	return (
-		<div className="flex items-start justify-between gap-3">
-			<span className="grid gap-0.5" id={labelId}>
-				<span className="font-medium text-foreground text-sm">{label}</span>
-				<span className="text-muted-foreground text-xs">{description}</span>
-			</span>
-			<Switch
-				aria-labelledby={labelId}
-				checked={checked}
-				className="mt-0.5"
-				disabled={disabled}
-				onCheckedChange={onCheckedChange}
-			/>
-		</div>
-	);
-}
-
-function TextPatchField({
-	label,
-	description,
-	value,
-	placeholder,
-	canManage,
-	onCommit,
-}: {
-	readonly label: string;
-	readonly description: string;
-	readonly value: string;
-	readonly placeholder: string;
-	readonly canManage: boolean;
-	readonly onCommit: (value: string) => Promise<void>;
-}) {
-	const [draft, setDraft] = useState(value);
-	const [busy, setBusy] = useState(false);
-
-	useEffect(() => {
-		setDraft(value);
-	}, [value]);
-
-	const commit = async () => {
-		const next = draft.trim();
-		if (next === value.trim()) {
-			setDraft(value);
-			return;
-		}
-		setBusy(true);
-		await onCommit(next).finally(() => setBusy(false));
-	};
-
-	if (!canManage) {
-		if (value.trim().length === 0) {
-			return null;
-		}
-		return (
-			<div className="grid gap-1">
-				<SectionLabel>{label}</SectionLabel>
-				<p className="m-0 text-foreground text-sm">{value}</p>
-			</div>
-		);
-	}
-
-	return (
-		<div className="grid gap-1.5">
-			<span className="font-medium text-foreground text-sm">{label}</span>
-			<Input
-				aria-label={label}
-				disabled={busy}
-				onBlur={() => void commit()}
-				onChange={(event) => setDraft(event.target.value)}
-				onKeyDown={(event) => {
-					if (event.key === 'Enter') {
-						event.preventDefault();
-						void commit();
-					}
-				}}
-				placeholder={placeholder}
-				value={draft}
-			/>
-			<span className="text-muted-foreground text-xs">{description}</span>
-		</div>
-	);
-}
-
-// --- context ----------------------------------------------------------------
-
 function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 	const timeZone = useOrganizationTimeZone();
 	return (
@@ -947,26 +544,6 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 			</CardContent>
 		</Card>
 	);
-}
-
-function SectionLabel({ children }: { readonly children: ReactNode }) {
-	return (
-		<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-			{children}
-		</span>
-	);
-}
-
-// --- species catalog --------------------------------------------------------
-
-interface SpeciesOption {
-	readonly id: string;
-	readonly label: string;
-}
-
-/** Species names are binomials, so they read italic wherever they appear. */
-function renderSpeciesOption(option: { readonly label: string }) {
-	return <span className="italic">{option.label}</span>;
 }
 
 // --- presentational states --------------------------------------------------

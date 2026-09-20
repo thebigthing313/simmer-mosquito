@@ -17,9 +17,11 @@ type InvitationState =
 	| { readonly status: 'ready'; readonly email: string }
 	| { readonly status: 'invalid' };
 
+const INVALID: InvitationState = { status: 'invalid' };
+
 export function AcceptInvitationPage({ token }: { readonly token: string }) {
 	const onAuthenticated = useAuthSuccess();
-	const [invitation, setInvitation] = useState<InvitationState>({ status: 'loading' });
+	const [fetched, setInvitation] = useState<InvitationState>({ status: 'loading' });
 	const [firstName, setFirstName] = useState('');
 	const [lastName, setLastName] = useState('');
 	const [password, setPassword] = useState('');
@@ -28,13 +30,16 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
 
-	useEffect(() => {
-		let active = true;
+	// A blank token is invalid with nothing to ask the server, so its answer is
+	// read here and the effect fetches for the rest.
+	const hasToken = token.trim() !== '';
+	const invitation: InvitationState = hasToken ? fetched : INVALID;
 
-		if (token.trim() === '') {
-			setInvitation({ status: 'invalid' });
+	useEffect(() => {
+		if (!hasToken) {
 			return;
 		}
+		let active = true;
 
 		void fetchInvitation(token).then((result) => {
 			if (!active) {
@@ -51,7 +56,7 @@ export function AcceptInvitationPage({ token }: { readonly token: string }) {
 		return () => {
 			active = false;
 		};
-	}, [token]);
+	}, [token, hasToken]);
 
 	if (step !== null) {
 		return <PendingAuthFlow initialStep={step} redirectTo="/" onAuthenticated={onAuthenticated} />;

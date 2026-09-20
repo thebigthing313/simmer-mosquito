@@ -230,6 +230,11 @@ the list would drop every record behind it, measured at 215 records against
 129 on one Habitat viewport. Opening and closing a panel is not a change of
 viewport, and must not be a change of result set.
 
+The box is held beside the map it was read from, and a box read from another
+GL instance reads as none. The effect used to clear it when the map went
+away, which is a `set-state-in-effect` finding (#1185) and one render drawing
+the old box against no map; `useMapReadout` holds its reading the same way.
+
 ### map
 
 #### useMapExtentFit
@@ -558,6 +563,13 @@ the moved id and the placement, because a caller that writes the new order
 into its collection, which the route and assignment planners do so the rows
 and the overlay agree, needs `order`, and it is the same list the hook is
 already displaying.
+
+The overlay is dropped in the render that sees the synced order agree with
+it, as a conditional `setState` during render rather than an effect one
+render later (#1185). It is a write and not a derivation on purpose: an
+overlay left in place once matched would re-sort the next order sync sends,
+which is another device's move. The suite under `hooks/stop-order` holds
+both halves.
 
 ### catalog
 
@@ -1602,6 +1614,11 @@ switches the session to.
 
 The design-token screen's one read: what the stylesheet resolved each custom
 property to, which is what a person opens the screen to look up.
+
+Read in a lazy `useState` initializer rather than an effect, because the
+value never changes after mount and the effect drew one render with no tokens
+(#1185). A caller that hands in a different list is re-read in the render
+that does, compared by content so a list written inline does not loop.
 
 ## apps/mobile
 

@@ -92,6 +92,14 @@ an expanded one for a second.
 
 ### auth
 
+#### AcceptInvitationPage
+
+A blank token is invalid with nothing to ask the server, so that answer is
+derived from the token and the effect fetches for the rest. Setting it from
+inside the fetch effect was the one synchronous `setState` there, a
+`set-state-in-effect` finding (#1185), and the `active` flag guards the
+asynchronous half alone, which is all it ever guarded.
+
 #### NewPasswordFields
 
 The password is always confirmed and the requirement list answers live. Before
@@ -300,6 +308,25 @@ at again; the control pickers exclude.
 
 The latest-value ref that kept the open-time rows out of the effect was written
 during render, which the React Compiler refuses (#779, group A).
+
+#### SpeciesResultList and DispositionSection
+
+Split out of `samples/$id.tsx` in #1185, which was 995 lines against the
+600-line limit, along the seam the route already had: the page owns the two
+live queries and the commands, and hands the list its rows and three writes
+and the section its four values and four writes. The two inline editors in
+them, the count on a species row and the text fields under disposition, hold
+their draft beside the stored value it was typed over, so a value that
+changes out from under the input (a sync from another device) reads as the
+new value with no reset. Each was an effect that set the draft one render
+late, the frame in which the old draft drew over the new value.
+
+`InlineEditField` under `stop-order` is the same idea with a mode: the draft
+exists only while editing and the idle field shows `value` itself, so a
+synced change lands without a reset. `TagEditorTableRow` holds its draft
+beside the row it was edited from, and `ColorPicker` in `packages/ui-web`
+holds the custom hex beside the selection it was typed over, keeping the
+typed text when the selection is cleared, which is what its effect did.
 
 ### map
 
