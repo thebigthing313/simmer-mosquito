@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import type { SearchResult } from '@simmer-mosquito/domain';
 import { act, renderHook } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { DestinationResolution } from '../../../../components/search/search-destinations';
 import { useDeferredOpen } from '../../../../hooks/search/use-deferred-open';
@@ -18,9 +19,11 @@ const COMMENT: SearchResult = {
 };
 
 /**
- * The wait ends in the render that sees the answer, not one later. Each render
- * is recorded with the value the hook returned, so a frame drawing the row as
- * pending against an answer that already exists would be in the list.
+ * The wait ends in the render that sees the answer, not one later. Each
+ * committed render is recorded with the value the hook returned, from a layout
+ * effect so a render React throws away before commit is not in the list, and a
+ * frame drawing the row as pending against an answer that already exists would
+ * be in it.
  */
 function renderDeferred(initial: DestinationResolution<string>) {
 	const open = vi.fn<(destination: string) => void>();
@@ -28,7 +31,10 @@ function renderDeferred(initial: DestinationResolution<string>) {
 	let resolution = initial;
 	const rendered = renderHook(() => {
 		const deferred = useDeferredOpen(() => resolution, open);
-		frames.push(deferred.waitingValue);
+		const { waitingValue } = deferred;
+		useLayoutEffect(() => {
+			frames.push(waitingValue);
+		});
 		return deferred;
 	});
 	return {
@@ -62,8 +68,7 @@ describe('a result whose destination is pending', () => {
 		act(() => deferred.answer({ status: 'ready', destination: '/routes/trap' }));
 		// The render that read the answer is thrown away before it commits, so
 		// what reaches the screen is the cleared wait and nothing before it.
-		expect(deferred.frames.at(-1)).toBeUndefined();
-		expect(deferred.frames.filter((frame) => frame !== undefined)).toHaveLength(1);
+		expect(deferred.frames).toEqual([undefined]);
 	});
 
 	it('opens the answer once, not on every later render', () => {
