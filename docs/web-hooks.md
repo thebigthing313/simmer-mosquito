@@ -660,6 +660,21 @@ It listens on `move`, not `rotate`. Every camera change fires `move`, while
 that arrives through a fit or a jump can land without one and leave the
 arrow describing a camera the map no longer has.
 
+#### usePlaceSuggestions
+
+The debounced suggest request and the four states it drives, results,
+loading, error and the selection in flight, came out of `MapSearch` when the
+idle reset moved into render (#1183) and pushed the component over fallow's
+complexity threshold. Going idle drops all four in the render that notices: a
+`wasSearching` state holds the last condition, and a change to idle sets all
+four, which React re-renders before committing. A derivation was measured for
+those four and rejected, because it brings the old rows back the moment the
+same condition holds again, and a query typed back up to the minimum would
+draw the previous query's places for the debounce window. The retrieve step
+stays in the component, since it is what flies the map, and reaches the
+selection state through `beginSelect`, `failSelect` and `endSelect` rather
+than through the setters.
+
 #### useRegionFolderNames
 
 Region names repeat across folders, since every district has a "Zone 1", so

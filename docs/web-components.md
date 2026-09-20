@@ -310,13 +310,10 @@ arrow-key highlight is held beside the results it was chosen from, and an
 index chosen against another set reads as none, so a new set of suggestions
 starts unselected without a render in which Enter would fly the map to a
 place the reader never saw. The four request states, results, loading, error
-and the selection in flight, are dropped when the box goes idle, in the
-render that notices: a `wasSearching` state holds the last condition, and a
-change to idle sets all four, which React re-renders before committing. A
-derivation was measured for those four and rejected, because it brings the
-old rows back the moment the same condition holds again, and a query typed
-back up to the minimum would draw the previous query's places for the
-debounce window.
+and the selection in flight, belong to `usePlaceSuggestions` since the
+idle reset moved there, with the reasoning under that heading in
+`docs/web-hooks.md`. The component decides whether there is a query to
+answer and the hook owns the answer.
 
 ### my-organization
 
