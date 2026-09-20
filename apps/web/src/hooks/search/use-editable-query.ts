@@ -11,8 +11,13 @@ export function useEditableQuery(
 	urlQuery: string,
 	navigate: ReturnType<typeof useNavigate>,
 ): [string, (value: string) => void] {
-	const [draft, setDraft] = useState(urlQuery);
-	useEffect(() => setDraft(urlQuery), [urlQuery]);
+	// The draft is held beside the URL query it was typed against. A URL query
+	// the draft was not typed against is a fresh one, and the draft is that
+	// query until the reader types, which is the reset an effect used to make
+	// one render late.
+	const [held, setHeld] = useState({ urlQuery, draft: urlQuery });
+	const draft = held.urlQuery === urlQuery ? held.draft : urlQuery;
+	const setDraft = (value: string) => setHeld({ urlQuery, draft: value });
 	const { debounced: typed } = useDebouncedValue(draft, SEARCH_QUERY_DEBOUNCE_MS);
 
 	useEffect(() => {

@@ -301,6 +301,23 @@ at again; the control pickers exclude.
 The latest-value ref that kept the open-time rows out of the effect was written
 during render, which the React Compiler refuses (#779, group A).
 
+### map
+
+#### MapSearch
+
+Two resets that were effects are read off the state they key on (#1183). The
+arrow-key highlight is held beside the results it was chosen from, and an
+index chosen against another set reads as none, so a new set of suggestions
+starts unselected without a render in which Enter would fly the map to a
+place the reader never saw. The four request states, results, loading, error
+and the selection in flight, are dropped when the box goes idle, in the
+render that notices: a `wasSearching` state holds the last condition, and a
+change to idle sets all four, which React re-renders before committing. A
+derivation was measured for those four and rejected, because it brings the
+old rows back the moment the same condition holds again, and a query typed
+back up to the minimum would draw the previous query's places for the
+debounce window.
+
 ### my-organization
 
 #### ControlAssetLookupList

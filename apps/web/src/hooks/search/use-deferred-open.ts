@@ -21,26 +21,37 @@ export function useDeferredOpen<TDestination>(
 	open: (destination: TDestination) => void,
 ): DeferredOpen {
 	const [waiting, setWaiting] = useState<SearchResult | undefined>(undefined);
+	// The answer a held row got, as its own state so the effect that opens it
+	// has something to key on once the wait is over. It is never cleared: the
+	// effect runs once per answer because each answer is a fresh object, and
+	// the row it names is already open by the time a later render reads it.
+	const [answered, setAnswered] = useState<{ readonly destination: TDestination } | undefined>(
+		undefined,
+	);
 
 	const held = waiting === undefined ? undefined : resolve(waiting);
+	// The lookup answered, so the wait ends in this render rather than one
+	// later: React re-renders before committing, and the pending row is never
+	// drawn against an answer that already exists.
+	if (held !== undefined && held.status !== 'pending') {
+		setWaiting(undefined);
+		if (held.status === 'ready') {
+			setAnswered({ destination: held.destination });
+		}
+	}
 
 	// `open` navigates, so it runs in an effect rather than during the render that
 	// noticed the lookup had answered. It is a fresh closure every render and the
 	// effect must not re-run on it, which is what `useEffectEvent` is for.
-	const openHeld = useEffectEvent((destination: TDestination) => {
+	const openAnswered = useEffectEvent((destination: TDestination) => {
 		open(destination);
 	});
 
 	useEffect(() => {
-		if (held === undefined || held.status === 'pending') {
-			return;
+		if (answered !== undefined) {
+			openAnswered(answered.destination);
 		}
-
-		setWaiting(undefined);
-		if (held.status === 'ready') {
-			openHeld(held.destination);
-		}
-	}, [held]);
+	}, [answered]);
 
 	return {
 		waitingValue: waiting === undefined ? undefined : searchResultValue(waiting),

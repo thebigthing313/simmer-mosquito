@@ -1,5 +1,5 @@
 import { type SearchResult, searchResultValue } from '@simmer-mosquito/domain';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { AuthMe } from '../../auth';
 import {
 	shellSearchCandidates,
@@ -118,8 +118,9 @@ export function usePaletteContent(
 	// whose row has unmounted is an item-unregister cleanup guarded on a node
 	// captured at cleanup time and scheduled into a keyed slot: when several items
 	// unmount in one commit the last cleanup overwrites the slot and the reset
-	// never fires. So it is controlled here.
-	const [value, setValue] = useState('');
+	// never fires. So it is controlled here, held beside the row set it was
+	// picked from; the swap that resets it is below, once the rows are known.
+	const [picked, setPicked] = useState({ rows: '', value: '' });
 
 	const { routes: routeCandidates, actions: actionCandidates } = shellSearchCandidates(auth);
 	const routeTypes = useRouteTypeIndex();
@@ -169,11 +170,13 @@ export function usePaletteContent(
 	 * both were tried. Enter is unaffected, because cmdk's Enter path queries the
 	 * DOM for `[cmdk-item][aria-selected="true"]` rather than reading its state.
 	 * Fixing it properly is a change to cmdk.
+	 *
+	 * A pick made against another row set is not read: the selection is the
+	 * first row until the reader moves it. That is the reset an effect used to
+	 * make one render late, with the old row selected against the new rows.
 	 */
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `rowValues` is the joined row set, and the rows can swap while `firstValue` stays the same
-	useEffect(() => {
-		setValue(firstValue);
-	}, [rowValues, firstValue]);
+	const value = picked.rows === rowValues ? picked.value : firstValue;
+	const setValue = (next: string) => setPicked({ rows: rowValues, value: next });
 
 	const empty =
 		query !== '' &&

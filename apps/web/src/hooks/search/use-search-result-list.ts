@@ -1,6 +1,11 @@
 import { SEARCH_MAX_OFFSET, type SearchDocumentClass } from '@simmer-mosquito/domain';
-import { useEffect, useState } from 'react';
-import { PAGE_SIZE, useAccumulatedPages } from './use-accumulated-pages';
+import { useState } from 'react';
+import {
+	isSameList,
+	PAGE_SIZE,
+	type SearchListKey,
+	useAccumulatedPages,
+} from './use-accumulated-pages';
 import { useGlobalSearch } from './use-global-search';
 import { useGrowOnVisible } from './use-grow-on-visible';
 
@@ -10,9 +15,17 @@ import { useGrowOnVisible } from './use-grow-on-visible';
  * that loads the next slice when it scrolls into view.
  */
 export function useSearchResultList(query: string, documentClass: SearchDocumentClass | undefined) {
-	const [slices, setSlices] = useState(1);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `query` and `documentClass` are this hook's parameters, not outer scope; dropping them keeps the previous query's slice count
-	useEffect(() => setSlices(1), [query, documentClass]);
+	// The slice count is held beside the query it was grown for. A different
+	// query starts at one slice, which is the reset an effect used to make one
+	// render late, with the old query's offset requested in between.
+	const list: SearchListKey = { query, documentClass };
+	const [held, setHeld] = useState({ list, slices: 1 });
+	const slices = isSameList(held.list, list) ? held.slices : 1;
+	const growSlices = () =>
+		setHeld((current) => ({
+			list,
+			slices: (isSameList(current.list, list) ? current.slices : 1) + 1,
+		}));
 
 	const nextOffset = (slices - 1) * PAGE_SIZE;
 	const first = useGlobalSearch({
@@ -54,9 +67,7 @@ export function useSearchResultList(query: string, documentClass: SearchDocument
 		!next.isError &&
 		slices * PAGE_SIZE <= SEARCH_MAX_OFFSET;
 
-	const sentinel = useGrowOnVisible(hasMore && !next.isFetching, () =>
-		setSlices((count) => count + 1),
-	);
+	const sentinel = useGrowOnVisible(hasMore && !next.isFetching, growSlices);
 
 	return {
 		counts: first.data?.counts ?? { records: 0, comments: 0 },

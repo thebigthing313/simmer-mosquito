@@ -56,8 +56,20 @@ export function MapSearch({
 	const [isLoading, setIsLoading] = useState(false);
 	const [selectingId, setSelectingId] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	/** Which suggestion the arrow keys are on. -1 is none, and typing returns to it. */
-	const [activeIndex, setActiveIndex] = useState(-1);
+	/**
+	 * Which suggestion the arrow keys are on, held beside the results it was
+	 * chosen from. -1 is none, and typing returns to it. A new set of
+	 * suggestions starts unselected: the old index would point at a different
+	 * place, and Enter would fly the map somewhere the reader never saw. So an
+	 * index chosen against another set is not read, which is the reset an
+	 * effect used to make one render late.
+	 */
+	const [active, setActive] = useState<{
+		readonly results: readonly MapboxSearchResult[];
+		readonly index: number;
+	}>({ results: [], index: -1 });
+	const activeIndex = active.results === results ? active.index : -1;
+	const setActiveIndex = (index: number) => setActive({ results, index });
 
 	const listId = useId();
 	const panelId = `${listId}-panel`;
@@ -80,12 +92,24 @@ export function MapSearch({
 	// is how `aria-owns` ends up naming a listbox that is not on screen.
 	const panel = searchPanel({ error, isLoading, query: trimmedQuery, results });
 
-	useEffect(() => {
-		if (!showResults || trimmedQuery.length < MIN_QUERY_LENGTH || !canSearch) {
+	// Whether there is a query to answer. Going idle drops the answer and the
+	// request state with it, in the render that notices rather than an effect
+	// one render later: React re-renders before committing, so the stale rows
+	// are never drawn under a closed panel or a query too short to have them.
+	const searching = showResults && trimmedQuery.length >= MIN_QUERY_LENGTH && canSearch;
+	const [wasSearching, setWasSearching] = useState(searching);
+	if (wasSearching !== searching) {
+		setWasSearching(searching);
+		if (!searching) {
 			setResults([]);
 			setIsLoading(false);
 			setError(null);
 			setSelectingId(null);
+		}
+	}
+
+	useEffect(() => {
+		if (!searching) {
 			return;
 		}
 
@@ -128,22 +152,14 @@ export function MapSearch({
 			window.clearTimeout(timeout);
 			controller.abort();
 		};
-	}, [canSearch, map, showResults, trimmedQuery]);
+	}, [map, searching, trimmedQuery]);
 
 	useEffect(() => {
 		return () => retrieveController.current?.abort();
 	}, []);
 
-	// A new set of suggestions starts unselected: the old index would point at a
-	// different place, and Enter would fly the map somewhere the reader never saw.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the results.
-	useEffect(() => {
-		setActiveIndex(-1);
-	}, [results]);
-
 	function resetSearch() {
 		retrieveController.current?.abort();
-		setActiveIndex(-1);
 		setSelectingId(null);
 		setQuery('');
 		setResults([]);
@@ -157,9 +173,7 @@ export function MapSearch({
 			return;
 		}
 		if (results.length > 0) {
-			setActiveIndex((previous) =>
-				stepIndex(previous, key === 'ArrowDown' ? 1 : -1, results.length),
-			);
+			setActiveIndex(stepIndex(activeIndex, key === 'ArrowDown' ? 1 : -1, results.length));
 		}
 	}
 
