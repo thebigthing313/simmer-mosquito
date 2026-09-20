@@ -9,7 +9,8 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { HomeIcon, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useResetOnOpen } from '../../../hooks/catalog/use-reset-on-open';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { AddressPicker } from '../../pickers/address-picker';
 import { updateHabitatAddress } from './route-data';
@@ -41,12 +42,10 @@ export function RouteStopAddressDialog({
 	const [error, setError] = useState<string | null>(null);
 
 	// Re-seed when the dialog (re)opens, it's reused across stops from one mount.
-	useEffect(() => {
-		if (open) {
-			setAddressId(currentAddressId);
-			setError(null);
-		}
-	}, [open, currentAddressId]);
+	useResetOnOpen(open, currentAddressId, () => {
+		setAddressId(currentAddressId);
+		setError(null);
+	});
 
 	const isDirty = addressId !== currentAddressId;
 

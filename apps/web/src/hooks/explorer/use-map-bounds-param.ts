@@ -10,11 +10,13 @@ import { useEffect, useState } from 'react';
  * padding does not narrow the box, and updated on `moveend` and `zoomend`.
  */
 export function useMapBoundsParam(map: MapboxMap | null): string | null {
-	const [bbox, setBbox] = useState<string | null>(null);
+	// The box is held beside the map it was read from, so a box read from a GL
+	// instance that has gone reads as none with nothing to clear.
+	const [held, setHeld] = useState<{ readonly map: MapboxMap; readonly bbox: string } | null>(null);
+	const bbox = held !== null && held.map === map ? held.bbox : null;
 
 	useEffect(() => {
 		if (map === null) {
-			setBbox(null);
 			return;
 		}
 		const update = () => {
@@ -23,7 +25,11 @@ export function useMapBoundsParam(map: MapboxMap | null): string | null {
 				return;
 			}
 			const candidate = formatBoundingBox(normalizeBounds(next));
-			setBbox((current) => (current === candidate ? current : candidate));
+			setHeld((current) =>
+				current !== null && current.map === map && current.bbox === candidate
+					? current
+					: { map, bbox: candidate },
+			);
 		};
 
 		update();

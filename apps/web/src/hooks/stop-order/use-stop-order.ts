@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { type MoveAction, type MovePlan, planMove } from '../../components/stop-order/plan-move';
 
 /**
@@ -22,22 +22,16 @@ export function useStopOrder<TItem>(input: {
 	const { items, keyOf, commit } = input;
 	const [pendingOrder, setPendingOrder] = useState<readonly string[] | null>(null);
 
-	const ordered = sortedByOverlay(items, keyOf, pendingOrder);
-
 	// Sync caught up: the synced order now matches what we optimistically showed, so
-	// the overlay has nothing left to correct.
-	useEffect(() => {
-		if (pendingOrder === null) {
-			return;
-		}
-		const current = items.map(keyOf);
-		if (
-			current.length === pendingOrder.length &&
-			current.every((value, index) => value === pendingOrder[index])
-		) {
-			setPendingOrder(null);
-		}
-	}, [items, pendingOrder, keyOf]);
+	// the overlay has nothing left to correct. Dropped in the render that sees
+	// it rather than an effect one later, which React re-renders before
+	// committing; it is a write and not a derivation because a stale overlay
+	// left in place would re-sort the next change that arrives from sync.
+	if (pendingOrder !== null && isSameOrder(items.map(keyOf), pendingOrder)) {
+		setPendingOrder(null);
+	}
+
+	const ordered = sortedByOverlay(items, keyOf, pendingOrder);
 
 	const move = async (index: number, action: MoveAction) => {
 		const ids = ordered.map(keyOf);
@@ -55,6 +49,12 @@ export function useStopOrder<TItem>(input: {
 	};
 
 	return { ordered, move };
+}
+
+function isSameOrder(current: readonly string[], pending: readonly string[]): boolean {
+	return (
+		current.length === pending.length && current.every((value, index) => value === pending[index])
+	);
 }
 
 /** The synced rows in the order the overlay asked for, or as they arrived. */

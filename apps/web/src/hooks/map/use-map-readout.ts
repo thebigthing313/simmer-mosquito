@@ -18,13 +18,19 @@ export interface ReadoutState {
  * distance per pixel across the centre row, re-read on every `move`.
  */
 export function useMapReadout(map: MapboxMap | null): ReadoutState | null {
-	const [state, setState] = useState<ReadoutState | null>(null);
+	// The reading is held beside the map it was taken from, so a reading off a
+	// GL instance that has gone reads as none with nothing to clear.
+	const [held, setHeld] = useState<{
+		readonly map: MapboxMap;
+		readonly state: ReadoutState;
+	} | null>(null);
+	const state = held !== null && held.map === map ? held.state : null;
 
 	useEffect(() => {
 		if (map === null) {
-			setState(null);
 			return;
 		}
+		const setState = (next: ReadoutState) => setHeld({ map, state: next });
 		const sync = () => {
 			const center = map.getCenter();
 			// Measured off the map rather than derived from the zoom: unprojecting two
