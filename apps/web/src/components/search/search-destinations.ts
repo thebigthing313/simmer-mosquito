@@ -186,7 +186,17 @@ type SearchIconKey =
 	| 'biocontrol_actions'
 	| 'outreach_actions';
 
-const SEARCH_ICONS: Record<SearchIconKey, RegistryIcon> = {
+/**
+ * Every glyph a result row can draw, by key.
+ *
+ * A row reads this map with the key `searchResultIconKey` picks, and mounts the
+ * component it finds. The two are split, key then map, because a component
+ * whose identity is the result of a call in render is one React Compiler
+ * refuses (`static-components`): it cannot see that the call only ever hands
+ * back one of these module-level references, so it treats each as a fresh
+ * component that would remount on every render. A map read is not a call.
+ */
+export const SEARCH_RESULT_ICONS: Record<SearchResultIconKey, RegistryIcon> = {
 	habitats: iconRegistry.entities.habitat.icon,
 	traps: iconRegistry.entities.trap.icon,
 	service_requests: iconRegistry.entities.serviceRequest.icon,
@@ -205,7 +215,12 @@ const SEARCH_ICONS: Record<SearchIconKey, RegistryIcon> = {
 	source_reductions: iconRegistry.entities.sourceReduction.icon,
 	biocontrol_actions: iconRegistry.entities.biocontrolAction.icon,
 	outreach_actions: iconRegistry.entities.outreachAction.icon,
+	comment: iconRegistry.actions.comment.icon,
+	create: iconRegistry.actions.add.icon,
+	navigate: iconRegistry.arrows.arrowRight.icon,
 };
+
+export type SearchResultIconKey = SearchIconKey | 'comment' | 'create' | 'navigate';
 
 /**
  * The thing each promoted navigation item creates.
@@ -233,18 +248,21 @@ const ACTION_ICON_KEYS: Record<string, SearchIconKey> = {
 	'missions-create': 'missions',
 };
 
-/** The glyph for one result row, whatever kind it is. */
-export function searchResultIcon(result: SearchResult): RegistryIcon {
+/** Which entry of `SEARCH_RESULT_ICONS` one result row draws, whatever kind it is. */
+export function searchResultIconKey(result: SearchResult): SearchResultIconKey {
 	switch (result.kind) {
 		case 'record':
-			return SEARCH_ICONS[result.table];
+			return result.table;
 		case 'comment':
-			return iconRegistry.actions.comment.icon;
-		case 'action': {
-			const key = ACTION_ICON_KEYS[result.id];
-			return key === undefined ? iconRegistry.actions.add.icon : SEARCH_ICONS[key];
-		}
+			return 'comment';
+		case 'action':
+			return ACTION_ICON_KEYS[result.id] ?? 'create';
 		case 'route':
-			return iconRegistry.arrows.arrowRight.icon;
+			return 'navigate';
 	}
+}
+
+/** The glyph for one result row. A component reads the map itself; see `SEARCH_RESULT_ICONS`. */
+export function searchResultIcon(result: SearchResult): RegistryIcon {
+	return SEARCH_RESULT_ICONS[searchResultIconKey(result)];
 }

@@ -50,16 +50,16 @@ export function useMapExtentFit(
 	const fitted = useRef<FitLedger>({ map: null, key: null });
 	// Chrome floating over the map is added to the fit margin, so a framed set
 	// sits in the part of the canvas the reader can see rather than under a panel.
-	const padding = insetPadding(FIT_PADDING, inset);
-	const paddingKey = `${padding.top}|${padding.right}|${padding.bottom}|${padding.left}`;
+	// The padding object is rebuilt every render, so the effect takes its four
+	// numbers and builds the object itself; nothing it reads is a fresh identity.
+	const { top, right, bottom, left } = insetPadding(FIT_PADDING, inset);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: padding keyed by value.
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || bounds === null || fitKey === null) {
 			return;
 		}
-		frameOnce(fitted.current, { map, bounds, fitKey, url, padding });
-	}, [map, isLoaded, bounds, fitKey, paddingKey]);
+		frameOnce(fitted.current, { map, bounds, fitKey, url, padding: { top, right, bottom, left } });
+	}, [map, isLoaded, bounds, fitKey, url, top, right, bottom, left]);
 }
 
 /** What the camera was last framed on, so one key is fitted once per GL instance. */

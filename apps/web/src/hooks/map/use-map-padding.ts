@@ -12,16 +12,18 @@ const PADDING_DURATION_MS = 300;
  * none of its own, except `useMapExtentFit`, which adds its fit margin on top.
  */
 export function useMapPadding(map: MapboxMap | null, isLoaded: boolean, inset: MapInset): void {
-	const padding = insetPadding(0, inset);
-	const key = `${padding.top}|${padding.right}|${padding.bottom}|${padding.left}`;
+	// The padding object is rebuilt every render, so the effect takes its four
+	// numbers and builds the object itself; nothing it reads is a fresh identity.
+	const { top, right, bottom, left } = insetPadding(0, inset);
 	const appliedKeyRef = useRef<string | null>(null);
 	const appliedMapRef = useRef<MapboxMap | null>(null);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: padding keyed by value.
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded) {
 			return;
 		}
+		const padding = { top, right, bottom, left };
+		const key = paddingKey(padding);
 		const isFreshMap = appliedMapRef.current !== map;
 		if (!isFreshMap && appliedKeyRef.current === key) {
 			return;
@@ -35,7 +37,11 @@ export function useMapPadding(map: MapboxMap | null, isLoaded: boolean, inset: M
 			return;
 		}
 		map.easeTo({ padding, duration: isFreshMap ? 0 : PADDING_DURATION_MS });
-	}, [map, isLoaded, key]);
+	}, [map, isLoaded, top, right, bottom, left]);
 }
 
-const EMPTY_KEY = `${NO_MAP_INSET.top}|${NO_MAP_INSET.right}|${NO_MAP_INSET.bottom}|${NO_MAP_INSET.left}`;
+function paddingKey(padding: MapInset): string {
+	return `${padding.top}|${padding.right}|${padding.bottom}|${padding.left}`;
+}
+
+const EMPTY_KEY = paddingKey(NO_MAP_INSET);

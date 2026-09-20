@@ -15,7 +15,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { ReactNode, RefObject } from 'react';
 import { AddressSurveillanceLinks } from '../components/address-surveillance';
-import { searchResultIcon } from '../components/search/search-destinations';
+import { SEARCH_RESULT_ICONS, searchResultIconKey } from '../components/search/search-destinations';
 import { RetiredMarker } from '../components/search/search-result-row';
 import {
 	type AddressSurveillance,
@@ -360,7 +360,7 @@ function ResultRow({
 	readonly result: SearchResult;
 	readonly surveillance: AddressSurveillance;
 }) {
-	const Icon = searchResultIcon(result);
+	const Icon = SEARCH_RESULT_ICONS[searchResultIconKey(result)];
 	const addressId =
 		result.kind === 'record' && result.table === 'addresses' ? result.id : undefined;
 

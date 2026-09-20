@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useEffectEvent, useRef } from 'react';
 
 /** Calls `grow` whenever the returned sentinel scrolls into view and `armed` is true. */
 export function useGrowOnVisible(
@@ -7,10 +7,13 @@ export function useGrowOnVisible(
 ): RefObject<HTMLDivElement | null> {
 	const sentinel = useRef<HTMLDivElement>(null);
 
-	// The call site passes an arrow that only calls a state setter, so the closure
-	// the observer holds cannot go stale in a way that is read. A reason that
-	// wraps onto a second line stops suppressing, so it stays on the ignore.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `grow` is a fresh closure every render and re-observing on it would loop
+	// `grow` is a fresh closure every render and re-observing on it would loop,
+	// so the observer calls it through an effect event and the effect re-runs
+	// on `armed` alone.
+	const onVisible = useEffectEvent(() => {
+		grow();
+	});
+
 	useEffect(() => {
 		const node = sentinel.current;
 		if (node === null || !armed) {
@@ -19,7 +22,7 @@ export function useGrowOnVisible(
 
 		const observer = new IntersectionObserver((entries) => {
 			if (entries.some((entry) => entry.isIntersecting)) {
-				grow();
+				onVisible();
 			}
 		});
 		observer.observe(node);
