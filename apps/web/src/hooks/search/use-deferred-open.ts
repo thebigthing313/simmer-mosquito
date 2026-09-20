@@ -1,5 +1,5 @@
 import { type SearchResult, searchResultValue } from '@simmer-mosquito/domain';
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import type { DestinationResolution } from '../../components/search/search-destinations';
 
 export interface DeferredOpen {
@@ -25,8 +25,12 @@ export function useDeferredOpen<TDestination>(
 	const held = waiting === undefined ? undefined : resolve(waiting);
 
 	// `open` navigates, so it runs in an effect rather than during the render that
-	// noticed the lookup had answered.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `open` and `resolve` are fresh closures every render and re-running on them would loop
+	// noticed the lookup had answered. It is a fresh closure every render and the
+	// effect must not re-run on it, which is what `useEffectEvent` is for.
+	const openHeld = useEffectEvent((destination: TDestination) => {
+		open(destination);
+	});
+
 	useEffect(() => {
 		if (held === undefined || held.status === 'pending') {
 			return;
@@ -34,7 +38,7 @@ export function useDeferredOpen<TDestination>(
 
 		setWaiting(undefined);
 		if (held.status === 'ready') {
-			open(held.destination);
+			openHeld(held.destination);
 		}
 	}, [held]);
 

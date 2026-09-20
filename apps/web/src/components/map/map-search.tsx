@@ -7,7 +7,15 @@ import {
 import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import {
+	type KeyboardEvent,
+	type ReactNode,
+	useEffect,
+	useEffectEvent,
+	useId,
+	useRef,
+	useState,
+} from 'react';
 import { MAP_CHROME_SURFACE } from './chrome';
 import { getMapboxToken } from './map-styles';
 import {
@@ -369,13 +377,17 @@ function SearchResults({
 }) {
 	// Keep the highlighted option in the scroller. Arrowing past the fold
 	// otherwise moves a highlight nobody can see, which is the same as no
-	// highlight at all.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the active option.
+	// highlight at all. `optionId` is a fresh closure every render, so the
+	// effect reads it through an event and re-runs on the active option alone.
+	const scrollOptionIntoView = useEffectEvent((index: number) => {
+		document.getElementById(optionId(index))?.scrollIntoView({ block: 'nearest' });
+	});
+
 	useEffect(() => {
 		if (activeIndex < 0) {
 			return;
 		}
-		document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: 'nearest' });
+		scrollOptionIntoView(activeIndex);
 	}, [activeIndex]);
 
 	if (panel === 'hint') {

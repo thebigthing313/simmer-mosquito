@@ -3,7 +3,7 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { CommandItem } from '@simmer-mosquito/ui-web/components/ui/command';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { searchResultIcon } from './search-destinations';
+import { SEARCH_RESULT_ICONS, searchResultIconKey } from './search-destinations';
 
 /**
  * One palette row: two lines under one leading icon, and **no type badge**.
@@ -28,7 +28,7 @@ export function SearchResultRow({
 	readonly result: SearchResult;
 	readonly value: string;
 }) {
-	const Icon = searchResultIcon(result);
+	const Icon = SEARCH_RESULT_ICONS[searchResultIconKey(result)];
 
 	return (
 		<CommandItem

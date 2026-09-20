@@ -253,6 +253,15 @@ one sends the whole world for a view across the line, because the endpoint
 takes one box, and a whole-world view here would hold every extent and skip a
 fit that was owed (#933).
 
+The effect depends on the four padding numbers rather than the padding object
+or a string key built from it. `insetPadding` returns a fresh object every
+render, so the object in the list re-runs the effect on every render, and the
+key in its place leaves the object read inside the effect and off the list,
+which is the `exhaustive-deps` finding the compiler refused (#1182). Wrapping
+the object in `useMemo` is not the way out, since `check:manual-memo` refuses
+one on a compiled path. So the effect takes the numbers and builds the object
+itself, and `useMapPadding` does the same.
+
 #### useMapExtent
 
 Two readers share it: the camera fit in `useMapExtentFit`, and the explorer
@@ -306,6 +315,13 @@ destination to navigate to. Dropping the click would read as broken, so the
 row is held and opened as soon as the lookup answers. A row that resolves to
 nothing once the lookup has answered clears the wait, because there is nothing
 left to wait for.
+
+`open` is a fresh closure on every render and navigates, so the effect calls it
+through `useEffectEvent` and depends on the held resolution alone. With `open`
+in the list the effect re-ran on every render; off the list it was the
+`exhaustive-deps` finding the compiler refuses (#1182). `useGrowOnVisible`
+takes its `grow` callback the same way, and the palette's option scroll in
+`MapSearch` its `optionId`.
 
 #### useMapDraw
 
