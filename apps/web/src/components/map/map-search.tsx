@@ -16,6 +16,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import { usePlaceSuggestions } from '../../hooks/map/use-place-suggestions';
 import { MAP_CHROME_SURFACE } from './chrome';
 import { getMapboxToken } from './map-styles';
 import {
@@ -23,11 +24,9 @@ import {
 	type MapboxSearchResult,
 	moveMapToResult,
 	retrievePlace,
-	suggestPlaces,
 } from './mapbox-search-client';
 
 const MIN_QUERY_LENGTH = 3;
-const DEBOUNCE_MS = 180;
 
 /**
  * Mapbox-powered place search. Debounces suggestions, keeps a session token
@@ -52,102 +51,54 @@ export function MapSearch({
 }) {
 	const [query, setQuery] = useState('');
 	const [open, setOpen] = useState(false);
-	const [results, setResults] = useState<readonly MapboxSearchResult[]>([]);
-	const [isLoading, setIsLoading] = useState(false);
-	const [selectingId, setSelectingId] = useState<string | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	/** Which suggestion the arrow keys are on. -1 is none, and typing returns to it. */
-	const [activeIndex, setActiveIndex] = useState(-1);
+	const retrieveController = useRef<AbortController | null>(null);
+	const sessionToken = useRef(createSessionToken());
+
+	const canSearch = getMapboxToken().trim().length > 0;
+	const trimmedQuery = query.trim();
+	const showResults = open && trimmedQuery.length > 0;
+	// Whether there is a query to answer. The suggestions hook drops its answer
+	// when this goes false.
+	const searching = showResults && trimmedQuery.length >= MIN_QUERY_LENGTH && canSearch;
+	const suggestions = usePlaceSuggestions({ map, query: trimmedQuery, searching, sessionToken });
+	const { results, isLoading, error, selectingId } = suggestions;
+	/**
+	 * Which suggestion the arrow keys are on, held beside the results it was
+	 * chosen from. -1 is none, and typing returns to it. A new set of
+	 * suggestions starts unselected: the old index would point at a different
+	 * place, and Enter would fly the map somewhere the reader never saw. So an
+	 * index chosen against another set is not read, which is the reset an
+	 * effect used to make one render late.
+	 */
+	const [active, setActive] = useState<{
+		readonly results: readonly MapboxSearchResult[];
+		readonly index: number;
+	}>({ results: [], index: -1 });
+	const activeIndex = active.results === results ? active.index : -1;
+	const setActiveIndex = (index: number) => setActive({ results, index });
 
 	const listId = useId();
 	const panelId = `${listId}-panel`;
 	const optionId = (index: number) => `${listId}-option-${index}`;
 
-	const requestId = useRef(0);
-	const retrieveController = useRef<AbortController | null>(null);
-	const sessionToken = useRef(createSessionToken());
-
-	const canSearch = getMapboxToken().trim().length > 0;
 	// One measurement for the box and the results under it, so the popover cannot
 	// end up a different width from the input it hangs off.
 	const shell =
 		width === undefined
 			? { className: 'w-[min(22rem,calc(100vw-7rem))]', style: undefined }
 			: { className: 'max-w-[calc(100vw-7rem)]', style: { width } };
-	const trimmedQuery = query.trim();
-	const showResults = open && trimmedQuery.length > 0;
 	// One decision, read by the panel and by the input's ARIA. Deciding it twice
 	// is how `aria-owns` ends up naming a listbox that is not on screen.
 	const panel = searchPanel({ error, isLoading, query: trimmedQuery, results });
 
 	useEffect(() => {
-		if (!showResults || trimmedQuery.length < MIN_QUERY_LENGTH || !canSearch) {
-			setResults([]);
-			setIsLoading(false);
-			setError(null);
-			setSelectingId(null);
-			return;
-		}
-
-		const controller = new AbortController();
-		const currentRequest = requestId.current + 1;
-		requestId.current = currentRequest;
-
-		const timeout = window.setTimeout(() => {
-			setIsLoading(true);
-			setSelectingId(null);
-			setError(null);
-			suggestPlaces({
-				query: trimmedQuery,
-				sessionToken: sessionToken.current,
-				signal: controller.signal,
-				map,
-			})
-				.then((next) => {
-					if (requestId.current === currentRequest) {
-						setResults(next);
-					}
-				})
-				.catch((unknownError: unknown) => {
-					if (unknownError instanceof DOMException && unknownError.name === 'AbortError') {
-						return;
-					}
-					if (requestId.current === currentRequest) {
-						setResults([]);
-						setError('Search unavailable');
-					}
-				})
-				.finally(() => {
-					if (requestId.current === currentRequest) {
-						setIsLoading(false);
-					}
-				});
-		}, DEBOUNCE_MS);
-
-		return () => {
-			window.clearTimeout(timeout);
-			controller.abort();
-		};
-	}, [canSearch, map, showResults, trimmedQuery]);
-
-	useEffect(() => {
 		return () => retrieveController.current?.abort();
 	}, []);
 
-	// A new set of suggestions starts unselected: the old index would point at a
-	// different place, and Enter would fly the map somewhere the reader never saw.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the results.
-	useEffect(() => {
-		setActiveIndex(-1);
-	}, [results]);
-
 	function resetSearch() {
 		retrieveController.current?.abort();
-		setActiveIndex(-1);
-		setSelectingId(null);
+		suggestions.clear();
 		setQuery('');
-		setResults([]);
-		setError(null);
 		sessionToken.current = createSessionToken();
 	}
 
@@ -157,9 +108,7 @@ export function MapSearch({
 			return;
 		}
 		if (results.length > 0) {
-			setActiveIndex((previous) =>
-				stepIndex(previous, key === 'ArrowDown' ? 1 : -1, results.length),
-			);
+			setActiveIndex(stepIndex(activeIndex, key === 'ArrowDown' ? 1 : -1, results.length));
 		}
 	}
 
@@ -195,13 +144,12 @@ export function MapSearch({
 	}
 
 	function selectResult(result: MapboxSearchResult) {
-		setSelectingId(result.id);
-		setError(null);
+		suggestions.beginSelect(result.id);
 
 		if (map === null) {
 			setQuery(result.label);
 			setOpen(false);
-			setSelectingId(null);
+			suggestions.endSelect();
 			return;
 		}
 
@@ -214,19 +162,19 @@ export function MapSearch({
 				setQuery(result.label);
 				moveMapToResult(map, resolved);
 				setOpen(false);
-				setResults([]);
+				suggestions.clear();
 				sessionToken.current = createSessionToken();
 			})
 			.catch((unknownError: unknown) => {
 				if (unknownError instanceof DOMException && unknownError.name === 'AbortError') {
 					return;
 				}
-				setError('Search result unavailable');
+				suggestions.failSelect('Search result unavailable');
 			})
 			.finally(() => {
 				if (retrieveController.current === controller) {
 					retrieveController.current = null;
-					setSelectingId(null);
+					suggestions.endSelect();
 				}
 			});
 	}
@@ -255,7 +203,7 @@ export function MapSearch({
 						label="Search for a location"
 						onChange={(event) => {
 							retrieveController.current?.abort();
-							setSelectingId(null);
+							suggestions.endSelect();
 							setQuery(event.target.value);
 							setOpen(true);
 						}}

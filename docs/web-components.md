@@ -301,6 +301,20 @@ at again; the control pickers exclude.
 The latest-value ref that kept the open-time rows out of the effect was written
 during render, which the React Compiler refuses (#779, group A).
 
+### map
+
+#### MapSearch
+
+Two resets that were effects are read off the state they key on (#1183). The
+arrow-key highlight is held beside the results it was chosen from, and an
+index chosen against another set reads as none, so a new set of suggestions
+starts unselected without a render in which Enter would fly the map to a
+place the reader never saw. The four request states, results, loading, error
+and the selection in flight, belong to `usePlaceSuggestions` since the
+idle reset moved there, with the reasoning under that heading in
+`docs/web-hooks.md`. The component decides whether there is a query to
+answer and the hook owns the answer.
+
 ### my-organization
 
 #### ControlAssetLookupList

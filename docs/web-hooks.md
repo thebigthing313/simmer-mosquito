@@ -323,6 +323,17 @@ in the list the effect re-ran on every render; off the list it was the
 takes its `grow` callback the same way, and the palette's option scroll in
 `MapSearch` its `optionId`.
 
+The wait ends in the render that reads the answer, and the answer is its own
+state. The effect used to clear the wait beside the `open` call, which is a
+`set-state-in-effect` finding (#1183), and the two cannot simply part: a
+wait cleared during render leaves the effect nothing to key on, since the
+render that commits has no held row. So the render that sees a `ready`
+answer clears the wait and stores the destination, and the effect opens
+whatever destination it is handed, once per answer because each answer is a
+fresh object. The stored answer is never cleared, on purpose: clearing it
+would be the effect setting state again, and a stale answer is harmless
+because the effect only runs when it changes.
+
 #### useMapDraw
 
 The algebra behind the draw moved to `components/map/draw-parts` so it could
@@ -515,6 +526,13 @@ that both derived this and rendered it, which `pnpm fallow:health` fails on.
 The split is along a real seam: nothing in the hook is about layout, and
 nothing in the component is about what the four groups hold.
 
+The selection is held beside the joined row set it was picked from, and a
+pick made against another set is not read: the value is the first row until
+the reader moves it. That is the reset to the first row on every result swap
+that the docblock in the module argues for, without the effect that used to
+make it (#1183). The effect committed one render with the old selection
+against the new rows, and the compiler refuses the function for it.
+
 ### stop-order
 
 #### useStopOrder
@@ -641,6 +659,21 @@ It listens on `move`, not `rotate`. Every camera change fires `move`, while
 `rotate` fires only for the paths Mapbox counts as a rotation, so a bearing
 that arrives through a fit or a jump can land without one and leave the
 arrow describing a camera the map no longer has.
+
+#### usePlaceSuggestions
+
+The debounced suggest request and the four states it drives, results,
+loading, error and the selection in flight, came out of `MapSearch` when the
+idle reset moved into render (#1183) and pushed the component over fallow's
+complexity threshold. Going idle drops all four in the render that notices: a
+`wasSearching` state holds the last condition, and a change to idle sets all
+four, which React re-renders before committing. A derivation was measured for
+those four and rejected, because it brings the old rows back the moment the
+same condition holds again, and a query typed back up to the minimum would
+draw the previous query's places for the debounce window. The retrieve step
+stays in the component, since it is what flies the map, and reaches the
+selection state through `beginSelect`, `failSelect` and `endSelect` rather
+than through the setters.
 
 #### useRegionFolderNames
 
@@ -1161,11 +1194,28 @@ the honest end of the list even when `total` disagrees, which it can:
 `total` is counted when the first slice ran, and a record can be deleted
 underneath a scroll.
 
+The slice count is held beside the query it was grown for, and a count grown
+for another query reads as one. That is the reset an effect used to make one
+render late (#1183), and the late render was not free: it ran the two
+queries with the old query's offset against the new query's text, one
+request the list never showed.
+
 #### useAccumulatedPages
 
 Both halves of the echo are checked, not just the query: `offset` is on the
 wire for exactly this, and it is what tells the second slice's answer apart
 from the first's.
+
+The rows are the two live slices overlaid on the remembered ones, and the
+memory is keyed by the list it belongs to. It used to be a store the effects
+copied each slice into as it landed, with a third effect emptying it on a new
+query, three `set-state-in-effect` findings (#1183). A slice is now written
+into the memory during the render it lands in, which React re-renders before
+committing, and the memory for another query reads as empty rather than
+being emptied. The write compares each landed slice to the remembered one by
+identity, which is safe because TanStack Query hands back the same `results`
+array until the answer changes; a hook that rebuilt the array every render
+would write every render.
 
 #### useEditableQuery
 
@@ -1173,6 +1223,14 @@ The URL is the shareable state and the field is what is being typed, so a
 link opened cold and a query typed here reach the same request. The
 navigation replaces rather than pushes, or Back would walk one keystroke at
 a time.
+
+The draft is held beside the URL query it was typed against, and a draft for
+another URL query reads as that query. That is the reset an effect used to
+make one render late (#1183), the frame in which the field drew the old draft
+against the new URL. What this does not fix is older than the rewrite: the
+debounced value lags the URL by one window, so a URL query that changes under
+the field, by Back for one, is replaced with the debounced draft before the
+window elapses. The suite covers the render order and not that.
 
 ### queries and mutations
 
