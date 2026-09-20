@@ -107,9 +107,10 @@ agent worktree under `.claude/worktrees/` addressed a project that did not exist
 and answered `service "postgres" is not running` while the container was up
 (#1122). With the name pinned, every checkout addresses the one project.
 
-Use the `.env.example` values: Postgres on `localhost:55432`, Electric on
-`localhost:3001`, and `ELECTRIC_SECRET` **unset**, because the local Electric
-runs `ELECTRIC_INSECURE=true`. A `DATABASE_URL` or `ELECTRIC_URL` pointing at
+Use the `.env.example` values: Postgres on `127.0.0.1:55432`, Electric on
+`127.0.0.1:3001`, and `ELECTRIC_SECRET` **unset**, because the local Electric
+runs `ELECTRIC_INSECURE=true`. IPv4 and not `localhost`, because on Windows the
+server refuses to boot on that name for either URL; `docs/sync.md` says why. A `DATABASE_URL` or `ELECTRIC_URL` pointing at
 `*.proxy.rlwy.net` or a Railway domain is a mistake, not a mode.
 
 Two settings in `docker-compose.yml` are load-bearing and a hand-started
