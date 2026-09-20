@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useState } from 'react';
 import type { InspectionTableRow } from '../queries/larval-activity-view';
 
 /** One array rather than a new empty one per render, which would re-render the table. */
@@ -15,13 +15,15 @@ export function useHeldRows(
 	isReady: boolean,
 	windowKey: string,
 ): readonly InspectionTableRow[] {
-	// no-memo-reason: a render-phase ref read is the cache, and no compiler release makes that compilable.
-	'use no memo';
-
-	const held = useRef({ rows, windowKey });
+	// The last ready rows are state, written in the render that reads them
+	// ready. React re-renders before committing, so the write costs no frame,
+	// and the read below is a comparison rather than a ref read in render.
+	const [held, setHeld] = useState({ rows, windowKey });
 	if (isReady) {
-		held.current = { rows, windowKey };
+		if (held.rows !== rows || held.windowKey !== windowKey) {
+			setHeld({ rows, windowKey });
+		}
 		return rows;
 	}
-	return held.current.windowKey === windowKey ? held.current.rows : NO_ROWS;
+	return held.windowKey === windowKey ? held.rows : NO_ROWS;
 }

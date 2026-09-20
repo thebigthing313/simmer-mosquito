@@ -284,10 +284,7 @@ const TODO = 'Todo';
  * history. A file leaves this list by being fixed, or by a phase opting its
  * path in, and either way that is an edit in the phase's own PR.
  */
-const BAILING_FILES = [
-	'apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx',
-	'apps/web/src/tests/unit/components/map/fake-map.tsx',
-];
+const BAILING_FILES = ['apps/web/src/tests/unit/components/map/fake-map.tsx'];
 
 /**
  * How many `Todo` findings the corpus holds, allowed to fall and not to rise.

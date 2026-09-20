@@ -64,8 +64,9 @@
  * the theory that a function the compiler is not memoizing needs its wrappers.
  * Measured, both opted-out functions in the workspace contain **zero wrappers**:
  * `ResultRows` in `result-list.tsx` is `useVirtualizer` and `useState`, and
- * `useHeldRows` in `inspections/table.tsx` is a `useRef` and a render-phase
- * read. An exemption path covering nothing is headroom the next finding lands
+ * `useHeldRows` in `inspections/table.tsx` was a `useRef` and a render-phase
+ * read, until #1184 made the cache state and took the directive off. An
+ * exemption path covering nothing is headroom the next finding lands
  * inside, so if that case ever arrives the wrapper carries an ordinary marker
  * and the reason names the directive.
  *

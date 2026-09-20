@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -65,20 +65,16 @@ function ContactsExplorerRoute() {
 	const { contacts, isReady } = useContactDirectory();
 
 	const [search, setSearch] = useState('');
-	const [page, setPage] = useState(0);
+	// The page is held beside the search it was turned under, so a new search
+	// reads as the first page, and it is clamped on read, so a list that shrinks
+	// under the current page draws the new last page in the same render.
+	const [held, setHeld] = useState({ search, page: 0 });
+	const setPage = (page: number) => setHeld({ search, page });
 
 	const filtered = contactMatches(contacts, search);
 
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset to the first page on a new search.
-	useEffect(() => {
-		setPage(0);
-	}, [search]);
-	useEffect(() => {
-		if (page > pageCount - 1) {
-			setPage(pageCount - 1);
-		}
-	}, [page, pageCount]);
+	const page = Math.min(held.search === search ? held.page : 0, pageCount - 1);
 	const visible = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
 	// `record` is the measure the route-loading skeleton reserves, so the index

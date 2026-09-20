@@ -84,10 +84,21 @@ have to read.
 
 Eight explorers held the same three pieces: the `useQuery` that keeps the
 previous page on screen while the next one loads, the page count, and the two
-effects that reset to the first page when the filters change and clamp back
-when the last page empties out. Owning `page` in the hook is what lets the
-reset effect key on the request rather than on whatever the caller happened to
-memoize.
+resets, to the first page when the filters change and back to the last page
+when it empties out. Owning `page` in the hook is what lets the first reset
+key on the request rather than on whatever the caller happened to memoize.
+
+Both were effects until #1184, and each committed one render with the wrong
+page before the one with the right page: the old page's offset went out
+against the new filter set, and a delete on the last page drew an empty page
+before the clamp. The page is held beside the request key it was turned
+under now, so a page turned under another request reads as the first with no
+reset at all. The clamp cannot be that kind of derivation, because the page is
+part of the query key and the total that clamps it arrives on the query it
+keys, so it is a conditional `setState` during render: React re-renders
+before committing, and the empty page is never drawn. The same two live in
+the Contacts index over an in-memory list, where the clamp is a `Math.min` on
+read because nothing there is keyed on the page.
 
 `recordType` was a free-text `label` until #940, and four of the nine explorers
 were spelling their own: `Applications`, `Biocontrol`, `Outreach` and `Source
@@ -1039,9 +1050,17 @@ old order under a header that now says something else reads as a sort that
 did nothing, and rows that do not match the filter just set read as a filter
 that did nothing. So what is held is kept against the window key it was read
 under and only handed back while that still matches. Under a new one the
-reader waits on a skeleton instead. The hook carries `"use no memo"` because
-a render-phase ref read is the cache, and no compiler release makes that
-compilable.
+reader waits on a skeleton instead.
+
+The cache is state since #1184. It was a ref written and read during render,
+which the compiler refuses, and the hook carried `"use no memo"` to say so;
+the directive never removed the bail-out, it only changed what
+`check:compiler-bailouts` logged. The last ready rows are written into state
+in the render that reads them ready, which React re-renders before
+committing, and the not-ready read is a comparison against the held window
+key. The write compares the rows by identity, which is safe because the live
+query hands back the same array until the collection changes; a caller that
+rebuilt the array every render would loop.
 
 #### useSampleGeoContext
 
