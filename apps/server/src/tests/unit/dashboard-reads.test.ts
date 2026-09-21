@@ -50,13 +50,6 @@ const response: DashboardResponse = {
 		requestsUnassigned: { count: 1, oldest: '2026-09-11' },
 	},
 	untreatedHabitats: { count: 2, oldest: '2026-09-12' },
-	peopleToday: [
-		{
-			profileId: '11111111-1111-4111-8111-111111111111',
-			records: 7,
-			lastAt: '2026-09-15T18:52:00Z',
-		},
-	],
 };
 
 function createApp(options: {

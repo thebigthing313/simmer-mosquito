@@ -218,15 +218,17 @@ in the Organization's zone. The person's name is a `Link` to
 ordered by records, most first. Empty, the panel draws `PanelMessage` reading
 "Nothing logged yet today."
 
-The read is the Activity Monitor's union in
-`packages/db/src/domains/profile-activity.ts`, generalised from one Profile to
-the Organization for one operational day and grouped by `profile_id`, count
-and latest occurred-at. Same field attribution (`inspected_by_profile_id`,
-`applicator_profile_id` and the rest, plus `additional_personnel`, and never
-`created_by_profile_id`) and the same date rule, so the row's number is what
-its link opens. `listProfileActivity` and this read share `activityBranches`;
-the build makes the Profile predicate optional in that function rather than
-copying seventeen branches.
+The read is the Activity Monitor's, off Electric: `usePeopleToday` wraps
+`useDayActivity`, one day of the Organization's records through the seventeen
+branches in `components/activity/activity-entries`, and `peopleByRecords`
+groups the entries by Profile, count and latest `recordedAt`. Same field
+attribution (`inspected_by_profile_id`, `applicator_profile_id` and the rest,
+plus `additional_personnel`, and never `created_by_profile_id`) and the same
+date rule, because it is the same read: the Monitor filters the same entries
+to one person, so the row's number is what its link opens. The read used to be
+`readPeopleToday` on `GET /dashboard`, sharing `activityBranches` with
+`GET /map/profiles/:profileId/activity`; both server reads are gone and the
+branches live once, on the client.
 
 ## Reads
 
@@ -234,8 +236,10 @@ The rule from the read ticket: a panel whose predicate is one table's own
 columns reads Electric; a panel that needs a second table to decide membership
 reads the server. A count over a window reads Electric too, since the strip
 moved off the server: a window is a subset, and a subset is what an on-demand
-collection loads. The strip and four queues are Electric and everything else is
-one server round-trip.
+collection loads, and so does a day of records with their crew and Tags as
+correlated includes, which is what the people table reads. The strip, the
+people table and four queues are Electric; the three awaiting queues and the
+banner are one server round-trip.
 
 ### The Electric hooks
 
@@ -263,6 +267,10 @@ which reads the same collection.
   counts in memory. The inspections subset carries each parent's sample ids as
   a correlated include, which is how samples are counted on their parent's
   date without a second query.
+- `usePeopleToday`, under `hooks/dashboard`: `useDayActivity` for today,
+  grouped by Profile. Nine subsets, one per record kind, bounded to the day in
+  the kind's own date type, with `additional_personnel` and `tag_items` as
+  correlated includes and the place names as left joins.
 
 Each subset is pushed down, not filtered in memory, because the on-demand
 collections should ask for the pending rows and not for every row the
@@ -301,18 +309,7 @@ interface QueueCount {
 	/** The oldest pending row's date, YYYY-MM-DD; null when the count is 0. */
 	readonly oldest: string | null;
 }
-
-
-interface PersonToday {
-	readonly profileId: string;
-	readonly records: number;
-	/** ISO instant of the latest record. */
-	readonly lastAt: string;
-}
 ```
-
-The Profile's name is not in the response; the client reads it off the eager
-`profiles` collection the way every other surface does.
 
 The response varies by the session's Organization and the URL carries no id, so
 `/dashboard` joins `PRIVATE_READ_PREFIXES` in `cache-headers.ts` and gets a
@@ -327,11 +324,12 @@ One `useQuery` in `apps/web/src/components/dashboard/dashboard-data.ts`, keyed
 `['dashboard']`, with `refetchOnWindowFocus: true` and `refetchInterval` of
 five minutes. The app's default is `refetchOnWindowFocus: false`, so the hook
 sets it. No refresh control on the page: focus and the interval are the
-cadence, and one query is one timer, which is why the five server panels are
-one endpoint rather than five.
+cadence, and one query is one timer, which is why the four server panels are
+one endpoint rather than four.
 
-Mixed liveness is accepted, with nothing on the page saying so. The strip and
-four queues move live and the rest are up to five minutes stale. No "last read" time, and
+Mixed liveness is accepted, with nothing on the page saying so. The strip, the
+people table and four queues move live and the rest are up to five minutes
+stale. No "last read" time, and
 no refetch of the server half on an Electric change. One failing query fails
 the whole server half, and that is the trade taken for one timer.
 
@@ -343,8 +341,7 @@ Loading: a queue panel draws `RowSkeleton` in place of its rows until every
 hook it draws has answered, so the two panels can finish at different times
 (Surveillance backlog waits on the server, Operations backlog on both). The
 banner draws nothing until the server answers. The strip draws `RowSkeleton`
-until its eight subsets are ready, and the people panel until the server
-answers. A panel's count pill is withheld
+until its eight subsets are ready, and the people panel until its nine are. A panel's count pill is withheld
 while it loads, `count={undefined}`, the way the overview's awaiting panel
 does.
 
@@ -354,10 +351,10 @@ draws its `PanelMessage`.
 
 Error: an Electric hook reporting `isError` draws its rows as `PanelMessage`
 reading "Pending work is unavailable right now." in that panel. The server
-query failing draws the same message in every server section, "Untreated
-habitats are unavailable right now." on the banner in the neutral tone, and the
-people table replaced by "Activity is unavailable right now." The strip draws
-the same words when one of its subsets fails. No retry control; the next focus or interval tick is the retry.
+query failing draws the same message in every server section, and "Untreated
+habitats are unavailable right now." on the banner in the neutral tone. The
+strip and the people table draw "Activity is unavailable right now." when one
+of their subsets fails. No retry control; the next focus or interval tick is the retry.
 `ErrorReport` is for a route that cannot render, and this route can.
 
 ## Deep links and the three explorer filters

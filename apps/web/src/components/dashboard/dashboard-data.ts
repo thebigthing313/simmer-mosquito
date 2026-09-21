@@ -21,11 +21,43 @@ export interface ActivityCount {
 	readonly prior: number;
 }
 
+/** One person's day: how much they logged and when they last logged something. */
 export interface PersonToday {
 	readonly profileId: string;
 	readonly records: number;
 	/** ISO instant of the latest record. */
 	readonly lastAt: string;
+}
+
+/**
+ * Everyone who logged field work, most records first, then latest first, then
+ * by id so the order is stable. One entry is one record in one role, so a
+ * collection set and collected by the same person counts twice, which is what
+ * the Activity Monitor lists for them.
+ */
+export function peopleByRecords(
+	entries: readonly { readonly profileId: string; readonly recordedAt: string }[],
+): readonly PersonToday[] {
+	const byProfile = new Map<string, { records: number; lastAt: string }>();
+	for (const entry of entries) {
+		const person = byProfile.get(entry.profileId);
+		if (person === undefined) {
+			byProfile.set(entry.profileId, { records: 1, lastAt: entry.recordedAt });
+		} else {
+			person.records += 1;
+			if (entry.recordedAt > person.lastAt) {
+				person.lastAt = entry.recordedAt;
+			}
+		}
+	}
+	return [...byProfile]
+		.map(([profileId, person]) => ({ profileId, ...person }))
+		.sort(
+			(a, b) =>
+				b.records - a.records ||
+				b.lastAt.localeCompare(a.lastAt) ||
+				a.profileId.localeCompare(b.profileId),
+		);
 }
 
 export interface DateWindow {
@@ -56,7 +88,6 @@ export interface DashboardResponse {
 		readonly requestsUnassigned: QueueCount;
 	};
 	readonly untreatedHabitats: QueueCount;
-	readonly peopleToday: readonly PersonToday[];
 }
 
 // --- the arithmetic ----------------------------------------------------------

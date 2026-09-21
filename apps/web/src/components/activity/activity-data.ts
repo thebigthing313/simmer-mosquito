@@ -15,10 +15,10 @@ import type { LifeStageFlags } from '../larval-display';
 import type { CollectionStatus } from '../map';
 import type { InspectionResult, LifecycleStatus, RecordBadgeFacts } from '../record/record-badges';
 
-// Data and display helpers for one Profile's field work: the response shape,
+// Data and display helpers for one Profile's field work: the entry shape,
 // the grouping into families, and the wording the page states around it. The
-// endpoint answers a `dateFrom`/`dateTo` range and `dailyWorkWindow` makes
-// both ends the same day; nothing below groups by date.
+// entries come off `useDayActivity`, one day of the Organization's records
+// filtered to the person, so nothing below groups by date.
 
 export interface ActivityEntry {
 	readonly category: ActivityCategory;
@@ -32,7 +32,7 @@ export interface ActivityEntry {
 	readonly occurredAt: string | null;
 	/** The record's own name where it has one, a habitat, a trap, a request number. */
 	readonly label: string | null;
-	/** The place it hangs off (habitat, trap or address) already resolved server-side. */
+	/** The place it hangs off (habitat, trap or address), resolved off the joined row. */
 	readonly placeName: string | null;
 	/** The lookup that names its kind (type/method/insecticide). */
 	readonly refId: string | null;
@@ -60,16 +60,6 @@ export interface ActivityEntry {
  * stay on the entry.
  */
 export type ActivityRecord = Omit<ActivityEntry, 'involvement' | 'role'>;
-
-export interface ActivityResponse {
-	readonly profileId: string;
-	readonly dateFrom: string;
-	readonly dateTo: string;
-	readonly items: readonly ActivityEntry[];
-	readonly total: number;
-	/** The row cap bit: the log shown is not the whole log. */
-	readonly truncated: boolean;
-}
 
 export const ACTIVITY_FAMILY_LABELS: readonly {
 	readonly key: ActivityFamily;
@@ -141,8 +131,8 @@ export interface ActivityFamilyGroup {
 /**
  * The log, as families in {@link ACTIVITY_FAMILY_LABELS} order, empty ones left
  * out. Within a family, timed entries run oldest-first and entries dated by a
- * bare `date` keep the server's order after them. There is no day level: the
- * page sends one day as both ends of the window.
+ * bare `date` keep their incoming order after them. There is no day level: the
+ * read is one day.
  */
 export function groupActivityByFamily(
 	items: readonly ActivityEntry[],
@@ -240,11 +230,7 @@ export function activityLookups(
 export interface ActivityCopy {
 	/** Nothing was recorded. The explorer frame draws this. */
 	readonly empty: { readonly title: string; readonly body: string };
-	/** The server declined the question. Its own reason is the body. */
-	readonly refusalTitle: string;
-	/** What to do about a capped log, where there is anything to do. */
-	readonly truncationAdvice: string | null;
-	/** The read failed for no reason the server gave. What to try, in this page's terms. */
+	/** A subset failed to load. What to try, in this page's terms. */
 	readonly loadFailureBody: string;
 }
 
@@ -255,7 +241,7 @@ export interface ActivityCopy {
 export function activityPanelMessage(
 	state: {
 		readonly isLoading: boolean;
-		readonly error: Error | null;
+		readonly isError: boolean;
 		readonly isEmpty: boolean;
 	},
 	copy: ActivityCopy,
@@ -265,12 +251,9 @@ export function activityPanelMessage(
 	if (state.isLoading && state.isEmpty) {
 		return 'loading';
 	}
-	// A refusal says which window was refused; anything else is an outage, and an
-	// outage must never read as an empty day.
-	if (state.error !== null) {
-		return isRefusal(state.error)
-			? { title: copy.refusalTitle, body: state.error.message }
-			: { title: 'Activity could not be loaded', body: copy.loadFailureBody };
+	// An outage must never read as an empty day.
+	if (state.isError) {
+		return { title: 'Activity could not be loaded', body: copy.loadFailureBody };
 	}
 	if (state.isEmpty) {
 		return copy.empty;
@@ -280,13 +263,13 @@ export function activityPanelMessage(
 
 /**
  * How the panel's non-log states split between the frame and the body. The
- * frame owns the placeholder rows and the empty state; the body keeps a refusal
- * naming the window the server declined, and an outage.
+ * frame owns the placeholder rows and the empty state; the body keeps an
+ * outage.
  */
 export function activityPanelState(
 	state: {
 		readonly isLoading: boolean;
-		readonly error: Error | null;
+		readonly isError: boolean;
 		readonly isEmpty: boolean;
 	},
 	copy: ActivityCopy,
@@ -307,28 +290,10 @@ export function activityPanelState(
 }
 
 /**
- * A refusal the page must repeat rather than swallow: the range was too wide,
- * the dates were malformed. Carries the server's own reason.
- */
-export class ActivityRequestError extends Error {
-	readonly refused: boolean;
-
-	constructor(message: string, refused: boolean) {
-		super(message);
-		this.name = 'ActivityRequestError';
-		this.refused = refused;
-	}
-}
-
-/** A refusal is the server declining the question, not the read failing. */
-function isRefusal(error: Error): boolean {
-	return error instanceof ActivityRequestError && error.refused;
-}
-
-/**
- * One entry, as the shared badge register reads a record. The server sends
- * short tokens; an unreadable token falls back to the weaker statement rather
- * than an assertion (a wet site whose density will not resolve says "Wet").
+ * One entry, as the shared badge register reads a record. `activity-entries`
+ * writes short tokens; an unreadable token falls back to the weaker statement
+ * rather than an assertion (a wet site whose density will not resolve says
+ * "Wet").
  */
 export function activityBadgeFacts(entry: ActivityRecord): RecordBadgeFacts {
 	const detail = text(entry.detail);
@@ -606,15 +571,4 @@ export function formatActivityTime(
 				minute: '2-digit',
 				...(timeZone === undefined ? {} : { timeZone }),
 			});
-}
-
-/**
- * How much of the whole answer this response carries. `total` is the server's
- * count, which is larger than the list when the row cap bit.
- */
-export function activityReach(
-	response: { readonly total: number; readonly truncated: boolean } | undefined,
-	shown: number,
-): { readonly total: number; readonly truncated: boolean } {
-	return response === undefined ? { total: shown, truncated: false } : response;
 }

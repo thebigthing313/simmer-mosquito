@@ -26,7 +26,6 @@ import { Suspense } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityEntry } from '../../components/activity/activity-data';
 import { ActivityLog } from '../../components/activity/activity-log';
-import { DAILY_WORK_COPY } from '../../components/daily-work/daily-work';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
@@ -378,8 +377,9 @@ describe('the Inspections Map/Table switch', () => {
  * the same rows on the explorer, and `tsc` checks none of it, since every
  * explorer validates to a plain record. The service requests row carries no
  * window because that explorer takes no date. The server half is a stubbed
- * `fetch`, the four Electric queues are empty memory collections, and today is
- * pinned so the `to` half of each window is a literal here.
+ * `fetch`, the Electric reads are memory collections holding one inspection
+ * for the people table and nothing else, and today is pinned so the `to`
+ * half of each window is a literal here.
  */
 describe('the Dashboard', () => {
 	const NOW = new Date('2026-09-15T16:00:00Z');
@@ -392,7 +392,6 @@ describe('the Dashboard', () => {
 			requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 		},
 		untreatedHabitats: { count: 5, oldest: '2026-09-09' },
-		peopleToday: [{ profileId: 'profile-1', records: 3, lastAt: '2026-09-15T18:52:00Z' }],
 	};
 
 	beforeEach(() => {
@@ -401,6 +400,17 @@ describe('the Dashboard', () => {
 		vi.stubGlobal('fetch', async () => new Response(JSON.stringify(SERVER), { status: 200 }));
 		seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
 		seedRows(profiles, [{ id: 'profile-1', display_name: 'Dana Okafor' }]);
+		seedRows(inspections, [
+			{
+				id: 'inspection-today',
+				lat: 40,
+				lng: -74,
+				inspection_date: '2026-09-15',
+				inspected_by_profile_id: 'profile-1',
+				is_wet: false,
+				created_at: new Date('2026-09-15T15:00:00Z'),
+			},
+		]);
 	});
 
 	afterEach(() => {
@@ -670,15 +680,12 @@ describe('the Daily Work log', () => {
 		const index = CATEGORIES.indexOf(category);
 		renderWithRouter(
 			<ActivityLog
-				copy={DAILY_WORK_COPY}
 				families={[{ family: 'larval', entries: [activity(category, index)] }]}
 				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
 				message={null}
 				onSelect={() => {}}
 				selectedKey={null}
 				timeZone={undefined}
-				total={1}
-				truncated={false}
 			/>,
 		);
 

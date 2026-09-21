@@ -1,8 +1,8 @@
 import { addCalendarDays } from '../../lib/local-date';
 import { dateParam, type FilterCodecs } from '../../lib/search-filters';
 import type { ActivityCopy } from '../activity/activity-data';
-// The three rules Daily Work is: which day it is showing, what that day sends
-// to the activity endpoint, and whether the path names a Profile at all.
+// The two rules Daily Work is: which day it is showing, and whether the path
+// names a Profile at all.
 
 /**
  * The day the page shows. `today` is the organization's today, and a future
@@ -19,21 +19,6 @@ export function dailyWorkDay(requested: string, today: string): string {
  */
 export function dailyWorkStep(day: string, days: number, today: string): string {
 	return dailyWorkDay(addCalendarDays(day, days), today);
-}
-
-/**
- * One day, as the window the endpoint takes. `GET /map/profiles/:profileId/activity`
- * is a `dateFrom`/`dateTo` read, so a single day is both ends of it.
- */
-export function dailyWorkWindow(
-	profileId: string,
-	day: string,
-): {
-	readonly profileId: string | null;
-	readonly dateFrom: string;
-	readonly dateTo: string;
-} {
-	return { profileId, dateFrom: day, dateTo: day };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,8 +38,6 @@ export const DAILY_WORK_COPY: ActivityCopy = {
 		title: 'Nothing recorded on this day',
 		body: 'Pick another day to see this person’s field work.',
 	},
-	refusalTitle: 'That day was not read',
-	truncationAdvice: null,
 	loadFailureBody: 'The read failed. Try again in a moment.',
 };
 

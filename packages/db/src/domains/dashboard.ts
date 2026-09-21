@@ -5,21 +5,19 @@
  * `docs/dashboard-spec.md` is the brief. The rule from its read ticket: a panel
  * whose predicate is one table's own columns reads Electric on the client, and
  * everything else is here. That is the two awaiting queues, the unassigned
- * requests queue, the untreated habitats flag, and the people in the field
- * today. The last-7-days strip is not here: it is windowed reads over eight
- * synced tables, so `useActivityStrip` in `apps/web` counts it off Electric.
+ * requests queue and the untreated habitats flag. The last-7-days strip and
+ * the people in the field today are not here: both are one day or one
+ * fortnight of synced rows, so `useActivityStrip` and `useDayActivity` in
+ * `apps/web` read them off Electric.
  *
  * Each predicate that an explorer also filters by is the explorer's fragment
  * rather than a copy: `sampleAwaitingCondition`, `collectionAwaitingCondition`
  * and `untreatedInspectionDateSql` are read from the surfaces that own them, so
- * the count on the page and the rows behind its link cannot disagree. The
- * people table wraps `activityBranches`, the Activity Monitor's union, rather
- * than restating seventeen branches.
+ * the count on the page and the rows behind its link cannot disagree.
  *
- * Today is `now()` in the organization's zone, read once and handed to the
- * people read. The untreated fragment reads `now()` itself, which is the same
- * clock a request later; a read that straddles midnight is the one case the
- * two can differ.
+ * Today is `now()` in the organization's zone, read once. The untreated
+ * fragment reads `now()` itself, which is the same clock a request later; a
+ * read that straddles midnight is the one case the two can differ.
  */
 
 import { type Kysely, sql } from 'kysely';
@@ -28,7 +26,6 @@ import type { SimmerDatabase } from '../index.js';
 import { collectionAwaitingCondition, collectionEffectiveDateExpr } from './adult-surveillance.js';
 import { untreatedInspectionDateSql } from './habitats.js';
 import { sampleAwaitingCondition } from './larval-surveillance.js';
-import { activityBranches } from './profile-activity.js';
 import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
 export interface DashboardInput {
@@ -44,14 +41,6 @@ export interface QueueCount {
 	readonly oldest: string | null;
 }
 
-/** One person's day: how much they logged and when they last logged something. */
-export interface PersonToday {
-	readonly profileId: string;
-	readonly records: number;
-	/** ISO instant of the latest record. */
-	readonly lastAt: string;
-}
-
 export interface DashboardResponse {
 	/** `YYYY-MM-DD` in the organization's zone. */
 	readonly today: string;
@@ -61,7 +50,6 @@ export interface DashboardResponse {
 		readonly requestsUnassigned: QueueCount;
 	};
 	readonly untreatedHabitats: QueueCount;
-	readonly peopleToday: readonly PersonToday[];
 }
 
 /**
@@ -76,20 +64,18 @@ export async function readDashboard(
 	const organizationId = input.organizationId;
 	const today = await readToday(db, timeZone);
 
-	const [samplesAwaiting, collectionsAwaiting, requestsUnassigned, untreatedHabitats, peopleToday] =
+	const [samplesAwaiting, collectionsAwaiting, requestsUnassigned, untreatedHabitats] =
 		await Promise.all([
 			readSamplesAwaiting(db, organizationId),
 			readCollectionsAwaiting(db, organizationId, timeZone),
 			readRequestsUnassigned(db, organizationId, timeZone),
 			readUntreatedHabitats(db, organizationId, timeZone),
-			readPeopleToday(db, organizationId, timeZone, today),
 		]);
 
 	return {
 		today,
 		queues: { samplesAwaiting, collectionsAwaiting, requestsUnassigned },
 		untreatedHabitats,
-		peopleToday,
 	};
 }
 
@@ -205,30 +191,4 @@ async function readUntreatedHabitats(
 			and u.inspection_date is not null
 	`.execute(db);
 	return toQueueCount(result.rows[0]);
-}
-
-/**
- * Everyone who logged field work today, most records first.
- *
- * The Activity Monitor's seventeen branches with no Profile predicate, grouped
- * by the Profile each entry is attributed to. Same field attribution and the
- * same date rule, so a row's number is what its link to `/daily-work` opens.
- */
-async function readPeopleToday(
-	db: Kysely<SimmerDatabase>,
-	organizationId: string,
-	timeZone: string,
-	today: string,
-): Promise<readonly PersonToday[]> {
-	const branches = activityBranches({ organizationId, timeZone, dateFrom: today, dateTo: today });
-	const result = await sql<PersonToday>`
-		select
-			entries."profileId",
-			count(*)::int as records,
-			max(entries."recordedAt") as "lastAt"
-		from (${sql.join(branches, sql` union all `)}) entries
-		group by entries."profileId"
-		order by records desc, "lastAt" desc, entries."profileId"
-	`.execute(db);
-	return result.rows;
 }

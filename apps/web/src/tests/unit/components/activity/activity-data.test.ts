@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	type ActivityEntry,
-	ActivityRequestError,
 	activityBadgeFacts,
 	activityEntryKey,
 	activityPanelMessage,
@@ -152,7 +151,7 @@ describe('describeActivityEntry', () => {
 // a product one: an outage must never read as an empty day, because the two are
 // indistinguishable on the page and one of them is a conclusion about a colleague.
 describe('activityPanelMessage', () => {
-	const ready = { isLoading: false, error: null, isEmpty: false };
+	const ready = { isLoading: false, isError: false, isEmpty: false };
 
 	it('shows the log once there is one', () => {
 		expect(activityPanelMessage(ready, DAILY_WORK_COPY)).toBeNull();
@@ -160,7 +159,7 @@ describe('activityPanelMessage', () => {
 
 	it('distinguishes a failed read from a day with no work in it', () => {
 		const failed = activityPanelMessage(
-			{ ...ready, error: new Error('boom'), isEmpty: true },
+			{ ...ready, isError: true, isEmpty: true },
 			DAILY_WORK_COPY,
 		);
 		const empty = activityPanelMessage({ ...ready, isEmpty: true }, DAILY_WORK_COPY);
@@ -168,20 +167,6 @@ describe('activityPanelMessage', () => {
 		expect(failed).not.toEqual(empty);
 		expect(failed).toMatchObject({ title: 'Activity could not be loaded' });
 		expect(empty).toMatchObject({ title: 'Nothing recorded on this day' });
-	});
-
-	// A refusal is the server declining the question, so the panel repeats the
-	// server's own reason rather than the generic failure copy. The endpoint still
-	// reads a window, so a caller can still be told the window was too wide.
-	it('repeats the reason when the server refuses the window', () => {
-		const refused = new ActivityRequestError('The date range may span at most 92 days.', true);
-
-		expect(
-			activityPanelMessage({ ...ready, error: refused, isEmpty: true }, DAILY_WORK_COPY),
-		).toEqual({
-			title: 'That day was not read',
-			body: 'The date range may span at most 92 days.',
-		});
 	});
 
 	it('loads before it reports emptiness', () => {
@@ -202,7 +187,7 @@ describe('activityPanelMessage', () => {
 // explorers. This is which of the panel's states go to it and which the body
 // keeps, and the ones it keeps are the ones that name a reason.
 describe('activityPanelState', () => {
-	const ready = { isLoading: false, error: null, isEmpty: false };
+	const ready = { isLoading: false, isError: false, isEmpty: false };
 
 	it('hands a first load to the frame, so it draws placeholder rows', () => {
 		expect(
@@ -213,30 +198,11 @@ describe('activityPanelState', () => {
 		});
 	});
 
-	// A refusal names the window the server declined and an outage names neither.
-	// The frame's copy has nowhere to put either, so the body keeps drawing them,
-	// and neither may reach the reader as an empty day.
-	it('keeps a refusal and an outage in the body, both reported as not empty', () => {
-		const refused = activityPanelState(
-			{
-				...ready,
-				error: new ActivityRequestError('The date range may span at most 92 days.', true),
-				isEmpty: true,
-			},
-			DAILY_WORK_COPY,
-		);
-		const outage = activityPanelState(
-			{ ...ready, error: new Error('boom'), isEmpty: true },
-			DAILY_WORK_COPY,
-		);
+	// An outage names no reason the frame's copy could carry, so the body keeps
+	// drawing it, and it may not reach the reader as an empty day.
+	it('keeps an outage in the body, reported as not empty', () => {
+		const outage = activityPanelState({ ...ready, isError: true, isEmpty: true }, DAILY_WORK_COPY);
 
-		expect(refused).toMatchObject({
-			isEmpty: false,
-			message: {
-				title: 'That day was not read',
-				body: 'The date range may span at most 92 days.',
-			},
-		});
 		expect(outage).toMatchObject({
 			isEmpty: false,
 			message: { title: 'Activity could not be loaded' },

@@ -14,7 +14,6 @@ import {
 	createMission,
 	createMissionItem,
 	createOrganization,
-	createProfile,
 	createRequestedControlAction,
 	createSourceReduction,
 	createSourceReductionMethod,
@@ -34,7 +33,7 @@ import {
 // moves the number.
 //
 // Dates are relative to today in the organization's zone, because the untreated
-// window and the people read both end on `now()` and nothing can move it.
+// window ends on `now()` and nothing can move it.
 
 /** A zone five hours behind UTC in September, so a UTC/local disagreement shows up. */
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
@@ -109,33 +108,6 @@ describeDbIntegration('dashboard', () => {
 		});
 	});
 
-	it('groups today’s field work by the person it is attributed to', async () => {
-		await withTestDb(async ({ db }) => {
-			const world = await seedPeopleWorld(db);
-
-			const dashboard = await readDashboard(db, {
-				organizationId: world.organizationId,
-				timeZone: ORGANIZATION_TIME_ZONE,
-			});
-
-			expect(dashboard.peopleToday.map((person) => [person.profileId, person.records])).toEqual([
-				// An inspection, an application and a source reduction assisted on.
-				// The inspection Dana only typed up counts for nobody, and the one
-				// nobody is named on counts for nobody either.
-				[world.danaProfileId, 3],
-				// The trap set today. The one emptied yesterday is yesterday's.
-				[world.caseyProfileId, 1],
-			]);
-			const casey = dashboard.peopleToday[1];
-			// The set visit carries its own moment, which is what "last record" reads.
-			expect(casey?.lastAt).toBe(`${daysAgo(0)}T14:00:00Z`);
-			const dana = dashboard.peopleToday[0];
-			// Dana's records carry a date and no time, so the latest is when the
-			// last of them was typed in, which was a moment ago.
-			expect(Date.now() - Date.parse(dana?.lastAt ?? '')).toBeLessThan(60_000);
-		});
-	});
-
 	it('reads nothing for an organization with nothing', async () => {
 		await withTestDb(async ({ db }) => {
 			const organizationId = await createOrganization(db);
@@ -149,7 +121,6 @@ describeDbIntegration('dashboard', () => {
 			expect(dashboard.queues.collectionsAwaiting).toEqual({ count: 0, oldest: null });
 			expect(dashboard.queues.requestsUnassigned).toEqual({ count: 0, oldest: null });
 			expect(dashboard.untreatedHabitats).toEqual({ count: 0, oldest: null });
-			expect(dashboard.peopleToday).toEqual([]);
 		});
 	});
 
@@ -423,65 +394,4 @@ async function seedUntreatedWorld(db: DbExecutor): Promise<{ readonly organizati
 	});
 
 	return { organizationId };
-}
-
-/** Today's field work, attributed the way the Activity Monitor attributes it. */
-async function seedPeopleWorld(db: DbExecutor): Promise<{
-	readonly organizationId: string;
-	readonly danaProfileId: string;
-	readonly caseyProfileId: string;
-}> {
-	const organizationId = await createOrganization(db);
-	const danaProfileId = await createProfile(db, organizationId, { display_name: 'Dana Reyes' });
-	const caseyProfileId = await createProfile(db, organizationId, { display_name: 'Casey Okafor' });
-	const unitId = await createUnit(db);
-	const today = daysAgo(0);
-
-	await createInspection(db, organizationId, {
-		inspection_date: dateOf(today),
-		inspected_by_profile_id: danaProfileId,
-	});
-	const insecticideId = await createInsecticide(db, organizationId, unitId);
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ application_date: dateOf(today), applicator_profile_id: danaProfileId },
-	);
-	const methodId = await createSourceReductionMethod(db, organizationId);
-	const assisted = await createSourceReduction(
-		db,
-		organizationId,
-		{ methodId, unitId },
-		{ source_reduction_date: dateOf(today), technician_profile_id: null },
-	);
-	await db
-		.insertInto('additional_personnel')
-		.values({
-			organization_id: organizationId,
-			personnel_profile_id: danaProfileId,
-			entity_type: 'source_reduction',
-			entity_id: assisted,
-		})
-		.execute();
-	// Typed up by Dana, performed by nobody named: counts for nobody.
-	await createInspection(db, organizationId, {
-		inspection_date: dateOf(today),
-		created_by_profile_id: danaProfileId,
-	});
-
-	const collectionMethodId = await createCollectionMethod(db, organizationId);
-	const trapId = await createTrap(db, organizationId, collectionMethodId);
-	const links = { trapId, collectionMethodId };
-	await createCollection(db, organizationId, links, {
-		started_at: sql<Date>`${`${today} 14:00:00+00`}::timestamptz`,
-		set_by_profile_id: caseyProfileId,
-	});
-	await createCollection(db, organizationId, links, {
-		started_at: noonOf(daysAgo(2)),
-		collected_at: noonOf(daysAgo(1)),
-		collected_by_profile_id: caseyProfileId,
-	});
-
-	return { organizationId, danaProfileId, caseyProfileId };
 }

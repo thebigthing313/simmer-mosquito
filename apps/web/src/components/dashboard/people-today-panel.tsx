@@ -12,33 +12,31 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import type { useDashboard } from '../../hooks/dashboard/use-dashboard';
+import { usePeopleToday } from '../../hooks/dashboard/use-people-today';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { localTimeOfDay } from '../../lib/local-date';
 
 const PeopleIcon = iconRegistry.entities.contact.icon;
-type ServerRead = ReturnType<typeof useDashboard>;
 const PEOPLE_UNAVAILABLE = 'Activity is unavailable right now.';
 
 /**
  * Everyone who logged field work today, most records first, each name a link
- * to their day on the Activity Monitor.
+ * to their day on the Activity Monitor. Reads the same day of synced rows the
+ * Monitor reads, so the row's number is what its link opens.
  */
 export function PeopleTodayPanel({
-	server,
 	timeZone,
 	today,
 }: {
-	readonly server: ServerRead;
 	readonly timeZone: string;
 	readonly today: string;
 }) {
 	const nameById = useProfileNames();
-	const people = server.data?.peopleToday;
+	const { people, isReady, isError } = usePeopleToday(today, timeZone);
 
 	return (
 		<Panel
-			count={people === undefined || server.isError ? undefined : people.length}
+			count={!isReady || isError ? undefined : people.length}
 			icon={<PeopleIcon className="size-4" />}
 			title="In the field today"
 		>
@@ -46,7 +44,7 @@ export function PeopleTodayPanel({
 				empty={{ description: 'Nothing logged yet today.' }}
 				icon={<PeopleIcon aria-hidden="true" />}
 				inset
-				reading={{ isError: server.isError, isReady: people !== undefined, rows: people ?? [] }}
+				reading={{ isError, isReady, rows: people }}
 				unavailable={{ description: PEOPLE_UNAVAILABLE }}
 				wrap="none"
 			>

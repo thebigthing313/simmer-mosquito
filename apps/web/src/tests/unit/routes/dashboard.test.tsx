@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardResponse } from '../../../components/dashboard/dashboard-data';
 import { assignment_items } from '../../../lib/collections/assignment_items';
 import { collections } from '../../../lib/collections/collections';
+import { habitats } from '../../../lib/collections/habitats';
 import { inspections } from '../../../lib/collections/inspections';
 import { missions } from '../../../lib/collections/missions';
 import { organizations } from '../../../lib/collections/organizations';
@@ -81,10 +82,6 @@ const SERVER: DashboardResponse = {
 		requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 	},
 	untreatedHabitats: { count: 5, oldest: '2026-09-09' },
-	peopleToday: [
-		{ profileId: 'p-dana', records: 38, lastAt: '2026-09-15T18:52:00Z' },
-		{ profileId: 'p-miguel', records: 21, lastAt: '2026-09-15T14:10:00Z' },
-	],
 };
 
 const EMPTY: DashboardResponse = {
@@ -95,7 +92,6 @@ const EMPTY: DashboardResponse = {
 		requestsUnassigned: { count: 0, oldest: null },
 	},
 	untreatedHabitats: { count: 0, oldest: null },
-	peopleToday: [],
 };
 
 beforeEach(() => {
@@ -154,7 +150,6 @@ describe('the Dashboard', () => {
 		expect(screen.getByRole('heading', { name: 'Surveillance backlog' })).toBeTruthy();
 		expect(screen.queryByText(/awaiting identification/)).toBeNull();
 		expect(screen.queryByText(/untreated habitats/)).toBeNull();
-		expect(screen.queryByText('Nothing logged yet today.')).toBeNull();
 		// Every section that waits on the server holds a skeleton, and no count pill.
 		expect(document.querySelectorAll('[aria-hidden="true"] .animate-pulse').length).toBeGreaterThan(
 			0,
@@ -181,6 +176,7 @@ describe('the Dashboard', () => {
 				// 2am on the 16th UTC is 10pm on the 15th in New York: inside the
 				// window by the Organization's clock, past it by UTC.
 				collected_at: new Date('2026-09-16T02:00:00Z'),
+				collected_by_profile_id: 'p-miguel',
 				collection_date: null,
 				collection_timing_mode: 'exact_timestamps',
 				has_problem: false,
@@ -190,12 +186,28 @@ describe('the Dashboard', () => {
 		]);
 		// Three inspections in the window and one the week before, the samples
 		// counted on their parent's date: three under the newest, one under the old.
+		// The newest is today's and Dana's, which is one of her two records in the
+		// field today; the habitat she created this morning is the other.
 		seedRows(inspections, [
-			{ id: 'i-1', habitat_id: 'h1', inspection_date: '2026-09-14' },
+			{
+				id: 'i-1',
+				habitat_id: 'h1',
+				inspection_date: '2026-09-15',
+				inspected_by_profile_id: 'p-dana',
+				created_at: new Date('2026-09-15T18:52:00Z'),
+			},
 			{ id: 'i-2', habitat_id: 'h1', inspection_date: '2026-09-10' },
 			{ id: 'i-3', habitat_id: 'h1', inspection_date: '2026-09-09' },
 			{ id: 'i-prior', habitat_id: 'h1', inspection_date: '2026-09-02' },
 			{ id: 'i-out', habitat_id: 'h1', inspection_date: '2026-09-01' },
+		]);
+		seedRows(habitats, [
+			{
+				id: 'h1',
+				habitat_name: 'Culvert 12',
+				created_by_profile_id: 'p-dana',
+				created_at: new Date('2026-09-15T16:30:00Z'),
+			},
 		]);
 		seedRows(samples, [
 			{ id: 's-1', inspection_id: 'i-1' },
@@ -274,12 +286,13 @@ describe('the Dashboard', () => {
 		);
 
 		// The people table: names off the profiles, most records first, the time
-		// in the Organization's zone.
+		// in the Organization's zone. Miguel's collect is 10pm New York, which is
+		// tomorrow in UTC and today here.
 		const people = panel('In the field today');
 		const rows = people.getAllByRole('row').slice(1);
 		expect(rows.map((row) => row.textContent)).toEqual([
-			'Dana Okafor3814:52',
-			'Miguel Herrera2110:10',
+			'Dana Okafor214:52',
+			'Miguel Herrera122:00',
 		]);
 	});
 
@@ -310,8 +323,9 @@ describe('the Dashboard', () => {
 			expect(screen.getAllByText('Pending work is unavailable right now.')).toHaveLength(2),
 		);
 		expect(screen.getByText('Untreated habitats are unavailable right now.')).toBeTruthy();
-		// The people table alone: the strip reads Electric and is unaffected.
-		expect(screen.getAllByText('Activity is unavailable right now.')).toHaveLength(1);
+		// The strip and the people table read Electric and are unaffected.
+		expect(screen.queryByText('Activity is unavailable right now.')).toBeNull();
 		expect(screen.getByText('Inspections')).toBeTruthy();
+		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
 	});
 });

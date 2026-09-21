@@ -1,9 +1,10 @@
 /**
  * The Dashboard: the state of the Organization, for the person deciding what
  * happens next. Four sections: the last-7-days strip, the two backlog panels,
- * the untreated habitats banner, and the people in the field today. The strip
- * and four queues read Electric through `hooks/`; everything else is one
- * server round-trip in `dashboard-data.ts`, up to five minutes stale. Each panel
+ * the untreated habitats banner, and the people in the field today. The strip,
+ * the people table and four queues read Electric through `hooks/`; the three
+ * server queues and the banner are one round-trip in `dashboard-data.ts`, up
+ * to five minutes stale. Each panel
  * answers for its own loading and error states. `docs/dashboard-spec.md` is
  * the brief.
  */
@@ -40,7 +41,7 @@ export function DashboardPage() {
 				<OperationsBacklog server={server} timeZone={timeZone} today={today} />
 			</div>
 			<UntreatedBanner server={server} today={today} />
-			<PeopleTodayPanel server={server} timeZone={timeZone} today={today} />
+			<PeopleTodayPanel timeZone={timeZone} today={today} />
 		</div>
 	);
 }
