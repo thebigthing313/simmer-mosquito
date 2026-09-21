@@ -31,9 +31,10 @@ the people table.
 
 Four sections, in this order, top to bottom:
 
-1. Pending queues, two panels side by side.
-2. The untreated habitats banner.
-3. Last 7 days, the activity strip.
+1. Last 7 days, the activity strip. It leads because it is what a person
+   opens the page for: what the Organization did this week, against last.
+2. Pending queues, two panels side by side.
+3. The untreated habitats banner.
 4. In the field today, the people table.
 
 The frame is what the overviews use: `pageContainer` at
