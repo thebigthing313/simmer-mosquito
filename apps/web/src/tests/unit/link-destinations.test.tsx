@@ -391,7 +391,6 @@ describe('the Dashboard', () => {
 			collectionsAwaiting: { count: 41, oldest: '2026-09-03' },
 			requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 		},
-		untreatedHabitats: { count: 5, oldest: '2026-09-09' },
 	};
 
 	beforeEach(() => {
@@ -462,10 +461,9 @@ describe('the Dashboard', () => {
 		);
 	});
 
-	it('sends the banner to the untreated filter and a person to their day', async () => {
+	it('sends a person to their day', async () => {
 		await openDashboard();
 
-		expect(linkHref(/5 untreated habitats/)).toBe('/larval-surveillance/habitats?untreated=true');
 		expect(linkHref('Dana Okafor')).toBe('/daily-work/profile-1?date=2026-09-15');
 	});
 });

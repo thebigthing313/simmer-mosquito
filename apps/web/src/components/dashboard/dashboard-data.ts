@@ -87,7 +87,6 @@ export interface DashboardResponse {
 		readonly collectionsAwaiting: QueueCount;
 		readonly requestsUnassigned: QueueCount;
 	};
-	readonly untreatedHabitats: QueueCount;
 }
 
 // --- the arithmetic ----------------------------------------------------------

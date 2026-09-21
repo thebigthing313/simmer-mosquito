@@ -4,27 +4,27 @@
  *
  * `docs/dashboard-spec.md` is the brief. The rule from its read ticket: a panel
  * whose predicate is one table's own columns reads Electric on the client, and
- * everything else is here. That is the two awaiting queues, the unassigned
- * requests queue and the untreated habitats flag. The last-7-days strip and
- * the people in the field today are not here: both are one day or one
- * fortnight of synced rows, so `useActivityStrip` and `useDayActivity` in
- * `apps/web` read them off Electric.
+ * everything else is here. That is the two awaiting queues and the unassigned
+ * requests queue. The last-7-days strip and the people in the field today are
+ * not here: both are one day or one fortnight of synced rows, so
+ * `useActivityStrip` and `useDayActivity` in `apps/web` read them off
+ * Electric. The untreated habitats banner was here and is gone: its read was
+ * a correlated subquery per habitat, 4.7 seconds on the production clone
+ * against under 100 ms for everything else, and the flag is still the
+ * habitats explorer's `untreated` filter.
  *
  * Each predicate that an explorer also filters by is the explorer's fragment
- * rather than a copy: `sampleAwaitingCondition`, `collectionAwaitingCondition`
- * and `untreatedInspectionDateSql` are read from the surfaces that own them, so
+ * rather than a copy: `sampleAwaitingCondition` and
+ * `collectionAwaitingCondition` are read from the surfaces that own them, so
  * the count on the page and the rows behind its link cannot disagree.
  *
- * Today is `now()` in the organization's zone, read once. The untreated
- * fragment reads `now()` itself, which is the same clock a request later; a
- * read that straddles midnight is the one case the two can differ.
+ * Today is `now()` in the organization's zone, read once.
  */
 
 import { type Kysely, sql } from 'kysely';
 
 import type { SimmerDatabase } from '../index.js';
 import { collectionAwaitingCondition, collectionEffectiveDateExpr } from './adult-surveillance.js';
-import { untreatedInspectionDateSql } from './habitats.js';
 import { sampleAwaitingCondition } from './larval-surveillance.js';
 import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 
@@ -49,7 +49,6 @@ export interface DashboardResponse {
 		readonly collectionsAwaiting: QueueCount;
 		readonly requestsUnassigned: QueueCount;
 	};
-	readonly untreatedHabitats: QueueCount;
 }
 
 /**
@@ -64,19 +63,13 @@ export async function readDashboard(
 	const organizationId = input.organizationId;
 	const today = await readToday(db, timeZone);
 
-	const [samplesAwaiting, collectionsAwaiting, requestsUnassigned, untreatedHabitats] =
-		await Promise.all([
-			readSamplesAwaiting(db, organizationId),
-			readCollectionsAwaiting(db, organizationId, timeZone),
-			readRequestsUnassigned(db, organizationId, timeZone),
-			readUntreatedHabitats(db, organizationId, timeZone),
-		]);
+	const [samplesAwaiting, collectionsAwaiting, requestsUnassigned] = await Promise.all([
+		readSamplesAwaiting(db, organizationId),
+		readCollectionsAwaiting(db, organizationId, timeZone),
+		readRequestsUnassigned(db, organizationId, timeZone),
+	]);
 
-	return {
-		today,
-		queues: { samplesAwaiting, collectionsAwaiting, requestsUnassigned },
-		untreatedHabitats,
-	};
+	return { today, queues: { samplesAwaiting, collectionsAwaiting, requestsUnassigned } };
 }
 
 /** Today in the organization's zone, from the database's clock. */
@@ -164,31 +157,6 @@ async function readRequestsUnassigned(
 					and m.completed_at is null
 					and m.cancelled_at is null
 			)
-	`.execute(db);
-	return toQueueCount(result.rows[0]);
-}
-
-/**
- * Untreated habitats, and the date of the oldest heavy reading among them.
- *
- * One lateral over the scalar subquery so the date is computed once per
- * habitat, tested for null, and aggregated, rather than the subquery written
- * twice.
- */
-async function readUntreatedHabitats(
-	db: Kysely<SimmerDatabase>,
-	organizationId: string,
-	timeZone: string,
-): Promise<QueueCount> {
-	const result = await sql<QueueRow>`
-		select count(*)::int as count, min(u.inspection_date)::text as oldest
-		from habitats h
-		cross join lateral (
-			select ${untreatedInspectionDateSql(timeZone)} as inspection_date
-		) u
-		where h.organization_id = ${organizationId}
-			and h.deleted_at is null
-			and u.inspection_date is not null
 	`.execute(db);
 	return toQueueCount(result.rows[0]);
 }

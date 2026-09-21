@@ -29,13 +29,12 @@ Dashboard shows a count and the age of the oldest and links to the list; an
 overview shows the list. Nothing on the Dashboard is a list of records except
 the people table.
 
-Four sections, in this order, top to bottom:
+Three sections, in this order, top to bottom:
 
 1. Last 7 days, the activity strip. It leads because it is what a person
    opens the page for: what the Organization did this week, against last.
 2. Pending queues, two panels side by side.
-3. The untreated habitats banner.
-4. In the field today, the people table.
+3. In the field today, the people table.
 
 The frame is what the overviews use: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, so the page fills the
@@ -109,44 +108,24 @@ collections awaiting rows will say a number the larval and adult overviews' 14
 day panels do not, and that is the design: the clone's oldest awaiting
 collection is from 2023-09-05 and a Manager wants to know that.
 
-## The untreated habitats banner
+## The untreated habitats banner, removed
 
-One row under the queues, the whole row a link, in the warning
-tone with the `actions.warning` icon. It reads `5 untreated habitats` with the
-rule and the oldest age under it: "heavy in the last 7 days with no control
-action since; oldest 6 days". At zero the same row draws in the neutral tone
-with no link and reads `No untreated habitats`, so the Manager can see the
-check ran.
-
-An **untreated** Habitat is a derived state in `CONTEXT.md`'s relationship cues
-(#991). The rule, from the flag ticket:
-
-- The Habitat's most recent live inspection is dated within the rolling 7 days
-  ending today and its density is `heavy` or `very_heavy`, the same two bands
-  the larval overview's heavy panel reads. Ad Hoc Inspections have no Habitat
-  and are out. Inactive Habitats are out; inaccessible ones stay in, because a
-  heavy reading behind a locked gate is the one that needs a different plan.
-- No Chemical Application, Source Reduction or Biocontrol Action dated on or
-  after that inspection names the Habitat by `habitat_id` or names the
-  inspection by `inspection_id`. Same day counts; the columns are dates.
-  Applications and biocontrol carry both columns, source reductions carry
-  `habitat_id` only. No spatial matching: an unlinked action nearby is a
-  data-entry finding a Manager wants to see, not a treatment.
-- No open Requested Control Action names the Habitat. That Habitat is already
-  counted on the requests queue or is on a Mission, and one condition gets one
-  count. Resolving the request clears nothing; only an action treats.
-
-The window is 7 days and not the overview's 14 because egg to adult averages
-about a week, so a heavy reading older than that has emerged and is no longer a
-treatment the flag can prompt. The overview panel keeps its 14 days, being a
-fortnight's review rather than a week's treatment prompt, and the two numbers
-differ by design.
-
-The read is the server, one query: latest live inspection per Habitat in the
-window, filtered to heavy, anti-joined against the three action tables and the
-open requests, returning the count and `min(inspection_date)`. The link is
-`/larval-surveillance/habitats?untreated=true`, a filter that does not exist
-yet; see "The three explorer filters".
+The first build drew a warning row under the queues, `5 untreated habitats`,
+linking to `/larval-surveillance/habitats?untreated=true`. It is gone from the
+page. Its read was a correlated subquery per Habitat, `untreatedInspectionDateSql`
+in `habitats.ts` run for every live Habitat the Organization has, and on the
+production clone it took 4.7 seconds while every other read on the endpoint
+took under 100 ms, so the whole page waited on it. The rule and the fragment
+stay where the explorer reads them: **untreated** is still a derived state in
+`CONTEXT.md` (#991) and still the habitats explorer's `untreated` filter, and
+the rule is the docblock on `untreatedInspectionDateSql` in `habitats.ts`: the
+Habitat's latest live inspection in the 7 days ending today reads `heavy` or
+`very_heavy`, no application, source reduction or biocontrol action dated on
+or after it names the Habitat or the inspection, and no open Requested Control
+Action names the Habitat. Bringing the banner back is a question of that
+read's cost first, an index on `inspections (habitat_id, inspection_date desc,
+created_at desc)` and a set-based rewrite of the fragment, and only then of
+the page.
 
 ## Last 7 days
 
@@ -240,8 +219,8 @@ reads the server. A count over a window reads Electric too, since the strip
 moved off the server: a window is a subset, and a subset is what an on-demand
 collection loads, and so does a day of records with their crew and Tags as
 correlated includes, which is what the people table reads. The strip, the
-people table and four queues are Electric; the three awaiting queues and the
-banner are one server round-trip.
+people table and four queues are Electric; the three server queues are one
+round-trip.
 
 ### The Electric hooks
 
@@ -291,8 +270,7 @@ fragment in `larval-surveillance.ts`, lifted out of
 `listSamplesAwaitingIdentification` so the overview's 14-day preview and the
 Dashboard's all-time count cannot drift; the overview route keeps its `since`
 and its list untouched. The collections predicate is the fragment the new map
-filter reads (below). The flag predicate is the fragment the `untreated` map
-filter reads.
+filter reads (below).
 
 ```ts
 interface DashboardResponse {
@@ -302,8 +280,6 @@ interface DashboardResponse {
 		readonly collectionsAwaiting: QueueCount;
 		readonly requestsUnassigned: QueueCount;
 	};
-	readonly untreatedHabitats: QueueCount;
-	readonly peopleToday: readonly PersonToday[];
 }
 
 interface QueueCount {
@@ -326,8 +302,8 @@ One `useQuery` in `apps/web/src/components/dashboard/dashboard-data.ts`, keyed
 `['dashboard']`, with `refetchOnWindowFocus: true` and `refetchInterval` of
 five minutes. The app's default is `refetchOnWindowFocus: false`, so the hook
 sets it. No refresh control on the page: focus and the interval are the
-cadence, and one query is one timer, which is why the four server panels are
-one endpoint rather than four.
+cadence, and one query is one timer, which is why the three server queues are
+one endpoint rather than three.
 
 Mixed liveness is accepted, with nothing on the page saying so. The strip, the
 people table and four queues move live and the rest are up to five minutes
@@ -342,21 +318,19 @@ Each panel answers for itself, the way the overviews do.
 Loading: a queue panel draws `RowSkeleton` in place of its rows until every
 hook it draws has answered, so the two panels can finish at different times
 (Surveillance backlog waits on the server, Operations backlog on both). The
-banner draws nothing until the server answers. The strip draws `RowSkeleton`
-until its eight subsets are ready, and the people panel until its nine are. A panel's count pill is withheld
+strip draws `RowSkeleton` until its eight subsets are ready, and the people
+panel until its nine are. A panel's count pill is withheld
 while it loads, `count={undefined}`, the way the overview's awaiting panel
 does.
 
-Empty: a queue row at zero stays, muted, with no age. The banner at zero is the
-neutral line. A strip cell at zero draws `0` with its chip. The people panel
-draws its `PanelMessage`.
+Empty: a queue row at zero stays, muted, with no age. A strip cell at zero
+draws `0` with its chip. The people panel draws its `PanelMessage`.
 
 Error: an Electric hook reporting `isError` draws its rows as `PanelMessage`
 reading "Pending work is unavailable right now." in that panel. The server
-query failing draws the same message in every server section, and "Untreated
-habitats are unavailable right now." on the banner in the neutral tone. The
-strip and the people table draw "Activity is unavailable right now." when one
-of their subsets fails. No retry control; the next focus or interval tick is the retry.
+query failing draws the same message in both queue panels. The strip and the
+people table draw "Activity is unavailable right now." when one of their
+subsets fails. No retry control; the next focus or interval tick is the retry.
 `ErrorReport` is for a route that cannot render, and this route can.
 
 ## Deep links and the three explorer filters
@@ -385,9 +359,8 @@ the fragment. There is no `GET /dashboard/queues/:queue/ids`.
   `parseHabitatTileFilters` as a `trueOnly` param, the surface applies the flag
   predicate as `exists (…)` on `h.id`, and the explorer's codecs gain
   `untreated: flagParam` and a control. One fragment in `habitats.ts`, read by
-  the surface, the tiles and the Dashboard reader, so the banner's count and the
-  explorer's rows are one predicate. The explorer's `status` filter defaults to
-  active, which agrees with the rule.
+  the surface and the tiles. The explorer's `status` filter defaults to active,
+  which agrees with the rule.
 - **Requests for control, `unassigned=true`**: new, and the one that stays on
   Electric, because that explorer reads `useRequestedControlActions` over a
   windowed subset. The filter joins `mission_items` where

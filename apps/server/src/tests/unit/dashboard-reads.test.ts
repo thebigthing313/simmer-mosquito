@@ -49,7 +49,6 @@ const response: DashboardResponse = {
 		collectionsAwaiting: { count: 0, oldest: null },
 		requestsUnassigned: { count: 1, oldest: '2026-09-11' },
 	},
-	untreatedHabitats: { count: 2, oldest: '2026-09-12' },
 };
 
 function createApp(options: {

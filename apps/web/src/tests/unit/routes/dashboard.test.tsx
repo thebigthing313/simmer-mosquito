@@ -81,7 +81,6 @@ const SERVER: DashboardResponse = {
 		collectionsAwaiting: { count: 41, oldest: '2026-09-03' },
 		requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 	},
-	untreatedHabitats: { count: 5, oldest: '2026-09-09' },
 };
 
 const EMPTY: DashboardResponse = {
@@ -91,7 +90,6 @@ const EMPTY: DashboardResponse = {
 		collectionsAwaiting: { count: 0, oldest: null },
 		requestsUnassigned: { count: 0, oldest: null },
 	},
-	untreatedHabitats: { count: 0, oldest: null },
 };
 
 beforeEach(() => {
@@ -143,13 +141,12 @@ function stripCell(label: string): HTMLElement {
 }
 
 describe('the Dashboard', () => {
-	it('draws skeletons and no banner until the server answers', async () => {
+	it('draws skeletons until the server answers', async () => {
 		renderDashboard();
 
 		await waitFor(() => expect(harness.pending).toHaveLength(1));
 		expect(screen.getByRole('heading', { name: 'Surveillance backlog' })).toBeTruthy();
 		expect(screen.queryByText(/awaiting identification/)).toBeNull();
-		expect(screen.queryByText(/untreated habitats/)).toBeNull();
 		// Every section that waits on the server holds a skeleton, and no count pill.
 		expect(document.querySelectorAll('[aria-hidden="true"] .animate-pulse').length).toBeGreaterThan(
 			0,
@@ -259,12 +256,6 @@ describe('the Dashboard', () => {
 		expect(queueLine('Missions due today or overdue').textContent).toContain('1 day');
 		expect(panel('Operations backlog').getByText('10')).toBeTruthy();
 
-		// The banner, the whole row a link.
-		const banner = screen.getByText('5 untreated habitats').closest('a');
-		expect(banner?.textContent).toContain(
-			'heavy in the last 7 days with no control action since; oldest 6 days',
-		);
-
 		// The strip: every type a cell, counted off the synced rows on its own date.
 		expect(screen.getByText('Sep 9 to Sep 15, compared with the 7 days before')).toBeTruthy();
 		expect(stripCell('Inspections').textContent).toBe('32Inspections');
@@ -301,9 +292,8 @@ describe('the Dashboard', () => {
 		await waitFor(() => expect(harness.pending).toHaveLength(1));
 		answer(EMPTY);
 
-		await waitFor(() => expect(screen.getByText('No untreated habitats')));
+		await waitFor(() => expect(screen.getByText('Samples awaiting identification')));
 
-		expect(screen.getByText('No untreated habitats').closest('a')).toBeNull();
 		const samples = queueLine('Samples awaiting identification');
 		expect(samples.className).toContain('text-muted-foreground');
 		expect(samples.textContent).not.toContain('day');
@@ -322,7 +312,6 @@ describe('the Dashboard', () => {
 		await waitFor(() =>
 			expect(screen.getAllByText('Pending work is unavailable right now.')).toHaveLength(2),
 		);
-		expect(screen.getByText('Untreated habitats are unavailable right now.')).toBeTruthy();
 		// The strip and the people table read Electric and are unaffected.
 		expect(screen.queryByText('Activity is unavailable right now.')).toBeNull();
 		expect(screen.getByText('Inspections')).toBeTruthy();

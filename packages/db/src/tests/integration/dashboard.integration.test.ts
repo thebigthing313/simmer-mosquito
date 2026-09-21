@@ -3,20 +3,14 @@ import type { DbExecutor } from '../../index.js';
 import { readDashboard, sql } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
 import {
-	createApplication,
-	createBiocontrolAction,
 	createCollection,
 	createCollectionMethod,
 	createCollectionSpecies,
-	createHabitat,
-	createInsecticide,
 	createInspection,
 	createMission,
 	createMissionItem,
 	createOrganization,
 	createRequestedControlAction,
-	createSourceReduction,
-	createSourceReductionMethod,
 	createSpecies,
 	createTrap,
 	createUnit,
@@ -26,14 +20,13 @@ import {
 //
 // Every predicate here has a second table in it, which is why these are seeded
 // and read back rather than pinned as text: a sample is awaiting until a species
-// row names it, a request is unassigned until a stop on a live mission names it,
-// a habitat is untreated until an action dated after its reading names it. Each
-// case below is one row in one state the rule names, and the count is the sum
+// row names it, a request is unassigned until a stop on a live mission names it.
+// Each case below is one row in one state the rule names, and the count is the sum
 // of the states that qualify, so a predicate that stopped reading one table
 // moves the number.
 //
-// Dates are relative to today in the organization's zone, because the untreated
-// window ends on `now()` and nothing can move it.
+// Dates are relative to today in the organization's zone, because `today` in
+// the answer is `now()` and nothing can move it.
 
 /** A zone five hours behind UTC in September, so a UTC/local disagreement shows up. */
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
@@ -92,22 +85,6 @@ describeDbIntegration('dashboard', () => {
 		});
 	});
 
-	it('flags a habitat as untreated on the rule and nothing wider', async () => {
-		await withTestDb(async ({ db }) => {
-			const world = await seedUntreatedWorld(db);
-
-			const dashboard = await readDashboard(db, {
-				organizationId: world.organizationId,
-				timeZone: ORGANIZATION_TIME_ZONE,
-			});
-
-			// Four of twelve: the plain case, the inaccessible one, the one whose
-			// only action predates its reading, and the one whose request was
-			// resolved without an action. The oldest is the plain case's reading.
-			expect(dashboard.untreatedHabitats).toEqual({ count: 4, oldest: daysAgo(3) });
-		});
-	});
-
 	it('reads nothing for an organization with nothing', async () => {
 		await withTestDb(async ({ db }) => {
 			const organizationId = await createOrganization(db);
@@ -120,7 +97,6 @@ describeDbIntegration('dashboard', () => {
 			expect(dashboard.queues.samplesAwaiting).toEqual({ count: 0, oldest: null });
 			expect(dashboard.queues.collectionsAwaiting).toEqual({ count: 0, oldest: null });
 			expect(dashboard.queues.requestsUnassigned).toEqual({ count: 0, oldest: null });
-			expect(dashboard.untreatedHabitats).toEqual({ count: 0, oldest: null });
 		});
 	});
 
@@ -295,103 +271,6 @@ async function seedQueueWorld(db: DbExecutor): Promise<{ readonly organizationId
 		deleted_at: sql`now()`,
 	});
 	await createRequestedControlAction(db, neighbourId, { requested_at: noonOf(daysAgo(60)) });
-
-	return { organizationId };
-}
-
-/** The untreated flag, one habitat per clause of the rule. */
-async function seedUntreatedWorld(db: DbExecutor): Promise<{ readonly organizationId: string }> {
-	const organizationId = await createOrganization(db);
-	const unitId = await createUnit(db);
-	const insecticideId = await createInsecticide(db, organizationId, unitId);
-	const sourceReductionMethodId = await createSourceReductionMethod(db, organizationId);
-	const biocontrolMethod = await db
-		.insertInto('biocontrol_methods')
-		.values({ organization_id: organizationId, name: 'Gambusia' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const habitatWithReading = async (
-		readingDaysAgo: number,
-		density: 'heavy' | 'very_heavy' | 'light',
-		habitat: Parameters<typeof createHabitat>[2] = {},
-	) => {
-		const habitatId = await createHabitat(db, organizationId, habitat);
-		const inspectionId = await createInspection(db, organizationId, {
-			habitat_id: habitatId,
-			inspection_date: dateOf(daysAgo(readingDaysAgo)),
-			density,
-		});
-		return { habitatId, inspectionId };
-	};
-
-	// In: the plain case, and the one behind a locked gate.
-	await habitatWithReading(3, 'heavy');
-	await habitatWithReading(1, 'very_heavy', { is_inaccessible: true });
-
-	// Out: treated by an application dated after the reading, naming the habitat.
-	const treatedByApplication = await habitatWithReading(4, 'heavy');
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ habitat_id: treatedByApplication.habitatId, application_date: dateOf(daysAgo(2)) },
-	);
-	// Out: treated the same day, and named by the inspection rather than the habitat.
-	const treatedByInspectionLink = await habitatWithReading(4, 'heavy');
-	await createSourceReduction(
-		db,
-		organizationId,
-		{ methodId: sourceReductionMethodId, unitId },
-		{
-			inspection_id: treatedByInspectionLink.inspectionId,
-			source_reduction_date: dateOf(daysAgo(4)),
-		},
-	);
-	// Out: a release since the reading.
-	const treatedByRelease = await habitatWithReading(2, 'heavy');
-	await createBiocontrolAction(
-		db,
-		organizationId,
-		{ methodId: biocontrolMethod.id, unitId },
-		{ habitat_id: treatedByRelease.habitatId, biocontrol_date: dateOf(daysAgo(1)) },
-	);
-	// In: the only action predates the reading, so it treated an earlier one.
-	const actionBefore = await habitatWithReading(2, 'heavy');
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ habitat_id: actionBefore.habitatId, application_date: dateOf(daysAgo(5)) },
-	);
-	// Out: an open request already counts it on the requests queue.
-	const requested = await habitatWithReading(1, 'heavy');
-	await createRequestedControlAction(db, organizationId, { habitat_id: requested.habitatId });
-	// In: resolving the request treated nothing.
-	const requestResolved = await habitatWithReading(1, 'heavy');
-	await createRequestedControlAction(db, organizationId, {
-		habitat_id: requestResolved.habitatId,
-		resolved_at: sql`now()`,
-	});
-	// Out: older than the window.
-	await habitatWithReading(8, 'heavy');
-	// Out: the latest reading is light, whatever came before it.
-	const cleared = await habitatWithReading(3, 'heavy');
-	await createInspection(db, organizationId, {
-		habitat_id: cleared.habitatId,
-		inspection_date: dateOf(daysAgo(1)),
-		density: 'light',
-	});
-	// Out: inactive.
-	await habitatWithReading(1, 'heavy', { is_active: false });
-	// Out: the heavy reading was deleted and the live one before it is light.
-	const deletedReading = await habitatWithReading(3, 'light');
-	await createInspection(db, organizationId, {
-		habitat_id: deletedReading.habitatId,
-		inspection_date: dateOf(daysAgo(1)),
-		density: 'heavy',
-		deleted_at: sql`now()`,
-	});
 
 	return { organizationId };
 }
