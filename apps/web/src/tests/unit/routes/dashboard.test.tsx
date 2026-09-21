@@ -291,8 +291,8 @@ describe('the Dashboard', () => {
 		const people = panel('In the field today');
 		const rows = people.getAllByRole('row').slice(1);
 		expect(rows.map((row) => row.textContent)).toEqual([
-			'Dana Okafor214:52',
-			'Miguel Herrera122:00',
+			'Dana Okafor22:52 PM',
+			'Miguel Herrera110:00 PM',
 		]);
 	});
 

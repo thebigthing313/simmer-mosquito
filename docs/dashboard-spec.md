@@ -212,9 +212,11 @@ limit.
 
 A `Panel` titled `In the field today` with the `entities.contact` icon, its
 count pill the number of rows, holding a `Table` of three columns: `Person`,
-`Records` right-aligned, `Last record` right-aligned in muted text as `HH:MM`
-in the Organization's zone. The person's name is a `Link` to
-`/daily-work/$profileId?date=today`, the Activity Monitor's day. Rows are
+`Records` right-aligned, `Last record` right-aligned in muted text as
+`11:54 AM`, the Monitor's own `formatActivityTime` in the Organization's zone.
+The person's name is a `Link` to `/daily-work/$profileId?date=today`, the
+Activity Monitor's day, stretched over its row with a pseudo-element so the
+whole row is the target and a screen reader meets one link. Rows are
 ordered by records, most first. Empty, the panel draws `PanelMessage` reading
 "Nothing logged yet today."
 
