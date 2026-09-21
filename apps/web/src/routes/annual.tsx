@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { UpcomingPage } from '../components/app-shell/upcoming-page';
+import { PeriodReviewPrototype } from '../components/period-review-prototype/prototype-page';
 
+// PROTOTYPE (#1201): the period-in-review page at the year grain, in place of
+// the UpcomingPage stub, switchable via ?variant=A|B|C.
 export const Route = createFileRoute('/annual')({
-	component: UpcomingPage,
+	component: () => <PeriodReviewPrototype grain="year" />,
 });
