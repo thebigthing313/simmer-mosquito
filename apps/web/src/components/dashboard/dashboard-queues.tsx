@@ -264,5 +264,3 @@ function QueueLine({ row, today }: { readonly row: QueueRowModel; readonly today
 		</li>
 	);
 }
-
-// --- the untreated habitats banner ------------------------------------------

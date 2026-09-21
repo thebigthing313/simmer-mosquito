@@ -16,14 +16,13 @@ import {
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { activityPanelState, activityReach } from '../../components/activity/activity-data';
+import { activityPanelState } from '../../components/activity/activity-data';
 import { ActivityFocusCard } from '../../components/activity/activity-focus-card';
 import { ActivityLog } from '../../components/activity/activity-log';
 import {
 	DAILY_WORK_COPY,
 	DAILY_WORK_FILTER_CODECS,
 	dailyWorkStep,
-	dailyWorkWindow,
 	isProfileId,
 } from '../../components/daily-work/daily-work';
 import { dailyWorkLegend } from '../../components/daily-work/legend';
@@ -31,7 +30,7 @@ import { ExplorerMapPage } from '../../components/explorer';
 import { MapCanvas } from '../../components/map';
 import { useActivityLookups } from '../../hooks/activity/use-activity-lookups';
 import { useActivitySelection } from '../../hooks/activity/use-activity-selection';
-import { useProfileActivity } from '../../hooks/activity/use-profile-activity';
+import { useDayActivity } from '../../hooks/activity/use-day-activity';
 import { useDailyWorkDay } from '../../hooks/daily-work/use-daily-work-day';
 import { useExplorerPanel } from '../../hooks/explorer/use-explorer-panel';
 import { usePersonnelOptions } from '../../hooks/explorer/use-personnel-options';
@@ -85,17 +84,20 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 	const { day, setDay } = useDailyWorkDay(today);
 	const lookups = useActivityLookups();
 
-	const activity = useProfileActivity(dailyWorkWindow(profileId, day));
+	// The whole Organization's day, filtered to this person: the same subsets
+	// the Dashboard's people table opens, so stepping between people costs
+	// nothing and a record moves here the moment it syncs.
+	const activity = useDayActivity(day, timeZone);
+	const items = activity.entries.filter((entry) => entry.profileId === profileId);
 	// Changing the day needs no explicit reset: the selection resolves by key
 	// against the entries on screen, so a key the new day does not contain is
 	// already no selection.
-	const selection = useActivitySelection(activity.data?.items);
+	const selection = useActivitySelection(items);
 	const { view } = selection;
-	const reach = activityReach(activity.data, view.items.length);
 	const panelState = activityPanelState(
 		{
-			isLoading: activity.isLoading,
-			error: activity.error,
+			isLoading: !activity.isReady,
+			isError: activity.isError,
 			isEmpty: view.families.length === 0,
 		},
 		DAILY_WORK_COPY,
@@ -110,7 +112,7 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 				title: name,
 				icon: iconRegistry.simmer.fieldWork.icon,
 				total: view.items.length,
-				isLoading: activity.isLoading,
+				isLoading: !activity.isReady,
 				counts: { one: 'entry', many: 'entries' },
 			}}
 			map={
@@ -133,15 +135,12 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 				// with its own body, including the messages that name a reason.
 				body: (
 					<ActivityLog
-						copy={DAILY_WORK_COPY}
 						families={view.families}
 						lookups={lookups}
 						message={panelState.message}
 						onSelect={selection.select}
 						selectedKey={selection.selectedKey}
 						timeZone={timeZone}
-						total={reach.total}
-						truncated={reach.truncated}
 					/>
 				),
 				isEmpty: panelState.isEmpty,

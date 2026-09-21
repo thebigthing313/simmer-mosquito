@@ -16,9 +16,9 @@
  * not nested under anything" are both questions about depth, and a suite that
  * only asked for the family names would pass with the fold still there.
  *
- * The server stand-in answers `/map/profiles/:profileId/activity` from a table
- * keyed by the day the request names, so changing the day is a second read
- * with a different answer, which is what lets the selection cases say that a
+ * The log reads memory collections holding one record in each family on the
+ * day and one Habitat the day before, so changing the day is the same subsets
+ * answering differently, which is what lets the selection cases say that a
  * key the new day does not hold is no selection. The canvas stand-in records
  * the `activityLayer` prop, which is where the map's highlight comes from.
  * What is faked is what `traps-empty-state.test.tsx` fakes, for the reasons its
@@ -29,11 +29,17 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type ActivityEntry, activityRow } from '../../../../components/activity/activity-data';
+import { activityRow } from '../../../../components/activity/activity-data';
+import type { DayActivityEntry } from '../../../../components/activity/activity-entries';
 import type { ActivityLayerConfig } from '../../../../hooks/map/use-activity-layer';
+import { applications } from '../../../../lib/collections/applications';
+import { habitats } from '../../../../lib/collections/habitats';
 import { organizations } from '../../../../lib/collections/organizations';
 import { profiles } from '../../../../lib/collections/profiles';
+import { service_requests } from '../../../../lib/collections/service_requests';
+import { tag_items } from '../../../../lib/collections/tag_items';
 import { tags } from '../../../../lib/collections/tags';
+import { traps } from '../../../../lib/collections/traps';
 import type { MinimumRole } from '../../../../lib/write-access';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 import { preloadRouteComponent, renderExplorer, stubPanelLayout } from '../explorer-route-harness';
@@ -43,85 +49,88 @@ const PROFILE_ID = '2f1b8c4e-9d3a-4f7b-8c21-5a6d7e8f9a0b';
 const DAY = '2026-08-05';
 const OTHER_DAY = '2026-08-04';
 
-function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
-	return {
-		category: 'inspection',
-		family: 'larval',
-		involvement: 'primary',
-		role: 'inspected',
-		id: 'record-1',
-		lat: 35.5,
-		lng: -90.5,
-		date: DAY,
-		occurredAt: null,
-		label: null,
-		placeName: null,
-		refId: null,
-		methodRefId: null,
-		amount: null,
-		unitId: null,
-		detail: null,
-		stages: null,
-		context: null,
-		hasBycatch: null,
-		tagIds: null,
-		...overrides,
-	};
+/** Noon in New York on `day`, so a timestamp files under that day whatever the zone. */
+function noonOn(day: string): Date {
+	return new Date(`${day}T16:00:00Z`);
 }
 
-/** One entry in each of the four families, so every family section draws. */
-const MIXED_DAY: readonly ActivityEntry[] = [
-	entry({ id: 'habitat-1', category: 'habitat', role: 'created', label: 'Culvert 12' }),
-	entry({
-		id: 'trap-1',
-		family: 'adult',
-		category: 'trap',
-		role: 'created',
-		label: 'GT-04',
-		lat: 35.6,
-	}),
-	entry({
-		id: 'application-1',
-		family: 'control',
-		category: 'application',
-		role: 'applied',
-		placeName: 'Culvert 12',
-		lat: 35.7,
-	}),
-	entry({
-		id: 'request-1',
-		family: 'publicEngagement',
-		category: 'serviceRequest',
-		role: 'received',
-		label: '#88',
-		lat: 35.8,
-	}),
-];
-
-/** The day before holds one Habitat and nothing the mixed day holds. */
-const OTHER_DAY_ONLY: readonly ActivityEntry[] = [
-	entry({
-		id: 'habitat-2',
-		category: 'habitat',
-		role: 'created',
-		label: 'Ditch 7',
-		date: OTHER_DAY,
-	}),
-];
+/** One record in each of the four families on the day, so every family section draws. */
+function seedMixedDay(): void {
+	seedRows(habitats, [
+		{
+			id: 'habitat-1',
+			lat: 35.5,
+			lng: -90.5,
+			habitat_name: 'Culvert 12',
+			habitat_type_id: null,
+			is_active: true,
+			is_inaccessible: false,
+			created_by_profile_id: PROFILE_ID,
+			created_at: noonOn(DAY),
+		},
+		// The day before holds one Habitat and nothing the mixed day holds.
+		{
+			id: 'habitat-2',
+			lat: 35.5,
+			lng: -90.5,
+			habitat_name: 'Ditch 7',
+			habitat_type_id: null,
+			is_active: true,
+			is_inaccessible: false,
+			created_by_profile_id: PROFILE_ID,
+			created_at: noonOn(OTHER_DAY),
+		},
+	]);
+	seedRows(traps, [
+		{
+			id: 'trap-1',
+			lat: 35.6,
+			lng: -90.5,
+			trap_code: 'GT-04',
+			trap_name: null,
+			collection_method_id: null,
+			is_active: true,
+			created_by_profile_id: PROFILE_ID,
+			created_at: noonOn(DAY),
+		},
+	]);
+	seedRows(applications, [
+		{
+			id: 'application-1',
+			lat: 35.7,
+			lng: -90.5,
+			application_date: DAY,
+			habitat_id: 'habitat-1',
+			address_id: null,
+			insecticide_id: null,
+			application_method_id: null,
+			amount_applied: null,
+			application_unit_id: null,
+			applicator_profile_id: PROFILE_ID,
+			created_at: noonOn(DAY),
+		},
+	]);
+	seedRows(service_requests, [
+		{
+			id: 'request-1',
+			lat: 35.8,
+			lng: -90.5,
+			display_name: 88,
+			address_id: null,
+			request_date: DAY,
+			received_by_profile_id: PROFILE_ID,
+			closed_at: null,
+			closed_by_profile_id: null,
+			created_at: noonOn(DAY),
+		},
+	]);
+}
 
 const harness = vi.hoisted(() => ({
 	/** The search params a match would carry: the day. */
 	search: {} as Record<string, unknown>,
 	/** The path params a match would carry: the Profile. */
 	params: {} as Record<string, string>,
-	/** Every request the route sent, in order. */
-	sent: [] as URL[],
-	/** What the server holds, by the day a request names. */
-	log: new Map<string, readonly unknown[]>(),
-	/** Whether the server reports the answer as capped. */
-	truncated: false,
-	/** The total the server reports, where it differs from what it sent. */
-	total: null as number | null,
 	/** What the canvas was last handed for the activity layer. */
 	activityLayer: null as ActivityLayerConfig | null,
 	role: 'admin' as string,
@@ -134,24 +143,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 		() => harness.search,
 		() => harness.params,
 	);
-});
-
-vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
-	const { sessionFetchStandIn } = await import('../route-mock-stand-ins');
-	return {
-		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn(harness.sent, (url) => {
-			const items = harness.log.get(url.searchParams.get('dateFrom') ?? '') ?? [];
-			return {
-				profileId: PROFILE_ID,
-				dateFrom: url.searchParams.get('dateFrom'),
-				dateTo: url.searchParams.get('dateTo'),
-				items,
-				total: harness.total ?? items.length,
-				truncated: harness.truncated,
-			};
-		}),
-	};
 });
 
 vi.mock('../../../../hooks/use-can-write', async () => {
@@ -187,15 +178,9 @@ beforeEach(() => {
 	seedRows(profiles, [
 		{ id: PROFILE_ID, organization_id: 'org-1', display_name: 'Dana Okafor', deleted_at: null },
 	]);
+	seedMixedDay();
 	harness.search = { date: DAY };
 	harness.params = { profileId: PROFILE_ID };
-	harness.sent.length = 0;
-	harness.log = new Map([
-		[DAY, MIXED_DAY],
-		[OTHER_DAY, OTHER_DAY_ONLY],
-	]);
-	harness.truncated = false;
-	harness.total = null;
 	harness.activityLayer = null;
 	harness.role = 'admin';
 });
@@ -233,17 +218,6 @@ function headingStructure(): readonly string[] {
 		}
 		return `${'  '.repeat(depth - 1)}${trigger.textContent} [${trigger.dataset.state}]`;
 	});
-}
-
-/** The truncation notice and the section headings, in the order the panel draws them. */
-function panelOrder(): readonly string[] {
-	return Array.from(
-		document.querySelectorAll<HTMLElement>('[role="alert"], [data-slot="collapsible-trigger"]'),
-	).map((node) =>
-		node.getAttribute('role') === 'alert'
-			? `notice: ${node.textContent}`
-			: `heading: ${node.textContent}`,
-	);
 }
 
 function selectButton(title: string): HTMLElement {
@@ -310,22 +284,6 @@ describe('the Daily Work log', () => {
 			screen.getByText('Open').closest('[data-slot="explorer-row-inline-badges"]'),
 		).not.toBeNull();
 	});
-
-	it('puts a family section first under the truncation notice', async () => {
-		harness.truncated = true;
-		harness.total = 640;
-		renderDailyWork();
-		await screen.findByText('Culvert 12');
-
-		// The notice and every section heading, in document order. The first
-		// heading after the notice is a family's, with no date heading between.
-		const order = panelOrder();
-		console.info(['panel order:', ...order].join('\n'));
-		expect(order.slice(0, 2)).toEqual([
-			'notice: This log is incompleteShowing the first 4 of 640 entries.',
-			'heading: Larval Surveillance1',
-		]);
-	});
 });
 
 describe('selecting a row on the Daily Work log', () => {
@@ -336,9 +294,9 @@ describe('selecting a row on the Daily Work log', () => {
 		fireEvent.click(selectButton('GT-04'));
 
 		expect(selectButton('GT-04').getAttribute('aria-pressed')).toBe('true');
-		// The card is the trap card, which titles itself by the register while it
-		// resolves the row.
-		expect(await screen.findByRole('heading', { name: 'Trap' })).toBeTruthy();
+		// The card is the trap card, resolved off the same collection the log read,
+		// so it titles itself by the trap's label. The page heading is the person's.
+		expect(await screen.findByRole('heading', { name: 'GT-04' })).toBeTruthy();
 		await waitFor(() => expect(harness.activityLayer?.selectedKey).toBe('trap:trap-1:created'));
 	});
 
@@ -375,14 +333,34 @@ describe('a row on the Daily Work log', () => {
 	// needs a real router and is `link-destinations.test.tsx`'s case.
 	it('draws the title and the Tags that activityRow answers', async () => {
 		seedRows(tags, [PRIORITY, ACCESS]);
-		const tagged = entry({
-			id: 'habitat-1',
+		seedRows(tag_items, [
+			{ id: 'ti-1', entity_type: 'habitat', entity_id: 'habitat-1', tag_id: ACCESS.id },
+			{ id: 'ti-2', entity_type: 'habitat', entity_id: 'habitat-1', tag_id: PRIORITY.id },
+		]);
+		const tagged: DayActivityEntry = {
 			category: 'habitat',
+			family: 'larval',
+			involvement: 'primary',
 			role: 'created',
+			id: 'habitat-1',
+			lat: 35.5,
+			lng: -90.5,
+			date: DAY,
+			occurredAt: noonOn(DAY).toISOString(),
 			label: 'Culvert 12',
+			placeName: null,
+			refId: null,
+			methodRefId: null,
+			amount: null,
+			unitId: null,
+			detail: 'active',
+			stages: null,
+			context: null,
+			hasBycatch: null,
 			tagIds: [ACCESS.id, PRIORITY.id],
-		});
-		harness.log = new Map([[DAY, [tagged]]]);
+			profileId: PROFILE_ID,
+			recordedAt: noonOn(DAY).toISOString(),
+		};
 		renderDailyWork();
 		await screen.findByText('Culvert 12');
 

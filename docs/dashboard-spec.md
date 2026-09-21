@@ -29,12 +29,12 @@ Dashboard shows a count and the age of the oldest and links to the list; an
 overview shows the list. Nothing on the Dashboard is a list of records except
 the people table.
 
-Four sections, in this order, top to bottom:
+Three sections, in this order, top to bottom:
 
-1. Pending queues, two panels side by side.
-2. The untreated habitats banner.
-3. Last 7 days, the activity strip.
-4. In the field today, the people table.
+1. Last 7 days, the activity strip. It leads because it is what a person
+   opens the page for: what the Organization did this week, against last.
+2. Pending queues, two panels side by side.
+3. In the field today, the people table.
 
 The frame is what the overviews use: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, so the page fills the
@@ -108,67 +108,58 @@ collections awaiting rows will say a number the larval and adult overviews' 14
 day panels do not, and that is the design: the clone's oldest awaiting
 collection is from 2023-09-05 and a Manager wants to know that.
 
-## The untreated habitats banner
+## The untreated habitats banner, removed
 
-One row between the queues and the strip, the whole row a link, in the warning
-tone with the `actions.warning` icon. It reads `5 untreated habitats` with the
-rule and the oldest age under it: "heavy in the last 7 days with no control
-action since; oldest 6 days". At zero the same row draws in the neutral tone
-with no link and reads `No untreated habitats`, so the Manager can see the
-check ran.
-
-An **untreated** Habitat is a derived state in `CONTEXT.md`'s relationship cues
-(#991). The rule, from the flag ticket:
-
-- The Habitat's most recent live inspection is dated within the rolling 7 days
-  ending today and its density is `heavy` or `very_heavy`, the same two bands
-  the larval overview's heavy panel reads. Ad Hoc Inspections have no Habitat
-  and are out. Inactive Habitats are out; inaccessible ones stay in, because a
-  heavy reading behind a locked gate is the one that needs a different plan.
-- No Chemical Application, Source Reduction or Biocontrol Action dated on or
-  after that inspection names the Habitat by `habitat_id` or names the
-  inspection by `inspection_id`. Same day counts; the columns are dates.
-  Applications and biocontrol carry both columns, source reductions carry
-  `habitat_id` only. No spatial matching: an unlinked action nearby is a
-  data-entry finding a Manager wants to see, not a treatment.
-- No open Requested Control Action names the Habitat. That Habitat is already
-  counted on the requests queue or is on a Mission, and one condition gets one
-  count. Resolving the request clears nothing; only an action treats.
-
-The window is 7 days and not the overview's 14 because egg to adult averages
-about a week, so a heavy reading older than that has emerged and is no longer a
-treatment the flag can prompt. The overview panel keeps its 14 days, being a
-fortnight's review rather than a week's treatment prompt, and the two numbers
-differ by design.
-
-The read is the server, one query: latest live inspection per Habitat in the
-window, filtered to heavy, anti-joined against the three action tables and the
-open requests, returning the count and `min(inspection_date)`. The link is
-`/larval-surveillance/habitats?untreated=true`, a filter that does not exist
-yet; see "The three explorer filters".
+The first build drew a warning row under the queues, `5 untreated habitats`,
+linking to `/larval-surveillance/habitats?untreated=true`. It is gone from the
+page. Its read was a correlated subquery per Habitat, `untreatedInspectionDateSql`
+in `habitats.ts` run for every live Habitat the Organization has, and on the
+production clone it took 4.7 seconds while every other read on the endpoint
+took under 100 ms, so the whole page waited on it. The rule and the fragment
+stay where the explorer reads them: **untreated** is still a derived state in
+`CONTEXT.md` (#991) and still the habitats explorer's `untreated` filter, and
+the rule is the docblock on `untreatedInspectionDateSql` in `habitats.ts`: the
+Habitat's latest live inspection in the 7 days ending today reads `heavy` or
+`very_heavy`, no application, source reduction or biocontrol action dated on
+or after it names the Habitat or the inspection, and no open Requested Control
+Action names the Habitat. Bringing the banner back is a question of that
+read's cost first, an index on `inspections (habitat_id, inspection_date desc,
+created_at desc)` and a set-based rewrite of the fragment, and only then of
+the page.
 
 ## Last 7 days
 
 One ruled strip, not a `Panel`: a section heading `Last 7 days` on the left,
-and on the right the window's dates and the words "delta against the 7 before",
-then one bordered row of cells, seven across on a wide screen, four at `sm`,
-two below. Each cell is the count for the window, a delta chip beside it and
-the type's label under it. The chip reads `+25`, `-13` or `same`, as an outline
-`Badge` in `info`, `warning` or `neutral` tone.
+and on the right the window's dates, the words "compared with the 7 days
+before" and a two-segment toggle, `#` and `%`, then one bordered row of eight
+cells, eight across on a wide screen, four at `sm`, two below. Each cell is the
+count for the window, the change beside it and the type's label under both.
+The change is a chevron and an unsigned figure rather than a `Badge`: up in the
+`info` tone, down in the `warning` tone, and no chevron with a muted `0` when
+the two windows match. The chevron is the sign, so the figure never carries
+one. The toggle restates every cell as a count, the difference, or as a
+percentage of the 7 days before, rounded to whole points; a rise from a prior
+of zero has no base and reads `from 0`. The toggle is page state and starts on
+the count.
 
 The window is the 7 days ending today in the Organization's zone and the prior
-window is the 7 before it. The server computes both and returns their dates, so
-the strip's title and its counts come from one clock.
+window is the 7 before it. The client computes both from the same `today` the
+rest of the page ages against, so the strip's title and its counts come from
+one clock.
 
 Eight types, each counted on the date its own overview and the Activity Monitor
-count it on. A `date` column is compared to the window's `YYYY-MM-DD` bounds
-as a string; a `timestamptz` column is reduced to the Organization's day with
-`localDateSql` first.
+count it on. The strip reads Electric rather than the server: `useActivityStrip`
+opens one 14-day subset per table, `gte(<date>, priorWindow.from)`, and folds
+the rows into the two counts, so a cell moves when a Collector's write syncs
+rather than on the next five-minute tick. A `date` column arrives as
+`YYYY-MM-DD` and is compared to the window's bounds as a string; `collected_at`
+is reduced to the Organization's day with `localCalendarDay` first, and the
+subset bounds it in its own type the way the problem queue does.
 
 | Type | Label | Column |
 | --- | --- | --- |
 | Inspections | `Inspections` | `inspections.inspection_date` |
-| Samples | `Samples` | the parent inspection's `inspection_date`; `samples` has no date of its own |
+| Samples | `Samples` | the parent inspection's `inspection_date`; `samples` has no date of its own, so the inspections subset carries each parent's sample ids as a correlated `toArray` include |
 | Collections | `Collections` | the effective collection date |
 | Applications | `Applications` | `applications.application_date` |
 | Source reductions | `Source reductions` | `source_reductions.source_reduction_date` |
@@ -186,41 +177,52 @@ of day to sort among them. A feed of events and a count of receipts are
 different questions; this paragraph is here so the disagreement is not filed
 again.
 
-A type the Organization has never recorded is not a cell. A type with records
-and none in the window is a cell at `0`. Derived, no setting: the server
-returns `null` for a type with no live row in the Organization at all, and the
-client hides the cell. All eight types read the server, because samples force
-it (a client count needs `inArray` over 3,050 inspection ids in a fortnight in
-season) and the existence check rides with the same round-trip.
+Every type is a cell, at `0` when there is nothing in either window. The strip
+used to hide a type the Organization had never recorded, which needed an
+existence check over the whole table and so put all eight types on the server;
+a windowed client read cannot answer "ever", and a Manager in an Organization
+that does no biocontrol reads `Releases 0` as true. The include over the
+inspections subset is what the first build ruled out as `inArray` over 3,050
+ids, and it is fine now because subset requests ride in a POST body
+(`subsetMethod: 'POST'` in `packages/sync`), so the id list never meets a URL
+limit.
 
 ## In the field today
 
 A `Panel` titled `In the field today` with the `entities.contact` icon, its
 count pill the number of rows, holding a `Table` of three columns: `Person`,
-`Records` right-aligned, `Last record` right-aligned in muted text as `HH:MM`
-in the Organization's zone. The person's name is a `Link` to
-`/daily-work/$profileId?date=today`, the Activity Monitor's day. Rows are
+`Records` right-aligned, `Last record` right-aligned in muted text as
+`11:54 AM`, the Monitor's own `formatActivityTime` in the Organization's zone.
+The person's name is a `Link` to `/daily-work/$profileId?date=today`, the
+Activity Monitor's day, stretched over its row with a pseudo-element so the
+whole row is the target and a screen reader meets one link. Rows are
 ordered by records, most first. Empty, the panel draws `PanelMessage` reading
 "Nothing logged yet today."
 
-The read is the Activity Monitor's union in
-`packages/db/src/domains/profile-activity.ts`, generalised from one Profile to
-the Organization for one operational day and grouped by `profile_id`, count
-and latest occurred-at. Same field attribution (`inspected_by_profile_id`,
-`applicator_profile_id` and the rest, plus `additional_personnel`, and never
-`created_by_profile_id`) and the same date rule, so the row's number is what
-its link opens. `listProfileActivity` and this read share `activityBranches`;
-the build makes the Profile predicate optional in that function rather than
-copying seventeen branches.
+The read is the Activity Monitor's, off Electric: `usePeopleToday` wraps
+`useDayActivity`, one day of the Organization's records through the seventeen
+branches in `components/activity/activity-entries`, and `peopleByRecords`
+groups the entries by Profile, count and latest `recordedAt`. Same field
+attribution (`inspected_by_profile_id`, `applicator_profile_id` and the rest,
+plus `additional_personnel`, and never `created_by_profile_id`) and the same
+date rule, because it is the same read: the Monitor filters the same entries
+to one person, so the row's number is what its link opens. The read used to be
+`readPeopleToday` on `GET /dashboard`, sharing `activityBranches` with
+`GET /map/profiles/:profileId/activity`; both server reads are gone and the
+branches live once, on the client.
 
 ## Reads
 
 The rule from the read ticket: a panel whose predicate is one table's own
-columns reads Electric; a panel that needs a second table to decide membership,
-or a count over a window, reads the server. Four queues are Electric and
-everything else is one server round-trip.
+columns reads Electric; a panel that needs a second table to decide membership
+reads the server. A count over a window reads Electric too, since the strip
+moved off the server: a window is a subset, and a subset is what an on-demand
+collection loads, and so does a day of records with their crew and Tags as
+correlated includes, which is what the people table reads. The strip, the
+people table and four queues are Electric; the three server queues are one
+round-trip.
 
-### The four Electric hooks
+### The Electric hooks
 
 Each is a hook under `apps/web/src/hooks/queries`, a `useLiveQuery` over a
 subset with the oldest taken as `min` in the query, so the row moves the
@@ -241,6 +243,16 @@ which reads the same collection.
   `cancelled_at` are null and `scheduled_start_at` is before the end of today,
   the bound being `localDayStartAsInstant(tomorrow, timeZone)`.
 
+- `useActivityStrip`, under `hooks/dashboard`: eight subsets, one per activity
+  type, each `gte(<date>, priorWindow.from)`, folded into the window and prior
+  counts in memory. The inspections subset carries each parent's sample ids as
+  a correlated include, which is how samples are counted on their parent's
+  date without a second query.
+- `usePeopleToday`, under `hooks/dashboard`: `useDayActivity` for today,
+  grouped by Profile. Nine subsets, one per record kind, bounded to the day in
+  the kind's own date type, with `additional_personnel` and `tag_items` as
+  correlated includes and the place names as left joins.
+
 Each subset is pushed down, not filtered in memory, because the on-demand
 collections should ask for the pending rows and not for every row the
 Organization has ever written.
@@ -258,8 +270,7 @@ fragment in `larval-surveillance.ts`, lifted out of
 `listSamplesAwaitingIdentification` so the overview's 14-day preview and the
 Dashboard's all-time count cannot drift; the overview route keeps its `since`
 and its list untouched. The collections predicate is the fragment the new map
-filter reads (below). The flag predicate is the fragment the `untreated` map
-filter reads.
+filter reads (below).
 
 ```ts
 interface DashboardResponse {
@@ -269,13 +280,6 @@ interface DashboardResponse {
 		readonly collectionsAwaiting: QueueCount;
 		readonly requestsUnassigned: QueueCount;
 	};
-	readonly untreatedHabitats: QueueCount;
-	readonly activity: {
-		readonly window: { readonly from: string; readonly to: string };
-		readonly priorWindow: { readonly from: string; readonly to: string };
-		readonly types: Record<ActivityTypeKey, ActivityCount | null>;
-	};
-	readonly peopleToday: readonly PersonToday[];
 }
 
 interface QueueCount {
@@ -283,24 +287,7 @@ interface QueueCount {
 	/** The oldest pending row's date, YYYY-MM-DD; null when the count is 0. */
 	readonly oldest: string | null;
 }
-
-interface ActivityCount {
-	readonly count: number;
-	readonly prior: number;
-}
-
-interface PersonToday {
-	readonly profileId: string;
-	readonly records: number;
-	/** ISO instant of the latest record. */
-	readonly lastAt: string;
-}
 ```
-
-`ActivityTypeKey` is the eight keys in strip order. A type is `null` when
-`exists(select 1 from <table> where organization_id = $1 and deleted_at is
-null)` is false. The Profile's name is not in the response; the client reads it
-off the eager `profiles` collection the way every other surface does.
 
 The response varies by the session's Organization and the URL carries no id, so
 `/dashboard` joins `PRIVATE_READ_PREFIXES` in `cache-headers.ts` and gets a
@@ -315,11 +302,12 @@ One `useQuery` in `apps/web/src/components/dashboard/dashboard-data.ts`, keyed
 `['dashboard']`, with `refetchOnWindowFocus: true` and `refetchInterval` of
 five minutes. The app's default is `refetchOnWindowFocus: false`, so the hook
 sets it. No refresh control on the page: focus and the interval are the
-cadence, and one query is one timer, which is why the five server panels are
-one endpoint rather than five.
+cadence, and one query is one timer, which is why the three server queues are
+one endpoint rather than three.
 
-Mixed liveness is accepted, with nothing on the page saying so. Four queues
-move live and the rest are up to five minutes stale. No "last read" time, and
+Mixed liveness is accepted, with nothing on the page saying so. The strip, the
+people table and four queues move live and the rest are up to five minutes
+stale. No "last read" time, and
 no refetch of the server half on an Electric change. One failing query fails
 the whole server half, and that is the trade taken for one timer.
 
@@ -330,22 +318,19 @@ Each panel answers for itself, the way the overviews do.
 Loading: a queue panel draws `RowSkeleton` in place of its rows until every
 hook it draws has answered, so the two panels can finish at different times
 (Surveillance backlog waits on the server, Operations backlog on both). The
-banner draws nothing until the server answers. The strip and the people panel
-draw `RowSkeleton` until the server answers. A panel's count pill is withheld
+strip draws `RowSkeleton` until its eight subsets are ready, and the people
+panel until its nine are. A panel's count pill is withheld
 while it loads, `count={undefined}`, the way the overview's awaiting panel
 does.
 
-Empty: a queue row at zero stays, muted, with no age. The banner at zero is the
-neutral line. A strip cell at zero draws `0` with its chip. The people panel
-draws its `PanelMessage`. A hidden strip cell is not an empty state; it is a
-type the Organization has never recorded.
+Empty: a queue row at zero stays, muted, with no age. A strip cell at zero
+draws `0` with its chip. The people panel draws its `PanelMessage`.
 
 Error: an Electric hook reporting `isError` draws its rows as `PanelMessage`
 reading "Pending work is unavailable right now." in that panel. The server
-query failing draws the same message in every server section, "Untreated
-habitats are unavailable right now." on the banner in the neutral tone, and the
-strip's cells and the people table replaced by "Activity is unavailable right
-now." No retry control; the next focus or interval tick is the retry.
+query failing draws the same message in both queue panels. The strip and the
+people table draw "Activity is unavailable right now." when one of their
+subsets fails. No retry control; the next focus or interval tick is the retry.
 `ErrorReport` is for a route that cannot render, and this route can.
 
 ## Deep links and the three explorer filters
@@ -374,9 +359,8 @@ the fragment. There is no `GET /dashboard/queues/:queue/ids`.
   `parseHabitatTileFilters` as a `trueOnly` param, the surface applies the flag
   predicate as `exists (…)` on `h.id`, and the explorer's codecs gain
   `untreated: flagParam` and a control. One fragment in `habitats.ts`, read by
-  the surface, the tiles and the Dashboard reader, so the banner's count and the
-  explorer's rows are one predicate. The explorer's `status` filter defaults to
-  active, which agrees with the rule.
+  the surface and the tiles. The explorer's `status` filter defaults to active,
+  which agrees with the rule.
 - **Requests for control, `unassigned=true`**: new, and the one that stays on
   Electric, because that explorer reads `useRequestedControlActions` over a
   windowed subset. The filter joins `mission_items` where

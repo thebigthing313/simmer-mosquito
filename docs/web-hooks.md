@@ -789,15 +789,41 @@ which would yank the text they are typing.
 
 ### activity
 
-#### useProfileActivity
+#### useDayActivity
 
-The person and the day are both in the query key, so without
-`keepPreviousData` every change of the day drops a populated log back to
-placeholder rows. The previous log stays until the new one lands, which is
-what the rest of the explorers do when the map moves. A refusal is a
-permanent answer. Retried, it spends the backoff looking like a slow load,
-and the operator never learns the window was refused, so
-`ActivityRequestError.refused` switches the retry off.
+One day of the Organization's field work off the synced tables, for everyone:
+nine `useLiveQuery` subsets, one per record kind, handed row by row to the
+seventeen branches in `components/activity/activity-entries`. It replaced
+`useProfileActivity`, a `useQuery` on `GET /map/profiles/:profileId/activity`,
+and `readPeopleToday` on `GET /dashboard`, which shared `activityBranches` on
+the server; that function is deleted and the branches live once, here.
+
+The read is the whole Organization's day rather than one person's because
+both readers ask for a day: the Dashboard's people table groups the entries
+by Profile and the Activity Monitor filters them to one. Both open the same
+subsets, so the second reader costs nothing and stepping between people on
+the Monitor is a filter over rows already in hand. A day is bounded in the
+kind's own date type, a `date` column by equality and a `timestamptz` by the
+day's start and the next day's start in the Organization's zone, and a kind
+with two moments in one row (collections, service requests) asks for a row on
+either and lets the branch decide which entries fall on the day.
+
+Three things ride on the row rather than being fetched after it. The six
+kinds a crew member can assist on carry their `additional_personnel` rows as a
+correlated `toArray` include on `entity_id` and `entity_type`; habitats and
+service requests carry their `tag_items` the same way; and the place-bearing
+kinds left-join `habitats` and `addresses`, collections `traps`, for the
+place name. Both link tables index `entity_id` for the reason `samples`
+indexes `inspection_id`: the include loads by `entity_id = any(...)` only
+while the column is indexed, and without it the compiler scans what is local
+and the crew reads as absent.
+
+What went with the endpoint: the 2,000-row cap and its truncation notice,
+which existed because the server answered a window of any width, and the
+refusal of a window over 92 days. One person, one day, needs neither. The
+previous day's log no longer has to be held as placeholder data either, since
+a subset that is still loading reports `isReady: false` and the panel keeps
+what it has.
 
 #### useActivitySelection
 
@@ -820,13 +846,48 @@ refresh and the organization-required branch are written once.
 
 One `useQuery` for `GET /dashboard`, which answers every panel the client
 cannot read off a synced table: the two awaiting queues, the unassigned
-requests, the untreated flag, the activity strip and the people in the field
-today. One query is one timer, which is why five panels are one endpoint
-rather than five, and why the page carries no refresh control: focus and the
-five-minute interval are the cadence. The app's default is
-`refetchOnWindowFocus: false`; this page is opened and left open, and the tab
-coming back into focus is the moment a stale number matters.
-`docs/dashboard-spec.md` is the rest.
+requests, the untreated flag and the people in the field today. One query is
+one timer, which is why four panels are one endpoint rather than four, and why
+the page carries no refresh control: focus and the five-minute interval are
+the cadence. The app's default is `refetchOnWindowFocus: false`; this page is
+opened and left open, and the tab coming back into focus is the moment a stale
+number matters. `docs/dashboard-spec.md` is the rest.
+
+#### useActivityStrip
+
+The last-7-days strip off Electric: eight `useLiveQuery` subsets, one per
+activity type, each a 14-day window on the type's own operational date,
+folded into the 7-day count and the 7 before it in memory. It replaced a
+`readActivity` on `GET /dashboard`, and two things decided that. The strip is
+what a person opens the page for, and on the server it shared one round trip
+with the untreated habitats read, which was 4.7 seconds on the production
+clone against the strip's own 69 milliseconds; and a count that moves when a
+Collector's write syncs is worth more than one that moves on a five-minute
+tick.
+
+Samples are the case to know. A sample has no date and is counted on its
+parent inspection's, and the first build ruled a client count out as
+`inArray` over 3,050 inspection ids in a fortnight in season, which no URL
+carries. Subset requests ride in a POST body now (`subsetMethod: 'POST'` in
+`packages/sync`), so the inspections subset carries each parent's sample ids
+as a correlated `toArray` include and one subset serves both cells. The
+include loads by `inspection_id = any(...)` only while `samples` indexes that
+column, which is why the collection declares the index; without it the
+compiler warns once and scans what is local.
+
+The other thing the move cost is the hide rule. The server returned `null` for
+a type the Organization had never recorded and the client hid the cell, which
+needed an existence check over the whole table, and a windowed read cannot
+answer "ever". Every type is a cell now, at `0` when there is nothing.
+
+#### usePeopleToday
+
+`useDayActivity` for today, grouped by Profile through `peopleByRecords`. It
+is the Activity Monitor's own read with the person filter left off, which is
+what keeps the row's number equal to what its link opens: the two used to
+share `activityBranches` on the server for the same reason, and now they share
+the subsets. A person's `records` counts entries, not rows, so a collection
+one person set and collected is two, which is what the Monitor lists for them.
 
 ### larval-surveillance
 

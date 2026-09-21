@@ -15,11 +15,13 @@ export interface QueueCount {
 	readonly oldest: string | null;
 }
 
+/** One strip cell: the 7-day count and the 7 before it. */
 export interface ActivityCount {
 	readonly count: number;
 	readonly prior: number;
 }
 
+/** One person's day: how much they logged and when they last logged something. */
 export interface PersonToday {
 	readonly profileId: string;
 	readonly records: number;
@@ -27,12 +29,43 @@ export interface PersonToday {
 	readonly lastAt: string;
 }
 
+/**
+ * Everyone who logged field work, most records first, then latest first, then
+ * by id so the order is stable. One entry is one record in one role, so a
+ * collection set and collected by the same person counts twice, which is what
+ * the Activity Monitor lists for them.
+ */
+export function peopleByRecords(
+	entries: readonly { readonly profileId: string; readonly recordedAt: string }[],
+): readonly PersonToday[] {
+	const byProfile = new Map<string, { records: number; lastAt: string }>();
+	for (const entry of entries) {
+		const person = byProfile.get(entry.profileId);
+		if (person === undefined) {
+			byProfile.set(entry.profileId, { records: 1, lastAt: entry.recordedAt });
+		} else {
+			person.records += 1;
+			if (entry.recordedAt > person.lastAt) {
+				person.lastAt = entry.recordedAt;
+			}
+		}
+	}
+	return [...byProfile]
+		.map(([profileId, person]) => ({ profileId, ...person }))
+		.sort(
+			(a, b) =>
+				b.records - a.records ||
+				b.lastAt.localeCompare(a.lastAt) ||
+				a.profileId.localeCompare(b.profileId),
+		);
+}
+
 export interface DateWindow {
 	readonly from: string;
 	readonly to: string;
 }
 
-/** The eight activity types, in strip order. */
+/** The eight activity types, in strip order. `useActivityStrip` counts each off its own table. */
 export const ACTIVITY_TYPE_KEYS = [
 	'inspections',
 	'samples',
@@ -54,14 +87,6 @@ export interface DashboardResponse {
 		readonly collectionsAwaiting: QueueCount;
 		readonly requestsUnassigned: QueueCount;
 	};
-	readonly untreatedHabitats: QueueCount;
-	readonly activity: {
-		readonly window: DateWindow;
-		readonly priorWindow: DateWindow;
-		/** `null` is a type the Organization has never recorded, and is not a cell. */
-		readonly types: Readonly<Record<ActivityTypeKey, ActivityCount | null>>;
-	};
-	readonly peopleToday: readonly PersonToday[];
 }
 
 // --- the arithmetic ----------------------------------------------------------
@@ -87,11 +112,34 @@ export function ageLabel(days: number): string {
 	return days === 1 ? '1 day' : `${days} days`;
 }
 
-/** The delta chip's words: `+25`, `-13` or `same`. */
-export function deltaLabel(count: number, prior: number): string {
+/** How the strip states a change against the 7 days before: as a count or as a percentage. */
+export type ChangeMode = 'count' | 'percent';
+
+/** A strip cell's change, as the chevron beside the count draws it. */
+export interface ChangeLabel {
+	readonly direction: 'up' | 'down' | 'same';
+	/** `25`, `0`, `58%`, or `from 0` where a percentage has no base; the chevron carries the sign. */
+	readonly text: string;
+}
+
+/**
+ * The change from `prior` to `count`. The figure is unsigned, because the
+ * chevron beside it is the sign. A count is the difference; a percentage is
+ * the difference over `prior`, rounded to whole points, and over a prior of
+ * zero it has no base, so a rise from nothing reads `from 0` rather than a
+ * number.
+ */
+export function changeLabel(count: number, prior: number, mode: ChangeMode): ChangeLabel {
 	const delta = count - prior;
 	if (delta === 0) {
-		return 'same';
+		return { direction: 'same', text: mode === 'count' ? '0' : '0%' };
 	}
-	return delta > 0 ? `+${delta}` : `${delta}`;
+	const direction = delta > 0 ? 'up' : 'down';
+	if (mode === 'count') {
+		return { direction, text: `${Math.abs(delta)}` };
+	}
+	if (prior === 0) {
+		return { direction, text: 'from 0' };
+	}
+	return { direction, text: `${Math.abs(Math.round((delta / prior) * 100))}%` };
 }

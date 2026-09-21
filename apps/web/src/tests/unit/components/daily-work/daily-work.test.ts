@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import {
-	ActivityRequestError,
-	activityPanelState,
-} from '../../../../components/activity/activity-data';
+import { activityPanelState } from '../../../../components/activity/activity-data';
 import {
 	DAILY_WORK_COPY,
 	dailyWorkDay,
 	dailyWorkStep,
-	dailyWorkWindow,
 	isProfileId,
 } from '../../../../components/daily-work/daily-work';
 
-// Daily Work's pure half: which day the page is on, what that day asks the
-// server for, and whether the path names a Profile at all. Each of the three has
-// a wrong answer that shows nothing and says nothing about why.
+// Daily Work's pure half: which day the page is on, and whether the path names
+// a Profile at all. Each has a wrong answer that shows nothing and says nothing
+// about why.
 
 describe('dailyWorkDay', () => {
 	it('falls back to the organization’s today when the URL carries no day', () => {
@@ -67,44 +63,10 @@ describe('dailyWorkStep', () => {
 	});
 });
 
-describe('dailyWorkWindow', () => {
-	// The endpoint reads a range. One day is both ends of it, and the server needs
-	// no change to answer that.
-	it('sends the chosen day as both ends of the window', () => {
-		expect(dailyWorkWindow('profile-1', '2026-08-12')).toEqual({
-			profileId: 'profile-1',
-			dateFrom: '2026-08-12',
-			dateTo: '2026-08-12',
-		});
-	});
-});
-
 describe('DAILY_WORK_COPY', () => {
-	// A refusal is the server declining the question. Its own reason is the only
-	// thing that says which day was declined and why, so the page repeats it
-	// rather than replacing it with a generic failure.
-	it('repeats the server’s own reason for a refused day', () => {
-		const state = activityPanelState(
-			{
-				isLoading: false,
-				error: new ActivityRequestError('That date is not a date.', true),
-				isEmpty: true,
-			},
-			DAILY_WORK_COPY,
-		);
-
-		expect(state.message).toEqual({
-			title: 'That day was not read',
-			body: 'That date is not a date.',
-		});
-		// Not the frame's empty state: an empty day and a refused one must not look
-		// the same, because one of them is a conclusion about a colleague.
-		expect(state.isEmpty).toBe(false);
-	});
-
 	it('hands a genuinely empty day to the frame, in day wording', () => {
 		const state = activityPanelState(
-			{ isLoading: false, error: null, isEmpty: true },
+			{ isLoading: false, isError: false, isEmpty: true },
 			DAILY_WORK_COPY,
 		);
 
@@ -115,16 +77,11 @@ describe('DAILY_WORK_COPY', () => {
 		});
 	});
 
-	// One day has no second end to move, so there is nothing to advise.
-	it('offers no advice about narrowing a capped log', () => {
-		expect(DAILY_WORK_COPY.truncationAdvice).toBeNull();
-	});
-
 	// Same reason: there is no range to narrow, so a failed read says to try
 	// again rather than to move an end the page does not have.
 	it('does not tell a reader to narrow a range after a failed read', () => {
 		const state = activityPanelState(
-			{ isLoading: false, error: new Error('boom'), isEmpty: true },
+			{ isLoading: false, isError: true, isEmpty: true },
 			DAILY_WORK_COPY,
 		);
 

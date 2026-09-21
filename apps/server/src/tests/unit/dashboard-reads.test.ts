@@ -49,28 +49,6 @@ const response: DashboardResponse = {
 		collectionsAwaiting: { count: 0, oldest: null },
 		requestsUnassigned: { count: 1, oldest: '2026-09-11' },
 	},
-	untreatedHabitats: { count: 2, oldest: '2026-09-12' },
-	activity: {
-		window: { from: '2026-09-09', to: '2026-09-15' },
-		priorWindow: { from: '2026-09-02', to: '2026-09-08' },
-		types: {
-			inspections: { count: 12, prior: 9 },
-			samples: { count: 2, prior: 0 },
-			collections: { count: 4, prior: 4 },
-			applications: { count: 1, prior: 3 },
-			sourceReductions: null,
-			releases: { count: 0, prior: 1 },
-			serviceRequests: { count: 5, prior: 2 },
-			outreachActions: null,
-		},
-	},
-	peopleToday: [
-		{
-			profileId: '11111111-1111-4111-8111-111111111111',
-			records: 7,
-			lastAt: '2026-09-15T18:52:00Z',
-		},
-	],
 };
 
 function createApp(options: {

@@ -12,33 +12,34 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import type { useDashboard } from '../../hooks/dashboard/use-dashboard';
+import { usePeopleToday } from '../../hooks/dashboard/use-people-today';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
-import { localTimeOfDay } from '../../lib/local-date';
+import { formatActivityTime } from '../activity/activity-data';
 
 const PeopleIcon = iconRegistry.entities.contact.icon;
-type ServerRead = ReturnType<typeof useDashboard>;
 const PEOPLE_UNAVAILABLE = 'Activity is unavailable right now.';
 
 /**
- * Everyone who logged field work today, most records first, each name a link
- * to their day on the Activity Monitor.
+ * Everyone who logged field work today, most records first, each row a link
+ * to their day on the Activity Monitor. Reads the same day of synced rows the
+ * Monitor reads, so the row's number is what its link opens. The name is the
+ * one anchor and it is stretched over the row with a pseudo-element, so the
+ * whole row is a target for a pointer and one link for a screen reader; the
+ * time reads on the same clock and in the same shape as the Monitor's rows.
  */
 export function PeopleTodayPanel({
-	server,
 	timeZone,
 	today,
 }: {
-	readonly server: ServerRead;
 	readonly timeZone: string;
 	readonly today: string;
 }) {
 	const nameById = useProfileNames();
-	const people = server.data?.peopleToday;
+	const { people, isReady, isError } = usePeopleToday(today, timeZone);
 
 	return (
 		<Panel
-			count={people === undefined || server.isError ? undefined : people.length}
+			count={!isReady || isError ? undefined : people.length}
 			icon={<PeopleIcon className="size-4" />}
 			title="In the field today"
 		>
@@ -46,7 +47,7 @@ export function PeopleTodayPanel({
 				empty={{ description: 'Nothing logged yet today.' }}
 				icon={<PeopleIcon aria-hidden="true" />}
 				inset
-				reading={{ isError: server.isError, isReady: people !== undefined, rows: people ?? [] }}
+				reading={{ isError, isReady, rows: people }}
 				unavailable={{ description: PEOPLE_UNAVAILABLE }}
 				wrap="none"
 			>
@@ -61,10 +62,13 @@ export function PeopleTodayPanel({
 						</TableHeader>
 						<TableBody>
 							{rows.map((person) => (
-								<TableRow key={person.profileId}>
+								<TableRow className="relative hover:bg-muted/50" key={person.profileId}>
 									<TableCell>
 										<Link
-											className={cn(recordLink({ size: 'sm' }), 'truncate')}
+											className={cn(
+												recordLink({ size: 'sm' }),
+												'truncate after:absolute after:inset-0 after:content-[""]',
+											)}
 											params={{ profileId: person.profileId }}
 											search={{ date: today }}
 											to="/daily-work/$profileId"
@@ -74,7 +78,7 @@ export function PeopleTodayPanel({
 									</TableCell>
 									<TableCell className="text-right tabular-nums">{person.records}</TableCell>
 									<TableCell className="text-right text-muted-foreground tabular-nums">
-										{localTimeOfDay(person.lastAt, timeZone)}
+										{formatActivityTime(person.lastAt, timeZone)}
 									</TableCell>
 								</TableRow>
 							))}

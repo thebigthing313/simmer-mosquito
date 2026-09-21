@@ -4,7 +4,7 @@
  * The Dashboard rendered whole, through its four states: loading, loaded,
  * empty and the server half failing.
  *
- * The four Electric queues come off memory collections and the server half
+ * The strip and the four Electric queues come off memory collections and the server half
  * off a `sessionFetch` the suite answers, so what is on screen is what the
  * hooks and the query really produced rather than a fixture handed to a
  * component. The router is the stand-in beside the route suites, because a
@@ -13,15 +13,18 @@
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardResponse } from '../../../components/dashboard/dashboard-data';
 import { assignment_items } from '../../../lib/collections/assignment_items';
 import { collections } from '../../../lib/collections/collections';
+import { habitats } from '../../../lib/collections/habitats';
+import { inspections } from '../../../lib/collections/inspections';
 import { missions } from '../../../lib/collections/missions';
 import { organizations } from '../../../lib/collections/organizations';
 import { profiles } from '../../../lib/collections/profiles';
+import { samples } from '../../../lib/collections/samples';
 import { service_requests } from '../../../lib/collections/service_requests';
 import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
 
@@ -78,25 +81,6 @@ const SERVER: DashboardResponse = {
 		collectionsAwaiting: { count: 41, oldest: '2026-09-03' },
 		requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 	},
-	untreatedHabitats: { count: 5, oldest: '2026-09-09' },
-	activity: {
-		window: { from: '2026-09-09', to: '2026-09-15' },
-		priorWindow: { from: '2026-09-02', to: '2026-09-08' },
-		types: {
-			inspections: { count: 212, prior: 187 },
-			samples: { count: 31, prior: 44 },
-			collections: { count: 66, prior: 66 },
-			applications: { count: 17, prior: 9 },
-			sourceReductions: { count: 4, prior: 11 },
-			releases: null,
-			serviceRequests: { count: 29, prior: 25 },
-			outreachActions: { count: 0, prior: 2 },
-		},
-	},
-	peopleToday: [
-		{ profileId: 'p-dana', records: 38, lastAt: '2026-09-15T18:52:00Z' },
-		{ profileId: 'p-miguel', records: 21, lastAt: '2026-09-15T14:10:00Z' },
-	],
 };
 
 const EMPTY: DashboardResponse = {
@@ -106,22 +90,6 @@ const EMPTY: DashboardResponse = {
 		collectionsAwaiting: { count: 0, oldest: null },
 		requestsUnassigned: { count: 0, oldest: null },
 	},
-	untreatedHabitats: { count: 0, oldest: null },
-	activity: {
-		window: { from: '2026-09-09', to: '2026-09-15' },
-		priorWindow: { from: '2026-09-02', to: '2026-09-08' },
-		types: {
-			inspections: { count: 0, prior: 0 },
-			samples: null,
-			collections: null,
-			applications: null,
-			sourceReductions: null,
-			releases: null,
-			serviceRequests: null,
-			outreachActions: null,
-		},
-	},
-	peopleToday: [],
 };
 
 beforeEach(() => {
@@ -163,15 +131,22 @@ function queueLine(label: string): HTMLElement {
 	return line;
 }
 
+/** The strip cell whose label reads `label`: its count, its chip and the label, as one text. */
+function stripCell(label: string): HTMLElement {
+	const cell = screen.getByText(label).parentElement;
+	if (cell === null) {
+		throw new Error(`No strip cell labelled ${label}.`);
+	}
+	return cell;
+}
+
 describe('the Dashboard', () => {
-	it('draws skeletons and no banner until the server answers', async () => {
+	it('draws skeletons until the server answers', async () => {
 		renderDashboard();
 
 		await waitFor(() => expect(harness.pending).toHaveLength(1));
 		expect(screen.getByRole('heading', { name: 'Surveillance backlog' })).toBeTruthy();
 		expect(screen.queryByText(/awaiting identification/)).toBeNull();
-		expect(screen.queryByText(/untreated habitats/)).toBeNull();
-		expect(screen.queryByText('Nothing logged yet today.')).toBeNull();
 		// Every section that waits on the server holds a skeleton, and no count pill.
 		expect(document.querySelectorAll('[aria-hidden="true"] .animate-pulse').length).toBeGreaterThan(
 			0,
@@ -191,6 +166,52 @@ describe('the Dashboard', () => {
 				is_zero_result: false,
 				has_bycatch: false,
 			},
+			{
+				id: 'c-window',
+				trap_id: 't1',
+				collection_method_id: 'm1',
+				// 2am on the 16th UTC is 10pm on the 15th in New York: inside the
+				// window by the Organization's clock, past it by UTC.
+				collected_at: new Date('2026-09-16T02:00:00Z'),
+				collected_by_profile_id: 'p-miguel',
+				collection_date: null,
+				collection_timing_mode: 'exact_timestamps',
+				has_problem: false,
+				is_zero_result: false,
+				has_bycatch: false,
+			},
+		]);
+		// Three inspections in the window and one the week before, the samples
+		// counted on their parent's date: three under the newest, one under the old.
+		// The newest is today's and Dana's, which is one of her two records in the
+		// field today; the habitat she created this morning is the other.
+		seedRows(inspections, [
+			{
+				id: 'i-1',
+				habitat_id: 'h1',
+				inspection_date: '2026-09-15',
+				inspected_by_profile_id: 'p-dana',
+				created_at: new Date('2026-09-15T18:52:00Z'),
+			},
+			{ id: 'i-2', habitat_id: 'h1', inspection_date: '2026-09-10' },
+			{ id: 'i-3', habitat_id: 'h1', inspection_date: '2026-09-09' },
+			{ id: 'i-prior', habitat_id: 'h1', inspection_date: '2026-09-02' },
+			{ id: 'i-out', habitat_id: 'h1', inspection_date: '2026-09-01' },
+		]);
+		seedRows(habitats, [
+			{
+				id: 'h1',
+				habitat_name: 'Culvert 12',
+				created_by_profile_id: 'p-dana',
+				created_at: new Date('2026-09-15T16:30:00Z'),
+			},
+		]);
+		seedRows(samples, [
+			{ id: 's-1', inspection_id: 'i-1' },
+			{ id: 's-2', inspection_id: 'i-1' },
+			{ id: 's-3', inspection_id: 'i-1' },
+			{ id: 's-prior', inspection_id: 'i-prior' },
+			{ id: 's-out', inspection_id: 'i-out' },
 		]);
 		seedRows(service_requests, [
 			{ id: 'sr-1', request_date: '2026-05-26', closed_at: null },
@@ -235,27 +256,34 @@ describe('the Dashboard', () => {
 		expect(queueLine('Missions due today or overdue').textContent).toContain('1 day');
 		expect(panel('Operations backlog').getByText('10')).toBeTruthy();
 
-		// The banner, the whole row a link.
-		const banner = screen.getByText('5 untreated habitats').closest('a');
-		expect(banner?.textContent).toContain(
-			'heavy in the last 7 days with no control action since; oldest 6 days',
+		// The strip: every type a cell, counted off the synced rows on its own date.
+		expect(screen.getByText('Sep 9 to Sep 15, compared with the 7 days before')).toBeTruthy();
+		expect(stripCell('Inspections').textContent).toBe('32Inspections');
+		expect(within(stripCell('Inspections')).getByLabelText('Up')).toBeTruthy();
+		expect(stripCell('Samples').textContent).toBe('32Samples');
+		// One in each window, the exact-timestamp one placed by the Organization's zone.
+		expect(stripCell('Collections').textContent).toBe('10Collections');
+		expect(within(stripCell('Collections')).queryByLabelText(/Up|Down/)).toBeNull();
+		expect(stripCell('Service Requests received').textContent).toBe('22Service Requests received');
+		// A type with no row is a cell at zero.
+		expect(stripCell('Biocontrol Actions').textContent).toBe('00Biocontrol Actions');
+
+		// The toggle restates every change as a percentage; a rise from nothing has no base.
+		fireEvent.click(screen.getByRole('radio', { name: 'Change as a percentage' }));
+		expect(stripCell('Inspections').textContent).toBe('3200%Inspections');
+		expect(stripCell('Collections').textContent).toBe('10%Collections');
+		expect(stripCell('Service Requests received').textContent).toBe(
+			'2from 0Service Requests received',
 		);
 
-		// The strip: seven cells, the never-recorded type absent, a delta each way.
-		expect(screen.getByText('Sep 9 to Sep 15, delta against the 7 before')).toBeTruthy();
-		expect(screen.queryByText('Biocontrol Actions')).toBeNull();
-		expect(screen.getByText('+25')).toBeTruthy();
-		expect(screen.getByText('-13')).toBeTruthy();
-		expect(screen.getByText('same')).toBeTruthy();
-		expect(screen.getByText('Service Requests received')).toBeTruthy();
-
 		// The people table: names off the profiles, most records first, the time
-		// in the Organization's zone.
+		// in the Organization's zone. Miguel's collect is 10pm New York, which is
+		// tomorrow in UTC and today here.
 		const people = panel('In the field today');
 		const rows = people.getAllByRole('row').slice(1);
 		expect(rows.map((row) => row.textContent)).toEqual([
-			'Dana Okafor3814:52',
-			'Miguel Herrera2110:10',
+			'Dana Okafor22:52 PM',
+			'Miguel Herrera110:00 PM',
 		]);
 	});
 
@@ -264,16 +292,15 @@ describe('the Dashboard', () => {
 		await waitFor(() => expect(harness.pending).toHaveLength(1));
 		answer(EMPTY);
 
-		await waitFor(() => expect(screen.getByText('No untreated habitats')));
+		await waitFor(() => expect(screen.getByText('Samples awaiting identification')));
 
-		expect(screen.getByText('No untreated habitats').closest('a')).toBeNull();
 		const samples = queueLine('Samples awaiting identification');
 		expect(samples.className).toContain('text-muted-foreground');
 		expect(samples.textContent).not.toContain('day');
-		// One cell, at zero, with its chip.
-		expect(screen.getByText('Inspections')).toBeTruthy();
-		expect(screen.queryByText('Samples')).toBeNull();
-		expect(screen.getByText('same')).toBeTruthy();
+		// Eight cells, each at zero with no chevron.
+		expect(stripCell('Inspections').textContent).toBe('00Inspections');
+		expect(stripCell('Samples').textContent).toBe('00Samples');
+		expect(screen.queryByLabelText(/^(Up|Down)$/)).toBeNull();
 		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
 	});
 
@@ -285,7 +312,9 @@ describe('the Dashboard', () => {
 		await waitFor(() =>
 			expect(screen.getAllByText('Pending work is unavailable right now.')).toHaveLength(2),
 		);
-		expect(screen.getByText('Untreated habitats are unavailable right now.')).toBeTruthy();
-		expect(screen.getAllByText('Activity is unavailable right now.')).toHaveLength(2);
+		// The strip and the people table read Electric and are unaffected.
+		expect(screen.queryByText('Activity is unavailable right now.')).toBeNull();
+		expect(screen.getByText('Inspections')).toBeTruthy();
+		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
 	});
 });
