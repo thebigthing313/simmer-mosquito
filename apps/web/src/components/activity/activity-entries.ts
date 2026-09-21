@@ -103,6 +103,21 @@ interface Moment {
 	readonly createdAt: Date;
 }
 
+/** Every optional column of the record half, absent: a kind spells only the ones it has. */
+const NO_RECORD_COLUMNS = {
+	label: null,
+	placeName: null,
+	refId: null,
+	methodRefId: null,
+	amount: null,
+	unitId: null,
+	detail: null,
+	stages: null,
+	context: null,
+	hasBycatch: null,
+	tagIds: null,
+} as const satisfies Omit<RecordHalf, 'category' | 'family' | 'id' | 'lat' | 'lng'>;
+
 function entry(
 	record: RecordHalf,
 	moment: Moment,
@@ -113,26 +128,12 @@ function entry(
 	},
 ): DayActivityEntry {
 	return {
-		category: record.category,
-		family: record.family,
+		...NO_RECORD_COLUMNS,
+		...record,
 		involvement: who.involvement,
 		role: who.role,
-		id: record.id,
-		lat: record.lat,
-		lng: record.lng,
 		date: moment.date,
 		occurredAt: moment.occurredAt === null ? null : moment.occurredAt.toISOString(),
-		label: record.label ?? null,
-		placeName: record.placeName ?? null,
-		refId: record.refId ?? null,
-		methodRefId: record.methodRefId ?? null,
-		amount: record.amount ?? null,
-		unitId: record.unitId ?? null,
-		detail: record.detail ?? null,
-		stages: record.stages ?? null,
-		context: record.context ?? null,
-		hasBycatch: record.hasBycatch ?? null,
-		tagIds: record.tagIds ?? null,
 		profileId: who.profileId,
 		recordedAt: (moment.occurredAt ?? moment.createdAt).toISOString(),
 	};

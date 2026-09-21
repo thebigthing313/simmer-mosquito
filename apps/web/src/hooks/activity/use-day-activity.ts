@@ -322,34 +322,35 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 		serviceRequestRows,
 	];
 
-	const entries: DayActivityEntry[] = [];
-	for (const row of habitatRows.data) {
-		entries.push(...habitatEntries({ ...row, tagIds: tagIds(row.tags) }, scope));
-	}
-	for (const row of inspectionRows.data) {
-		entries.push(...inspectionEntries({ ...row, assisting: links(row.assisting) }, scope));
-	}
-	for (const row of trapRows.data) {
-		entries.push(...trapEntries(row, scope));
-	}
-	for (const row of collectionRows.data) {
-		entries.push(...collectionEntries({ ...row, assisting: links(row.assisting) }, scope));
-	}
-	for (const row of applicationRows.data) {
-		entries.push(...applicationEntries({ ...row, assisting: links(row.assisting) }, scope));
-	}
-	for (const row of sourceReductionRows.data) {
-		entries.push(...sourceReductionEntries({ ...row, assisting: links(row.assisting) }, scope));
-	}
-	for (const row of biocontrolRows.data) {
-		entries.push(...biocontrolEntries({ ...row, assisting: links(row.assisting) }, scope));
-	}
-	for (const row of outreachRows.data) {
-		entries.push(...outreachEntries({ ...row, assisting: links(row.assisting) }, scope));
-	}
-	for (const row of serviceRequestRows.data) {
-		entries.push(...serviceRequestEntries({ ...row, tagIds: tagIds(row.tags) }, scope));
-	}
+	// One `flatMap` per kind rather than one loop, so each kind's rule is a call
+	// and this stays a list of nine reads and nine hand-offs.
+	const entries: readonly DayActivityEntry[] = [
+		...habitatRows.data.flatMap((row) =>
+			habitatEntries({ ...row, tagIds: tagIds(row.tags) }, scope),
+		),
+		...inspectionRows.data.flatMap((row) =>
+			inspectionEntries({ ...row, assisting: links(row.assisting) }, scope),
+		),
+		...trapRows.data.flatMap((row) => trapEntries(row, scope)),
+		...collectionRows.data.flatMap((row) =>
+			collectionEntries({ ...row, assisting: links(row.assisting) }, scope),
+		),
+		...applicationRows.data.flatMap((row) =>
+			applicationEntries({ ...row, assisting: links(row.assisting) }, scope),
+		),
+		...sourceReductionRows.data.flatMap((row) =>
+			sourceReductionEntries({ ...row, assisting: links(row.assisting) }, scope),
+		),
+		...biocontrolRows.data.flatMap((row) =>
+			biocontrolEntries({ ...row, assisting: links(row.assisting) }, scope),
+		),
+		...outreachRows.data.flatMap((row) =>
+			outreachEntries({ ...row, assisting: links(row.assisting) }, scope),
+		),
+		...serviceRequestRows.data.flatMap((row) =>
+			serviceRequestEntries({ ...row, tagIds: tagIds(row.tags) }, scope),
+		),
+	];
 
 	return {
 		entries,
