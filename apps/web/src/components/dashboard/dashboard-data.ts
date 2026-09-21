@@ -82,11 +82,34 @@ export function ageLabel(days: number): string {
 	return days === 1 ? '1 day' : `${days} days`;
 }
 
-/** The delta chip's words: `+25`, `-13` or `same`. */
-export function deltaLabel(count: number, prior: number): string {
+/** How the strip states a change against the 7 days before: as a count or as a percentage. */
+export type ChangeMode = 'count' | 'percent';
+
+/** A strip cell's change, as the chevron beside the count draws it. */
+export interface ChangeLabel {
+	readonly direction: 'up' | 'down' | 'same';
+	/** `25`, `0`, `58%`, or `from 0` where a percentage has no base; the chevron carries the sign. */
+	readonly text: string;
+}
+
+/**
+ * The change from `prior` to `count`. The figure is unsigned, because the
+ * chevron beside it is the sign. A count is the difference; a percentage is
+ * the difference over `prior`, rounded to whole points, and over a prior of
+ * zero it has no base, so a rise from nothing reads `from 0` rather than a
+ * number.
+ */
+export function changeLabel(count: number, prior: number, mode: ChangeMode): ChangeLabel {
 	const delta = count - prior;
 	if (delta === 0) {
-		return 'same';
+		return { direction: 'same', text: mode === 'count' ? '0' : '0%' };
 	}
-	return delta > 0 ? `+${delta}` : `${delta}`;
+	const direction = delta > 0 ? 'up' : 'down';
+	if (mode === 'count') {
+		return { direction, text: `${Math.abs(delta)}` };
+	}
+	if (prior === 0) {
+		return { direction, text: 'from 0' };
+	}
+	return { direction, text: `${Math.abs(Math.round((delta / prior) * 100))}%` };
 }

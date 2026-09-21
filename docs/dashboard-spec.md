@@ -151,11 +151,17 @@ yet; see "The three explorer filters".
 ## Last 7 days
 
 One ruled strip, not a `Panel`: a section heading `Last 7 days` on the left,
-and on the right the window's dates and the words "delta against the 7 before",
-then one bordered row of eight cells, eight across on a wide screen, four at
-`sm`, two below. Each cell is the count for the window, a delta chip beside it
-and the type's label under it. The chip reads `+25`, `-13` or `same`, as an
-outline `Badge` in `info`, `warning` or `neutral` tone.
+and on the right the window's dates, the words "compared with the 7 days
+before" and a two-segment toggle, `#` and `%`, then one bordered row of eight
+cells, eight across on a wide screen, four at `sm`, two below. Each cell is the
+count for the window, the change beside it and the type's label under both.
+The change is a chevron and an unsigned figure rather than a `Badge`: up in the
+`info` tone, down in the `warning` tone, and no chevron with a muted `0` when
+the two windows match. The chevron is the sign, so the figure never carries
+one. The toggle restates every cell as a count, the difference, or as a
+percentage of the 7 days before, rounded to whole points; a rise from a prior
+of zero has no base and reads `from 0`. The toggle is page state and starts on
+the count.
 
 The window is the 7 days ending today in the Organization's zone and the prior
 window is the 7 before it. The client computes both from the same `today` the

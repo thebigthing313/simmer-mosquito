@@ -13,7 +13,7 @@
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardResponse } from '../../../components/dashboard/dashboard-data';
@@ -254,14 +254,24 @@ describe('the Dashboard', () => {
 		);
 
 		// The strip: every type a cell, counted off the synced rows on its own date.
-		expect(screen.getByText('Sep 9 to Sep 15, delta against the 7 before')).toBeTruthy();
-		expect(stripCell('Inspections').textContent).toBe('3+2Inspections');
-		expect(stripCell('Samples').textContent).toBe('3+2Samples');
+		expect(screen.getByText('Sep 9 to Sep 15, compared with the 7 days before')).toBeTruthy();
+		expect(stripCell('Inspections').textContent).toBe('32Inspections');
+		expect(within(stripCell('Inspections')).getByLabelText('Up')).toBeTruthy();
+		expect(stripCell('Samples').textContent).toBe('32Samples');
 		// One in each window, the exact-timestamp one placed by the Organization's zone.
-		expect(stripCell('Collections').textContent).toBe('1sameCollections');
-		expect(stripCell('Service Requests received').textContent).toBe('2+2Service Requests received');
+		expect(stripCell('Collections').textContent).toBe('10Collections');
+		expect(within(stripCell('Collections')).queryByLabelText(/Up|Down/)).toBeNull();
+		expect(stripCell('Service Requests received').textContent).toBe('22Service Requests received');
 		// A type with no row is a cell at zero.
-		expect(stripCell('Biocontrol Actions').textContent).toBe('0sameBiocontrol Actions');
+		expect(stripCell('Biocontrol Actions').textContent).toBe('00Biocontrol Actions');
+
+		// The toggle restates every change as a percentage; a rise from nothing has no base.
+		fireEvent.click(screen.getByRole('radio', { name: 'Change as a percentage' }));
+		expect(stripCell('Inspections').textContent).toBe('3200%Inspections');
+		expect(stripCell('Collections').textContent).toBe('10%Collections');
+		expect(stripCell('Service Requests received').textContent).toBe(
+			'2from 0Service Requests received',
+		);
 
 		// The people table: names off the profiles, most records first, the time
 		// in the Organization's zone.
@@ -284,10 +294,10 @@ describe('the Dashboard', () => {
 		const samples = queueLine('Samples awaiting identification');
 		expect(samples.className).toContain('text-muted-foreground');
 		expect(samples.textContent).not.toContain('day');
-		// Eight cells, each at zero with its chip.
-		expect(screen.getByText('Inspections')).toBeTruthy();
-		expect(screen.getByText('Samples')).toBeTruthy();
-		expect(screen.getAllByText('same')).toHaveLength(8);
+		// Eight cells, each at zero with no chevron.
+		expect(stripCell('Inspections').textContent).toBe('00Inspections');
+		expect(stripCell('Samples').textContent).toBe('00Samples');
+		expect(screen.queryByLabelText(/^(Up|Down)$/)).toBeNull();
 		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
 	});
 
