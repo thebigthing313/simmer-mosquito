@@ -15,6 +15,7 @@ export interface QueueCount {
 	readonly oldest: string | null;
 }
 
+/** One strip cell: the 7-day count and the 7 before it. */
 export interface ActivityCount {
 	readonly count: number;
 	readonly prior: number;
@@ -32,7 +33,7 @@ export interface DateWindow {
 	readonly to: string;
 }
 
-/** The eight activity types, in strip order. */
+/** The eight activity types, in strip order. `useActivityStrip` counts each off its own table. */
 export const ACTIVITY_TYPE_KEYS = [
 	'inspections',
 	'samples',
@@ -55,12 +56,6 @@ export interface DashboardResponse {
 		readonly requestsUnassigned: QueueCount;
 	};
 	readonly untreatedHabitats: QueueCount;
-	readonly activity: {
-		readonly window: DateWindow;
-		readonly priorWindow: DateWindow;
-		/** `null` is a type the Organization has never recorded, and is not a cell. */
-		readonly types: Readonly<Record<ActivityTypeKey, ActivityCount | null>>;
-	};
 	readonly peopleToday: readonly PersonToday[];
 }
 

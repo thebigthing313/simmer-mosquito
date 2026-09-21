@@ -820,13 +820,39 @@ refresh and the organization-required branch are written once.
 
 One `useQuery` for `GET /dashboard`, which answers every panel the client
 cannot read off a synced table: the two awaiting queues, the unassigned
-requests, the untreated flag, the activity strip and the people in the field
-today. One query is one timer, which is why five panels are one endpoint
-rather than five, and why the page carries no refresh control: focus and the
-five-minute interval are the cadence. The app's default is
-`refetchOnWindowFocus: false`; this page is opened and left open, and the tab
-coming back into focus is the moment a stale number matters.
-`docs/dashboard-spec.md` is the rest.
+requests, the untreated flag and the people in the field today. One query is
+one timer, which is why four panels are one endpoint rather than four, and why
+the page carries no refresh control: focus and the five-minute interval are
+the cadence. The app's default is `refetchOnWindowFocus: false`; this page is
+opened and left open, and the tab coming back into focus is the moment a stale
+number matters. `docs/dashboard-spec.md` is the rest.
+
+#### useActivityStrip
+
+The last-7-days strip off Electric: eight `useLiveQuery` subsets, one per
+activity type, each a 14-day window on the type's own operational date,
+folded into the 7-day count and the 7 before it in memory. It replaced a
+`readActivity` on `GET /dashboard`, and two things decided that. The strip is
+what a person opens the page for, and on the server it shared one round trip
+with the untreated habitats read, which was 4.7 seconds on the production
+clone against the strip's own 69 milliseconds; and a count that moves when a
+Collector's write syncs is worth more than one that moves on a five-minute
+tick.
+
+Samples are the case to know. A sample has no date and is counted on its
+parent inspection's, and the first build ruled a client count out as
+`inArray` over 3,050 inspection ids in a fortnight in season, which no URL
+carries. Subset requests ride in a POST body now (`subsetMethod: 'POST'` in
+`packages/sync`), so the inspections subset carries each parent's sample ids
+as a correlated `toArray` include and one subset serves both cells. The
+include loads by `inspection_id = any(...)` only while `samples` indexes that
+column, which is why the collection declares the index; without it the
+compiler warns once and scans what is local.
+
+The other thing the move cost is the hide rule. The server returned `null` for
+a type the Organization had never recorded and the client hid the cell, which
+needed an existence check over the whole table, and a windowed read cannot
+answer "ever". Every type is a cell now, at `0` when there is nothing.
 
 ### larval-surveillance
 

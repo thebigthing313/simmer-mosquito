@@ -392,20 +392,6 @@ describe('the Dashboard', () => {
 			requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 		},
 		untreatedHabitats: { count: 5, oldest: '2026-09-09' },
-		activity: {
-			window: { from: '2026-09-09', to: '2026-09-15' },
-			priorWindow: { from: '2026-09-02', to: '2026-09-08' },
-			types: {
-				inspections: { count: 1, prior: 0 },
-				samples: null,
-				collections: null,
-				applications: null,
-				sourceReductions: null,
-				releases: null,
-				serviceRequests: null,
-				outreachActions: null,
-			},
-		},
 		peopleToday: [{ profileId: 'profile-1', records: 3, lastAt: '2026-09-15T18:52:00Z' }],
 	};
 

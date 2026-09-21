@@ -5,8 +5,9 @@
  * `docs/dashboard-spec.md` is the brief. The rule from its read ticket: a panel
  * whose predicate is one table's own columns reads Electric on the client, and
  * everything else is here. That is the two awaiting queues, the unassigned
- * requests queue, the untreated habitats flag, the eight-type activity strip
- * with its existence checks, and the people in the field today.
+ * requests queue, the untreated habitats flag, and the people in the field
+ * today. The last-7-days strip is not here: it is windowed reads over eight
+ * synced tables, so `useActivityStrip` in `apps/web` counts it off Electric.
  *
  * Each predicate that an explorer also filters by is the explorer's fragment
  * rather than a copy: `sampleAwaitingCondition`, `collectionAwaitingCondition`
@@ -15,13 +16,13 @@
  * people table wraps `activityBranches`, the Activity Monitor's union, rather
  * than restating seventeen branches.
  *
- * Today is `now()` in the organization's zone, read once and handed to every
- * window, so the strip's title and its counts come from one clock. The
- * untreated fragment reads `now()` itself, which is the same clock a request
- * later; a read that straddles midnight is the one case the two can differ.
+ * Today is `now()` in the organization's zone, read once and handed to the
+ * people read. The untreated fragment reads `now()` itself, which is the same
+ * clock a request later; a read that straddles midnight is the one case the
+ * two can differ.
  */
 
-import { type Kysely, type RawBuilder, sql } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 
 import type { SimmerDatabase } from '../index.js';
 import { collectionAwaitingCondition, collectionEffectiveDateExpr } from './adult-surveillance.js';
@@ -43,12 +44,6 @@ export interface QueueCount {
 	readonly oldest: string | null;
 }
 
-/** One type's count over the rolling window, beside the same count for the 7 days before. */
-export interface ActivityCount {
-	readonly count: number;
-	readonly prior: number;
-}
-
 /** One person's day: how much they logged and when they last logged something. */
 export interface PersonToday {
 	readonly profileId: string;
@@ -56,30 +51,6 @@ export interface PersonToday {
 	/** ISO instant of the latest record. */
 	readonly lastAt: string;
 }
-
-/** A `YYYY-MM-DD` pair, both ends inclusive. */
-export interface DateWindow {
-	readonly from: string;
-	readonly to: string;
-}
-
-/**
- * The eight activity types in strip order. A key here is a cell on the page,
- * and the client hides the cell when the type is `null`, which is a type the
- * organization has never recorded.
- */
-export const ACTIVITY_TYPE_KEYS = [
-	'inspections',
-	'samples',
-	'collections',
-	'applications',
-	'sourceReductions',
-	'releases',
-	'serviceRequests',
-	'outreachActions',
-] as const;
-
-export type ActivityTypeKey = (typeof ACTIVITY_TYPE_KEYS)[number];
 
 export interface DashboardResponse {
 	/** `YYYY-MM-DD` in the organization's zone. */
@@ -90,16 +61,8 @@ export interface DashboardResponse {
 		readonly requestsUnassigned: QueueCount;
 	};
 	readonly untreatedHabitats: QueueCount;
-	readonly activity: {
-		readonly window: DateWindow;
-		readonly priorWindow: DateWindow;
-		readonly types: Readonly<Record<ActivityTypeKey, ActivityCount | null>>;
-	};
 	readonly peopleToday: readonly PersonToday[];
 }
-
-/** The rolling window the strip counts over: today and the six days before. */
-export const ACTIVITY_WINDOW_DAYS = 7;
 
 /**
  * Every server panel on the Dashboard, for one organization, as of now in its
@@ -112,33 +75,20 @@ export async function readDashboard(
 	const timeZone = assertIanaTimeZone(input.timeZone);
 	const organizationId = input.organizationId;
 	const today = await readToday(db, timeZone);
-	const window = { from: addDays(today, -(ACTIVITY_WINDOW_DAYS - 1)), to: today };
-	const priorWindow = {
-		from: addDays(window.from, -ACTIVITY_WINDOW_DAYS),
-		to: addDays(window.from, -1),
-	};
 
-	const [
-		samplesAwaiting,
-		collectionsAwaiting,
-		requestsUnassigned,
-		untreatedHabitats,
-		types,
-		peopleToday,
-	] = await Promise.all([
-		readSamplesAwaiting(db, organizationId),
-		readCollectionsAwaiting(db, organizationId, timeZone),
-		readRequestsUnassigned(db, organizationId, timeZone),
-		readUntreatedHabitats(db, organizationId, timeZone),
-		readActivity(db, organizationId, timeZone, window, priorWindow),
-		readPeopleToday(db, organizationId, timeZone, today),
-	]);
+	const [samplesAwaiting, collectionsAwaiting, requestsUnassigned, untreatedHabitats, peopleToday] =
+		await Promise.all([
+			readSamplesAwaiting(db, organizationId),
+			readCollectionsAwaiting(db, organizationId, timeZone),
+			readRequestsUnassigned(db, organizationId, timeZone),
+			readUntreatedHabitats(db, organizationId, timeZone),
+			readPeopleToday(db, organizationId, timeZone, today),
+		]);
 
 	return {
 		today,
 		queues: { samplesAwaiting, collectionsAwaiting, requestsUnassigned },
 		untreatedHabitats,
-		activity: { window, priorWindow, types },
 		peopleToday,
 	};
 }
@@ -153,16 +103,6 @@ async function readToday(db: Kysely<SimmerDatabase>, timeZone: string): Promise<
 		throw new Error('The database answered no date for today.');
 	}
 	return today;
-}
-
-/**
- * `YYYY-MM-DD` plus a number of days, in calendar arithmetic. UTC throughout,
- * because the input is already a calendar day and no zone should move it.
- */
-function addDays(date: string, days: number): string {
-	const instant = new Date(`${date}T00:00:00Z`);
-	instant.setUTCDate(instant.getUTCDate() + days);
-	return instant.toISOString().slice(0, 10);
 }
 
 interface QueueRow {
@@ -265,107 +205,6 @@ async function readUntreatedHabitats(
 			and u.inspection_date is not null
 	`.execute(db);
 	return toQueueCount(result.rows[0]);
-}
-
-/**
- * How one activity type is counted: the rows it is, and the date each is
- * counted on. Every shape aliases its own table `r`.
- */
-interface ActivityShape {
-	readonly key: ActivityTypeKey;
-	/** The from-clause: the table as `r`, plus any join the date needs. */
-	readonly from: RawBuilder<unknown>;
-	/** Predicates beyond organization scope and `r.deleted_at`, for the joined row. */
-	readonly alwaysWhere?: RawBuilder<boolean>;
-	/** The operational date, as a `date` expression. */
-	readonly date: RawBuilder<unknown>;
-}
-
-/**
- * The eight types, each counted on the date its own overview and the Activity
- * Monitor count it on. Every column is an operational date a person typed;
- * `request_date` over `created_at` for service requests is #992's decision,
- * and `docs/dashboard-spec.md` carries the reason.
- */
-function activityShapes(timeZone: string): readonly ActivityShape[] {
-	return [
-		{ key: 'inspections', from: sql`inspections r`, date: sql`r.inspection_date` },
-		{
-			key: 'samples',
-			// A sample has no date of its own, so it is counted on its parent's.
-			from: sql`samples r join inspections i on i.id = r.inspection_id`,
-			alwaysWhere: sql<boolean>`i.deleted_at is null`,
-			date: sql`i.inspection_date`,
-		},
-		{
-			key: 'collections',
-			from: sql`collections r`,
-			// The effective date, the same expression every collection read uses.
-			// A collection with neither date is undated and falls out of any window.
-			date: sql.raw(`coalesce(${localDateSql('r.collected_at', timeZone)}, r.collection_date)`),
-		},
-		{ key: 'applications', from: sql`applications r`, date: sql`r.application_date` },
-		{
-			key: 'sourceReductions',
-			from: sql`source_reductions r`,
-			date: sql`r.source_reduction_date`,
-		},
-		{ key: 'releases', from: sql`biocontrol_actions r`, date: sql`r.biocontrol_date` },
-		{ key: 'serviceRequests', from: sql`service_requests r`, date: sql`r.request_date` },
-		{ key: 'outreachActions', from: sql`outreach_actions r`, date: sql`r.outreach_date` },
-	];
-}
-
-interface ActivityRow {
-	readonly key: ActivityTypeKey;
-	readonly count: number;
-	readonly prior: number;
-	/** Whether the organization has any live row of this type at all. */
-	readonly present: boolean;
-}
-
-/**
- * The strip's eight cells in one round-trip: a `union all` of one aggregate
- * per type, each counting both windows with a filtered `count` and asking
- * whether the type exists for the organization at all.
- *
- * Both windows are compared as `date` bounds, which is what makes a `date`
- * column and a `timestamptz` reduced through `localDateSql` compare the same
- * way.
- */
-async function readActivity(
-	db: Kysely<SimmerDatabase>,
-	organizationId: string,
-	timeZone: string,
-	window: DateWindow,
-	priorWindow: DateWindow,
-): Promise<Readonly<Record<ActivityTypeKey, ActivityCount | null>>> {
-	const branches = activityShapes(timeZone).map(
-		(shape) => sql<ActivityRow>`
-			select
-				${shape.key}::text as key,
-				count(*) filter (
-					where (${shape.date}) between ${window.from}::date and ${window.to}::date
-				)::int as count,
-				count(*) filter (
-					where (${shape.date}) between ${priorWindow.from}::date and ${priorWindow.to}::date
-				)::int as prior,
-				count(*) > 0 as present
-			from ${shape.from}
-			where r.organization_id = ${organizationId}
-				and r.deleted_at is null
-				${shape.alwaysWhere === undefined ? sql`` : sql`and ${shape.alwaysWhere}`}
-		`,
-	);
-	const result = await sql<ActivityRow>`${sql.join(branches, sql` union all `)}`.execute(db);
-
-	const byKey = new Map(result.rows.map((row) => [row.key, row]));
-	const types = {} as Record<ActivityTypeKey, ActivityCount | null>;
-	for (const key of ACTIVITY_TYPE_KEYS) {
-		const row = byKey.get(key);
-		types[key] = row === undefined || !row.present ? null : { count: row.count, prior: row.prior };
-	}
-	return types;
 }
 
 /**

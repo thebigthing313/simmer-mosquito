@@ -4,7 +4,7 @@
  * The Dashboard rendered whole, through its four states: loading, loaded,
  * empty and the server half failing.
  *
- * The four Electric queues come off memory collections and the server half
+ * The strip and the four Electric queues come off memory collections and the server half
  * off a `sessionFetch` the suite answers, so what is on screen is what the
  * hooks and the query really produced rather than a fixture handed to a
  * component. The router is the stand-in beside the route suites, because a
@@ -19,9 +19,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardResponse } from '../../../components/dashboard/dashboard-data';
 import { assignment_items } from '../../../lib/collections/assignment_items';
 import { collections } from '../../../lib/collections/collections';
+import { inspections } from '../../../lib/collections/inspections';
 import { missions } from '../../../lib/collections/missions';
 import { organizations } from '../../../lib/collections/organizations';
 import { profiles } from '../../../lib/collections/profiles';
+import { samples } from '../../../lib/collections/samples';
 import { service_requests } from '../../../lib/collections/service_requests';
 import { installMemoryCollections, seedRows } from '../lib/collections/memory-collections';
 
@@ -79,20 +81,6 @@ const SERVER: DashboardResponse = {
 		requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 	},
 	untreatedHabitats: { count: 5, oldest: '2026-09-09' },
-	activity: {
-		window: { from: '2026-09-09', to: '2026-09-15' },
-		priorWindow: { from: '2026-09-02', to: '2026-09-08' },
-		types: {
-			inspections: { count: 212, prior: 187 },
-			samples: { count: 31, prior: 44 },
-			collections: { count: 66, prior: 66 },
-			applications: { count: 17, prior: 9 },
-			sourceReductions: { count: 4, prior: 11 },
-			releases: null,
-			serviceRequests: { count: 29, prior: 25 },
-			outreachActions: { count: 0, prior: 2 },
-		},
-	},
 	peopleToday: [
 		{ profileId: 'p-dana', records: 38, lastAt: '2026-09-15T18:52:00Z' },
 		{ profileId: 'p-miguel', records: 21, lastAt: '2026-09-15T14:10:00Z' },
@@ -107,20 +95,6 @@ const EMPTY: DashboardResponse = {
 		requestsUnassigned: { count: 0, oldest: null },
 	},
 	untreatedHabitats: { count: 0, oldest: null },
-	activity: {
-		window: { from: '2026-09-09', to: '2026-09-15' },
-		priorWindow: { from: '2026-09-02', to: '2026-09-08' },
-		types: {
-			inspections: { count: 0, prior: 0 },
-			samples: null,
-			collections: null,
-			applications: null,
-			sourceReductions: null,
-			releases: null,
-			serviceRequests: null,
-			outreachActions: null,
-		},
-	},
 	peopleToday: [],
 };
 
@@ -163,6 +137,15 @@ function queueLine(label: string): HTMLElement {
 	return line;
 }
 
+/** The strip cell whose label reads `label`: its count, its chip and the label, as one text. */
+function stripCell(label: string): HTMLElement {
+	const cell = screen.getByText(label).parentElement;
+	if (cell === null) {
+		throw new Error(`No strip cell labelled ${label}.`);
+	}
+	return cell;
+}
+
 describe('the Dashboard', () => {
 	it('draws skeletons and no banner until the server answers', async () => {
 		renderDashboard();
@@ -191,6 +174,35 @@ describe('the Dashboard', () => {
 				is_zero_result: false,
 				has_bycatch: false,
 			},
+			{
+				id: 'c-window',
+				trap_id: 't1',
+				collection_method_id: 'm1',
+				// 2am on the 16th UTC is 10pm on the 15th in New York: inside the
+				// window by the Organization's clock, past it by UTC.
+				collected_at: new Date('2026-09-16T02:00:00Z'),
+				collection_date: null,
+				collection_timing_mode: 'exact_timestamps',
+				has_problem: false,
+				is_zero_result: false,
+				has_bycatch: false,
+			},
+		]);
+		// Three inspections in the window and one the week before, the samples
+		// counted on their parent's date: three under the newest, one under the old.
+		seedRows(inspections, [
+			{ id: 'i-1', habitat_id: 'h1', inspection_date: '2026-09-14' },
+			{ id: 'i-2', habitat_id: 'h1', inspection_date: '2026-09-10' },
+			{ id: 'i-3', habitat_id: 'h1', inspection_date: '2026-09-09' },
+			{ id: 'i-prior', habitat_id: 'h1', inspection_date: '2026-09-02' },
+			{ id: 'i-out', habitat_id: 'h1', inspection_date: '2026-09-01' },
+		]);
+		seedRows(samples, [
+			{ id: 's-1', inspection_id: 'i-1' },
+			{ id: 's-2', inspection_id: 'i-1' },
+			{ id: 's-3', inspection_id: 'i-1' },
+			{ id: 's-prior', inspection_id: 'i-prior' },
+			{ id: 's-out', inspection_id: 'i-out' },
 		]);
 		seedRows(service_requests, [
 			{ id: 'sr-1', request_date: '2026-05-26', closed_at: null },
@@ -241,13 +253,15 @@ describe('the Dashboard', () => {
 			'heavy in the last 7 days with no control action since; oldest 6 days',
 		);
 
-		// The strip: seven cells, the never-recorded type absent, a delta each way.
+		// The strip: every type a cell, counted off the synced rows on its own date.
 		expect(screen.getByText('Sep 9 to Sep 15, delta against the 7 before')).toBeTruthy();
-		expect(screen.queryByText('Biocontrol Actions')).toBeNull();
-		expect(screen.getByText('+25')).toBeTruthy();
-		expect(screen.getByText('-13')).toBeTruthy();
-		expect(screen.getByText('same')).toBeTruthy();
-		expect(screen.getByText('Service Requests received')).toBeTruthy();
+		expect(stripCell('Inspections').textContent).toBe('3+2Inspections');
+		expect(stripCell('Samples').textContent).toBe('3+2Samples');
+		// One in each window, the exact-timestamp one placed by the Organization's zone.
+		expect(stripCell('Collections').textContent).toBe('1sameCollections');
+		expect(stripCell('Service Requests received').textContent).toBe('2+2Service Requests received');
+		// A type with no row is a cell at zero.
+		expect(stripCell('Biocontrol Actions').textContent).toBe('0sameBiocontrol Actions');
 
 		// The people table: names off the profiles, most records first, the time
 		// in the Organization's zone.
@@ -270,10 +284,10 @@ describe('the Dashboard', () => {
 		const samples = queueLine('Samples awaiting identification');
 		expect(samples.className).toContain('text-muted-foreground');
 		expect(samples.textContent).not.toContain('day');
-		// One cell, at zero, with its chip.
+		// Eight cells, each at zero with its chip.
 		expect(screen.getByText('Inspections')).toBeTruthy();
-		expect(screen.queryByText('Samples')).toBeNull();
-		expect(screen.getByText('same')).toBeTruthy();
+		expect(screen.getByText('Samples')).toBeTruthy();
+		expect(screen.getAllByText('same')).toHaveLength(8);
 		expect(screen.getByText('Nothing logged yet today.')).toBeTruthy();
 	});
 
@@ -286,6 +300,8 @@ describe('the Dashboard', () => {
 			expect(screen.getAllByText('Pending work is unavailable right now.')).toHaveLength(2),
 		);
 		expect(screen.getByText('Untreated habitats are unavailable right now.')).toBeTruthy();
-		expect(screen.getAllByText('Activity is unavailable right now.')).toHaveLength(2);
+		// The people table alone: the strip reads Electric and is unaffected.
+		expect(screen.getAllByText('Activity is unavailable right now.')).toHaveLength(1);
+		expect(screen.getByText('Inspections')).toBeTruthy();
 	});
 });

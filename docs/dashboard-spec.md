@@ -111,7 +111,7 @@ collection is from 2023-09-05 and a Manager wants to know that.
 
 ## The untreated habitats banner
 
-One row between the queues and the strip, the whole row a link, in the warning
+One row under the queues, the whole row a link, in the warning
 tone with the `actions.warning` icon. It reads `5 untreated habitats` with the
 rule and the oldest age under it: "heavy in the last 7 days with no control
 action since; oldest 6 days". At zero the same row draws in the neutral tone
@@ -152,24 +152,29 @@ yet; see "The three explorer filters".
 
 One ruled strip, not a `Panel`: a section heading `Last 7 days` on the left,
 and on the right the window's dates and the words "delta against the 7 before",
-then one bordered row of cells, seven across on a wide screen, four at `sm`,
-two below. Each cell is the count for the window, a delta chip beside it and
-the type's label under it. The chip reads `+25`, `-13` or `same`, as an outline
-`Badge` in `info`, `warning` or `neutral` tone.
+then one bordered row of eight cells, eight across on a wide screen, four at
+`sm`, two below. Each cell is the count for the window, a delta chip beside it
+and the type's label under it. The chip reads `+25`, `-13` or `same`, as an
+outline `Badge` in `info`, `warning` or `neutral` tone.
 
 The window is the 7 days ending today in the Organization's zone and the prior
-window is the 7 before it. The server computes both and returns their dates, so
-the strip's title and its counts come from one clock.
+window is the 7 before it. The client computes both from the same `today` the
+rest of the page ages against, so the strip's title and its counts come from
+one clock.
 
 Eight types, each counted on the date its own overview and the Activity Monitor
-count it on. A `date` column is compared to the window's `YYYY-MM-DD` bounds
-as a string; a `timestamptz` column is reduced to the Organization's day with
-`localDateSql` first.
+count it on. The strip reads Electric rather than the server: `useActivityStrip`
+opens one 14-day subset per table, `gte(<date>, priorWindow.from)`, and folds
+the rows into the two counts, so a cell moves when a Collector's write syncs
+rather than on the next five-minute tick. A `date` column arrives as
+`YYYY-MM-DD` and is compared to the window's bounds as a string; `collected_at`
+is reduced to the Organization's day with `localCalendarDay` first, and the
+subset bounds it in its own type the way the problem queue does.
 
 | Type | Label | Column |
 | --- | --- | --- |
 | Inspections | `Inspections` | `inspections.inspection_date` |
-| Samples | `Samples` | the parent inspection's `inspection_date`; `samples` has no date of its own |
+| Samples | `Samples` | the parent inspection's `inspection_date`; `samples` has no date of its own, so the inspections subset carries each parent's sample ids as a correlated `toArray` include |
 | Collections | `Collections` | the effective collection date |
 | Applications | `Applications` | `applications.application_date` |
 | Source reductions | `Source reductions` | `source_reductions.source_reduction_date` |
@@ -187,12 +192,15 @@ of day to sort among them. A feed of events and a count of receipts are
 different questions; this paragraph is here so the disagreement is not filed
 again.
 
-A type the Organization has never recorded is not a cell. A type with records
-and none in the window is a cell at `0`. Derived, no setting: the server
-returns `null` for a type with no live row in the Organization at all, and the
-client hides the cell. All eight types read the server, because samples force
-it (a client count needs `inArray` over 3,050 inspection ids in a fortnight in
-season) and the existence check rides with the same round-trip.
+Every type is a cell, at `0` when there is nothing in either window. The strip
+used to hide a type the Organization had never recorded, which needed an
+existence check over the whole table and so put all eight types on the server;
+a windowed client read cannot answer "ever", and a Manager in an Organization
+that does no biocontrol reads `Releases 0` as true. The include over the
+inspections subset is what the first build ruled out as `inArray` over 3,050
+ids, and it is fine now because subset requests ride in a POST body
+(`subsetMethod: 'POST'` in `packages/sync`), so the id list never meets a URL
+limit.
 
 ## In the field today
 
@@ -217,11 +225,13 @@ copying seventeen branches.
 ## Reads
 
 The rule from the read ticket: a panel whose predicate is one table's own
-columns reads Electric; a panel that needs a second table to decide membership,
-or a count over a window, reads the server. Four queues are Electric and
-everything else is one server round-trip.
+columns reads Electric; a panel that needs a second table to decide membership
+reads the server. A count over a window reads Electric too, since the strip
+moved off the server: a window is a subset, and a subset is what an on-demand
+collection loads. The strip and four queues are Electric and everything else is
+one server round-trip.
 
-### The four Electric hooks
+### The Electric hooks
 
 Each is a hook under `apps/web/src/hooks/queries`, a `useLiveQuery` over a
 subset with the oldest taken as `min` in the query, so the row moves the
@@ -241,6 +251,12 @@ which reads the same collection.
 - `useDueMissionsQueue`: `missions` where `started_at`, `completed_at` and
   `cancelled_at` are null and `scheduled_start_at` is before the end of today,
   the bound being `localDayStartAsInstant(tomorrow, timeZone)`.
+
+- `useActivityStrip`, under `hooks/dashboard`: eight subsets, one per activity
+  type, each `gte(<date>, priorWindow.from)`, folded into the window and prior
+  counts in memory. The inspections subset carries each parent's sample ids as
+  a correlated include, which is how samples are counted on their parent's
+  date without a second query.
 
 Each subset is pushed down, not filtered in memory, because the on-demand
 collections should ask for the pending rows and not for every row the
@@ -271,11 +287,6 @@ interface DashboardResponse {
 		readonly requestsUnassigned: QueueCount;
 	};
 	readonly untreatedHabitats: QueueCount;
-	readonly activity: {
-		readonly window: { readonly from: string; readonly to: string };
-		readonly priorWindow: { readonly from: string; readonly to: string };
-		readonly types: Record<ActivityTypeKey, ActivityCount | null>;
-	};
 	readonly peopleToday: readonly PersonToday[];
 }
 
@@ -285,10 +296,6 @@ interface QueueCount {
 	readonly oldest: string | null;
 }
 
-interface ActivityCount {
-	readonly count: number;
-	readonly prior: number;
-}
 
 interface PersonToday {
 	readonly profileId: string;
@@ -298,10 +305,8 @@ interface PersonToday {
 }
 ```
 
-`ActivityTypeKey` is the eight keys in strip order. A type is `null` when
-`exists(select 1 from <table> where organization_id = $1 and deleted_at is
-null)` is false. The Profile's name is not in the response; the client reads it
-off the eager `profiles` collection the way every other surface does.
+The Profile's name is not in the response; the client reads it off the eager
+`profiles` collection the way every other surface does.
 
 The response varies by the session's Organization and the URL carries no id, so
 `/dashboard` joins `PRIVATE_READ_PREFIXES` in `cache-headers.ts` and gets a
@@ -319,8 +324,8 @@ sets it. No refresh control on the page: focus and the interval are the
 cadence, and one query is one timer, which is why the five server panels are
 one endpoint rather than five.
 
-Mixed liveness is accepted, with nothing on the page saying so. Four queues
-move live and the rest are up to five minutes stale. No "last read" time, and
+Mixed liveness is accepted, with nothing on the page saying so. The strip and
+four queues move live and the rest are up to five minutes stale. No "last read" time, and
 no refetch of the server half on an Electric change. One failing query fails
 the whole server half, and that is the trade taken for one timer.
 
@@ -331,22 +336,22 @@ Each panel answers for itself, the way the overviews do.
 Loading: a queue panel draws `RowSkeleton` in place of its rows until every
 hook it draws has answered, so the two panels can finish at different times
 (Surveillance backlog waits on the server, Operations backlog on both). The
-banner draws nothing until the server answers. The strip and the people panel
-draw `RowSkeleton` until the server answers. A panel's count pill is withheld
+banner draws nothing until the server answers. The strip draws `RowSkeleton`
+until its eight subsets are ready, and the people panel until the server
+answers. A panel's count pill is withheld
 while it loads, `count={undefined}`, the way the overview's awaiting panel
 does.
 
 Empty: a queue row at zero stays, muted, with no age. The banner at zero is the
 neutral line. A strip cell at zero draws `0` with its chip. The people panel
-draws its `PanelMessage`. A hidden strip cell is not an empty state; it is a
-type the Organization has never recorded.
+draws its `PanelMessage`.
 
 Error: an Electric hook reporting `isError` draws its rows as `PanelMessage`
 reading "Pending work is unavailable right now." in that panel. The server
 query failing draws the same message in every server section, "Untreated
 habitats are unavailable right now." on the banner in the neutral tone, and the
-strip's cells and the people table replaced by "Activity is unavailable right
-now." No retry control; the next focus or interval tick is the retry.
+people table replaced by "Activity is unavailable right now." The strip draws
+the same words when one of its subsets fails. No retry control; the next focus or interval tick is the retry.
 `ErrorReport` is for a route that cannot render, and this route can.
 
 ## Deep links and the three explorer filters

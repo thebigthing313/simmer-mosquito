@@ -3,23 +3,19 @@ import type { DbExecutor } from '../../index.js';
 import { readDashboard, sql } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
 import {
-	createAddress,
 	createApplication,
 	createBiocontrolAction,
 	createCollection,
 	createCollectionMethod,
 	createCollectionSpecies,
-	createContact,
 	createHabitat,
 	createInsecticide,
 	createInspection,
 	createMission,
 	createMissionItem,
 	createOrganization,
-	createOutreachAction,
 	createProfile,
 	createRequestedControlAction,
-	createServiceRequest,
 	createSourceReduction,
 	createSourceReductionMethod,
 	createSpecies,
@@ -38,7 +34,7 @@ import {
 // moves the number.
 //
 // Dates are relative to today in the organization's zone, because the untreated
-// window and the activity strip both end on `now()` and nothing can move it.
+// window and the people read both end on `now()` and nothing can move it.
 
 /** A zone five hours behind UTC in September, so a UTC/local disagreement shows up. */
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
@@ -113,38 +109,6 @@ describeDbIntegration('dashboard', () => {
 		});
 	});
 
-	it('counts the strip on each type’s own date, and hides a type never recorded', async () => {
-		await withTestDb(async ({ db }) => {
-			const world = await seedActivityWorld(db);
-
-			const dashboard = await readDashboard(db, {
-				organizationId: world.organizationId,
-				timeZone: ORGANIZATION_TIME_ZONE,
-			});
-
-			expect(dashboard.activity.window).toEqual({ from: daysAgo(6), to: daysAgo(0) });
-			expect(dashboard.activity.priorWindow).toEqual({ from: daysAgo(13), to: daysAgo(7) });
-			expect(dashboard.activity.types).toEqual({
-				// Two in the window and one the week before; the deleted one, the one
-				// older than both windows, and the neighbour's are out.
-				inspections: { count: 2, prior: 1 },
-				// Counted on the parent inspection's date: one parent in the window.
-				samples: { count: 1, prior: 0 },
-				// One exact-timestamp collection emptied in the window, one
-				// date-plus-duration collection the week before.
-				collections: { count: 1, prior: 1 },
-				applications: { count: 1, prior: 0 },
-				// A type the organization has never recorded is not a cell.
-				sourceReductions: null,
-				// A type with records and none in the window is a cell at zero.
-				releases: { count: 0, prior: 1 },
-				// On `request_date`, not `created_at`: received a week ago, typed today.
-				serviceRequests: { count: 0, prior: 1 },
-				outreachActions: { count: 1, prior: 0 },
-			});
-		});
-	});
-
 	it('groups today’s field work by the person it is attributed to', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedPeopleWorld(db);
@@ -185,7 +149,6 @@ describeDbIntegration('dashboard', () => {
 			expect(dashboard.queues.collectionsAwaiting).toEqual({ count: 0, oldest: null });
 			expect(dashboard.queues.requestsUnassigned).toEqual({ count: 0, oldest: null });
 			expect(dashboard.untreatedHabitats).toEqual({ count: 0, oldest: null });
-			expect(Object.values(dashboard.activity.types)).toEqual(Array(8).fill(null));
 			expect(dashboard.peopleToday).toEqual([]);
 		});
 	});
@@ -457,93 +420,6 @@ async function seedUntreatedWorld(db: DbExecutor): Promise<{ readonly organizati
 		inspection_date: dateOf(daysAgo(1)),
 		density: 'heavy',
 		deleted_at: sql`now()`,
-	});
-
-	return { organizationId };
-}
-
-/** The strip: a row in each window per type, and two types in two empty states. */
-async function seedActivityWorld(db: DbExecutor): Promise<{ readonly organizationId: string }> {
-	const organizationId = await createOrganization(db);
-	const neighbourId = await createOrganization(db);
-	const unitId = await createUnit(db);
-
-	// Inspections: two in the window, one the week before, one older, one deleted.
-	const inWindow = await createInspection(db, organizationId, {
-		inspection_date: dateOf(daysAgo(0)),
-	});
-	await createInspection(db, organizationId, { inspection_date: dateOf(daysAgo(6)) });
-	await createInspection(db, organizationId, { inspection_date: dateOf(daysAgo(7)) });
-	await createInspection(db, organizationId, { inspection_date: dateOf(daysAgo(14)) });
-	await createInspection(db, organizationId, {
-		inspection_date: dateOf(daysAgo(1)),
-		deleted_at: sql`now()`,
-	});
-	await createInspection(db, neighbourId, { inspection_date: dateOf(daysAgo(1)) });
-
-	// Samples: on the parent's date.
-	await db
-		.insertInto('samples')
-		.values({ organization_id: organizationId, inspection_id: inWindow })
-		.execute();
-
-	// Collections: one emptied in the window, one dated the week before.
-	const methodId = await createCollectionMethod(db, organizationId);
-	const trapId = await createTrap(db, organizationId, methodId);
-	const links = { trapId, collectionMethodId: methodId };
-	await createCollection(db, organizationId, links, {
-		started_at: noonOf(daysAgo(2)),
-		collected_at: noonOf(daysAgo(1)),
-	});
-	await createCollection(db, organizationId, links, {
-		collection_timing_mode: 'collection_date_duration',
-		started_at: null,
-		collection_date: dateOf(daysAgo(10)),
-		duration_amount: 1,
-		duration_unit_id: unitId,
-	});
-
-	// Applications: one in the window.
-	const insecticideId = await createInsecticide(db, organizationId, unitId);
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ application_date: dateOf(daysAgo(3)) },
-	);
-
-	// Source reductions: none ever, so the type is null. Releases: one the week
-	// before and none in the window, so the type is a zero.
-	const biocontrolMethod = await db
-		.insertInto('biocontrol_methods')
-		.values({ organization_id: organizationId, name: 'Gambusia' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	await createBiocontrolAction(
-		db,
-		organizationId,
-		{ methodId: biocontrolMethod.id, unitId },
-		{ biocontrol_date: dateOf(daysAgo(9)) },
-	);
-
-	// Service requests: received the week before, typed today.
-	const addressId = await createAddress(db, organizationId);
-	const contactId = await createContact(db, organizationId);
-	await createServiceRequest(
-		db,
-		organizationId,
-		{ addressId, contactId },
-		{ request_date: dateOf(daysAgo(8)) },
-	);
-
-	// Outreach: one in the window.
-	const outreachMethod = await db
-		.insertInto('outreach_methods')
-		.values({ organization_id: organizationId, name: 'Door knock' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	await createOutreachAction(db, organizationId, outreachMethod.id, {
-		outreach_date: dateOf(daysAgo(5)),
 	});
 
 	return { organizationId };
