@@ -361,3 +361,17 @@ export function reachableMonths(
 	}
 	return years;
 }
+
+/**
+ * The years from the current one back to `earliest`'s, newest first. Before
+ * the response says where the history starts, the list is the current year
+ * alone.
+ */
+export function reachableYears(current: string, earliest: string | null): readonly string[] {
+	const first = Number(earliest ?? current);
+	const years: string[] = [];
+	for (let year = Number(current); year >= first; year -= 1) {
+		years.push(`${year}`);
+	}
+	return years;
+}

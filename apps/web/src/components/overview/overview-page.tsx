@@ -115,7 +115,7 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 				period={period}
 				state={state}
 			/>
-			{state.kind === 'ready' ? (
+			{state.kind === 'ready' && !trendTooShort(grain, state.response) ? (
 				<TrendSection
 					dimmed={read.isFetching}
 					grain={grain}
@@ -149,6 +149,17 @@ function earliestPeriod(grain: OverviewGrain, earliest: string | null): string |
 }
 
 const TREND_GRID = 'grid gap-4 md:grid-cols-2 xl:grid-cols-3';
+
+/** How many years Annual's series needs before its trend section is drawn. */
+const TREND_MINIMUM_YEARS = 3;
+
+/**
+ * Whether Annual's series is too short to draw, read off the first row the
+ * page shows. `docs/web-components.md` says why three.
+ */
+function trendTooShort(grain: OverviewGrain, response: OverviewResponse): boolean {
+	return grain === 'year' && (shownTypes(response)[0]?.series.length ?? 0) < TREND_MINIMUM_YEARS;
+}
 
 function TrendSection({
 	grain,

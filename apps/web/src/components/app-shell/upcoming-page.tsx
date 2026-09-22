@@ -159,17 +159,6 @@ const collectionMethods: Elsewhere = {
  * unbuilt section to another is how a placeholder becomes a maze.
  */
 const CONTENT: Readonly<Record<string, UpcomingContent>> = {
-	'/annual': {
-		title: 'Annual',
-		summary:
-			'Program totals and trends for a season or a year, the material an annual report is written from.',
-		willLand: [
-			'Season totals for inspections, collections, applications, and outreach, against the seasons before',
-			'Species abundance and larval density trended across the season, by region',
-			'Weather recorded at your stations beside the surveillance logged over the same weeks',
-		],
-		elsewhere: [controlOverview, regions, weatherStations],
-	},
 	'/adult-surveillance/arbovirus-surveillance': {
 		title: 'Arbovirus Surveillance',
 		summary:

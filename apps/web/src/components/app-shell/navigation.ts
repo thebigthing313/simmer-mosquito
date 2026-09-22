@@ -213,8 +213,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		groups: [
 			{
 				id: 'overview-main',
-				// The Dashboard leads and Today and Monthly follow it. The year
-				// behind them is a stub until its own issue builds it (#1218).
 				items: [
 					{
 						id: 'dashboard',
@@ -238,7 +236,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						id: 'annual',
 						label: 'Annual',
 						to: '/annual',
-						stub: true,
 						icon: iconRegistry.generic.chart.icon,
 					},
 				],

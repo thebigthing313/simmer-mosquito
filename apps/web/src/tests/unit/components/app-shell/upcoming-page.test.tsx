@@ -29,9 +29,8 @@ afterEach(cleanup);
  * Its copy is keyed by route path, and a key that does not match its route is
  * not an error: the page falls back to a generic line under whatever the
  * sidebar calls the item, and looks finished. So the copy tests here are about
- * the key matching, one for the Data Map, one for the two Overview stubs and
- * one for every stub at once, and the link test is the register's own rule
- * read back off the page.
+ * the key matching, one for the Data Map and one for every stub at once, and
+ * the link test is the register's own rule read back off the page.
  */
 describe('UpcomingPage', () => {
 	it('names what the Data Map will do and where to work meanwhile', () => {
@@ -59,14 +58,6 @@ describe('UpcomingPage', () => {
 			expect(screen.getByText('What will land here')).toBeTruthy();
 			cleanup();
 		}
-	});
-
-	it('names what Annual will hold and where to work meanwhile', () => {
-		renderAt('/annual');
-		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Annual');
-		expect(screen.getByText(/the material an annual report is written from/i)).toBeTruthy();
-		expect(willLandLines()).toHaveLength(3);
-		expect(hrefs()).toEqual(['/control-operations', '/gis/regions', '/gis/weather']);
 	});
 
 	it('links every stub to built routes only', () => {
@@ -145,12 +136,6 @@ function renderAt(activePath: string) {
 
 function hrefs(): readonly string[] {
 	return screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
-}
-
-function willLandLines(): readonly Element[] {
-	return Array.from(
-		screen.getByText('What will land here').parentElement?.querySelectorAll('li') ?? [],
-	);
 }
 
 function stubPaths(): readonly string[] {
