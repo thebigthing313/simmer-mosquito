@@ -6,6 +6,7 @@
  */
 
 import {
+	addDays,
 	OVERVIEW_PERIOD_LENGTH,
 	OVERVIEW_PERIOD_PARAM,
 	type OverviewColumn,
@@ -14,7 +15,10 @@ import {
 	type OverviewRecordType,
 	type OverviewResponse,
 	type OverviewTypeRow,
+	overviewPeriodMonth,
 	overviewPeriodSpan,
+	overviewPeriodYear,
+	pad2,
 } from '@simmer-mosquito/domain';
 import type { LinkProps } from '@tanstack/react-router';
 import { formatCount } from '../../lib/format-count';
@@ -306,9 +310,54 @@ export function monthGroups(
 	});
 }
 
-/** The three-letter month per x tick, `en-US`. */
-const MONTH_LABELS: readonly string[] = Array.from({ length: 12 }, (_, index) =>
+/** The three-letter month, `Jan` to `Dec`, indexed from zero, `en-US`. */
+export const MONTH_LABELS: readonly string[] = Array.from({ length: 12 }, (_, index) =>
 	new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(
 		new Date(Date.UTC(2026, index, 1)),
 	),
 );
+
+/** The period one step either side of `period` at its grain. */
+export function stepPeriod(grain: OverviewGrain, period: string, by: -1 | 1): string {
+	switch (grain) {
+		case 'day':
+			return addDays(period, by);
+		case 'month': {
+			const stepped = new Date(
+				Date.UTC(overviewPeriodYear(period), overviewPeriodMonth(period) - 1 + by, 1),
+			);
+			return `${stepped.getUTCFullYear()}-${pad2(stepped.getUTCMonth() + 1)}`;
+		}
+		case 'year':
+			return `${Number(period) + by}`;
+	}
+}
+
+/** One year's worth of the month select, newest month first. */
+export interface MonthGroupOfYear {
+	readonly year: number;
+	readonly months: readonly string[];
+}
+
+/**
+ * The months from the current one back to `earliest`'s, newest first and
+ * grouped by year. Before the response says where the history starts, the
+ * list is the current year alone.
+ */
+export function reachableMonths(
+	current: string,
+	earliest: string | null,
+): readonly MonthGroupOfYear[] {
+	const first = earliest ?? `${overviewPeriodYear(current)}-01`;
+	const years: { year: number; months: string[] }[] = [];
+	for (let month = current; month >= first; month = stepPeriod('month', month, -1)) {
+		const year = overviewPeriodYear(month);
+		const group = years.at(-1);
+		if (group !== undefined && group.year === year) {
+			group.months.push(month);
+		} else {
+			years.push({ year, months: [month] });
+		}
+	}
+	return years;
+}

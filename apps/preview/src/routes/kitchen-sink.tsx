@@ -446,15 +446,15 @@ function KitchenSinkPage() {
 									<YAxis axisLine={false} tickLine={false} width={44} />
 									<ChartTooltip content={<ChartTooltipContent />} />
 									<Bar
-										dataKey="comparison"
-										fill="var(--color-comparison)"
+										dataKey="period"
+										fill="var(--color-period)"
 										isAnimationActive={false}
 										maxBarSize={24}
 										radius={[4, 4, 0, 0]}
 									/>
 									<Bar
-										dataKey="period"
-										fill="var(--color-period)"
+										dataKey="comparison"
+										fill="var(--color-comparison)"
 										isAnimationActive={false}
 										maxBarSize={24}
 										radius={[4, 4, 0, 0]}

@@ -168,6 +168,20 @@ describe('the Monthly page', () => {
 		expect(harness.navigate).toHaveBeenCalledWith({ to: '/monthly', search: {}, replace: true });
 	});
 
+	it('lists a month before the earliest as the shown value, with no way further back', async () => {
+		harness.search = { month: '2009-05' };
+		answerWith(monthOverview({ period: '2009-05', cutThrough: null }));
+		renderMonthly();
+
+		await waitFor(() => screen.getByRole('table'));
+
+		// The select draws nothing for a value it has no item for, so the trigger
+		// reading the month is the extra item at the bottom of the list.
+		expect(screen.getByRole('combobox', { name: 'Month shown' }).textContent).toBe('May 2009');
+		expect(screen.getByRole('button', { name: 'Previous month' })).toHaveProperty('disabled', true);
+		expect(harness.navigate).not.toHaveBeenCalled();
+	});
+
 	it('disables next at this month and shows no way back while it is shown', async () => {
 		renderMonthly();
 

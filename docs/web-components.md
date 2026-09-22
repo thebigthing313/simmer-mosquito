@@ -486,7 +486,8 @@ Monthly's is a grouped bar, twelve groups of two, the response's flat 24-point
 series split by the year in each point's `period`; a month the year has not
 reached is no bar, and every bar in the period series wears the role at full
 strength, the alternative of the picked bar at full strength and the rest a
-step down not being taken. A bar click reads the group back by the index
+step down not being taken. The period bar draws left of the comparison bar,
+the order the legend reads in. A bar click reads the group back by the index
 Recharts hands the handler, since the rectangle it hands is not the row. The
 marks read `var(--color-period)` through the chart's own `ChartConfig`, so
 the two roles in `styles.css` are the only colours and `check:map-palette`

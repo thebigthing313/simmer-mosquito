@@ -23,6 +23,7 @@ import {
 	type OverviewRatio,
 	type OverviewRatioPoint,
 	type OverviewSeriesPoint,
+	overviewPeriodMonth,
 	overviewPeriodYear,
 } from '@simmer-mosquito/domain';
 import {
@@ -43,7 +44,13 @@ import {
 } from 'recharts';
 import { formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
-import { formatRatio, type MonthGroup, monthGroups, ratioValue } from './overview-data';
+import {
+	formatRatio,
+	MONTH_LABELS,
+	type MonthGroup,
+	monthGroups,
+	ratioValue,
+} from './overview-data';
 
 /** What one chart plots: a count series, or a ratio series with the ratio's own formatting. */
 export type OverviewChartSeries =
@@ -227,18 +234,16 @@ function monthStarts(points: readonly PlotPoint[]): string[] {
 
 /** The month a day's tick names. */
 function monthTick(period: string): string {
-	return new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(
-		new Date(`${period}T00:00:00Z`),
-	);
+	return MONTH_LABELS[overviewPeriodMonth(period) - 1] ?? '';
 }
 
 // --- Monthly: twelve months beside last year ---------------------------------
 
 /**
- * A grouped bar: twelve groups of two, `maxBarSize` 24, `barGap` 2, no
- * stroke, the picked month marked with the dashed line at its group. Every
- * bar in the period series wears the role at full strength. A bar opens its
- * own month, so the comparison series opens the year before's.
+ * A grouped bar: twelve groups of two, the period series left of the
+ * comparison series the way the legend reads them, `maxBarSize` 24, `barGap`
+ * 2, no stroke, the picked month marked with the dashed line at its group. A
+ * bar opens its own month, so a comparison bar opens the year before's.
  */
 function MonthsBars({
 	groups,
@@ -287,22 +292,22 @@ function MonthsBars({
 					/>
 					<Bar
 						className="cursor-pointer"
-						dataKey="comparison"
-						fill="var(--color-comparison)"
-						isAnimationActive={false}
-						maxBarSize={24}
-						name="comparison"
-						onClick={open('comparisonMonth')}
-						radius={BAR_RADIUS}
-					/>
-					<Bar
-						className="cursor-pointer"
 						dataKey="period"
 						fill="var(--color-period)"
 						isAnimationActive={false}
 						maxBarSize={24}
 						name="period"
 						onClick={open('periodMonth')}
+						radius={BAR_RADIUS}
+					/>
+					<Bar
+						className="cursor-pointer"
+						dataKey="comparison"
+						fill="var(--color-comparison)"
+						isAnimationActive={false}
+						maxBarSize={24}
+						name="comparison"
+						onClick={open('comparisonMonth')}
 						radius={BAR_RADIUS}
 					/>
 					{picked === undefined ? null : (

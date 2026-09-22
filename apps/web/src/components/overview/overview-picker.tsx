@@ -1,29 +1,19 @@
 /**
  * The period picker in a period-in-review page's header: a previous arrow,
  * the grain's control, a next arrow, and a button back to the current period
- * that appears only when the shown period is not the current one. Next is
- * disabled at the current period and previous at `earliest`, both read off
- * the response; before it arrives the picker is bounded by today alone. A
- * period before `earliest` reached through the URL is shown while it is the
- * shown one, since it is a real period that happens to hold nothing.
- * `docs/today-spec.md` and `docs/monthly-spec.md`, "The picker".
+ * that appears only when the shown period is not the current one. Takes the
+ * shown period, the current one and `earliest`, the picker's two bounds.
+ * Next is disabled at the current period and previous at `earliest`; before
+ * the response arrives the picker is bounded by today alone.
  *
- * On the day grain the control is a `DatePicker` bounded to
- * `[earliest, today]`. On the month grain it is one `Select` over the
- * reachable months, newest first and grouped by year, rather than two
- * selects for month and year, which would let a person assemble a future or
- * pre-earliest month; a month before `earliest` is an extra item at the
- * bottom while it is shown, since a `Select` draws nothing for a value it
- * has no item for. The year select is #1218's.
+ * On the day grain the control is a `DatePicker`. On the month grain it is
+ * one `Select` over the reachable months, newest first and grouped by year,
+ * with a month before `earliest` as an extra item at the bottom while it is
+ * shown. The year select is #1218's. `docs/web-components.md` has the
+ * reasons.
  */
 
-import {
-	addDays,
-	type OverviewGrain,
-	overviewPeriodMonth,
-	overviewPeriodYear,
-	pad2,
-} from '@simmer-mosquito/domain';
+import type { OverviewGrain } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import {
@@ -37,6 +27,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/select';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { formatLocalDate, formatMonthYear, parseLocalDate } from '../../lib/local-date';
+import { reachableMonths, stepPeriod } from './overview-data';
 
 const PreviousIcon = iconRegistry.arrows.chevronLeft.icon;
 const NextIcon = iconRegistry.arrows.chevronRight.icon;
@@ -106,22 +97,6 @@ export function OverviewPicker({
 	);
 }
 
-/** The period one step either side of `period` at its grain. */
-function stepPeriod(grain: OverviewGrain, period: string, by: -1 | 1): string {
-	switch (grain) {
-		case 'day':
-			return addDays(period, by);
-		case 'month': {
-			const stepped = new Date(
-				Date.UTC(overviewPeriodYear(period), overviewPeriodMonth(period) - 1 + by, 1),
-			);
-			return `${stepped.getUTCFullYear()}-${pad2(stepped.getUTCMonth() + 1)}`;
-		}
-		case 'year':
-			return `${Number(period) + by}`;
-	}
-}
-
 function DayControl({
 	period,
 	current,
@@ -149,26 +124,6 @@ function DayControl({
 	);
 }
 
-/**
- * The months from the current one back to `earliest`'s, newest first and
- * grouped by year. Before the response says where the history starts, the
- * list is the current year alone.
- */
-function reachableMonths(current: string, earliest: string | null): readonly (readonly string[])[] {
-	const first = earliest ?? `${current.slice(0, 4)}-01`;
-	const years: string[][] = [];
-	for (let month = current; month >= first; month = stepPeriod('month', month, -1)) {
-		const year = month.slice(0, 4);
-		const group = years.at(-1);
-		if (group !== undefined && group[0]?.slice(0, 4) === year) {
-			group.push(month);
-		} else {
-			years.push([month]);
-		}
-	}
-	return years;
-}
-
 function MonthControl({
 	period,
 	current,
@@ -181,7 +136,7 @@ function MonthControl({
 	readonly onPick: (period: string) => void;
 }) {
 	const years = reachableMonths(current, earliest);
-	const listed = years.some((group) => group.includes(period));
+	const listed = years.some((group) => group.months.includes(period));
 	return (
 		<Select onValueChange={onPick} value={period}>
 			<SelectTrigger aria-label="Month shown" className="w-44" size="sm">
@@ -189,9 +144,9 @@ function MonthControl({
 			</SelectTrigger>
 			<SelectContent className="max-h-80">
 				{years.map((group) => (
-					<SelectGroup key={group[0]}>
-						<SelectLabel>{group[0]?.slice(0, 4)}</SelectLabel>
-						{group.map((month) => (
+					<SelectGroup key={group.year}>
+						<SelectLabel>{group.year}</SelectLabel>
+						{group.months.map((month) => (
 							<SelectItem key={month} value={month}>
 								{formatMonthYear(month)}
 							</SelectItem>

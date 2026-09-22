@@ -9,6 +9,7 @@ import {
 	periodDestination,
 	periodSearchCodec,
 	periodTitle,
+	reachableMonths,
 	trendHeading,
 } from '../../../../components/overview/overview-data';
 import { formatLongDate, formatMonthYear } from '../../../../lib/local-date';
@@ -125,6 +126,25 @@ describe('monthGroups', () => {
 			comparisonMonth: '2025-12',
 			comparison: 9,
 		});
+	});
+});
+
+describe('reachableMonths', () => {
+	it('lists the months from the current one back to the earliest, newest first and grouped by year', () => {
+		expect(reachableMonths('2026-02', '2024-11')).toEqual([
+			{ year: 2026, months: ['2026-02', '2026-01'] },
+			{
+				year: 2025,
+				months: Array.from({ length: 12 }, (_, i) => `2025-${`${12 - i}`.padStart(2, '0')}`),
+			},
+			{ year: 2024, months: ['2024-12', '2024-11'] },
+		]);
+	});
+
+	it('lists the current year alone before the response says where the history starts', () => {
+		expect(reachableMonths('2026-03', null)).toEqual([
+			{ year: 2026, months: ['2026-03', '2026-02', '2026-01'] },
+		]);
 	});
 });
 
