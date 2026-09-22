@@ -52,7 +52,7 @@ calls `createLabel` and reads both rather than spelling either.
 | Area | Terms | Detail |
 |---|---|---|
 | Adult surveillance | **Trap**, **Collection**, **Species Count**, **Bycatch** | `docs/adult-surveillance-domain.md` |
-| Larval surveillance | **Habitat**, **Habitat Inspection**, **Ad Hoc Inspection**, **Inspection Sample**, **Unlabeled Sample**, **Sample Species Count**, **Larval Density** | `docs/larval-surveillance-domain.md` |
+| Larval surveillance | **Habitat**, **Habitat Inspection**, **Ad Hoc Inspection**, **Positive Inspection**, **Inspection Sample**, **Unlabeled Sample**, **Sample Species Count**, **Larval Density** | `docs/larval-surveillance-domain.md` |
 | Field-work support | **Comment**, **Tag**, **Additional Personnel**, **Route**, **Assignment**, **Assignment Item** | `docs/field-work-support-domain.md` |
 | Control operations | **Control Method**, **Chemical Application**, **Source Reduction**, **Outreach Action**, **Biocontrol Action**, **Requested Control Action**, **Insecticide**, **Insecticide Batch**, **Formulation** | `docs/control-operations-domain.md` |
 | Public engagement | **Contact**, **Service Request**, **Notification Type**, **Notification Registration**, **Mission Notification** | `docs/public-engagement-domain.md` |
@@ -72,6 +72,16 @@ calls `createLabel` and reads both rather than spelling either.
   **Species Counts**.
 - A **Habitat** can have many **Habitat Inspections**; an **Ad Hoc Inspection**
   may be promoted into a **Habitat**.
+- A **Positive Inspection** is a wet inspection indicating breeding: `is_wet`
+  and a density other than `none` or a larvae count above zero, which is the
+  larval doc's breeding rule and holds under every density policy. A dry
+  inspection is a real inspection that found nothing, so it counts among
+  inspections and never among positive ones.
+- A period, a day, a month or a year, is **partial** when today falls inside
+  it, and only the current period ever is. A comparison against a partial
+  period is cut like for like by calendar date, each earlier period through
+  the same date within itself, clamped to that period's last day; a day is
+  never cut.
 - An active **Habitat** is **untreated** while its latest inspection came back
   heavy or very heavy, no **Chemical Application**, **Source Reduction** or
   **Biocontrol Action** dated on or after that inspection names the habitat or
