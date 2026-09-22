@@ -244,6 +244,16 @@ registry pattern as comments, with a separate taggable allowlist.
 Tags are organization-scoped labels with optional description and optional
 custom color.
 
+A Tag also names the record types it is meant for, in
+`tags.relevant_entity_types`: a `text[]` holding the snake_case `entity_type`
+words, `not null default '{}'`, with a check constraint holding it to the six
+taggable targets. The empty set means relevant everywhere, and that is what a new
+Tag gets. Nothing is enforced by it: the server keeps accepting `assignTag` for
+any active Tag on any taggable target of the same Organization, and the set is
+what the client's tag picker reads to decide which Tags to offer first.
+`updateTag` edits it as a whole-set replace, and `createTag` does not take it.
+See `docs/tag-relevance-spec.md`.
+
 Tag names are unique within an organization after trimming and case folding.
 Display casing is preserved from the saved `tag_name`, but `Problem`,
 ` problem `, and `problem` are the same tag name for uniqueness.
@@ -285,7 +295,7 @@ record.
 Tag catalog management is manager-and-above:
 
 - create tags
-- update tag names, descriptions, and colors
+- update tag names, descriptions, colors, and relevant record types
 - activate tags
 - deactivate tags
 - delete never-used tags
