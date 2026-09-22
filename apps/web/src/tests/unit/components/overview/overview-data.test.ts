@@ -10,6 +10,7 @@ import {
 	periodSearchCodec,
 	periodTitle,
 	reachableMonths,
+	reachableYears,
 	trendHeading,
 } from '../../../../components/overview/overview-data';
 import { formatLongDate, formatMonthYear } from '../../../../lib/local-date';
@@ -145,6 +146,13 @@ describe('reachableMonths', () => {
 		expect(reachableMonths('2026-03', null)).toEqual([
 			{ year: 2026, months: ['2026-03', '2026-02', '2026-01'] },
 		]);
+	});
+});
+
+describe('reachableYears', () => {
+	it('lists the years from the current one back to the earliest, newest first', () => {
+		expect(reachableYears('2026', '2023')).toEqual(['2026', '2025', '2024', '2023']);
+		expect(reachableYears('2026', null)).toEqual(['2026']);
 	});
 });
 

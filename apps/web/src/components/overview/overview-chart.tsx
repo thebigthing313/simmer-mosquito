@@ -4,7 +4,8 @@
  * year's days as an area, because 365 slots at a 600px plot width leave no
  * bar the mark spec's 2px gap or 24px hit target; Monthly plots twelve
  * groups of two bars, the picked month's year in the period role beside the
- * year before in the comparison role. Every form paints its roles through
+ * year before in the comparison role; Annual plots one bar per year over
+ * the whole history. Every form paints its roles through
  * the chart's own `ChartConfig` so the marks read `var(--color-period)` and
  * `check:map-palette` has no literal to refuse. `docs/today-spec.md` and
  * `docs/monthly-spec.md`, "The chart", and `docs/web-components.md` for the
@@ -93,6 +94,17 @@ export function OverviewChart({
 				groups={monthGroups(points, overviewPeriodYear(period))}
 				onOpenPeriod={onOpenPeriod}
 				period={period}
+				wholeNumbers={wholeNumbers}
+			/>
+		);
+	}
+	if (grain === 'year') {
+		return (
+			<YearsBars
+				format={format}
+				onOpenPeriod={onOpenPeriod}
+				period={period}
+				points={points}
 				wholeNumbers={wholeNumbers}
 			/>
 		);
@@ -318,6 +330,83 @@ function MonthsBars({
 							x={picked.label}
 						/>
 					)}
+				</BarChart>
+			</ChartContainer>
+		</div>
+	);
+}
+
+// --- Annual: the years ---------------------------------------------------------
+
+/**
+ * A single-series bar over every year from `earliest`'s to the current one,
+ * the picked year marked with the dashed line, the year per x tick thinned
+ * by Recharts as the width demands. The current year is a partial year drawn
+ * whole beside full years; the reference line and the table's caption are
+ * what say so. A bar opens its own year.
+ */
+function YearsBars({
+	points,
+	period,
+	format,
+	wholeNumbers,
+	onOpenPeriod,
+}: {
+	readonly points: readonly PlotPoint[];
+	readonly period: string;
+	readonly format: (value: number) => string;
+	readonly wholeNumbers: boolean;
+	readonly onOpenPeriod: (period: string) => void;
+}) {
+	return (
+		<div className={CHART_FRAME}>
+			<ChartContainer className={PLOT} config={PERIOD_CONFIG}>
+				<BarChart
+					barCategoryGap="25%"
+					data={points as PlotPoint[]}
+					margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+				>
+					<CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
+					<XAxis
+						axisLine={false}
+						dataKey="period"
+						interval="preserveStartEnd"
+						minTickGap={24}
+						tickLine={false}
+						tickMargin={6}
+					/>
+					<YAxis
+						allowDecimals={!wholeNumbers}
+						axisLine={false}
+						tickFormatter={format}
+						tickLine={false}
+						width={44}
+					/>
+					<ChartTooltip
+						content={<ChartTooltipContent formatter={tooltipRow(format)} />}
+						cursor={{ fill: 'var(--muted)', fillOpacity: 0.6 }}
+					/>
+					<Bar
+						className="cursor-pointer"
+						dataKey="value"
+						fill="var(--color-period)"
+						isAnimationActive={false}
+						maxBarSize={24}
+						name="period"
+						onClick={(_item: unknown, index: number) => {
+							const year = points[index]?.period;
+							if (year !== undefined) {
+								onOpenPeriod(year);
+							}
+						}}
+						radius={BAR_RADIUS}
+					/>
+					<ReferenceLine
+						stroke="var(--foreground)"
+						strokeDasharray="3 3"
+						strokeOpacity={0.7}
+						x={period}
+					/>
 				</BarChart>
 			</ChartContainer>
 		</div>

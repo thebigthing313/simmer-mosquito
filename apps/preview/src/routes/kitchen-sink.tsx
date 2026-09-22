@@ -110,6 +110,12 @@ const monthlyCounts = [
 	['Dec', 9, 11],
 ].map(([month, period, comparison]) => ({ month, period, comparison }));
 
+/** Sixteen years of counts, the shape the Annual bar plots. */
+const yearlyCounts = Array.from({ length: 16 }, (_, index) => ({
+	year: `${2011 + index}`,
+	period: 18000 + Math.round(9000 * Math.sin(index / 2.5)) + index * 600,
+}));
+
 /** Sixty days of counts with one gap, the shape the Today area plots. */
 const dailyCounts = Array.from({ length: 60 }, (_, index) => ({
 	day: `Day ${index + 1}`,
@@ -385,10 +391,10 @@ function KitchenSinkPage() {
 						<h2>Chart Container</h2>
 					</div>
 					<p>
-						The shadcn wrapper over Recharts, in the two forms the period-in-review pages draw: an
-						area over days with a gap where nothing was recorded, and a grouped bar of one year
-						beside the year before. Both paint the two chart roles and mark the picked period with a
-						dashed line.
+						The shadcn wrapper over Recharts, in the three forms the period-in-review pages draw: an
+						area over days with a gap where nothing was recorded, a grouped bar of one year beside
+						the year before, and one bar per year over the whole history. All three paint the chart
+						roles and mark the picked period with a dashed line.
 					</p>
 				</div>
 				<div className="component-grid cards">
@@ -464,6 +470,41 @@ function KitchenSinkPage() {
 										strokeDasharray="3 3"
 										strokeOpacity={0.7}
 										x="Sep"
+									/>
+								</BarChart>
+							</ChartContainer>
+						</div>
+					</Panel>
+					<Panel
+						icon={<DropletIcon aria-hidden="true" className="size-4" />}
+						title="Inspections by year"
+					>
+						<div className="px-3 pt-3 pb-2">
+							<ChartContainer className="h-52 w-full" config={periodChartConfig}>
+								<BarChart data={yearlyCounts} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+									<CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
+									<XAxis
+										axisLine={false}
+										dataKey="year"
+										interval="preserveStartEnd"
+										minTickGap={24}
+										tickLine={false}
+										tickMargin={6}
+									/>
+									<YAxis axisLine={false} tickLine={false} width={44} />
+									<ChartTooltip content={<ChartTooltipContent />} />
+									<Bar
+										dataKey="period"
+										fill="var(--color-period)"
+										isAnimationActive={false}
+										maxBarSize={24}
+										radius={[4, 4, 0, 0]}
+									/>
+									<ReferenceLine
+										stroke="var(--foreground)"
+										strokeDasharray="3 3"
+										strokeOpacity={0.7}
+										x="2026"
 									/>
 								</BarChart>
 							</ChartContainer>

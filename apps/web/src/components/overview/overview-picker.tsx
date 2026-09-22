@@ -8,9 +8,9 @@
  *
  * On the day grain the control is a `DatePicker`. On the month grain it is
  * one `Select` over the reachable months, newest first and grouped by year,
- * with a month before `earliest` as an extra item at the bottom while it is
- * shown. The year select is #1218's. `docs/web-components.md` has the
- * reasons.
+ * and on the year grain one `Select` over the reachable years, newest first;
+ * on both a period before `earliest` is an extra item at the bottom while it
+ * is shown. `docs/web-components.md` has the reasons.
  */
 
 import type { OverviewGrain } from '@simmer-mosquito/domain';
@@ -27,7 +27,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/select';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { formatLocalDate, formatMonthYear, parseLocalDate } from '../../lib/local-date';
-import { reachableMonths, stepPeriod } from './overview-data';
+import { reachableMonths, reachableYears, stepPeriod } from './overview-data';
 
 const PreviousIcon = iconRegistry.arrows.chevronLeft.icon;
 const NextIcon = iconRegistry.arrows.chevronRight.icon;
@@ -76,6 +76,8 @@ export function OverviewPicker({
 			</Button>
 			{grain === 'month' ? (
 				<MonthControl current={current} earliest={earliest} onPick={onPick} period={period} />
+			) : grain === 'year' ? (
+				<YearControl current={current} earliest={earliest} onPick={onPick} period={period} />
 			) : (
 				<DayControl current={current} earliest={earliest} onPick={onPick} period={period} />
 			)}
@@ -154,6 +156,35 @@ function MonthControl({
 					</SelectGroup>
 				))}
 				{listed ? null : <SelectItem value={period}>{formatMonthYear(period)}</SelectItem>}
+			</SelectContent>
+		</Select>
+	);
+}
+
+function YearControl({
+	period,
+	current,
+	earliest,
+	onPick,
+}: {
+	readonly period: string;
+	readonly current: string;
+	readonly earliest: string | null;
+	readonly onPick: (period: string) => void;
+}) {
+	const years = reachableYears(current, earliest);
+	return (
+		<Select onValueChange={onPick} value={period}>
+			<SelectTrigger aria-label="Year shown" className="w-28" size="sm">
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent className="max-h-80">
+				{years.map((year) => (
+					<SelectItem key={year} value={year}>
+						{year}
+					</SelectItem>
+				))}
+				{years.includes(period) ? null : <SelectItem value={period}>{period}</SelectItem>}
 			</SelectContent>
 		</Select>
 	);

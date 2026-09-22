@@ -137,3 +137,67 @@ export function monthOverview(overrides: Partial<OverviewResponse> = {}): Overvi
 		...overrides,
 	};
 }
+
+/**
+ * One `GET /overview/year` answer for 2026 read on Sep 15: a partial year
+ * cut through Sep 15, three columns, and a series from 2011 to 2026. `years`
+ * narrows the series for the under-three-years case.
+ */
+export function yearOverview(
+	overrides: Partial<OverviewResponse> = {},
+	years: readonly string[] = Array.from({ length: 16 }, (_, index) => `${2011 + index}`),
+): OverviewResponse {
+	const values: Readonly<Record<OverviewRecordType, readonly (number | null)[]>> = {
+		inspections: [24110, 37314, 31200.4],
+		samples: [1010, 1400, 1188],
+		collections: [3200, 4020, 3801.2],
+		applications: [14200, 19500, 16310],
+		sourceReductions: [400, 610, 446],
+		releases: [0, 0, null],
+		serviceRequests: [880, 1200, 840],
+		outreachActions: [0, 0, null],
+	};
+	const recordedEver: Readonly<Record<OverviewRecordType, boolean>> = {
+		inspections: true,
+		samples: true,
+		collections: true,
+		applications: true,
+		sourceReductions: true,
+		releases: false,
+		serviceRequests: true,
+		outreachActions: false,
+	};
+	const types = OVERVIEW_RECORD_TYPES.map(
+		(type): OverviewTypeRow => ({
+			type,
+			recordedEver: recordedEver[type],
+			values: values[type],
+			averageYears: values[type][2] === null ? 0 : 5,
+			series: years.map((period, index) => ({ period, value: index + 1 })),
+		}),
+	);
+	const ratios = OVERVIEW_RATIOS.map(
+		(ratio): OverviewRatioRow => ({
+			ratio,
+			numerators: ratio === 'positiveInspections' ? [6000, 8112, 24000] : [90000, 73665, 400000],
+			denominators: ratio === 'positiveInspections' ? [24110, 37314, 113320] : [2900, 1596, 14000],
+			averageYears: 5,
+			series: years.map((period) => ({ period, numerator: 2, denominator: 4 })),
+		}),
+	);
+	return {
+		grain: 'year',
+		period: '2026',
+		today: '2026-09-15',
+		cutThrough: '2026-09-15',
+		earliest: `${years[0] ?? '2011'}-04-02`,
+		columns: [
+			{ key: 'period', from: '2026-01-01', to: '2026-09-15' },
+			{ key: 'previous', from: '2025-01-01', to: '2025-09-15' },
+			{ key: 'average', years: { from: 2021, to: 2025 } },
+		],
+		types,
+		ratios,
+		...overrides,
+	};
+}

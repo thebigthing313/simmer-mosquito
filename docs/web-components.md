@@ -488,7 +488,14 @@ reached is no bar, and every bar in the period series wears the role at full
 strength, the alternative of the picked bar at full strength and the rest a
 step down not being taken. The period bar draws left of the comparison bar,
 the order the legend reads in. A bar click reads the group back by the index
-Recharts hands the handler, since the rectangle it hands is not the row. The
+Recharts hands the handler, since the rectangle it hands is not the row.
+Annual's is one bar per year over the whole history, the current year a
+partial year drawn whole beside full years, which the reference line and the
+table's caption are what say; the series never carries the cut, because
+cutting every earlier period would turn Annual into a year-to-date chart.
+Under three years the trend section is not drawn and the table stands alone,
+since a one-bar or two-bar chart is on the `dataviz` skill's anti-pattern
+list. The
 marks read `var(--color-period)` through the chart's own `ChartConfig`, so
 the two roles in `styles.css` are the only colours and `check:map-palette`
 has no literal to refuse. The tooltip passes a `formatter`, because
@@ -526,9 +533,10 @@ the comparison colour.
 
 One `Select` over the reachable months on Monthly, newest first and grouped by
 year, rather than two selects for month and year, which would let a person
-assemble a future or pre-earliest month. A month before `earliest` reached
-through the URL is an extra item at the bottom while it is shown, because a
-`Select` draws nothing for a value it has no item for.
+assemble a future or pre-earliest month, and one over the reachable years on
+Annual. A period before `earliest` reached through the URL is an extra item at
+the bottom while it is shown, because a `Select` draws nothing for a value it
+has no item for. On staging the year select spans 1990 to 2026, 37 items.
 
 #### UpwardLine
 

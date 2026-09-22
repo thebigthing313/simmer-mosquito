@@ -49,7 +49,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
-import { dayOverview, monthOverview } from './components/overview/overview-fixtures';
+import { dayOverview, monthOverview, yearOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
@@ -589,6 +589,46 @@ describe('the Monthly page', () => {
 
 		expect(linkHref('2026')).toBe('/annual?year=2026');
 		expect(screen.queryByRole('link', { name: 'September 2026' })).toBeNull();
+	});
+});
+
+/**
+ * The Annual page (#1218): a count opens its explorer over the whole year,
+ * `to` Dec 31 even on the partial year the fixture cuts through Sep 15, and
+ * there is no upward line, there being no coarser grain.
+ */
+describe('the Annual page', () => {
+	function openAnnual() {
+		renderWithRouter(
+			<>
+				<UpwardLine grain="year" period="2026" />
+				<OverviewTable
+					dimmed={false}
+					grain="year"
+					period="2026"
+					state={{ kind: 'ready', response: yearOverview() }}
+				/>
+			</>,
+		);
+	}
+
+	function rowHrefs(label: string): readonly string[] {
+		const row = screen.getByRole('row', { name: new RegExp(`^${label}`) });
+		return [...row.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href') ?? '');
+	}
+
+	it('sends each count to its explorer over the whole year, not the cut', () => {
+		openAnnual();
+
+		expect(rowHrefs('Collections')).toEqual([
+			'/adult-surveillance/collections?from=2026-01-01&to=2026-12-31',
+			'/adult-surveillance/collections?from=2025-01-01&to=2025-12-31',
+		]);
+		expect(rowHrefs('Service Requests received')[0]).toBe(
+			'/public-engagement/service-requests?status=all&from=2026-01-01&to=2026-12-31',
+		);
+		expect(rowHrefs('Mosquitoes per collection')).toEqual([]);
+		expect(screen.queryByRole('link', { name: '2026' })).toBeNull();
 	});
 });
 
