@@ -26,6 +26,10 @@ export interface ServiceRequestTileFilters extends RegionScopedTileFilters {
 	readonly isOpen?: boolean;
 	readonly search?: string;
 	readonly tagIds?: readonly string[];
+	/** Inclusive `YYYY-MM-DD` lower bound on the request date. */
+	readonly dateFrom?: string;
+	/** Inclusive `YYYY-MM-DD` upper bound on the request date. */
+	readonly dateTo?: string;
 }
 
 export const SERVICE_REQUEST_SOURCE_ID = 'service-requests';
@@ -91,6 +95,8 @@ function serviceRequestTileParams(filters: ServiceRequestTileFilters = {}): URLS
 	}
 	setTextTileParam(params, 'search', filters.search);
 	setIdListTileParam(params, 'tagId', filters.tagIds);
+	setTextTileParam(params, 'dateFrom', filters.dateFrom);
+	setTextTileParam(params, 'dateTo', filters.dateTo);
 	setRegionTileParam(params, filters.regionIds);
 
 	return params;

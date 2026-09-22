@@ -56,13 +56,15 @@ import type { MiddlewareHandler } from 'hono';
  * as `/search`: one exact path each, a read that varies by the session's
  * Organization with no id in the URL. The Dashboard's count of samples
  * awaiting and the larval overview's preview of them are two organizations'
- * numbers on byte-identical URLs.
+ * numbers on byte-identical URLs. `/overview/*` is the same read at three
+ * grains, `overview-reads.ts`, one Organization's counts per session.
  */
 export const PRIVATE_READ_PREFIXES = [
 	'/map/*',
 	'/records/*',
 	'/search',
 	'/dashboard',
+	'/overview/*',
 	'/larval-surveillance/samples/awaiting',
 ] as const;
 

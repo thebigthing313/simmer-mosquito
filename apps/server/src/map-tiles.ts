@@ -1063,8 +1063,10 @@ export const parseCollectionMapFilters = defineFilters<CollectionMapFilters>('co
 	...dateFields,
 ]);
 
-// No date fields, deliberately: the explorer's filters are status, search, tag
-// and region, and a date default is not a substitute for the viewport (#920).
+// The date fields carry no default on the explorer: #920 decided a date
+// default there is not a substitute for the viewport, and a filter with no
+// default is a different thing. They exist so a count on the period-in-review
+// pages lands on the rows it counted (docs/today-spec.md, "Links").
 export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilters>(
 	'service-requests',
 	[
@@ -1072,6 +1074,7 @@ export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilt
 		{ param: 'search', kind: 'text' },
 		{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
 		regionField,
+		...dateFields,
 	],
 );
 

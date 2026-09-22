@@ -654,6 +654,34 @@ export function formatNumericDate(date: string): string {
 }
 
 /**
+ * `Monday, September 21, 2026`, a day named in full.
+ *
+ * The period-in-review pages draw it in the upward line under the heading,
+ * where the day is the subject and has the room; every list keeps the short
+ * forms above.
+ */
+export function formatLongDate(date: string): string {
+	return utcLabel('formatLongDate', date, {
+		weekday: 'long',
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+	});
+}
+
+/**
+ * A `YYYY-MM` period as `September 2026`, or `Sep 2026` when `style` is
+ * `short`. Takes the month itself rather than a date in it, so the caller
+ * never has to invent a day.
+ */
+export function formatMonthYear(month: string, style: 'long' | 'short' = 'long'): string {
+	if (!/^\d{4}-\d{2}$/.test(month)) {
+		return unreadable('formatMonthYear', month);
+	}
+	return utcLabel('formatMonthYear', `${month}-01`, { month: style, year: 'numeric' });
+}
+
+/**
  * The shape all six labels above share: read the calendar date, render it on the
  * UTC clock, and hand it back untouched when it will not read.
  *

@@ -32,6 +32,8 @@ import { HabitatHistoryCard } from '../../components/larval-surveillance/habitat
 import { InspectionSurfaceSwitch } from '../../components/larval-surveillance/inspection-surface-switch';
 import { sharedInspectionSearch } from '../../components/larval-surveillance/inspections-search';
 import { PeopleSection } from '../../components/my-organization/people';
+import { OverviewTable } from '../../components/overview/overview-table';
+import { UpwardLine } from '../../components/overview/overview-upward-line';
 import { ServiceRequestDetailHeader } from '../../components/public-engagement/service-requests/service-request-detail-header';
 import type {
 	NearbyCategory,
@@ -47,6 +49,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
+import { dayOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
@@ -465,6 +468,80 @@ describe('the Dashboard', () => {
 		await openDashboard();
 
 		expect(linkHref('Dana Okafor')).toBe('/daily-work/profile-1?date=2026-09-15');
+	});
+});
+
+/**
+ * The Today page (#1216): a count opens its type's explorer over the column's
+ * whole period, the service requests link writing `status=all` beside the
+ * dates because that explorer defaults to open requests, and the upward line
+ * opens the month and the year with the period written explicitly. The table
+ * and the line are rendered off a response rather than through the page,
+ * which reads the search and navigates and so needs a match this harness
+ * never mounts; the chart click is a `navigate` and not a `Link`, so
+ * `periodDestination` is asserted in its own suite. The fixture gives the
+ * previous column and last year's a different date from the period's, so a
+ * link reading the wrong column resolves to a different href.
+ */
+describe('the Today page', () => {
+	function openToday() {
+		renderWithRouter(
+			<>
+				<UpwardLine grain="day" period="2026-09-15" />
+				<OverviewTable
+					dimmed={false}
+					grain="day"
+					period="2026-09-15"
+					state={{ kind: 'ready', response: dayOverview() }}
+				/>
+			</>,
+		);
+	}
+
+	/** The count links in one row, in column order. */
+	function rowHrefs(label: string): readonly string[] {
+		const row = screen.getByRole('row', { name: new RegExp(`^${label}`) });
+		return [...row.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href') ?? '');
+	}
+
+	it('sends each count to its explorer over the column’s own day', () => {
+		openToday();
+
+		expect(rowHrefs('Inspections')).toEqual([
+			'/larval-surveillance/inspections?from=2026-09-15&to=2026-09-15',
+			'/larval-surveillance/inspections?from=2026-09-14&to=2026-09-14',
+		]);
+		expect(rowHrefs('Samples')[0]).toBe(
+			'/larval-surveillance/samples?from=2026-09-15&to=2026-09-15',
+		);
+		expect(rowHrefs('Collections')[0]).toBe(
+			'/adult-surveillance/collections?from=2026-09-15&to=2026-09-15',
+		);
+		expect(rowHrefs('Chemical Applications')[0]).toBe(
+			'/control-operations/chemical?from=2026-09-15&to=2026-09-15',
+		);
+		expect(rowHrefs('Source Reductions')[0]).toBe(
+			'/control-operations/source-reduction?from=2026-09-15&to=2026-09-15',
+		);
+		// Every request received, not the explorer's default of open ones.
+		expect(rowHrefs('Service Requests received')[0]).toBe(
+			'/public-engagement/service-requests?status=all&from=2026-09-15&to=2026-09-15',
+		);
+	});
+
+	it('links no ratio', () => {
+		openToday();
+
+		expect(rowHrefs('Inspections')).toHaveLength(2);
+		expect(rowHrefs('Positive inspections')).toEqual([]);
+		expect(rowHrefs('Mosquitoes per collection')).toEqual([]);
+	});
+
+	it('sends the upward line to the month and the year, written explicitly', () => {
+		openToday();
+
+		expect(linkHref('September 2026')).toBe('/monthly?month=2026-09');
+		expect(linkHref('2026')).toBe('/annual?year=2026');
 	});
 });
 

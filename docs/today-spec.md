@@ -116,9 +116,9 @@ Sep 1 to 21 of each averaged year; a partial 2026 compares against Jan 1 to
 Sep 21 of each earlier year. Two edge rules: the cut date clamps to the
 comparison period's last day, so a partial March read on the 31st compares
 against the whole of February and Feb 29 compares against Feb 28 in a common
-year; and a day is never cut, so Today compares its whole day against whole
-days, the columns being dates with a collection's time of day reduced to the
-Organization's day before it is counted.
+year; and a day is never cut, so Today compares its whole day against the
+whole day before it, the columns being dates with a collection's time of day
+reduced to the Organization's day before it is counted.
 
 On screen the cut is one caption in the table panel's `actions` slot,
 `Each period through the 21st` on Monthly and `Each period through Sep 21` on
@@ -154,8 +154,8 @@ was the alternative and gives each year one vote regardless of its size.
 The frame is the overviews' and the Dashboard's: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, and a `PageHeader`
 with eyebrow `Organization`, the `generic.chart` icon, the title `Today`, the
-description "What was recorded on one day, against the day before, the same
-date last year and the five years before." and the period picker in `actions`.
+description "What was recorded on one day, against the day before, with the
+year so far under it." and the period picker in `actions`.
 
 Under the heading sits the **upward line**: the day's long name in the
 foreground weight, then each coarser period as a link, separated by a middle
@@ -194,22 +194,23 @@ URL as the section below says; stepping back onto today clears the param.
 ## The table
 
 A `table` inside the panel, `overflow-x-auto`, column heads in muted small
-text. Five columns:
+text. Three columns, two fewer than the other grains:
 
 | Head | What it holds |
 | --- | --- |
 | `Record type` | the row's label, a row header |
 | `Sep 21, 2026` | the day, in the bold period column |
 | `Sep 20, 2026` | the previous calendar day |
-| `Sep 21, 2025` | the same calendar date last year |
-| `2021–2025 average` | the mean of that calendar date over the qualifying prior years |
 
 The previous column is one previous calendar day for the whole table, named in
-its header; a quiet Sunday before a Monday is a true answer. The same calendar
-date rather than the same weekday, because the season is date-driven and the
-header then names the date the person asked about. The day-grain average is
-the same definition as the other grains one grain down, and small is the true
-reading of a single date; the chart carries the trend.
+its header; a quiet Sunday before a Monday is a true answer. There is no
+same-date-last-year column and no average on this grain, which is where Today
+departs from Monthly and Annual: the same calendar date a year earlier falls
+on another weekday, so a Monday would read against a Sunday, and a mean of
+that date over five years averages five different weekdays. Neither says
+anything a Manager can act on. The chart under the table carries the year's
+trend, and the month and the year a day sits in are one click up the upward
+line, where the year-back columns compare like with like.
 
 The header text comes off the response's `columns`: each real column carries
 its `from` and `to` and the average column its `years`, so the client does no
@@ -353,7 +354,7 @@ interface OverviewResponse {
 	readonly cutThrough: string | null;
 	/** The earliest dated record across the eight types; null when nothing is recorded. */
 	readonly earliest: string | null;
-	/** Four on `day` and `month`, three on `year`. */
+	/** Two on `day`, four on `month`, three on `year`. */
 	readonly columns: readonly Column[];
 	/** All eight, in register order. */
 	readonly types: readonly TypeRow[];
@@ -434,10 +435,11 @@ beside it and the two cannot disagree. Samples have no date of their own and
 join their inspection; collections' effective date is a `coalesce` no index
 serves, and the table is 31k rows.
 
-The scan's lower bound on `day` and `month` is Jan 1 five years before the
-picked period's year, and its upper bound is the series' end, which covers the
-qualifying-year test, every column and the series in one pass, about 2,500
-daily rows per type at most. On `year` there is no lower bound, because the
+The scan's lower bound on `month` is Jan 1 five years before the picked
+month's year, and on `day` it is Jan 1 of the picked day's year, since a day
+has no year-back columns and the series is the year; the upper bound is the
+series' end, which covers the qualifying-year test, every column and the
+series in one pass, about 2,500 daily rows per type at most. On `year` there is no lower bound, because the
 series is the whole history, and 517k inspections group to about 5,800 daily
 rows. `earliest` and `recordedEver` come from a separate `min(date)` per type,
 eight index reads in the same `Promise.all`: `recordedEver` is that type's min
@@ -450,7 +452,7 @@ function, `aggregateOverview({ grain, period, today, rows })` in
 and a pure function over daily rows takes a table-driven suite with no
 database: Feb 29 against Feb 28, a March 31 read against a whole February,
 January's previous month, a year qualifying on one stray row, the zero divisor,
-the day-grain average over a date some years hold and some do not. Doing the
+Jan 1 against the last day of the year before. Doing the
 cut in SQL with a `filter` clause per column was the alternative, eight
 predicates per statement with the leap-year rule where nothing unit-tests it.
 

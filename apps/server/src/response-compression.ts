@@ -58,6 +58,7 @@ export const COMPRESSED_READ_PREFIXES = [
 	'/records/*',
 	'/search',
 	'/dashboard',
+	'/overview/*',
 	'/larval-surveillance/samples/awaiting',
 	'/sync/*',
 ] as const;

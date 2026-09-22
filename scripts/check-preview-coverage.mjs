@@ -107,7 +107,8 @@
  * `chart.tsx` was a candidate in #611 and is not on the list. `ChartContainer`
  * renders, `apps/web/src/components/larval-surveillance/habitats/habitat-inspection-stats.tsx` draws a real
  * chart with it, and a preview section is a config object and a few rows of
- * data. It is in the backlog.
+ * data. It left the backlog with #1216, which put the period-in-review charts'
+ * two forms on the kitchen sink.
  *
  * ## The floors
  *
@@ -183,7 +184,7 @@ const IMPORT = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g;
  * How many modules have no preview section. Read the docblock before changing
  * it: down is the normal direction and up needs a reason in the commit message.
  */
-const UNCOVERED_MODULES = 74;
+const UNCOVERED_MODULES = 73;
 
 /**
  * The modules with no preview section anybody could write.

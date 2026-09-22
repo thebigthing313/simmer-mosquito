@@ -159,7 +159,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 					<StatsSkeleton />
 				) : total === 0 ? (
 					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
-						No inspections() recorded for this habitat yet.
+						No inspections recorded for this habitat yet.
 					</p>
 				) : (
 					<div className="grid gap-3">

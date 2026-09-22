@@ -61,7 +61,7 @@ export async function readDashboard(
 ): Promise<DashboardResponse> {
 	const timeZone = assertIanaTimeZone(input.timeZone);
 	const organizationId = input.organizationId;
-	const today = await readToday(db, timeZone);
+	const today = await readOrganizationToday(db, timeZone);
 
 	const [samplesAwaiting, collectionsAwaiting, requestsUnassigned] = await Promise.all([
 		readSamplesAwaiting(db, organizationId),
@@ -72,8 +72,14 @@ export async function readDashboard(
 	return { today, queues: { samplesAwaiting, collectionsAwaiting, requestsUnassigned } };
 }
 
-/** Today in the organization's zone, from the database's clock. */
-async function readToday(db: Kysely<SimmerDatabase>, timeZone: string): Promise<string> {
+/**
+ * Today in the organization's zone, from the database's clock. The overview
+ * reader asks the same question, so it is exported rather than copied.
+ */
+export async function readOrganizationToday(
+	db: Kysely<SimmerDatabase>,
+	timeZone: string,
+): Promise<string> {
 	const result = await sql<{ readonly today: string }>`
 		select ${sql.raw(localDateSql('now()', timeZone))}::text as today
 	`.execute(db);

@@ -1,6 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { UpcomingPage } from '../components/app-shell/upcoming-page';
+import { periodSearchCodec } from '../components/overview/overview-data';
+import { OverviewPage } from '../components/overview/overview-page';
+import { searchValidator } from '../lib/search-filters';
 
 export const Route = createFileRoute('/today')({
-	component: UpcomingPage,
+	component: TodayRoute,
+	validateSearch: searchValidator({ date: periodSearchCodec('day') }),
 });
+
+function TodayRoute() {
+	return <OverviewPage grain="day" />;
+}
