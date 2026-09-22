@@ -39,6 +39,9 @@ const { dispatches, lastChanges, lastIntents, lastWrite, resetDispatches, stubAp
 );
 const { useTagMutations } = await import('../../../../hooks/mutations/use-tag-mutations');
 const { useCommentMutations } = await import('../../../../hooks/mutations/use-comment-mutations');
+const { useRecordTagMutations } = await import(
+	'../../../../hooks/mutations/use-record-tag-mutations'
+);
 
 /**
  * The colour an organization picked, and the one it picked next.
@@ -69,6 +72,7 @@ function tagFields(overrides: Record<string, unknown> = {}) {
 		description: 'Comes back every season.',
 		color: COLOR,
 		isActive: true,
+		relevantEntityTypes: [],
 		...overrides,
 	};
 }
@@ -112,6 +116,23 @@ describe('a tag write', () => {
 
 		await result.current.save(RECORD, tagFields({ color: REPICKED }), tagFields());
 		expect(lastChanges().color).toBe(REPICKED);
+	});
+
+	it('sends the relevance set when it moved, and a new tag is suggested everywhere', async () => {
+		const { result } = renderHook(() => useTagMutations());
+
+		// `createTag` takes no set, so the optimistic row has to be the empty one
+		// the column defaults to, or the row on screen narrows itself until the
+		// write syncs back.
+		await result.current.create(tagFields());
+		expect(lastWrite().row).toMatchObject({ relevant_entity_types: [] });
+
+		await result.current.save(
+			RECORD,
+			tagFields({ relevantEntityTypes: ['habitat', 'service_request'] }),
+			tagFields(),
+		);
+		expect(lastChanges().relevant_entity_types).toEqual(['habitat', 'service_request']);
 	});
 
 	it('sends only the columns that moved, because an empty update is refused', async () => {
@@ -178,6 +199,43 @@ describe('a tag write', () => {
 		await result.current.remove(RECORD);
 
 		expect(lastIntents()).toEqual(['fieldWork.deleteTag']);
+	});
+});
+
+describe('a record tag write', () => {
+	it('writes the target type in the spelling the column holds', async () => {
+		// Same seam the comment write has: the domain says `serviceRequest` and the
+		// column says `service_request`, and an unconverted value makes the
+		// optimistic row and the row Electric streams back two rows.
+		const { result } = renderHook(() => useRecordTagMutations());
+
+		await result.current.assign({ type: 'serviceRequest', id: TARGET }, RECORD);
+
+		expect(lastIntents()).toEqual(['fieldWork.assignTag']);
+		expect(lastWrite().row).toMatchObject({
+			entity_type: 'service_request',
+			entity_id: TARGET,
+			tag_id: RECORD,
+		});
+	});
+
+	it('leaves a single-word target type alone', async () => {
+		const { result } = renderHook(() => useRecordTagMutations());
+
+		await result.current.assign({ type: 'habitat', id: TARGET }, RECORD);
+
+		expect(lastWrite().row).toMatchObject({ entity_type: 'habitat' });
+	});
+
+	it('unassigns by the link row id, which is what the command takes', async () => {
+		// Not the catalog row's id: `unassignTag` reaches the record through the
+		// `tag_items` row, which is why `useRecordTags` selects it.
+		const { result } = renderHook(() => useRecordTagMutations());
+
+		await result.current.unassign(TARGET);
+
+		expect(lastIntents()).toEqual(['fieldWork.unassignTag']);
+		expect(lastWrite().key).toBe(TARGET);
 	});
 });
 

@@ -128,7 +128,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 						? undefined
 						: [contact.title, contact.company].filter(Boolean).join(' · '),
 				recordType: 'contact',
-				tags: { recordId: contact.id },
+				tags: { recordId: contact.id, recordType: 'contact' },
 				title: name,
 			}}
 			layout={layout}

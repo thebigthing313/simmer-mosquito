@@ -23,6 +23,7 @@ import {
 	type FieldWorkCommandPayload,
 	type FieldWorkDomainCommand,
 	normalizeHexColor,
+	normalizeRelevantEntityTypes,
 	TAG_TARGET_TYPES,
 	type TagTarget,
 	validateTarget,
@@ -49,6 +50,9 @@ export const TAG_UPDATE_FIELDS = {
 	tagName: requiredTextField(200),
 	description: nullableTextField(2_000),
 	color: normalizeHexColor,
+	// The record types this Tag is meant for. `createTag` takes none, so a new Tag
+	// is relevant everywhere and narrowing it is an ordinary update.
+	relevantEntityTypes: normalizeRelevantEntityTypes,
 } satisfies UpdateFieldSet;
 
 export type UpdateTagCommandInput = FieldWorkCommandInput &

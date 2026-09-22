@@ -51,6 +51,7 @@ const ACTIVE_TAG: TagRecord = {
 	description: 'Follow up this week',
 	color: null,
 	isActive: true,
+	relevantEntityTypes: [],
 };
 
 const ORGANIZATION = {

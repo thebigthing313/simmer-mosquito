@@ -97,6 +97,59 @@ describe('field-work support commands', () => {
 		).toEqual({ description: null, color: null });
 	});
 
+	it('dedupes and sorts a tag relevance set, and collapses all six to none', () => {
+		expect(
+			updateTagCommand({
+				organizationId,
+				actorProfileId,
+				tagId,
+				relevantEntityTypes: ['service_request', 'habitat', 'habitat'],
+			}).payload.changes,
+		).toEqual({ relevantEntityTypes: ['habitat', 'service_request'] });
+
+		// All six and none mean the same thing to a picker, so only one spelling is
+		// stored. Clearing the set is the same ordinary update.
+		expect(
+			updateTagCommand({
+				organizationId,
+				actorProfileId,
+				tagId,
+				relevantEntityTypes: ['address', 'region', 'trap', 'habitat', 'contact', 'service_request'],
+			}).payload.changes,
+		).toEqual({ relevantEntityTypes: [] });
+
+		expect(
+			updateTagCommand({
+				organizationId,
+				actorProfileId,
+				tagId,
+				relevantEntityTypes: [],
+			}).payload.changes,
+		).toEqual({ relevantEntityTypes: [] });
+	});
+
+	it('refuses a relevance entry that is not a taggable record type', () => {
+		// camelCase is the domain's spelling and the column's is snake_case, so a
+		// caller that forgot to convert is refused rather than stored.
+		expect(() =>
+			updateTagCommand({
+				organizationId,
+				actorProfileId,
+				tagId,
+				relevantEntityTypes: ['serviceRequest'],
+			}),
+		).toThrow(DomainValidationError);
+
+		expect(() =>
+			updateTagCommand({
+				organizationId,
+				actorProfileId,
+				tagId,
+				relevantEntityTypes: ['inspection'],
+			}),
+		).toThrow(DomainValidationError);
+	});
+
 	it('builds route item placement commands and rejects duplicate moves', () => {
 		expect(
 			addRouteItemCommand({

@@ -247,6 +247,15 @@ function zodFor(column, tsType) {
 	else if (bare === 'number' || bare === 'GeneratedColumn<number>') base = 'z.number()';
 	else if (bare === 'Date') base = 'z.coerce.date()';
 	else if (bare === 'string' || bare === 'GeneratedColumn<string>') base = stringBase;
+	// The one synced array in the workspace, `tags.relevant_entity_types`. The
+	// element is `z.string()` and not a `z.enum`, because the drift suite compares
+	// exact type identity against `SelectType` of the Kysely column, which is
+	// `string[]`, and a narrower union fails it. The two spellings are the column
+	// with a default and the column without: `Generated<string[]>` never reaches
+	// the unwrap above, whose `\w` stops at the bracket. A recursive element reader
+	// would be a mechanism written for one caller, so the next array type is the
+	// branch that adds itself.
+	else if (bare === 'string[]' || bare === 'Generated<string[]>') base = 'z.array(z.string())';
 	else if (enums.has(bare))
 		base = `z.enum([${enums
 			.get(bare)

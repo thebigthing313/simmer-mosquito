@@ -22,8 +22,8 @@
  * `deactivateTag` beside `createTag`, and both commit in one transaction.
  *
  * Assigning a Tag to a record is `tag_items` and a different seam entirely; see
- * `use-record-tags.ts` for the read and `fieldWorkMissionMutations` for what is
- * left of the write.
+ * `use-record-tags.ts` for the read and `use-record-tag-mutations.ts` for the
+ * write.
  */
 
 import type { Tag } from '@simmer-mosquito/sync';
@@ -45,6 +45,8 @@ export interface TagFields {
 	/** A hex string, or `null` for a Tag the organization left uncoloured. */
 	readonly color: string | null;
 	readonly isActive: boolean;
+	/** The record types the Tag is suggested for; empty means every record. */
+	readonly relevantEntityTypes: readonly string[];
 }
 
 /**
@@ -102,6 +104,9 @@ export function useTagMutations(): TagMutations {
 			updated_by_profile_id: actorProfileId,
 			created_at: now,
 			updated_at: now,
+			// `createTag` takes no relevance set, so a new Tag is suggested for every
+			// record and narrowing it is one Edit away on the row that just appeared.
+			relevant_entity_types: [],
 		} satisfies Tag;
 		await createCatalogRow(tags(), tagCommands, row);
 		return row.id;
@@ -120,6 +125,11 @@ export function useTagMutations(): TagMutations {
 		}
 		if (fields.color !== current.color) {
 			changes.color = fields.color;
+		}
+		// Both sides arrive in register order from `tagFieldsFrom`, so this is a
+		// comparison of two sets and not of two orderings.
+		if (fields.relevantEntityTypes.join() !== current.relevantEntityTypes.join()) {
+			changes.relevant_entity_types = [...fields.relevantEntityTypes];
 		}
 
 		await saveCatalogRow(tags(), tagCommands, id, {

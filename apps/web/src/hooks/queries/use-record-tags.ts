@@ -9,6 +9,10 @@
  * nothing to wait for and nothing to fold in. Tags are also one-to-many, which a
  * nested projection cannot carry the way the address does.
  *
+ * Each row carries the id of the `tag_items` row that put the Tag there, so a
+ * surface with a control to take one off has what `unassignTag` asks for. See
+ * `AssignedTag` in `tag-view.ts`.
+ *
  * `tag_items.entity_id` is globally unique across every taggable table, so a
  * single-id lookup needs no entity-type discriminator. Compare
  * `hooks/explorer/use-entity-tags.ts`, which does take one, because it asks
@@ -19,9 +23,9 @@ import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { tag_items } from '../../lib/collections/tag_items';
 import { tags } from '../../lib/collections/tags';
 import { mapCardGcTimeMs } from './shared';
-import type { Tag } from './tag-view';
+import type { AssignedTag } from './tag-view';
 
-export function useRecordTags(entityId: string): readonly Tag[] {
+export function useRecordTags(entityId: string): readonly AssignedTag[] {
 	const result = useLiveQuery({
 		gcTime: mapCardGcTimeMs,
 		query: (query) =>
@@ -49,6 +53,8 @@ export function useRecordTags(entityId: string): readonly Tag[] {
 				// no invented stand-in.
 				.select(({ item, tag }) => ({
 					id: coalesce(tag.id, item.tag_id),
+					// The link row's id, which is the whole of what `unassignTag` takes.
+					tagItemId: item.id,
 					name: coalesce(tag.tag_name, 'Unknown tag'),
 					color: coalesce(tag.color, null),
 					description: coalesce(tag.description, null),

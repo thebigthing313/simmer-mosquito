@@ -90,7 +90,7 @@ export function ServiceRequestDetailHeader({
 					returnTo: '/public-engagement/service-requests',
 				}}
 				subtitle={`${intakeTypeLabel(request.intakeType)} · ${formatRequestDate(request.requestDate)}`}
-				tags={{ recordId: request.id }}
+				tags={{ recordId: request.id, recordType: 'serviceRequest' }}
 				title={title}
 			/>
 			<ReasonDialog

@@ -1607,6 +1607,30 @@ catalogs, every one of `controlOperations.createVehicle` through
 `deleteEquipment`: vehicles and equipment are part of running the work
 rather than configuring the organization.
 
+#### useRecordTagMutations
+
+The other half of `useTagMutations`, which writes the catalog. Defining a Tag is
+manager work on the My organization page and putting one on a record is
+collector work on the record, so they are two hooks and two floors.
+
+No set-reconcile helper beside `assign` and `unassign`, unlike
+`useAdditionalPersonnelMutations`: the picker writes on the click, so nothing
+ever holds a set to settle, and a helper with no caller is what `fallow
+dead-code` refuses.
+
+`entity_type` is written in the column's own snake_case, so the optimistic row
+and the row Electric streams back are one row. The insert is not idempotent, and
+the server turns the partial unique index's `23505` into a 409 rather than
+swallowing it: a swallowed collision returns a row whose id the client never
+minted, which is two rows for one assignment.
+
+#### useTagPickerCatalog
+
+One list with each Tag's lifecycle and relevance on it, rather than
+`useTagCatalog`'s two lifecycle halves, because which section a Tag draws in is
+a question about both. `useLiveQuery` and not the suspense hook, so opening the
+dialog never suspends the header it opens from.
+
 ## apps/admin
 
 #### useInsideOrganization

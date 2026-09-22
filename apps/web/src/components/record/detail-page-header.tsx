@@ -1,3 +1,4 @@
+import type { TagTargetType } from '@simmer-mosquito/domain';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -20,7 +21,6 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import { Fragment, type ReactNode, useState } from 'react';
-import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
@@ -31,7 +31,7 @@ import {
 	type RecordDeleteProps,
 	type RecordDeleteTarget,
 } from '../record-delete-dialog';
-import { TagBadge } from '../tag-badge';
+import { RecordTags } from './record-tags';
 
 /**
  * The bar every record detail page opens with.
@@ -145,7 +145,9 @@ export function DetailPageHeader(props: DetailPageHeaderProps) {
 			</div>
 			<div className="flex flex-wrap items-center justify-end gap-1.5">
 				{flags}
-				{tags === undefined ? null : <RecordTags recordId={tags.recordId} />}
+				{tags === undefined ? null : (
+					<RecordTags recordId={tags.recordId} recordType={tags.recordType} />
+				)}
 			</div>
 		</DetailHeaderBar>
 	);
@@ -166,8 +168,14 @@ interface DetailPageHeaderBase {
 	readonly actions?: readonly DetailAction[];
 	/** The record's state badges, drawn at the right end of the bar. */
 	readonly flags?: ReactNode;
-	/** The record's id, for the six record kinds `TAG_TARGET_TYPES` allows. */
-	readonly tags?: { readonly recordId: string };
+	/**
+	 * The record's id and type, for the six kinds `TAG_TARGET_TYPES` allows.
+	 *
+	 * The type is what the *write* needs: `tag_items.entity_id` is globally
+	 * unique so the read gets by without one, and `assignTag` names both columns.
+	 * It is also what the picker's `For habitats` heading reads off the register.
+	 */
+	readonly tags?: { readonly recordId: string; readonly recordType: TagTargetType };
 	/** The box the bar is measured in. Defaults to `page`. See {@link DetailHeaderFrame}. */
 	readonly frame?: DetailHeaderFrame;
 }
@@ -466,30 +474,5 @@ function ActionItem({ action }: { readonly action: DetailAction }) {
 				{action.label}
 			</Link>
 		</DropdownMenuItem>
-	);
-}
-
-/**
- * The record's Tags, at the right end of the bar.
- *
- * A sibling query rather than something the page passes down: it is keyed on
- * the record id the header already has, and `tag_items.entity_id` is globally
- * unique, so it needs no entity type. See `use-record-tags.ts`.
- *
- * Nothing is drawn for a record with no Tags. An empty row of chips would be a
- * permanent blank at the top right of every untagged record, and "no tags" is
- * already said in words on the pages whose fact card lists them.
- */
-function RecordTags({ recordId }: { readonly recordId: string }) {
-	const tags = useRecordTags(recordId);
-	if (tags.length === 0) {
-		return null;
-	}
-	return (
-		<>
-			{tags.map((tag) => (
-				<TagBadge key={tag.id} tag={tag} />
-			))}
-		</>
 	);
 }

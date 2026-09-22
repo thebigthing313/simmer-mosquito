@@ -163,6 +163,61 @@ export const TAG_TARGET_TYPES = [
 	'serviceRequest',
 ] as const;
 
+/**
+ * The same six as `tag_items.entity_type` spells them, derived rather than
+ * written again.
+ *
+ * `tags.relevant_entity_types` holds these words, so a tag picker compares
+ * `toDbEntityType(recordType)` against the column with no bridge on the read.
+ * The SQL check on that column is the one copy that cannot read this list, and
+ * `tag-relevance.integration.test.ts` reads the constraint back out of
+ * `pg_constraint` to hold the two together.
+ */
+export const TAG_TARGET_ENTITY_TYPES: readonly string[] = TAG_TARGET_TYPES.map(toDbEntityType);
+
+/**
+ * Which record types a Tag is meant for, as the column stores them.
+ *
+ * A whole-set replace: the caller sends the set it wants, and naming the field
+ * at all is what says it is changing. Deduped, refused by name when it holds
+ * something that is not a taggable target, and sorted into register order, so
+ * two edits meaning the same set produce the same row and the stored array reads
+ * the way the picker lists it.
+ *
+ * All six collapses to the empty set, because the empty set already means
+ * relevant everywhere and one idea with two spellings would owe a branch at
+ * every reader. The collapse is here rather than in the client so that every
+ * caller gets it, mobile and any later one included.
+ *
+ * Nothing is enforced by the result. The set is what a picker reads to decide
+ * which Tags to offer first, and `assignTag` still accepts any active Tag on any
+ * taggable record. See `docs/tag-relevance-spec.md`.
+ */
+export function normalizeRelevantEntityTypes(
+	value: readonly string[] | undefined,
+	path: string,
+	issues: DomainValidationIssue[],
+): readonly string[] {
+	if (!Array.isArray(value)) {
+		issues.push({ path, message: `${path} must be a list of record types.` });
+		return [];
+	}
+
+	const named = new Set<string>();
+	for (const entry of value) {
+		if (typeof entry !== 'string' || !TAG_TARGET_ENTITY_TYPES.includes(entry)) {
+			issues.push({ path, message: `${path} names a record type that cannot be tagged.` });
+			continue;
+		}
+		named.add(entry);
+	}
+
+	if (named.size === TAG_TARGET_ENTITY_TYPES.length) {
+		return [];
+	}
+	return TAG_TARGET_ENTITY_TYPES.filter((entityType) => named.has(entityType));
+}
+
 export const ADDITIONAL_PERSONNEL_TARGET_TYPES = [
 	'inspection',
 	'collection',

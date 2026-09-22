@@ -49,8 +49,11 @@ describe('useRecordTags', () => {
 
 		const { result } = await renderRead(() => useRecordTags(HABITAT));
 
+		// `tagItemId` is the link row's id and not the catalog row's, which is the
+		// whole of what `unassignTag` takes: a chip with a control to take it off
+		// has to carry it.
 		expect(result.current.map(plain)).toEqual([
-			{ id: 't1', name: 'Roadside', color: COLOR, description: null },
+			{ id: 't1', tagItemId: 'i1', name: 'Roadside', color: COLOR, description: null },
 		]);
 	});
 

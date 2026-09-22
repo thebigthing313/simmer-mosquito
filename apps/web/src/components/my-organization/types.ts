@@ -45,6 +45,8 @@ export interface TagFormValues {
 	readonly description: string;
 	readonly color: string;
 	readonly isActive: boolean;
+	/** The record types the Tag is suggested for, as the column spells them. */
+	readonly relevantEntityTypes: readonly string[];
 }
 
 export interface PublicSettingsFormValues {

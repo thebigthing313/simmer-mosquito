@@ -25,6 +25,8 @@ export type {
 export {
 	ADDITIONAL_PERSONNEL_TARGET_TYPES,
 	fromDbEntityType,
+	TAG_TARGET_ENTITY_TYPES,
+	TAG_TARGET_TYPES,
 	toDbEntityType,
 } from './shared.js';
 export * from './tags.js';

@@ -19,12 +19,19 @@ export function TagCreatePanel({ onCancel }: { readonly onCancel: () => void }) 
 		description: '',
 		color: '',
 		isActive: true,
+		relevantEntityTypes: [],
 	});
 
 	function createTag() {
 		try {
 			const write = mutations.create(tagFieldsFrom(values));
-			setValues({ tagName: '', description: '', color: '', isActive: true });
+			setValues({
+				tagName: '',
+				description: '',
+				color: '',
+				isActive: true,
+				relevantEntityTypes: [],
+			});
 			watchWrite(write, 'Unable to create tag.');
 		} catch (error) {
 			toast.error(errorMessageForSave(error));

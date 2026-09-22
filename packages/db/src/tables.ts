@@ -999,6 +999,7 @@ export interface TagsTable {
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
 	deleted_by_profile_id: string | null;
+	relevant_entity_types: Generated<string[]>;
 }
 
 export interface TrapsTable {
