@@ -51,6 +51,7 @@ import {
 	registerOperatorOrganizationRoutes,
 } from './operator-organization-routes.js';
 import { registerOrganizationSeedRoutes } from './organization-seed-routes.js';
+import { registerOverviewReadRoutes } from './overview-reads.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
@@ -139,6 +140,8 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	// The Dashboard's server half, one read for every panel the client cannot
 	// answer off a synced table.
 	registerDashboardReadRoutes(app, { db, authContextMiddleware });
+	// The period-in-review pages' server half, one read at three grains.
+	registerOverviewReadRoutes(app, { db, authContextMiddleware });
 
 	registerMapTileRoutes(app, { db, authContextMiddleware });
 	registerSearchRoutes(app, { db, authContextMiddleware });
