@@ -1,18 +1,25 @@
 /**
  * The period picker in a period-in-review page's header: a previous arrow,
- * the grain's own control, a next arrow, and a button back to the current
- * period that appears only when the shown period is not the current one.
- * Next is disabled at the current period and previous at `earliest`, both
- * read off the response; before it arrives the picker is bounded by today
- * alone. `docs/today-spec.md`, "The picker".
- *
- * On the day grain the control is a `DatePicker` bounded to
- * `[earliest, today]`. A day before `earliest` reached through the URL is
+ * a `DatePicker` bounded to `[earliest, today]`, a next arrow, and a button
+ * back to the current period that appears only when the shown period is not
+ * the current one. Next is disabled at the current period and previous at
+ * `earliest`, both read off the response; before it arrives the picker is
+ * bounded by today alone. A day before `earliest` reached through the URL is
  * shown as the value while it is the shown day, since it is a real period
- * that happens to hold nothing.
+ * that happens to hold nothing. `docs/today-spec.md`, "The picker".
+ *
+ * The day grain's control is the one built. The month and year selects are
+ * #1217's and #1218's, and the arrows and the words already know all three
+ * grains so those builds add a control and nothing else.
  */
 
-import { addDays, type OverviewGrain } from '@simmer-mosquito/domain';
+import {
+	addDays,
+	type OverviewGrain,
+	overviewPeriodMonth,
+	overviewPeriodYear,
+	pad2,
+} from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -88,10 +95,10 @@ function stepPeriod(grain: OverviewGrain, period: string, by: -1 | 1): string {
 		case 'day':
 			return addDays(period, by);
 		case 'month': {
-			const year = Number(period.slice(0, 4));
-			const month = Number(period.slice(5, 7)) + by;
-			const stepped = new Date(Date.UTC(year, month - 1, 1));
-			return `${stepped.getUTCFullYear()}-${`${stepped.getUTCMonth() + 1}`.padStart(2, '0')}`;
+			const stepped = new Date(
+				Date.UTC(overviewPeriodYear(period), overviewPeriodMonth(period) - 1 + by, 1),
+			);
+			return `${stepped.getUTCFullYear()}-${pad2(stepped.getUTCMonth() + 1)}`;
 		}
 		case 'year':
 			return `${Number(period) + by}`;

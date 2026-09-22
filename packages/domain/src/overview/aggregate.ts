@@ -34,6 +34,7 @@ import {
 	minDate,
 	OVERVIEW_AVERAGE_YEARS,
 	type OverviewGrain,
+	overviewPeriodGrain,
 	overviewPeriodMonth,
 	overviewPeriodSpan,
 	overviewPeriodYear,
@@ -340,9 +341,7 @@ function yearSeries(year: number, earliest: string | null, currentYear: number):
 
 /** The whole span of a series point, whichever grain its spelling says it is. */
 function periodWindow(period: string): Window {
-	const grain: OverviewGrain =
-		period.length === 10 ? 'day' : period.length === 7 ? 'month' : 'year';
-	return overviewPeriodSpan(grain, period);
+	return overviewPeriodSpan(overviewPeriodGrain(period), period);
 }
 
 function leastOf(dates: readonly (string | null)[]): string | null {

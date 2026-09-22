@@ -137,11 +137,11 @@ function DaysArea({
 					<XAxis
 						axisLine={false}
 						dataKey="period"
-						interval="preserveStartEnd"
-						minTickGap={40}
+						interval={0}
 						tickFormatter={monthTick}
 						tickLine={false}
 						tickMargin={6}
+						ticks={monthStarts(points)}
 					/>
 					<YAxis
 						allowDecimals={!wholeNumbers}
@@ -182,7 +182,12 @@ function DaysArea({
 	);
 }
 
-/** The month a day's tick names, once per month along the axis. */
+/** The first day of each month the series holds: one tick per month along the axis. */
+function monthStarts(points: readonly PlotPoint[]): string[] {
+	return points.map((point) => point.period).filter((period) => period.endsWith('-01'));
+}
+
+/** The month a day's tick names. */
 function monthTick(period: string): string {
 	return new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(
 		new Date(`${period}T00:00:00Z`),

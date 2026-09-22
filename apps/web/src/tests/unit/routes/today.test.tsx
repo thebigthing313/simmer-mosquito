@@ -33,13 +33,20 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 	};
 });
 
-vi.mock('@simmer-mosquito/sync', async (importOriginal) => {
-	const { sessionFetchStandIn } = await import('./route-mock-stand-ins');
-	return {
-		...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-		sessionFetch: sessionFetchStandIn(harness.sent, (url) => harness.answer(url)),
-	};
-});
+vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
+	// The stand-in beside the route suites answers every read as a 200; this
+	// page also has to meet the server's 400, so `answer` may hand back a
+	// `Response` of its own.
+	sessionFetch: (input: URL | string) => {
+		const url = input instanceof URL ? input : new URL(input);
+		harness.sent.push(url);
+		const body = harness.answer(url);
+		return Promise.resolve(
+			body instanceof Response ? body : new Response(JSON.stringify(body), { status: 200 }),
+		);
+	},
+}));
 
 const { OverviewPage } = await import('../../../components/overview/overview-page');
 
@@ -64,6 +71,12 @@ function answerWith(response: OverviewResponse | 'refuse') {
 		}
 		return response;
 	};
+}
+
+/** The server's 400 on a period in its future, which the client's clock did not see. */
+function refusePeriod() {
+	harness.answer = () =>
+		new Response(JSON.stringify({ error: 'overview_period_invalid' }), { status: 400 });
 }
 
 beforeEach(() => {
@@ -188,6 +201,16 @@ describe('the Today page', () => {
 		await waitFor(() => screen.getByRole('table'));
 		expect(harness.navigate).not.toHaveBeenCalled();
 		expect(harness.sent[0]?.search).toBe('?date=2001-01-01');
+	});
+
+	it('rewrites to today when the server refuses the period as future', async () => {
+		harness.search = { date: '2026-09-15' };
+		refusePeriod();
+		renderToday();
+
+		await waitFor(() => expect(harness.navigate).toHaveBeenCalled());
+
+		expect(harness.navigate).toHaveBeenCalledWith({ to: '/today', search: {}, replace: true });
 	});
 
 	it('disables next at today and shows no way back while today is shown', async () => {

@@ -15,6 +15,20 @@ export interface OverviewRead {
 	readonly isLoading: boolean;
 	readonly isFetching: boolean;
 	readonly isError: boolean;
+	/**
+	 * The server answered 400 `overview_period_invalid`: the period is in its
+	 * future though not in the client's, which is a clock a day ahead. The page
+	 * rewrites to the current period on it, the way it does for a malformed one.
+	 */
+	readonly periodRefused: boolean;
+}
+
+/** The server's refusal of the period, told apart from every other failure. */
+class OverviewPeriodRefusedError extends Error {
+	constructor() {
+		super('The server refused the period.');
+		this.name = 'OverviewPeriodRefusedError';
+	}
 }
 
 /**
@@ -39,6 +53,7 @@ export function useOverview(grain: OverviewGrain, period: string): OverviewRead 
 		isLoading: query.isLoading,
 		isFetching: query.isFetching,
 		isError: query.isError,
+		periodRefused: query.error instanceof OverviewPeriodRefusedError,
 	};
 }
 
@@ -50,6 +65,12 @@ async function fetchOverview(
 	const url = new URL(`/overview/${grain}`, getServerUrl());
 	url.searchParams.set(OVERVIEW_PERIOD_PARAM[grain], period);
 	const response = await sessionFetch(url, { signal });
+	if (response.status === 400) {
+		const body = (await response.json().catch(() => null)) as { error?: string } | null;
+		if (body?.error === 'overview_period_invalid') {
+			throw new OverviewPeriodRefusedError();
+		}
+	}
 	if (!response.ok) {
 		throw new Error(`Overview request failed (${response.status}).`);
 	}

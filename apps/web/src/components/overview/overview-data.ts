@@ -6,6 +6,7 @@
  */
 
 import {
+	OVERVIEW_PERIOD_LENGTH,
 	OVERVIEW_PERIOD_PARAM,
 	type OverviewColumn,
 	type OverviewGrain,
@@ -173,11 +174,8 @@ function columnPeriod(
 	grain: OverviewGrain,
 	column: Extract<OverviewColumn, { key: 'period' | 'previous' | 'lastYear' }>,
 ): string {
-	return column.from.slice(0, PERIOD_LENGTH[grain]);
+	return column.from.slice(0, OVERVIEW_PERIOD_LENGTH[grain]);
 }
-
-/** How many characters a period takes at each grain: `YYYY-MM-DD`, `YYYY-MM`, `YYYY`. */
-const PERIOD_LENGTH: Readonly<Record<OverviewGrain, number>> = { day: 10, month: 7, year: 4 };
 
 /** `Sep 21, 2026`, `Sep 2026` or `2026`: the table panel's title. */
 export function periodTitle(grain: OverviewGrain, period: string): string {

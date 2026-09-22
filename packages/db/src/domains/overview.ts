@@ -224,13 +224,6 @@ function ratioColumns(type: OverviewRecordType): RawBuilder<unknown> {
 	}
 }
 
-interface DailyRow {
-	readonly day: string;
-	readonly count: number;
-	readonly numerator?: number;
-	readonly denominator?: number;
-}
-
 async function readDailyRows(
 	db: Kysely<SimmerDatabase>,
 	type: OverviewRecordType,
@@ -239,7 +232,7 @@ async function readDailyRows(
 	const source = typeSource(type, scope.timeZone);
 	const lowerBound =
 		scope.window.from === null ? sql`` : sql`and ${source.date} >= ${scope.window.from}::date`;
-	const result = await sql<DailyRow>`
+	const result = await sql<OverviewDailyRow>`
 		select ${source.date}::text as day, count(*)::int as count ${ratioColumns(type)}
 		from ${source.from}
 		where ${source.live(scope.organizationId)}

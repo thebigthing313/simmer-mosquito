@@ -16,6 +16,7 @@
 import {
 	currentOverviewPeriod,
 	OVERVIEW_PERIOD_PARAM,
+	OVERVIEW_RECORD_TYPES,
 	type OverviewGrain,
 	type OverviewResponse,
 	parseOverviewPeriod,
@@ -59,13 +60,17 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 	const parsed = parseOverviewPeriod(grain, requested, today);
 	const period = parsed ?? current;
 
+	const read = useOverview(grain, period);
+
 	// A malformed or future period is shown as the current one, and the address
-	// says so, the Activity Monitor's rule.
+	// says so, the Activity Monitor's rule. The server's refusal counts as
+	// future too, since its clock is the one that decides.
+	const rewrite = parsed === null || read.periodRefused;
 	useEffect(() => {
-		if (parsed === null) {
+		if (rewrite) {
 			void navigate({ to: OVERVIEW_ROUTES[grain], search: {}, replace: true });
 		}
-	}, [grain, navigate, parsed]);
+	}, [grain, navigate, rewrite]);
 
 	const pick = (next: string) => {
 		void navigate({
@@ -78,7 +83,6 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 		void navigate(periodDestination(grain, next));
 	};
 
-	const read = useOverview(grain, period);
 	// The server's day is the picker's upper bound and the partial test, so a
 	// client whose clock disagrees draws the server's day.
 	const serverCurrent =
@@ -191,12 +195,11 @@ function TrendSection({
 	);
 }
 
-const SKELETON_KEYS = ['sk-1', 'sk-2', 'sk-3', 'sk-4', 'sk-5', 'sk-6', 'sk-7', 'sk-8'] as const;
-
 /**
  * The trend section before the first response: the grid cannot know how
- * many rows will be shown, so it draws one skeleton panel per type and
- * settles to the shown rows on arrival.
+ * many rows will be shown, so it draws one skeleton panel per type, titled,
+ * with a `Skeleton` at the chart's height, and settles to the shown rows on
+ * arrival.
  */
 function TrendSkeleton({
 	grain,
@@ -209,8 +212,16 @@ function TrendSkeleton({
 		<section className="grid gap-3">
 			<h2 className="m-0 font-semibold text-foreground text-sm">{trendHeading(grain, period)}</h2>
 			<div aria-hidden="true" className={TREND_GRID}>
-				{SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-64 w-full rounded-lg" key={key} />
+				{OVERVIEW_RECORD_TYPES.map((type) => (
+					<Panel
+						icon={<ChartIcon aria-hidden="true" className="size-4" />}
+						key={type}
+						title={OVERVIEW_LABELS[type]}
+					>
+						<div className="px-3 pt-3 pb-2">
+							<Skeleton className="h-52 w-full rounded-md" />
+						</div>
+					</Panel>
 				))}
 			</div>
 		</section>

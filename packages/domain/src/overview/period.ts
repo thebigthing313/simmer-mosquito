@@ -153,6 +153,18 @@ function isWellFormedPeriod(grain: OverviewGrain, raw: string): boolean {
 	}
 }
 
+/** The grain a well-formed period is spelled at: `YYYY-MM-DD`, `YYYY-MM` or `YYYY`. */
+export function overviewPeriodGrain(period: string): OverviewGrain {
+	return period.length === 10 ? 'day' : period.length === 7 ? 'month' : 'year';
+}
+
+/** How many characters a period takes at each grain. */
+export const OVERVIEW_PERIOD_LENGTH: Readonly<Record<OverviewGrain, number>> = {
+	day: 10,
+	month: 7,
+	year: 4,
+};
+
 /** The year a well-formed period at any grain falls in. */
 export function overviewPeriodYear(period: string): number {
 	return Number(period.slice(0, 4));

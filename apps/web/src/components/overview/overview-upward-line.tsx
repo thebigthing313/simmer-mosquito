@@ -11,12 +11,6 @@ import type { OverviewGrain } from '@simmer-mosquito/domain';
 import { Link } from '@tanstack/react-router';
 import { periodDestination, periodLongName } from './overview-data';
 
-/**
- * One line under the heading: the period's long name in the foreground
- * weight, then each coarser period as a link, separated by a middle dot. It
- * is the only way from a day to its month, because a bar opens its own
- * period at the page's grain and never a coarser one. Annual draws none.
- */
 export function UpwardLine({
 	grain,
 	period,
