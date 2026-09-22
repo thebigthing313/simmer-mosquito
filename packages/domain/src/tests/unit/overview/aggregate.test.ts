@@ -64,28 +64,25 @@ function windows(columns: readonly OverviewColumn[]): readonly (string | number)
 }
 
 describe('the columns at each grain', () => {
-	it('reads a day whole against the day before, the same date last year and five prior years', () => {
-		const response = read('day', '2026-09-21', '2026-09-21');
+	// No year-back columns on a day: the same date a year earlier is another
+	// weekday, so a Monday would read against a Sunday.
+	it('reads a day whole against the day before and nothing further back', () => {
+		const response = read('day', '2026-09-21', '2026-09-21', {
+			inspections: [day('2026-09-21', 4), day('2026-09-20', 2), day('2026-09-19', 9)],
+		});
 
 		expect(response.cutThrough).toBeNull();
 		expect(windows(response.columns)).toEqual([
 			['2026-09-21', '2026-09-21'],
 			['2026-09-20', '2026-09-20'],
-			['2025-09-21', '2025-09-21'],
-			[2021, 2025],
 		]);
+		expect(row(response, 'inspections')).toMatchObject({ values: [4, 2], averageYears: 0 });
 	});
 
-	it('reads Feb 29 against Feb 28 in a common year', () => {
-		const response = read('day', '2024-02-29', '2026-09-21', {
-			inspections: [day('2023-02-28', 3), day('2023-03-01', 9), day('2020-02-29', 5)],
-		});
+	it('reads Jan 1 against the last day of the year before', () => {
+		const response = read('day', '2024-01-01', '2026-09-21');
 
-		expect(windows(response.columns)[2]).toEqual(['2023-02-28', '2023-02-28']);
-		// Last year's column reads Feb 28; the average reads Feb 29 in 2020,
-		// which is a leap year, and Feb 28 in the other qualifying year.
-		expect(row(response, 'inspections').values).toEqual([0, 0, 3, 4]);
-		expect(row(response, 'inspections').averageYears).toBe(2);
+		expect(windows(response.columns)[1]).toEqual(['2023-12-31', '2023-12-31']);
 	});
 
 	it('cuts a partial month to the same day of each earlier month', () => {
@@ -166,26 +163,11 @@ describe('the average column', () => {
 	});
 
 	it('draws the absence value when no prior year qualifies', () => {
-		const response = read('day', '2026-09-21', '2026-09-21', {
+		const response = read('month', '2026-09', '2026-09-21', {
 			releases: [day('2026-09-21', 2)],
 		});
 
 		expect(row(response, 'releases')).toMatchObject({ values: [2, 0, 0, null], averageYears: 0 });
-	});
-
-	it('averages a single date on the day grain over the years that hold it', () => {
-		const response = read('day', '2026-07-04', '2026-09-21', {
-			inspections: [
-				day('2025-07-04', 10),
-				day('2024-07-04', 20),
-				day('2023-05-01', 1),
-				day('2022-07-04', 30),
-			],
-		});
-
-		// 2023 qualifies with a zero on the date; 2021 holds nothing and is skipped.
-		expect(row(response, 'inspections').values).toEqual([0, 0, 10, 15]);
-		expect(row(response, 'inspections').averageYears).toBe(4);
 	});
 
 	it('pools a ratio over the qualifying years of its denominator type', () => {
@@ -216,11 +198,11 @@ describe('the zero divisor', () => {
 			],
 		});
 
-		expect(row(response, 'collections').values).toEqual([1, 0, 0, null]);
+		expect(row(response, 'collections').values).toEqual([1, 0]);
 		expect(response.ratios[1]).toMatchObject({
 			ratio: 'mosquitoesPerCollection',
-			numerators: [0, 0, 0, 0],
-			denominators: [0, 0, 0, 0],
+			numerators: [0, 0],
+			denominators: [0, 0],
 			averageYears: 0,
 		});
 	});

@@ -459,6 +459,57 @@ has to go on Source Reduction on Aug 4" inside a sentence (#676).
 The stop list and the comment thread take turns in the one column beside the
 map rather than stacking two long scrolls in a narrow column.
 
+### overview
+
+One page component at three grains, `OverviewPage`, drawn by `routes/today`,
+`routes/monthly` and `routes/annual` with `grain` set, over one `useQuery`
+keyed on the grain and the period. `docs/today-spec.md` is the brief and
+carries what the three share; the pieces are the picker, the upward line, the
+table and the chart, each its own module beside the page.
+
+The period is the URL's and the current period leaves the search empty, so a
+sidebar entry opened every morning is never a bookmark pinned to the day it
+was made. That is the opposite of the Activity Monitor, which writes today
+into the address, and the reason is what these pages are. A malformed or
+future value is rewritten to the current period with the address rewritten,
+the Monitor's rule; a period before `earliest` is left alone and reads as
+zeros, because clamping would hide the typo rather than show it. A year
+travels on the URL as a number, because the router's search serializer writes
+the string `2026` as `%222026%22`, and `periodSearchCodec` reads either back.
+
+#### OverviewChart
+
+One component for the family, on `ChartContainer` and the Recharts
+primitives. Today's form is an area rather than a bar, because 365 slots at a
+600px plot width leave no bar the mark spec's 2px gap or 24px hit target. The
+marks read `var(--color-period)` through the chart's own `ChartConfig`, so
+the two roles in `styles.css` are the only colours and `check:map-palette`
+has no literal to refuse. The tooltip passes a `formatter`, because
+`ChartTooltipContent`'s default calls `toLocaleString()` unpinned. A ratio
+point over a zero denominator is `null` with `connectNulls` off, so a day
+with no inspections is a gap and never `0%`. Clicking the plot opens the
+period under the pointer through `periodDestination` and `navigate`; there is
+no `Link` inside an SVG, so the destination is asserted on that function.
+
+#### OverviewTable
+
+The headers come off the response's `columns`, so the client does no date
+arithmetic; the cut caption in the panel's `actions` slot is the one sign the
+period is partial, and Today never draws one. A count in a real column links
+to the type's explorer over the column's whole period, `to` the last day even
+when the period is partial, since a future date matches nothing and the link
+copied tomorrow still names the month. The service requests link writes
+`status=all` beside the dates, because that explorer defaults to open
+requests and the count is every request received. An average cell is no link,
+because no explorer lists a mean; a ratio cell never is. A zero denominator
+draws the absence glyph with `0` beside it, because `0%` would say every
+inspection was negative.
+
+#### UpwardLine
+
+The only way from a day to its month, because a bar opens its own period at
+the page's grain and never a coarser one. Annual draws none.
+
 ### pickers
 
 #### NewAddressForm

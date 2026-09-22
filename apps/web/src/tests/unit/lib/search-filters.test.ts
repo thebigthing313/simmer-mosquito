@@ -11,6 +11,7 @@ import {
 	type FilterCodecs,
 	flagParam,
 	idSetParam,
+	openDateParam,
 	searchValidator,
 	textParam,
 } from '../../../lib/search-filters';
@@ -57,6 +58,19 @@ describe('dateParam', () => {
 		expect(dateParam.decode('yesterday')).toBeUndefined();
 		expect(dateParam.decode(20260803)).toBeUndefined();
 		expect(dateParam.decode(null)).toBeUndefined();
+	});
+});
+
+describe('openDateParam', () => {
+	it('round-trips an ISO date and leaves a cleared bound out of the URL', () => {
+		expect(openDateParam.decode('2026-08-03')).toBe('2026-08-03');
+		expect(openDateParam.encode('2026-08-03')).toBe('2026-08-03');
+		expect(openDateParam.encode('')).toBeUndefined();
+	});
+
+	it('reads the other codec’s spelling of no bound, and nothing else', () => {
+		expect(openDateParam.decode('any')).toBe('');
+		expect(openDateParam.decode('yesterday')).toBeUndefined();
 	});
 });
 

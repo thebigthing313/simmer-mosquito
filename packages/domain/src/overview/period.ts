@@ -203,10 +203,12 @@ export const OVERVIEW_AVERAGE_YEARS = 5;
 
 /**
  * The daily rows the reader has to fetch for one read: the qualifying-year
- * test, every column and the series in one pass. On `day` and `month` the
- * lower bound is Jan 1 five years before the picked period's year; on `year`
- * there is none, because the series is the whole history. The upper bound is
- * the series' end, which never passes today.
+ * test, every column and the series in one pass. On `month` the lower bound
+ * is Jan 1 five years before the picked month's year; on `day` it is Jan 1
+ * of the picked day's year, because a day has no year-back columns and the
+ * series is the year; on `year` there is none, because the series is the
+ * whole history. The upper bound is the series' end, which never passes
+ * today.
  */
 export function overviewScanWindow(
 	grain: OverviewGrain,
@@ -214,11 +216,17 @@ export function overviewScanWindow(
 	today: string,
 ): { readonly from: string | null; readonly to: string } {
 	const year = overviewPeriodYear(period);
-	const to = grain === 'year' ? today : minDate(`${year}-12-31`, today);
-	return {
-		from: grain === 'year' ? null : `${year - OVERVIEW_AVERAGE_YEARS}-01-01`,
-		to,
-	};
+	switch (grain) {
+		case 'day':
+			return { from: `${year}-01-01`, to: minDate(`${year}-12-31`, today) };
+		case 'month':
+			return {
+				from: `${year - OVERVIEW_AVERAGE_YEARS}-01-01`,
+				to: minDate(`${year}-12-31`, today),
+			};
+		case 'year':
+			return { from: null, to: today };
+	}
 }
 
 export function minDate(a: string, b: string): string {

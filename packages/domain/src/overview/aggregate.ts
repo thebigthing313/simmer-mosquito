@@ -12,6 +12,20 @@
  */
 
 import {
+	OVERVIEW_RATIO_TYPES,
+	OVERVIEW_RATIOS,
+	OVERVIEW_RECORD_TYPES,
+	type OverviewColumn,
+	type OverviewDailyRow,
+	type OverviewRatio,
+	type OverviewRatioPoint,
+	type OverviewRatioRow,
+	type OverviewRecordType,
+	type OverviewResponse,
+	type OverviewSeriesPoint,
+	type OverviewTypeRow,
+} from './overview.js';
+import {
 	addDays,
 	clampedDay,
 	currentOverviewPeriod,
@@ -26,20 +40,6 @@ import {
 	pad2,
 	parseCalendarDate,
 } from './period.js';
-import {
-	OVERVIEW_RATIO_TYPES,
-	OVERVIEW_RATIOS,
-	OVERVIEW_RECORD_TYPES,
-	type OverviewColumn,
-	type OverviewDailyRow,
-	type OverviewRatio,
-	type OverviewRatioPoint,
-	type OverviewRatioRow,
-	type OverviewRecordType,
-	type OverviewResponse,
-	type OverviewSeriesPoint,
-	type OverviewTypeRow,
-} from './overview.js';
 
 export interface AggregateOverviewInput {
 	readonly grain: OverviewGrain;
@@ -74,10 +74,12 @@ export function aggregateOverview(input: AggregateOverviewInput): OverviewRespon
 	const seriesPeriods = seriesPeriodsFor(grain, period, today, earliest);
 
 	const types = OVERVIEW_RECORD_TYPES.map(
-		(type): OverviewTypeRow => typeRow(type, input.rows[type], input.earliest[type], plans, seriesPeriods),
+		(type): OverviewTypeRow =>
+			typeRow(type, input.rows[type], input.earliest[type], plans, seriesPeriods),
 	);
 	const ratios = OVERVIEW_RATIOS.map(
-		(ratio): OverviewRatioRow => ratioRow(ratio, input.rows[OVERVIEW_RATIO_TYPES[ratio]], plans, seriesPeriods),
+		(ratio): OverviewRatioRow =>
+			ratioRow(ratio, input.rows[OVERVIEW_RATIO_TYPES[ratio]], plans, seriesPeriods),
 	);
 
 	return {
@@ -98,6 +100,11 @@ export function aggregateOverview(input: AggregateOverviewInput): OverviewRespon
  * The windows the columns count over. A partial period cuts every comparison
  * to the same calendar date within its own period, clamped to that period's
  * last day; a day is never cut and compares whole against whole.
+ *
+ * A day has no year-back columns. The same calendar date a year earlier
+ * falls on another weekday, so a Monday would read against a Sunday and the
+ * five-year mean would average a week's worth of different days; the chart
+ * carries the year's trend instead.
  */
 function columnPlans(
 	grain: OverviewGrain,
@@ -112,15 +119,11 @@ function columnPlans(
 	);
 
 	switch (grain) {
-		case 'day': {
-			const { month, day } = parseCalendarDate(period) ?? { month: 1, day: 1 };
+		case 'day':
 			return [
 				{ key: 'period', window: { from: period, to: period } },
 				{ key: 'previous', window: { from: addDays(period, -1), to: addDays(period, -1) } },
-				{ key: 'lastYear', window: sameDay(year - 1, month, day) },
-				{ key: 'average', years: priorYears.map((y) => ({ year: y, window: sameDay(y, month, day) })) },
 			];
-		}
 		case 'month': {
 			const month = overviewPeriodMonth(period);
 			const cutDay = partial ? Number(today.slice(8, 10)) : null;
@@ -144,11 +147,6 @@ function columnPlans(
 			];
 		}
 	}
-}
-
-function sameDay(year: number, month: number, day: number): Window {
-	const date = clampedDay(year, month, day);
-	return { from: date, to: date };
 }
 
 function monthWindow(year: number, month: number, cutDay: number | null): Window {
@@ -299,42 +297,51 @@ function seriesPeriodsFor(
 	earliest: string | null,
 ): readonly string[] {
 	const year = overviewPeriodYear(period);
-	const current = currentOverviewPeriod(grain, today);
 	switch (grain) {
-		case 'day': {
-			const periods: string[] = [];
-			const end = minDate(`${year}-12-31`, today);
-			for (let day = `${year}-01-01`; day <= end; day = addDays(day, 1)) {
-				periods.push(day);
+		case 'day':
+			return daySeries(year, today);
+		case 'month':
+			return monthSeries(year, currentOverviewPeriod('month', today));
+		case 'year':
+			return yearSeries(year, earliest, Number(currentOverviewPeriod('year', today)));
+	}
+}
+
+function daySeries(year: number, today: string): readonly string[] {
+	const periods: string[] = [];
+	const end = minDate(`${year}-12-31`, today);
+	for (let day = `${year}-01-01`; day <= end; day = addDays(day, 1)) {
+		periods.push(day);
+	}
+	return periods;
+}
+
+function monthSeries(year: number, currentMonth: string): readonly string[] {
+	const periods: string[] = [];
+	for (const y of [year - 1, year]) {
+		for (let month = 1; month <= 12; month += 1) {
+			const candidate = `${y}-${pad2(month)}`;
+			if (candidate <= currentMonth) {
+				periods.push(candidate);
 			}
-			return periods;
-		}
-		case 'month': {
-			const periods: string[] = [];
-			for (const y of [year - 1, year]) {
-				for (let month = 1; month <= 12; month += 1) {
-					const candidate = `${y}-${pad2(month)}`;
-					if (candidate <= current) {
-						periods.push(candidate);
-					}
-				}
-			}
-			return periods;
-		}
-		case 'year': {
-			const start = Math.min(year, earliest === null ? year : overviewPeriodYear(earliest));
-			const periods: string[] = [];
-			for (let y = start; y <= Number(current); y += 1) {
-				periods.push(`${y}`);
-			}
-			return periods;
 		}
 	}
+	return periods;
+}
+
+function yearSeries(year: number, earliest: string | null, currentYear: number): readonly string[] {
+	const start = Math.min(year, earliest === null ? year : overviewPeriodYear(earliest));
+	const periods: string[] = [];
+	for (let y = start; y <= currentYear; y += 1) {
+		periods.push(`${y}`);
+	}
+	return periods;
 }
 
 /** The whole span of a series point, whichever grain its spelling says it is. */
 function periodWindow(period: string): Window {
-	const grain: OverviewGrain = period.length === 10 ? 'day' : period.length === 7 ? 'month' : 'year';
+	const grain: OverviewGrain =
+		period.length === 10 ? 'day' : period.length === 7 ? 'month' : 'year';
 	return overviewPeriodSpan(grain, period);
 }
 

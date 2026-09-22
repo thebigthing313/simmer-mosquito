@@ -889,6 +889,21 @@ share `activityBranches` on the server for the same reason, and now they share
 the subsets. A person's `records` counts entries, not rows, so a collection
 one person set and collected is two, which is what the Monitor lists for them.
 
+### overview
+
+#### useOverview
+
+One `useQuery` for `GET /overview/:grain`, keyed on the grain and the period,
+re-read on focus and every five minutes the way `useDashboard` is, and for
+the same reasons. No Electric half, because actions and collections are
+on-demand and date-bounded and a five-year window cannot come off the sync
+path. Stepping to another period is a new key and a first load for it, so the
+skeletons come back rather than the previous period's numbers staying on
+screen under a header naming the new one; a refetch of the same key keeps the
+render and dims it. The response's `today` is the picker's upper bound and
+the partial test, so a client whose clock disagrees with the server draws the
+server's day. `docs/today-spec.md`, "The client half".
+
 ### larval-surveillance
 
 #### useSpeciesName

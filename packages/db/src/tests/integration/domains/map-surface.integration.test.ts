@@ -471,15 +471,19 @@ describeDbIntegration('map surfaces against Postgres', () => {
 	});
 
 	// The three filters the service-request explorer used to apply in the browser
-	// over the whole Organization's rows, run against Postgres on one row (#963).
-	// The seed's request has no number, so the title half of the search has
-	// nothing to match until this case gives it one; `#12` then finds it the way
-	// typing that into the rail did, a word from its details does too, and a
-	// term nothing carries does not. Status reads `closed_at`, so the same row is
-	// the answer to `isOpen: true` and then to `isOpen: false` once it is
-	// stamped. The tag filter reads `tag_items` under the snake_case
-	// `service_request`, and a tag the row does not carry matches nothing.
-	it('pages the service requests in the box that match the status, search and tag', async () => {
+	// over the whole Organization's rows, run against Postgres on one row (#963),
+	// and the date pair the period-in-review count links write over
+	// `request_date`, which the seed dates in March 2026 (a JS `Date` into a
+	// `date` column lands on the 14th or the 15th by the driver's zone, so the
+	// bounds below leave a day either side). The seed's request has no
+	// number, so the title half of the search has nothing to match until this
+	// case gives it one; `#12` then finds it the way typing that into the rail
+	// did, a word from its details does too, and a term nothing carries does not.
+	// Status reads `closed_at`, so the same row is the answer to `isOpen: true`
+	// and then to `isOpen: false` once it is stamped. The tag filter reads
+	// `tag_items` under the snake_case `service_request`, and a tag the row does
+	// not carry matches nothing.
+	it('pages the service requests in the box that match the status, search, tag and dates', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 			const ids = mapSurfaceRowIds.serviceRequest;
@@ -511,6 +515,8 @@ describeDbIntegration('map surfaces against Postgres', () => {
 				readonly isOpen?: boolean;
 				readonly search?: string;
 				readonly tagIds?: readonly string[];
+				readonly dateFrom?: string;
+				readonly dateTo?: string;
 			}) => {
 				const result = await MAP_SURFACES['service-requests'].listByBounds(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
@@ -531,6 +537,9 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			expect(await read({ search: 'elm' })).toEqual(nothing);
 			expect(await read({ tagIds: [tagId] })).toEqual(found);
 			expect(await read({ tagIds: [otherTagId] })).toEqual(nothing);
+			expect(await read({ dateFrom: '2026-03-01', dateTo: '2026-03-31' })).toEqual(found);
+			expect(await read({ dateFrom: '2026-03-16' })).toEqual(nothing);
+			expect(await read({ dateTo: '2026-03-13' })).toEqual(nothing);
 
 			await db
 				.updateTable('service_requests')

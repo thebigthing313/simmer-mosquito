@@ -1,6 +1,7 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type RawBuilder, sql } from 'kysely';
 import type { DbExecutor } from '../index.js';
+import { dateWindowClauses } from './map-date-filter.js';
 import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import { searchClauses } from './map-search-filter.js';
@@ -79,6 +80,10 @@ export interface ServiceRequestMapFilters {
 	readonly tagIds?: readonly string[];
 	/** Match requests falling inside any of these regions. */
 	readonly regionIds?: readonly string[];
+	/** Inclusive lower bound on `request_date` (`YYYY-MM-DD`). */
+	readonly dateFrom?: string;
+	/** Inclusive upper bound on `request_date` (`YYYY-MM-DD`). */
+	readonly dateTo?: string;
 }
 
 /**
@@ -179,6 +184,8 @@ function serviceRequestFilterWhere(
 	} else if (filters?.isOpen === false) {
 		whereClauses.push(sql<boolean>`sr.closed_at is not null`);
 	}
+
+	whereClauses.push(...dateWindowClauses(sql`sr.request_date`, filters ?? {}));
 
 	whereClauses.push(
 		...tagMembershipClauses({

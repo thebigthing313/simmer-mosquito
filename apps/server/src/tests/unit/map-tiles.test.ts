@@ -1355,13 +1355,17 @@ describe('map filter fields', () => {
 	});
 
 	// The four filters the explorer used to apply in the browser, as the query
-	// params the reader takes. `status` is the same two-word shape as the trap's,
-	// over `open` and `closed`, and lands on `isOpen` either way round.
+	// params the reader takes, and the date pair the period-in-review count links
+	// write. `status` is the same two-word shape as the trap's, over `open` and
+	// `closed`, and lands on `isOpen` either way round.
 	it('maps the service request params', () => {
 		expect(
 			filtersOf(parseServiceRequestMapFilters, `status=open&search=%2312&tagId=${idA}`),
 		).toEqual({ isOpen: true, search: '#12', tagIds: [idA] });
 		expect(filtersOf(parseServiceRequestMapFilters, 'status=closed')).toEqual({ isOpen: false });
+		expect(
+			filtersOf(parseServiceRequestMapFilters, 'dateFrom=2026-09-01&dateTo=2026-09-30'),
+		).toEqual({ dateFrom: '2026-09-01', dateTo: '2026-09-30' });
 		expect(filtersOf(parseServiceRequestMapFilters, '')).toEqual({});
 	});
 

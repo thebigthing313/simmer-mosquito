@@ -51,8 +51,8 @@ import {
 	registerOperatorOrganizationRoutes,
 } from './operator-organization-routes.js';
 import { registerOrganizationSeedRoutes } from './organization-seed-routes.js';
-import { registerOverviewReadRoutes } from './overview-reads.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
+import { registerOverviewReadRoutes } from './overview-reads.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerRecordMergeReadRoutes } from './record-merge-reads.js';

@@ -213,8 +213,9 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		groups: [
 			{
 				id: 'overview-main',
-				// The built page leads. The three behind it read the day, the month
-				// and the year, each a stub until its own issue builds it (#1082).
+				// The Dashboard leads and Today follows it. The month and the year
+				// behind them are each a stub until its own issue builds it
+				// (#1217, #1218).
 				items: [
 					{
 						id: 'dashboard',
@@ -226,7 +227,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						id: 'today',
 						label: 'Today',
 						to: '/today',
-						stub: true,
 						icon: iconRegistry.simmer.fieldWork.icon,
 					},
 					{

@@ -76,7 +76,10 @@ export async function readDashboard(
  * Today in the organization's zone, from the database's clock. The overview
  * reader asks the same question, so it is exported rather than copied.
  */
-export async function readOrganizationToday(db: Kysely<SimmerDatabase>, timeZone: string): Promise<string> {
+export async function readOrganizationToday(
+	db: Kysely<SimmerDatabase>,
+	timeZone: string,
+): Promise<string> {
 	const result = await sql<{ readonly today: string }>`
 		select ${sql.raw(localDateSql('now()', timeZone))}::text as today
 	`.execute(db);

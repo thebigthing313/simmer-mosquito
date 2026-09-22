@@ -88,7 +88,7 @@ export interface OverviewTypeRow {
 	readonly recordedEver: boolean;
 	/** Positional against `columns`; null only in the average column. */
 	readonly values: readonly (number | null)[];
-	/** Qualifying years behind the average; 0 draws the absence glyph. */
+	/** Qualifying years behind the average; 0 draws the absence glyph, and 0 on `day`, which has no average. */
 	readonly averageYears: number;
 	readonly series: readonly OverviewSeriesPoint[];
 }
@@ -112,7 +112,7 @@ export interface OverviewResponse {
 	readonly cutThrough: string | null;
 	/** The earliest dated record across the eight types; null when nothing is recorded. */
 	readonly earliest: string | null;
-	/** Four on `day` and `month`, three on `year`. */
+	/** Two on `day`, four on `month`, three on `year`. */
 	readonly columns: readonly OverviewColumn[];
 	/** All eight, in register order. */
 	readonly types: readonly OverviewTypeRow[];

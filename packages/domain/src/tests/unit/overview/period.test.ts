@@ -58,13 +58,13 @@ describe('overviewPeriodSpan', () => {
 });
 
 describe('overviewScanWindow', () => {
-	it('reaches back five years on the day and month grains and never past today', () => {
+	it('reaches back five years on the month grain, one year on the day grain, and never past today', () => {
 		expect(overviewScanWindow('day', '2026-09-21', TODAY)).toEqual({
-			from: '2021-01-01',
+			from: '2026-01-01',
 			to: '2026-09-21',
 		});
 		expect(overviewScanWindow('day', '2024-06-01', TODAY)).toEqual({
-			from: '2019-01-01',
+			from: '2024-01-01',
 			to: '2024-12-31',
 		});
 		expect(overviewScanWindow('month', '2026-09', TODAY)).toEqual({

@@ -118,8 +118,11 @@ describeDbIntegration('overview', () => {
 			const day = await readOverview(db, { ...scope, grain: 'day', period: '2025-06-15' });
 			const year = await readOverview(db, { ...scope, grain: 'year', period: '2025' });
 
-			expect(day.columns[0]).toEqual({ key: 'period', from: '2025-06-15', to: '2025-06-15' });
-			expect(day.types[0]).toMatchObject({ type: 'inspections', values: [3, 0, 0, 0] });
+			expect(day.columns).toEqual([
+				{ key: 'period', from: '2025-06-15', to: '2025-06-15' },
+				{ key: 'previous', from: '2025-06-14', to: '2025-06-14' },
+			]);
+			expect(day.types[0]).toMatchObject({ type: 'inspections', values: [3, 0], averageYears: 0 });
 			expect(day.types[0]?.series).toHaveLength(365);
 
 			expect(year.columns).toEqual([
@@ -128,7 +131,11 @@ describeDbIntegration('overview', () => {
 				{ key: 'average', years: { from: 2020, to: 2024 } },
 			]);
 			// The four June inspections and the two on the boundary days.
-			expect(year.types[0]).toMatchObject({ type: 'inspections', values: [6, 0, 1], averageYears: 1 });
+			expect(year.types[0]).toMatchObject({
+				type: 'inspections',
+				values: [6, 0, 1],
+				averageYears: 1,
+			});
 			// The whole history, from the stray row's year to the current one.
 			expect(year.types[0]?.series[0]).toEqual({ period: '2021', value: 1 });
 			expect(year.types[0]?.series.at(-1)?.period).toBe(year.today.slice(0, 4));
@@ -145,7 +152,7 @@ describeDbIntegration('overview', () => {
 			expect(empty.period).toBe(empty.today);
 			expect(empty.earliest).toBeNull();
 			expect(empty.types.every((row) => !row.recordedEver)).toBe(true);
-			expect(empty.types[0]?.values).toEqual([0, 0, 0, null]);
+			expect(empty.types[0]?.values).toEqual([0, 0]);
 
 			await expect(
 				readOverview(db, { ...scope, grain: 'month', period: '2026-13' }),
@@ -203,14 +210,31 @@ async function seedJune2025(db: DbExecutor): Promise<string> {
 			...overrides,
 		});
 	const identified = await collected('2025-06-15 12:00:00+00');
-	await createCollectionSpecies(db, organizationId, { collectionId: identified, speciesId }, { count: 10 });
-	await createCollectionSpecies(db, organizationId, { collectionId: identified, speciesId }, { count: 5 });
+	await createCollectionSpecies(
+		db,
+		organizationId,
+		{ collectionId: identified, speciesId },
+		{ count: 10 },
+	);
+	await createCollectionSpecies(
+		db,
+		organizationId,
+		{ collectionId: identified, speciesId },
+		{ count: 5 },
+	);
 	const problem = await collected('2025-06-15 12:00:00+00', { has_problem: true });
-	await createCollectionSpecies(db, organizationId, { collectionId: problem, speciesId }, { count: 7 });
+	await createCollectionSpecies(
+		db,
+		organizationId,
+		{ collectionId: problem, speciesId },
+		{ count: 7 },
+	);
 	await collected('2025-06-15 12:00:00+00');
 	await collected('2025-06-16 12:00:00+00', { is_zero_result: true });
 	// Still out: no `collected_at`, so undated and counted nowhere.
-	await createCollection(db, organizationId, links, { started_at: instant('2025-06-29 22:00:00+00') });
+	await createCollection(db, organizationId, links, {
+		started_at: instant('2025-06-29 22:00:00+00'),
+	});
 	const dated = await createCollection(db, organizationId, links, {
 		collection_timing_mode: 'collection_date_duration',
 		started_at: null,
@@ -218,15 +242,30 @@ async function seedJune2025(db: DbExecutor): Promise<string> {
 		duration_amount: 1,
 		duration_unit_id: unitId,
 	});
-	await createCollectionSpecies(db, organizationId, { collectionId: dated, speciesId }, { count: 4 });
+	await createCollectionSpecies(
+		db,
+		organizationId,
+		{ collectionId: dated, speciesId },
+		{ count: 4 },
+	);
 	// 23:30 on June 30 in New York, which is 03:30 on July 1 in UTC.
 	const lateNight = await collected('2025-07-01 03:30:00+00');
-	await createCollectionSpecies(db, organizationId, { collectionId: lateNight, speciesId }, { count: 6 });
+	await createCollectionSpecies(
+		db,
+		organizationId,
+		{ collectionId: lateNight, speciesId },
+		{ count: 6 },
+	);
 
 	// Control operations.
 	const insecticideId = await createInsecticide(db, organizationId, unitId);
 	const application = (date: string) =>
-		createApplication(db, organizationId, { insecticideId, unitId }, { application_date: dateOf(date) });
+		createApplication(
+			db,
+			organizationId,
+			{ insecticideId, unitId },
+			{ application_date: dateOf(date) },
+		);
 	await application('2025-06-01');
 	await application('2025-06-30');
 	await application('2025-05-02');
@@ -242,7 +281,12 @@ async function seedJune2025(db: DbExecutor): Promise<string> {
 	// Public engagement.
 	const addressId = await createAddress(db, organizationId);
 	const contactId = await createContact(db, organizationId);
-	await createServiceRequest(db, organizationId, { addressId, contactId }, { request_date: dateOf('2025-06-20') });
+	await createServiceRequest(
+		db,
+		organizationId,
+		{ addressId, contactId },
+		{ request_date: dateOf('2025-06-20') },
+	);
 	const outreachMethod = await db
 		.insertInto('outreach_methods')
 		.values({ organization_id: organizationId, name: 'Door hangers' })

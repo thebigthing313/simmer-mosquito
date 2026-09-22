@@ -246,6 +246,7 @@ describe('read compression', () => {
 			'/records/*',
 			'/search',
 			'/dashboard',
+			'/overview/*',
 			'/larval-surveillance/samples/awaiting',
 			'/sync/*',
 		]);

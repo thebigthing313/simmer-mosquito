@@ -182,6 +182,21 @@ export const dateParam: SearchCodec<string> = {
 	encode: (value) => (value === '' ? 'any' : ISO_DATE.test(value) ? value : undefined),
 };
 
+/**
+ * A `YYYY-MM-DD` bound on a surface with no default window, where an absent
+ * param already means no bound. `dateParam`'s `any` would be a second spelling
+ * of the same thing, so a cleared bound leaves the URL instead.
+ */
+export const openDateParam: SearchCodec<string> = {
+	decode: (raw) => {
+		if (raw === 'any' || raw === '') {
+			return '';
+		}
+		return typeof raw === 'string' && ISO_DATE.test(raw) ? raw : undefined;
+	},
+	encode: (value) => (ISO_DATE.test(value) ? value : undefined),
+};
+
 /** A flag that is only ever in the URL when it is on. */
 export const flagParam: SearchCodec<boolean> = {
 	decode: (raw) => (raw === true || raw === 'true' ? true : raw === false ? false : undefined),
