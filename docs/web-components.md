@@ -536,7 +536,7 @@ year, rather than two selects for month and year, which would let a person
 assemble a future or pre-earliest month, and one over the reachable years on
 Annual. A period before `earliest` reached through the URL is an extra item at
 the bottom while it is shown, because a `Select` draws nothing for a value it
-has no item for. On staging the year select spans 1990 to 2026, 37 items.
+has no item for.
 
 #### UpwardLine
 

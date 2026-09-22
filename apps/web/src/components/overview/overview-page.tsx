@@ -154,13 +154,11 @@ const TREND_GRID = 'grid gap-4 md:grid-cols-2 xl:grid-cols-3';
 const TREND_MINIMUM_YEARS = 3;
 
 /**
- * Annual draws no trend section under three years, an Organization in its
- * first or second year of records: a one-bar or two-bar chart is on the
- * `dataviz` skill's anti-pattern list, and the table already carries that
- * case. The series is the same length on every row, so the first row's says.
+ * Whether Annual's series is too short to draw, read off the first row the
+ * page shows. `docs/web-components.md` says why three.
  */
 function trendTooShort(grain: OverviewGrain, response: OverviewResponse): boolean {
-	return grain === 'year' && (response.types[0]?.series.length ?? 0) < TREND_MINIMUM_YEARS;
+	return grain === 'year' && (shownTypes(response)[0]?.series.length ?? 0) < TREND_MINIMUM_YEARS;
 }
 
 function TrendSection({

@@ -340,10 +340,9 @@ function MonthsBars({
 
 /**
  * A single-series bar over every year from `earliest`'s to the current one,
- * the picked year marked with the dashed line, the year per x tick thinned
- * by Recharts as the width demands. The current year is a partial year drawn
- * whole beside full years; the reference line and the table's caption are
- * what say so. A bar opens its own year.
+ * the picked year marked with the dashed line when the series holds it, the
+ * year per x tick thinned by Recharts as the width demands. A bar opens its
+ * own year.
  */
 function YearsBars({
 	points,
@@ -401,12 +400,14 @@ function YearsBars({
 						}}
 						radius={BAR_RADIUS}
 					/>
-					<ReferenceLine
-						stroke="var(--foreground)"
-						strokeDasharray="3 3"
-						strokeOpacity={0.7}
-						x={period}
-					/>
+					{points.some((point) => point.period === period) ? (
+						<ReferenceLine
+							stroke="var(--foreground)"
+							strokeDasharray="3 3"
+							strokeOpacity={0.7}
+							x={period}
+						/>
+					) : null}
 				</BarChart>
 			</ChartContainer>
 		</div>
