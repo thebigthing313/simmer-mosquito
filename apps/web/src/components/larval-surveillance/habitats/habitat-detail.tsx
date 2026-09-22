@@ -45,6 +45,7 @@ import {
 	RecordDetailSkeleton,
 	RecordUnavailable,
 } from '../../record';
+import { PrototypeSwitcher, PrototypeTagsCard } from '../../record/tag-picker-prototype';
 import type { HabitatGeometry } from './habitat-geometry-cache';
 import { HabitatHistoryCard, HistorySkeleton } from './habitat-history-card';
 import { formatDateTime, ProfileName } from './habitat-history-values';
@@ -183,6 +184,9 @@ function HabitatDetailContent({
 			{/* The band goes under the lead row rather than inside its left half:
 			    the spec puts it at the full width of the main column, and at 328px
 			    a folder row wraps where six chips are meant to fit on one line. */}
+			{/* PROTOTYPE #1207 */}
+			<PrototypeTagsCard recordId={habitat.id} />
+			<PrototypeSwitcher />
 			<RecordRegionsBand recordId={habitat.id} recordType="habitats" />
 			<Suspense fallback={<HistorySkeleton />}>
 				<HabitatHistoryCard habitatId={habitat.id} />

@@ -32,6 +32,7 @@ import {
 	type RecordDeleteTarget,
 } from '../record-delete-dialog';
 import { TagBadge } from '../tag-badge';
+import { PrototypeHeaderTags } from './tag-picker-prototype';
 
 /**
  * The bar every record detail page opens with.
@@ -481,6 +482,12 @@ function ActionItem({ action }: { readonly action: DetailAction }) {
  * already said in words on the pages whose fact card lists them.
  */
 function RecordTags({ recordId }: { readonly recordId: string }) {
+	// PROTOTYPE #1207: the picker variants stand in for the read-only chip row.
+	return <PrototypeHeaderTags recordId={recordId} />;
+}
+
+/** The shipped read-only row, kept so the prototype can be backed out. */
+function RecordTagsRow({ recordId }: { readonly recordId: string }) {
 	const tags = useRecordTags(recordId);
 	if (tags.length === 0) {
 		return null;
@@ -493,3 +500,5 @@ function RecordTags({ recordId }: { readonly recordId: string }) {
 		</>
 	);
 }
+
+void RecordTagsRow;
