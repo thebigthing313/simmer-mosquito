@@ -4,6 +4,7 @@ import {
 	CLOCK_SKEW_TOLERANCE_MS,
 	createIssues,
 	jsonObject,
+	LOCAL_DATE_FLOOR,
 	normalizeOptionalTimestamp,
 	normalizeStringUnion,
 	nullableText,
@@ -12,6 +13,7 @@ import {
 	requiredUuid,
 	throwIfIssues,
 	validateIdList,
+	validateLocalDate,
 	validateOperatorCommandContext,
 	validateOrganizationCommandContext,
 } from '../../command-validation.js';
@@ -144,6 +146,34 @@ describe('collapsed command primitives', () => {
 		expect(issues).toEqual([
 			{ path: 'closedAt', message: 'closedAt must be a valid Date.' },
 			{ path: 'closedAt', message: 'closedAt must be a valid Date.' },
+		]);
+	});
+});
+
+describe('validateLocalDate', () => {
+	it('takes a real calendar date on or after the floor, in either direction', () => {
+		const issues = createIssues();
+
+		validateLocalDate('1900-01-01', 'date', issues);
+		validateLocalDate('2024-02-29', 'date', issues);
+		validateLocalDate('2099-12-31', 'date', issues);
+
+		expect(issues).toEqual([]);
+	});
+
+	// The floor is the same one `parseOverviewPeriod` holds a period to. #1214
+	// is the row it blocks: a collection dated 1826 by a mistyped year.
+	it('refuses a malformed date, an impossible one and one before the floor', () => {
+		const issues = createIssues();
+
+		validateLocalDate('2026-9-1', 'date', issues);
+		validateLocalDate('2023-02-29', 'date', issues);
+		validateLocalDate('1826-03-16', 'date', issues);
+
+		expect(issues).toEqual([
+			{ path: 'date', message: 'date must be a YYYY-MM-DD date string.' },
+			{ path: 'date', message: 'date must be a valid calendar date.' },
+			{ path: 'date', message: `date cannot be before ${LOCAL_DATE_FLOOR}.` },
 		]);
 	});
 });
