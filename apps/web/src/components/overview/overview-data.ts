@@ -265,3 +265,50 @@ export function formatRatio(ratio: OverviewRatio, value: number): string {
 export function formatCell(value: number): string {
 	return formatCount(value, Number.isInteger(value) ? 0 : 1);
 }
+
+/**
+ * One group of Monthly's grouped bar: a calendar month with the picked
+ * month's year in the period role and the year before in the comparison
+ * role. A month the year has not reached is `undefined`, which is no bar; a
+ * ratio over a zero denominator is `null`, which is no bar either.
+ */
+export interface MonthGroup {
+	/** `Jan` to `Dec`. */
+	readonly label: string;
+	/** The two months the bars open, `YYYY-MM`, present when that year reached the month. */
+	readonly periodMonth: string | undefined;
+	readonly comparisonMonth: string | undefined;
+	readonly period: number | null | undefined;
+	readonly comparison: number | null | undefined;
+}
+
+/**
+ * The response's flat 24-point month series split by the year in each
+ * point's `period` into twelve groups, the picked month's year beside the
+ * year before. Points outside those two years are ignored.
+ */
+export function monthGroups(
+	points: readonly { readonly period: string; readonly value: number | null }[],
+	year: number,
+): readonly MonthGroup[] {
+	const byMonth = new Map(points.map((point) => [point.period, point.value]));
+	return Array.from({ length: 12 }, (_, index) => {
+		const month = `${index + 1}`.padStart(2, '0');
+		const periodMonth = `${year}-${month}`;
+		const comparisonMonth = `${year - 1}-${month}`;
+		return {
+			label: MONTH_LABELS[index] ?? '',
+			periodMonth: byMonth.has(periodMonth) ? periodMonth : undefined,
+			comparisonMonth: byMonth.has(comparisonMonth) ? comparisonMonth : undefined,
+			period: byMonth.get(periodMonth),
+			comparison: byMonth.get(comparisonMonth),
+		};
+	});
+}
+
+/** The three-letter month per x tick, `en-US`. */
+const MONTH_LABELS: readonly string[] = Array.from({ length: 12 }, (_, index) =>
+	new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(
+		new Date(Date.UTC(2026, index, 1)),
+	),
+);

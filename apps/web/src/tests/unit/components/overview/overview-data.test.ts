@@ -5,6 +5,7 @@ import {
 	cutCaption,
 	formatCell,
 	formatRatio,
+	monthGroups,
 	periodDestination,
 	periodSearchCodec,
 	periodTitle,
@@ -92,6 +93,38 @@ describe('the words on the page', () => {
 		expect(formatRatio('mosquitoesPerCollection', 12.44)).toBe('12.4');
 		expect(formatCell(3210)).toBe('3,210');
 		expect(formatCell(104.44)).toBe('104.4');
+	});
+});
+
+describe('monthGroups', () => {
+	it('splits the flat series into twelve groups, the picked year beside the year before', () => {
+		const groups = monthGroups(
+			[
+				{ period: '2025-01', value: 5 },
+				{ period: '2025-09', value: 7 },
+				{ period: '2025-12', value: 9 },
+				{ period: '2026-01', value: 11 },
+				{ period: '2026-09', value: null },
+			],
+			2026,
+		);
+
+		expect(groups).toHaveLength(12);
+		expect(groups[0]).toEqual({
+			label: 'Jan',
+			periodMonth: '2026-01',
+			comparisonMonth: '2025-01',
+			period: 11,
+			comparison: 5,
+		});
+		// A month the year has not reached is no bar; a zero denominator is no bar either.
+		expect(groups[8]).toMatchObject({ periodMonth: '2026-09', period: null, comparison: 7 });
+		expect(groups[11]).toMatchObject({
+			periodMonth: undefined,
+			period: undefined,
+			comparisonMonth: '2025-12',
+			comparison: 9,
+		});
 	});
 });
 

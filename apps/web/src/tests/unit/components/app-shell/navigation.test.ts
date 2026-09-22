@@ -137,10 +137,10 @@ describe('shellDomainsForRole', () => {
 		]);
 	});
 
-	it('leads Overview with the Dashboard and Today, and marks the two review pages behind them as stubs', () => {
-		// The Dashboard and Today are built and Monthly and Annual are not, so the
-		// built pages go first and each of the other two carries the stub mark
-		// that draws the badge and keeps it out of the palette (#1082, #1216).
+	it('leads Overview with the built pages and marks Annual behind them as a stub', () => {
+		// The Dashboard, Today and Monthly are built and Annual is not, so the
+		// built pages go first and the last carries the stub mark that draws the
+		// badge and keeps it out of the palette (#1082, #1216, #1217).
 		const overview = shellDomainsForRole(signedInSnapshotAs('owner')).find(
 			(domain) => domain.id === 'overview',
 		);
@@ -148,7 +148,7 @@ describe('shellDomainsForRole', () => {
 		expect(overview?.groups[0]?.items.map((item) => [item.label, item.stub ?? false])).toEqual([
 			['Dashboard', false],
 			['Today', false],
-			['Monthly', true],
+			['Monthly', false],
 			['Annual', true],
 		]);
 	});
@@ -163,8 +163,9 @@ describe('shellDomainsForRole', () => {
 		const { routes, actions } = shellSearchCandidates(signedInSnapshotAs('owner'));
 		const offered = new Set([...routes, ...actions].map((candidate) => candidate.id));
 
-		expect(stubs).toEqual(expect.arrayContaining(['monthly', 'annual']));
+		expect(stubs).toContain('annual');
 		expect(stubs).not.toContain('today');
+		expect(stubs).not.toContain('monthly');
 		expect(stubs.filter((id) => offered.has(id))).toEqual([]);
 	});
 

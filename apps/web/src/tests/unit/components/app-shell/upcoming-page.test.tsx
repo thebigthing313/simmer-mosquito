@@ -61,18 +61,7 @@ describe('UpcomingPage', () => {
 		}
 	});
 
-	it('names what Monthly and Annual will hold and where to work meanwhile', () => {
-		renderAt('/monthly');
-		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Monthly');
-		expect(screen.getByText(/for one calendar month/i)).toBeTruthy();
-		expect(willLandLines()).toHaveLength(3);
-		expect(hrefs()).toEqual([
-			'/larval-surveillance',
-			'/adult-surveillance',
-			'/control-operations/chemical',
-		]);
-		cleanup();
-
+	it('names what Annual will hold and where to work meanwhile', () => {
 		renderAt('/annual');
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Annual');
 		expect(screen.getByText(/the material an annual report is written from/i)).toBeTruthy();

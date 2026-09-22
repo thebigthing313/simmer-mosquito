@@ -159,17 +159,6 @@ const collectionMethods: Elsewhere = {
  * unbuilt section to another is how a placeholder becomes a maze.
  */
 const CONTENT: Readonly<Record<string, UpcomingContent>> = {
-	'/monthly': {
-		title: 'Monthly',
-		summary:
-			'Effort and findings across surveillance and control for one calendar month, read beside the month before.',
-		willLand: [
-			'Inspections, collections, applications, and source reductions logged in the month, against the month before',
-			'Larvae-positive inspections and catch per trap night for the month, by region',
-			'Product applied and sources eliminated in the month, each totalled in one unit',
-		],
-		elsewhere: [larvalOverview, adultOverview, applications],
-	},
 	'/annual': {
 		title: 'Annual',
 		summary:
