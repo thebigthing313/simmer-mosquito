@@ -49,7 +49,7 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
-import { dayOverview } from './components/overview/overview-fixtures';
+import { dayOverview, monthOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
@@ -542,6 +542,53 @@ describe('the Today page', () => {
 
 		expect(linkHref('September 2026')).toBe('/monthly?month=2026-09');
 		expect(linkHref('2026')).toBe('/annual?year=2026');
+	});
+});
+
+/**
+ * The Monthly page (#1217): a count opens its explorer over the column's
+ * whole month, `to` the last day even on the partial month the fixture cuts
+ * through the 15th, and the upward line opens the year.
+ */
+describe('the Monthly page', () => {
+	function openMonthly() {
+		renderWithRouter(
+			<>
+				<UpwardLine grain="month" period="2026-09" />
+				<OverviewTable
+					dimmed={false}
+					grain="month"
+					period="2026-09"
+					state={{ kind: 'ready', response: monthOverview() }}
+				/>
+			</>,
+		);
+	}
+
+	function rowHrefs(label: string): readonly string[] {
+		const row = screen.getByRole('row', { name: new RegExp(`^${label}`) });
+		return [...row.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href') ?? '');
+	}
+
+	it('sends each count to its explorer over the whole month, not the cut', () => {
+		openMonthly();
+
+		expect(rowHrefs('Chemical Applications')).toEqual([
+			'/control-operations/chemical?from=2026-09-01&to=2026-09-30',
+			'/control-operations/chemical?from=2026-08-01&to=2026-08-31',
+			'/control-operations/chemical?from=2025-09-01&to=2025-09-30',
+		]);
+		expect(rowHrefs('Service Requests received')[0]).toBe(
+			'/public-engagement/service-requests?status=all&from=2026-09-01&to=2026-09-30',
+		);
+		expect(rowHrefs('Positive inspections')).toEqual([]);
+	});
+
+	it('sends the upward line to the year alone', () => {
+		openMonthly();
+
+		expect(linkHref('2026')).toBe('/annual?year=2026');
+		expect(screen.queryByRole('link', { name: 'September 2026' })).toBeNull();
 	});
 });
 

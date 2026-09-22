@@ -19,6 +19,7 @@ import {
 	OVERVIEW_RECORD_TYPES,
 	type OverviewGrain,
 	type OverviewResponse,
+	overviewPeriodYear,
 	parseOverviewPeriod,
 } from '@simmer-mosquito/domain';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
@@ -44,6 +45,7 @@ import {
 	shownTypes,
 	trendHeading,
 } from './overview-data';
+import { OverviewLegend } from './overview-legend';
 import { OverviewPicker } from './overview-picker';
 import { OverviewTable, type OverviewTableState } from './overview-table';
 import { UpwardLine } from './overview-upward-line';
@@ -179,7 +181,10 @@ function TrendSection({
 	];
 	return (
 		<section className={cn('grid gap-3', dimmed && 'opacity-60 transition-opacity')}>
-			<h2 className="m-0 font-semibold text-foreground text-sm">{trendHeading(grain, period)}</h2>
+			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+				<h2 className="m-0 font-semibold text-foreground text-sm">{trendHeading(grain, period)}</h2>
+				{grain === 'month' ? <OverviewLegend year={overviewPeriodYear(period)} /> : null}
+			</div>
 			<div className={TREND_GRID}>
 				{charts.map((chart) => (
 					<Panel
@@ -187,7 +192,12 @@ function TrendSection({
 						key={chart.key}
 						title={chart.title}
 					>
-						<OverviewChart onOpenPeriod={onOpenPeriod} period={period} series={chart.series} />
+						<OverviewChart
+							grain={grain}
+							onOpenPeriod={onOpenPeriod}
+							period={period}
+							series={chart.series}
+						/>
 					</Panel>
 				))}
 			</div>

@@ -2,11 +2,13 @@
  * The one chart the period-in-review pages draw, one per shown row, on
  * `ChartContainer` over Recharts. The form is the grain's: Today plots the
  * year's days as an area, because 365 slots at a 600px plot width leave no
- * bar the mark spec's 2px gap or 24px hit target. Every form paints the
- * period role, `--chart-period`, through the chart's own `ChartConfig` so the
- * marks read `var(--color-period)` and `check:map-palette` has no literal to
- * refuse. `docs/today-spec.md`, "The charts", and `docs/web-components.md`
- * for the choices.
+ * bar the mark spec's 2px gap or 24px hit target; Monthly plots twelve
+ * groups of two bars, the picked month's year in the period role beside the
+ * year before in the comparison role. Every form paints its roles through
+ * the chart's own `ChartConfig` so the marks read `var(--color-period)` and
+ * `check:map-palette` has no literal to refuse. `docs/today-spec.md` and
+ * `docs/monthly-spec.md`, "The chart", and `docs/web-components.md` for the
+ * choices.
  *
  * A ratio chart plots the ratio itself off the numerator and denominator the
  * series carries; a point whose denominator is zero is a gap, `null` with
@@ -16,10 +18,13 @@
  * SVG, so the destination is asserted on that function rather than by href.
  */
 
-import type {
-	OverviewRatio,
-	OverviewRatioPoint,
-	OverviewSeriesPoint,
+import {
+	type OverviewGrain,
+	type OverviewRatio,
+	type OverviewRatioPoint,
+	type OverviewSeriesPoint,
+	overviewPeriodMonth,
+	overviewPeriodYear,
 } from '@simmer-mosquito/domain';
 import {
 	type ChartConfig,
@@ -27,10 +32,25 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from '@simmer-mosquito/ui-web/components/ui/chart';
-import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
+import {
+	Area,
+	AreaChart,
+	Bar,
+	BarChart,
+	CartesianGrid,
+	ReferenceLine,
+	XAxis,
+	YAxis,
+} from 'recharts';
 import { formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
-import { formatRatio, ratioValue } from './overview-data';
+import {
+	formatRatio,
+	MONTH_LABELS,
+	type MonthGroup,
+	monthGroups,
+	ratioValue,
+} from './overview-data';
 
 /** What one chart plots: a count series, or a ratio series with the ratio's own formatting. */
 export type OverviewChartSeries =
@@ -48,10 +68,12 @@ interface PlotPoint {
 }
 
 export function OverviewChart({
+	grain,
 	period,
 	series,
 	onOpenPeriod,
 }: {
+	readonly grain: OverviewGrain;
 	/** The picked period, marked with the dashed reference line. */
 	readonly period: string;
 	readonly series: OverviewChartSeries;
@@ -63,13 +85,25 @@ export function OverviewChart({
 	// second argument and `formatCount` would read it as the fraction digits.
 	const format =
 		series.kind === 'ratio' ? formatRatioTick(series.ratio) : (value: number) => formatCount(value);
+	const wholeNumbers = series.kind === 'count';
+	if (grain === 'month') {
+		return (
+			<MonthsBars
+				format={format}
+				groups={monthGroups(points, overviewPeriodYear(period))}
+				onOpenPeriod={onOpenPeriod}
+				period={period}
+				wholeNumbers={wholeNumbers}
+			/>
+		);
+	}
 	return (
 		<DaysArea
 			format={format}
 			onOpenPeriod={onOpenPeriod}
 			period={period}
 			points={points}
-			wholeNumbers={series.kind === 'count'}
+			wholeNumbers={wholeNumbers}
 		/>
 	);
 }
@@ -92,6 +126,17 @@ function formatRatioTick(ratio: OverviewRatio): (value: number) => string {
 const PERIOD_CONFIG = {
 	period: { label: 'Period', color: 'var(--chart-period)' },
 } satisfies ChartConfig;
+
+/** Both roles, labelled with their years so the tooltip names the series. */
+function pairConfig(year: number): ChartConfig {
+	return {
+		period: { label: `${year}`, color: 'var(--chart-period)' },
+		comparison: { label: `${year - 1}`, color: 'var(--chart-comparison)' },
+	};
+}
+
+/** The mark spec for a bar: a 4px radius on the data end and a square baseline. */
+const BAR_RADIUS: [number, number, number, number] = [4, 4, 0, 0];
 
 /** The chart's own padding, because `Panel`'s body has none. */
 const CHART_FRAME = 'px-3 pt-3 pb-2';
@@ -189,8 +234,108 @@ function monthStarts(points: readonly PlotPoint[]): string[] {
 
 /** The month a day's tick names. */
 function monthTick(period: string): string {
-	return new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(
-		new Date(`${period}T00:00:00Z`),
+	return MONTH_LABELS[overviewPeriodMonth(period) - 1] ?? '';
+}
+
+// --- Monthly: twelve months beside last year ---------------------------------
+
+/**
+ * A grouped bar: twelve groups of two, the period series left of the
+ * comparison series the way the legend reads them, `maxBarSize` 24, `barGap`
+ * 2, no stroke, the picked month marked with the dashed line at its group. A
+ * bar opens its own month, so a comparison bar opens the year before's.
+ */
+function MonthsBars({
+	groups,
+	period,
+	format,
+	wholeNumbers,
+	onOpenPeriod,
+}: {
+	readonly groups: readonly MonthGroup[];
+	readonly period: string;
+	readonly format: (value: number) => string;
+	readonly wholeNumbers: boolean;
+	readonly onOpenPeriod: (period: string) => void;
+}) {
+	const year = overviewPeriodYear(period);
+	const picked = groups.find((group) => group.periodMonth === period);
+	// Recharts hands a bar click the drawn rectangle and its index; the group
+	// is read back by that index rather than off the rectangle's payload.
+	const open = (which: 'periodMonth' | 'comparisonMonth') => (_item: unknown, index: number) => {
+		const month = groups[index]?.[which];
+		if (month !== undefined) {
+			onOpenPeriod(month);
+		}
+	};
+	return (
+		<div className={CHART_FRAME}>
+			<ChartContainer className={PLOT} config={pairConfig(year)}>
+				<BarChart
+					barCategoryGap="28%"
+					barGap={2}
+					data={groups as MonthGroup[]}
+					margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+				>
+					<CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
+					<XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={6} />
+					<YAxis
+						allowDecimals={!wholeNumbers}
+						axisLine={false}
+						tickFormatter={format}
+						tickLine={false}
+						width={44}
+					/>
+					<ChartTooltip
+						content={<ChartTooltipContent formatter={tooltipPair(format, year)} />}
+						cursor={{ fill: 'var(--muted)', fillOpacity: 0.6 }}
+					/>
+					<Bar
+						className="cursor-pointer"
+						dataKey="period"
+						fill="var(--color-period)"
+						isAnimationActive={false}
+						maxBarSize={24}
+						name="period"
+						onClick={open('periodMonth')}
+						radius={BAR_RADIUS}
+					/>
+					<Bar
+						className="cursor-pointer"
+						dataKey="comparison"
+						fill="var(--color-comparison)"
+						isAnimationActive={false}
+						maxBarSize={24}
+						name="comparison"
+						onClick={open('comparisonMonth')}
+						radius={BAR_RADIUS}
+					/>
+					{picked === undefined ? null : (
+						<ReferenceLine
+							stroke="var(--foreground)"
+							strokeDasharray="3 3"
+							strokeOpacity={0.7}
+							x={picked.label}
+						/>
+					)}
+				</BarChart>
+			</ChartContainer>
+		</div>
+	);
+}
+
+/**
+ * A tooltip row for one of two series: the value first, then the series'
+ * year, so the hovered month reads both years at a glance.
+ */
+function tooltipPair(format: (value: number) => string, year: number) {
+	return (value: unknown, name: unknown) => (
+		<span className="flex w-full items-center justify-between gap-3">
+			<span className="font-medium text-foreground tabular-nums">
+				{typeof value === 'number' ? format(value) : String(value)}
+			</span>
+			<span className="text-muted-foreground">{name === 'period' ? year : year - 1}</span>
+		</span>
 	);
 }
 

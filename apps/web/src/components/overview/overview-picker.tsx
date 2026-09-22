@@ -1,29 +1,33 @@
 /**
  * The period picker in a period-in-review page's header: a previous arrow,
- * a `DatePicker` bounded to `[earliest, today]`, a next arrow, and a button
- * back to the current period that appears only when the shown period is not
- * the current one. Next is disabled at the current period and previous at
- * `earliest`, both read off the response; before it arrives the picker is
- * bounded by today alone. A day before `earliest` reached through the URL is
- * shown as the value while it is the shown day, since it is a real period
- * that happens to hold nothing. `docs/today-spec.md`, "The picker".
+ * the grain's control, a next arrow, and a button back to the current period
+ * that appears only when the shown period is not the current one. Takes the
+ * shown period, the current one and `earliest`, the picker's two bounds.
+ * Next is disabled at the current period and previous at `earliest`; before
+ * the response arrives the picker is bounded by today alone.
  *
- * The day grain's control is the one built. The month and year selects are
- * #1217's and #1218's, and the arrows and the words already know all three
- * grains so those builds add a control and nothing else.
+ * On the day grain the control is a `DatePicker`. On the month grain it is
+ * one `Select` over the reachable months, newest first and grouped by year,
+ * with a month before `earliest` as an extra item at the bottom while it is
+ * shown. The year select is #1218's. `docs/web-components.md` has the
+ * reasons.
  */
 
-import {
-	addDays,
-	type OverviewGrain,
-	overviewPeriodMonth,
-	overviewPeriodYear,
-	pad2,
-} from '@simmer-mosquito/domain';
+import type { OverviewGrain } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from '@simmer-mosquito/ui-web/components/ui/select';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { formatLocalDate, parseLocalDate } from '../../lib/local-date';
+import { formatLocalDate, formatMonthYear, parseLocalDate } from '../../lib/local-date';
+import { reachableMonths, stepPeriod } from './overview-data';
 
 const PreviousIcon = iconRegistry.arrows.chevronLeft.icon;
 const NextIcon = iconRegistry.arrows.chevronRight.icon;
@@ -70,7 +74,11 @@ export function OverviewPicker({
 			>
 				<PreviousIcon aria-hidden="true" />
 			</Button>
-			<DayControl current={current} earliest={earliest} onPick={onPick} period={period} />
+			{grain === 'month' ? (
+				<MonthControl current={current} earliest={earliest} onPick={onPick} period={period} />
+			) : (
+				<DayControl current={current} earliest={earliest} onPick={onPick} period={period} />
+			)}
 			<Button
 				aria-label={copy.next}
 				disabled={atCurrent}
@@ -87,22 +95,6 @@ export function OverviewPicker({
 			)}
 		</div>
 	);
-}
-
-/** The period one step either side of `period` at its grain. */
-function stepPeriod(grain: OverviewGrain, period: string, by: -1 | 1): string {
-	switch (grain) {
-		case 'day':
-			return addDays(period, by);
-		case 'month': {
-			const stepped = new Date(
-				Date.UTC(overviewPeriodYear(period), overviewPeriodMonth(period) - 1 + by, 1),
-			);
-			return `${stepped.getUTCFullYear()}-${pad2(stepped.getUTCMonth() + 1)}`;
-		}
-		case 'year':
-			return `${Number(period) + by}`;
-	}
 }
 
 function DayControl({
@@ -129,5 +121,40 @@ function DayControl({
 			}}
 			value={parseLocalDate(period)}
 		/>
+	);
+}
+
+function MonthControl({
+	period,
+	current,
+	earliest,
+	onPick,
+}: {
+	readonly period: string;
+	readonly current: string;
+	readonly earliest: string | null;
+	readonly onPick: (period: string) => void;
+}) {
+	const years = reachableMonths(current, earliest);
+	const listed = years.some((group) => group.months.includes(period));
+	return (
+		<Select onValueChange={onPick} value={period}>
+			<SelectTrigger aria-label="Month shown" className="w-44" size="sm">
+				<SelectValue />
+			</SelectTrigger>
+			<SelectContent className="max-h-80">
+				{years.map((group) => (
+					<SelectGroup key={group.year}>
+						<SelectLabel>{group.year}</SelectLabel>
+						{group.months.map((month) => (
+							<SelectItem key={month} value={month}>
+								{formatMonthYear(month)}
+							</SelectItem>
+						))}
+					</SelectGroup>
+				))}
+				{listed ? null : <SelectItem value={period}>{formatMonthYear(period)}</SelectItem>}
+			</SelectContent>
+		</Select>
 	);
 }

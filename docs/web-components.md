@@ -481,7 +481,14 @@ the string `2026` as `%222026%22`, and `periodSearchCodec` reads either back.
 
 One component for the family, on `ChartContainer` and the Recharts
 primitives. Today's form is an area rather than a bar, because 365 slots at a
-600px plot width leave no bar the mark spec's 2px gap or 24px hit target. The
+600px plot width leave no bar the mark spec's 2px gap or 24px hit target.
+Monthly's is a grouped bar, twelve groups of two, the response's flat 24-point
+series split by the year in each point's `period`; a month the year has not
+reached is no bar, and every bar in the period series wears the role at full
+strength, the alternative of the picked bar at full strength and the rest a
+step down not being taken. The period bar draws left of the comparison bar,
+the order the legend reads in. A bar click reads the group back by the index
+Recharts hands the handler, since the rectangle it hands is not the row. The
 marks read `var(--color-period)` through the chart's own `ChartConfig`, so
 the two roles in `styles.css` are the only colours and `check:map-palette`
 has no literal to refuse. The tooltip passes a `formatter`, because
@@ -504,6 +511,24 @@ requests and the count is every request received. An average cell is no link,
 because no explorer lists a mean; a ratio cell never is. A zero denominator
 draws the absence glyph with `0` beside it, because `0%` would say every
 inspection was negative.
+
+#### OverviewLegend
+
+The family's one legend, a two-swatch row at the right of Monthly's trend
+heading rather than inside each panel, because twelve panels would say it
+twelve times. Today and Annual plot one series and carry none. The comparison
+role is `--chart-comparison`, `green[300]`: `green[200]` and `green[100]` were
+offered and are too faint, and `--muted-foreground` sits 10.6 from brand green
+under full-colour vision, under the `dataviz` skill's hard floor, so it is not
+the comparison colour.
+
+#### OverviewPicker
+
+One `Select` over the reachable months on Monthly, newest first and grouped by
+year, rather than two selects for month and year, which would let a person
+assemble a future or pre-earliest month. A month before `earliest` reached
+through the URL is an extra item at the bottom while it is shown, because a
+`Select` draws nothing for a value it has no item for.
 
 #### UpwardLine
 
