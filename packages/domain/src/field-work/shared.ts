@@ -206,7 +206,13 @@ export function normalizeRelevantEntityTypes(
 	const named = new Set<string>();
 	for (const entry of value) {
 		if (typeof entry !== 'string' || !TAG_TARGET_ENTITY_TYPES.includes(entry)) {
-			issues.push({ path, message: `${path} names a record type that cannot be tagged.` });
+			// The value is named, because the two ways to get here are a caller
+			// sending the domain's camelCase spelling and a caller sending a record
+			// type that is not taggable, and neither is legible without it.
+			issues.push({
+				path,
+				message: `${path} names a record type that cannot be tagged: ${String(entry)}.`,
+			});
 			continue;
 		}
 		named.add(entry);

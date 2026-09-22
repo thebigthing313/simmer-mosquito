@@ -28,6 +28,7 @@
 
 import type { Tag } from '@simmer-mosquito/sync';
 import { tags } from '../../lib/collections/tags';
+import { sameRelevance } from '../../lib/tag-relevance';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import {
 	type CatalogCommandNames,
@@ -126,9 +127,7 @@ export function useTagMutations(): TagMutations {
 		if (fields.color !== current.color) {
 			changes.color = fields.color;
 		}
-		// Both sides arrive in register order from `tagFieldsFrom`, so this is a
-		// comparison of two sets and not of two orderings.
-		if (fields.relevantEntityTypes.join() !== current.relevantEntityTypes.join()) {
+		if (!sameRelevance(fields.relevantEntityTypes, current.relevantEntityTypes)) {
 			changes.relevant_entity_types = [...fields.relevantEntityTypes];
 		}
 

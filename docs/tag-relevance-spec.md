@@ -5,11 +5,11 @@ lists those Tags first. Nothing is enforced: the relevant types are a preference
 the picker reads, and any active Tag still goes on any taggable record of the
 Organization.
 
-Nothing here is built. The catalog column does not exist, and neither does the
-picker: `apps/web` draws Tags on map cards, explorer rows, route stops and the
-detail header, and edits the catalog under My organization, but nothing
-dispatches `fieldWork.assignTag` or `fieldWork.unassignTag`. So this spec covers
-the picker as well as the field.
+This was written before any of it was built, and the build followed it. The
+picker did not exist either: `apps/web` drew Tags on map cards, explorer rows,
+route stops and the detail header, and edited the catalog under My organization,
+but nothing dispatched `fieldWork.assignTag` or `fieldWork.unassignTag`. So the
+spec covers the picker as well as the field.
 
 The decisions behind it were charted on
 [#1204](https://github.com/thebigthing313/simmer-mosquito/issues/1204), and each
@@ -53,9 +53,13 @@ job, and a check stating those too would put three rules in SQL for one test to
 read back out one at a time.
 
 No static gate reads a SQL check's member list, so the check is held to the
-register by a case in `packages/db/src/tests/integration/` that reads
-`pg_constraint`. That is the precedent ADR 0018's nine geometry CHECKs already
-set.
+register by a case in `packages/db/src/tests/integration/`, which is the
+precedent ADR 0018's nine geometry CHECKs already set. It holds the two together
+by writing a row per register member and a row per refused name rather than by
+reading the constraint's source back: `pg_get_constraintdef` renders an array
+literal with casts and whitespace of Postgres's choosing, and a regex over that
+is the migration-text parse this repo has paid for twice. A dropped constraint
+fails the refusal half.
 
 ## The domain register
 
@@ -167,9 +171,12 @@ squeezing a neighbour.
 
 **The editor cell.** `MultiSelect` from `packages/ui-web`, options labelled with
 the register's `titleMany` read through `recordNoun`, `placeholder="All records"`
-so the empty set states itself rather than reading as unset. Six checkboxes laid
-out in the cell show every option with no popup, and add roughly 90px to an
-editor row that is already the tallest thing on the page.
+so the empty set states itself rather than reading as unset. The control is a
+combobox: the selections show as removable chips in the cell and typing filters
+the list in a popup. Six checkboxes laid out in the cell were the alternative,
+and they show every option with no popup, but they add roughly 90px to an editor
+row that is already the tallest thing on the page, and `MultiSelect` is the
+registered primitive for this.
 
 Ticking all six saves `{}`. The collapse is the `updateTag` normalizer's, above;
 the client collapses for its own display and is not the guard.
@@ -179,10 +186,11 @@ the client collapses for its own display and is not the guard.
 `Suggested For` says preference, and it pairs with the picker's `For habitats`
 heading.
 
-**`TagCreatePanel` is unchanged.** `createTag` takes nothing, so offering the
-field there means a chained create-then-update: a second command and a second
-failure mode on Add. A new Tag is relevant everywhere, and narrowing it is one
-Edit click away on the row that just appeared.
+**`TagCreatePanel` offers no relevance field.** `createTag` takes nothing, so
+offering one there means a chained create-then-update: a second command and a
+second failure mode on Add. A new Tag is relevant everywhere, and narrowing it is
+one Edit click away on the row that just appeared. Its two `TagFormValues`
+literals carry the empty set, because the type requires it.
 
 `TagFormValues` and `tagFieldsFrom` in
 `apps/web/src/components/my-organization/` gain the set, and `TagFields` and
@@ -268,17 +276,23 @@ table already treats it as the Tag's second identifier.
 
 ### The two empty cases, and their copy
 
-With the box empty and nothing relevant to this record's type, `For habitats`
-keeps its heading over one line:
+Both sections stand while the search box is empty, each over a line of its own
+when it holds nothing. `For habitats` empty means the catalog has nothing set up
+for this record type, and the Tags table is where that is fixed:
 
 > No tags are suggested for habitats yet. Set one up under My organization.
 
-The empty section is kept rather than collapsed, because it is what says the
-catalog has nothing set up for this record type, and the Tags table is where that
-is fixed. The record noun is the register's `many` again.
+`Every other tag` empty means every active Tag is on offer here, which is what a
+fresh Organization looks like, since a Tag that names nothing is relevant
+everywhere:
 
-With text in the box that line does not apply, so an empty section drops out
-entirely. When both drop out the dialog draws one line:
+> Every active tag is suggested for habitats.
+
+The record noun is the register's `many` in both.
+
+With text in the box neither line applies, because a line under an empty section
+would answer a question nobody asked, so an empty section drops out entirely.
+When both drop out the dialog draws one line:
 
 > No tags match your search.
 

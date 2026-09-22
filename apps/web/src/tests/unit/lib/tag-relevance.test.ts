@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { PickerTag } from '../../../lib/tag-relevance';
 import {
 	isRelevantTo,
+	relevanceForSave,
 	relevanceSummary,
+	sameRelevance,
 	TAG_RELEVANCE_OPTIONS,
 	tagPickerSections,
 } from '../../../lib/tag-relevance';
@@ -15,22 +18,15 @@ import {
  * as the name. `docs/tag-relevance-spec.md` carries the reasons.
  */
 
-function tag(overrides: Partial<PickerLike> = {}): PickerLike {
+function tag(overrides: Partial<PickerTag> = {}): PickerTag {
 	return {
 		id: overrides.id ?? 'tag_1',
 		name: overrides.name ?? 'Priority',
+		color: overrides.color ?? null,
 		description: overrides.description ?? null,
 		isActive: overrides.isActive ?? true,
 		relevantEntityTypes: overrides.relevantEntityTypes ?? [],
 	};
-}
-
-interface PickerLike {
-	readonly id: string;
-	readonly name: string;
-	readonly description: string | null;
-	readonly isActive: boolean;
-	readonly relevantEntityTypes: readonly string[];
 }
 
 const NONE: ReadonlySet<string> = new Set();
@@ -51,6 +47,22 @@ describe('a tag relevance set', () => {
 		// `serviceRequest`. A comparison that skipped the conversion would match
 		// nothing and put every Tag in the second section.
 		expect(isRelevantTo(['service_request'], 'serviceRequest')).toBe(true);
+	});
+
+	it('stores in register order, and all six as none', () => {
+		// The server collapses and sorts whatever it is sent, so the client does the
+		// same for its own display: a form that ticked every box would otherwise
+		// show six chips against a stored empty set and report a change on every
+		// re-save.
+		expect(relevanceForSave(['service_request', 'address'])).toEqual([
+			'address',
+			'service_request',
+		]);
+		expect(
+			relevanceForSave(['address', 'region', 'trap', 'habitat', 'contact', 'service_request']),
+		).toEqual([]);
+		expect(sameRelevance(['habitat', 'trap'], ['trap', 'habitat'])).toBe(true);
+		expect(sameRelevance(['habitat'], ['habitat', 'trap'])).toBe(false);
 	});
 
 	it('reads its summary off the register, in register order', () => {

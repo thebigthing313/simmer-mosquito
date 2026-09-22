@@ -14,17 +14,7 @@
 
 import { useLiveQuery } from '@tanstack/react-db';
 import { tags } from '../../lib/collections/tags';
-
-/** A Tag as the picker's checklist draws one. */
-export interface PickerTag {
-	readonly id: string;
-	readonly name: string;
-	readonly color: string | null;
-	readonly description: string | null;
-	readonly isActive: boolean;
-	/** Empty means suggested for every record. See `lib/tag-relevance.ts`. */
-	readonly relevantEntityTypes: readonly string[];
-}
+import type { PickerTag } from '../../lib/tag-relevance';
 
 /** Every Tag the Organization has, in name order. */
 export function useTagPickerCatalog(): readonly PickerTag[] {

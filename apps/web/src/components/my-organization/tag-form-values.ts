@@ -1,6 +1,6 @@
 import type { TagFields } from '../../hooks/mutations/use-tag-mutations';
 import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
-import { TAG_RELEVANCE_TARGETS } from '../../lib/tag-relevance';
+import { relevanceForSave } from '../../lib/tag-relevance';
 import type { TagFormValues } from './types';
 
 /**
@@ -25,12 +25,9 @@ export function tagFieldsFrom(values: TagFormValues): TagFields {
 		description: description.length === 0 ? null : description,
 		color: color.length === 0 ? null : color,
 		isActive: values.isActive,
-		// In register order rather than the order the control handed them back, so
-		// a save that reordered nothing compares equal to what it started from. The
-		// server sorts and collapses too; this is what keeps the comparison honest
-		// before the write.
-		relevantEntityTypes: TAG_RELEVANCE_TARGETS.filter(({ entityType }) =>
-			values.relevantEntityTypes.includes(entityType),
-		).map(({ entityType }) => entityType),
+		// Register order, and all six as none, which is what the server stores
+		// whatever it is sent. A save that reordered nothing then compares equal to
+		// what it started from, and one that ticked every box does too.
+		relevantEntityTypes: relevanceForSave(values.relevantEntityTypes),
 	};
 }

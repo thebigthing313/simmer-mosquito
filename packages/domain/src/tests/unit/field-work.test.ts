@@ -140,14 +140,21 @@ describe('field-work support commands', () => {
 			}),
 		).toThrow(DomainValidationError);
 
-		expect(() =>
+		// The issue names the value. Both ways to reach it, a camelCase spelling and
+		// a record type that cannot be tagged, are illegible without it.
+		let refused: unknown;
+		try {
 			updateTagCommand({
 				organizationId,
 				actorProfileId,
 				tagId,
 				relevantEntityTypes: ['inspection'],
-			}),
-		).toThrow(DomainValidationError);
+			});
+		} catch (error) {
+			refused = error;
+		}
+		expect(refused).toBeInstanceOf(DomainValidationError);
+		expect((refused as DomainValidationError).issues[0]?.message).toContain('inspection');
 	});
 
 	it('builds route item placement commands and rejects duplicate moves', () => {

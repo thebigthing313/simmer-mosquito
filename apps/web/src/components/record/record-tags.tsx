@@ -57,13 +57,7 @@ export function RecordTags({
 					{tags.length === 0 ? null : <Badge variant="secondary">{tags.length}</Badge>}
 				</Button>
 				{open ? (
-					<TagPickerDialog
-						assigned={tags}
-						onOpenChange={setOpen}
-						open={open}
-						recordType={recordType}
-						target={target}
-					/>
+					<TagPickerDialog assigned={tags} onOpenChange={setOpen} open={open} target={target} />
 				) : null}
 			</WriteOnly>
 		</>

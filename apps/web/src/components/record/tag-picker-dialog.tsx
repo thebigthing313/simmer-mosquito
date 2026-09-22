@@ -16,10 +16,10 @@ import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { useRecordTagMutations } from '../../hooks/mutations/use-record-tag-mutations';
 import type { AssignedTag } from '../../hooks/queries/tag-view';
-import { type PickerTag, useTagPickerCatalog } from '../../hooks/queries/use-tag-picker-catalog';
-import { type RecordType, recordNoun } from '../../lib/record-nouns';
+import { useTagPickerCatalog } from '../../hooks/queries/use-tag-picker-catalog';
+import { recordNoun } from '../../lib/record-nouns';
 import { errorMessageForSave } from '../../lib/save-error';
-import { tagPickerSections } from '../../lib/tag-relevance';
+import { type PickerTag, tagPickerSections } from '../../lib/tag-relevance';
 import { TagBadge } from '../tag-badge';
 
 /**
@@ -42,13 +42,12 @@ export function TagPickerDialog({
 	assigned,
 	onOpenChange,
 	open,
-	recordType,
 	target,
 }: {
 	readonly assigned: readonly AssignedTag[];
 	readonly onOpenChange: (open: boolean) => void;
 	readonly open: boolean;
-	readonly recordType: RecordType;
+	/** Which record, and which kind of record. The kind is the register's key. */
 	readonly target: TagTarget;
 }) {
 	const catalog = useTagPickerCatalog();
@@ -56,7 +55,10 @@ export function TagPickerDialog({
 	const [search, setSearch] = useState('');
 
 	const assignedByTagId = new Map(assigned.map((tag) => [tag.id, tag]));
-	const noun = recordNoun(recordType);
+	// One source for the record type. The record it is being put on and the kind
+	// of record the sections are about are the same fact, and two props carrying
+	// it are two props that can disagree.
+	const noun = recordNoun(target.type);
 
 	// Which Tag draws where is `tagPickerSections`, which is pure and tested: an
 	// inactive Tag is listed only where it is assigned and always in the second
@@ -65,11 +67,11 @@ export function TagPickerDialog({
 	const { relevant, rest } = tagPickerSections(
 		catalog,
 		new Set(assignedByTagId.keys()),
-		recordType,
+		target.type,
 		search,
 	);
 
-	const toggle = async (tag: PickerTag) => {
+	const write = async (tag: PickerTag) => {
 		const already = assignedByTagId.get(tag.id);
 		try {
 			if (already === undefined) {
@@ -82,6 +84,10 @@ export function TagPickerDialog({
 		}
 	};
 
+	// The row hands back nothing, so the write is started and the toast is what
+	// reports a failure. TanStack DB has already rolled the tick back by then.
+	const toggle = (tag: PickerTag) => void write(tag);
+
 	const searching = search.trim().length > 0;
 
 	return (
@@ -89,9 +95,10 @@ export function TagPickerDialog({
 			<DialogContent className="max-h-[80vh] gap-3 overflow-hidden">
 				<DialogHeader>
 					<DialogTitle>Tags</DialogTitle>
-					<DialogDescription>
-						Tags suggested for {noun.many} come first. Any tag can go on any record.
-					</DialogDescription>
+					{/* The two headings below say which tags come first, so a line here
+					    saying it again is the app explaining itself. `sr-only` rather than
+					    absent because the dialog is described by it. */}
+					<DialogDescription className="sr-only">The tags on this {noun.one}.</DialogDescription>
 				</DialogHeader>
 				<Input
 					aria-label="Search tags"
@@ -103,38 +110,29 @@ export function TagPickerDialog({
 					{searching && relevant.length === 0 && rest.length === 0 ? (
 						<p className="m-0 text-muted-foreground text-sm">No tags match your search.</p>
 					) : null}
+					{/* Both sections stand while the box is empty, each over a line of its
+					    own when it holds nothing: the empty `For habitats` is what says the
+					    catalog has nothing set up for this record type, and the Tags table
+					    under My organization is where that is fixed. A search is the one
+					    thing that drops a section, because the line under an empty one
+					    would be answering a question nobody asked. */}
 					{searching && relevant.length === 0 ? null : (
-						<TagPickerSection heading={`For ${noun.many}`}>
-							{relevant.length === 0 ? (
-								// Kept rather than collapsed: this line is what says the catalog
-								// has nothing set up for this record type, and the Tags table
-								// under My organization is where that is fixed.
-								<p className="m-0 text-muted-foreground text-sm">
-									No tags are suggested for {noun.many} yet. Set one up under My organization.
-								</p>
-							) : (
-								relevant.map((tag) => (
-									<TagPickerRow
-										assigned={assignedByTagId.has(tag.id)}
-										key={tag.id}
-										onToggle={() => void toggle(tag)}
-										tag={tag}
-									/>
-								))
-							)}
-						</TagPickerSection>
+						<TagPickerSection
+							assignedTagIds={new Set(assignedByTagId.keys())}
+							emptyLine={`No tags are suggested for ${noun.many} yet. Set one up under My organization.`}
+							heading={`For ${noun.many}`}
+							onToggle={toggle}
+							tags={relevant}
+						/>
 					)}
-					{rest.length === 0 ? null : (
-						<TagPickerSection heading="Every other tag">
-							{rest.map((tag) => (
-								<TagPickerRow
-									assigned={assignedByTagId.has(tag.id)}
-									key={tag.id}
-									onToggle={() => void toggle(tag)}
-									tag={tag}
-								/>
-							))}
-						</TagPickerSection>
+					{searching && rest.length === 0 ? null : (
+						<TagPickerSection
+							assignedTagIds={new Set(assignedByTagId.keys())}
+							emptyLine={`Every active tag is suggested for ${noun.many}.`}
+							heading="Every other tag"
+							onToggle={toggle}
+							tags={rest}
+						/>
 					)}
 				</div>
 				<DialogFooter className="items-center sm:justify-between">
@@ -151,16 +149,34 @@ export function TagPickerDialog({
 }
 
 function TagPickerSection({
-	children,
+	assignedTagIds,
+	emptyLine,
 	heading,
+	onToggle,
+	tags,
 }: {
-	readonly children: React.ReactNode;
+	readonly assignedTagIds: ReadonlySet<string>;
+	/** What stands under the heading when the section holds nothing. */
+	readonly emptyLine: string;
 	readonly heading: string;
+	readonly onToggle: (tag: PickerTag) => void;
+	readonly tags: readonly PickerTag[];
 }) {
 	return (
 		<section className="grid gap-1.5">
 			<h3 className="eyebrow m-0">{heading}</h3>
-			{children}
+			{tags.length === 0 ? (
+				<p className="m-0 text-muted-foreground text-sm">{emptyLine}</p>
+			) : (
+				tags.map((tag) => (
+					<TagPickerRow
+						assigned={assignedTagIds.has(tag.id)}
+						key={tag.id}
+						onToggle={() => onToggle(tag)}
+						tag={tag}
+					/>
+				))
+			)}
 		</section>
 	);
 }

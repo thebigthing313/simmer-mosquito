@@ -24,7 +24,7 @@ import { type RecordType, recordNoun } from './record-nouns';
  * column stores and what the table's cell reads, so two Tags with the same set
  * read the same way.
  */
-export const TAG_RELEVANCE_TARGETS: readonly {
+const TAG_RELEVANCE_TARGETS: readonly {
 	readonly recordType: RecordType;
 	readonly entityType: string;
 }[] = TAG_TARGET_TYPES.map((recordType) => ({
@@ -41,15 +41,40 @@ export const TAG_RELEVANCE_OPTIONS: readonly {
 	label: recordNoun(recordType).titleMany,
 }));
 
+/** The named targets, in register order, whatever order they arrived in. */
+function namedTargets(entityTypes: readonly string[]) {
+	const named = new Set(entityTypes);
+	return TAG_RELEVANCE_TARGETS.filter(({ entityType }) => named.has(entityType));
+}
+
 /** What a Tag row shows under `Suggested For`. The empty set is every record. */
 export function relevanceSummary(relevantEntityTypes: readonly string[]): string {
 	if (relevantEntityTypes.length === 0) {
 		return 'All records';
 	}
 
-	return TAG_RELEVANCE_TARGETS.filter(({ entityType }) => relevantEntityTypes.includes(entityType))
+	return namedTargets(relevantEntityTypes)
 		.map(({ recordType }) => recordNoun(recordType).titleMany)
 		.join(', ');
+}
+
+/**
+ * The set as it will be stored: register order, and all six as none.
+ *
+ * Both halves match what the `updateTag` validator does to whatever it is sent,
+ * so the row on screen after a save is the row the server wrote. The server is
+ * the guard, mobile and any later caller included; this is what keeps the
+ * comparison in `useTagMutations.save` honest and stops a form that ticked all
+ * six from reporting a change on every re-save.
+ */
+export function relevanceForSave(relevantEntityTypes: readonly string[]): readonly string[] {
+	const ordered = namedTargets(relevantEntityTypes).map(({ entityType }) => entityType);
+	return ordered.length === TAG_RELEVANCE_TARGETS.length ? [] : ordered;
+}
+
+/** Whether two sets name the same record types, whatever order they are in. */
+export function sameRelevance(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((entityType) => right.includes(entityType));
 }
 
 /**
@@ -69,12 +94,23 @@ export function isRelevantTo(
 	);
 }
 
+/** A Tag as the picker's checklist draws one. */
+export interface PickerTag {
+	readonly id: string;
+	readonly name: string;
+	readonly color: string | null;
+	readonly description: string | null;
+	readonly isActive: boolean;
+	/** Empty means suggested for every record. */
+	readonly relevantEntityTypes: readonly string[];
+}
+
 /** The two lists a tag picker draws, out of the catalog it was handed. */
-export interface TagPickerSections<TTag> {
+export interface TagPickerSections {
 	/** Suggested for this record type, and the empty set counts. */
-	readonly relevant: readonly TTag[];
+	readonly relevant: readonly PickerTag[];
 	/** The rest of what is listed, which is where an assigned inactive Tag sits. */
-	readonly rest: readonly TTag[];
+	readonly rest: readonly PickerTag[];
 }
 
 /**
@@ -96,22 +132,14 @@ export interface TagPickerSections<TTag> {
  * `culex` inside `Treated - culex`, and the description is in the match because
  * the row draws it.
  */
-export function tagPickerSections<
-	TTag extends {
-		readonly id: string;
-		readonly name: string;
-		readonly description: string | null;
-		readonly isActive: boolean;
-		readonly relevantEntityTypes: readonly string[];
-	},
->(
-	catalog: readonly TTag[],
+export function tagPickerSections(
+	catalog: readonly PickerTag[],
 	assignedTagIds: ReadonlySet<string>,
 	recordType: RecordType,
 	search: string,
-): TagPickerSections<TTag> {
+): TagPickerSections {
 	const needle = search.trim().toLowerCase();
-	const matches = (tag: TTag) =>
+	const matches = (tag: PickerTag) =>
 		needle.length === 0 ||
 		tag.name.toLowerCase().includes(needle) ||
 		(tag.description ?? '').toLowerCase().includes(needle);
