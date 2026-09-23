@@ -222,6 +222,22 @@ function StopName({ stop }: { readonly stop: MissionStopView }) {
 }
 
 /**
+ * The pieces of the second line, in order. The address is drawn whenever the
+ * stop has a request or a name of its own, because the line above stops drawing
+ * it in both cases.
+ */
+function subtitleParts(stop: MissionStopView): readonly string[] {
+	const parts: (string | null)[] = [];
+	if (stop.request !== null) {
+		parts.push(controlTypeLabel(stop.request.controlType));
+	}
+	if (stop.request !== null || isNamed(stop)) {
+		parts.push(stop.addressLabel);
+	}
+	return parts.filter((part): part is string => part !== null && part.length > 0);
+}
+
+/**
  * The second line: what kind of work the stop's request asked for, and where.
  *
  * A named stop carries both of the things its name used to be here instead: the
@@ -230,10 +246,7 @@ function StopName({ stop }: { readonly stop: MissionStopView }) {
  * address would take the address off the row altogether.
  */
 function StopSubtitle({ stop }: { readonly stop: MissionStopView }) {
-	const parts = [
-		stop.request === null ? null : controlTypeLabel(stop.request.controlType),
-		stop.request === null && !isNamed(stop) ? null : stop.addressLabel,
-	].filter((part): part is string => part !== null && part.length > 0);
+	const parts = subtitleParts(stop);
 
 	// The request link is drawn here only when the line above is showing a name
 	// of the stop's own, because that line draws the link itself otherwise.
