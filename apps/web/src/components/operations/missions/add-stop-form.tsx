@@ -17,6 +17,7 @@ import { errorMessageForSave } from '../../../lib/save-error';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
+import { stopNameInput } from '../operations-data';
 import { addStopDescription } from '../operations-display';
 
 /**
@@ -58,19 +59,18 @@ export function AddMissionStopForm({
 			return;
 		}
 		const geometry = location.geometry;
-		const trimmedName = name.trim();
-		// Decided out here rather than in the call below: the React Compiler has
-		// not implemented a conditional inside a try/catch, and one there bails the
-		// whole component out of compilation (`check:compiler-bailouts`).
-		const stopName = trimmedName.length === 0 ? null : trimmedName;
+		// Read out here rather than at the call below, which is inside the try. The
+		// React Compiler reports "Support value blocks (conditional, logical,
+		// optional chaining, etc) within a try/catch statement" as a `Todo` for a
+		// conditional in that position, measured on this file, and a `Todo` bails
+		// the whole component out of compilation (`check:compiler-bailouts`).
+		const stopName = stopNameInput(name);
 		setBusy(true);
 		setError(null);
 		try {
 			await stopWrites.addAtGeometry({
 				missionId: mission.id,
 				geometry,
-				// Empty is no name rather than an empty one, which is what the command
-				// builder stores anyway; sending it as null says so at the call site.
 				name: stopName,
 				addressId,
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,

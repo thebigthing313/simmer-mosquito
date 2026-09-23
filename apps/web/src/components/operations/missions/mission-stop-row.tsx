@@ -207,7 +207,7 @@ export function MissionStopRow({
  * stop answers is one click away whatever it is called.
  */
 function StopName({ stop }: { readonly stop: MissionStopView }) {
-	if (stop.name === null && stop.request !== null) {
+	if (!isNamed(stop) && stop.request !== null) {
 		return (
 			<Link
 				className="font-medium text-foreground text-sm hover:underline"
@@ -223,33 +223,43 @@ function StopName({ stop }: { readonly stop: MissionStopView }) {
 
 /**
  * The second line: what kind of work the stop's request asked for, and where.
- * A named stop links back to its request from here, because the line above is
- * showing the name instead.
+ *
+ * A named stop carries both of the things its name used to be here instead: the
+ * link back to its request, and the address, which the line above was drawing
+ * when nothing else named the stop. Without the second one, naming a stop at an
+ * address would take the address off the row altogether.
  */
 function StopSubtitle({ stop }: { readonly stop: MissionStopView }) {
 	const parts = [
 		stop.request === null ? null : controlTypeLabel(stop.request.controlType),
-		stop.request === null ? null : stop.addressLabel,
+		stop.request === null && !isNamed(stop) ? null : stop.addressLabel,
 	].filter((part): part is string => part !== null && part.length > 0);
 
-	const request = stop.name === null ? null : stop.request;
+	// The request link is drawn here only when the line above is showing a name
+	// of the stop's own, because that line draws the link itself otherwise.
+	const requestToLink = isNamed(stop) ? stop.request : null;
 
-	if (parts.length === 0 && request === null) {
+	if (parts.length === 0 && requestToLink === null) {
 		return null;
 	}
 	return (
 		<p className="m-0 mt-1 truncate text-muted-foreground text-xs">
-			{request === null ? null : (
+			{requestToLink === null ? null : (
 				<Link
 					className="pointer-events-auto hover:underline"
-					params={{ id: request.id }}
+					params={{ id: requestToLink.id }}
 					to="/operations/requests-for-control/$id"
 				>
-					{requestDisplayName(request)}
+					{requestDisplayName(requestToLink)}
 				</Link>
 			)}
-			{request === null || parts.length === 0 ? null : ' · '}
+			{requestToLink === null || parts.length === 0 ? null : ' · '}
 			{parts.join(' · ')}
 		</p>
 	);
+}
+
+/** The stop carries a name somebody typed, which is what moves the request link. */
+function isNamed(stop: MissionStopView): boolean {
+	return stop.name !== null;
 }

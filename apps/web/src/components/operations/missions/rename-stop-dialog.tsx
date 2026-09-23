@@ -11,7 +11,7 @@ import {
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { useState } from 'react';
-import { type MissionStopView, missionStopName } from '../operations-data';
+import { type MissionStopView, missionStopName, stopNameInput } from '../operations-data';
 
 /**
  * What one stop is called, changed in place.
@@ -32,7 +32,10 @@ export function RenameStopDialog({
 	readonly onRename: (name: string | null) => void;
 }) {
 	const [draft, setDraft] = useState(stop.name ?? '');
-	const trimmed = draft.trim();
+	// The name this stop would carry with nothing typed, which is what clearing
+	// the box leaves behind. Reading `missionStopName(stop)` here would show the
+	// stored name back as the placeholder, which is the one thing it is not.
+	const derived = missionStopName({ ...stop, name: null });
 
 	return (
 		<Dialog
@@ -45,10 +48,10 @@ export function RenameStopDialog({
 		>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>Rename This Stop?</DialogTitle>
+					<DialogTitle>Rename Stop</DialogTitle>
 					<DialogDescription>
-						The name shows on the stop list ahead of the request or the address. Clear it and the
-						stop goes back to being named by what it links to.
+						The name shows on the stop list ahead of the request or the address. Clear the box and
+						the stop goes back to the name shown in it.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="grid gap-1.5">
@@ -57,16 +60,16 @@ export function RenameStopDialog({
 						id="rename-mission-stop"
 						maxLength={MISSION_ITEM_NAME_MAX_LENGTH}
 						onChange={(event) => setDraft(event.target.value)}
-						placeholder={missionStopName(stop)}
+						placeholder={derived}
 						value={draft}
 					/>
 				</div>
 				<DialogFooter>
 					<Button onClick={onClose} type="button" variant="ghost">
-						Back
+						Cancel
 					</Button>
-					<Button onClick={() => onRename(trimmed.length === 0 ? null : trimmed)} type="button">
-						Save Name
+					<Button onClick={() => onRename(stopNameInput(draft))} type="button">
+						Save
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -12,7 +12,9 @@
 -- null so absence has one spelling. No length check: `missions.mission_name` has
 -- none either, and the 200-character cap the builder applies is the domain's.
 --
--- Nothing writes it yet. The server ticket is what adds the commands.
+-- The commands that write it are `missionDispatch.addMissionItem`, its
+-- requested-action twin, the initial items on `missionDispatch.createMission`
+-- and `missionDispatch.renameMissionItem`, which is the one that clears it.
 
 alter table mission_items
   add column name text;

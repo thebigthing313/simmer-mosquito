@@ -220,8 +220,8 @@ export function normalizeTimestamp(
 }
 
 /**
- * How long a stop's name may be. The same 200 a Mission's own name takes: both
- * are a line somebody types over a list, and a cap they share is one number.
+ * How long a stop's name may be. 200, which is what `missionName` takes on the
+ * Mission above it: both are a line somebody types over a list.
  */
 export const MISSION_ITEM_NAME_MAX_LENGTH = 200;
 

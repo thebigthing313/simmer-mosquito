@@ -197,6 +197,18 @@ export function missionStopName(stop: {
 	return stop.isResolving ? 'Loading…' : 'Mapped stop';
 }
 
+/**
+ * A typed name as the command takes it: trimmed, and empty as `null`.
+ *
+ * The same rule `normalizeMissionItemName` applies on the way in, said at the
+ * two boxes that collect one, so an empty field reaches the wire as the absence
+ * rather than as an empty string the server then has to read as one.
+ */
+export function stopNameInput(value: string): string | null {
+	const trimmed = value.trim();
+	return trimmed.length === 0 ? null : trimmed;
+}
+
 export function toMissionStop(
 	row: MissionStop,
 	index: number,
