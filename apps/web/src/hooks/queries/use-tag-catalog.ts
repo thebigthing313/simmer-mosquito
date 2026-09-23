@@ -8,6 +8,11 @@ export interface TagRecord {
 	/** A hex string the organization chose, or `null`. Validated where it is rendered. */
 	readonly color: string | null;
 	readonly isActive: boolean;
+	/**
+	 * The record types this Tag is suggested for, as the column spells them.
+	 * Empty means every record. See `lib/tag-relevance.ts`.
+	 */
+	readonly relevantEntityTypes: readonly string[];
 }
 
 /** The Tag catalog in its two lifecycle halves, with the colour and description the dialog edits. */

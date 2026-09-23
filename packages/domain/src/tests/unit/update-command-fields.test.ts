@@ -410,7 +410,12 @@ const CASES: readonly UpdateCase[] = [
 		name: 'fieldWork.updateTag',
 		fields: TAG_UPDATE_FIELDS,
 		base: { ...org, tagId: recordId },
-		samples: { tagName: 'Priority', description: 'Watch this one', color: '#ff8800' },
+		samples: {
+			tagName: 'Priority',
+			description: 'Watch this one',
+			color: '#ff8800',
+			relevantEntityTypes: ['habitat'],
+		},
 		build: updateTagCommand,
 	}),
 	updateCase({

@@ -4,6 +4,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
 import { hexWithAlpha, validHexColor } from '../../lib/hex-color';
+import { relevanceSummary } from '../../lib/tag-relevance';
 import { EditIcon } from './constants';
 
 export function TagDisplayTableRow({
@@ -22,6 +23,12 @@ export function TagDisplayTableRow({
 			</TableCell>
 			<TableCell className="w-(--tag-description-column) whitespace-normal text-muted-foreground wrap-anywhere">
 				{tag.description ?? <AbsentValue />}
+			</TableCell>
+			{/* Muted text rather than chips: a chip one cell over from the Tag
+			    Preview badge reads as six more tags on the row. It draws for
+			    everyone, the way the other read cells do. */}
+			<TableCell className="w-(--tag-relevance-column) whitespace-normal text-muted-foreground">
+				{relevanceSummary(tag.relevantEntityTypes)}
 			</TableCell>
 			<TableCell className="w-(--tag-color-column)">
 				<TagColorSwatch color={tag.color} />

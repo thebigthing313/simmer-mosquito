@@ -23,8 +23,9 @@
  *
  * ## Field names
  *
- * Postgres column names: `tag_name`, `description`, `color`. No geometry and no
- * lifecycle instruction, so no camelCase exception.
+ * Postgres column names: `tag_name`, `description`, `color`,
+ * `relevant_entity_types`. No geometry and no lifecycle instruction, so no
+ * camelCase exception.
  */
 
 import type { TagRow } from '@simmer-mosquito/db';
@@ -40,6 +41,18 @@ import type { CommandDb } from '../command-write.js';
 import type { TagCommand } from '../writers/foundation/shared.js';
 import { writeFoundationTagCommand } from '../writers/foundation/tags.js';
 import type { TableCommands } from './dispatch.js';
+
+/**
+ * The record types a Tag is meant for, as they arrived.
+ *
+ * A malformed entry is kept as an empty string rather than filtered out, the way
+ * `readIdList` keeps one: dropping it would store a set shorter than the one
+ * that was sent, under a 200. The domain refuses an entry that is not one of the
+ * six taggable targets, so an empty string is what makes it say so.
+ */
+function readRelevantEntityTypes(value: unknown): readonly string[] {
+	return Array.isArray(value) ? value.map((entry) => (typeof entry === 'string' ? entry : '')) : [];
+}
 
 export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagCommand, TagRow> {
 	return {
@@ -67,6 +80,9 @@ export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagComman
 						? { description: readNullableText(payload.description) }
 						: {}),
 					...(payload.color !== undefined ? { color: readNullableText(payload.color) } : {}),
+					...(payload.relevant_entity_types !== undefined
+						? { relevantEntityTypes: readRelevantEntityTypes(payload.relevant_entity_types) }
+						: {}),
 				}),
 
 			'fieldWork.activateTag': ({ organization, id }) =>

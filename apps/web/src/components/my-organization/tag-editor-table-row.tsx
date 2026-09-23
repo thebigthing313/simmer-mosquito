@@ -1,4 +1,5 @@
 import { ColorPicker } from '@simmer-mosquito/ui-web/components/color-picker';
+import { MultiSelect } from '@simmer-mosquito/ui-web/components/multi-select';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
@@ -10,6 +11,7 @@ import { toast } from 'sonner';
 import { useTagMutations } from '../../hooks/mutations/use-tag-mutations';
 import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
 import { errorMessageForSave } from '../../lib/save-error';
+import { TAG_RELEVANCE_OPTIONS } from '../../lib/tag-relevance';
 import { CatalogDeleteDialog } from '../catalog';
 import { CloseIcon, DeleteIcon, SaveIcon } from './constants';
 import { watchWrite } from './helpers';
@@ -73,6 +75,20 @@ export function TagEditorTableRow({
 						value={values.description}
 						className="min-h-14 min-w-0 max-w-full resize-y wrap-anywhere whitespace-pre-wrap"
 						onChange={(event) => setValues({ ...values, description: event.target.value })}
+					/>
+				</Field>
+			</TableCell>
+			<TableCell className="w-(--tag-relevance-column) align-top">
+				<Field className="gap-1">
+					<FieldLabel>Suggested For</FieldLabel>
+					{/* Placeholdered rather than left blank, so the empty set states what
+					    it means instead of reading as unset. Ticking all six saves the
+					    empty set, which the `updateTag` validator does for every caller. */}
+					<MultiSelect
+						options={TAG_RELEVANCE_OPTIONS}
+						placeholder="All records"
+						value={values.relevantEntityTypes}
+						onValueChange={(relevantEntityTypes) => setValues({ ...values, relevantEntityTypes })}
 					/>
 				</Field>
 			</TableCell>

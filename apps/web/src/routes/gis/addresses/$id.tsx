@@ -87,7 +87,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 							</p>
 						))
 					),
-				tags: { recordId: address.id },
+				tags: { recordId: address.id, recordType: 'address' },
 				title: address.displayName,
 			}}
 			layout={layout}

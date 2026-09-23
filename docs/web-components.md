@@ -613,3 +613,49 @@ The buffer unit select offers distance units only. The domain checks this
 server-side too, but a select that offers gallons is a select somebody picks
 gallons from, and the refusal blocks generation for every mission in the
 organization.
+
+#### RecordTags
+
+One row for all six taggable record types, drawn by `DetailPageHeader`, which
+is what `habitat-detail.tsx` and `service-request-detail-header.tsx` reach
+through too. A Tag assignable on four of the six is not a rule anybody would
+state.
+
+An untagged record draws the counted button with no count rather than nothing.
+Hiding the row when it was empty is the right answer for a row of chips and the
+wrong one for a row holding the only way to add one.
+
+The read is keyed on the record id alone, because `tag_items.entity_id` is
+globally unique. The write needs the record type as well, which is why the
+header's `tags` prop carries it, and the picker's `For habitats` heading reads
+the same key off `RECORD_NOUNS`.
+
+Every control is `WriteOnly`: the button, the checkboxes and the chip's `x`. The
+`x` appears on hover and the dialog does the same job without a pointer, so
+nothing is reachable by hover alone.
+
+#### TagPickerDialog
+
+A modal over the whole catalog, not a popover checklist, and there is no control
+that widens the list: both sections are on screen from the start, so relevance
+orders the catalog rather than filtering it and an assigned Tag is never out of
+view. A third `On this record` group would put one Tag in two places depending
+on a state that changes as you click.
+
+It closes rather than saves. A checkbox writes on the click, so `Done` is a way
+out rather than a commit, and the header chip's `x` is the same call: batching
+on `Done` would give one idea two write timings and a `Cancel` that has to mean
+"undo what you ticked".
+
+Which Tag draws in which section is `tagPickerSections` in `lib/tag-relevance.ts`
+rather than a body here, because every rule in it is a decision: an empty
+relevance set counts as relevant, an inactive Tag is listed only where it is
+assigned and always in the second section, and a search matches a substring of
+the name or the description.
+
+The empty `For habitats` section keeps its heading over one line of prose while
+the search box is empty, because that line is what says the catalog has nothing
+set up for this record type. With text in the box the line does not apply, so an
+empty section drops out, and when both drop out one line says nothing matches.
+
+`docs/tag-relevance-spec.md` is the rest.

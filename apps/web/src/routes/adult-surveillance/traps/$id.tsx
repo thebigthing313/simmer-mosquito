@@ -140,7 +140,7 @@ function TrapDetailContent({
 					returnTo: '/adult-surveillance/traps',
 				},
 				subtitle: methodName,
-				tags: { recordId: trap.id },
+				tags: { recordId: trap.id, recordType: 'trap' },
 				title: trapDisplayName(trap),
 			}}
 			layout={layout}

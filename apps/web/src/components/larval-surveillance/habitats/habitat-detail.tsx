@@ -174,7 +174,7 @@ function HabitatDetailContent({
 						<HabitatTypeSubtitle habitatTypeId={habitat.typeId} />
 					</Suspense>
 				),
-				tags: { recordId: habitat.id },
+				tags: { recordId: habitat.id, recordType: 'habitat' },
 				title: habitat.name,
 			}}
 			layout={layout}

@@ -1788,7 +1788,9 @@ CREATE TABLE public.tags (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deleted_at timestamp with time zone,
-    deleted_by_profile_id uuid
+    deleted_by_profile_id uuid,
+    relevant_entity_types text[] DEFAULT '{}'::text[] NOT NULL,
+    CONSTRAINT tags_relevant_entity_types_known CHECK ((relevant_entity_types <@ ARRAY['address'::text, 'region'::text, 'trap'::text, 'habitat'::text, 'contact'::text, 'service_request'::text]))
 );
 
 
@@ -6725,4 +6727,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('202608190001'),
     ('202608260001'),
     ('202608300001'),
-    ('202609030001');
+    ('202609030001'),
+    ('202609220001');

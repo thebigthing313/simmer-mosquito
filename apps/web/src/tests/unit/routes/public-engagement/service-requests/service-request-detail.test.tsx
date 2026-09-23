@@ -309,15 +309,21 @@ describe('the service request detail page header', () => {
 
 		await screen.findByText('Priority');
 		const bar = screen.getByRole('banner');
-		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(2);
+		// Three: the status flag, the Tag's own chip, and the count on the button
+		// that opens the picker.
+		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(3);
+		expect(screen.getByRole('button', { name: /Tags/ })).toBeTruthy();
 	});
 
-	// The status flag is the one badge in the bar; a Tag row would be a second.
-	it('draws no Tag row for an untagged request', async () => {
+	// The status flag is the one badge in the bar. An untagged record draws the
+	// button with no count rather than nothing, because the row holds the only way
+	// to put a Tag on.
+	it('draws the picker button and no chips for an untagged request', async () => {
 		await renderPage();
 
 		const bar = screen.getByRole('banner');
 		expect(bar.querySelectorAll('[data-slot="badge"]')).toHaveLength(1);
+		expect(screen.getByRole('button', { name: /Tags/ })).toBeTruthy();
 	});
 
 	it('offers Close on an open request, with Delete last', async () => {

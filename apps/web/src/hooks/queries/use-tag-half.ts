@@ -14,6 +14,7 @@ export function useTagHalf(isActive: boolean): readonly TagRecord[] {
 				description: tag.description,
 				color: tag.color,
 				isActive: tag.is_active,
+				relevantEntityTypes: tag.relevant_entity_types,
 			})),
 	).data;
 }

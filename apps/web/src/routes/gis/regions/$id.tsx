@@ -70,7 +70,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 					returnTo: '/gis/regions',
 				},
 				subtitle: folderName ?? 'Unfiled',
-				tags: { recordId: region.id },
+				tags: { recordId: region.id, recordType: 'region' },
 				title: region.name,
 			}}
 			layout={layout}
