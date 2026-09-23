@@ -59,7 +59,13 @@ describe('missions intent map', () => {
 				control_type: 'application',
 				scheduled_start_at: START,
 				mission_items: [
-					{ id: STOP, kind: 'explicit', locationSource: GEOMETRY, address_id: ADDRESS },
+					{
+						id: STOP,
+						kind: 'explicit',
+						locationSource: GEOMETRY,
+						address_id: ADDRESS,
+						name: ' Ditch run ',
+					},
 					{
 						id: MISSION,
 						kind: 'fromRequestedControlAction',
@@ -71,11 +77,12 @@ describe('missions intent map', () => {
 
 		expect(command.payload).toMatchObject({
 			items: [
-				{ kind: 'explicit', missionItemId: STOP, addressId: ADDRESS },
+				{ kind: 'explicit', missionItemId: STOP, addressId: ADDRESS, name: 'Ditch run' },
 				{
 					kind: 'fromRequestedControlAction',
 					missionItemId: MISSION,
 					requestedControlActionId: REQUESTED_ACTION,
+					name: null,
 				},
 			],
 		});
@@ -184,6 +191,49 @@ describe('mission_items intent map', () => {
 		);
 
 		expect(command.payload).toMatchObject({ placement: { kind: 'end' } });
+	});
+
+	it('takes a name on every path that adds a stop', () => {
+		expect(
+			build(
+				missionItems,
+				'missionDispatch.addMissionItem',
+				request({ mission_id: MISSION, locationSource: GEOMETRY, name: '  Third drain  ' }),
+			).payload,
+		).toMatchObject({ name: 'Third drain' });
+
+		expect(
+			build(
+				missionItems,
+				'missionDispatch.addMissionItemFromRequestedControlAction',
+				request({
+					mission_id: MISSION,
+					requested_control_action_id: REQUESTED_ACTION,
+					name: 'Back lot',
+				}),
+			).payload,
+		).toMatchObject({ name: 'Back lot' });
+
+		// A stop nobody named carries the absence rather than an empty string, so
+		// the column has one spelling for it.
+		expect(
+			build(
+				missionItems,
+				'missionDispatch.addMissionItem',
+				request({ mission_id: MISSION, locationSource: GEOMETRY }),
+			).payload,
+		).toMatchObject({ name: null });
+	});
+
+	it('renames a stop on its own intent, and clears the name with null', () => {
+		expect(
+			build(missionItems, 'missionDispatch.renameMissionItem', request({ name: 'Back lot' }))
+				.payload,
+		).toMatchObject({ missionItemId: ROW, name: 'Back lot' });
+
+		expect(
+			build(missionItems, 'missionDispatch.renameMissionItem', request({ name: null })).payload,
+		).toMatchObject({ missionItemId: ROW, name: null });
 	});
 
 	it('completes a stop that was skipped', () => {

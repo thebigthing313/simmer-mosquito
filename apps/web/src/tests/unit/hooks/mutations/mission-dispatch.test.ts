@@ -384,6 +384,7 @@ describe('a mission stop write', () => {
 		await result.current.addAtGeometry({
 			missionId: MISSION,
 			geometry: SHAPE,
+			name: 'Third storm drain',
 			addressId: ADDRESS,
 			position: 1,
 		});
@@ -397,6 +398,22 @@ describe('a mission stop write', () => {
 		// trigger will write it.
 		expect(row.geom_type).toBe('st_point');
 		expect(row.lat).toBe(38.58);
+		expect(row.name).toBe('Third storm drain');
+	});
+
+	it('renames a stop on its own intent, and clears the name with null', async () => {
+		// Its own command rather than the location and link update: a name carries
+		// none of that one's geometry rules, and the floor is the same.
+		const { result } = renderHook(() => useMissionItemMutations());
+
+		await result.current.rename(STOP, 'Back lot');
+
+		expect(lastIntents()).toEqual(['missionDispatch.renameMissionItem']);
+		expect(lastChanges().name).toBe('Back lot');
+
+		await result.current.rename(STOP, null);
+
+		expect(lastChanges().name).toBeNull();
 	});
 
 	it('names the removal of a stop, which is not a mission delete', async () => {

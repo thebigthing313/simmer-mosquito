@@ -587,6 +587,7 @@ export interface MissionItemsTable {
 	lng: GeneratedColumn<number>;
 	geojson: GeneratedColumn<GeoJsonGeometry>;
 	geom_type: GeneratedColumn<string>;
+	name: string | null;
 }
 
 export interface MissionNotificationsTable {

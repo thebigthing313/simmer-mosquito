@@ -429,6 +429,34 @@ is something the person can fix and resubmit, so the form holds its own busy
 flag instead of calling `useCommandRunner`, which reports through the toast
 (#1100).
 
+#### MissionStopRow
+
+A stop's name is read through `missionStopName` rather than spelled here, so the
+stored name, the Requested Control Action's display name, the Address label and
+`Mapped stop` are in one order that a second surface cannot disagree with
+(#1194). The request's link moves with the text: an unnamed stop draws the
+request's own name as the link, and a named one draws the name as text with the
+link on the subtitle below, so the request a stop answers stays one click away
+whatever the stop is called.
+
+A named stop keeps its address on the subtitle. The line above was drawing it
+when nothing else named the stop, so guarding it on the request alone took the
+address off the row of every stop somebody named at one.
+
+Rename rides with the reorder controls, so it is offered while the plan is open
+and to a Manager, which is `planEditable`. The server is wider on purpose:
+`missionDispatch.renameMissionItem` asks no precondition, so a rename that
+arrives from anywhere else needs no reopen.
+
+#### RenameStopDialog
+
+Mounted only while a stop is picked, the shape `RegionFolderDialog` uses, so the
+box opens holding that stop's stored name rather than a draft left from the last
+one. An empty box clears the name rather than storing an empty string, which is
+what the command's nullable `name` is for, and the placeholder is
+`missionStopName` with the stored name taken off, so it shows what clearing the
+box leaves behind rather than the name being cleared.
+
 #### MissionFormPage
 
 Neither surface touches a lifecycle timestamp, because the PATCH handler builds

@@ -7,6 +7,7 @@ import type {
 	MissionStatus,
 	MissionStop,
 } from '../../hooks/queries/operations-view';
+import { requestDisplayName } from '../../hooks/queries/operations-view';
 import { addressPrimaryLabel } from '../../lib/address-format';
 import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
@@ -120,6 +121,8 @@ export interface MissionStopRequest {
 /** One stop on a mission: its own place on the map, plus whatever names it. */
 export interface MissionStopView {
 	readonly missionItemId: string;
+	/** What somebody called this stop. Null on every stop nobody named. */
+	readonly name: string | null;
 	/** 1-indexed place in the sequence, derived from `position` order at read time. */
 	readonly ordinal: number;
 	readonly position: number;
@@ -167,6 +170,45 @@ export function formatOperationalDate(value: string): string {
 
 // --- reads ------------------------------------------------------------------
 
+/**
+ * What a stop is called, in the one order every surface reads it in.
+ *
+ * The stored name first, because somebody typed it about this stop. Then the
+ * request the stop was drawn from, then the address it sits at, and last the
+ * plain fact that it is ground on a map. A stop always has ground, so there is
+ * always a name to draw; `Loading…` is the moment before a linked row arrives,
+ * which is the only time this cannot yet tell a missing link from a named one.
+ */
+export function missionStopName(stop: {
+	readonly name: string | null;
+	readonly request: MissionStopRequest | null;
+	readonly addressLabel: string | null;
+	readonly isResolving: boolean;
+}): string {
+	if (stop.name !== null) {
+		return stop.name;
+	}
+	if (stop.request !== null) {
+		return requestDisplayName(stop.request);
+	}
+	if (stop.addressLabel !== null) {
+		return stop.addressLabel;
+	}
+	return stop.isResolving ? 'Loading…' : 'Mapped stop';
+}
+
+/**
+ * A typed name as the command takes it: trimmed, and empty as `null`.
+ *
+ * The same rule `normalizeMissionItemName` applies on the way in, said at the
+ * two boxes that collect one, so an empty field reaches the wire as the absence
+ * rather than as an empty string the server then has to read as one.
+ */
+export function stopNameInput(value: string): string | null {
+	const trimmed = value.trim();
+	return trimmed.length === 0 ? null : trimmed;
+}
+
 export function toMissionStop(
 	row: MissionStop,
 	index: number,
@@ -176,6 +218,7 @@ export function toMissionStop(
 	const address = resolveLinkedAddress(row.address);
 	return {
 		missionItemId: row.id,
+		name: row.name,
 		ordinal: index + 1,
 		position: row.position,
 		lat: row.latitude,

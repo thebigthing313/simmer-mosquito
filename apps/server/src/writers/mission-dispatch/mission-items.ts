@@ -60,6 +60,7 @@ export async function writeMissionItemCommand(
 				missionItemId: command.payload.missionItemId,
 				organizationId: command.payload.organizationId,
 				missionId: command.payload.missionId,
+				name: command.payload.name,
 				geom: await resolveItemGeom(trx, command.payload.organizationId, {
 					geometry: command.payload.geometry,
 					locationSource: command.payload.locationSource,
@@ -98,6 +99,7 @@ export async function writeMissionItemCommand(
 				missionItemId: command.payload.missionItemId,
 				organizationId: command.payload.organizationId,
 				missionId: command.payload.missionId,
+				name: command.payload.name,
 				geom: await loadOr404(
 					trx,
 					'requested_control_actions',
@@ -283,6 +285,20 @@ export async function writeMissionItemCommand(
 					skipped_at: null,
 					skipped_by_profile_id: null,
 					skip_reason: null,
+					updated_by_profile_id: command.payload.actorProfileId,
+				},
+			);
+		case 'missionDispatch.renameMissionItem':
+			// No precondition of its own. A name says nothing about where the crew
+			// goes or what the stop answers, so none of the geometry, link or
+			// progress acknowledgements have a question to ask about it, and a
+			// completed stop may still be renamed.
+			return updateMissionItemRow(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				{
+					name: command.payload.name,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 			);

@@ -52,6 +52,7 @@ export function useMissionStops(missionId: string | null): {
 				.select(({ item, request, address }) => ({
 					id: item.id,
 					missionId: item.mission_id,
+					name: item.name,
 					position: item.position,
 					latitude: item.lat,
 					longitude: item.lng,

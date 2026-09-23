@@ -2,9 +2,9 @@
  * The `mission_items` table, as commands.
  *
  * One stop on a mission: a piece of ground the crew will treat, and where the
- * crew has got to with it. Eight commands — two ways to add a stop, one to move
- * its location or what it is linked to, one to drop it, and the four that say
- * how it went.
+ * crew has got to with it. Nine commands — two ways to add a stop, one to move
+ * its location or what it is linked to, one to rename it, one to drop it, and
+ * the four that say how it went.
  *
  * Reordering is not here: see `missions.ts`, and `routes.ts` for the reasoning.
  * Neither are the four `record*ForMissionItem` commands, which write a Chemical
@@ -38,7 +38,7 @@
  *
  * ## Field names
  *
- * Postgres column names: `mission_id`, `address_id`,
+ * Postgres column names: `mission_id`, `name`, `address_id`,
  * `requested_control_action_id`, `completed_at`, `skipped_at`, `skip_reason`.
  * `geometry`, `locationSource` and `placement` are none of them — a stop's
  * ground is stated as a location source and stored as `geom` inside the
@@ -53,6 +53,7 @@ import {
 	type MissionItemLocationSourceInput,
 	type MissionItemPlacement,
 	removeMissionItemCommand,
+	renameMissionItemCommand,
 	reopenMissionItemCommand,
 	skipMissionItemCommand,
 	unskipMissionItemCommand,
@@ -125,6 +126,7 @@ export function missionItemTableCommands(
 					...organization,
 					missionItemId: id,
 					missionId: readText(payload.mission_id) ?? '',
+					name: readNullableText(payload.name),
 					...(payload.geometry === undefined ? {} : { geometry: payload.geometry }),
 					// Untyped, as a placement is: which sources a stop may be located
 					// from is the domain builder's rule, and restating it here would be a
@@ -145,6 +147,7 @@ export function missionItemTableCommands(
 					...organization,
 					missionItemId: id,
 					missionId: readText(payload.mission_id) ?? '',
+					name: readNullableText(payload.name),
 					requestedControlActionId: readText(payload.requested_control_action_id) ?? '',
 					...placementOf(payload),
 					...addAcknowledgements(payload),
@@ -186,6 +189,16 @@ export function missionItemTableCommands(
 						payload,
 						'acknowledgedDuplicateRequestedActionMissioning',
 					),
+				}),
+
+			// Its own intent rather than a key on the location and link update: a
+			// name has no geometry snapshot behind it and no acknowledgement to
+			// ask, and `null` is what clears it.
+			'missionDispatch.renameMissionItem': ({ payload, organization, id }) =>
+				renameMissionItemCommand({
+					...organization,
+					missionItemId: id,
+					name: readNullableText(payload.name),
 				}),
 
 			'missionDispatch.removeMissionItem': ({ payload, organization, id }) =>

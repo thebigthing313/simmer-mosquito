@@ -106,6 +106,7 @@ function missionInitialItems(payload: MissionPayload): readonly MissionInitialIt
 		return {
 			kind: item.kind,
 			missionItemId: readText(item.id) ?? '',
+			name: readNullableText(item.name),
 			...(item.geometry === undefined ? {} : { geometry: item.geometry }),
 			...(item.locationSource === undefined ? {} : { locationSource: item.locationSource }),
 			addressId: readNullableText(item.address_id),

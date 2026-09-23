@@ -18,6 +18,8 @@ export interface MissionActions {
 	readonly itemAction: (stop: MissionStopView, action: MissionItemAction) => void;
 	readonly confirmSkip: (reason: string) => void;
 	readonly confirmRemove: () => void;
+	/** Null clears the stored name, which puts the derived one back. */
+	readonly confirmRename: (name: string | null) => void;
 	readonly move: (index: number, action: MoveAction) => void;
 	readonly addStop: (request: OpenRequest) => void;
 }
@@ -46,8 +48,16 @@ export function useMissionActions({
 	readonly stopWrites: MissionItemMutations;
 }): MissionActions {
 	const { run } = runner;
-	const { skipTarget, setSkipTarget, removeTarget, setRemoveTarget, setCancelOpen, setReopenOpen } =
-		selection;
+	const {
+		skipTarget,
+		setSkipTarget,
+		removeTarget,
+		setRemoveTarget,
+		renameTarget,
+		setRenameTarget,
+		setCancelOpen,
+		setReopenOpen,
+	} = selection;
 
 	const itemAction = (stop: MissionStopView, action: MissionItemAction) => {
 		if (action === 'skip') {
@@ -76,6 +86,15 @@ export function useMissionActions({
 			return;
 		}
 		void run(() => stopWrites.removeStop(target.missionItemId), 'Unable to remove that stop.');
+	};
+
+	const confirmRename = (name: string | null) => {
+		const target = renameTarget;
+		setRenameTarget(null);
+		if (target === null) {
+			return;
+		}
+		void run(() => stopWrites.rename(target.missionItemId, name), 'Unable to rename that stop.');
 	};
 
 	const confirmCancel = (reason: string) => {
@@ -130,6 +149,7 @@ export function useMissionActions({
 		itemAction,
 		confirmSkip,
 		confirmRemove,
+		confirmRename,
 		move: (index: number, action: MoveAction) => {
 			void run(() => moveStop(index, action), 'Unable to reorder the mission.');
 		},

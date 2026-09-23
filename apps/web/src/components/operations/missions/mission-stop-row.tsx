@@ -10,6 +10,7 @@ import {
 	type MissionItemAction,
 	type MissionStopView,
 	missionItemActionsFor,
+	missionStopName,
 } from '../operations-data';
 import { MissionItemProgressBadge, missionStopTone } from '../operations-display';
 
@@ -85,6 +86,7 @@ export function MissionStopRow({
 	onAction,
 	onMove,
 	onRemove,
+	onRename,
 	onSelect,
 	onHover,
 }: {
@@ -103,6 +105,7 @@ export function MissionStopRow({
 	readonly onAction: (stop: MissionStopView, action: MissionItemAction) => void;
 	readonly onMove: (index: number, action: MoveAction) => void;
 	readonly onRemove: (stop: MissionStopView) => void;
+	readonly onRename: (stop: MissionStopView) => void;
 	readonly onSelect: (id: string | null) => void;
 	readonly onHover: (id: string | null) => void;
 }) {
@@ -143,9 +146,12 @@ export function MissionStopRow({
 						{planEditable ? (
 							<StopReorderControls
 								extraActions={
-									<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
-										Remove from mission
-									</DropdownMenuItem>
+									<>
+										<DropdownMenuItem onClick={() => onRename(stop)}>Rename stop</DropdownMenuItem>
+										<DropdownMenuItem onClick={() => onRemove(stop)} variant="destructive">
+											Remove from mission
+										</DropdownMenuItem>
+									</>
 								}
 								index={index}
 								isFirst={isFirst}
@@ -191,40 +197,82 @@ export function MissionStopRow({
 }
 
 /**
- * What a stop is called. A stop owns its geometry, so it is never nameless;
- * the request it came from names it when there is one, and links back.
+ * What a stop is called. A stop owns its geometry, so it is never nameless, and
+ * {@link missionStopName} is the one order every surface reads: the stored name,
+ * then the request it came from, then the address, then the plain fact.
+ *
+ * The link is the request's and stays with it. A stop nobody named draws the
+ * request's own name as the link; a stop somebody named draws the name as text
+ * and {@link StopSubtitle} carries the link on the line below, so the request a
+ * stop answers is one click away whatever it is called.
  */
 function StopName({ stop }: { readonly stop: MissionStopView }) {
-	if (stop.request !== null) {
+	if (!isNamed(stop) && stop.request !== null) {
 		return (
 			<Link
 				className="font-medium text-foreground text-sm hover:underline"
 				params={{ id: stop.request.id }}
 				to="/operations/requests-for-control/$id"
 			>
-				{requestDisplayName(stop.request)}
+				{missionStopName(stop)}
 			</Link>
 		);
 	}
-	if (stop.addressLabel !== null) {
-		return <span className="font-medium text-foreground text-sm">{stop.addressLabel}</span>;
+	return <span className="font-medium text-foreground text-sm">{missionStopName(stop)}</span>;
+}
+
+/**
+ * The pieces of the second line, in order. The address is drawn whenever the
+ * stop has a request or a name of its own, because the line above stops drawing
+ * it in both cases.
+ */
+function subtitleParts(stop: MissionStopView): readonly string[] {
+	const parts: (string | null)[] = [];
+	if (stop.request !== null) {
+		parts.push(controlTypeLabel(stop.request.controlType));
+	}
+	if (stop.request !== null || isNamed(stop)) {
+		parts.push(stop.addressLabel);
+	}
+	return parts.filter((part): part is string => part !== null && part.length > 0);
+}
+
+/**
+ * The second line: what kind of work the stop's request asked for, and where.
+ *
+ * A named stop carries both of the things its name used to be here instead: the
+ * link back to its request, and the address, which the line above was drawing
+ * when nothing else named the stop. Without the second one, naming a stop at an
+ * address would take the address off the row altogether.
+ */
+function StopSubtitle({ stop }: { readonly stop: MissionStopView }) {
+	const parts = subtitleParts(stop);
+
+	// The request link is drawn here only when the line above is showing a name
+	// of the stop's own, because that line draws the link itself otherwise.
+	const requestToLink = isNamed(stop) ? stop.request : null;
+
+	if (parts.length === 0 && requestToLink === null) {
+		return null;
 	}
 	return (
-		<span className="font-medium text-foreground text-sm">
-			{stop.isResolving ? 'Loading…' : 'Mapped stop'}
-		</span>
+		<p className="m-0 mt-1 truncate text-muted-foreground text-xs">
+			{requestToLink === null ? null : (
+				<Link
+					className="pointer-events-auto hover:underline"
+					params={{ id: requestToLink.id }}
+					to="/operations/requests-for-control/$id"
+				>
+					{requestDisplayName(requestToLink)}
+				</Link>
+			)}
+			{requestToLink === null || parts.length === 0 ? null : ' · '}
+			{parts.join(' · ')}
+		</p>
 	);
 }
 
-/** The second line: what kind of work the stop's request asked for, and where. */
-function StopSubtitle({ stop }: { readonly stop: MissionStopView }) {
-	const parts = [
-		stop.request === null ? null : controlTypeLabel(stop.request.controlType),
-		stop.request === null ? null : stop.addressLabel,
-	].filter((part): part is string => part !== null && part.length > 0);
-
-	if (parts.length === 0) {
-		return null;
-	}
-	return <p className="m-0 mt-1 truncate text-muted-foreground text-xs">{parts.join(' · ')}</p>;
+/** The stop carries a name somebody typed, which is what moves the request link. */
+function isNamed(stop: MissionStopView): boolean {
+	return stop.name !== null;
 }

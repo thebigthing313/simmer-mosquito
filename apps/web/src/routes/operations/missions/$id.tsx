@@ -26,6 +26,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { MissionNotificationsCard } from '../../../components/operations/missions/mission-notifications-card';
 import { MissionStopList } from '../../../components/operations/missions/mission-stops';
+import { RenameStopDialog } from '../../../components/operations/missions/rename-stop-dialog';
 import { RequestStopPicker } from '../../../components/operations/missions/request-stop-picker';
 import { formatOperationalDate } from '../../../components/operations/operations-data';
 import {
@@ -160,6 +161,7 @@ function MissionPanel({
 					onHover={run.setHighlightId}
 					onMove={run.move}
 					onRemove={run.setRemoveTarget}
+					onRename={run.setRenameTarget}
 					onSelect={run.setSelectedStopId}
 					planEditable={run.planEditable && !run.busy}
 					progressEnabled={run.progressEnabled}
@@ -224,12 +226,13 @@ function AddStopControls({
 }
 
 /**
- * The four confirmations: skip a stop, remove a stop, call the mission off, pick
- * it back up.
+ * The five: skip a stop, rename a stop, remove a stop, call the mission off,
+ * pick it back up.
  *
- * Three of them collect prose because the answer is written onto the record — a
+ * Three of them collect prose because the answer is written onto the record: a
  * skip reason onto the stop, a cancellation and a reopen onto the mission as
- * comments. Removing a stop takes it off the mission entirely, so there is
+ * comments. Renaming collects the name itself, and is the one that is not a
+ * confirmation. Removing a stop takes it off the mission entirely, so there is
  * nothing left to write a reason on.
  */
 function MissionDialogs({ run }: { readonly run: MissionRun }) {
@@ -267,6 +270,14 @@ function MissionDialogs({ run }: { readonly run: MissionRun }) {
 				required={false}
 				title="Reopen This Mission?"
 			/>
+
+			{run.renameTarget === null ? null : (
+				<RenameStopDialog
+					onClose={() => run.setRenameTarget(null)}
+					onRename={run.confirmRename}
+					stop={run.renameTarget}
+				/>
+			)}
 
 			<AlertDialog
 				onOpenChange={(open) => !open && run.setRemoveTarget(null)}

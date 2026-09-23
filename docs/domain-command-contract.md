@@ -57,7 +57,7 @@ PATCH  /commands/habitats/{id}   { intents: ['larvalSurveillance.updateHabitatDe
 DELETE /commands/habitats/{id}   { intents: ['larvalSurveillance.deleteHabitat'] }
 ```
 
-Fifty-four tables are served this way, carrying 272 of the 281 names in the
+Fifty-four tables are served this way, carrying 273 of the 282 names in the
 vocabulary. The modules are `apps/server/src/table-commands/`, one per table or
 per group of tables written together, and `dispatch.ts` is the mechanism they
 share. Both the server and the client derive the path from `commandPathFor` in
