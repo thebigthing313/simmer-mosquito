@@ -40,6 +40,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { collectionLabel } from '../../../hooks/queries/trap-view';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
@@ -57,6 +58,8 @@ import {
 interface CollectionRow {
 	readonly id: string;
 	readonly trapId: string | null;
+	/** The Address it was linked to: the rung below the trap name. */
+	readonly addressDisplayName: string | null;
 	readonly lat: number;
 	readonly lng: number;
 	readonly collectionMethodId: string;
@@ -357,7 +360,18 @@ function CollectionListItem({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const label = trapName ?? 'Ad-hoc collection';
+	/*
+	 * `trapName` is resolved from the trap name map above rather than off the
+	 * row, so the trap rung is already taken by the time this runs and the row's
+	 * own name columns are not on this surface. What is left is the ladder below
+	 * it: the address, then the coordinates, then the word (#1231).
+	 */
+	const label =
+		trapName ??
+		collectionLabel(
+			{ trapId: null, trapName: null, trapCode: null, lat: row.lat, lng: row.lng },
+			{ addressName: row.addressDisplayName, fallback: 'One-off collection' },
+		);
 	const timeZone = useOrganizationTimeZone();
 	const effectiveDate = collectionEffectiveDate(row, timeZone);
 	/*

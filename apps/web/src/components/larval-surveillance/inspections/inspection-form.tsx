@@ -128,7 +128,7 @@ export function InspectionFormPage({
 		geometryKind: 'inspection',
 		initialGeometry: initialAdhocGeometry,
 		initialReferenceGeometry: initialPreviewGeometry,
-		missingMessage: 'Map the area this ad-hoc inspection covers.',
+		missingMessage: 'Map the area this one-off inspection covers.',
 	});
 	const {
 		addressCoord,
@@ -296,8 +296,8 @@ export function InspectionFormPage({
 				<LocationSection
 					description={
 						isEditing
-							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different habitat.'
-							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers. An address is optional reference.'
+							? 'The habitat or one-off choice is fixed. Record a new inspection to cover a different habitat.'
+							: 'Tie the inspection to a mapped habitat, or draw the one-off location it covers. An address is optional reference.'
 					}
 					error={habitatError ?? location.locationError}
 				>
@@ -321,7 +321,7 @@ export function InspectionFormPage({
 									Existing habitat
 								</ToggleGroupItem>
 								<ToggleGroupItem className="flex-1 text-xs" value="adhoc">
-									Ad-hoc location
+									One-off location
 								</ToggleGroupItem>
 							</ToggleGroup>
 						)}

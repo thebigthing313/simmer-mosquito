@@ -132,11 +132,13 @@ describe('describeActivityEntry', () => {
 		return describeActivityEntry(entry(overrides), names, quantity);
 	}
 
-	// A collection with no trap was recorded away from one, so its fallback is
-	// its own rather than the category's.
-	it('says so when a collection has no trap to name it', () => {
+	// A collection recorded away from a trap names itself by the address, else
+	// by its coordinates, and `collectionEntries` resolves that whole ladder into
+	// `placeName`. So a row that arrives here with none carried no place at all,
+	// and the category is the only thing left to say (#1231).
+	it('falls back to the category when a collection carries no place', () => {
 		expect(describe_({ category: 'collection', placeName: null, refId: 'method-1' })).toEqual({
-			title: 'Ad-hoc collection',
+			title: 'Collection',
 			subtitle: 'CDC light trap',
 		});
 	});

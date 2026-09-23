@@ -161,10 +161,12 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 					),
 				)
 				.join({ t: traps() }, ({ r, t }) => eq(r.trap_id, t.id), 'left')
-				.select(({ r, t }) => ({
+				.join({ ad: addresses() }, ({ r, ad }) => eq(r.address_id, ad.id), 'left')
+				.select(({ r, t, ad }) => ({
 					id: r.id,
 					lat: r.lat,
 					lng: r.lng,
+					trap_id: r.trap_id,
 					collection_method_id: r.collection_method_id,
 					collected_at: r.collected_at,
 					collected_by_profile_id: r.collected_by_profile_id,
@@ -178,6 +180,7 @@ export function useDayActivity(day: string, timeZone: string): DayActivityRead {
 					created_at: r.created_at,
 					trapCode: t.trap_code,
 					trapName: t.trap_name,
+					addressName: ad.display_name,
 					assisting: assistingOn(query, r.id, ENTITY.collection),
 				})),
 	});

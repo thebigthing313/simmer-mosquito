@@ -35,14 +35,14 @@ describe('habitatLabel', () => {
 	} as const;
 
 	it('answers the habitat name', () => {
-		expect(habitatLabel(AT_HABITAT, { fallback: 'Ad-hoc sample' })).toBe('Alder catch basin');
+		expect(habitatLabel(AT_HABITAT, { fallback: 'One-off sample' })).toBe('Alder catch basin');
 	});
 
 	it('answers the address when the habitat has no name', () => {
 		expect(
 			habitatLabel(
 				{ ...AT_HABITAT, habitatName: null },
-				{ addressName: '123 Main St, Edison, NJ 08817', fallback: 'Ad-hoc sample' },
+				{ addressName: '123 Main St, Edison, NJ 08817', fallback: 'One-off sample' },
 			),
 		).toBe('123 Main St, Edison, NJ 08817');
 	});
@@ -50,7 +50,7 @@ describe('habitatLabel', () => {
 	// A surface carrying no address passes none, and an unnamed habitat is still
 	// a habitat, so it is named by the head of the id a person can search.
 	it('names an unnamed habitat by the head of its id', () => {
-		expect(habitatLabel({ ...AT_HABITAT, habitatName: null }, { fallback: 'Ad-hoc sample' })).toBe(
+		expect(habitatLabel({ ...AT_HABITAT, habitatName: null }, { fallback: 'One-off sample' })).toBe(
 			'Habitat 0f8c2b61',
 		);
 	});
@@ -61,7 +61,7 @@ describe('habitatLabel', () => {
 		expect(
 			habitatLabel(
 				{ ...AT_HABITAT, habitatId: null, habitatName: null },
-				{ fallback: 'Ad-hoc sample' },
+				{ fallback: 'One-off sample' },
 			),
 		).toBe('34.05213, -118.24368');
 	});
@@ -70,15 +70,15 @@ describe('habitatLabel', () => {
 		expect(
 			habitatLabel(
 				{ habitatId: null, habitatName: null, lat: null, lng: null },
-				{ fallback: 'Ad-hoc sample' },
+				{ fallback: 'One-off sample' },
 			),
-		).toBe('Ad-hoc sample');
+		).toBe('One-off sample');
 	});
 
 	// A name of spaces is a name nothing reads, which is what the trim is for.
 	it('passes a blank habitat name over', () => {
 		expect(
-			habitatLabel({ ...AT_HABITAT, habitatName: '   ' }, { fallback: 'Ad-hoc inspection' }),
+			habitatLabel({ ...AT_HABITAT, habitatName: '   ' }, { fallback: 'One-off inspection' }),
 		).toBe('Habitat 0f8c2b61');
 	});
 });

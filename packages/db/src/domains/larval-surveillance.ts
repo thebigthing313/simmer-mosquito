@@ -17,6 +17,8 @@ export interface AwaitingSampleRow {
 	readonly inspectionDate: string;
 	readonly habitatId: string | null;
 	readonly habitatName: string | null;
+	/** The parent inspection's Address, the rung below the Habitat name. */
+	readonly addressDisplayName: string | null;
 	/** The parent inspection's centroid — what titles a sample with no habitat. */
 	readonly lat: number | null;
 	readonly lng: number | null;
@@ -97,11 +99,13 @@ export async function listSamplesAwaitingIdentification(
 			i.inspection_date::text as "inspectionDate",
 			i.habitat_id as "habitatId",
 			h.habitat_name as "habitatName",
+			a.display_name as "addressDisplayName",
 			i.lat,
 			i.lng
 		from samples s
 		join inspections i on i.id = s.inspection_id
 		left join habitats h on h.id = i.habitat_id
+		left join addresses a on a.id = i.address_id
 		where ${awaitingCondition}
 		order by i.inspection_date asc, s.created_at asc
 		limit ${input.limit}
@@ -363,6 +367,13 @@ export interface SafeSampleDisplayRow {
 	readonly inspectionDate: string;
 	readonly habitatId: string | null;
 	readonly habitatName: string | null;
+	/**
+	 * The parent inspection's Address, the rung below the Habitat name.
+	 *
+	 * A sample carries no address of its own and no geometry of its own: both
+	 * live on the inspection that produced it, which this surface already joins.
+	 */
+	readonly addressDisplayName: string | null;
 	readonly isZeroLarvae: boolean;
 	readonly hasNonMosquito: boolean;
 	readonly unidentifiableReason: string | null;
@@ -392,10 +403,12 @@ const sampleStatusExpression = sql`
 	end
 `;
 
-// The habitat name and the per-sample species roll-up, kept as one fragment so
-// the bbox and by-id readers can never drift in shape.
+// The habitat name, the parent inspection's address label, and the per-sample
+// species roll-up, kept as one fragment so the bbox and by-id readers can never
+// drift in shape.
 const sampleDisplayJoins = sql`
 	left join habitats h on h.id = i.habitat_id
+	left join addresses a on a.id = i.address_id
 	left join lateral (
 		select
 			max(ss.identified_at)::text as identified_at,
@@ -423,6 +436,7 @@ const sampleDisplayColumns: MapDisplayColumns<SafeSampleDisplayRow> = {
 	inspectionDate: sql`i.inspection_date::text`,
 	habitatId: sql`i.habitat_id`,
 	habitatName: sql`h.habitat_name`,
+	addressDisplayName: sql`a.display_name`,
 	isZeroLarvae: sql`s.is_zero_larvae`,
 	hasNonMosquito: sql`s.has_non_mosquito`,
 	unidentifiableReason: sql`s.unidentifiable_reason`,

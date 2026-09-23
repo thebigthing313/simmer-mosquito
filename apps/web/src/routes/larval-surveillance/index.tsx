@@ -35,7 +35,7 @@ import {
 import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { adhocLabel } from '../../lib/coordinate-label';
+import { habitatLabel } from '../../lib/coordinate-label';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
@@ -316,7 +316,10 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 									<span className="truncate text-muted-foreground text-xs tabular-nums">
 										{sample.habitatName ??
 											(sample.habitatId === null
-												? adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')
+												? habitatLabel(sample, {
+														addressName: sample.addressDisplayName,
+														fallback: 'One-off sample',
+													})
 												: 'Habitat')}
 									</span>
 								</div>

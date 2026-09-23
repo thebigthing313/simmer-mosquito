@@ -18,7 +18,8 @@ import {
 	type SpeciesWindow,
 	speciesWindowSince,
 } from '../../components/species-composition-panel';
-import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { type LinkedAddress, resolveLinkedAddress } from '../../hooks/queries/address-view';
+import { collectionLabel } from '../../hooks/queries/trap-view';
 import { useAdultSpeciesComposition } from '../../hooks/queries/use-adult-species-composition';
 import { useCollectionsAwaitingIdentification } from '../../hooks/queries/use-collections-awaiting-identification';
 import { useCollectionsOverThreshold } from '../../hooks/queries/use-collections-over-threshold';
@@ -27,6 +28,7 @@ import {
 	useRecentCollections,
 } from '../../hooks/queries/use-recent-collections';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { addressCardLabel } from '../../lib/address-format';
 import {
 	addDaysToDateString,
 	formatMonthDay,
@@ -85,20 +87,31 @@ function AdultSurveillanceOverviewRoute() {
 	);
 }
 
-/** What a collection is called: the trap it came from, or that it had none. */
+/**
+ * What a collection is called: the trap it came from, then the address, then
+ * its own coordinates, then the word ({@link collectionLabel}).
+ */
 function collectionPrimaryLabel(collection: {
 	readonly trapId: string | null;
 	readonly trapName: string | null;
 	readonly trapCode: string | null;
+	readonly address: LinkedAddress;
+	readonly latitude: number;
+	readonly longitude: number;
 }): string {
-	if (collection.trapId === null) {
-		return 'Ad-hoc collection';
-	}
-	return trapDisplayName({
-		id: collection.trapId,
-		trapName: collection.trapName,
-		trapCode: collection.trapCode,
-	});
+	return collectionLabel(
+		{
+			trapId: collection.trapId,
+			trapName: collection.trapName,
+			trapCode: collection.trapCode,
+			lat: collection.latitude,
+			lng: collection.longitude,
+		},
+		{
+			addressName: addressCardLabel(resolveLinkedAddress(collection.address)),
+			fallback: 'One-off collection',
+		},
+	);
 }
 
 /** A collection's date as `Wed, Aug 12` — an em dash while it is still pending. */

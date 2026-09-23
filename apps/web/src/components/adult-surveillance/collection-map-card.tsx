@@ -1,9 +1,11 @@
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { type LinkedAddress, resolveLinkedAddress } from '../../hooks/queries/address-view';
+import { collectionLabel } from '../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../hooks/queries/use-adult-collection';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { addressCardLabel } from '../../lib/address-format';
 import { recordNoun } from '../../lib/record-nouns';
 import { MapCardAddress } from '../linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, mapCardCoordinates } from '../map/map-card';
@@ -71,22 +73,38 @@ export function CollectionMapCard({
 	);
 }
 
-/** A collection is titled by the trap it came from, or a placeholder while the join lands. */
+/**
+ * A collection is titled by the trap it came from, then the address, then its
+ * own coordinates, then the word ({@link collectionLabel}).
+ *
+ * The one rung this card has that the helper does not is the placeholder while
+ * the trap row is in flight: `resolvedTrapId` is the column that tells a trap
+ * still arriving from one with no name, and this is the only collection surface
+ * that carries it.
+ */
 function collectionTitle(collection: {
 	readonly trapId: string | null;
 	readonly resolvedTrapId: string | undefined;
 	readonly trapName: string | null;
 	readonly trapCode: string | null;
+	readonly address: LinkedAddress;
+	readonly latitude: number;
+	readonly longitude: number;
 }): string {
-	if (collection.trapId === null) {
-		return 'Ad-hoc collection';
-	}
-	if (collection.resolvedTrapId === undefined) {
+	if (collection.trapId !== null && collection.resolvedTrapId === undefined) {
 		return 'Collection';
 	}
-	return trapDisplayName({
-		id: collection.trapId,
-		trapName: collection.trapName,
-		trapCode: collection.trapCode,
-	});
+	return collectionLabel(
+		{
+			trapId: collection.trapId,
+			trapName: collection.trapName,
+			trapCode: collection.trapCode,
+			lat: collection.latitude,
+			lng: collection.longitude,
+		},
+		{
+			addressName: addressCardLabel(resolveLinkedAddress(collection.address)),
+			fallback: 'One-off collection',
+		},
+	);
 }

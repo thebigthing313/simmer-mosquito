@@ -39,6 +39,7 @@ import type {
 	SourceReduction,
 	Trap,
 } from '@simmer-mosquito/sync';
+import { adhocLabel } from '../../lib/coordinate-label';
 import { localCalendarDay } from '../../lib/local-date';
 import type { ActivityEntry } from './activity-data';
 
@@ -387,6 +388,7 @@ export function collectionEntries(
 		| 'id'
 		| 'lat'
 		| 'lng'
+		| 'trap_id'
 		| 'collection_method_id'
 		| 'collected_at'
 		| 'collected_by_profile_id'
@@ -401,6 +403,7 @@ export function collectionEntries(
 	> & {
 		readonly trapCode: string | null | undefined;
 		readonly trapName: string | null | undefined;
+		readonly addressName: string | null | undefined;
 		readonly assisting: readonly AssistingLink[];
 	},
 	scope: DayScope,
@@ -411,10 +414,18 @@ export function collectionEntries(
 		id: collection.id,
 		lat: collection.lat,
 		lng: collection.lng,
-		placeName: trapLabel({
-			trap_code: collection.trapCode ?? null,
-			trap_name: collection.trapName ?? null,
-		}),
+		// The trap, then the address, then the coordinates. A collection recorded
+		// away from a trap used to hand over nothing here, and the row drew the
+		// words "Ad-hoc collection" while the place it was taken sat one join away
+		// (#1231). The trap rung keeps `trapLabel` rather than `collectionLabel`'s,
+		// because this seam joins the trap and never reads its id.
+		placeName:
+			trapLabel({
+				trap_code: collection.trapCode ?? null,
+				trap_name: collection.trapName ?? null,
+			}) ??
+			trimmed(collection.addressName ?? null) ??
+			adhocLabel(collection.lat, collection.lng, 'One-off collection'),
 		refId: collection.collection_method_id,
 		detail: collectionStatus(collection),
 		hasBycatch: collection.has_bycatch,

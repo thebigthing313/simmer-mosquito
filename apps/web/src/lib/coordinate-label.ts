@@ -2,14 +2,26 @@
  * How a record's centroid reads on a surface.
  *
  * Three labels sit on one formatter. The first is how a record with no habitat
- * names itself: an ad-hoc inspection or sample has no habitat to title it, and
- * "Ad-hoc inspection" names the category every such row already belongs to, so
- * it leaves nothing to tell one row from the next. The coordinates do, so they
- * are the label wherever a habitat name would have gone. The second is the
- * Coordinates row of a detail page, which is a row that always draws and so
- * needs a word for the absent centroid rather than a blank. The third is the
- * whole of that first question asked at once, for a surface holding a record
- * that may or may not sit on a habitat.
+ * names itself: an Ad Hoc Inspection or a sample taken at one has no habitat to
+ * title it, and "One-off inspection" names the category every such row already
+ * belongs to, so it leaves nothing to tell one row from the next. The
+ * coordinates do, so they are the label wherever a habitat name would have gone.
+ * The second is the Coordinates row of a detail page, which is a row that always
+ * draws and so needs a word for the absent centroid rather than a blank. The
+ * third is the whole of that first question asked at once, for a surface holding
+ * a record that may or may not sit on a habitat.
+ *
+ * ## Two spellings, and which is which
+ *
+ * "Ad Hoc Inspection" is the domain term: `CONTEXT.md` carries it, the schema
+ * spells it, and so do the commands, `larvalSurveillance.recordAdHocInspection`
+ * among them. "One-off" is the word a person reads. The split is the one this
+ * repo already draws between a term and the copy over it, and it is why
+ * `pnpm check:vocabulary` does not enforce either: an Avoid entry would fail on
+ * `recordAdHocInspectionCommand` at every call site (#1231).
+ *
+ * {@link collectionLabel} in `hooks/queries/trap-view.ts` is the same ladder
+ * over a Trap, for the adult side.
  */
 
 /**
@@ -51,10 +63,10 @@ export function coordinateLabel(
  * The coordinates, falling back to what the surface calls a record with none.
  *
  * `fallback` is required, which is the whole of #953. The default was
- * `Ad-hoc inspection`, one record kind's category name, and three sample
+ * the inspection's category name, one record kind's, and three sample
  * surfaces took it: the samples explorer row, the sample map card and the
- * Awaiting Identification panel on the larval overview each read
- * `Ad-hoc inspection` for a sample with no habitat and no centroid. #918 made
+ * Awaiting Identification panel on the larval overview each named a sample with
+ * no habitat and no centroid after an inspection. #918 made
  * `habitatLabel`'s fallback required for that reason one level up, and a
  * required argument makes the next instance a `tsc` error rather than a wrong
  * word on screen.
@@ -81,7 +93,7 @@ export interface HabitatLabelRow {
  * The inspection detail, the inspection explorer and the sample detail each
  * wrote this out, two of them under the name `site` plus `Label`, and the three
  * disagreed on the arm that runs when there is no habitat: two read the
- * coordinates and the sample's read the bare word `Ad-hoc`. The coordinates
+ * coordinates and the sample's read the bare words `Ad-hoc`. The coordinates
  * win, which is the rule the header above already states (#918). Two more
  * followed in #954, the inspection map card and the larval activity reader.
  *
@@ -91,7 +103,7 @@ export interface HabitatLabelRow {
  * `fallback` is required rather than defaulted. The only default available is
  * one record kind's category name, and the sample detail is what a wrong one
  * looks like on screen: it reached `adhocLabel` through an arm of its own, so a
- * sample carrying no centroid read `Ad-hoc inspection`.
+ * sample carrying no centroid titled itself after an inspection.
  *
  * ## Which arm a seam can reach
  *

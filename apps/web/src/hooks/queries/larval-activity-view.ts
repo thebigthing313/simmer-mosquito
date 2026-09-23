@@ -133,7 +133,7 @@ export function inspectionHabitatLabel(row: LarvalActivityRow, address?: LinkedA
 			lat: row.latitude,
 			lng: row.longitude,
 		},
-		{ addressName: addressCardLabel(linked), fallback: 'Ad-hoc inspection' },
+		{ addressName: addressCardLabel(linked), fallback: 'One-off inspection' },
 	);
 }
 
