@@ -1,5 +1,33 @@
 # @simmer-mosquito/web
 
+## 0.9.0 — 2026-09-23
+
+### Minor Changes
+
+- Changed: the Dashboard leads with the last-7-days strip, which counts off the synced tables and moves as records sync rather than on a five-minute refresh. It draws every activity type, at 0 where the Organization has recorded none, and states each change with a chevron and a count-or-percent toggle. In the field today and the Activity Monitor read the same synced rows, so both move as a record syncs, and a day on the Monitor is never cut short at 2,000 entries. The untreated habitats banner is gone; the habitats explorer's untreated filter still answers the question.
+
+- Added: a Mission stop can carry a name somebody typed. The Add a Stop form takes an optional Name, and a Manager renames a stop from its row on the mission page, where clearing the box puts the derived name back. The stop list draws the stored name ahead of the Requested Control Action it came from and the Address it sits at, so two stops drawn on the map are told apart by more than their ordinals; a named stop still links back to its request from the line below. A stop nobody named reads exactly as it did.
+
+- Added: the nearby panel on a service request says when the map is showing the nearest 2,000 records only, and points at the public-engagement settings to narrow the radius or time window. A radius denser than that cap used to draw a map that looked complete. The cap also counts only the record kinds the page is drawing, so other service requests are no longer pushed off the map by outreach actions in a dense radius.
+
+- Added: three period-in-review pages under Overview, Today, Monthly and Annual. Each reads one period against the periods before it, for the eight record types the Dashboard strip counts and for the two ratios under them, positive inspections and mosquitoes per collection. Today reads a day against the day before; Monthly reads a month against the month before, the same month last year and the five years before; Annual reads a year against the year before and the five years before. While a period is still running, each earlier one is cut to the same point in it, so a part month is compared with a part month. A count opens its explorer over that period, a bar opens its own period, the smaller periods link up to the larger, and a period is picked from the header or written into the address. The service requests explorer takes a date range beside its other filters, so those count links land on the rows they counted.
+
+- Changed: a service request opens as a map-first page with the same header as every other record. Its Tags and its open or closed badge sit at the right end, the pencil opens the edit form, and the "..." holds Close Request or Reopen Request, whichever the request allows, with Delete last. Under the header it splits into five tabs, Details, Infrastructure, Surveillance, Control and Comments, each scrolling on its own inside the viewport, and the active tab is in the address so a refresh or a shared link lands on the same one. A family tab lists that family's nearby records nearest first and the map draws only those; Details and Comments draw the request, its radius and the other service requests in the same window, each of which opens its own map card. Nearby records draw as the same rows an explorer's results rail draws, with the distance from the request in a column of its own, and the rail's own placeholders, empty state and retry.
+
+- Added: a Tag names the record types it is suggested for, and every record detail page has a tag picker. The Tags table under My organization carries a `Suggested For` column, edited from a select that lists the six taggable record types and reads `All records` when the set is empty. The picker opens from a counted `Tags` button in the record header and lists the whole catalog in two sections, the tags suggested for that record type first, with a search over names and descriptions; a checkbox writes on the click, and a chip can be taken off from the header. Nothing is enforced: the set decides which tags are offered first, and any active tag still goes on any record that can carry one.
+
+### Patch Changes
+
+- Changed: a refused start, complete, cancel, reopen or resolve on a request for control, an assignment or a mission is reported in a toast, the way every other record page reports one, instead of in a banner under the header.
+
+- Fixed: a row for a record with no badges no longer carries an empty line under its subtitle, and the Daily Work log and the Regions folder tree draw the styled scrollbar in place of the browser's own. The rail no longer changes shape at the moment the list replaces its loading placeholders.
+
+- Changed: the records shown near a service request run to the day it was closed, or to today while it is still open. The window used to end a fixed number of days after the request date, 14 by default, so a request that stayed open for six weeks showed two weeks of what happened after it and nothing of the work that closed it. The setting is now a floor on the window's end rather than the end itself, and the "Days after" field in My organization says so. Where the window ran past that floor, the panel and the map caption say which day it ran to. Both days are the Organization's calendar days, and the start of the window is unchanged.
+
+- Fixed: a Collector who picks up a route from the worklist gets the assignment dated on the Organization's calendar day. It was dated on the UTC day, so a route picked up in the evening was filed under tomorrow.
+
+- Fixed: dates read the same on every machine. The date in the header, the time on an error report and the release date on What's New all took their wording from the browser's language, so the same day could read `Wed, Mar 4, 2026` on one screen and `Wed 4 Mar 2026` on the next.
+
 ## 0.8.0 — 2026-09-17
 
 ### Minor Changes
