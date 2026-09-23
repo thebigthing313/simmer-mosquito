@@ -68,10 +68,9 @@ import {
 	type CollectionSpeciesChanges,
 	useCollectionSpeciesMutations,
 } from '../../../hooks/mutations/use-collection-species-mutations';
-import { resolveLinkedAddress } from '../../../hooks/queries/address-view';
 import type { AdultCollection } from '../../../hooks/queries/collection-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import { collectionLabel, trapDisplayName } from '../../../hooks/queries/trap-view';
+import { collectionPlaceLabel, trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
 import {
 	type CollectionIdentification,
@@ -86,7 +85,6 @@ import {
 	COLLECTION_DELETE_REFUSALS,
 	COLLECTION_ZERO_RESULT_REFUSALS,
 } from '../../../lib/acknowledgement-copy';
-import { addressCardLabel } from '../../../lib/address-format';
 import {
 	formatWeekdayMonthDay,
 	operationalDayAsTimestamp,
@@ -223,19 +221,7 @@ function CollectionDetailContent({
 					recordId: collection.id,
 					returnTo: '/adult-surveillance/collections',
 				},
-				subtitle: `${collectionLabel(
-					{
-						trapId: collection.trapId,
-						trapName: collection.trapName,
-						trapCode: collection.trapCode,
-						lat: collection.latitude,
-						lng: collection.longitude,
-					},
-					{
-						addressName: addressCardLabel(resolveLinkedAddress(collection.address)),
-						fallback: 'One-off collection',
-					},
-				)} · ${methodName}`,
+				subtitle: `${collectionPlaceLabel(collection)} · ${methodName}`,
 				title,
 			}}
 			layout={layout}
@@ -840,7 +826,18 @@ function DetailsCard({
 								to="/adult-surveillance/traps/$id"
 							>
 								<TrapIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{trapDisplayName({ ...collection, id: collection.trapId })}
+								{/*
+								 * The id is the trap's, not the collection's. This row is
+								 * inside the link to the trap, and `trapDisplayName` falls
+								 * back to the head of whatever id it is handed, so passing
+								 * the collection drew `Trap <collection id>` for a trap with
+								 * no code and no name.
+								 */}
+								{trapDisplayName({
+									id: collection.trapId,
+									trapName: collection.trapName,
+									trapCode: collection.trapCode,
+								})}
 							</Link>
 						)}
 					</DetailRow>

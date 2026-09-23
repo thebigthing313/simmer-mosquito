@@ -361,10 +361,13 @@ function CollectionListItem({
 	readonly onSelect: (id: string) => void;
 }) {
 	/*
-	 * `trapName` is resolved from the trap name map above rather than off the
-	 * row, so the trap rung is already taken by the time this runs and the row's
-	 * own name columns are not on this surface. What is left is the ladder below
-	 * it: the address, then the coordinates, then the word (#1231).
+	 * The trap rung is already taken by the time this runs, and `trapId: null`
+	 * below says so rather than describing the row: the caller resolves
+	 * `trapName` from the trap name map and substitutes `Unknown trap` for a
+	 * trap it cannot name, so a row with a trap never reaches this call with a
+	 * null `trapName`. The server row carries no trap name columns of its own.
+	 * What is left is the ladder below the trap: the address, then the
+	 * coordinates, then the word (#1231).
 	 */
 	const label =
 		trapName ??

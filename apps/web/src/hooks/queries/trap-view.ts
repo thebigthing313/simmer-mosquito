@@ -16,8 +16,9 @@
  * a full uuid for the traps that have neither, which is worse than the helper.
  */
 
+import { addressCardLabel } from '../../lib/address-format';
 import { adhocLabel } from '../../lib/coordinate-label';
-import type { LinkedAddress } from './address-view';
+import { type LinkedAddress, resolveLinkedAddress } from './address-view';
 
 /**
  * A Trap, as the surfaces that show one whole want it.
@@ -123,21 +124,56 @@ export interface CollectionLabelRow {
  * `resolvedTrapId` before calling this rather than inside it: only the map card
  * does, and only it carries the column that answers.
  *
- * `fallback` is required for the reason it is required one module over: the only
- * default available is one record kind's category name, and a wrong one is what
- * #953 found on three sample surfaces.
+ * Both options are required, `fallback` for the reason it is required one module
+ * over and `addressName` for the same one a rung further up: the only default
+ * either could take is the answer that skips a rung, and #953 is what a surface
+ * silently skipping one looks like on screen. A surface with no Address to offer
+ * passes `null` and says so at the call.
  */
 export function collectionLabel(
 	row: CollectionLabelRow,
 	options: {
 		/** What a collection with no Trap, no Address and no centroid is called. */
 		readonly fallback: string;
-		/** The Address the collection was linked to, where the surface carries one. */
-		readonly addressName?: string | null;
+		/** The Address the collection was linked to, or `null` where it carries none. */
+		readonly addressName: string | null | undefined;
 	},
 ): string {
 	if (row.trapId !== null) {
 		return trapDisplayName({ id: row.trapId, trapName: row.trapName, trapCode: row.trapCode });
 	}
 	return options.addressName?.trim() || adhocLabel(row.lat, row.lng, options.fallback);
+}
+
+/**
+ * {@link collectionLabel} over a seam that joined the Address rather than
+ * resolving its label.
+ *
+ * Three of the five collection surfaces read a row of exactly this shape and
+ * wrote the same adapter out, so the mapping and the word live here once. The
+ * two that do not are the explorer, whose server row carries an address label
+ * and no joined object, and the daily activity log, which joins the Trap by
+ * name and never reads its id.
+ */
+export function collectionPlaceLabel(collection: {
+	readonly trapId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly address: LinkedAddress;
+	readonly latitude: number;
+	readonly longitude: number;
+}): string {
+	return collectionLabel(
+		{
+			trapId: collection.trapId,
+			trapName: collection.trapName,
+			trapCode: collection.trapCode,
+			lat: collection.latitude,
+			lng: collection.longitude,
+		},
+		{
+			addressName: addressCardLabel(resolveLinkedAddress(collection.address)),
+			fallback: 'One-off collection',
+		},
+	);
 }

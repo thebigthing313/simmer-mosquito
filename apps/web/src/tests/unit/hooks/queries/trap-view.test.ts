@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { collectionLabel, trapDisplayName } from '../../../../hooks/queries/trap-view';
+import {
+	collectionLabel,
+	collectionPlaceLabel,
+	trapDisplayName,
+} from '../../../../hooks/queries/trap-view';
 
 describe('trapDisplayName', () => {
 	const TRAP = {
@@ -37,7 +41,7 @@ describe('collectionLabel', () => {
 	const NO_TRAP = { ...AT_TRAP, trapId: null, trapName: null, trapCode: null } as const;
 
 	it('answers the trap name', () => {
-		expect(collectionLabel(AT_TRAP, { fallback: 'One-off collection' })).toBe(
+		expect(collectionLabel(AT_TRAP, { addressName: null, fallback: 'One-off collection' })).toBe(
 			'GR-014 - Riverside gravid',
 		);
 	});
@@ -49,7 +53,7 @@ describe('collectionLabel', () => {
 		expect(
 			collectionLabel(
 				{ ...AT_TRAP, trapName: null, trapCode: null },
-				{ fallback: 'One-off collection' },
+				{ addressName: null, fallback: 'One-off collection' },
 			),
 		).toBe('Trap 7b1e5c40');
 	});
@@ -66,7 +70,7 @@ describe('collectionLabel', () => {
 	});
 
 	it('reads the coordinates when there is no trap and no address', () => {
-		expect(collectionLabel(NO_TRAP, { fallback: 'One-off collection' })).toBe(
+		expect(collectionLabel(NO_TRAP, { addressName: null, fallback: 'One-off collection' })).toBe(
 			'34.05213, -118.24368',
 		);
 	});
@@ -75,7 +79,10 @@ describe('collectionLabel', () => {
 	// with no trap. They are the last rung now.
 	it('falls back to the category only when the row carries no centroid', () => {
 		expect(
-			collectionLabel({ ...NO_TRAP, lat: null, lng: null }, { fallback: 'One-off collection' }),
+			collectionLabel(
+				{ ...NO_TRAP, lat: null, lng: null },
+				{ addressName: null, fallback: 'One-off collection' },
+			),
 		).toBe('One-off collection');
 	});
 
@@ -83,5 +90,42 @@ describe('collectionLabel', () => {
 		expect(collectionLabel(NO_TRAP, { addressName: '   ', fallback: 'One-off collection' })).toBe(
 			'34.05213, -118.24368',
 		);
+	});
+});
+
+describe('collectionPlaceLabel', () => {
+	const NO_ADDRESS = {
+		id: undefined,
+		displayName: undefined,
+		addressLine1: undefined,
+		addressLine2: undefined,
+		locality: undefined,
+		region: undefined,
+		postalCode: undefined,
+	};
+
+	const ROW = {
+		trapId: null,
+		trapName: null,
+		trapCode: null,
+		address: NO_ADDRESS,
+		latitude: 34.05213,
+		longitude: -118.24368,
+	};
+
+	// The adapter's own job: the joined Address becomes the label the ladder
+	// reads, and the row speaks `latitude`/`longitude` where the ladder speaks
+	// `lat`/`lng`.
+	it('reads the joined address as the rung below the trap', () => {
+		expect(
+			collectionPlaceLabel({
+				...ROW,
+				address: { ...NO_ADDRESS, id: 'a1', addressLine1: '123 Main St', locality: 'Edison' },
+			}),
+		).toBe('123 Main St, Edison');
+	});
+
+	it('reads the coordinates when the address join matched nothing', () => {
+		expect(collectionPlaceLabel(ROW)).toBe('34.05213, -118.24368');
 	});
 });

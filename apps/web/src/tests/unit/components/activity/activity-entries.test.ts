@@ -17,7 +17,7 @@ const ROW = {
 	id: 'collection-00000000-0000-4000-8000-000000000001',
 	lat: 34.05213,
 	lng: -118.24368,
-	trap_id: null,
+	trap_id: null as string | null,
 	collection_method_id: 'method-1',
 	collected_at: COLLECTED_AT,
 	collected_by_profile_id: 'profile-1',
@@ -29,9 +29,9 @@ const ROW = {
 	is_zero_result: false,
 	has_bycatch: false,
 	created_at: COLLECTED_AT,
-	trapCode: null,
-	trapName: null,
-	addressName: null,
+	trapCode: null as string | null,
+	trapName: null as string | null,
+	addressName: null as string | null,
 	assisting: [],
 };
 

@@ -165,6 +165,19 @@ Common source terms:
   term stays as the name of the record across the domain docs, the commands and
   the tables; the display form is what a person sees, and it is written once, in
   `apps/web/src/lib/record-nouns.ts`.
+- "Ad Hoc" is the term; **one-off** is its display form. An **Ad Hoc
+  Inspection** is what the schema, the commands and these docs call an
+  inspection filed at no Habitat, and a person reads "One-off inspection",
+  "One-off sample" and "One-off collection". The same split the Requested
+  Control Action bullet above makes, and for the same reason: the term names
+  the record and the display form is what a surface draws. It is not in the
+  Avoid column, because the domain spelling is correct wherever it appears and
+  an entry there would fail on `recordAdHocInspectionCommand` at every call
+  site. What a record with no Habitat and no Trap is actually called is the
+  ladder in `apps/web/src/lib/coordinate-label.ts` and its twin in
+  `apps/web/src/hooks/queries/trap-view.ts`: the Habitat or Trap, then the
+  Address, then the coordinates, and the display form only when the record
+  carries none of them.
 - "District" can mean the **Organization** itself, since an abatement district is
   one, or a piece of its geography, which is a **Region**. Not a term: write
   Organization or Region.
