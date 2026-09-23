@@ -1,5 +1,11 @@
 # @simmer-mosquito/admin
 
+## 0.7.1 — 2026-09-23
+
+### Patch Changes
+
+- Fixed: dates read the same on every machine. The Created and Updated dates on an organization page and the release date on What's New took their wording from the browser's language, so the same day could read `Wed, Mar 4, 2026` on one screen and `Wed 4 Mar 2026` on the next.
+
 ## 0.7.0 — 2026-09-17
 
 ### Minor Changes
