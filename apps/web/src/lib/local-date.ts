@@ -486,7 +486,7 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
 // --- calendar-date labels and day arithmetic --------------------------------
 
 // The helpers below read and render a `YYYY-MM-DD` string. They lived in
-// `routes/larval-surveillance/-overview-data.ts` and were re-exported from three
+// `routes/larval-surveillance/-overview-data.ts`, since split into hooks, and were re-exported from three
 // more route-private modules, so four domains reached one implementation through
 // four doors and two files imported it through both of theirs (#906). They are
 // here for the reason `todayInTimeZone` is: a week strip, a list date and a day
@@ -651,6 +651,34 @@ export function formatNumericDate(date: string): string {
 		month: 'numeric',
 		day: 'numeric',
 	});
+}
+
+/**
+ * `Monday, September 21, 2026`, a day named in full.
+ *
+ * The period-in-review pages draw it in the upward line under the heading,
+ * where the day is the subject and has the room; every list keeps the short
+ * forms above.
+ */
+export function formatLongDate(date: string): string {
+	return utcLabel('formatLongDate', date, {
+		weekday: 'long',
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+	});
+}
+
+/**
+ * A `YYYY-MM` period as `September 2026`, or `Sep 2026` when `style` is
+ * `short`. Takes the month itself rather than a date in it, so the caller
+ * never has to invent a day.
+ */
+export function formatMonthYear(month: string, style: 'long' | 'short' = 'long'): string {
+	if (!/^\d{4}-\d{2}$/.test(month)) {
+		return unreadable('formatMonthYear', month);
+	}
+	return utcLabel('formatMonthYear', `${month}-01`, { month: style, year: 'numeric' });
 }
 
 /**

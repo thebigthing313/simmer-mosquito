@@ -21,6 +21,7 @@ export async function insertMissionItem(
 		readonly missionItemId: string;
 		readonly organizationId: string;
 		readonly missionId: string;
+		readonly name: string | null;
 		readonly geom: ReturnType<typeof geojsonToGeom>;
 		readonly addressId: string | null;
 		readonly requestedControlActionId: string | null;
@@ -35,6 +36,7 @@ export async function insertMissionItem(
 				id: input.missionItemId,
 				organization_id: input.organizationId,
 				mission_id: input.missionId,
+				name: input.name,
 				requested_control_action_id: input.requestedControlActionId,
 				geom: input.geom,
 				address_id: input.addressId,

@@ -587,6 +587,7 @@ export interface MissionItemsTable {
 	lng: GeneratedColumn<number>;
 	geojson: GeneratedColumn<GeoJsonGeometry>;
 	geom_type: GeneratedColumn<string>;
+	name: string | null;
 }
 
 export interface MissionNotificationsTable {
@@ -999,6 +1000,7 @@ export interface TagsTable {
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
 	deleted_by_profile_id: string | null;
+	relevant_entity_types: Generated<string[]>;
 }
 
 export interface TrapsTable {

@@ -1,28 +1,28 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
-import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useMissionStopExecution } from '../../../components/mission-stop-execution';
-import { useRecordExtras } from '../../../forms/record-extras';
-import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
-import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
-import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
-import { recordNoun } from '../../../lib/record-nouns';
-import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
-import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
 	biocontrolFieldsFrom,
 	type DrawGeometry,
 	defaultBiocontrolFormValues,
-} from './-biocontrol-form';
+} from '../../../components/control-operations/biocontrol/biocontrol-form';
+import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
+import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
+import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
+import { recordNoun } from '../../../lib/record-nouns';
+import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 export const Route = createFileRoute('/control-operations/biocontrol/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard

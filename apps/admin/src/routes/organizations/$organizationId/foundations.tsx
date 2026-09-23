@@ -9,9 +9,14 @@ import type { OrganizationFoundations } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
 import { CatalogList, CatalogRow, RecordDialog } from '../../../components/catalog';
 import { OrganizationSessionGate } from '../../../components/organization-session';
-import { useOrganizations } from '../-organization-data';
-import { type DialogKind, FoundationForm, LOOKUP_LABELS } from './-foundation-forms';
-import { useCreateFoundation, useOrganizationFoundations } from './-foundations-data';
+import {
+	type DialogKind,
+	FoundationForm,
+} from '../../../components/organizations/foundation-forms';
+import { LOOKUP_LABELS } from '../../../components/organizations/lookup-form';
+import { useCreateFoundation } from '../../../hooks/mutations/use-create-foundation';
+import { useOrganizationFoundations } from '../../../hooks/queries/use-organization-foundations';
+import { useOrganizationIdentity } from '../../../hooks/queries/use-organization-identity';
 
 const FoundationsIcon = iconRegistry.generic.settings.icon;
 const RegionIcon = iconRegistry.entities.region.icon;
@@ -76,25 +81,6 @@ function OrganizationFoundationsRoute() {
 			</OrganizationSessionGate>
 		</FoundationsFrame>
 	);
-}
-
-/**
- * The organization's name and WorkOS organization, from the directory's cache.
- *
- * Read rather than fetched: the operator arrived through that list, so it is
- * already warm. The WorkOS id is what entering the organization switches the
- * session to.
- */
-function useOrganizationIdentity(organizationId: string): {
-	readonly name: string | undefined;
-	readonly workosOrganizationId: string | null;
-} {
-	const { data } = useOrganizations();
-	const organization = data?.find((row) => row.id === organizationId);
-	return {
-		name: organization?.name,
-		workosOrganizationId: organization?.workosOrganizationId ?? null,
-	};
 }
 
 function FoundationsFrame({ children }: { readonly children: ReactNode }) {

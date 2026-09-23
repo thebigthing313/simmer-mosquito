@@ -1,20 +1,19 @@
 import { serve } from '@hono/node-server';
-import { type AuthenticatedSession, createWorkOsAuth } from '@simmer-mosquito/auth';
+import { createWorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	createDb,
 	resolveActiveLocalAuthIdentity,
 	upsertWorkOsIdentity,
 } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
-import type { setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
+import { createSessionWriter } from './auth/session/create-session-writer.js';
 import { createAuthMailer } from './auth-email.js';
 import {
 	type AuthVariables,
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
-import { writeSealedSession } from './auth-session-transport.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
 import { CORS_SURFACES, corsOptionsFor } from './cors-options.js';
 import { isRunnerShutdownMessage, serverListeningMessage } from './dev/dev-ipc.js';
@@ -50,6 +49,12 @@ if (env.workosIdentityWritesDisabled) {
 const db = createDb({
 	databaseUrl: env.databaseUrl,
 });
+const { setAuthCookie, finalizeSession } = createSessionWriter({
+	db,
+	auth: auth.session,
+	upsertIdentity: upsertWorkOsIdentity,
+	secure: env.nodeEnv === 'production',
+});
 const authMailer = createAuthMailer({
 	apiKey: env.resendApiKey,
 	from: env.authEmailFrom,
@@ -72,7 +77,9 @@ const localIdentityResolver = {
 // every request authenticates as a fixed WorkOS user + organization instead of
 // validating the WorkOS session cookie. The real WorkOS `auth` object is kept
 // for the login/callback routes; only the per-request session check is swapped.
-const sessionProvider = env.devImpersonate ? createDevSessionProvider(env.devImpersonate) : auth;
+const sessionProvider = env.devImpersonate
+	? createDevSessionProvider(env.devImpersonate)
+	: auth.session;
 if (env.devImpersonate) {
 	console.warn(
 		`[dev-impersonation] AUTH BYPASS ACTIVE — every request is authenticated as workosUserId=${env.devImpersonate.workosUserId} workosOrganizationId=${env.devImpersonate.workosOrganizationId}. Never use this against production.`,
@@ -149,7 +156,7 @@ registerAllRoutes(app, {
 	appOrigin: env.appOrigin,
 	appOrigins: env.appOrigins,
 	setAuthCookie,
-	finalizeSession: finalizeWorkOsSession,
+	finalizeSession,
 	geocoderApiKey: env.geocodioApiKey,
 	electricUrl: env.electricUrl,
 	authContextMiddleware,
@@ -259,38 +266,6 @@ function closeOpenHttpConnectionsForShutdown(): void {
 	}
 
 	connectionCloser.closeAllConnections?.();
-}
-
-async function finalizeWorkOsSession(
-	context: Parameters<typeof setCookie>[0],
-	session: AuthenticatedSession,
-): Promise<{ readonly organizationRequired: boolean }> {
-	const organization = await auth.getOrganization(session.workosOrganizationId);
-	const localIdentity = await upsertWorkOsIdentity(db, {
-		...session.user,
-		workosOrganizationId: session.workosOrganizationId,
-		workosOrganizationName: organization?.name ?? null,
-		workosRole: session.role,
-	});
-
-	setAuthCookie(context, session.sealedSession);
-
-	return { organizationRequired: localIdentity.organizationId === null };
-}
-
-/**
- * Hand the sealed session back to whoever asked for it.
- *
- * Still named for the cookie because that is what it is for every web caller,
- * but a token client (`apps/mobile`) also gets the value in a response header —
- * see `auth-session-transport.ts` for why the two transports have to stay one
- * function.
- */
-function setAuthCookie(
-	context: Parameters<typeof setCookie>[0],
-	sealedSession: string | undefined,
-): void {
-	writeSealedSession(context, sealedSession, { secure: env.nodeEnv === 'production' });
 }
 
 function allowedCorsOrigins(): string[] {

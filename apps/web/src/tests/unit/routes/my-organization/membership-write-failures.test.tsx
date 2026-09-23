@@ -1,7 +1,6 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AuthMe } from '../../../../auth';
 import type { PersonListing } from '../../../../hooks/queries/use-people-directory';
 
 /**
@@ -31,9 +30,10 @@ vi.mock('../../../../hooks/mutations/use-membership-mutations', () => ({
 	useMembershipMutations: () => ({ reinvite, endMembership }),
 }));
 
-const { ReinviteControl } = await import('../../../../routes/my-organization/-components/reinvite');
+const { signedInSnapshotAs } = await import('../route-mock-stand-ins');
+const { ReinviteControl } = await import('../../../../components/my-organization/reinvite');
 const { RemoveMemberControl } = await import(
-	'../../../../routes/my-organization/-components/remove-member'
+	'../../../../components/my-organization/remove-member'
 );
 
 const INVITED_PERSON = {
@@ -44,26 +44,7 @@ const INVITED_PERSON = {
 	role: 'collector',
 } as unknown as PersonListing;
 
-const OWNER: AuthMe = {
-	authenticated: true,
-	user: {
-		workosUserId: 'user_1',
-		email: 'owner@example.test',
-		firstName: null,
-		lastName: null,
-		displayName: 'Owner',
-		emailVerified: true,
-		profilePictureUrl: null,
-	},
-	workosOrganizationId: 'org_1',
-	localIdentity: {
-		userId: 'user_1',
-		organizationId: 'org_1',
-		profileId: 'profile_1',
-		membershipId: 'membership_1',
-		role: 'owner',
-	},
-};
+const OWNER = signedInSnapshotAs('owner');
 
 beforeAll(() => {
 	// jsdom ships none of the layout APIs Radix reaches for. These assert copy,

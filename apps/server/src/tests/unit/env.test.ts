@@ -3,7 +3,7 @@ import { readServerEnv } from '../../env.js';
 
 const baseEnv = {
 	APP_ORIGIN: 'http://localhost:5173',
-	DATABASE_URL: 'postgres://postgres:postgres@localhost:5432/simmer_mosquito',
+	DATABASE_URL: 'postgres://postgres:postgres@127.0.0.1:5432/simmer_mosquito',
 	WORKOS_API_KEY: 'sk_test',
 	WORKOS_CLIENT_ID: 'client_test',
 	WORKOS_COOKIE_PASSWORD: 'replace-with-at-least-32-characters',
@@ -59,9 +59,50 @@ describe('readServerEnv', () => {
 		expect(
 			readServerEnv({
 				...baseEnv,
-				ELECTRIC_URL: 'http://localhost:3001/v1/shape',
+				ELECTRIC_URL: 'http://127.0.0.1:3001/v1/shape',
 			}).electricUrl,
-		).toBe('http://localhost:3001/v1/shape');
+		).toBe('http://127.0.0.1:3001/v1/shape');
+	});
+
+	describe('IPv6 loopback on Windows (#926)', () => {
+		const localhostDb =
+			'postgres://postgres:postgres@localhost:55432/simmer_mosquito?sslmode=disable';
+
+		it('refuses a DATABASE_URL over localhost on Windows and names the IPv4 URL', () => {
+			expect(() => readServerEnv({ ...baseEnv, DATABASE_URL: localhostDb }, 'win32')).toThrow(
+				/DATABASE_URL reaches localhost on Windows[\s\S]*postgres:\/\/postgres:postgres@127\.0\.0\.1:55432\/simmer_mosquito\?sslmode=disable/,
+			);
+		});
+
+		it('refuses an ELECTRIC_URL over [::1] on Windows', () => {
+			expect(() =>
+				readServerEnv({ ...baseEnv, ELECTRIC_URL: 'http://[::1]:3001/v1/shape' }, 'win32'),
+			).toThrow(
+				/ELECTRIC_URL reaches \[::1\] on Windows[\s\S]*http:\/\/127\.0\.0\.1:3001\/v1\/shape/,
+			);
+		});
+
+		it('accepts both over 127.0.0.1 on Windows', () => {
+			const env = readServerEnv(
+				{ ...baseEnv, ELECTRIC_URL: 'http://127.0.0.1:3001/v1/shape' },
+				'win32',
+			);
+			expect(env.databaseUrl).toBe(baseEnv.DATABASE_URL);
+			expect(env.electricUrl).toBe('http://127.0.0.1:3001/v1/shape');
+		});
+
+		it('leaves localhost alone off Windows, which is what CI runs on', () => {
+			const env = readServerEnv(
+				{ ...baseEnv, DATABASE_URL: localhostDb, ELECTRIC_URL: 'http://localhost:3001/v1/shape' },
+				'linux',
+			);
+			expect(env.databaseUrl).toBe(localhostDb);
+			expect(env.electricUrl).toBe('http://localhost:3001/v1/shape');
+		});
+
+		it('leaves a browser-facing origin on localhost on Windows', () => {
+			expect(readServerEnv(baseEnv, 'win32').appOrigin).toBe('http://localhost:5173');
+		});
 	});
 
 	it('reads GEOCODIO_API_KEY when geocoding is configured', () => {

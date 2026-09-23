@@ -71,48 +71,45 @@ export function useTrapCollections(
 			: `${Number(todayInTimeZone(timeZone).slice(0, 4)) - (seasons - 1)}-01-01`;
 	const sinceInstant = sinceDate === null ? null : localDayStartAsInstant(sinceDate, timeZone);
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: collections() })
-					.where(({ collection }) =>
-						sinceDate === null || sinceInstant === null
-							? eq(collection.trap_id, trapId)
-							: and(
-									eq(collection.trap_id, trapId),
-									or(
-										gte(collection.collected_at, sinceInstant),
-										gte(collection.collection_date, sinceDate),
-										and(isNull(collection.collected_at), isNull(collection.collection_date)),
-									),
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ collection: collections() })
+				.where(({ collection }) =>
+					sinceDate === null || sinceInstant === null
+						? eq(collection.trap_id, trapId)
+						: and(
+								eq(collection.trap_id, trapId),
+								or(
+									gte(collection.collected_at, sinceInstant),
+									gte(collection.collection_date, sinceDate),
+									and(isNull(collection.collected_at), isNull(collection.collection_date)),
 								),
-					)
-					.select(({ collection }) => ({
-						id: collection.id,
-						collectedAt: collection.collected_at,
-						collectionDate: collection.collection_date,
-						collectionTimingMode: collection.collection_timing_mode,
-						hasProblem: collection.has_problem,
-						isZeroResult: collection.is_zero_result,
-						hasBycatch: collection.has_bycatch,
-						species: toArray(
-							query
-								.from({ identification: collection_species() })
-								.where(({ identification }) => eq(identification.collection_id, collection.id))
-								.select(({ identification }) => ({
-									id: identification.id,
-									speciesId: identification.species_id,
-									count: identification.count,
-									sex: identification.sex,
-									status: identification.status,
-								})),
-						),
-					})),
-		},
-		[trapId, sinceDate, sinceInstant?.getTime()],
-	);
+							),
+				)
+				.select(({ collection }) => ({
+					id: collection.id,
+					collectedAt: collection.collected_at,
+					collectionDate: collection.collection_date,
+					collectionTimingMode: collection.collection_timing_mode,
+					hasProblem: collection.has_problem,
+					isZeroResult: collection.is_zero_result,
+					hasBycatch: collection.has_bycatch,
+					species: toArray(
+						query
+							.from({ identification: collection_species() })
+							.where(({ identification }) => eq(identification.collection_id, collection.id))
+							.select(({ identification }) => ({
+								id: identification.id,
+								speciesId: identification.species_id,
+								count: identification.count,
+								sex: identification.sex,
+								status: identification.status,
+							})),
+					),
+				})),
+	});
 
 	return { collections: result.data, isReady: result.isReady, isError: result.isError };
 }

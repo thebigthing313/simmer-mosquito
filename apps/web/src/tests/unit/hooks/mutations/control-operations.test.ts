@@ -65,12 +65,10 @@ vi.mock('../../../../lib/collections/mutate', async () => {
  */
 const snapshot = vi.hoisted(() => ({ profileId: null as string | null }));
 
-vi.mock('../../../../hooks/use-auth-snapshot', () => ({
-	useAuthSnapshot: () => ({
-		authenticated: true,
-		localIdentity: { organizationId: ORGANIZATION, profileId: snapshot.profileId },
-	}),
-}));
+vi.mock('../../../../hooks/use-auth-snapshot', async () => {
+	const { signedInSnapshot } = await import('../../routes/route-mock-stand-ins');
+	return { useAuthSnapshot: () => signedInSnapshot(ORGANIZATION, snapshot.profileId) };
+});
 
 const {
 	commandUrl,

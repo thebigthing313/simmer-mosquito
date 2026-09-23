@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { useAuth } from '../auth/auth-context';
 import { Button } from '../components/button';
 import { Screen } from '../components/screen';
+import { useAuth } from '../hooks/use-auth';
 import { theme } from '../theme/theme';
 
 /**

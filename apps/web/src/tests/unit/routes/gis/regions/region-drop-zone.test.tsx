@@ -1,10 +1,10 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { REGION_DND_TYPE, type RegionDnd } from '../../../../../components/gis/regions/region-dnd';
+import type { RegionRename } from '../../../../../hooks/gis/use-region-rename';
 import type { RegionListing } from '../../../../../hooks/queries/use-region-directory';
 import type { RegionFolderListing } from '../../../../../hooks/queries/use-region-folders';
-import { REGION_DND_TYPE, type RegionDnd } from '../../../../../routes/gis/regions/-region-dnd';
-import type { RegionRename } from '../../../../../routes/gis/regions/-region-rename';
 
 // The row links to a region's detail page. Only `Link` needs standing in — it
 // is the one import that demands a live router; the rest of the module is real.

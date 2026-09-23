@@ -13,12 +13,6 @@ import {
 	FilterGrid,
 	MultiSelectFilter,
 	toggle,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	useOutreachMethodOptions,
-	usePersonnelOptions,
-	useRegionOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
@@ -29,7 +23,16 @@ import {
 	type MapTileLayer,
 	type OutreachTileFilters,
 } from '../../../components/map';
+import { OutreachMapCard } from '../../../components/public-engagement/outreach-map-card';
+import { formatReach } from '../../../components/public-engagement/public-engagement-display';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useOutreachMethodOptions } from '../../../hooks/explorer/use-outreach-method-options';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
@@ -38,10 +41,7 @@ import {
 	type FilterCodecs,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { OutreachMapCard } from '../-outreach-map-card';
-import { formatReach } from '../-public-engagement-display';
 
 interface OutreachRow {
 	readonly id: string;

@@ -1,25 +1,25 @@
 import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
-import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
-import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
-import {
-	type CatalogListing,
-	type SchemaCatalogListing,
-	useCollectionLureRoster,
-	useCollectionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
-import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
-import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { recordNoun } from '../../../lib/record-nouns';
-import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	TrapFormPage,
 	type TrapFormValues,
 	trapFieldsFrom,
 	trapFormValuesFrom,
-} from './-trap-form';
+} from '../../../components/adult-surveillance/traps/trap-form';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
+import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
+import type {
+	CatalogListing,
+	SchemaCatalogListing,
+} from '../../../hooks/queries/catalog-roster-view';
+import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
+import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
+import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
+import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {

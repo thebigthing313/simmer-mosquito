@@ -18,14 +18,14 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	contactFieldsFromValues,
+	defaultsFromContact,
+} from '../../../../components/public-engagement/contact-fields';
+import {
 	type ContactFields,
 	contactUpdatePlan,
 } from '../../../../hooks/mutations/use-contact-mutations';
 import type { Contact } from '../../../../hooks/queries/contact-view';
-import {
-	contactFieldsFromValues,
-	defaultsFromContact,
-} from '../../../../routes/public-engagement/-contact-fields';
 
 function fields(overrides: Partial<ContactFields> = {}): ContactFields {
 	return {

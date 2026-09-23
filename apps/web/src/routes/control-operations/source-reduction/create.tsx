@@ -1,27 +1,27 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	defaultSourceReductionFormValues,
+	SourceReductionFormPage,
+	type SourceReductionSaveInput,
+	sourceReductionFieldsFrom,
+} from '../../../components/control-operations/source-reduction/source-reduction-form';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useMissionStopExecution } from '../../../components/mission-stop-execution';
-import { useRecordExtras } from '../../../forms/record-extras';
+import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	defaultSourceReductionFormValues,
-	SourceReductionFormPage,
-	type SourceReductionSaveInput,
-	sourceReductionFieldsFrom,
-} from './-source-reduction-form';
 
 export const Route = createFileRoute('/control-operations/source-reduction/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard

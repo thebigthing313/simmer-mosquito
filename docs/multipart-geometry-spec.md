@@ -21,7 +21,7 @@ A Region that genuinely needs disjoint parts cannot be one Region. Importing a
 county parks file where "Park A" is one park on three separated lots produces
 three Regions, because `flattenGeometries`
 (`packages/mapping/src/geometry-import.ts:257-277`) and `flattenPolygons`
-(`apps/web/src/routes/gis/regions/-import-parse.ts:55-71`) split per geometry
+(`apps/web/src/components/gis/regions/import-parse.ts`) split per geometry
 rather than per Feature. The import does not refuse the MultiPolygon, it
 dissolves it and says nothing.
 
@@ -890,7 +890,7 @@ for the same reason the corpus does.
 
 ## The draw control
 
-`apps/web/src/components/map/use-map-draw.ts` is our own state machine, not
+`apps/web/src/hooks/map/use-map-draw.ts` is our own state machine, not
 mapbox-gl-draw, so nothing is imposed on us. Today `geometryFromVertices`
 (`:458-470`) always builds `coordinates: [closeRing(vertices)]`: one ring, one
 part. Settled in #417, with a prototype on `prototype/417-part-ring-model`.
@@ -991,7 +991,7 @@ Settled in #424.
 A Feature carrying a MultiPolygon is one record. A FeatureCollection of three
 Features is three records. This deletes the `Multi*` arms of `flattenGeometries`
 (`:257-265`, `:270-278`) and `flattenPolygons`
-(`apps/web/src/routes/gis/regions/-import-parse.ts:55-71`) rather than extending
+(`apps/web/src/components/gis/regions/import-parse.ts`) rather than extending
 them, and it deletes the `(1)`, `(2)` part numbering in `importCandidatesFrom`
 (`:160-161`), because a group is now a candidate and there is nothing to number.
 

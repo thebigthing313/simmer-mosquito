@@ -71,6 +71,16 @@
 	--chart-3: oklch(49.37% 0.1424 325.97);
 	--chart-4: var(--simmer-yellow);
 	--chart-5: oklch(61.56% 0.2307 16.37);
+	/*
+	 * The two series roles the period-in-review charts paint: the period shown
+	 * and the period it is read beside, the year before on Monthly. Measured
+	 * against the card, green-600 and green-300 separate at a CVD Delta E of
+	 * 22.3 and a normal-vision 22.8; green-300 sits at 2.05:1, under the 3:1
+	 * relief rule, and the table above the charts is the relief
+	 * (docs/today-spec.md, "The charts").
+	 */
+	--chart-period: var(--simmer-green);
+	--chart-comparison: var(--simmer-green-300);
 	--sidebar: var(--simmer-field-paper-muted);
 	--sidebar-foreground: oklch(24% 0.025 205);
 	--sidebar-primary: var(--simmer-dark-green);
@@ -157,6 +167,8 @@
 	--color-chart-3: var(--chart-3);
 	--color-chart-4: var(--chart-4);
 	--color-chart-5: var(--chart-5);
+	--color-chart-period: var(--chart-period);
+	--color-chart-comparison: var(--chart-comparison);
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
 	--color-sidebar-primary: var(--sidebar-primary);
@@ -174,7 +186,7 @@
 	 * no fallback, just uncoloured text. Tailwind only emits a utility for a
 	 * `--color-*` it knows about, so the class looked right in the source and
 	 * silently did not exist in the stylesheet. There is a stray `text-warning`
-	 * in `apps/web/src/routes/-components.tsx` that has been inert for exactly
+	 * in `apps/web/src/components/landing/landing-page.tsx` that has been inert for exactly
 	 * this reason, and the workarounds elsewhere (`text-[var(--success)]`) are
 	 * people routing around the omission rather than preferring the long form.
 	 *

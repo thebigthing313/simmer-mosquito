@@ -4,15 +4,7 @@ import type {
 	AuthMe,
 	SignInOutcome,
 } from '@simmer-mosquito/auth/browser';
-import {
-	createContext,
-	type ReactNode,
-	useCallback,
-	useContext,
-	useEffect,
-	useMemo,
-	useState,
-} from 'react';
+import { createContext, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { appAuthController, authClient } from './client';
 
 /**
@@ -29,7 +21,7 @@ type AuthState =
 	| { readonly status: 'signed-out'; readonly reason: string }
 	| { readonly status: 'signed-in'; readonly me: Extract<AuthMe, { authenticated: true }> };
 
-interface AuthContextValue {
+export interface AuthContextValue {
 	readonly state: AuthState;
 	readonly signIn: (input: {
 		readonly email: string;
@@ -38,7 +30,8 @@ interface AuthContextValue {
 	readonly signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+/** The session context `AuthProvider` fills and `useAuth` reads. */
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function toState(me: AuthMe | null): AuthState {
 	if (me === null) {
@@ -117,13 +110,4 @@ export function AuthProvider({
 	);
 
 	return <AuthContext value={value}>{children}</AuthContext>;
-}
-
-export function useAuth(): AuthContextValue {
-	const value = useContext(AuthContext);
-	if (value === null) {
-		throw new Error('useAuth must be used inside <AuthProvider>.');
-	}
-
-	return value;
 }

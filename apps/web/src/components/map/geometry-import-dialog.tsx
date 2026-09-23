@@ -21,6 +21,8 @@ import {
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
+import type { DrawGeometry } from '../../hooks/map/use-map-draw';
+import { errorMessageForSave } from '../../lib/save-error';
 import {
 	ImportNotes,
 	type ImportNoun,
@@ -31,7 +33,6 @@ import {
 	importSkippedCount,
 	importSkippedSentence,
 } from './import-notes';
-import type { DrawGeometry } from './use-map-draw';
 
 /**
  * "Fill this geometry from a file."
@@ -142,7 +143,7 @@ export function GeometryImportDialog({
 			// A file holding exactly one usable shape needs no choosing.
 			setSelectedId(soleShapeId(shapes));
 		} catch (error) {
-			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
+			setParseError(errorMessageForSave(error, 'That file could not be read.'));
 		}
 	}
 

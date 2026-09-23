@@ -28,14 +28,11 @@ export function InlineEditField({
 	readonly renderValue: (value: string) => ReactNode;
 }) {
 	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState(value);
+	// The draft exists only while editing. Idle, the field shows `value` itself,
+	// so a synced change lands with no reset and no render drawing the old text.
+	const [held, setDraft] = useState(value);
+	const draft = editing ? held : value;
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-	useEffect(() => {
-		if (!editing) {
-			setDraft(value);
-		}
-	}, [value, editing]);
 
 	useEffect(() => {
 		if (!editing) {
@@ -55,8 +52,11 @@ export function InlineEditField({
 		}
 	};
 	const cancel = () => {
-		setDraft(value);
 		setEditing(false);
+	};
+	const edit = () => {
+		setDraft(value);
+		setEditing(true);
 	};
 
 	if (editing) {
@@ -102,7 +102,7 @@ export function InlineEditField({
 	return (
 		<button
 			className="-mx-1 pointer-events-auto block w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			onClick={() => setEditing(true)}
+			onClick={edit}
 			type="button"
 		>
 			{value.trim().length > 0 ? (

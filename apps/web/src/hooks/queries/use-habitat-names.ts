@@ -35,26 +35,22 @@ import { activityGcTimeMs, unmatchableId } from './shared';
 const maxHabitatNameIds = 500;
 
 export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, string> {
-	// Sorted as well as deduplicated so that the same set of ids in a different
-	// order is the same query key, and re-renders that reshuffle a list do not
-	// look like a new subset.
+	// Sorted as well as deduplicated so the cap takes the same ids whatever order
+	// a re-render hands them over in. The query identity needs neither: an
+	// `inArray` is read as a set.
 	const sorted = [...new Set(ids)].sort().slice(0, maxHabitatNameIds);
-	const idsKey = sorted.join(',');
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: habitats() })
-					.where(({ habitat }) => inArray(habitat.id, sorted.length > 0 ? sorted : [unmatchableId]))
-					.select(({ habitat }) => ({
-						id: habitat.id,
-						name: habitatNameSelect(habitat),
-					})),
-		},
-		[idsKey],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ habitat: habitats() })
+				.where(({ habitat }) => inArray(habitat.id, sorted.length > 0 ? sorted : [unmatchableId]))
+				.select(({ habitat }) => ({
+					id: habitat.id,
+					name: habitatNameSelect(habitat),
+				})),
+	});
 
 	const rows = result.data;
 

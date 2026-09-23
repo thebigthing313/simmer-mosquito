@@ -3,9 +3,13 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { trapRouteSurface } from '../../../../components/adult-surveillance/traps/trap-route-surface';
 import { RouteDetailPage, type StopSelection } from '../../../../components/route-planning';
-import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
-import { trapRouteSurface } from './-trap-route-surface';
+import {
+	type TrapRouteStopView,
+	useTrapRouteStops,
+} from '../../../../hooks/adult-surveillance/use-trap-route-stops';
+import { useTrapRoutes } from '../../../../hooks/adult-surveillance/use-trap-routes';
 
 const TrapIcon = iconRegistry.entities.trap.icon;
 
@@ -16,7 +20,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/routes/$id')({
 function RouteDetailRoute() {
 	const { id } = Route.useParams();
 	const { routes, isReady } = useTrapRoutes();
-	const { stops, features, itemCount, isLoading } = useRouteStops(id);
+	const { stops, features, itemCount, isLoading } = useTrapRouteStops(id);
 
 	return (
 		<RouteDetailPage
@@ -38,7 +42,7 @@ function TrapStopList({
 	stops,
 	selection,
 }: {
-	readonly stops: readonly RouteStopView[];
+	readonly stops: readonly TrapRouteStopView[];
 	readonly selection: StopSelection;
 }) {
 	return (
@@ -62,7 +66,7 @@ function StopRow({
 	onSelect,
 	onHover,
 }: {
-	readonly stop: RouteStopView;
+	readonly stop: TrapRouteStopView;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 	readonly onHover: (id: string | null) => void;

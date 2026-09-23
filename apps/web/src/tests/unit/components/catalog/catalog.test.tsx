@@ -10,9 +10,9 @@ import {
 	CatalogRecordDialog,
 	CatalogRowActions,
 	CatalogSection,
-	useCatalogDialogOpen,
-	useCatalogSearch,
 } from '../../../../components/catalog';
+import { useCatalogDialogOpen } from '../../../../hooks/catalog/use-catalog-dialog-open';
+import { useCatalogSearch } from '../../../../hooks/catalog/use-catalog-search';
 
 const Icon = iconRegistry.generic.component.icon;
 

@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DuplicateGroup } from '../../../../hooks/use-merge-candidates';
+import type { DuplicateGroup } from '../../../../hooks/merge-candidate-view';
 import type { MinimumRole } from '../../../../lib/write-access';
 
 /**
@@ -58,19 +58,15 @@ vi.mock('../../../../hooks/mutations/use-record-merge', async (importOriginal) =
 
 let groups: readonly DuplicateGroup[] = [];
 let failed = false;
-vi.mock('../../../../hooks/use-merge-candidates', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('../../../../hooks/use-merge-candidates')>();
-	return {
-		...actual,
-		useDuplicateCandidates: () => ({
-			data: failed ? undefined : groups,
-			error: failed ? new Error('The server said no.') : null,
-			isError: failed,
-			isPending: false,
-			refetch: vi.fn(),
-		}),
-	};
-});
+vi.mock('../../../../hooks/use-duplicate-candidates', () => ({
+	useDuplicateCandidates: () => ({
+		data: failed ? undefined : groups,
+		error: failed ? new Error('The server said no.') : null,
+		isError: failed,
+		isPending: false,
+		refetch: vi.fn(),
+	}),
+}));
 
 const { RecordCleanup } = await import('../../../../components/cleanup/record-cleanup');
 

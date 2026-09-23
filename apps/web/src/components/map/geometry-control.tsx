@@ -7,7 +7,6 @@ import {
 } from '@simmer-mosquito/domain';
 import {
 	formatGeometryTypeLabel,
-	type GeoJsonGeometry,
 	type ImportGeometryKind,
 	isImportGeometryKind,
 } from '@simmer-mosquito/mapping';
@@ -25,11 +24,7 @@ import {
 	SplineIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { GeometryImportDialog } from './geometry-import-dialog';
-import { GEOMETRY_TYPE_LABELS, GeometryPartList, GeometryPartSummary } from './geometry-parts';
-import { RegionBoundaryPicker } from './region-boundary-picker';
+import { type ReactNode, useState } from 'react';
 import {
 	type DrawContinueDraft,
 	type DrawEditDraft,
@@ -37,10 +32,12 @@ import {
 	type DrawGeometryType,
 	type DrawHoleDraft,
 	drawParts,
-	fitMapToGeometry,
 	isDrawGeometryType,
-	type MapDrawController,
-} from './use-map-draw';
+} from '../../hooks/map/use-map-draw';
+import type { MapDrawController } from './draw-controller';
+import { GeometryImportDialog } from './geometry-import-dialog';
+import { GEOMETRY_TYPE_LABELS, GeometryPartList, GeometryPartSummary } from './geometry-parts';
+import { RegionBoundaryPicker } from './region-boundary-picker';
 
 /**
  * The geometry-capture chrome every record that owns Point/LineString/Polygon
@@ -84,7 +81,8 @@ export interface GeometryControlProps {
 	/**
 	 * The organization whose regions may be reused as a polygon. Pass it on any
 	 * form that captures areas — without it the "fill from a region" shortcut is
-	 * hidden, since there is no org to search.
+	 * hidden. The picker searches the organization-scoped shape and never reads
+	 * the id, so what the prop carries is the form's opt-in.
 	 */
 	readonly organizationId?: string;
 	/**
@@ -318,11 +316,9 @@ function GeometrySources({
 }) {
 	const [isImporting, setIsImporting] = useState(false);
 	// A region boundary is an area, so the shortcut belongs to that tool only,
-	// and there has to be an organization to search.
-	const regionOrganizationId =
-		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0
-			? organizationId
-			: null;
+	// and only on a form that opted in.
+	const offersRegionFill =
+		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0;
 	// What the record stores, filtered to what the file parser can produce. The
 	// parser reads all six shapes, so the filter drops nothing today and every
 	// record offers the file import. It stays because the register and the parser
@@ -332,7 +328,7 @@ function GeometrySources({
 		getOwnedGeometryPolicy(geometryKind).allowedTypes.filter(isImportGeometryKind);
 	const canImportFile = importableTypes.length > 0;
 
-	if (regionOrganizationId === null && !canImportFile) {
+	if (!offersRegionFill && !canImportFile) {
 		return null;
 	}
 
@@ -340,14 +336,13 @@ function GeometrySources({
 		<>
 			<div className="flex flex-wrap items-center gap-2 border-border/40 border-t pt-2">
 				<span className="text-muted-foreground text-xs">Fill from</span>
-				{regionOrganizationId === null ? null : (
+				{offersRegionFill ? (
 					<RegionBoundaryPicker
 						allowsParts={ownedGeometryAllowsParts(geometryKind, 'Polygon')}
 						disabled={isBusy}
 						onSelect={(boundary) => controller.commit(boundary)}
-						organizationId={regionOrganizationId}
 					/>
-				)}
+				) : null}
 				{canImportFile ? (
 					<Button
 						aria-label="Fill this geometry from a KML, KMZ, or GeoJSON file"
@@ -512,28 +507,6 @@ function MapPrompt({ children }: { readonly children: React.ReactNode }) {
 			</p>
 		</div>
 	);
-}
-
-/** Ease the map to frame `geometry` when it changes, but never mid-draw. */
-export function useFitToGeometry(
-	map: MapboxMap | null,
-	geometry: GeoJsonGeometry | null,
-	isDrawing = false,
-): void {
-	const lastFitRef = useRef<string | null>(null);
-	useEffect(() => {
-		if (map === null || geometry === null || isDrawing) {
-			return;
-		}
-		// Only refit when the geometry itself changes, not on every render, so the
-		// user's manual pans aren't yanked back.
-		const signature = JSON.stringify(geometry);
-		if (lastFitRef.current === signature) {
-			return;
-		}
-		lastFitRef.current = signature;
-		fitMapToGeometry(map, geometry);
-	}, [map, geometry, isDrawing]);
 }
 
 // --- helpers ----------------------------------------------------------------

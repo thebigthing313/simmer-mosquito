@@ -1,5 +1,4 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -22,28 +21,31 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { MissionNotificationsCard } from '../../../components/operations/missions/mission-notifications-card';
+import { MissionStopList } from '../../../components/operations/missions/mission-stops';
+import { RenameStopDialog } from '../../../components/operations/missions/rename-stop-dialog';
+import { RequestStopPicker } from '../../../components/operations/missions/request-stop-picker';
+import { formatOperationalDate } from '../../../components/operations/operations-data';
+import {
+	MissionStatusBadge,
+	StopProgressSummary,
+	stopSummary,
+} from '../../../components/operations/operations-display';
+import { WorklistMap } from '../../../components/operations/worklist-map';
+import { WorklistTabs } from '../../../components/operations/worklist-tabs';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { WriteOnly } from '../../../components/write-only';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
+import { type MissionRun, useMissionRun } from '../../../hooks/operations/use-mission-run';
 import { controlTypeLabel, formatScheduledStart } from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
+import { type Acknowledgements, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { MISSION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
-import { formatOperationalDate } from '../-operations-data';
-import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
-import { WorklistMap } from '../-worklist-map';
-import { WorklistTabs } from '../-worklist-tabs';
-import { MissionNotificationsCard } from './-mission-notifications-card';
-import { type MissionRun, useMissionRun } from './-mission-run';
-import { MissionStopList, RequestStopPicker } from './-mission-stops';
 
 const MissionIcon = iconRegistry.entities.route.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -142,12 +144,6 @@ function MissionPanel({
 				) : (
 					<MissionHeader mission={run.mission} run={run} />
 				)}
-
-				{run.error === null ? null : (
-					<Alert variant="destructive">
-						<AlertDescription>{run.error}</AlertDescription>
-					</Alert>
-				)}
 			</div>
 
 			<WorklistTabs
@@ -165,6 +161,7 @@ function MissionPanel({
 					onHover={run.setHighlightId}
 					onMove={run.move}
 					onRemove={run.setRemoveTarget}
+					onRename={run.setRenameTarget}
 					onSelect={run.setSelectedStopId}
 					planEditable={run.planEditable && !run.busy}
 					progressEnabled={run.progressEnabled}
@@ -229,12 +226,13 @@ function AddStopControls({
 }
 
 /**
- * The four confirmations: skip a stop, remove a stop, call the mission off, pick
- * it back up.
+ * The five: skip a stop, rename a stop, remove a stop, call the mission off,
+ * pick it back up.
  *
- * Three of them collect prose because the answer is written onto the record — a
+ * Three of them collect prose because the answer is written onto the record: a
  * skip reason onto the stop, a cancellation and a reopen onto the mission as
- * comments. Removing a stop takes it off the mission entirely, so there is
+ * comments. Renaming collects the name itself, and is the one that is not a
+ * confirmation. Removing a stop takes it off the mission entirely, so there is
  * nothing left to write a reason on.
  */
 function MissionDialogs({ run }: { readonly run: MissionRun }) {
@@ -272,6 +270,14 @@ function MissionDialogs({ run }: { readonly run: MissionRun }) {
 				required={false}
 				title="Reopen This Mission?"
 			/>
+
+			{run.renameTarget === null ? null : (
+				<RenameStopDialog
+					onClose={() => run.setRenameTarget(null)}
+					onRename={run.confirmRename}
+					stop={run.renameTarget}
+				/>
+			)}
 
 			<AlertDialog
 				onOpenChange={(open) => !open && run.setRemoveTarget(null)}

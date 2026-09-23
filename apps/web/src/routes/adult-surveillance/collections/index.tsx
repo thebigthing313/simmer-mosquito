@@ -3,6 +3,13 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { collectionEffectiveDate } from '../../../components/adult-surveillance/adult-display';
+import { CollectionMapCard } from '../../../components/adult-surveillance/collection-map-card';
+import type { CollectionStatusValue } from '../../../components/adult-surveillance/collections/legend';
+import {
+	collectionLegend,
+	collectionStatusLabel,
+} from '../../../components/adult-surveillance/collections/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
@@ -14,12 +21,6 @@ import {
 	MultiSelectFilter,
 	ToggleFilter,
 	toggle,
-	useCollectionMethodOptions,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	usePersonnelOptions,
-	useRegionOptions,
 	whenAny,
 	whenOn,
 	whenText,
@@ -32,8 +33,16 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
+import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
@@ -43,13 +52,7 @@ import {
 	flagParam,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { RecordBadges } from '../../-record-badges';
-import { collectionEffectiveDate } from '../-adult-display';
-import { CollectionMapCard } from '../-collection-map-card';
-import type { CollectionStatusValue } from './-legend';
-import { collectionLegend, collectionStatusLabel } from './-legend';
 
 interface CollectionRow {
 	readonly id: string;
@@ -357,21 +360,20 @@ function CollectionListItem({
 	const label = trapName ?? 'Ad-hoc collection';
 	const timeZone = useOrganizationTimeZone();
 	const effectiveDate = collectionEffectiveDate(row, timeZone);
+	/*
+	 * Bycatch only. Trap out, Problem reported and Zero result are the
+	 * collection's status, which the dot at the left of the row draws in the
+	 * colour the map paints it and the key names. A collection with no bycatch
+	 * passes nothing, so the row lays out no line for it.
+	 */
+	const facts: RecordBadgeFacts = {
+		category: 'collection',
+		status: row.status,
+		hasBycatch: row.hasBycatch,
+	};
 	return (
 		<ExplorerRow
-			/*
-			 * Bycatch only. Trap out, Problem reported and Zero result are the
-			 * collection's status, which the dot at the left of the row now draws in
-			 * the colour the map paints it and the key names.
-			 */
-			badges={
-				<RecordBadges
-					facts={{ category: 'collection', status: row.status, hasBycatch: row.hasBycatch }}
-					// Trap out, Problem reported and Zero result are the collection's
-					// status, which the dot draws in the colour the map paints it.
-					status="dot"
-				/>
-			}
+			badges={recordBadges(facts, 'dot')}
 			date={effectiveDate === null ? null : formatListDate(effectiveDate)}
 			detailLabel={`View details for ${label}`}
 			detailLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}

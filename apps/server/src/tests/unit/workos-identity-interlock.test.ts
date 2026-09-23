@@ -2,15 +2,13 @@
  * The interlock that makes staging safe to point at WorkOS production.
  *
  * Two properties, and they are the two that stop the failures #376 found. The
- * wrapper is an allowlist, so a method nobody has classified refuses rather
- * than running; and the refusal reaches the caller as the one 403 rather than
- * as a 500 with a stack.
+ * wrapper refuses the whole `identity` half, so a method nobody has thought
+ * about refuses rather than running; and the refusal reaches the caller as the
+ * one 403 rather than as a 500 with a stack.
  *
- * It wraps a real `createWorkOsAuth` object rather than a double built from the
- * lists under test. The double this replaced iterated those lists to decide
- * which methods it carried, so its method set was the answer, and the thirteen
- * names it repeated included `listUsers`, which is a WorkOS SDK call and has
- * never been a method of this object (#619).
+ * It wraps a real `createWorkOsAuth` object rather than a double, and the
+ * classification it checks is which half `packages/auth` declares a method on,
+ * read off that object rather than off a list (#619).
  *
  * The stubbed client below implements only the calls the session and read half
  * makes. That is the other half of the assertion: a write that reached WorkOS
@@ -28,10 +26,9 @@
 
 import {
 	createWorkOsAuth,
-	WORKOS_IDENTITY_WRITE_METHODS,
-	WORKOS_SESSION_AND_READ_METHODS,
 	type WorkOsClient,
-	type WorkOsSessionAndReadMethod,
+	type WorkOsIdentityWrites,
+	type WorkOsSessionAuth,
 } from '@simmer-mosquito/auth';
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -103,8 +100,8 @@ function stubbedWorkOsAuth() {
 /**
  * What each session or read call is handed, and the WorkOS call it reaches.
  *
- * Keyed by the classification, so a method that changes side or joins the
- * object fails `tsc` here as well as at the interface.
+ * Keyed by the session half, so a method that changes side or joins the object
+ * fails `tsc` here as well as at the interface.
  *
  * `reaches: null` is the four that answer before WorkOS. An absent session and
  * a null organization both return early, and giving them anything else would
@@ -114,7 +111,7 @@ function stubbedWorkOsAuth() {
  * to its target rather than replaced by the throwing shim.
  */
 const SESSION_AND_READS: Record<
-	WorkOsSessionAndReadMethod,
+	keyof WorkOsSessionAuth,
 	{ readonly args: readonly unknown[]; readonly reaches: string | null }
 > = {
 	getAuthorizationUrl: { args: [], reaches: 'getAuthorizationUrl' },
@@ -148,53 +145,71 @@ const SESSION_AND_READS: Record<
 
 type AnyCall = (...args: readonly unknown[]) => unknown;
 
+/** Every method of the identity half, spelled so `tsc` refuses a stale or missing name. */
+const IDENTITY_WRITES = [
+	'signUpWithPassword',
+	'requestPasswordReset',
+	'resetPassword',
+	'acceptInvitationWithPassword',
+	'createOrganization',
+	'deactivateOrganizationMembership',
+	'sendOrganizationInvitation',
+	'revokeInvitation',
+] as const satisfies readonly (keyof WorkOsIdentityWrites)[];
+
 beforeEach(() => {
 	sdkCalls.length = 0;
 });
 
 describe('withoutWorkOsIdentityWrites', () => {
-	// `tsc` already holds the classification to `keyof WorkOsAuth`, so this asks
-	// the object rather than the interface: the two agree only while the literal
-	// is what the annotation says it is, and this is the case that reads a
-	// method count off something that ships instead of off a list.
-	it('classifies every method the auth object carries', () => {
-		const classified = [...WORKOS_IDENTITY_WRITE_METHODS, ...WORKOS_SESSION_AND_READ_METHODS];
+	// The object is the classification, so both halves are read off what ships
+	// rather than off a list, and the session table above has to name every
+	// method the session half carries.
+	it('carries the two halves and nothing else', () => {
+		const auth = stubbedWorkOsAuth();
 
-		expect(Object.keys(stubbedWorkOsAuth()).sort()).toEqual(classified.sort());
+		expect(Object.keys(auth).sort()).toEqual(['identity', 'session']);
+		expect(Object.keys(auth.session).sort()).toEqual(Object.keys(SESSION_AND_READS).sort());
+		expect(Object.keys(auth.identity).sort()).toEqual([...IDENTITY_WRITES].sort());
 	});
 
-	it.each(WORKOS_IDENTITY_WRITE_METHODS)('refuses %s', (method) => {
+	it.each(IDENTITY_WRITES)('refuses %s', (method) => {
 		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
-		expect(() => (wrapped[method] as AnyCall)()).toThrow(WorkOsIdentityWritesDisabledError);
+		expect(() => (wrapped.identity[method] as AnyCall)()).toThrow(
+			WorkOsIdentityWritesDisabledError,
+		);
 		expect(sdkCalls).toEqual([]);
 	});
 
-	it.each(WORKOS_SESSION_AND_READ_METHODS)('passes %s through', async (method) => {
+	it.each(
+		Object.keys(SESSION_AND_READS) as (keyof WorkOsSessionAuth)[],
+	)('passes %s through', async (method) => {
 		const { args, reaches } = SESSION_AND_READS[method];
 		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
-		const refusal = await refusalFrom(() => (wrapped[method] as AnyCall)(...args));
+		const refusal = await refusalFrom(() => (wrapped.session[method] as AnyCall)(...args));
 
 		expect(refusal).toBeNull();
 		expect(sdkCalls).toEqual(reaches === null ? [] : [reaches]);
 	});
 
-	// The whole reason it is an allowlist. A ninth WorkOS write added to
-	// `packages/auth` is refused on staging without anybody remembering to name
-	// it here, which is the failure a denylist would ship silently.
-	it('refuses a method nobody has classified', () => {
+	// The whole reason the half refuses whole. A ninth WorkOS write added to
+	// `packages/auth` is refused on staging without anybody naming it here,
+	// which is the failure a list of the eight would ship silently.
+	it('refuses a method nobody has thought about', () => {
 		const wrapped = withoutWorkOsIdentityWrites({
-			deleteEveryUser: vi.fn(),
+			session: {},
+			identity: { deleteEveryUser: vi.fn() },
 		});
 
-		expect(() => wrapped.deleteEveryUser()).toThrow(WorkOsIdentityWritesDisabledError);
+		expect(() => wrapped.identity.deleteEveryUser()).toThrow(WorkOsIdentityWritesDisabledError);
 	});
 
 	it('names the refused method for the log', () => {
 		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
-		expect(() => wrapped.sendOrganizationInvitation({} as never)).toThrow(
+		expect(() => wrapped.identity.sendOrganizationInvitation({} as never)).toThrow(
 			expect.objectContaining({ method: 'sendOrganizationInvitation' }),
 		);
 	});
@@ -203,20 +218,22 @@ describe('withoutWorkOsIdentityWrites', () => {
 	// string key with a function would make the object look thenable and throw
 	// from the await rather than from the call.
 	it('leaves properties that are not methods alone', () => {
-		const wrapped = withoutWorkOsIdentityWrites({ region: 'us' }) as {
-			readonly region: string;
-			readonly then?: unknown;
-		};
+		const wrapped = withoutWorkOsIdentityWrites({ session: {}, identity: { region: 'us' } })
+			.identity as { readonly region: string; readonly then?: unknown };
 
 		expect(wrapped.region).toBe('us');
 		expect(wrapped.then).toBeUndefined();
 	});
 
-	it('answers whether it is the wrapped object', () => {
+	// A command holding only the identity half asks it before writing Postgres.
+	it('answers whether it is the wrapped object, whole or by its identity half', () => {
 		const auth = stubbedWorkOsAuth();
+		const wrapped = withoutWorkOsIdentityWrites(auth);
 
 		expect(workOsIdentityWritesDisabled(auth)).toBe(false);
-		expect(workOsIdentityWritesDisabled(withoutWorkOsIdentityWrites(auth))).toBe(true);
+		expect(workOsIdentityWritesDisabled(auth.identity)).toBe(false);
+		expect(workOsIdentityWritesDisabled(wrapped)).toBe(true);
+		expect(workOsIdentityWritesDisabled(wrapped.identity)).toBe(true);
 	});
 });
 

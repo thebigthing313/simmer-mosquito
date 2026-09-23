@@ -52,6 +52,7 @@ import {
 } from './operator-organization-routes.js';
 import { registerOrganizationSeedRoutes } from './organization-seed-routes.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
+import { registerOverviewReadRoutes } from './overview-reads.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerRecordMergeReadRoutes } from './record-merge-reads.js';
@@ -70,19 +71,19 @@ import { registerWeatherImportRoute } from './weather-commands/index.js';
 /**
  * What the route modules need, as the narrowest shape both callers can build.
  *
- * `auth` is the intersection of the five views the modules take of the WorkOS
- * client rather than the client itself, each of them a `Pick<WorkOsAuth, ...>`,
- * and `mailer` and `finalizeSession` are interfaces for the same reason. The
+ * `auth` is the intersection of the views the modules take of the WorkOS client
+ * rather than the client itself, each a `Pick` off one of its two halves, and
+ * `mailer` and `finalizeSession` are interfaces for the same reason. The
  * route walk stands these up inert, because it cannot hold a real WorkOS client
  * or send email to find out which paths exist.
  */
 export interface ServerDeps {
 	readonly db: Kysely<SimmerDatabase>;
 	readonly auth: AuthUserFlows &
-		AdminInvitationAuth &
-		MembershipAuth &
-		SessionAuth &
-		OperatorOrganizationAuth;
+		AdminInvitationAuth & {
+			readonly session: SessionAuth;
+			readonly identity: MembershipAuth & OperatorOrganizationAuth;
+		};
 	readonly mailer: AuthMailer;
 	readonly sessionProvider: SessionRouteOptions['sessionProvider'];
 	readonly localIdentityResolver: SessionRouteOptions['localIdentityResolver'];
@@ -103,7 +104,7 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	const { db, auth, authContextMiddleware, operatorAuthContextMiddleware } = deps;
 
 	registerSessionRoutes(app, {
-		auth,
+		auth: auth.session,
 		sessionProvider: deps.sessionProvider,
 		localIdentityResolver: deps.localIdentityResolver,
 		nodeEnv: deps.nodeEnv,
@@ -120,7 +121,11 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 		finalizeSession: deps.finalizeSession,
 	});
 
-	registerOperatorOrganizationRoutes(app, { db, auth, operatorAuthContextMiddleware });
+	registerOperatorOrganizationRoutes(app, {
+		db,
+		auth: auth.identity,
+		operatorAuthContextMiddleware,
+	});
 	registerAdminInvitationRoutes(app, { db, auth, operatorAuthContextMiddleware });
 	registerAdminFoundationRoutes(app, { db, operatorAuthContextMiddleware });
 
@@ -135,6 +140,8 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	// The Dashboard's server half, one read for every panel the client cannot
 	// answer off a synced table.
 	registerDashboardReadRoutes(app, { db, authContextMiddleware });
+	// The period-in-review pages' server half, one read at three grains.
+	registerOverviewReadRoutes(app, { db, authContextMiddleware });
 
 	registerMapTileRoutes(app, { db, authContextMiddleware });
 	registerSearchRoutes(app, { db, authContextMiddleware });
@@ -149,7 +156,7 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	// shapes `docs/domain-command-contract.md` says the dispatch cannot serve.
 	registerTableCommandSurface(app, {
 		db,
-		auth,
+		auth: auth.identity,
 		authContextMiddleware,
 		operatorAuthContextMiddleware,
 	});

@@ -17,6 +17,8 @@
 		"check:compiler-coverage": "node scripts/check-compiler-coverage.mjs",
 		"check:column-vocabularies": "node scripts/check-column-vocabularies.mjs",
 		"check:copy-dashes": "node scripts/check-copy-dashes.mjs",
+		"check:dead-code": "node scripts/fallow.mjs dead-code",
+		"check:formatter-locales": "node scripts/check-formatter-locales.mjs",
 		"check:geometry-policies": "node scripts/check-geometry-policies.mjs",
 		"check:image-names": "node scripts/check-image-names.mjs",
 		"check:join-types": "node scripts/check-join-types.mjs",
@@ -46,6 +48,7 @@
 		"db:migrate": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql up",
 		"db:rollback": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql rollback",
 		"db:status": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql status",
+		"db:vacuum-catalogs": "node scripts/vacuum-catalogs.mjs",
 		"dev": "nx daemon --start && mprocs",
 		"dev:server": "nx dev @simmer-mosquito/server",
 		"dev:admin": "nx dev @simmer-mosquito/admin",
@@ -87,7 +90,7 @@
 		"vitest": "4.1.5"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.7.2"
+		"@tanstack/db": "^0.9.2"
 	},
 	"pnpm": {
 		"packageExtensions": {

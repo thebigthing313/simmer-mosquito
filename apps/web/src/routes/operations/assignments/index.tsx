@@ -27,9 +27,12 @@ import {
 	type FilterOption,
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
-	usePersonnelOptions,
 } from '../../../components/explorer';
+import { AssignmentStatusBadge } from '../../../components/operations/assignments/assignment-display';
+import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
 import {
 	ASSIGNMENT_STATUS_LABELS,
 	type AssignmentListing,
@@ -42,6 +45,7 @@ import {
 import { useAssignmentItemCounts } from '../../../hooks/queries/use-assignment-item-counts';
 import { useAssignments } from '../../../hooks/queries/use-assignments';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
@@ -49,11 +53,7 @@ import {
 	type FilterCodecs,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { WorklistMap } from '../-worklist-map';
-import { useAssignmentStops } from './-assignment-data';
-import { AssignmentStatusBadge } from './-assignment-display';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 

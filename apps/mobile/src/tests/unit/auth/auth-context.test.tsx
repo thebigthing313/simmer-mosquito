@@ -8,7 +8,8 @@ import type {
 import { act, render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { AuthProvider, toState, useAuth } from '../../../auth/auth-context';
+import { AuthProvider, toState } from '../../../auth/auth-context';
+import { useAuth } from '../../../hooks/use-auth';
 
 /**
  * The session states the screens route on.

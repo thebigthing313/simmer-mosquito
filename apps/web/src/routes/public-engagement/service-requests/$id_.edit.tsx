@@ -1,6 +1,15 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { serviceRequestTitle } from '../../../components/public-engagement/public-engagement-display';
+import {
+	ServiceRequestFormPage,
+	type ServiceRequestSaveInput,
+} from '../../../components/public-engagement/service-requests/service-request-form';
+import {
+	defaultServiceRequestFormValues,
+	type ServiceRequestFormValues,
+	serviceRequestFieldsFrom,
+} from '../../../components/public-engagement/service-requests/service-request-form-values';
 import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
@@ -8,17 +17,10 @@ import {
 	type ServiceRequestRecord,
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { SERVICE_REQUEST_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { serviceRequestTitle } from '../-public-engagement-display';
-import {
-	defaultServiceRequestFormValues,
-	ServiceRequestFormPage,
-	type ServiceRequestFormValues,
-	type ServiceRequestSaveInput,
-	serviceRequestFieldsFrom,
-} from './-service-request-form';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -109,7 +111,6 @@ function EditServiceRequestLoader({
 				}}
 				hideLocation
 				onSave={onSave}
-				organizationId={request.organizationId}
 				profiles={profiles}
 				requireLocation={false}
 			/>

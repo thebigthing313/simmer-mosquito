@@ -19,10 +19,27 @@
  * different href and fails here.
  */
 
+import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ActivityEntry } from '../../components/activity/activity-data';
+import { ActivityLog } from '../../components/activity/activity-log';
+import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
+import { DashboardPage } from '../../components/dashboard/dashboard-page';
+import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
+import { InspectionSurfaceSwitch } from '../../components/larval-surveillance/inspection-surface-switch';
+import { sharedInspectionSearch } from '../../components/larval-surveillance/inspections-search';
+import { PeopleSection } from '../../components/my-organization/people';
+import { OverviewTable } from '../../components/overview/overview-table';
+import { UpwardLine } from '../../components/overview/overview-upward-line';
+import { ServiceRequestDetailHeader } from '../../components/public-engagement/service-requests/service-request-detail-header';
+import type {
+	NearbyCategory,
+	NearbyItem,
+} from '../../components/public-engagement/service-requests/service-request-nearby';
+import { NearbyResultList } from '../../components/public-engagement/service-requests/service-request-nearby-rows';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { memberships } from '../../lib/collections/memberships';
@@ -32,16 +49,27 @@ import { requested_control_actions } from '../../lib/collections/requested_contr
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
-import type { DashboardResponse } from '../../routes/-dashboard-data';
-import { DashboardPage } from '../../routes/-dashboard-page';
-import { HabitatHistoryCard } from '../../routes/-habitat-detail';
-import { InspectionSurfaceSwitch } from '../../routes/larval-surveillance/-inspection-surface-switch';
-import { sharedInspectionSearch } from '../../routes/larval-surveillance/-inspections-search';
-import { PeopleSection } from '../../routes/my-organization/-components/people';
+import { dayOverview, monthOverview, yearOverview } from './components/overview/overview-fixtures';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
+import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
+import { stubPanelLayout } from './routes/explorer-route-harness';
 
 const HABITAT = 'habitat-1';
+
+/**
+ * A manager, for the one component here that hides a link below a floor.
+ *
+ * The service request header draws its pencil through `hasAtLeastRole`, and the
+ * app's controller holds no snapshot outside a session. Nothing else rendered
+ * in this file reads the snapshot: the roster takes its role as a prop, and the
+ * dashboard, the history card and the surface switch gate nothing.
+ */
+vi.mock('../../hooks/use-auth-snapshot', async () => {
+	const { signedInSnapshotAs } = await import('./routes/route-mock-stand-ins');
+	const manager = signedInSnapshotAs('manager');
+	return { useAuthSnapshot: () => manager };
+});
 
 beforeEach(() => {
 	installMemoryCollections();
@@ -352,8 +380,9 @@ describe('the Inspections Map/Table switch', () => {
  * the same rows on the explorer, and `tsc` checks none of it, since every
  * explorer validates to a plain record. The service requests row carries no
  * window because that explorer takes no date. The server half is a stubbed
- * `fetch`, the four Electric queues are empty memory collections, and today is
- * pinned so the `to` half of each window is a literal here.
+ * `fetch`, the Electric reads are memory collections holding one inspection
+ * for the people table and nothing else, and today is pinned so the `to`
+ * half of each window is a literal here.
  */
 describe('the Dashboard', () => {
 	const NOW = new Date('2026-09-15T16:00:00Z');
@@ -365,22 +394,6 @@ describe('the Dashboard', () => {
 			collectionsAwaiting: { count: 41, oldest: '2026-09-03' },
 			requestsUnassigned: { count: 6, oldest: '2026-09-11' },
 		},
-		untreatedHabitats: { count: 5, oldest: '2026-09-09' },
-		activity: {
-			window: { from: '2026-09-09', to: '2026-09-15' },
-			priorWindow: { from: '2026-09-02', to: '2026-09-08' },
-			types: {
-				inspections: { count: 1, prior: 0 },
-				samples: null,
-				collections: null,
-				applications: null,
-				sourceReductions: null,
-				releases: null,
-				serviceRequests: null,
-				outreachActions: null,
-			},
-		},
-		peopleToday: [{ profileId: 'profile-1', records: 3, lastAt: '2026-09-15T18:52:00Z' }],
 	};
 
 	beforeEach(() => {
@@ -389,6 +402,17 @@ describe('the Dashboard', () => {
 		vi.stubGlobal('fetch', async () => new Response(JSON.stringify(SERVER), { status: 200 }));
 		seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
 		seedRows(profiles, [{ id: 'profile-1', display_name: 'Dana Okafor' }]);
+		seedRows(inspections, [
+			{
+				id: 'inspection-today',
+				lat: 40,
+				lng: -74,
+				inspection_date: '2026-09-15',
+				inspected_by_profile_id: 'profile-1',
+				is_wet: false,
+				created_at: new Date('2026-09-15T15:00:00Z'),
+			},
+		]);
 	});
 
 	afterEach(() => {
@@ -440,10 +464,394 @@ describe('the Dashboard', () => {
 		);
 	});
 
-	it('sends the banner to the untreated filter and a person to their day', async () => {
+	it('sends a person to their day', async () => {
 		await openDashboard();
 
-		expect(linkHref(/5 untreated habitats/)).toBe('/larval-surveillance/habitats?untreated=true');
 		expect(linkHref('Dana Okafor')).toBe('/daily-work/profile-1?date=2026-09-15');
+	});
+});
+
+/**
+ * The Today page (#1216): a count opens its type's explorer over the column's
+ * whole period, the service requests link writing `status=all` beside the
+ * dates because that explorer defaults to open requests, and the upward line
+ * opens the month and the year with the period written explicitly. The table
+ * and the line are rendered off a response rather than through the page,
+ * which reads the search and navigates and so needs a match this harness
+ * never mounts; the chart click is a `navigate` and not a `Link`, so
+ * `periodDestination` is asserted in its own suite. The fixture gives the
+ * previous column and last year's a different date from the period's, so a
+ * link reading the wrong column resolves to a different href.
+ */
+describe('the Today page', () => {
+	function openToday() {
+		renderWithRouter(
+			<>
+				<UpwardLine grain="day" period="2026-09-15" />
+				<OverviewTable
+					dimmed={false}
+					grain="day"
+					period="2026-09-15"
+					state={{ kind: 'ready', response: dayOverview() }}
+				/>
+			</>,
+		);
+	}
+
+	/** The count links in one row, in column order. */
+	function rowHrefs(label: string): readonly string[] {
+		const row = screen.getByRole('row', { name: new RegExp(`^${label}`) });
+		return [...row.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href') ?? '');
+	}
+
+	it('sends each count to its explorer over the column’s own day', () => {
+		openToday();
+
+		expect(rowHrefs('Inspections')).toEqual([
+			'/larval-surveillance/inspections?from=2026-09-15&to=2026-09-15',
+			'/larval-surveillance/inspections?from=2026-09-14&to=2026-09-14',
+		]);
+		expect(rowHrefs('Samples')[0]).toBe(
+			'/larval-surveillance/samples?from=2026-09-15&to=2026-09-15',
+		);
+		expect(rowHrefs('Collections')[0]).toBe(
+			'/adult-surveillance/collections?from=2026-09-15&to=2026-09-15',
+		);
+		expect(rowHrefs('Chemical Applications')[0]).toBe(
+			'/control-operations/chemical?from=2026-09-15&to=2026-09-15',
+		);
+		expect(rowHrefs('Source Reductions')[0]).toBe(
+			'/control-operations/source-reduction?from=2026-09-15&to=2026-09-15',
+		);
+		// Every request received, not the explorer's default of open ones.
+		expect(rowHrefs('Service Requests received')[0]).toBe(
+			'/public-engagement/service-requests?status=all&from=2026-09-15&to=2026-09-15',
+		);
+	});
+
+	it('links no ratio', () => {
+		openToday();
+
+		expect(rowHrefs('Inspections')).toHaveLength(2);
+		expect(rowHrefs('Positive inspections')).toEqual([]);
+		expect(rowHrefs('Mosquitoes per collection')).toEqual([]);
+	});
+
+	it('sends the upward line to the month and the year, written explicitly', () => {
+		openToday();
+
+		expect(linkHref('September 2026')).toBe('/monthly?month=2026-09');
+		expect(linkHref('2026')).toBe('/annual?year=2026');
+	});
+});
+
+/**
+ * The Monthly page (#1217): a count opens its explorer over the column's
+ * whole month, `to` the last day even on the partial month the fixture cuts
+ * through the 15th, and the upward line opens the year.
+ */
+describe('the Monthly page', () => {
+	function openMonthly() {
+		renderWithRouter(
+			<>
+				<UpwardLine grain="month" period="2026-09" />
+				<OverviewTable
+					dimmed={false}
+					grain="month"
+					period="2026-09"
+					state={{ kind: 'ready', response: monthOverview() }}
+				/>
+			</>,
+		);
+	}
+
+	function rowHrefs(label: string): readonly string[] {
+		const row = screen.getByRole('row', { name: new RegExp(`^${label}`) });
+		return [...row.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href') ?? '');
+	}
+
+	it('sends each count to its explorer over the whole month, not the cut', () => {
+		openMonthly();
+
+		expect(rowHrefs('Chemical Applications')).toEqual([
+			'/control-operations/chemical?from=2026-09-01&to=2026-09-30',
+			'/control-operations/chemical?from=2026-08-01&to=2026-08-31',
+			'/control-operations/chemical?from=2025-09-01&to=2025-09-30',
+		]);
+		expect(rowHrefs('Service Requests received')[0]).toBe(
+			'/public-engagement/service-requests?status=all&from=2026-09-01&to=2026-09-30',
+		);
+		expect(rowHrefs('Positive inspections')).toEqual([]);
+	});
+
+	it('sends the upward line to the year alone', () => {
+		openMonthly();
+
+		expect(linkHref('2026')).toBe('/annual?year=2026');
+		expect(screen.queryByRole('link', { name: 'September 2026' })).toBeNull();
+	});
+});
+
+/**
+ * The Annual page (#1218): a count opens its explorer over the whole year,
+ * `to` Dec 31 even on the partial year the fixture cuts through Sep 15, and
+ * there is no upward line, there being no coarser grain.
+ */
+describe('the Annual page', () => {
+	function openAnnual() {
+		renderWithRouter(
+			<>
+				<UpwardLine grain="year" period="2026" />
+				<OverviewTable
+					dimmed={false}
+					grain="year"
+					period="2026"
+					state={{ kind: 'ready', response: yearOverview() }}
+				/>
+			</>,
+		);
+	}
+
+	function rowHrefs(label: string): readonly string[] {
+		const row = screen.getByRole('row', { name: new RegExp(`^${label}`) });
+		return [...row.querySelectorAll('a')].map((anchor) => anchor.getAttribute('href') ?? '');
+	}
+
+	it('sends each count to its explorer over the whole year, not the cut', () => {
+		openAnnual();
+
+		expect(rowHrefs('Collections')).toEqual([
+			'/adult-surveillance/collections?from=2026-01-01&to=2026-12-31',
+			'/adult-surveillance/collections?from=2025-01-01&to=2025-12-31',
+		]);
+		expect(rowHrefs('Service Requests received')[0]).toBe(
+			'/public-engagement/service-requests?status=all&from=2026-01-01&to=2026-12-31',
+		);
+		expect(rowHrefs('Mosquitoes per collection')).toEqual([]);
+		expect(screen.queryByRole('link', { name: '2026' })).toBeNull();
+	});
+});
+
+/**
+ * The service request header's pencil (#1088).
+ *
+ * The page keeps its own header module rather than reading `DetailPageShell`,
+ * because its column sits beside a map, so the edit destination is declared
+ * there and nowhere the shell's pages are asserted. The contact and address ids
+ * on the row are the neighbouring strings a `params` reading the wrong field
+ * would resolve to.
+ */
+describe('the service request header', () => {
+	it('sends the pencil to the edit form for the request on screen', () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		renderWithRouter(
+			<QueryClientProvider client={client}>
+				<TooltipProvider>
+					<ServiceRequestDetailHeader
+						askDelete={async (write) => write({})}
+						request={{
+							id: 'service-request-1',
+							organizationId: 'org-1',
+							displayName: 12,
+							intakeType: 'phone',
+							requestDate: '2026-08-04',
+							details: 'Standing water behind the garage.',
+							contactId: 'contact-1',
+							addressId: 'address-1',
+							receivedByProfileId: 'profile-1',
+							closedAt: null,
+							latitude: 30,
+							longitude: -90,
+						}}
+					/>
+				</TooltipProvider>
+			</QueryClientProvider>,
+		);
+
+		expect(linkHref('Edit')).toBe('/public-engagement/service-requests/service-request-1/edit');
+	});
+});
+
+/**
+ * The nearby list on a service request, one row per record kind.
+ *
+ * Eight kinds through one row, each keyed to its own detail route, which is the
+ * shape #582 named: every `to` is well formed, and a category paired with its
+ * neighbour's route compiles. The chevron and the title are the row's two links,
+ * so each record answers twice, and the id is the assertion.
+ */
+describe('the nearby list', () => {
+	const CATEGORIES: readonly NearbyCategory[] = [
+		'habitat',
+		'trap',
+		'inspection',
+		'collection',
+		'application',
+		'sourceReduction',
+		'biocontrol',
+		'serviceRequest',
+	];
+
+	function nearby(category: NearbyCategory, index: number): NearbyItem {
+		return {
+			category,
+			family: 'larval',
+			id: `${category}-${index}`,
+			lat: 30,
+			lng: -90,
+			distanceMeters: index,
+			date: '2026-08-01',
+			occurredAt: null,
+			label: `Record ${index}`,
+			placeName: `Record ${index}`,
+			refId: null,
+			methodRefId: null,
+			amount: null,
+			unitId: null,
+			detail: null,
+			stages: null,
+			context: null,
+			hasBycatch: null,
+			tagIds: null,
+		};
+	}
+
+	// The rows are the rail's virtualised list in a Radix ScrollArea. Radix
+	// constructs a ResizeObserver jsdom has not got, and the virtualiser mounts
+	// the rows the viewport's `offsetHeight` holds plus overscan. The stub's
+	// docblock has the count; this height holds the whole list.
+	let restorePanel: () => void;
+	let restoreViewport: () => void;
+	beforeAll(() => {
+		restorePanel = stubPanelLayout();
+		restoreViewport = stubRailViewportHeight(CATEGORIES.length * STUB_ROW_HEIGHT);
+	});
+	afterAll(() => {
+		restoreViewport();
+		restorePanel();
+	});
+
+	const DETAIL_PATH: Readonly<Record<NearbyCategory, string>> = {
+		habitat: '/larval-surveillance/habitats',
+		trap: '/adult-surveillance/traps',
+		inspection: '/larval-surveillance/inspections',
+		collection: '/adult-surveillance/collections',
+		application: '/control-operations/chemical',
+		sourceReduction: '/control-operations/source-reduction',
+		biocontrol: '/control-operations/biocontrol',
+		serviceRequest: '/public-engagement/service-requests',
+	};
+
+	it('sends each kind to its own detail page', () => {
+		renderWithRouter(
+			<NearbyResultList
+				emptyTitle="Nothing nearby"
+				families={new Set(['infrastructure', 'surveillance', 'control', 'publicEngagement'])}
+				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
+				nearby={{
+					data: {
+						request: { id: 'sr-1', lat: 30, lng: -90, requestDate: '2026-08-04' },
+						radius: { amount: 500, unitCode: 'meter', meters: 500 },
+						timeWindow: { daysBefore: 30, daysAfter: 30 },
+						dateFrom: '2026-07-05',
+						dateTo: '2026-09-03',
+						dateToFrom: 'setting',
+						families: ['larval', 'adult', 'control', 'publicEngagement'],
+						items: CATEGORIES.map(nearby),
+						truncated: false,
+						limit: 2000,
+					},
+					isLoading: false,
+					isError: false,
+					refetch: () => Promise.resolve(),
+				}}
+				onSelect={() => {}}
+				selectedKey={null}
+			/>,
+		);
+
+		expect(linkHrefs()).toEqual(
+			CATEGORIES.flatMap((category, index) => {
+				const href = `${DETAIL_PATH[category]}/${category}-${index}`;
+				return [href, href];
+			}),
+		);
+	});
+});
+
+/**
+ * The Daily Work log, one row per record kind.
+ *
+ * The nine kinds through one row, keyed to the same detail routes the nearby
+ * list reads, since both rows resolve their link through `activityRow`. The
+ * chevron and the title are the row's two links, so each record answers twice,
+ * and the id is the assertion; the route suite for the page renders through a
+ * router stand-in whose `Link` has no href, which is why the case is here.
+ */
+describe('the Daily Work log', () => {
+	const CATEGORIES: readonly ActivityEntry['category'][] = [
+		'habitat',
+		'trap',
+		'inspection',
+		'collection',
+		'application',
+		'sourceReduction',
+		'biocontrol',
+		'outreach',
+		'serviceRequest',
+	];
+
+	const DETAIL_PATH: Readonly<Record<ActivityEntry['category'], string>> = {
+		habitat: '/larval-surveillance/habitats',
+		trap: '/adult-surveillance/traps',
+		inspection: '/larval-surveillance/inspections',
+		collection: '/adult-surveillance/collections',
+		application: '/control-operations/chemical',
+		sourceReduction: '/control-operations/source-reduction',
+		biocontrol: '/control-operations/biocontrol',
+		outreach: '/public-engagement/outreach',
+		serviceRequest: '/public-engagement/service-requests',
+	};
+
+	function activity(category: ActivityEntry['category'], index: number): ActivityEntry {
+		return {
+			category,
+			family: 'larval',
+			involvement: 'primary',
+			role: 'created',
+			id: `${category}-${index}`,
+			lat: 30,
+			lng: -90,
+			date: '2026-08-01',
+			occurredAt: null,
+			label: `Record ${index}`,
+			placeName: `Record ${index}`,
+			refId: null,
+			methodRefId: null,
+			amount: null,
+			unitId: null,
+			detail: null,
+			stages: null,
+			context: null,
+			hasBycatch: null,
+			tagIds: null,
+		};
+	}
+
+	it.each(CATEGORIES)('sends a %s to its own detail page', (category) => {
+		const index = CATEGORIES.indexOf(category);
+		renderWithRouter(
+			<ActivityLog
+				families={[{ family: 'larval', entries: [activity(category, index)] }]}
+				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
+				message={null}
+				onSelect={() => {}}
+				selectedKey={null}
+				timeZone={undefined}
+			/>,
+		);
+
+		const href = `${DETAIL_PATH[category]}/${category}-${index}`;
+		expect(linkHrefs()).toEqual([href, href]);
 	});
 });

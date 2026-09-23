@@ -15,16 +15,27 @@ import {
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	useRegionOptions,
 	whenAny,
 	whenOn,
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { densityLabel, hasAnyLifeStage } from '../../../components/larval-display';
+import {
+	DensityFilter,
+	InspectionFilterChips,
+	type InspectionFilterSetters,
+	type InspectionFilterState,
+	WETNESS_OPTIONS,
+} from '../../../components/larval-surveillance/inspection-filters';
+import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
+import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
+import { inspectionLegend } from '../../../components/larval-surveillance/inspections/legend';
+import {
+	type InspectionFilters as InspectionSearchFilters,
+	inspectionFilterCodecs,
+	sharedInspectionSearch,
+} from '../../../components/larval-surveillance/inspections-search';
 import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
@@ -34,29 +45,19 @@ import {
 	type MapLegendEntry,
 	type MapTileLayer,
 } from '../../../components/map';
+import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import {
+	type InspectionFilterOptions,
+	useInspectionFilterOptions,
+} from '../../../hooks/larval-surveillance/use-inspection-filter-options';
+import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import { habitatLabel } from '../../../lib/coordinate-label';
 import { formatListDate } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
-import { RecordBadges } from '../../-record-badges';
-import {
-	DensityFilter,
-	type InspectionCatalogs,
-	InspectionFilterChips,
-	type InspectionFilterSetters,
-	type InspectionFilterState,
-	useInspectionCatalogs,
-	useInspectionFilterState,
-	WETNESS_OPTIONS,
-} from '../-inspection-filters';
-import { InspectionMapCard } from '../-inspection-map-card';
-import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
-import {
-	type InspectionFilters as InspectionSearchFilters,
-	inspectionFilterCodecs,
-	sharedInspectionSearch,
-} from '../-inspections-search';
-import { inspectionLegend } from './-legend';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
@@ -96,13 +97,6 @@ interface InspectionRow {
 }
 
 const PATH = '/map/inspections';
-
-/** The catalogs the filter controls read from: the shared two, plus Region. */
-function useInspectionFilterOptions(): InspectionFilterOptions {
-	const catalogs = useInspectionCatalogs();
-	const regions = useRegionOptions();
-	return { catalogs, regions };
-}
 
 const RECORD_TYPE: RecordType = 'inspection';
 
@@ -146,12 +140,6 @@ function inspectionQueryParams(filters: InspectionTileFilters) {
 		dateFrom: filters.dateFrom,
 		dateTo: filters.dateTo,
 	};
-}
-
-/** The catalogs the filter controls offer, and the names their chips read by. */
-interface InspectionFilterOptions {
-	readonly catalogs: InspectionCatalogs;
-	readonly regions: ReturnType<typeof useRegionOptions>;
 }
 
 function InspectionsExplorerRoute() {
@@ -450,32 +438,24 @@ function InspectionListItem({
 		fallback: 'Ad-hoc inspection',
 	});
 	const when = formatListDate(inspection.inspectionDate);
+	/*
+	 * Life stages only. The density pill beside them repeated the dot at the
+	 * left of the row, which is already the density and already the colour the
+	 * map paints this habitat. What stages were found is the one thing neither
+	 * the dot nor the key says, and an inspection that found none passes
+	 * nothing, so the row lays out no line for it.
+	 */
+	const facts: RecordBadgeFacts = {
+		category: 'inspection',
+		result: {
+			isWet: inspection.isWet,
+			density: inspection.density,
+			stages: hasAnyLifeStage(inspection) ? inspection : null,
+		},
+	};
 	return (
 		<ExplorerRow
-			/*
-			 * Life stages only. The density pill beside them repeated the dot at the
-			 * left of the row, which is already the density and already the colour the
-			 * map paints this site. What stages were found is the one thing neither the
-			 * dot nor the key says.
-			 *
-			 * `null` rather than omitted on a site with no stages, so every row in the
-			 * rail keeps the same shape whether or not this one found anything.
-			 */
-			badges={
-				<RecordBadges
-					facts={{
-						category: 'inspection',
-						result: {
-							isWet: inspection.isWet,
-							density: inspection.density,
-							stages: hasAnyLifeStage(inspection) ? inspection : null,
-						},
-					}}
-					// The dot at the left of the row is already the density, and the key
-					// above the map names the colours it draws in.
-					status="dot"
-				/>
-			}
+			badges={recordBadges(facts, 'dot')}
 			date={when}
 			detailLabel={`View details for the ${when} inspection of ${label}`}
 			detailLink={{ to: '/larval-surveillance/inspections/$id', params: { id: inspection.id } }}

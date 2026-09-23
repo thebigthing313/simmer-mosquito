@@ -39,26 +39,23 @@ export function useCollectionIdentifications(collectionId: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ identification: collection_species() })
-					.where(({ identification }) => eq(identification.collection_id, collectionId))
-					.orderBy(({ identification }) => identification.created_at, 'asc')
-					.select(({ identification }) => ({
-						id: identification.id,
-						speciesId: identification.species_id,
-						count: identification.count,
-						sex: identification.sex,
-						status: identification.status,
-						identifiedByProfileId: identification.identified_by_profile_id,
-						createdAt: identification.created_at,
-					})),
-		},
-		[collectionId],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ identification: collection_species() })
+				.where(({ identification }) => eq(identification.collection_id, collectionId))
+				.orderBy(({ identification }) => identification.created_at, 'asc')
+				.select(({ identification }) => ({
+					id: identification.id,
+					speciesId: identification.species_id,
+					count: identification.count,
+					sex: identification.sex,
+					status: identification.status,
+					identifiedByProfileId: identification.identified_by_profile_id,
+					createdAt: identification.created_at,
+				})),
+	});
 
 	return {
 		identifications: result.data,

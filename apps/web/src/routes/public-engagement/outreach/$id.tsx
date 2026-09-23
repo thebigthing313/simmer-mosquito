@@ -8,14 +8,15 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import { formatActionDate } from '../../../components/control-operations/control-display';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
+import { formatReach } from '../../../components/public-engagement/public-engagement-display';
 import {
 	DetailPageShell,
 	type RecordDetailLayout,
@@ -24,12 +25,11 @@ import {
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
+import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { formatActionDate } from '../../control-operations/-control-display';
-import { formatReach } from '../-public-engagement-display';
 
 const OutreachIcon = iconRegistry.entities.outreachAction.icon;
 

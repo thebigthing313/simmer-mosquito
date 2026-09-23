@@ -1,97 +1,92 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	ArrowLeftIcon,
-	ChevronRightIcon,
-	iconRegistry,
-	MapPinnedIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
+import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentType, type ReactNode, useEffect, useState } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { ActivityLookups } from '../../../components/activity/activity-data';
+import { CollectionMapCard } from '../../../components/adult-surveillance/collection-map-card';
+import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
-import { DangerZoneCard } from '../../../components/danger-zone-card';
+import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
+import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
+import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
+import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
+import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { MapCanvas } from '../../../components/map';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
-import { ReasonDialog } from '../../../components/reason-dialog';
-import {
-	type RecordDetailLayout,
-	RecordDetailSkeleton,
-	RecordUnavailable,
-} from '../../../components/record';
-import { WriteOnly } from '../../../components/write-only';
-import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
-import type { Contact } from '../../../hooks/queries/contact-view';
-import { useAddressRecord } from '../../../hooks/queries/use-address-record';
-import { useContact } from '../../../hooks/queries/use-contact-record';
-import { useLookupNames } from '../../../hooks/queries/use-lookup-names';
-import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
-import {
-	type ServiceRequestRecord,
-	useServiceRequestRecord,
-} from '../../../hooks/queries/use-service-request-record';
-import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { recordNoun } from '../../../lib/record-nouns';
-import { HabitatMapCard } from '../../-habitat-map-card';
-import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
-import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
-import { ApplicationMapCard } from '../../control-operations/-application-map-card';
-import { BiocontrolMapCard } from '../../control-operations/-biocontrol-map-card';
-import { SourceReductionMapCard } from '../../control-operations/-source-reduction-map-card';
-import { InspectionMapCard } from '../../larval-surveillance/-inspection-map-card';
 import {
 	contactDisplayName,
 	formatAddressLines,
 	formatRequestDate,
 	intakeTypeLabel,
-	isServiceRequestOpen,
 	serviceRequestTitle,
-} from '../-public-engagement-display';
-import { RequestStatusBadge } from '../-public-engagement-ui';
+} from '../../../components/public-engagement/public-engagement-display';
+import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
+import { ServiceRequestDetailHeader } from '../../../components/public-engagement/service-requests/service-request-detail-header';
 import {
 	buildNearbyMapData,
 	countNearbyByFamily,
-	describeNearbyItem,
-	formatNearbyDistance,
 	formatRadiusLabel,
-	NEARBY_CATEGORY_LABEL,
 	NEARBY_FAMILIES,
-	NEARBY_FAMILY_OF,
 	type NearbyCategory,
 	type NearbyFamily,
 	type NearbyItem,
+	type NearbyRead,
 	type NearbyResponse,
-	useServiceRequestNearby,
+	nearbyItemKey,
+	nearbySummary,
+	nearbyWindowLabel,
 	visibleNearbyItems,
-} from './-service-request-nearby';
+} from '../../../components/public-engagement/service-requests/service-request-nearby';
+import { NearbyResultList } from '../../../components/public-engagement/service-requests/service-request-nearby-rows';
+import {
+	isServiceRequestTab,
+	mapFamiliesForTab,
+	SERVICE_REQUEST_TAB_CODECS,
+	SERVICE_REQUEST_TAB_DEFAULTS,
+	SERVICE_REQUEST_TAB_LABEL,
+	SERVICE_REQUEST_TABS,
+	tabFamily,
+} from '../../../components/public-engagement/service-requests/service-request-tabs';
+import {
+	detailBodyClass,
+	type RecordDetailLayout,
+	RecordDetailSkeleton,
+	RecordUnavailable,
+	type RecordUnavailableReason,
+} from '../../../components/record';
+import { useActivityLookups } from '../../../hooks/activity/use-activity-lookups';
+import { useServiceRequestNearby } from '../../../hooks/public-engagement/use-service-request-nearby';
+import type { Contact } from '../../../hooks/queries/contact-view';
+import { useAddressRecord } from '../../../hooks/queries/use-address-record';
+import { useContact } from '../../../hooks/queries/use-contact-record';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import {
+	type ServiceRequestRecord,
+	useServiceRequestRecord,
+} from '../../../hooks/queries/use-service-request-record';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
+import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { searchValidator } from '../../../lib/search-filters';
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id')({
 	component: ServiceRequestDetailRoute,
+	validateSearch: searchValidator(SERVICE_REQUEST_TAB_CODECS),
 });
-
-const RequestIcon = iconRegistry.entities.serviceRequest.icon;
-const EditIcon = iconRegistry.actions.edit.icon;
-const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
 /**
  * The placeholder, in the frame's shape rather than one written here.
@@ -108,11 +103,11 @@ const layout: RecordDetailLayout = {
 function ServiceRequestDetailRoute() {
 	const { id } = Route.useParams();
 	const { request, isError, isReady } = useServiceRequestRecord(id);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the request leaves the collection the moment the button is
-	// pressed and the content below unmounts before the registry's refusal comes
-	// back. This component survives it: the row going is what makes it render
-	// `RecordUnavailable` instead.
+	// Held here rather than in the header's menu, and rendered here too. The
+	// delete is optimistic, so the request leaves the collection the moment the
+	// item is chosen and the content below unmounts before the registry's refusal
+	// comes back. This component survives it: the row going is what makes it
+	// render `RecordUnavailable` instead.
 	const { run, dialog } = useAcknowledgedWrite({
 		askable: SERVICE_REQUEST_DELETE_REFUSALS,
 		ask: true,
@@ -122,25 +117,15 @@ function ServiceRequestDetailRoute() {
 	// a read that failed is not a record that is missing, and telling the reader
 	// to stop looking is the wrong answer to a transient failure.
 	if (isError) {
-		return (
-			<ServiceRequestStatePage>
-				<RecordUnavailable recordType="serviceRequest" reason="error" />
-			</ServiceRequestStatePage>
-		);
+		return <ServiceRequestUnavailable reason="error" />;
 	}
 	if (!isReady) {
-		return (
-			<ServiceRequestStatePage>
-				<RecordDetailSkeleton layout={layout} />
-			</ServiceRequestStatePage>
-		);
+		return <RecordDetailSkeleton layout={layout} />;
 	}
 	if (request === undefined) {
 		return (
 			<>
-				<ServiceRequestStatePage>
-					<RecordUnavailable recordType="serviceRequest" reason="not-found" />
-				</ServiceRequestStatePage>
+				<ServiceRequestUnavailable reason="not-found" />
 				{dialog}
 			</>
 		);
@@ -154,31 +139,19 @@ function ServiceRequestDetailRoute() {
 }
 
 /**
- * Full-height, back-linked frame for the loading / unavailable states.
+ * The unavailable states, in the frame's body measure.
  *
- * `record` is the measure the route-loading skeleton reserves, so the state
- * arrives at the width it stood in for rather than in a 900px column of its
- * own, the third such column in the routes after search and weather import
- * (#1043, #1046).
+ * The same box `RecordDetailPage` puts its own in, so the message stands where
+ * the record's cards would have, at the width the route-loading skeleton
+ * reserved rather than in a 900px column of its own (#1043, #1046). There is no
+ * back link over it: the breadcrumb and the browser's back button already say
+ * where up is, and the one the page used to draw named a fixed destination.
  */
-function ServiceRequestStatePage({ children }: { readonly children: ReactNode }) {
+function ServiceRequestUnavailable({ reason }: { readonly reason: RecordUnavailableReason }) {
 	return (
-		<div className={pageContainer({ gap: 'detail', measure: 'record', padding: 'detail' })}>
-			<BackLink />
-			{children}
+		<div className={detailBodyClass()}>
+			<RecordUnavailable reason={reason} recordType="serviceRequest" />
 		</div>
-	);
-}
-
-function BackLink() {
-	return (
-		<Link
-			className="inline-flex w-fit items-center gap-1.5 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			to="/public-engagement/service-requests"
-		>
-			<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-			{recordNoun('serviceRequest').titleMany}
-		</Link>
 	);
 }
 
@@ -187,117 +160,173 @@ function ServiceRequestDetailContent({
 	askDelete,
 }: {
 	readonly request: ServiceRequestRecord;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
-	const title = serviceRequestTitle(request);
-	useBreadcrumbLabel(request.id, title);
-	const open = isServiceRequestOpen(request);
+	useBreadcrumbLabel(request.id, serviceRequestTitle(request));
 
 	const nearby = useServiceRequestNearby(request.id);
-	const nameById = useLookupNames();
-	const [visibleFamilies, setVisibleFamilies] = useState<ReadonlySet<NearbyFamily>>(
-		() => new Set(ALL_FAMILIES),
+	const lookups = useActivityLookups();
+	// The active tab is where the reader is, so it lives in the URL: a refresh
+	// and a shared link land on the same tab, and Details stays out of the
+	// search because it is the default. The count is switched off because a tab
+	// narrows nothing.
+	const { filters, setFilters } = useSearchFilters(
+		SERVICE_REQUEST_TAB_DEFAULTS,
+		SERVICE_REQUEST_TAB_CODECS,
+		{ uncounted: ['tab'] },
 	);
-	const [selectedNearbyId, setSelectedNearbyId] = useState<string | null>(null);
+	const tab = filters.tab;
+	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-	const mutations = useServiceRequestMutations();
 	const profiles = useProfileRoster();
 	const receivedByName =
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
 
-	const toggleFamily = (family: NearbyFamily) => {
-		setVisibleFamilies((prev) => {
-			const next = new Set(prev);
-			if (next.has(family)) {
-				next.delete(family);
-			} else {
-				next.add(family);
-			}
-			return next;
-		});
+	const countsByFamily = countNearbyByFamily(nearby.data?.items ?? []);
+
+	const selectTab = (value: string) => {
+		if (isServiceRequestTab(value)) {
+			setFilters({ tab: value });
+		}
 	};
 
 	return (
 		<MapSplitPage
 			map={
 				<ContextMap
-					onSelect={setSelectedNearbyId}
+					families={mapFamiliesForTab(tab)}
+					onSelect={setSelectedKey}
 					request={request}
 					response={nearby.data}
-					selectedId={selectedNearbyId}
-					visibleFamilies={visibleFamilies}
+					selectedKey={selectedKey}
 				/>
 			}
 		>
 			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'snug', padding: 'default' })}>
-					<BackLink />
-					<div className="flex items-start justify-between gap-2">
-						<div className="grid min-w-0 gap-1">
-							<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-								<RequestIcon aria-hidden="true" className="size-3.5" />
-								Service request
-							</span>
-							<h1 className="m-0 truncate font-semibold text-foreground text-xl leading-tight">
-								{title}
-							</h1>
-							<p className="m-0 text-muted-foreground text-sm">
-								{intakeTypeLabel(request.intakeType)} · {formatRequestDate(request.requestDate)}
-							</p>
-						</div>
-						<RequestStatusBadge open={open} />
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: request.id }} to="/public-engagement/service-requests/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-						<CloseReopenButton open={open} requestId={request.id} />
-					</div>
-				</div>
+				<ServiceRequestDetailHeader askDelete={askDelete} request={request} />
 
-				<div className="min-h-0 flex-1 overflow-y-auto">
-					<div className="grid content-start gap-5 p-4">
-						{/* The map pane is full height, so nothing sits under it: the band
-						    becomes the first item in the scrolling side panel instead. Not
-						    beside NearbyPanel, which would read as a subsection of
-						    nearby-context. Regions are a fixed boundary the record falls
-						    inside, and nearby is a live proximity query. */}
-						<RecordRegionsBand recordId={request.id} recordType="service_requests" />
-						<RequestDetailsCard receivedByName={receivedByName} request={request} />
-						<RequestPartiesCard addressId={request.addressId} contactId={request.contactId} />
-						<NearbyPanel
-							isError={nearby.isError}
-							isLoading={nearby.isLoading}
-							nameById={nameById}
-							onSelect={setSelectedNearbyId}
-							onToggleFamily={toggleFamily}
-							response={nearby.data}
-							selectedId={selectedNearbyId}
-							visibleFamilies={visibleFamilies}
-						/>
-						<CommentsSection
-							description="Follow-up, resolution notes, and field context for this request."
-							target={{ type: 'serviceRequest', id: request.id }}
-						/>
-						<DangerZoneCard
-							ask={askDelete}
-							name={title}
-							onDelete={(acknowledgements) => mutations.remove(request.id, acknowledgements)}
-							recordId={request.id}
-							recordType="serviceRequest"
-							returnTo="/public-engagement/service-requests"
-						/>
+				<Tabs className="min-h-0 flex-1 gap-0" onValueChange={selectTab} value={tab}>
+					<div className="shrink-0 border-border/40 border-b px-3 py-2">
+						<TabStrip aria-label="Service request sections">
+							{SERVICE_REQUEST_TABS.map((value) => {
+								const family = tabFamily(value);
+								return (
+									<TabStripTab key={value} value={value}>
+										{SERVICE_REQUEST_TAB_LABEL[value]}
+										{family === null ? null : <TabCount count={countsByFamily[family]} />}
+									</TabStripTab>
+								);
+							})}
+						</TabStrip>
 					</div>
-				</div>
+
+					<TabsContent className={TAB_CONTENT_CLASS} value="details">
+						<TabBody>
+							<RequestDetailsCard receivedByName={receivedByName} request={request} />
+							<div className="grid gap-4 @md:grid-cols-2">
+								<PartyCard label="Contact">
+									<ContactParty contactId={request.contactId} />
+								</PartyCard>
+								<PartyCard label="Address">
+									<AddressParty addressId={request.addressId} />
+								</PartyCard>
+							</div>
+							<RecordRegionsBand recordId={request.id} recordType="service_requests" />
+						</TabBody>
+					</TabsContent>
+
+					{NEARBY_FAMILIES.map((family) => (
+						<TabsContent className={TAB_CONTENT_CLASS} key={family.key} value={family.key}>
+							<NearbyFamilyTab
+								families={mapFamiliesForTab(family.key)}
+								label={family.label}
+								lookups={lookups}
+								nearby={nearby}
+								onSelect={setSelectedKey}
+								selectedKey={selectedKey}
+							/>
+						</TabsContent>
+					))}
+
+					<TabsContent className={TAB_CONTENT_CLASS} value="comments">
+						<TabBody>
+							<CommentsSection
+								description="Follow-up, resolution notes, and field context for this request."
+								target={{ type: 'serviceRequest', id: request.id }}
+							/>
+						</TabBody>
+					</TabsContent>
+				</Tabs>
 			</div>
 		</MapSplitPage>
+	);
+}
+
+/**
+ * A tab body is a column that hands its height on, so the scroller inside it,
+ * the rail's or `TabBody`'s, is what scrolls rather than the tab.
+ */
+const TAB_CONTENT_CLASS = 'flex min-h-0 flex-col';
+
+/** How many records a family tab lists, beside its label; nothing for none. */
+function TabCount({ count }: { readonly count: number }) {
+	return count === 0 ? null : (
+		<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
+	);
+}
+
+/**
+ * The scrolling body of a tab whose content is cards rather than a rail.
+ *
+ * The tab owns the column's remaining height, so the body scrolls inside the
+ * product's `ScrollArea` and the page never does. It is a container, so the
+ * Details tab can set two cards side by side once the column is wide enough,
+ * measured against the column rather than the window because the column is
+ * two fifths of the stage.
+ */
+function TabBody({ children }: { readonly children: ReactNode }) {
+	return (
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<div className="@container grid content-start gap-4 p-4">{children}</div>
+		</ScrollArea>
+	);
+}
+
+/**
+ * One family's nearby records: what the page says it is showing, then the
+ * rail's rows. The families are the tab's own, read off the same function the
+ * map reads, so a row is on the map exactly when it is in the list.
+ */
+function NearbyFamilyTab({
+	families,
+	label,
+	nearby,
+	selectedKey,
+	onSelect,
+	lookups,
+}: {
+	readonly families: ReadonlySet<NearbyFamily>;
+	readonly label: string;
+	readonly nearby: NearbyRead;
+	readonly selectedKey: string | null;
+	readonly onSelect: (key: string | null) => void;
+	readonly lookups: ActivityLookups;
+}) {
+	return (
+		<>
+			<p className="m-0 shrink-0 border-border/40 border-b px-4 py-2 text-muted-foreground text-xs">
+				{nearbySummary(nearby.data)}
+			</p>
+			<NearbyResultList
+				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
+				emptyTitle="Nothing nearby"
+				families={families}
+				lookups={lookups}
+				nearby={nearby}
+				onSelect={onSelect}
+				selectedKey={selectedKey}
+			/>
+		</>
 	);
 }
 
@@ -308,11 +337,10 @@ function RequestDetailsCard({
 	readonly request: ServiceRequestRecord;
 	readonly receivedByName: string | null;
 }) {
+	// No title: the tab it sits on is called Details, and a card saying it again
+	// under the strip named the same thing twice.
 	return (
 		<Card variant="surface">
-			<CardHeader padding="compact">
-				<CardTitle>Details</CardTitle>
-			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<p className="m-0 whitespace-pre-wrap text-foreground text-sm">{request.details}</p>
 				<DetailList className="border-border/50 border-t pt-4">
@@ -330,22 +358,24 @@ function RequestDetailsCard({
 function ContextMap({
 	request,
 	response,
-	visibleFamilies,
-	selectedId,
+	families,
+	selectedKey,
 	onSelect,
 }: {
 	readonly request: ServiceRequestRecord;
 	readonly response: NearbyResponse | undefined;
-	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string | null) => void;
+	/** The nearby families the active tab draws. */
+	readonly families: ReadonlySet<NearbyFamily>;
+	/** The selected record's `nearbyItemKey`, or null. */
+	readonly selectedKey: string | null;
+	readonly onSelect: (key: string | null) => void;
 }) {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const mapData = buildNearbyMapData(
 		{ lat: request.latitude, lng: request.longitude },
 		response,
-		visibleFamilies,
+		families,
 	);
 
 	const handleReady = (instance: MapboxMap) => {
@@ -373,8 +403,17 @@ function ContextMap({
 		}
 	}, [map, radiusMeters, request.longitude, request.latitude]);
 
+	// The selection is only a selection while its family is on the map: a
+	// record picked on the Control tab stays picked for when the reader comes
+	// back, and is neither ringed nor flown to nor carded while the tab is
+	// Details.
+	const selectedItem =
+		selectedKey === null
+			? null
+			: (visibleNearbyItems(response?.items ?? [], families).find(
+					(item) => nearbyItemKey(item) === selectedKey,
+				) ?? null);
 	// Fly to the selected nearby record.
-	const selectedItem = response?.items.find((item) => item.id === selectedId) ?? null;
 	useEffect(() => {
 		if (map === null || selectedItem === null) {
 			return;
@@ -391,7 +430,7 @@ function ContextMap({
 			<MapCanvas
 				nearbyLayer={{
 					data: mapData,
-					selectedIds: selectedId === null ? [] : [selectedId],
+					selectedIds: selectedItem === null ? [] : [nearbyItemKey(selectedItem)],
 					onSelectFeature: onSelect,
 				}}
 				onMapReady={handleReady}
@@ -410,9 +449,7 @@ function MapContextCaption({ response }: { readonly response: NearbyResponse }) 
 			<p className="m-0 font-medium text-foreground text-xs">
 				Within {formatRadiusLabel(response.radius.amount, response.radius.unitCode)}
 			</p>
-			<p className="m-0 text-[0.7rem] text-muted-foreground">
-				{formatRequestDate(response.dateFrom)} – {formatRequestDate(response.dateTo)}
-			</p>
+			<p className="m-0 text-[0.7rem] text-muted-foreground">{nearbyWindowLabel(response)}</p>
 		</div>
 	);
 }
@@ -429,9 +466,11 @@ interface NearbyCardProps {
 
 /**
  * The same rich, self-fetching per-type card an explorer would show, keyed by
- * category — a habitat near a request shows the exact card the Habitats explorer
+ * category: a habitat near a request shows the exact card the Habitats explorer
  * shows, and so on for every family. Each card takes just the record id and
  * resolves its own content; the SR-relative distance stays in the nearby list.
+ * A request near this one shows the Service Requests explorer's card, whose
+ * detail link is the way from one request to the next (#1090).
  */
 const NEARBY_MAP_CARD: Readonly<Record<NearbyCategory, ComponentType<NearbyCardProps>>> = {
 	habitat: HabitatNearbyCard,
@@ -441,6 +480,7 @@ const NEARBY_MAP_CARD: Readonly<Record<NearbyCategory, ComponentType<NearbyCardP
 	application: ApplicationMapCard,
 	sourceReduction: SourceReductionMapCard,
 	biocontrol: BiocontrolMapCard,
+	serviceRequest: ServiceRequestMapCard,
 };
 
 function NearbyFocusCard({
@@ -454,308 +494,23 @@ function NearbyFocusCard({
 	return <MapCardForCategory id={item.id} onClose={onClose} />;
 }
 
-// --- Nearby panel (left column) ----------------------------------------------
+// --- Contact & address -------------------------------------------------------
 
-function NearbyPanel({
-	response,
-	isLoading,
-	isError,
-	visibleFamilies,
-	onToggleFamily,
-	selectedId,
-	onSelect,
-	nameById,
-}: {
-	readonly response: NearbyResponse | undefined;
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly visibleFamilies: ReadonlySet<NearbyFamily>;
-	readonly onToggleFamily: (family: NearbyFamily) => void;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string | null) => void;
-	readonly nameById: ReadonlyMap<string, string>;
-}) {
-	const countsByFamily = countNearbyByFamily(response?.items ?? []);
-	const visibleItems = visibleNearbyItems(response?.items ?? [], visibleFamilies);
-
+/**
+ * One party to the request, as its own card. Two cards rather than one with
+ * two sections, so the Details tab can set them side by side where the column
+ * is wide enough and stack them where it is not.
+ */
+function PartyCard({ label, children }: { readonly label: string; readonly children: ReactNode }) {
 	return (
 		<Card variant="surface">
 			<CardHeader padding="compact">
-				<CardTitle className="flex items-center gap-2">
-					<MapPinnedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-					Nearby Activity
-				</CardTitle>
-				<CardDescription>{nearbySummary(response)}</CardDescription>
+				<CardTitle>{label}</CardTitle>
 			</CardHeader>
-			<CardContent className="grid gap-4" padding="compact">
-				<div className="flex flex-wrap gap-2">
-					{NEARBY_FAMILIES.map((family) => (
-						<FamilyToggle
-							count={countsByFamily[family.key]}
-							family={family.key}
-							key={family.key}
-							label={family.label}
-							onToggle={onToggleFamily}
-							pressed={visibleFamilies.has(family.key)}
-						/>
-					))}
-				</div>
-
-				<NearbyList
-					isError={isError}
-					isLoading={isLoading}
-					items={visibleItems}
-					nameById={nameById}
-					onSelect={onSelect}
-					response={response}
-					selectedId={selectedId}
-				/>
+			<CardContent className="grid content-start gap-2" padding="compact">
+				{children}
 			</CardContent>
 		</Card>
-	);
-}
-
-/** What the panel says it is showing, before and after the fetch lands. */
-function nearbySummary(response: NearbyResponse | undefined): string {
-	if (response === undefined) {
-		return 'Records around this request, from your public-engagement settings.';
-	}
-	const count = response.items.length;
-	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
-	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
-	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
-}
-
-/** The list, or the one line standing in for it. `items` is already family-filtered. */
-function NearbyList({
-	response,
-	items,
-	isLoading,
-	isError,
-	selectedId,
-	onSelect,
-	nameById,
-}: {
-	readonly response: NearbyResponse | undefined;
-	readonly items: readonly NearbyItem[];
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly selectedId: string | null;
-	readonly onSelect: (id: string | null) => void;
-	readonly nameById: ReadonlyMap<string, string>;
-}) {
-	if (isError) {
-		return <NearbyMessage>Nearby records couldn't be loaded. Try again shortly.</NearbyMessage>;
-	}
-	if (isLoading || response === undefined) {
-		return <NearbyLoading />;
-	}
-	if (response.items.length === 0) {
-		return (
-			<NearbyMessage>
-				No infrastructure, surveillance, or control activity fell within this radius and time
-				window.
-			</NearbyMessage>
-		);
-	}
-	if (items.length === 0) {
-		return <NearbyMessage>All families are hidden. Toggle one above to see records.</NearbyMessage>;
-	}
-	return (
-		<ul className="grid gap-1">
-			{items.map((item) => (
-				<NearbyRow
-					isSelected={item.id === selectedId}
-					item={item}
-					key={item.id}
-					nameById={nameById}
-					onSelect={onSelect}
-					unitCode={response.radius.unitCode}
-				/>
-			))}
-		</ul>
-	);
-}
-
-function FamilyToggle({
-	family,
-	label,
-	count,
-	pressed,
-	onToggle,
-}: {
-	readonly family: NearbyFamily;
-	readonly label: string;
-	readonly count: number;
-	readonly pressed: boolean;
-	readonly onToggle: (family: NearbyFamily) => void;
-}) {
-	return (
-		<button
-			aria-pressed={pressed}
-			className={cn(
-				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-				pressed
-					? 'border-border bg-muted/60 text-foreground'
-					: 'border-border/60 text-muted-foreground hover:bg-muted/40',
-			)}
-			onClick={() => onToggle(family)}
-			type="button"
-		>
-			<FamilyDot dimmed={!pressed} family={family} />
-			{label}
-			<span className={cn('tabular-nums text-muted-foreground', !pressed && 'opacity-70')}>
-				{count}
-			</span>
-		</button>
-	);
-}
-
-function NearbyRow({
-	item,
-	isSelected,
-	onSelect,
-	nameById,
-	unitCode,
-}: {
-	readonly item: NearbyItem;
-	readonly isSelected: boolean;
-	readonly onSelect: (id: string | null) => void;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly unitCode: string;
-}) {
-	const { title, subtitle } = describeNearbyItem(item, nameById);
-	const meta = [
-		NEARBY_CATEGORY_LABEL[item.category],
-		subtitle,
-		item.date === null ? null : formatRequestDate(item.date),
-		formatNearbyDistance(item.distanceMeters, unitCode),
-	]
-		.filter((part): part is string => part !== null)
-		.join(' · ');
-
-	return (
-		<li
-			className={cn(
-				'group flex items-center gap-1.5 rounded-md pr-1 pl-2',
-				isSelected ? 'bg-primary/8' : 'hover:bg-muted/50',
-			)}
-		>
-			<button
-				className="flex min-w-0 flex-1 items-center gap-2.5 rounded-sm py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={() => onSelect(isSelected ? null : item.id)}
-				title="Show on the Map"
-				type="button"
-			>
-				<FamilyDot family={NEARBY_FAMILY_OF[item.category]} />
-				<span className="grid min-w-0 flex-1 gap-0.5">
-					<span className="truncate font-medium text-foreground text-sm">{title}</span>
-					<span className="truncate text-muted-foreground text-xs">{meta}</span>
-				</span>
-			</button>
-			<Link
-				className={NEARBY_ITEM_LINK_ICON_CLASS}
-				params={{ id: item.id }}
-				to={NEARBY_DETAIL_ROUTE[item.category]}
-			>
-				<ChevronRightIcon aria-hidden="true" className="size-4" />
-			</Link>
-		</li>
-	);
-}
-
-function FamilyDot({
-	family,
-	dimmed = false,
-}: {
-	readonly family: NearbyFamily;
-	readonly dimmed?: boolean;
-}) {
-	return (
-		<span
-			aria-hidden="true"
-			className={cn('size-2.5 shrink-0 rounded-full', dimmed && 'opacity-40')}
-			style={{ backgroundColor: NEARBY_FAMILY_COLORS[family] }}
-		/>
-	);
-}
-
-const NEARBY_ITEM_LINK_ICON_CLASS =
-	'flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
-/** Where each nearby category's detail page lives. Every one takes an `$id`. */
-const NEARBY_DETAIL_ROUTE = {
-	habitat: '/larval-surveillance/habitats/$id',
-	trap: '/adult-surveillance/traps/$id',
-	inspection: '/larval-surveillance/inspections/$id',
-	collection: '/adult-surveillance/collections/$id',
-	application: '/control-operations/chemical/$id',
-	sourceReduction: '/control-operations/source-reduction/$id',
-	biocontrol: '/control-operations/biocontrol/$id',
-} as const satisfies Record<NearbyCategory, string>;
-
-function NearbyLoading() {
-	return (
-		<div className="grid gap-1.5" aria-hidden="true">
-			{['n-1', 'n-2', 'n-3', 'n-4'].map((key) => (
-				<div className="flex items-center gap-2.5 px-2 py-1.5" key={key}>
-					<Skeleton className="size-2.5 rounded-full" />
-					<div className="grid flex-1 gap-1">
-						<Skeleton className="h-3.5 w-2/5" />
-						<Skeleton className="h-3 w-3/5" />
-					</div>
-				</div>
-			))}
-		</div>
-	);
-}
-
-function NearbyMessage({ children }: { readonly children: ReactNode }) {
-	return (
-		<p className="rounded-md border border-border/40 border-dashed bg-muted/20 px-3 py-4 text-center text-muted-foreground text-sm">
-			{children}
-		</p>
-	);
-}
-
-// --- Contact & address (unchanged behaviour) ---------------------------------
-
-function RequestPartiesCard({
-	contactId,
-	addressId,
-}: {
-	readonly contactId: string;
-	readonly addressId: string;
-}) {
-	return (
-		<Card variant="surface">
-			<CardHeader padding="compact">
-				<CardTitle>Contact &amp; Location</CardTitle>
-			</CardHeader>
-			<CardContent className="grid gap-5" padding="compact">
-				<PartySection label="Contact">
-					<ContactParty contactId={contactId} />
-				</PartySection>
-				<PartySection label="Address">
-					<AddressParty addressId={addressId} />
-				</PartySection>
-			</CardContent>
-		</Card>
-	);
-}
-
-function PartySection({
-	label,
-	children,
-}: {
-	readonly label: string;
-	readonly children: ReactNode;
-}) {
-	return (
-		<div className="grid gap-2">
-			<span className="font-semibold text-muted-foreground text-xs uppercase">{label}</span>
-			{children}
-		</div>
 	);
 }
 
@@ -888,99 +643,4 @@ function formatCoords(
 		return null;
 	}
 	return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-}
-
-/**
- * Everything that differs between the close dialog and the reopen dialog. The
- * two are the same component with one of these picked once, so a wording change
- * lands in exactly one place and cannot drift between the halves.
- */
-interface LifecycleCopy {
-	readonly action: string;
-	readonly title: string;
-	readonly description: string;
-	readonly placeholder: string;
-	/** What the comment says when nobody explained it. */
-	readonly unexplained: string;
-}
-
-const CLOSE_COPY: LifecycleCopy = {
-	action: 'Close Request',
-	title: 'Close this request',
-	description: 'What was found, and what was done about it. This goes on the request as a comment.',
-	// vocabulary-ignore site: ordinary English in a field tech's voice, not the abstraction.
-	placeholder: 'No standing water found on site.',
-	unexplained: 'Closed',
-};
-
-const REOPEN_COPY: LifecycleCopy = {
-	action: 'Reopen Request',
-	title: 'Reopen this request',
-	description: 'Why this request is being picked back up. This goes on the request as a comment.',
-	placeholder: 'Caller reported it again.',
-	unexplained: 'Reopened',
-};
-
-/**
- * Close or reopen, with the reason that goes on the record.
- *
- * Both write a comment on the request in the same transaction, so the dialog is
- * not a confirmation step bolted on — it is where the comment's text comes from.
- * The reason is an argument to the command rather than a change to the row: it
- * is not a column here, and the optimistic row must not pretend it is.
- *
- * Neither is required. The command insists on non-empty text, so an empty box
- * falls back to the plain fact — the same bargain the mission cancel dialog
- * strikes. A close nobody explained is still a close, and refusing to record it
- * over a blank field would be the worse failure.
- */
-function CloseReopenButton({
-	requestId,
-	open,
-}: {
-	readonly requestId: string;
-	readonly open: boolean;
-}) {
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const mutations = useServiceRequestMutations();
-	const copy = open ? CLOSE_COPY : REOPEN_COPY;
-
-	const confirm = async (reason: string) => {
-		setDialogOpen(false);
-		setBusy(true);
-		setError(null);
-		const trimmed = reason.trim();
-		const text = trimmed.length === 0 ? copy.unexplained : trimmed;
-		try {
-			if (open) {
-				await mutations.close(requestId, text);
-			} else {
-				await mutations.reopen(requestId, text);
-			}
-		} catch (thrown) {
-			setError(thrown instanceof Error ? thrown.message : 'Unable to update the request.');
-		}
-		setBusy(false);
-	};
-
-	return (
-		<div className="grid justify-items-end gap-1">
-			<Button disabled={busy} onClick={() => setDialogOpen(true)} size="sm" variant="outline">
-				{copy.action}
-			</Button>
-			{error === null ? null : <span className="text-destructive text-xs">{error}</span>}
-			<ReasonDialog
-				confirmLabel={copy.action}
-				description={copy.description}
-				onConfirm={(reason) => void confirm(reason)}
-				onOpenChange={setDialogOpen}
-				open={dialogOpen}
-				placeholder={copy.placeholder}
-				required={false}
-				title={copy.title}
-			/>
-		</div>
-	);
 }

@@ -1,6 +1,13 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	defaultMissionFormValues,
+	MISSION_FIELD_PATHS,
+	MissionFormPage,
+	type MissionPlan,
+	validateMissionPlan,
+} from '../../../components/operations/missions/mission-form';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { useMission } from '../../../hooks/queries/use-mission';
@@ -8,13 +15,6 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	defaultMissionFormValues,
-	MISSION_FIELD_PATHS,
-	MissionFormPage,
-	type MissionPlan,
-	validateMissionPlan,
-} from './-mission-form';
 
 export const Route = createFileRoute('/operations/missions/create')({
 	beforeLoad: async ({ context }) => {

@@ -1,9 +1,9 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useSourceReductionMethodMutations } from '../../../hooks/mutations/use-catalog-mutations';
-import { useSourceReductionMethodRecords } from '../../../hooks/queries/use-catalog-records';
+import { ControlMethodsPage } from '../../../components/control-operations/control-methods-page';
+import { useSourceReductionMethodMutations } from '../../../hooks/mutations/use-source-reduction-method-mutations';
+import { useSourceReductionMethodRecords } from '../../../hooks/queries/use-source-reduction-method-records';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { ControlMethodsPage } from '../-control-methods-page';
 
 export const Route = createFileRoute('/control-operations/source-reduction/methods')({
 	component: SourceReductionMethodsRoute,

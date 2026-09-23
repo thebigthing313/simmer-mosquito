@@ -25,5 +25,4 @@ export {
 export type { SourceReductionTileFilters } from './source-reduction-tiles';
 export type { MapTileLayer } from './tile-layers';
 export { TRAP_STATUS_COLORS, type TrapTileFilters } from './trap-tiles';
-export type { RouteStopFeature } from './use-route-layer';
 export { WEATHER_STATION_STATUS_COLORS } from './weather-station-colors';

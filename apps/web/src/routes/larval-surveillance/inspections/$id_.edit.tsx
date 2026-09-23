@@ -5,22 +5,31 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { getServerUrl } from '../../../auth';
+import {
+	type DrawGeometry,
+	InspectionFormPage,
+} from '../../../components/larval-surveillance/inspections/inspection-form';
+import {
+	defaultInspectionFormValues,
+	type InspectionFormValues,
+	inspectionResultOf,
+	noHabitatTypeValue,
+	unsetDensityValue,
+} from '../../../components/larval-surveillance/inspections/inspection-form-values';
 import { checkOwnedGeometry } from '../../../components/map/geojson-adapter';
-import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
+import { toDrawGeometry } from '../../../hooks/map/use-map-draw';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
+import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import {
 	type AdditionalPersonnelLink,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import {
-	type SchemaCatalogListing,
-	useHabitatTypeRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import {
 	type InspectionRecord,
 	useInspectionRecord,
@@ -31,15 +40,6 @@ import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	type DrawGeometry,
-	defaultInspectionFormValues,
-	InspectionFormPage,
-	type InspectionFormValues,
-	inspectionResultOf,
-	noHabitatTypeValue,
-	unsetDensityValue,
-} from './-inspection-form';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -69,14 +69,11 @@ function EditInspectionRoute() {
 	// samples subset below — are already streaming when the save fires; a write
 	// over a cold on-demand stream never sees its txid come back.
 	const personnel = useAdditionalPersonnel({ type: 'inspection', id });
-	useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
-		},
-		[id],
-	);
+	useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
+	});
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;

@@ -18,7 +18,7 @@
  */
 
 import type { JsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
-import type { CatalogFields } from '../../hooks/mutations/use-catalog-mutations';
+import type { CatalogFields } from '../../hooks/mutations/catalog-fields';
 import { jsonObjectValue } from '../../lib/record-display';
 
 /** The union of every field any of the eight catalog dialogs renders. */

@@ -12,6 +12,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
+import {
+	type ChartConfig,
+	ChartContainer,
+	ChartTooltip,
+	ChartTooltipContent,
+} from '@simmer-mosquito/ui-web/components/ui/chart';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import {
@@ -57,6 +63,16 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+import {
+	Area,
+	AreaChart,
+	Bar,
+	BarChart,
+	CartesianGrid,
+	ReferenceLine,
+	XAxis,
+	YAxis,
+} from 'recharts';
 
 export const Route = createFileRoute('/kitchen-sink')({
 	component: KitchenSinkPage,
@@ -66,6 +82,45 @@ const buttonVariants = ['default', 'secondary', 'outline', 'ghost', 'destructive
 const badgeTones = ['success', 'warning', 'info', 'catalog', 'danger', 'neutral'] as const;
 /** Enough tabs to run past the column, which is the case the strip exists for. */
 const PREVIEW_SEASONS = ['2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'] as const;
+
+/**
+ * The two series roles the period-in-review charts paint, named the way
+ * `ChartStyle` scopes them so a mark reads `var(--color-period)`: the period
+ * shown in `--chart-period`, the period it is read beside in
+ * `--chart-comparison`.
+ */
+const periodChartConfig = {
+	period: { label: '2026', color: 'var(--chart-period)' },
+	comparison: { label: '2025', color: 'var(--chart-comparison)' },
+} satisfies ChartConfig;
+
+/** Twelve months of counts for two years, the shape the Monthly chart plots. */
+const monthlyCounts = [
+	['Jan', 12, 9],
+	['Feb', 18, 14],
+	['Mar', 44, 39],
+	['Apr', 120, 98],
+	['May', 260, 231],
+	['Jun', 410, 377],
+	['Jul', 455, 402],
+	['Aug', 398, 361],
+	['Sep', 214, 240],
+	['Oct', 88, 102],
+	['Nov', 21, 30],
+	['Dec', 9, 11],
+].map(([month, period, comparison]) => ({ month, period, comparison }));
+
+/** Sixteen years of counts, the shape the Annual bar plots. */
+const yearlyCounts = Array.from({ length: 16 }, (_, index) => ({
+	year: `${2011 + index}`,
+	period: 18000 + Math.round(9000 * Math.sin(index / 2.5)) + index * 600,
+}));
+
+/** Sixty days of counts with one gap, the shape the Today area plots. */
+const dailyCounts = Array.from({ length: 60 }, (_, index) => ({
+	day: `Day ${index + 1}`,
+	period: index === 30 ? null : Math.round(120 + 90 * Math.sin(index / 6) + (index % 7) * 8),
+}));
 
 /** One reading per branch, so all four states of a child-record card sit side by side. */
 const panelRowsStates: readonly {
@@ -326,6 +381,135 @@ function KitchenSinkPage() {
 					<DatePickerSample label="No later than today" max={new Date()} />
 					<DatePickerSample label="This year only" max={endOfThisYear()} min={startOfThisYear()} />
 					<DatePickerSample disabled label="Disabled" />
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
+						<p className="preview-eyebrow">Charts</p>
+						<h2>Chart Container</h2>
+					</div>
+					<p>
+						The shadcn wrapper over Recharts, in the three forms the period-in-review pages draw: an
+						area over days with a gap where nothing was recorded, a grouped bar of one year beside
+						the year before, and one bar per year over the whole history. All three paint the chart
+						roles and mark the picked period with a dashed line.
+					</p>
+				</div>
+				<div className="component-grid cards">
+					<Panel
+						icon={<DropletIcon aria-hidden="true" className="size-4" />}
+						title="Inspections by day"
+					>
+						<div className="px-3 pt-3 pb-2">
+							<ChartContainer className="h-52 w-full" config={periodChartConfig}>
+								<AreaChart data={dailyCounts} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+									<CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
+									<XAxis
+										axisLine={false}
+										dataKey="day"
+										interval="preserveStartEnd"
+										minTickGap={40}
+										tickLine={false}
+										tickMargin={6}
+									/>
+									<YAxis axisLine={false} tickLine={false} width={44} />
+									<ChartTooltip content={<ChartTooltipContent />} />
+									<Area
+										connectNulls={false}
+										dataKey="period"
+										fill="var(--color-period)"
+										fillOpacity={0.1}
+										isAnimationActive={false}
+										stroke="var(--color-period)"
+										strokeWidth={2}
+										type="monotone"
+									/>
+									<ReferenceLine
+										stroke="var(--foreground)"
+										strokeDasharray="3 3"
+										strokeOpacity={0.7}
+										x="Day 45"
+									/>
+								</AreaChart>
+							</ChartContainer>
+						</div>
+					</Panel>
+					<Panel
+						icon={<DropletIcon aria-hidden="true" className="size-4" />}
+						title="Inspections by month, beside last year"
+					>
+						<div className="px-3 pt-3 pb-2">
+							<ChartContainer className="h-52 w-full" config={periodChartConfig}>
+								<BarChart
+									barGap={2}
+									data={monthlyCounts}
+									margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+								>
+									<CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
+									<XAxis axisLine={false} dataKey="month" tickLine={false} tickMargin={6} />
+									<YAxis axisLine={false} tickLine={false} width={44} />
+									<ChartTooltip content={<ChartTooltipContent />} />
+									<Bar
+										dataKey="period"
+										fill="var(--color-period)"
+										isAnimationActive={false}
+										maxBarSize={24}
+										radius={[4, 4, 0, 0]}
+									/>
+									<Bar
+										dataKey="comparison"
+										fill="var(--color-comparison)"
+										isAnimationActive={false}
+										maxBarSize={24}
+										radius={[4, 4, 0, 0]}
+									/>
+									<ReferenceLine
+										stroke="var(--foreground)"
+										strokeDasharray="3 3"
+										strokeOpacity={0.7}
+										x="Sep"
+									/>
+								</BarChart>
+							</ChartContainer>
+						</div>
+					</Panel>
+					<Panel
+						icon={<DropletIcon aria-hidden="true" className="size-4" />}
+						title="Inspections by year"
+					>
+						<div className="px-3 pt-3 pb-2">
+							<ChartContainer className="h-52 w-full" config={periodChartConfig}>
+								<BarChart data={yearlyCounts} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+									<CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} />
+									<XAxis
+										axisLine={false}
+										dataKey="year"
+										interval="preserveStartEnd"
+										minTickGap={24}
+										tickLine={false}
+										tickMargin={6}
+									/>
+									<YAxis axisLine={false} tickLine={false} width={44} />
+									<ChartTooltip content={<ChartTooltipContent />} />
+									<Bar
+										dataKey="period"
+										fill="var(--color-period)"
+										isAnimationActive={false}
+										maxBarSize={24}
+										radius={[4, 4, 0, 0]}
+									/>
+									<ReferenceLine
+										stroke="var(--foreground)"
+										strokeDasharray="3 3"
+										strokeOpacity={0.7}
+										x="2026"
+									/>
+								</BarChart>
+							</ChartContainer>
+						</div>
+					</Panel>
 				</div>
 			</section>
 

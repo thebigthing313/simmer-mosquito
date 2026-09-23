@@ -11,10 +11,10 @@ import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { type QueryClient, useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue, useState } from 'react';
 import { OptionRow, PickerFallback } from '../../components/pickers/entity-picker';
-import { useRegionFolders } from '../../hooks/queries/use-region-folders';
+import { type DrawGeometry, drawParts, toDrawGeometry } from '../../hooks/map/use-map-draw';
+import { useRegionFolderNames } from '../../hooks/map/use-region-folder-names';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
 import { regions } from '../../lib/collections/regions';
-import { type DrawGeometry, drawParts, toDrawGeometry } from './use-map-draw';
 
 /**
  * "Use one of the organization's regions as this polygon."
@@ -49,12 +49,10 @@ interface RegionOption {
 }
 
 export function RegionBoundaryPicker({
-	organizationId,
 	allowsParts,
 	disabled = false,
 	onSelect,
 }: {
-	readonly organizationId: string;
 	/** Whether the record adopting the boundary can store one in several pieces. */
 	readonly allowsParts: boolean;
 	readonly disabled?: boolean;
@@ -115,7 +113,6 @@ export function RegionBoundaryPicker({
 				<RegionResults
 					loadingId={loadingId}
 					onSelect={(region) => void adoptRegion(region)}
-					organizationId={organizationId}
 					search={deferredSearch}
 				/>
 				{error === null ? null : <p className="m-0 px-1 text-destructive text-xs">{error}</p>}
@@ -125,12 +122,10 @@ export function RegionBoundaryPicker({
 }
 
 function RegionResults({
-	organizationId,
 	search,
 	loadingId,
 	onSelect,
 }: {
-	readonly organizationId: string;
 	readonly search: string;
 	readonly loadingId: string | null;
 	readonly onSelect: (region: RegionOption) => void;
@@ -138,32 +133,29 @@ function RegionResults({
 	const normalized = search.trim();
 	const pattern = `%${normalized}%`;
 	const folderNames = useRegionFolderNames();
-	const { data, isReady, isError } = useLiveQuery(
-		{
-			gcTime: searchGcTimeMs,
-			query: (query) => {
-				// No organization predicate: the shape is scoped to the organization
-				// server-side, so re-stating it here is redundant — and a stale column
-				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ region: regions() });
-				const filtered =
-					normalized.length === 0
-						? base
-						: base.where(({ region }) =>
-								or(ilike(region.name, pattern), ilike(region.description, pattern)),
-							);
-				return filtered
-					.orderBy(({ region }) => region.name, 'asc')
-					.limit(resultLimit)
-					.select(({ region }) => ({
-						id: region.id,
-						name: region.name,
-						folderId: region.region_folder_id,
-					}));
-			},
+	const { data, isReady, isError } = useLiveQuery({
+		gcTime: searchGcTimeMs,
+		query: (query) => {
+			// No organization predicate: the shape is scoped to the organization
+			// server-side, so re-stating it here is redundant — and a stale column
+			// spelling in one is what empties a list rather than narrowing it.
+			const base = query.from({ region: regions() });
+			const filtered =
+				normalized.length === 0
+					? base
+					: base.where(({ region }) =>
+							or(ilike(region.name, pattern), ilike(region.description, pattern)),
+						);
+			return filtered
+				.orderBy(({ region }) => region.name, 'asc')
+				.limit(resultLimit)
+				.select(({ region }) => ({
+					id: region.id,
+					name: region.name,
+					folderId: region.region_folder_id,
+				}));
 		},
-		[organizationId, pattern],
-	);
+	});
 
 	if (isError) {
 		return <PickerFallback label="Regions unavailable" />;
@@ -201,18 +193,6 @@ function RegionResults({
 			)}
 		</div>
 	);
-}
-
-/**
- * Region names repeat across folders — every district has a "Zone 1" — so the
- * folder is what tells two same-named results apart. Folders sync eagerly and
- * are few, so the whole list is read once and matched in memory; a non-suspense
- * query keeps the popover from suspending the page around it.
- */
-function useRegionFolderNames(): ReadonlyMap<string, string> {
-	const { folders } = useRegionFolders();
-
-	return new Map(folders.map((folder) => [folder.id, folder.name] as const));
 }
 
 function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, string>): string {

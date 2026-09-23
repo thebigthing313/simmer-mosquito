@@ -1,4 +1,4 @@
-import type { TallyEntry, TallyVariant } from './use-key-entry-tally';
+import type { TallyEntry, TallyVariant } from '../../hooks/key-entry/use-key-entry-tally';
 
 /** A species-count row as it stood when the modal opened. */
 export interface CommitBaseline {

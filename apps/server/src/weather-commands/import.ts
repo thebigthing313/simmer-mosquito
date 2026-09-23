@@ -62,6 +62,7 @@ import {
 import { acknowledged, readString } from '../command-payload.js';
 import { denyUnauthorizedOrganizationCommands } from '../command-permissions.js';
 import { commandActor, writeCommands } from '../command-write.js';
+import { todayInTimeZone } from '../organization-day.js';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
 	CommandError,
@@ -176,16 +177,6 @@ export function registerWeatherImportRoute(
 			return handleCommandError(context, error);
 		}
 	});
-}
-
-/** Today, as the calendar day the organization is currently on. */
-function todayInTimeZone(timeZone: string): string {
-	return new Intl.DateTimeFormat('en-CA', {
-		timeZone,
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-	}).format(new Date());
 }
 
 /**

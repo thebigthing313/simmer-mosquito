@@ -5,6 +5,9 @@ import type { AuthMailer } from '../../auth-email.js';
 import type { AuthVariables } from '../../auth-middleware.js';
 import { type AuthUserFlows, registerAuthUserRoutes } from '../../auth-user-commands.js';
 
+/** The two halves as one object, so a case overrides a method without naming its half. */
+type FlatAuthUserFlows = AuthUserFlows['session'] & AuthUserFlows['identity'];
+
 const session: AuthenticatedSession = {
 	authenticated: true,
 	user: {
@@ -22,8 +25,8 @@ const session: AuthenticatedSession = {
 	sealedSession: 'sealed',
 };
 
-function createApp(overrides: Partial<AuthUserFlows> = {}, mailer?: AuthMailer) {
-	const auth: AuthUserFlows = {
+function createApp(overrides: Partial<FlatAuthUserFlows> = {}, mailer?: AuthMailer) {
+	const flat: FlatAuthUserFlows = {
 		signInWithPassword: vi.fn(async () => ({ status: 'authenticated' as const, session })),
 		signUpWithPassword: vi.fn(async () => ({ status: 'authenticated' as const, session })),
 		verifyEmailCode: vi.fn(async () => ({ status: 'authenticated' as const, session })),
@@ -41,6 +44,7 @@ function createApp(overrides: Partial<AuthUserFlows> = {}, mailer?: AuthMailer) 
 		switchOrganization: vi.fn(async () => session),
 		...overrides,
 	};
+	const auth: AuthUserFlows = { session: flat, identity: flat };
 
 	const finalizeSession = vi.fn(async () => ({ organizationRequired: false }));
 	const resolvedMailer: AuthMailer = mailer ?? { sendPasswordResetEmail: vi.fn(async () => {}) };
@@ -145,7 +149,7 @@ describe('registerAuthUserRoutes', () => {
 
 		expect(response.status).toBe(422);
 		await expect(response.json()).resolves.toMatchObject({ ok: false, status: 'weak_password' });
-		expect(auth.signUpWithPassword).not.toHaveBeenCalled();
+		expect(auth.identity.signUpWithPassword).not.toHaveBeenCalled();
 	});
 
 	it('always answers 200 to forgot-password and mails only when a reset exists', async () => {
@@ -391,6 +395,6 @@ describe('registerAuthUserRoutes', () => {
 		const response = await postJson(app, '/auth/switch-organization', {});
 
 		expect(response.status).toBe(400);
-		expect(auth.switchOrganization).not.toHaveBeenCalled();
+		expect(auth.session.switchOrganization).not.toHaveBeenCalled();
 	});
 });

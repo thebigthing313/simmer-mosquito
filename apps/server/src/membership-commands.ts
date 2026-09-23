@@ -42,7 +42,7 @@
  * names the Profile it creates, and the two rows are written together.
  */
 
-import type { WorkOsAuth } from '@simmer-mosquito/auth';
+import type { WorkOsIdentityWrites } from '@simmer-mosquito/auth';
 import {
 	checkedValues,
 	type Kysely,
@@ -69,14 +69,14 @@ import {
 /**
  * What the second system needs of the auth provider.
  *
- * Only the three calls these commands make, picked off `WorkOsAuth` rather than
+ * Only the three calls these commands make, picked off `WorkOsIdentityWrites` rather than
  * described a second time. `main.ts` hands in the real WorkOS client; a test
  * hands in three functions, and they now have to answer what the real ones
  * answer. `sendOrganizationInvitation` was narrowed here to `{ id }`, which let
  * a double return a shape no WorkOS response has.
  */
 export type MembershipAuth = Pick<
-	WorkOsAuth,
+	WorkOsIdentityWrites,
 	'sendOrganizationInvitation' | 'revokeInvitation' | 'deactivateOrganizationMembership'
 >;
 

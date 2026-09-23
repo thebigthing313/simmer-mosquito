@@ -1,21 +1,5 @@
-/**
- * One notification registration, and the types it subscribes to.
- *
- * Two queries rather than one join, because the subscriptions are a list and a
- * join would repeat the registration once per row. The detail page and the edit
- * form both want the pair, and both want the list separately from the record.
- *
- * The record reads through {@link useRecordById}, which holds the on-demand rule.
- * The subscriptions do not: they are read by the registration's foreign key
- * rather than by id, so that one states the rule itself — status-gated
- * `useLiveQuery`, never the suspense variant, which sticks after a navigation
- * unmount over an on-demand collection.
- */
-
-import { eq, useLiveQuery } from '@tanstack/react-db';
-import { notification_registration_types } from '../../lib/collections/notification_registration_types';
 import { notification_registrations } from '../../lib/collections/notification_registrations';
-import { mapCardGcTimeMs, unmatchableId, useRecordById } from './shared';
+import { useRecordById } from './shared';
 
 /** A registration as every surface reads one. */
 export interface RegistrationRecord {
@@ -40,6 +24,7 @@ export interface RegistrationSubscriptionRecord {
 	readonly notificationTypeId: string;
 }
 
+/** One notification registration by id, through the on-demand record read. */
 export function useRegistration(registrationId: string | null | undefined): {
 	readonly registration: RegistrationRecord | undefined;
 	readonly isReady: boolean;
@@ -67,28 +52,4 @@ export function useRegistration(registrationId: string | null | undefined): {
 	});
 
 	return { registration: result.record, isReady: result.isReady, isError: result.isError };
-}
-
-export function useRegistrationSubscriptions(registrationId: string | null | undefined): {
-	readonly subscriptions: readonly RegistrationSubscriptionRecord[];
-	readonly isReady: boolean;
-} {
-	const id = registrationId ?? unmatchableId;
-
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ link: notification_registration_types() })
-					.where(({ link }) => eq(link.notification_registration_id, id))
-					.select(({ link }) => ({
-						id: link.id,
-						notificationTypeId: link.notification_type_id,
-					})),
-		},
-		[id],
-	);
-
-	return { subscriptions: result.data, isReady: result.isReady };
 }

@@ -27,10 +27,17 @@ import {
 	type FilterOption,
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
-	useControlMethodNames,
-	usePersonnelOptions,
 } from '../../../components/explorer';
+import {
+	MissionStatusBadge,
+	missionStopFeatures,
+	stopSummary,
+} from '../../../components/operations/operations-display';
+import { WorklistMap } from '../../../components/operations/worklist-map';
 import { WriteOnly } from '../../../components/write-only';
+import { useControlMethodNames } from '../../../hooks/explorer/use-control-method-names';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useMissionStopViews } from '../../../hooks/operations/use-mission-stop-views';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -45,6 +52,7 @@ import {
 import { useMissionItemCounts } from '../../../hooks/queries/use-mission-item-counts';
 import { useMissions } from '../../../hooks/queries/use-missions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
@@ -53,11 +61,7 @@ import {
 	type FilterCodecs,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { useMissionStopViews } from '../-operations-data';
-import { MissionStatusBadge, missionStopFeatures, stopSummary } from '../-operations-display';
-import { WorklistMap } from '../-worklist-map';
 
 const MissionIcon = iconRegistry.entities.route.icon;
 

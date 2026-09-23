@@ -67,36 +67,99 @@ describe('addUtcDays', () => {
 });
 
 describe('serviceRequestContextBounds', () => {
+	const context = {
+		radius: { amount: 0.25, unitCode: 'mile' },
+		timeWindow: { daysBefore: 14, daysAfter: 14 },
+	};
+
 	it('resolves radius meters and an inclusive date window around the request date', () => {
-		const bounds = serviceRequestContextBounds('2026-07-23', {
-			radius: { amount: 0.25, unitCode: 'mile' },
-			timeWindow: { daysBefore: 14, daysAfter: 14 },
-		});
+		const bounds = serviceRequestContextBounds('2026-07-23', context, '2026-07-30');
 		expect(bounds.radiusMeters).toBeCloseTo(402.336, 3);
 		expect(bounds.dateFrom).toBe('2026-07-09');
 		expect(bounds.dateTo).toBe('2026-08-06');
 	});
 
 	it('collapses to the request date when the window is zero on both sides', () => {
-		const bounds = serviceRequestContextBounds('2026-07-23', {
-			radius: { amount: 100, unitCode: 'meter' },
-			timeWindow: { daysBefore: 0, daysAfter: 0 },
-		});
+		const bounds = serviceRequestContextBounds(
+			'2026-07-23',
+			{ radius: { amount: 100, unitCode: 'meter' }, timeWindow: { daysBefore: 0, daysAfter: 0 } },
+			'2026-07-23',
+		);
 		expect(bounds.radiusMeters).toBe(100);
 		expect(bounds.dateFrom).toBe('2026-07-23');
 		expect(bounds.dateTo).toBe('2026-07-23');
 	});
 
+	// The end of the window is the later of the setting's end and the anchor,
+	// which is the day the request closed, or today while it is open. A request
+	// open for six weeks used to show two weeks after its date and nothing of
+	// the work that closed it (#1084).
+	it('ends on the setting when the anchor is earlier', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-07-30').dateTo).toBe(
+			'2026-08-06',
+		);
+	});
+
+	it('ends on the anchor when it is later than the setting', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-09-04').dateTo).toBe(
+			'2026-09-04',
+		);
+	});
+
+	it('ends on the setting when the request closed on its own date', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-07-23').dateTo).toBe(
+			'2026-08-06',
+		);
+	});
+
+	it('ends on the shared day when the anchor sits exactly on the setting', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-08-06').dateTo).toBe(
+			'2026-08-06',
+		);
+	});
+
+	// The page says which end won, so a person reading a six-week range is
+	// not sent to the settings for a number that says 14 (#1085).
+	it('says the setting set the end when the anchor is earlier', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-07-30').dateToFrom).toBe(
+			'setting',
+		);
+	});
+
+	it('says the anchor set the end when it is later', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-09-04').dateToFrom).toBe(
+			'anchor',
+		);
+	});
+
+	it('credits the setting when the anchor sits exactly on it', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-08-06').dateToFrom).toBe(
+			'setting',
+		);
+	});
+
+	it('never moves the start, whichever end wins', () => {
+		expect(serviceRequestContextBounds('2026-07-23', context, '2026-09-04').dateFrom).toBe(
+			'2026-07-09',
+		);
+	});
+
 	it('refuses a request date it cannot read, naming the request date', () => {
-		expect(() =>
-			serviceRequestContextBounds('not a date', {
-				radius: { amount: 0.25, unitCode: 'mile' },
-				timeWindow: { daysBefore: 14, daysAfter: 14 },
-			}),
-		).toThrow(
+		expect(() => serviceRequestContextBounds('not a date', context, '2026-07-30')).toThrow(
 			expect.objectContaining({
 				issues: [{ path: 'requestDate', message: 'requestDate must be a YYYY-MM-DD date string.' }],
 			}),
 		);
+	});
+
+	it('refuses an anchor it cannot read, naming the anchor', () => {
+		expect(() => serviceRequestContextBounds('2026-07-23', context, 'today')).toThrow(
+			expect.objectContaining({
+				issues: [{ path: 'endAnchor', message: 'endAnchor must be a YYYY-MM-DD date string.' }],
+			}),
+		);
+		expect(() =>
+			serviceRequestContextBounds('2026-07-23', context, null as unknown as string),
+		).toThrow(DomainValidationError);
 	});
 });

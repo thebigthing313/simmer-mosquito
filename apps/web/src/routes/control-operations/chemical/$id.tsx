@@ -38,10 +38,16 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import {
+	ContextBadge,
+	controlContext,
+	formatActionDate,
+	formatMeasure,
+	nameById,
+} from '../../../components/control-operations/control-display';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -56,19 +62,13 @@ import type { ChemicalApplication } from '../../../hooks/queries/control-action-
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { useApplication } from '../../../hooks/queries/use-application';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
-import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useApplicationMethodRoster } from '../../../hooks/queries/use-application-method-roster';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
-import {
-	ContextBadge,
-	controlContext,
-	formatActionDate,
-	formatMeasure,
-	nameById,
-} from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/chemical/$id')({
 	component: RouteComponent,
@@ -261,17 +261,14 @@ function ApplicationBatchesCard({
 
 	// insecticide_batches is on-demand too; only this product's batches can be
 	// linked, so scope the subset to the applied insecticide.
-	const batchResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ batch: insecticide_batches() })
-					.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
-					.orderBy(({ batch }) => batch.batch_name, 'asc'),
-		},
-		[application.insecticideId],
-	);
+	const batchResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ batch: insecticide_batches() })
+				.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
+				.orderBy(({ batch }) => batch.batch_name, 'asc'),
+	});
 	const productBatches = batchResult.data;
 	const batchNameById = nameById(productBatches, (batch) => batch.batch_name);
 

@@ -3,11 +3,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import type { ReactNode } from 'react';
-import { act, StrictMode } from 'react';
+import { act, StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ExplorerEmptyReason } from '../../../../components/explorer/explorer-empty-state';
+import type { ExplorerPanel } from '../../../../hooks/explorer/use-explorer-panel';
 import type { MinimumRole } from '../../../../lib/write-access';
+import { stubRailViewportHeight } from '../../rail-viewport-stub';
 
 // The role floor the create control is drawn against. `useHasRole` reads the
 // auth snapshot, which is a network fact; the ladder itself is covered by
@@ -47,9 +49,6 @@ type ObserverCallback = (entries: readonly ObserverEntry[]) => void;
  */
 const liveObservers = new Map<ObserverCallback, Set<Element>>();
 
-/** The height of a result row, so a window of them fits in the panel. */
-const ROW_HEIGHT = 60;
-
 function observerEntry(target: Element): ObserverEntry {
 	return { contentRect: observedBox, target };
 }
@@ -80,16 +79,14 @@ vi.stubGlobal(
  * The rail mounts only the rows in view, and both halves of that are read off
  * `offsetHeight`: how tall the scroll container is, and how tall each row is.
  * jsdom does no layout, so every box is zero and a virtual list in it renders
- * nothing at all — the rows would be missing here for a reason that has nothing
- * to do with what these tests check. A row reports a row's height and everything
- * else reports the observed box.
+ * nothing at all, and the rows would be missing here for a reason that has
+ * nothing to do with what these tests check. The viewport reads the observed
+ * box through the reader, so a resize case moves the row window, and a row
+ * reports `STUB_ROW_HEIGHT`. Every other element keeps jsdom's zero: the panel
+ * measures itself off the observer's `contentRect`, not off `offsetHeight`,
+ * and nothing else in the frame reads the property.
  */
-Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-	configurable: true,
-	get(this: HTMLElement) {
-		return this.hasAttribute('data-index') ? ROW_HEIGHT : observedBox.height;
-	},
-});
+stubRailViewportHeight(() => observedBox.height);
 Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
 	configurable: true,
 	get: () => observedBox.width,
@@ -106,11 +103,11 @@ function setObservedBox(box: { width: number; height: number }) {
 }
 
 const { ExplorerMapPage } = await import('../../../../components/explorer/explorer-map-page');
-const { useExplorerPanel } = await import('../../../../components/explorer/use-explorer-panel');
-const { useFlyToSelection } = await import('../../../../components/explorer/use-fly-to-selection');
-const { useMapExtentFit } = await import('../../../../components/map/use-map-extent-fit');
-const { useMapPadding } = await import('../../../../components/map/use-map-padding');
-const { useMapBoundsParam } = await import('../../../../components/explorer/use-map-bounds');
+const { useExplorerPanel } = await import('../../../../hooks/explorer/use-explorer-panel');
+const { useFlyToSelection } = await import('../../../../hooks/explorer/use-fly-to-selection');
+const { useMapExtentFit } = await import('../../../../hooks/map/use-map-extent-fit');
+const { useMapPadding } = await import('../../../../hooks/map/use-map-padding');
+const { useMapBoundsParam } = await import('../../../../hooks/explorer/use-map-bounds-param');
 const { createFakeMap } = await import('../map/fake-map');
 
 afterEach(() => {
@@ -468,6 +465,20 @@ describe('ExplorerMapPage', () => {
 		expect(screen.getByText('Site 1')).toBeTruthy();
 	});
 
+	// The viewport reads its height off the observed box, so a resize is a
+	// smaller window. The virtualiser re-reads `offsetHeight` on every observer
+	// entry that carries no `borderBoxSize`, which is what the stand-in fires.
+	it('shrinks the row window with the stage', () => {
+		render(<Page rows={PAGE_OF_ROWS} />);
+		const tall = document.querySelectorAll('[data-index]').length;
+
+		setObservedBox({ width: 1000, height: 120 });
+
+		const short = document.querySelectorAll('[data-index]').length;
+		expect(short).toBeGreaterThan(0);
+		expect(short).toBeLessThan(tall);
+	});
+
 	/*
 	 * Mounting a window is not on its own a way past it: tabbing into the last
 	 * mounted row scrolls it and mounts the next, so Tab alone still walks the
@@ -506,22 +517,37 @@ describe('the inset the panel hands the map', () => {
 		const container = document.createElement('div');
 		document.body.append(container);
 		const root = createRoot(container);
-		const panel = { current: null as ReturnType<typeof useExplorerPanel> | null };
+		const panel = { current: null as ExplorerPanel | null };
 
-		function Probe() {
+		// Two things the compiler reads wrong about the obvious shape, measured
+		// on `eslint-plugin-react-hooks@7.1.1` (#1184). Writing `panel.current =
+		// state` during render is a mutation of the enclosing scope, so the state
+		// is handed out through a prop after the commit. And `state.stageRef`,
+		// which is the callback ref the page hands `OutletFullPageMap`, is read as
+		// a ref access in render when reached through the member expression, and
+		// so is `state.inset` beside it, because the object then holds a ref; the
+		// page itself destructures the hook's result, and so does this.
+		function Probe({ report }: { readonly report: (state: ExplorerPanel) => void }) {
 			const state = useExplorerPanel();
-			panel.current = state;
+			const { inset, stageRef } = state;
+			useEffect(() => {
+				report(state);
+			});
 			useFlyToSelection(fake.map as MapboxMap, selected);
-			useMapPadding(fake.map as MapboxMap, true, state.inset);
-			useMapExtentFit(fake.map as MapboxMap, true, { bounds: BOX }, state.inset);
-			return <div ref={state.stageRef} />;
+			useMapPadding(fake.map as MapboxMap, true, inset);
+			useMapExtentFit(fake.map as MapboxMap, true, { bounds: BOX }, inset);
+			return <div ref={stageRef} />;
 		}
 
 		act(() => {
 			root.render(
 				<StrictMode>
 					<QueryClientProvider client={new QueryClient()}>
-						<Probe />
+						<Probe
+							report={(state) => {
+								panel.current = state;
+							}}
+						/>
 					</QueryClientProvider>
 				</StrictMode>,
 			);

@@ -9,10 +9,13 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
+import {
+	formatActionDate,
+	formatMeasure,
+} from '../../../components/control-operations/control-display';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -25,16 +28,16 @@ import {
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { formatActionDate, formatMeasure } from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id')({
 	component: RouteComponent,

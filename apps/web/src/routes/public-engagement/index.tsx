@@ -10,6 +10,12 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
 import {
+	contactDisplayName,
+	formatAddressLine,
+	formatReach,
+	serviceRequestTitle,
+} from '../../components/public-engagement/public-engagement-display';
+import {
 	type RequestListing,
 	useOrganizationServiceRequests,
 } from '../../hooks/queries/use-organization-service-requests';
@@ -26,12 +32,6 @@ import {
 } from '../../hooks/queries/use-service-request-feed';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
-import {
-	contactDisplayName,
-	formatAddressLine,
-	formatReach,
-	serviceRequestTitle,
-} from './-public-engagement-display';
 
 export const Route = createFileRoute('/public-engagement/')({
 	component: PublicEngagementOverviewRoute,

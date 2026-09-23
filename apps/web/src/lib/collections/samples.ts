@@ -7,6 +7,7 @@
  */
 
 import { createSamplesCollection, type Sample } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -20,4 +21,18 @@ export const samples = declareCollection<Sample>({
 	syncMode: 'on-demand',
 	mutations: true,
 	create: createSamplesCollection,
+
+	/*
+	 * The key a correlated include loads this table by.
+	 *
+	 * `useActivityStrip` reads a fortnight of inspections with each one's sample
+	 * ids as a `toArray` subquery on `inspection_id`, and the compiler loads
+	 * that side by `inspection_id = any(...)` over the parents it matched only
+	 * while the column is indexed; without one it warns once and falls back to
+	 * scanning local data, which for an on-demand table is whatever another
+	 * surface happened to load, so the count reads low with nothing saying why.
+	 */
+	index: (collection) => {
+		collection.createIndex((row) => row.inspection_id, { indexType: BasicIndex });
+	},
 });

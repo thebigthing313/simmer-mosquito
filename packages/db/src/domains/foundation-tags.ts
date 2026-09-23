@@ -20,6 +20,8 @@ export interface UpdateTagInput {
 	readonly tagName?: string;
 	readonly description?: string | null;
 	readonly color?: string | null;
+	/** The record types this Tag is meant for, as `tag_items.entity_type` spells them. */
+	readonly relevantEntityTypes?: readonly string[];
 	readonly updatedByProfileId?: string | null;
 }
 
@@ -39,6 +41,7 @@ export const tagReturnColumns = [
 	'updated_by_profile_id',
 	'created_at',
 	'updated_at',
+	'relevant_entity_types',
 ] as const;
 
 export type TagRow = SelectedRow<'tags', typeof tagReturnColumns>;
@@ -73,6 +76,9 @@ export async function updateTag(
 			...(input.tagName === undefined ? {} : { tag_name: input.tagName }),
 			...(input.description === undefined ? {} : { description: input.description }),
 			...(input.color === undefined ? {} : { color: input.color }),
+			...(input.relevantEntityTypes === undefined
+				? {}
+				: { relevant_entity_types: [...input.relevantEntityTypes] }),
 			updated_by_profile_id: input.updatedByProfileId ?? null,
 			updated_at: sql`now()`,
 		})

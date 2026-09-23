@@ -4,31 +4,32 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { createPortal } from 'react-dom';
+import type { DrawGeometryType } from '../../hooks/map/use-map-draw';
 import { newRecordId } from '../../hooks/mutations/shared';
 import { useNotificationRegistrationMutations } from '../../hooks/mutations/use-notification-registration-mutations';
-import { useNotificationTypeRoster } from '../../hooks/queries/use-catalog-rosters';
+import { useNotificationTypeRoster } from '../../hooks/queries/use-notification-type-roster';
 import {
 	type RegistrationRecord,
 	useRegistration,
-	useRegistrationSubscriptions,
 } from '../../hooks/queries/use-registration-record';
+import { useRegistrationSubscriptions } from '../../hooks/queries/use-registration-subscriptions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
-import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
+import { useRegistrationLocation } from '../../hooks/registrations/use-registration-location';
+import type { Acknowledgements } from '../../hooks/use-acknowledged-write';
+import { useOrganizationId } from '../../hooks/use-organization-id';
 import {
 	NOTIFICATION_REGISTRATION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../hooks/use-owned-geometry';
-import type { Acknowledgements } from '../acknowledged-write';
 import { DangerZoneCard } from '../danger-zone-card';
+import type { MapDrawController } from '../map/draw-controller';
 import { DrawToolbar } from '../map/geometry-control';
-import type { DrawGeometryType, MapDrawController } from '../map/use-map-draw';
 import type { RegistrationDraftState } from './contact-registrations';
 import {
 	bufferFrom,
 	defaultRegistrationFormValues,
 	RegistrationFormFields,
 	type RegistrationFormValues,
-	useRegistrationLocation,
 	validateRegistration,
 } from './registration-form';
 import { formValuesOf, reconcileSubscriptions, savedFieldsOf } from './registration-values';
@@ -409,11 +410,6 @@ function DraftActions({
 			<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
 		</div>
 	);
-}
-
-function useOrganizationId(): string | null {
-	const auth = useAuthSnapshot();
-	return auth?.authenticated === true ? (auth.localIdentity?.organizationId ?? null) : null;
 }
 
 function DraftError({

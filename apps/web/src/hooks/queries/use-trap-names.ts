@@ -21,14 +21,12 @@ import { traps } from '../../lib/collections/traps';
 import { trapDisplayName } from './trap-view';
 
 export function useTrapNames(): ReadonlyMap<string, string> {
-	const result = useLiveQuery(
-		(query) =>
-			query.from({ trap: traps() }).select(({ trap }) => ({
-				id: trap.id,
-				trapName: trap.trap_name,
-				trapCode: trap.trap_code,
-			})),
-		[],
+	const result = useLiveQuery((query) =>
+		query.from({ trap: traps() }).select(({ trap }) => ({
+			id: trap.id,
+			trapName: trap.trap_name,
+			trapCode: trap.trap_code,
+		})),
 	);
 
 	const rows = result.data;

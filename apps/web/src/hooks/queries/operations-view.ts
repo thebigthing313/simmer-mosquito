@@ -260,6 +260,8 @@ export interface MissionDetail {
 export interface MissionStop {
 	readonly id: string;
 	readonly missionId: string;
+	/** What somebody called this stop, or null. It wins over both joined names. */
+	readonly name: string | null;
 	/** Its place in the sequence as stored. The 1-indexed one a page shows is derived. */
 	readonly position: number;
 	readonly latitude: number;

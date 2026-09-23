@@ -9,19 +9,6 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
-import type { RouteSummary } from '../../../components/route-planning/route-summary';
-import { newRecordId } from '../../../hooks/mutations/shared';
-import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
-import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
-import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	useAssigneeOptions,
-	useAssignment,
-	useAssignmentItems,
-	useRouteSnapshotItems,
-} from './-assignment-data';
 import {
 	AssignmentDetailFields,
 	type AssignmentDetailValues,
@@ -33,7 +20,20 @@ import {
 	RoutePicker,
 	routeAssignmentName,
 	toDueAt,
-} from './-assignment-form';
+} from '../../../components/operations/assignments/assignment-form';
+import type { RouteSummary } from '../../../components/route-planning/route-summary';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
+import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-options';
+import { useAssignment } from '../../../hooks/operations/use-assignment';
+import { useAssignmentItems } from '../../../hooks/operations/use-assignment-items';
+import { useRouteSnapshotItems } from '../../../hooks/operations/use-route-snapshot-items';
+import { useRouteStopCounts } from '../../../hooks/queries/use-route-stop-counts';
+import { useRouteCatalog } from '../../../hooks/queries/use-routes';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
+import { errorMessageForSave } from '../../../lib/save-error';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 export const Route = createFileRoute('/operations/assignments/create')({
 	beforeLoad: async ({ context }) => {
@@ -155,7 +155,7 @@ function AssignmentCreateRoute() {
 			// yet usable, and the list would just show an empty shell.
 			await navigate({ to: '/operations/assignments/$id/edit', params: { id: assignmentId } });
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to create the assignment.');
+			setError(errorMessageForSave(cause, 'Unable to create the assignment.'));
 			setSaving(false);
 		}
 	};

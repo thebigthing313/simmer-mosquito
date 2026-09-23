@@ -65,12 +65,6 @@ const trapRoutes: Elsewhere = {
 	to: '/adult-surveillance/traps/routes',
 	icon: iconRegistry.entities.route.icon,
 };
-const operations: Elsewhere = {
-	label: 'Operations',
-	description: 'Requested control work, crew assignments, and dispatched missions',
-	to: '/operations',
-	icon: iconRegistry.entities.vehicle.icon,
-};
 const collections: Elsewhere = {
 	label: recordNoun('collection').titleMany,
 	description: 'What your traps caught, by species and trap night',
@@ -165,17 +159,6 @@ const collectionMethods: Elsewhere = {
  * unbuilt section to another is how a placeholder becomes a maze.
  */
 const CONTENT: Readonly<Record<string, UpcomingContent>> = {
-	'/today': {
-		title: 'Today',
-		summary:
-			'The day’s operational picture: what is scheduled, what is outstanding, and what needs a decision before crews go out.',
-		willLand: [
-			'Today’s scheduled missions and assignments',
-			'Open service requests awaiting triage',
-			'Field records logged since the last shift',
-		],
-		elsewhere: [operations, serviceRequests, larvalOverview],
-	},
 	'/adult-surveillance/arbovirus-surveillance': {
 		title: 'Arbovirus Surveillance',
 		summary:

@@ -8,15 +8,14 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import type {
+	MapMeasureController,
+	Measurement,
+	MeasureTool,
+} from '../../hooks/map/use-map-measure';
+import { useMeasureDraft } from '../../hooks/map/use-measure-draft';
 import { MAP_CHROME_SURFACE } from './chrome';
 import { MapControlButton, MapControlGroup } from './map-control';
-import {
-	type MapMeasureController,
-	type Measurement,
-	type MeasureTool,
-	useMeasureDraft,
-} from './use-map-measure';
-
 /**
  * The measurement session's controls and readout.
  *

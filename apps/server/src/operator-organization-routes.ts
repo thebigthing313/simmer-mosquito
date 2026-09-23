@@ -12,7 +12,7 @@
  * organization with no SIMMER row is a state an operator can see and retry from.
  */
 
-import type { WorkOsAuth } from '@simmer-mosquito/auth';
+import type { WorkOsIdentityWrites } from '@simmer-mosquito/auth';
 import {
 	getOperatorOrganization,
 	type Kysely,
@@ -30,7 +30,7 @@ import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
 
 /** What creating an organization needs of the WorkOS client. */
-export type OperatorOrganizationAuth = Pick<WorkOsAuth, 'createOrganization'>;
+export type OperatorOrganizationAuth = Pick<WorkOsIdentityWrites, 'createOrganization'>;
 
 export function registerOperatorOrganizationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,

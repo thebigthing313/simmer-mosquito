@@ -17,10 +17,10 @@ import {
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
+import { type AddressGeometry, useAddressGeometry } from '../../../hooks/gis/use-address-geometry';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { formatAddressLines } from '../../../lib/address-format';
-import { type AddressGeometry, useAddressGeometry } from './-address-data';
 
 export const Route = createFileRoute('/gis/addresses/$id')({
 	component: RouteComponent,
@@ -87,7 +87,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 							</p>
 						))
 					),
-				tags: { recordId: address.id },
+				tags: { recordId: address.id, recordType: 'address' },
 				title: address.displayName,
 			}}
 			layout={layout}

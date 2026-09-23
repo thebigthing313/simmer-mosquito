@@ -40,50 +40,42 @@ export function useCollectionsAwaitingIdentification(
 	readonly isError: boolean;
 } {
 	const sinceInstant = localDayStartAsInstant(sinceDate, timeZone);
-	const sinceMs = sinceInstant.getTime();
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: collections() })
-					.where(({ collection }) =>
-						or(
-							gte(collection.collected_at, sinceInstant),
-							gte(collection.collection_date, sinceDate),
-						),
-					)
-					.join(
-						{ trap: traps() },
-						({ collection, trap }) => eq(collection.trap_id, trap.id),
-						'left',
-					)
-					.join(
-						{ method: collection_methods() },
-						({ collection, method }) => eq(collection.collection_method_id, method.id),
-						'left',
-					)
-					.select(({ collection, trap, method }) => ({
-						id: collection.id,
-						trapId: collection.trap_id,
-						trapName: coalesce(trap.trap_name, null),
-						trapCode: coalesce(trap.trap_code, null),
-						methodId: collection.collection_method_id,
-						methodName: coalesce(method.name, 'Unknown method'),
-						collectedAt: collection.collected_at,
-						collectionDate: collection.collection_date,
-						isZeroResult: collection.is_zero_result,
-						species: toArray(
-							query
-								.from({ identification: collection_species() })
-								.where(({ identification }) => eq(identification.collection_id, collection.id))
-								.select(({ identification }) => ({ id: identification.id })),
-						),
-					})),
-		},
-		[sinceDate, sinceMs],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ collection: collections() })
+				.where(({ collection }) =>
+					or(
+						gte(collection.collected_at, sinceInstant),
+						gte(collection.collection_date, sinceDate),
+					),
+				)
+				.join({ trap: traps() }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
+				.join(
+					{ method: collection_methods() },
+					({ collection, method }) => eq(collection.collection_method_id, method.id),
+					'left',
+				)
+				.select(({ collection, trap, method }) => ({
+					id: collection.id,
+					trapId: collection.trap_id,
+					trapName: coalesce(trap.trap_name, null),
+					trapCode: coalesce(trap.trap_code, null),
+					methodId: collection.collection_method_id,
+					methodName: coalesce(method.name, 'Unknown method'),
+					collectedAt: collection.collected_at,
+					collectionDate: collection.collection_date,
+					isZeroResult: collection.is_zero_result,
+					species: toArray(
+						query
+							.from({ identification: collection_species() })
+							.where(({ identification }) => eq(identification.collection_id, collection.id))
+							.select(({ identification }) => ({ id: identification.id })),
+					),
+				})),
+	});
 
 	const rows = result.data;
 

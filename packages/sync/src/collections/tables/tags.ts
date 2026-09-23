@@ -23,6 +23,7 @@ export const tagSchema = z.object({
 	updated_by_profile_id: z.uuid().nullable().default(null),
 	created_at: z.coerce.date().default(() => new Date()),
 	updated_at: z.coerce.date().default(() => new Date()),
+	relevant_entity_types: z.array(z.string()),
 });
 
 export type Tag = z.infer<typeof tagSchema>;

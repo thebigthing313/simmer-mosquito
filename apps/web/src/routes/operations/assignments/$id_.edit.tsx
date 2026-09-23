@@ -17,43 +17,20 @@ import { ArrowLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/r
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import type { RouteStopFeature } from '../../../components/map';
-import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
-import {
-	InlineEditField,
-	type MoveAction,
-	type MovePlan,
-	OrdinalBadge,
-	StopList,
-	StopReorderControls,
-	useStopOrder,
-} from '../../../components/stop-order';
-import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
-import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
-import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStopView,
 	assignmentStopTone,
 	canEditPlan,
-	useAssigneeOptions,
-	useAssignment,
-	useAssignmentStops,
-} from './-assignment-data';
+} from '../../../components/operations/assignments/assignment-data';
 import {
 	AssignmentStatusBadge,
 	ItemProgressBadge,
 	TargetLink,
 	TargetTypePill,
-} from './-assignment-display';
+} from '../../../components/operations/assignments/assignment-display';
 import {
 	AssignmentDetailFields,
 	type AssignmentDetailValues,
@@ -63,11 +40,35 @@ import {
 	sameAssignmentDetails,
 	toAssignmentDetails,
 	toDueAt,
-} from './-assignment-form';
+} from '../../../components/operations/assignments/assignment-form';
 import {
 	AssignmentTargetPicker,
 	type AssignmentTargetSelection,
-} from './-assignment-target-picker';
+} from '../../../components/operations/assignments/assignment-target-picker';
+import { WorklistMap } from '../../../components/operations/worklist-map';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
+import {
+	InlineEditField,
+	type MoveAction,
+	type MovePlan,
+	OrdinalBadge,
+	StopList,
+	StopReorderControls,
+} from '../../../components/stop-order';
+import type { RouteStopFeature } from '../../../hooks/map/use-route-layer';
+import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
+import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
+import { useAssigneeOptions } from '../../../hooks/operations/use-assignee-options';
+import { useAssignment } from '../../../hooks/operations/use-assignment';
+import { useAssignmentStops } from '../../../hooks/operations/use-assignment-stops';
+import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
+import { useStopOrder } from '../../../hooks/stop-order/use-stop-order';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
+import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { errorMessageForSave } from '../../../lib/save-error';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 /** Module-level so the ordering hook's identity stays stable across renders. */
 const stopKey = (stop: AssignmentStopView) => stop.assignmentItemId;
@@ -199,7 +200,7 @@ function AssignmentPlanRoute() {
 			});
 			setDetailDraft(null);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save these details.');
+			setError(errorMessageForSave(cause, 'Unable to save these details.'));
 		}
 		setSavingDetails(false);
 	};
@@ -218,7 +219,7 @@ function AssignmentPlanRoute() {
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 			});
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+			setError(errorMessageForSave(cause, 'Unable to add the stop.'));
 		}
 	};
 
@@ -227,7 +228,7 @@ function AssignmentPlanRoute() {
 		try {
 			await moveStop(index, action);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to reorder the assignment.');
+			setError(errorMessageForSave(cause, 'Unable to reorder the assignment.'));
 		}
 	};
 
@@ -236,7 +237,7 @@ function AssignmentPlanRoute() {
 		try {
 			await items.setDirections(assignmentItemId, value);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to save directions.');
+			setError(errorMessageForSave(cause, 'Unable to save directions.'));
 		}
 	};
 
@@ -250,7 +251,7 @@ function AssignmentPlanRoute() {
 		try {
 			await items.removeStop(target.assignmentItemId);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to remove the stop.');
+			setError(errorMessageForSave(cause, 'Unable to remove the stop.'));
 		}
 	};
 

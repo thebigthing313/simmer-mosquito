@@ -82,8 +82,8 @@ Missing settings resolve to defaults instead of blocking workflows.
 - `larvalSurveillance.inspectionEntryPolicy.densityRanges`: `null`
 - `controlOperations.trackInsecticideBatches`: `true`
 - `publicEngagement.serviceRequestContext.radius`: `0.25 mile`
-- `publicEngagement.serviceRequestContext.timeWindow`: 14 days before and 14
-  days after the request date
+- `publicEngagement.serviceRequestContext.timeWindow`: 14 days before the
+  request date and at least 14 days after it
 
 The East Coast timezone default is intentional for the first customer segment.
 Date-only domain rules use organization timezone to resolve "today" and
@@ -401,22 +401,40 @@ is false.
 
 ## Public engagement
 
-`publicEngagement.serviceRequestContext` controls default related-record
-context shown around service requests.
+`publicEngagement.serviceRequestContext` fixes the related-record context
+shown around a service request: how far from the request location the nearby
+read searches, and the time window it reads the dated records in. A habitat or
+a trap is within the radius whenever it exists; every other kind is also held
+to the window.
 
-The default is:
+An Organization that has never set it resolves to:
 
-- records within `0.25 mile`
-- control actions within 14 days before through 14 days after the request date
+- records within `0.25 mile` of the request location
+- for the dated kinds, a window from 14 days before the request date to at
+  least 14 days after it
 
 The radius amount must be strictly positive. The radius unit is stored as a
 `units.code` and server save validation must ensure it is a distance unit.
 `daysBefore` and `daysAfter` are nonnegative integers; zero means the request
 date only for that side of the window.
 
-This setting drives default queries for nearby habitats, traps, surveillance
-actions, control actions, and possibly other service requests. It does not
-prevent users from manually widening or narrowing a view later.
+`daysBefore` is the start of the window. `daysAfter` is a floor on its end
+rather than the end: the window runs to the later of `requestDate + daysAfter`
+and the request's end anchor, which is the day it was closed, or today while it
+is open. A closed request stops growing at its close. Both anchor days are
+calendar days in the Organization's timezone, the rule every operational date
+follows (#154, #156), so `closed_at` becomes a day in that zone and today is the
+day the Organization is currently on. The nearby read takes no radius or window
+of its own. The setting fixes the radius, the setting and the anchors fix the
+window, and a person who wants a wider or narrower view changes the setting
+(#1110).
+
+This setting drives the queries for nearby habitats, traps, surveillance
+actions, control actions, and other service requests. The nearby read caps the
+answer at 2000 rows nearest-first and says when the cap was hit, and the page
+then says it is showing the nearest records only and points at this setting,
+since a radius denser than the cap otherwise draws a map that looks complete
+(#1141).
 
 ## Mobile and sync
 

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NearbyHabitats } from '../../../../hooks/use-merge-candidates';
+import type { NearbyHabitats } from '../../../../hooks/merge-candidate-view';
 import type { MinimumRole } from '../../../../lib/write-access';
 
 /**
@@ -73,16 +73,12 @@ const requestedRadii: number[] = [];
 // Assigned in `beforeEach`, because the fixtures it is built from are declared
 // below the mock and a module-level call would read them before they exist.
 let nearby: NearbyHabitats;
-vi.mock('../../../../hooks/use-merge-candidates', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('../../../../hooks/use-merge-candidates')>();
-	return {
-		...actual,
-		useNearbyHabitats: (_habitatId: string, radiusMetres: number) => {
-			requestedRadii.push(radiusMetres);
-			return { data: nearby, error: null, isError: false, isPending: false, refetch: vi.fn() };
-		},
-	};
-});
+vi.mock('../../../../hooks/use-nearby-habitats', () => ({
+	useNearbyHabitats: (_habitatId: string, radiusMetres: number) => {
+		requestedRadii.push(radiusMetres);
+		return { data: nearby, error: null, isError: false, isPending: false, refetch: vi.fn() };
+	},
+}));
 
 const { HabitatMerge } = await import('../../../../components/cleanup/habitat-merge');
 

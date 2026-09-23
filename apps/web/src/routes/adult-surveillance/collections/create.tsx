@@ -2,24 +2,31 @@ import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import {
+	CollectionFormPage,
+	type CollectionSaveInput,
+} from '../../../components/adult-surveillance/collections/collection-form';
+import {
+	type CollectionFormValues,
+	collectionFieldsFrom,
+	defaultCollectionFormValues,
+} from '../../../components/adult-surveillance/collections/collection-form-values';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
-import { useRecordExtras } from '../../../forms/record-extras';
+import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import {
 	type CollectionPlacement,
 	useCollectionMutations,
 } from '../../../hooks/mutations/use-collection-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import {
-	useCollectionLureRoster,
-	useCollectionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
+import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -27,13 +34,6 @@ import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search'
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	CollectionFormPage,
-	type CollectionFormValues,
-	type CollectionSaveInput,
-	collectionFieldsFrom,
-	defaultCollectionFormValues,
-} from './-collection-form';
 
 const createCollectionSearchSchema = z.object({
 	...mapPointSearchSchema.shape,
@@ -87,7 +87,7 @@ function CreateCollectionRoute() {
 	const assignmentItemId = search.assignmentItemId ?? null;
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
-	const { organization, settings } = useOrganizationWorkspace(auth.snapshot);
+	const { settings } = useOrganizationWorkspace(auth.snapshot);
 	const { traps } = useTrapOptions();
 	const methods = useCollectionMethodRoster();
 	const lures = useCollectionLureRoster();
@@ -192,7 +192,6 @@ function CreateCollectionRoute() {
 				}}
 				initialGeometry={initialGeometry}
 				onSave={onSave}
-				organizationId={organization.id}
 				profiles={profiles}
 				traps={traps}
 				units={units}

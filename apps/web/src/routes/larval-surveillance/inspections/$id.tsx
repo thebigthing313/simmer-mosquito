@@ -1,6 +1,5 @@
-import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
+import type { ControlType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { sessionFetch } from '@simmer-mosquito/sync';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -14,11 +13,8 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Suspense } from 'react';
-import { getServerUrl } from '../../../auth';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -38,22 +34,25 @@ import {
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
-import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import {
-	useBiocontrolMethodRoster,
-	useHabitatTypeRoster,
-	useOutreachMethodRoster,
-	useSourceReductionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+	type InspectionDetailRow,
+	useInspectionDetail,
+} from '../../../hooks/larval-surveillance/use-inspection-detail';
+import { useSpeciesName } from '../../../hooks/larval-surveillance/use-species-name';
+import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-biocontrol-method-roster';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-habitat-type-roster';
 import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { useInspectionSamples } from '../../../hooks/queries/use-inspection-samples';
 import {
 	type LinkedControlAction,
 	useLinkedControlActions,
 } from '../../../hooks/queries/use-linked-control-actions';
+import { useOutreachMethodRoster } from '../../../hooks/queries/use-outreach-method-roster';
 import { useProfileNames } from '../../../hooks/queries/use-profile-names';
-import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
+import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-source-reduction-method-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel, habitatLabel } from '../../../lib/coordinate-label';
@@ -96,42 +95,6 @@ const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const HabitatIcon = iconRegistry.entities.habitat.icon;
 const ControlIcon = iconRegistry.domains.controlOperations.icon;
-
-/**
- * The `/map/inspections/:id` display projection: the owned-geometry columns plus
- * the record fields and the joined habitat / address / inspector labels. This is
- * the single source for the header, map, findings, and context — an inspection is
- * not editable in v1, so a one-shot fetch (which also bundles the geometry Electric
- * omits, ADR 0009) is simpler than reassembling the record from synced collections.
- */
-interface InspectionDetailRow {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly lat: number | null;
-	readonly lng: number | null;
-	readonly geojson: GeoJsonGeometry | null;
-	readonly geomType: string | null;
-	readonly habitatId: string | null;
-	readonly habitatName: string | null;
-	readonly habitatTypeId: string | null;
-	readonly addressId: string | null;
-	readonly addressDisplayName: string | null;
-	readonly inspectedByProfileId: string | null;
-	readonly inspectedByName: string | null;
-	readonly inspectionDate: string;
-	readonly isWet: boolean;
-	readonly dipCount: number | null;
-	readonly density: LarvalDensity | null;
-	readonly larvaeCount: number | null;
-	readonly hasEggs: boolean;
-	readonly hasFirstInstar: boolean;
-	readonly hasSecondInstar: boolean;
-	readonly hasThirdInstar: boolean;
-	readonly hasFourthInstar: boolean;
-	readonly hasPupae: boolean;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
 
 // Projected shapes of the nested includes query (sample -> species).
 interface SampleSpeciesEntry {
@@ -759,38 +722,6 @@ function HabitatTypeSubtitle({ habitatTypeId }: { readonly habitatTypeId: string
 		return <span>Unassigned type</span>;
 	}
 	return <HabitatTypeName habitatTypeId={habitatTypeId} />;
-}
-
-/** One id through the shared taxonomy read — the catalog is eager and small. */
-function useSpeciesName(speciesId: string): string {
-	return useSpeciesNames().get(speciesId) ?? 'Unknown species';
-}
-
-// --- data hook --------------------------------------------------------------
-
-function useInspectionDetail(id: string) {
-	return useQuery({
-		queryKey: ['inspection-detail', id],
-		queryFn: ({ signal }) => fetchInspectionDetail(id, signal),
-		placeholderData: (previous) => previous,
-	});
-}
-
-async function fetchInspectionDetail(
-	id: string,
-	signal: AbortSignal,
-): Promise<InspectionDetailRow | null> {
-	const response = await sessionFetch(new URL(`/map/inspections/${id}`, getServerUrl()), {
-		signal,
-	});
-	if (response.status === 404) {
-		return null;
-	}
-	if (!response.ok) {
-		throw new Error(`Inspection request failed (${response.status}).`);
-	}
-	const body = (await response.json()) as { readonly inspection?: InspectionDetailRow };
-	return body.inspection ?? null;
 }
 
 // --- helpers ----------------------------------------------------------------

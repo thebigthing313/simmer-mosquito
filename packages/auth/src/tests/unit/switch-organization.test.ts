@@ -29,7 +29,10 @@ const auth = createWorkOsAuth({
 });
 
 async function switchTo(organizationId = 'org_target') {
-	return auth.switchOrganization({ sealedSession: 'sealed', workosOrganizationId: organizationId });
+	return auth.session.switchOrganization({
+		sealedSession: 'sealed',
+		workosOrganizationId: organizationId,
+	});
 }
 
 describe('switchOrganization', () => {
@@ -96,7 +99,10 @@ describe('switchOrganization', () => {
 
 	it('refuses without a round trip when there is no session cookie', async () => {
 		await expect(
-			auth.switchOrganization({ sealedSession: undefined, workosOrganizationId: 'org_target' }),
+			auth.session.switchOrganization({
+				sealedSession: undefined,
+				workosOrganizationId: 'org_target',
+			}),
 		).resolves.toEqual({ authenticated: false, reason: 'no_session_cookie_provided' });
 		expect(loadSealedSession).not.toHaveBeenCalled();
 	});

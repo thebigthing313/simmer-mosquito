@@ -204,10 +204,10 @@ type Drift<
 /**
  * Errors with the offending column names when `T` is not `never`.
  *
- * Deliberately the same three lines as in `packages/auth/src/index.ts` and in
- * `apps/server/src/auth-context.ts`, because a shared export was considered and
- * refused: the idiom has no runtime and exporting it would put a dependency edge
- * between packages that need nothing else from each other (#716).
+ * Deliberately the same three lines as in `apps/server/src/auth-context.ts`,
+ * because a shared export was considered and refused: the idiom has no runtime
+ * and exporting it would put a dependency edge between packages that need
+ * nothing else from each other (#716).
  */
 type Assert<T extends never> = T;
 

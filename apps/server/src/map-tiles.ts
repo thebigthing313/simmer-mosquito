@@ -4,16 +4,13 @@ import {
 	type BiocontrolMapFilters,
 	type CollectionMapFilters,
 	countActiveHabitatsByType,
-	countProfileActivity,
 	getNotificationRegistrationGeometryById,
-	getOrganizationSettingsRaw,
 	getRegionById,
 	getRequestedControlActionDisplayRowById,
 	type HabitatMvtTileFilters,
 	type InspectionMvtTileFilters,
 	type Kysely,
 	listMissionItemGeometry,
-	listProfileActivity,
 	MAP_SURFACES,
 	type MapExtent,
 	type MapTilesetLayer,
@@ -28,11 +25,7 @@ import {
 	searchHabitatSites,
 	type TrapMapFilters,
 } from '@simmer-mosquito/db';
-import {
-	LARVAL_DENSITIES,
-	type LarvalDensity,
-	resolveOrganizationSettings,
-} from '@simmer-mosquito/domain';
+import { LARVAL_DENSITIES } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -134,16 +127,13 @@ const defaultMapReaders = {
 	getRegionTile: MAP_SURFACES.regions.getTile,
 	getRegionExtent: MAP_SURFACES.regions.getExtent,
 
-	// The nine readers that are nobody's surface method.
+	// The six readers that are nobody's surface method.
 	getRegionRow: getRegionById,
 	getRequestedControlActionRow: getRequestedControlActionDisplayRowById,
 	getNotificationRegistrationGeometry: getNotificationRegistrationGeometryById,
 	searchHabitatDisplayRows: searchHabitatSites,
 	countHabitatTypeUsage: countActiveHabitatsByType,
 	listMissionItems: listMissionItemGeometry,
-	listProfileActivity,
-	countProfileActivity,
-	getOrganizationSettings: getOrganizationSettingsRaw,
 };
 
 type MapReaders = typeof defaultMapReaders;
@@ -456,51 +446,6 @@ export function registerMapTileRoutes(
 		});
 
 		return context.json({ missionItems });
-	});
-
-	// One Profile's field work over a date range, across the nine record types
-	// that attribute work to a person. The five explorers that carry a personnel
-	// filter can each answer part of this; none can reach `additional_personnel`,
-	// and the collections surface has no personnel filter at all.
-	//
-	// Organization scope alone, like every other `/map/*` read: organization data
-	// is viewable by anyone in the organization, and a floor here would be
-	// theatre while those five filters stay open to any member.
-	app.get('/map/profiles/:profileId/activity', options.authContextMiddleware, async (context) => {
-		const profileId = context.req.param('profileId');
-		if (!uuidPattern.test(profileId)) {
-			return context.json({ error: 'invalid_id', reason: 'Profile id must be a UUID.' }, 400);
-		}
-
-		const queryResult = parseProfileActivityQuery(new URL(context.req.url).searchParams);
-		if (!queryResult.ok) {
-			return context.json({ error: 'invalid_query', reason: queryResult.reason }, 400);
-		}
-		const { dateFrom, dateTo } = queryResult;
-
-		const organizationId = context.get('authContext').organization.id;
-		// Dates are the organization's, not the database server's: a trap placed at
-		// 9pm belongs to the day the crew worked. Everything timestamped is
-		// converted into this zone before it is filed under a day.
-		const timeZone = resolveOrganizationSettings(
-			await readers.getOrganizationSettings(options.db, { organizationId }),
-		).settings.timezone;
-
-		const query = { organizationId, profileId, dateFrom, dateTo, timeZone };
-		// One extra row is what tells a full result apart from a truncated one. A
-		// truncated log that reads as complete is the failure this reports out loud.
-		const rows = await readers.listProfileActivity(options.db, {
-			...query,
-			limit: profileActivityLimit + 1,
-		});
-		const truncated = rows.length > profileActivityLimit;
-		const items = truncated ? rows.slice(0, profileActivityLimit) : rows;
-		// Counting costs a second pass over all seventeen branches, so it is paid
-		// for only when the cap bit — and then it is worth paying, because "the
-		// first 2000 of 4,317" is actionable where a bare flag is not.
-		const total = truncated ? await readers.countProfileActivity(options.db, query) : items.length;
-
-		return context.json({ profileId, dateFrom, dateTo, items, total, truncated });
 	});
 
 	registerPagedRoute(app, options, {
@@ -1004,7 +949,7 @@ function parseFilterField(
 		case 'date':
 			return parseOptionalDateFilter(searchParams, field.param);
 		case 'density':
-			return parseOptionalDensityListFilter(searchParams, field.param);
+			return parseOptionalVocabularyListFilter(searchParams, field.param, LARVAL_DENSITIES);
 		case 'sampleStatus':
 			return parseOptionalSampleStatusFilter(searchParams, field.param);
 		case 'trapStatus':
@@ -1118,8 +1063,10 @@ export const parseCollectionMapFilters = defineFilters<CollectionMapFilters>('co
 	...dateFields,
 ]);
 
-// No date fields, deliberately: the explorer's filters are status, search, tag
-// and region, and a date default is not a substitute for the viewport (#920).
+// The date fields carry no default on the explorer: #920 decided a date
+// default there is not a substitute for the viewport, and a filter with no
+// default is a different thing. They exist so a count on the period-in-review
+// pages lands on the rows it counted (docs/today-spec.md, "Links").
 export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilters>(
 	'service-requests',
 	[
@@ -1127,6 +1074,7 @@ export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilt
 		{ param: 'search', kind: 'text' },
 		{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
 		regionField,
+		...dateFields,
 	],
 );
 
@@ -1359,13 +1307,19 @@ function parseOptionalTextFilter(
 	);
 }
 
-const inspectionDensitySet = new Set<string>(LARVAL_DENSITIES);
-
-function parseOptionalDensityListFilter(
+/**
+ * A list of one vocabulary's members, repeated or comma-separated, absent, or
+ * the reason it is none of those. A present-but-empty param is refused rather
+ * than read as "none", because a caller that wrote the key meant to name
+ * something. Exported for the service request nearby route, whose `families`
+ * filter is this over the activity families.
+ */
+export function parseOptionalVocabularyListFilter<TMember extends string>(
 	searchParams: URLSearchParams,
 	param: string,
+	vocabulary: readonly TMember[],
 ):
-	| { readonly ok: true; readonly value: readonly LarvalDensity[] | undefined }
+	| { readonly ok: true; readonly value: readonly TMember[] | undefined }
 	| { readonly ok: false; readonly reason: string } {
 	const values = searchParams
 		.getAll(param)
@@ -1379,65 +1333,22 @@ function parseOptionalDensityListFilter(
 			: { ok: true, value: undefined };
 	}
 
+	const members = new Set<string>(vocabulary);
 	for (const value of values) {
-		if (!inspectionDensitySet.has(value)) {
+		if (!members.has(value)) {
 			return {
 				ok: false,
-				reason: `${param} must be one of: ${LARVAL_DENSITIES.join(', ')}.`,
+				reason: `${param} must be one of: ${vocabulary.join(', ')}.`,
 			};
 		}
 	}
 
-	return { ok: true, value: [...new Set(values)] as LarvalDensity[] };
+	return { ok: true, value: [...new Set(values)] as TMember[] };
 }
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 /** A finite positive number, absent, or the reason it is neither. */
-/**
- * How many activity entries one read may answer with, and how wide a window it
- * may be asked for.
- *
- * The window cap is what actually keeps this read off the row limit; the row
- * limit is the backstop, and the response's `truncated` flag is what lets the
- * client say so when it bites anyway. An over-long range is refused rather than
- * trimmed — a silently narrowed window answers a question nobody asked.
- */
-const profileActivityLimit = 2000;
-const profileActivityMaxDays = 92;
-
-function parseProfileActivityQuery(
-	searchParams: URLSearchParams,
-):
-	| { readonly ok: true; readonly dateFrom: string; readonly dateTo: string }
-	| { readonly ok: false; readonly reason: string } {
-	const from = parseOptionalDateFilter(searchParams, 'dateFrom');
-	if (!from.ok) {
-		return from;
-	}
-	const to = parseOptionalDateFilter(searchParams, 'dateTo');
-	if (!to.ok) {
-		return to;
-	}
-	if (from.value === undefined || to.value === undefined) {
-		return { ok: false, reason: 'dateFrom and dateTo are both required.' };
-	}
-	if (from.value > to.value) {
-		return { ok: false, reason: 'dateFrom must not be after dateTo.' };
-	}
-
-	const spanDays =
-		(Date.parse(`${to.value}T00:00:00Z`) - Date.parse(`${from.value}T00:00:00Z`)) / 86_400_000 + 1;
-	if (spanDays > profileActivityMaxDays) {
-		return {
-			ok: false,
-			reason: `The date range may span at most ${profileActivityMaxDays} days.`,
-		};
-	}
-
-	return { ok: true, dateFrom: from.value, dateTo: to.value };
-}
-
 export function parseOptionalPositiveNumber(
 	searchParams: URLSearchParams,
 	param: string,
@@ -1455,7 +1366,7 @@ export function parseOptionalPositiveNumber(
 		: { ok: false, reason: `${param} must be a positive number.` };
 }
 
-export function parseOptionalDateFilter(
+function parseOptionalDateFilter(
 	searchParams: URLSearchParams,
 	param: string,
 ): OptionalFilterResult<string> {

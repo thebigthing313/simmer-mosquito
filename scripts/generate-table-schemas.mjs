@@ -247,6 +247,15 @@ function zodFor(column, tsType) {
 	else if (bare === 'number' || bare === 'GeneratedColumn<number>') base = 'z.number()';
 	else if (bare === 'Date') base = 'z.coerce.date()';
 	else if (bare === 'string' || bare === 'GeneratedColumn<string>') base = stringBase;
+	// The one synced array in the workspace, `tags.relevant_entity_types`. The
+	// element is `z.string()` and not a `z.enum`, because the drift suite compares
+	// exact type identity against `SelectType` of the Kysely column, which is
+	// `string[]`, and a narrower union fails it. The two spellings are the column
+	// with a default and the column without: `Generated<string[]>` never reaches
+	// the unwrap above, whose `\w` stops at the bracket. A recursive element reader
+	// would be a mechanism written for one caller, so the next array type is the
+	// branch that adds itself.
+	else if (bare === 'string[]' || bare === 'Generated<string[]>') base = 'z.array(z.string())';
 	else if (enums.has(bare))
 		base = `z.enum([${enums
 			.get(bare)
@@ -514,10 +523,10 @@ type Drift<
 /**
  * Errors with the offending column names when \`T\` is not \`never\`.
  *
- * Deliberately the same three lines as in \`packages/auth/src/index.ts\` and in
- * \`apps/server/src/auth-context.ts\`, because a shared export was considered and
- * refused: the idiom has no runtime and exporting it would put a dependency edge
- * between packages that need nothing else from each other (#716).
+ * Deliberately the same three lines as in \`apps/server/src/auth-context.ts\`,
+ * because a shared export was considered and refused: the idiom has no runtime
+ * and exporting it would put a dependency edge between packages that need
+ * nothing else from each other (#716).
  */
 type Assert<T extends never> = T;
 

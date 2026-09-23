@@ -20,32 +20,27 @@ export function useMissionItemCounts(missionIds: readonly string[]): {
 	readonly countsById: ReadonlyMap<string, WorklistProgress>;
 	readonly isReady: boolean;
 } {
-	// Sorted and joined so a reordered id list does not re-run an identical query.
-	const idsKey = [...missionIds].sort().join(',');
 	const queryIds = missionIds.length > 0 ? [...missionIds] : [unmatchableId];
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: mission_items() })
-					.where(({ item }) => inArray(item.mission_id, queryIds))
-					.groupBy(({ item }) => item.mission_id)
-					.select(({ item }) => ({
-						missionId: item.mission_id,
-						total: count(item.id),
-						// Skipped is tested first, matching `deriveMissionItemStatus`: a stop
-						// carrying both timestamps is skipped, so counting it as completed as
-						// well would put `handled` above `total`.
-						completed: sum(
-							caseWhen(and(isNull(item.skipped_at), not(isNull(item.completed_at))), 1, 0),
-						),
-						skipped: sum(caseWhen(not(isNull(item.skipped_at)), 1, 0)),
-					})),
-		},
-		[idsKey],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: mission_items() })
+				.where(({ item }) => inArray(item.mission_id, queryIds))
+				.groupBy(({ item }) => item.mission_id)
+				.select(({ item }) => ({
+					missionId: item.mission_id,
+					total: count(item.id),
+					// Skipped is tested first, matching `deriveMissionItemStatus`: a stop
+					// carrying both timestamps is skipped, so counting it as completed as
+					// well would put `handled` above `total`.
+					completed: sum(
+						caseWhen(and(isNull(item.skipped_at), not(isNull(item.completed_at))), 1, 0),
+					),
+					skipped: sum(caseWhen(not(isNull(item.skipped_at)), 1, 0)),
+				})),
+	});
 
 	// An index, which is the one thing a query cannot return: it yields rows, and
 	// what every caller wants is a lookup of them by mission.

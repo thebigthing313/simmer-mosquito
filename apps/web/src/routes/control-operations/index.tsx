@@ -10,8 +10,14 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
+import {
+	formatActionDate,
+	formatMeasure,
+	usageTotal,
+} from '../../components/control-operations/control-display';
 import { PersonGroupBlock } from '../../components/person-group-block';
 import { WeekDayStrip } from '../../components/week-day-strip';
+import type { RecentControlAction } from '../../hooks/queries/recent-control-action-view';
 import {
 	type ControlActionKind,
 	type DailyControlAction,
@@ -20,17 +26,13 @@ import {
 import { useControlCatalogCounts } from '../../hooks/queries/use-control-catalog-counts';
 import { useInsecticideUsage } from '../../hooks/queries/use-insecticide-usage';
 import { useOrganizationSettings } from '../../hooks/queries/use-organization-settings';
-import {
-	type RecentControlAction,
-	useRecentBiocontrolActions,
-	useRecentSourceReductions,
-} from '../../hooks/queries/use-recent-control-actions';
+import { useRecentBiocontrolActions } from '../../hooks/queries/use-recent-biocontrol-actions';
+import { useRecentSourceReductions } from '../../hooks/queries/use-recent-source-reductions';
 import { useUnitLabels } from '../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { addDaysToDateString, todayInTimeZone } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
-import { formatActionDate, formatMeasure, usageTotal } from './-control-display';
 
 /** How far back the recent-activity panels reach. */
 const CONTROL_ACTIVITY_WINDOW_DAYS = 14;

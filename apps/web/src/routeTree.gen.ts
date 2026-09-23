@@ -16,9 +16,11 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
+import { Route as MonthlyRouteImport } from './routes/monthly'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as AnnualRouteImport } from './routes/annual'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicEngagementIndexRouteImport } from './routes/public-engagement/index'
@@ -173,6 +175,11 @@ const MyOrganizationRoute = MyOrganizationRouteImport.update({
   path: '/my-organization',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonthlyRoute = MonthlyRouteImport.update({
+  id: '/monthly',
+  path: '/monthly',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LandingRoute = LandingRouteImport.update({
   id: '/landing',
   path: '/landing',
@@ -186,6 +193,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const ChangelogRoute = ChangelogRouteImport.update({
   id: '/changelog',
   path: '/changelog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnnualRoute = AnnualRouteImport.update({
+  id: '/annual',
+  path: '/annual',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
@@ -870,9 +882,11 @@ const AdultSurveillanceTrapsRoutesIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/annual': typeof AnnualRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
+  '/monthly': typeof MonthlyRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -1000,9 +1014,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/annual': typeof AnnualRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
+  '/monthly': typeof MonthlyRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
@@ -1130,9 +1146,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/annual': typeof AnnualRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
+  '/monthly': typeof MonthlyRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -1262,9 +1280,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-invitation'
+    | '/annual'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
+    | '/monthly'
     | '/my-organization'
     | '/profile'
     | '/reset-password'
@@ -1392,9 +1412,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-invitation'
+    | '/annual'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
+    | '/monthly'
     | '/profile'
     | '/reset-password'
     | '/search'
@@ -1521,9 +1543,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accept-invitation'
+    | '/annual'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
+    | '/monthly'
     | '/my-organization'
     | '/profile'
     | '/reset-password'
@@ -1652,9 +1676,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInvitationRoute: typeof AcceptInvitationRoute
+  AnnualRoute: typeof AnnualRoute
   ChangelogRoute: typeof ChangelogRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LandingRoute: typeof LandingRoute
+  MonthlyRoute: typeof MonthlyRoute
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -1823,6 +1849,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyOrganizationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/monthly': {
+      id: '/monthly'
+      path: '/monthly'
+      fullPath: '/monthly'
+      preLoaderRoute: typeof MonthlyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/landing': {
       id: '/landing'
       path: '/landing'
@@ -1842,6 +1875,13 @@ declare module '@tanstack/react-router' {
       path: '/changelog'
       fullPath: '/changelog'
       preLoaderRoute: typeof ChangelogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/annual': {
+      id: '/annual'
+      path: '/annual'
+      fullPath: '/annual'
+      preLoaderRoute: typeof AnnualRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accept-invitation': {
@@ -2702,9 +2742,11 @@ const MyOrganizationRouteWithChildren = MyOrganizationRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
+  AnnualRoute: AnnualRoute,
   ChangelogRoute: ChangelogRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LandingRoute: LandingRoute,
+  MonthlyRoute: MonthlyRoute,
   MyOrganizationRoute: MyOrganizationRouteWithChildren,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,

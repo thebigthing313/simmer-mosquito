@@ -1,7 +1,6 @@
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';
+import type { DuplicateRecord, MergeableRecordType } from '../../hooks/merge-candidate-view';
 import type { MergeFieldUpdates } from '../../hooks/mutations/use-record-merge';
-import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
-
 /**
  * The record a merge leaves behind, built out of the records going into it.
  *

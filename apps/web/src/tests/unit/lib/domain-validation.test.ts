@@ -1,0 +1,147 @@
+import {
+	createHabitatCommand,
+	DomainValidationError,
+	recordChemicalApplicationCommand,
+} from '@simmer-mosquito/domain';
+import { describe, expect, it } from 'vitest';
+import { domainValidator, validateAgainstCommand } from '../../../lib/domain-validation';
+
+const ORG = '11111111-1111-4111-8111-111111111111';
+const ACTOR = '22222222-2222-4222-8222-222222222222';
+const HABITAT = '33333333-3333-4333-8333-333333333333';
+const POINT = { type: 'Point', coordinates: [-118.24, 34.05] } as const;
+
+describe('validateAgainstCommand', () => {
+	it('passes when the command builds', () => {
+		const result = validateAgainstCommand(() =>
+			createHabitatCommand({
+				organizationId: ORG,
+				actorProfileId: ACTOR,
+				habitatId: HABITAT,
+				locationSource: { kind: 'geometry', geometry: POINT },
+				description: 'North basin catchment',
+			}),
+		);
+
+		expect(result).toBeUndefined();
+	});
+
+	it('routes a domain issue onto the field that holds it', () => {
+		const result = validateAgainstCommand(
+			() =>
+				createHabitatCommand({
+					organizationId: ORG,
+					actorProfileId: ACTOR,
+					habitatId: HABITAT,
+					locationSource: { kind: 'geometry', geometry: POINT },
+					description: '   ',
+				}),
+			{ description: 'description' },
+		);
+
+		expect(result?.fields.description).toBeDefined();
+		expect(result?.form).toEqual([]);
+	});
+
+	it('keeps unmapped issues on the form rather than dropping them', () => {
+		const result = validateAgainstCommand(
+			() =>
+				createHabitatCommand({
+					organizationId: ORG,
+					actorProfileId: ACTOR,
+					habitatId: HABITAT,
+					// No geometry: the issue has no field in the form's tree.
+					locationSource: { kind: 'geometry', geometry: null as never },
+					description: 'North basin catchment',
+				}),
+			{ description: 'description' },
+		);
+
+		expect(result?.form.length).toBeGreaterThan(0);
+	});
+
+	it('rethrows anything that is not a domain validation error', () => {
+		expect(() =>
+			validateAgainstCommand(() => {
+				throw new TypeError('boom');
+			}),
+		).toThrow(TypeError);
+	});
+});
+
+describe('domainValidator', () => {
+	it('produces the shape TanStack Form expects, or undefined when valid', () => {
+		const validate = domainValidator(
+			({ value }: { readonly value: { readonly description: string } }) =>
+				createHabitatCommand({
+					organizationId: ORG,
+					actorProfileId: ACTOR,
+					habitatId: HABITAT,
+					locationSource: { kind: 'geometry', geometry: POINT },
+					description: value.description,
+				}),
+			{ description: 'description' },
+		);
+
+		expect(validate({ value: { description: 'North basin' } })).toBeUndefined();
+		expect(validate({ value: { description: '' } })).toMatchObject({
+			fields: { description: expect.any(String) },
+		});
+	});
+});
+
+describe('issue wording', () => {
+	it('names the field the operator sees, not the payload path', () => {
+		// The domain writes for two readers, and one of them is an API client
+		// reading a rejection. Verbatim on a form, `insecticideId is required.`
+		// hands the crew an identifier that appears nowhere on screen.
+		const result = validateAgainstCommand(
+			() =>
+				recordChemicalApplicationCommand({
+					organizationId: ORG,
+					actorProfileId: ACTOR,
+					applicationId: HABITAT,
+					insecticideId: '',
+					amountApplied: 0,
+					applicationUnitId: '',
+					applicationDate: '2026-08-12',
+					locationSource: { kind: 'geometry', geometry: POINT },
+				}),
+			{ insecticideId: 'insecticideId', amountApplied: 'amountApplied' },
+		);
+
+		expect(result?.fields.insecticideId).toBe('Insecticide is required.');
+		expect(result?.fields.amountApplied).toBe('Amount applied must be a positive finite number.');
+		// Unmapped issues land on the form alert, and are worded the same way.
+		expect(result?.form).toContain('Application unit is required.');
+	});
+
+	it('leaves a message that does not lead with its path alone', () => {
+		const untouched = validateAgainstCommand(() => {
+			throw new DomainValidationError('invalid', [
+				{ path: 'trapId', message: 'Pick a trap that is still active.' },
+			]);
+		});
+
+		expect(untouched?.form).toEqual(['Pick a trap that is still active.']);
+	});
+});
+
+describe('DomainValidationError', () => {
+	it('is the error the builders throw, so instanceof holds across the boundary', () => {
+		let caught: unknown;
+		try {
+			createHabitatCommand({
+				organizationId: ORG,
+				actorProfileId: ACTOR,
+				habitatId: HABITAT,
+				locationSource: { kind: 'geometry', geometry: POINT },
+				description: '',
+			});
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(caught).toBeInstanceOf(DomainValidationError);
+	});
+});

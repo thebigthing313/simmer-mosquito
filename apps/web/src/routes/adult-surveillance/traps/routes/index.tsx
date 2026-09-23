@@ -1,7 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { RoutesIndexPage, useRouteSelection } from '../../../../components/route-planning';
-import { useRouteStopCounts, useRouteStops, useTrapRoutes } from './-trap-route-data';
-import { trapRouteSurface } from './-trap-route-surface';
+import { trapRouteSurface } from '../../../../components/adult-surveillance/traps/trap-route-surface';
+import { RoutesIndexPage } from '../../../../components/route-planning';
+import { useTrapRouteStopCounts } from '../../../../hooks/adult-surveillance/use-trap-route-stop-counts';
+import { useTrapRouteStops } from '../../../../hooks/adult-surveillance/use-trap-route-stops';
+import { useTrapRoutes } from '../../../../hooks/adult-surveillance/use-trap-routes';
+import { useRouteSelection } from '../../../../hooks/route-planning/use-route-selection';
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/')({
 	component: TrapRoutesIndexRoute,
@@ -9,9 +12,9 @@ export const Route = createFileRoute('/adult-surveillance/traps/routes/')({
 
 function TrapRoutesIndexRoute() {
 	const { routes, isLoading } = useTrapRoutes();
-	const { countByRouteId, isLoading: countsLoading } = useRouteStopCounts();
+	const { countByRouteId, isLoading: countsLoading } = useTrapRouteStopCounts();
 	const selection = useRouteSelection(routes);
-	const selectedStops = useRouteStops(selection.effectiveRouteId);
+	const selectedStops = useTrapRouteStops(selection.effectiveRouteId);
 
 	return (
 		<RoutesIndexPage

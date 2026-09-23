@@ -24,31 +24,24 @@ const PROBLEM_COLLECTIONS_WINDOW_DAYS = 14;
 export function useProblemCollectionsQueue(today: string, timeZone: string): ElectricQueue {
 	const since = addCalendarDays(today, -(PROBLEM_COLLECTIONS_WINDOW_DAYS - 1));
 	const sinceInstant = localDayStartAsInstant(since, timeZone);
-	const sinceMs = sinceInstant.getTime();
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: collections() })
-					.where(({ collection }) =>
-						and(
-							eq(collection.has_problem, true),
-							or(
-								gte(collection.collected_at, sinceInstant),
-								gte(collection.collection_date, since),
-							),
-						),
-					)
-					.select(({ collection }) => ({
-						id: collection.id,
-						collectedAt: collection.collected_at,
-						collectionDate: collection.collection_date,
-					})),
-		},
-		[since, sinceMs],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ collection: collections() })
+				.where(({ collection }) =>
+					and(
+						eq(collection.has_problem, true),
+						or(gte(collection.collected_at, sinceInstant), gte(collection.collection_date, since)),
+					),
+				)
+				.select(({ collection }) => ({
+					id: collection.id,
+					collectedAt: collection.collected_at,
+					collectionDate: collection.collection_date,
+				})),
+	});
 
 	let oldest: string | null = null;
 	for (const row of result.data) {

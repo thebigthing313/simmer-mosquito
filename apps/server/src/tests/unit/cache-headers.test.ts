@@ -84,6 +84,7 @@ describe('private read headers', () => {
 		app.get('/records/:recordType/:recordId/delete-impact', (context) => context.json({}));
 		app.get('/search', (context) => context.json({}));
 		app.get('/dashboard', (context) => context.json({}));
+		app.get('/overview/:grain', (context) => context.json({}));
 		app.get('/larval-surveillance/samples/awaiting', (context) => context.json({}));
 
 		for (const path of [
@@ -91,6 +92,7 @@ describe('private read headers', () => {
 			'/records/habitat/abc/delete-impact',
 			'/search?q=elm',
 			'/dashboard',
+			'/overview/month?month=2026-08',
 			'/larval-surveillance/samples/awaiting?since=2026-08-01',
 		]) {
 			const response = await app.request(path);
@@ -108,6 +110,7 @@ describe('private read headers', () => {
 			'/records/*',
 			'/search',
 			'/dashboard',
+			'/overview/*',
 			'/larval-surveillance/samples/awaiting',
 		]);
 	});

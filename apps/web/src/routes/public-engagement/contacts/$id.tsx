@@ -14,6 +14,13 @@ import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import {
+	contactDisplayName,
+	formatRequestDate,
+	isServiceRequestOpen,
+	serviceRequestTitle,
+} from '../../../components/public-engagement/public-engagement-display';
+import { RequestStatusBadge } from '../../../components/public-engagement/public-engagement-ui';
+import {
 	createItems,
 	DetailPageShell,
 	type RecordDetailLayout,
@@ -24,13 +31,6 @@ import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
 import { useContactServiceRequests } from '../../../hooks/queries/use-contact-service-requests';
 import { recordNoun } from '../../../lib/record-nouns';
-import {
-	contactDisplayName,
-	formatRequestDate,
-	isServiceRequestOpen,
-	serviceRequestTitle,
-} from '../-public-engagement-display';
-import { RequestStatusBadge } from '../-public-engagement-ui';
 
 export const Route = createFileRoute('/public-engagement/contacts/$id')({
 	component: ContactDetailRoute,
@@ -128,7 +128,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 						? undefined
 						: [contact.title, contact.company].filter(Boolean).join(' · '),
 				recordType: 'contact',
-				tags: { recordId: contact.id },
+				tags: { recordId: contact.id, recordType: 'contact' },
 				title: name,
 			}}
 			layout={layout}

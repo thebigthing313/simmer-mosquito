@@ -19,8 +19,10 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { weatherSourceTypeLabel } from '../../../components/gis/weather/weather-display';
+import { WeatherSummariesCard } from '../../../components/gis/weather/weather-summaries-card';
+import { StationStatusBadge } from '../../../components/gis/weather/weather-ui';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
@@ -31,11 +33,9 @@ import {
 import { WriteOnly } from '../../../components/write-only';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { STATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-
-import { weatherSourceTypeLabel } from './-weather-display';
-import { WeatherSummariesCard } from './-weather-summaries-card';
-import { StationStatusBadge } from './-weather-ui';
+import { errorMessageForSave } from '../../../lib/save-error';
 
 export const Route = createFileRoute('/gis/weather/$id')({
 	component: RouteComponent,
@@ -189,7 +189,7 @@ function StationLifecycleCard({
 		try {
 			await mutations.setActive(station.id, !station.isActive);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to change the station.');
+			setError(errorMessageForSave(cause, 'Unable to change the station.'));
 		}
 		setIsBusy(false);
 	};
@@ -209,7 +209,7 @@ function StationLifecycleCard({
 				await navigate({ to: '/gis/weather' });
 			});
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to delete the station.');
+			setError(errorMessageForSave(cause, 'Unable to delete the station.'));
 		}
 		setIsBusy(false);
 		setConfirmingDelete(false);

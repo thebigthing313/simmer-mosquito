@@ -1,19 +1,19 @@
 import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
-import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
-import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
-import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { recordNoun } from '../../../lib/record-nouns';
-import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
-} from './-weather-station-form';
+} from '../../../components/gis/weather/weather-station-form';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
+import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
+import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
+import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
+import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { recordNoun } from '../../../lib/record-nouns';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 /**
  * `$id_.edit` rather than `$id.edit`: the trailing underscore is what stops

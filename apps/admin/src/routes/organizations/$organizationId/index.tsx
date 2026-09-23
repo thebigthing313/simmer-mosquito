@@ -7,8 +7,9 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { AdminOrganization } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
+import { useOrganizations } from '../../../hooks/queries/use-organizations';
+import { formatDate } from '../../../lib/format-date';
 import { subscriptionTone } from '../../../lib/tones';
-import { useOrganizations } from '../-organization-data';
 
 const OrganizationIcon = iconRegistry.entities.organization.icon;
 const ContactIcon = iconRegistry.entities.contact.icon;
@@ -178,11 +179,4 @@ function mailingAddress(organization: AdminOrganization): string | null {
 	].filter((part): part is string => part !== null && part.trim() !== '');
 
 	return parts.length === 0 ? null : parts.join(', ');
-}
-
-function formatDate(iso: string): string {
-	const date = new Date(iso);
-	return Number.isNaN(date.getTime())
-		? iso
-		: new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
 }

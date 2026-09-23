@@ -333,6 +333,17 @@ jobs:
       - name: Session credentials
         run: pnpm check:session-credentials
 
+      # Every display formatter in `apps/web`, `apps/admin` and `packages/ui-web`
+      # pins `en-US`, so the wording is the same on every machine and a suite
+      # may assert it. The rule was a paragraph in CLAUDE.md and both passes over
+      # it, #683 and #1116, were sweeps by hand, the second finding three
+      # formatters inheriting the browser's locale behind the first. This reads
+      # the five calls off the masked source and refuses a first argument that is
+      # not a string literal tag, at zero, with `components/ui` and the tests
+      # trees out (#1128).
+      - name: Formatter locales
+        run: pnpm check:formatter-locales
+
       # An underscore prefix is a claim that a binding is deliberately unused,
       # and nothing asked whether the claim was still true. Biome's unused rules
       # are silenced by exactly that prefix and `fallow dead-code` gates unused
@@ -400,10 +411,18 @@ jobs:
       # than on a pre-existing backlog. The softer cleanup rules stay at `warn`
       # by choice (.fallowrc.jsonc).
       #
-      # These go through the wrapper rather than `pnpm exec fallow` so a local
-      # run on Windows behaves identically; it is a no-op on this runner.
+      # It runs as `pnpm check:dead-code` and not `pnpm fallow dead-code`,
+      # because the gate list step above reads only `pnpm check:*` lines, so
+      # the name is what puts this in `pnpm check:all`. It ran as the bare
+      # `fallow` script until #1152, and #1149 was green under `check:all` and
+      # red here on an export whose callers it had deleted. The two fallow
+      # steps below stay outside `check:all` on purpose, since both are gated
+      # against where the workspace already is rather than at zero.
+      #
+      # The script goes through the wrapper rather than `pnpm exec fallow` so a
+      # local run on Windows behaves identically; it is a no-op on this runner.
       - name: Dead code
-        run: pnpm fallow dead-code
+        run: pnpm check:dead-code
 
       # Duplication and complexity are gated against where the workspace already
       # is, not against zero — the backlog is thousands of lines and hundreds of

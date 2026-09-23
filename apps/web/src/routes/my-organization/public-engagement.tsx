@@ -1,8 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { DomainSection } from '../../components/my-organization/layout/domain-section';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
+import {
+	PublicEngagementSettings,
+	PublicSettingsDrawer,
+} from '../../components/my-organization/public';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { DomainSection } from './-components/layout/layout';
-import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
-import { PublicEngagementSettings, PublicSettingsDrawer } from './-components/public';
 
 export const Route = createFileRoute('/my-organization/public-engagement')({
 	component: MyOrganizationPublicEngagementRoute,

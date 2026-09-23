@@ -8,27 +8,16 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useMapReadout } from '../../hooks/map/use-map-readout';
 import { formatCount } from '../../lib/format-count';
 import { MAP_CHROME_SURFACE } from './chrome';
 import { formatLatLng } from './map-point-search';
 
 const CopyIcon = iconRegistry.actions.copy.icon;
 
-/** How wide a stretch of the centre row to measure the ground distance across. */
-const SAMPLE_PX = 100;
 /** The longest the scale bar may draw. The rounded distance is chosen to fit. */
 const MAX_BAR_PX = 96;
-
-interface ReadoutState {
-	readonly lat: number;
-	readonly lng: number;
-	readonly zoom: number;
-	/** Degrees clockwise from north, normalised to 0–359. */
-	readonly bearing: number;
-	readonly metersPerPixel: number;
-}
 
 /**
  * Where the map is looking, along its bottom edge: centre, bearing, zoom, scale.
@@ -127,41 +116,6 @@ export function MapReadout({
 
 function ReadoutDivider() {
 	return <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-border/70" />;
-}
-
-/** The camera, re-read on every move so the numbers track the drag rather than settle after it. */
-function useMapReadout(map: MapboxMap | null): ReadoutState | null {
-	const [state, setState] = useState<ReadoutState | null>(null);
-
-	useEffect(() => {
-		if (map === null) {
-			setState(null);
-			return;
-		}
-		const sync = () => {
-			const center = map.getCenter();
-			// Measured off the map rather than derived from the zoom: unprojecting two
-			// points on the centre row is the ground distance the reader is looking
-			// at, whatever the latitude and whatever the camera is doing.
-			const y = map.getContainer().clientHeight / 2;
-			const left = map.unproject([0, y]);
-			const right = map.unproject([SAMPLE_PX, y]);
-			setState({
-				lat: center.lat,
-				lng: center.lng,
-				zoom: map.getZoom(),
-				bearing: (map.getBearing() + 360) % 360,
-				metersPerPixel: left.distanceTo(right) / SAMPLE_PX,
-			});
-		};
-		sync();
-		map.on('move', sync);
-		return () => {
-			map.off('move', sync);
-		};
-	}, [map]);
-
-	return state;
 }
 
 /** Feet in a metre, and feet in a mile, for choosing which unit the bar stands in. */

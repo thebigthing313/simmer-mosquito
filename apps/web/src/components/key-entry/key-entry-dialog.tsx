@@ -30,17 +30,18 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useState } from 'react';
-import type {
-	ResolvedSpeciesKeyBinding,
-	SpeciesKeyBindingsView,
-} from '../../hooks/use-species-key-bindings';
-import { createCommitQueue } from './commit-queue';
 import {
 	NO_VARIANT,
 	type TallyEntry,
 	type TallyVariant,
 	useKeyEntryTally,
-} from './use-key-entry-tally';
+} from '../../hooks/key-entry/use-key-entry-tally';
+import type {
+	ResolvedSpeciesKeyBinding,
+	SpeciesKeyBindingsView,
+} from '../../hooks/use-species-key-bindings';
+import { errorMessageForSave } from '../../lib/save-error';
+import { createCommitQueue } from './commit-queue';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 
@@ -144,7 +145,7 @@ export function KeyEntryDialog({
 				await onCommit(entries);
 				markCommitted(signature);
 			} catch (cause) {
-				setError(messageOf(cause, 'Unable to save these counts.'));
+				setError(errorMessageForSave(cause, 'Unable to save these counts.'));
 				setBusy(false);
 				return false;
 			}
@@ -725,8 +726,4 @@ function isTextEntryTarget(target: EventTarget | null): boolean {
 		target instanceof HTMLTextAreaElement ||
 		target.isContentEditable
 	);
-}
-
-function messageOf(cause: unknown, fallback: string): string {
-	return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
 }

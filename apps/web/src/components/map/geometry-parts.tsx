@@ -7,7 +7,11 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
-import { type DrawGeometryType, type DrawPartGeometry, drawHoles } from './use-map-draw';
+import {
+	type DrawGeometryType,
+	type DrawPartGeometry,
+	drawHoles,
+} from '../../hooks/map/use-map-draw';
 
 const EditIcon = iconRegistry.actions.edit.icon;
 

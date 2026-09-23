@@ -59,138 +59,125 @@ export function useControlActionsForDay(date: string): {
 	readonly isReady: boolean;
 	readonly isError: boolean;
 } {
-	const applicationResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ application: applications() })
-					.where(({ application }) => eq(application.application_date, date))
-					.join(
-						{ product: insecticides() },
-						({ application, product }) => eq(application.insecticide_id, product.id),
-						'left',
-					)
-					.join(
-						{ method: application_methods() },
-						({ application, method }) => eq(application.application_method_id, method.id),
-						'left',
-					)
-					.join(
-						{ unit: units() },
-						({ application, unit }) => eq(application.application_unit_id, unit.id),
-						'left',
-					)
-					.join(
-						{ performer: profiles() },
-						({ application, performer }) => eq(application.applicator_profile_id, performer.id),
-						'left',
-					)
-					.orderBy(({ application }) => application.created_at, 'asc')
-					.select(({ application, product, method, unit, performer }) => ({
-						id: application.id,
-						actionDate: application.application_date,
-						performedByProfileId: application.applicator_profile_id,
-						performedByName: caseWhen(
-							isNull(application.applicator_profile_id),
-							null,
-							performer.display_name,
-						),
-						subjectName: coalesce(product.trade_name, 'Unknown insecticide'),
-						methodName: caseWhen(
-							isNull(application.application_method_id),
-							'No method',
-							coalesce(method.name, 'Unknown method'),
-						),
-						amount: application.amount_applied,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
-						createdAt: application.created_at,
-					})),
-		},
-		[date],
-	);
+	const applicationResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ application: applications() })
+				.where(({ application }) => eq(application.application_date, date))
+				.join(
+					{ product: insecticides() },
+					({ application, product }) => eq(application.insecticide_id, product.id),
+					'left',
+				)
+				.join(
+					{ method: application_methods() },
+					({ application, method }) => eq(application.application_method_id, method.id),
+					'left',
+				)
+				.join(
+					{ unit: units() },
+					({ application, unit }) => eq(application.application_unit_id, unit.id),
+					'left',
+				)
+				.join(
+					{ performer: profiles() },
+					({ application, performer }) => eq(application.applicator_profile_id, performer.id),
+					'left',
+				)
+				.orderBy(({ application }) => application.created_at, 'asc')
+				.select(({ application, product, method, unit, performer }) => ({
+					id: application.id,
+					actionDate: application.application_date,
+					performedByProfileId: application.applicator_profile_id,
+					performedByName: caseWhen(
+						isNull(application.applicator_profile_id),
+						null,
+						performer.display_name,
+					),
+					subjectName: coalesce(product.trade_name, 'Unknown insecticide'),
+					methodName: caseWhen(
+						isNull(application.application_method_id),
+						'No method',
+						coalesce(method.name, 'Unknown method'),
+					),
+					amount: application.amount_applied,
+					unitAbbreviation: coalesce(unit.abbreviation, null),
+					createdAt: application.created_at,
+				})),
+	});
 
-	const sourceReductionResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: source_reductions() })
-					.where(({ action }) => eq(action.source_reduction_date, date))
-					.join(
-						{ method: source_reduction_methods() },
-						({ action, method }) => eq(action.source_reduction_method_id, method.id),
-						'left',
-					)
-					.join(
-						{ unit: units() },
-						({ action, unit }) => eq(action.sources_eliminated_unit_id, unit.id),
-						'left',
-					)
-					.join(
-						{ performer: profiles() },
-						({ action, performer }) => eq(action.technician_profile_id, performer.id),
-						'left',
-					)
-					.orderBy(({ action }) => action.created_at, 'asc')
-					.select(({ action, method, unit, performer }) => ({
-						id: action.id,
-						actionDate: action.source_reduction_date,
-						performedByProfileId: action.technician_profile_id,
-						performedByName: caseWhen(
-							isNull(action.technician_profile_id),
-							null,
-							performer.display_name,
-						),
-						subjectName: coalesce(method.name, 'Unknown method'),
-						amount: action.sources_eliminated_amount,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
-						createdAt: action.created_at,
-					})),
-		},
-		[date],
-	);
+	const sourceReductionResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ action: source_reductions() })
+				.where(({ action }) => eq(action.source_reduction_date, date))
+				.join(
+					{ method: source_reduction_methods() },
+					({ action, method }) => eq(action.source_reduction_method_id, method.id),
+					'left',
+				)
+				.join(
+					{ unit: units() },
+					({ action, unit }) => eq(action.sources_eliminated_unit_id, unit.id),
+					'left',
+				)
+				.join(
+					{ performer: profiles() },
+					({ action, performer }) => eq(action.technician_profile_id, performer.id),
+					'left',
+				)
+				.orderBy(({ action }) => action.created_at, 'asc')
+				.select(({ action, method, unit, performer }) => ({
+					id: action.id,
+					actionDate: action.source_reduction_date,
+					performedByProfileId: action.technician_profile_id,
+					performedByName: caseWhen(
+						isNull(action.technician_profile_id),
+						null,
+						performer.display_name,
+					),
+					subjectName: coalesce(method.name, 'Unknown method'),
+					amount: action.sources_eliminated_amount,
+					unitAbbreviation: coalesce(unit.abbreviation, null),
+					createdAt: action.created_at,
+				})),
+	});
 
-	const biocontrolResult = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: biocontrol_actions() })
-					.where(({ action }) => eq(action.biocontrol_date, date))
-					.join(
-						{ method: biocontrol_methods() },
-						({ action, method }) => eq(action.biocontrol_method_id, method.id),
-						'left',
-					)
-					.join(
-						{ unit: units() },
-						({ action, unit }) => eq(action.release_unit_id, unit.id),
-						'left',
-					)
-					.join(
-						{ performer: profiles() },
-						({ action, performer }) => eq(action.technician_profile_id, performer.id),
-						'left',
-					)
-					.orderBy(({ action }) => action.created_at, 'asc')
-					.select(({ action, method, unit, performer }) => ({
-						id: action.id,
-						actionDate: action.biocontrol_date,
-						performedByProfileId: action.technician_profile_id,
-						performedByName: caseWhen(
-							isNull(action.technician_profile_id),
-							null,
-							performer.display_name,
-						),
-						subjectName: coalesce(method.name, 'Unknown method'),
-						amount: action.amount_released,
-						unitAbbreviation: coalesce(unit.abbreviation, null),
-						createdAt: action.created_at,
-					})),
-		},
-		[date],
-	);
+	const biocontrolResult = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ action: biocontrol_actions() })
+				.where(({ action }) => eq(action.biocontrol_date, date))
+				.join(
+					{ method: biocontrol_methods() },
+					({ action, method }) => eq(action.biocontrol_method_id, method.id),
+					'left',
+				)
+				.join({ unit: units() }, ({ action, unit }) => eq(action.release_unit_id, unit.id), 'left')
+				.join(
+					{ performer: profiles() },
+					({ action, performer }) => eq(action.technician_profile_id, performer.id),
+					'left',
+				)
+				.orderBy(({ action }) => action.created_at, 'asc')
+				.select(({ action, method, unit, performer }) => ({
+					id: action.id,
+					actionDate: action.biocontrol_date,
+					performedByProfileId: action.technician_profile_id,
+					performedByName: caseWhen(
+						isNull(action.technician_profile_id),
+						null,
+						performer.display_name,
+					),
+					subjectName: coalesce(method.name, 'Unknown method'),
+					amount: action.amount_released,
+					unitAbbreviation: coalesce(unit.abbreviation, null),
+					createdAt: action.created_at,
+				})),
+	});
 
 	const applicationRows = applicationResult.data;
 	const sourceReductionRows = sourceReductionResult.data;

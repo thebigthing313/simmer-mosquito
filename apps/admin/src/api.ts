@@ -390,7 +390,7 @@ export async function inviteAdminUser(
  * becoming a second door to `/admin/*`.
  *
  * `path` is a plain string, and that is deliberate rather than unfinished. One
- * module calls this, `-foundations-data.ts`, so a union of the paths it posts
+ * module calls this, `hooks/mutations/use-create-foundation.ts`, so a union of the paths it posts
  * would be a second copy of that file's list, stale the first time the page
  * adds a create, and one of those paths is built from the lookup kind, so the
  * union would have to enumerate those as well. A runtime refusal of a path

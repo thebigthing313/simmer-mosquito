@@ -16,17 +16,15 @@ import { count, eq, useLiveQuery } from '@tanstack/react-db';
 import { traps } from '../../lib/collections/traps';
 
 export function useActiveTrapCountsByMethod(): ReadonlyMap<string, number> {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ trap: traps() })
-				.where(({ trap }) => eq(trap.is_active, true))
-				.groupBy(({ trap }) => trap.collection_method_id)
-				.select(({ trap }) => ({
-					methodId: trap.collection_method_id,
-					activeCount: count(trap.id),
-				})),
-		[],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ trap: traps() })
+			.where(({ trap }) => eq(trap.is_active, true))
+			.groupBy(({ trap }) => trap.collection_method_id)
+			.select(({ trap }) => ({
+				methodId: trap.collection_method_id,
+				activeCount: count(trap.id),
+			})),
 	);
 
 	// The one `useMemo` this folder allows: a query returns rows and cannot return

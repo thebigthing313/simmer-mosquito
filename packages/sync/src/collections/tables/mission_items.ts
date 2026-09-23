@@ -16,6 +16,8 @@ export const missionItemSchema = z.object({
 	id: z.uuid(),
 	organization_id: z.uuid(),
 	mission_id: z.uuid(),
+	/** What the stop is called, when somebody typed one. Null is every other stop. */
+	name: z.string().nullable(),
 	requested_control_action_id: z.uuid().nullable(),
 	lat: z.number(),
 	lng: z.number(),

@@ -16,11 +16,9 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-	useAllWeatherSummaries,
-	useWeatherSummaries,
-	useWeatherSummaryYears,
-} from '../../../../hooks/queries/use-weather-summaries';
+import { useAllWeatherSummaries } from '../../../../hooks/queries/use-all-weather-summaries';
+import { useWeatherSummaries } from '../../../../hooks/queries/use-weather-summaries';
+import { useWeatherSummaryYears } from '../../../../hooks/queries/use-weather-summary-years';
 import { weather_summaries } from '../../../../lib/collections/weather_summaries';
 import {
 	installMemoryCollections,

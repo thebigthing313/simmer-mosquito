@@ -7,6 +7,7 @@
  */
 
 import { createTagItemsCollection, type TagItem } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -20,4 +21,18 @@ export const tag_items = declareCollection<TagItem>({
 	syncMode: 'on-demand',
 	mutations: true,
 	create: createTagItemsCollection,
+
+	/*
+	 * The key a correlated include loads this table by.
+	 *
+	 * `useDayActivity` reads a day of records with each one's `tag_items` rows
+	 * as a `toArray` subquery on `entity_id`, and the compiler loads that side
+	 * by `entity_id = any(...)` over the parents it matched only while the
+	 * column is indexed; without one it warns once and falls back to scanning
+	 * local data, which for an on-demand table is whatever another surface
+	 * happened to load.
+	 */
+	index: (collection) => {
+		collection.createIndex((row) => row.entity_id, { indexType: BasicIndex });
+	},
 });

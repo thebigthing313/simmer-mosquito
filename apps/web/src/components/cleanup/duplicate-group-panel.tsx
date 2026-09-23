@@ -19,7 +19,7 @@ import type {
 	DuplicateGroup,
 	DuplicateRecord,
 	DuplicateRecordType,
-} from '../../hooks/use-merge-candidates';
+} from '../../hooks/merge-candidate-view';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { WriteOnly } from '../write-only';
 import { type MergeFieldValue, mergeFieldSummary } from './merge-field-plan';

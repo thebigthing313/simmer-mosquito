@@ -57,29 +57,25 @@ export function useGenusRoster(): {
 	readonly speciesCountById: ReadonlyMap<string, number>;
 	readonly isReady: boolean;
 } {
-	const roster = useLiveQuery(
-		(query) =>
-			query
-				.from({ genus: genera })
-				.orderBy(({ genus }) => genus.name, 'asc')
-				.select(({ genus }) => ({
-					id: genus.id,
-					name: genus.name,
-					abbreviation: genus.abbreviation,
-				})),
-		[],
+	const roster = useLiveQuery((query) =>
+		query
+			.from({ genus: genera })
+			.orderBy(({ genus }) => genus.name, 'asc')
+			.select(({ genus }) => ({
+				id: genus.id,
+				name: genus.name,
+				abbreviation: genus.abbreviation,
+			})),
 	);
 
-	const counts = useLiveQuery(
-		(query) =>
-			query
-				.from({ taxon: species })
-				.groupBy(({ taxon }) => taxon.genus_id)
-				.select(({ taxon }) => ({
-					genusId: taxon.genus_id,
-					total: count(taxon.id),
-				})),
-		[],
+	const counts = useLiveQuery((query) =>
+		query
+			.from({ taxon: species })
+			.groupBy(({ taxon }) => taxon.genus_id)
+			.select(({ taxon }) => ({
+				genusId: taxon.genus_id,
+				total: count(taxon.id),
+			})),
 	);
 
 	const speciesCountById = new Map(

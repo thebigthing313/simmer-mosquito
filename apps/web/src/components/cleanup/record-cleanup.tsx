@@ -8,15 +8,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
 import {
 	type DuplicateGroup,
 	type DuplicateReason,
 	type DuplicateRecord,
 	type DuplicateRecordType,
 	duplicateCandidatesQueryKey,
-	useDuplicateCandidates,
-} from '../../hooks/use-merge-candidates';
+} from '../../hooks/merge-candidate-view';
+import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
+import { useDuplicateCandidates } from '../../hooks/use-duplicate-candidates';
 import { recordNoun } from '../../lib/record-nouns';
 import { DuplicateGroupPanel } from './duplicate-group-panel';
 import { MatchTypeFilter } from './match-type-filter';

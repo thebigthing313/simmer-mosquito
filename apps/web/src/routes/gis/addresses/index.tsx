@@ -12,29 +12,29 @@ import {
 	FilterChip,
 	MultiSelectFilter,
 	toggle,
-	useExplorerPanel,
-	useExplorerResource,
-	useRegionOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { AddressMapCard } from '../../../components/gis/addresses/address-map-card';
 import {
 	type AddressTileFilters,
 	MAP_CREATE_TARGETS,
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useAddressSearch } from '../../../hooks/gis/use-address-search';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	type FilterCodecs,
 	idSetParam,
 	searchValidator,
 	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { AddressMapCard } from './-address-map-card';
 
 /**
  * An address as `/map/addresses` lists it: what the row shows, and where on
@@ -222,28 +222,6 @@ function AddressesExplorerRoute() {
 			}}
 		/>
 	);
-}
-
-/**
- * The search box's two halves: the field the operator is looking at, and the
- * committed term on the URL that is actually cutting the list. Clearing has to
- * reach both, or the box empties and the list stays narrowed.
- */
-function useAddressSearch(
-	urlSearch: string,
-	commitSearch: (next: string) => void,
-): {
-	readonly searchInput: string;
-	readonly setSearch: (next: string) => void;
-	readonly clearSearch: () => void;
-} {
-	const { input, setInput, clear } = useDebouncedTextFilter(urlSearch, commitSearch);
-	const clearSearch = () => {
-		clear();
-		commitSearch('');
-	};
-
-	return { searchInput: input, setSearch: setInput, clearSearch };
 }
 
 function AddressRowItem({

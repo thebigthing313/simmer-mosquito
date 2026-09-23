@@ -9,6 +9,10 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import {
+	CollectionFlagBadges,
+	collectionEffectiveDate,
+} from '../../components/adult-surveillance/adult-display';
+import {
 	SPECIES_WINDOWS,
 	SpeciesCompositionPanel,
 	type SpeciesWindow,
@@ -29,7 +33,6 @@ import {
 	formatWeekdayMonthDay,
 	todayInTimeZone,
 } from '../../lib/local-date';
-import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
 
 /** How far back the recent-window queries reach. */
 const ADULT_ACTIVITY_WINDOW_DAYS = 14;

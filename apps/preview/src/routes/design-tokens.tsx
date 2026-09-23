@@ -10,7 +10,7 @@ import {
 } from '@simmer-mosquito/design-tokens/color';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { createFileRoute } from '@tanstack/react-router';
-import { type CssToken, useCssTokens } from '../useCssTokens';
+import { type CssToken, useCssTokens } from '../hooks/use-css-tokens';
 
 export const Route = createFileRoute('/design-tokens')({
 	component: DesignTokensPage,

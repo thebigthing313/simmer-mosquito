@@ -4,7 +4,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon, OctagonXIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, type Ref, useState } from 'react';
 import { RESULT_SKELETON_KEYS } from './result-skeleton';
 
 /**
@@ -66,13 +66,13 @@ export function ResultList({
 			// meant the panel wore the browser's scrollbar while it loaded and the
 			// styled one once it had rows, so the rail shifted under the pointer at
 			// the moment the reader was waiting on it.
-			<ScrollArea className="min-h-0 flex-1" type="auto">
+			<RailScrollArea>
 				<div className="grid gap-px p-2">
 					{RESULT_SKELETON_KEYS.map((key) => (
 						<Skeleton className={skeletonClassName} key={key} />
 					))}
 				</div>
-			</ScrollArea>
+			</RailScrollArea>
 		);
 	}
 
@@ -152,6 +152,33 @@ function EmptyResults({
 }
 
 /**
+ * The rail's scroll container. The skeleton, the rows and a caller-composed
+ * body all render this one, so the scrollbar does not change shape when one
+ * replaces another.
+ *
+ * `auto`, not the Radix default of `hover`: the rail is nearly always longer
+ * than its panel, and a reader who cannot see a scrollbar until they happen to
+ * move the pointer over the list has no sign there are more rows.
+ *
+ * Module-private on purpose. Three sites in one module is not the bar for a
+ * `ui-web` variant.
+ */
+function RailScrollArea({
+	children,
+	viewportRef,
+}: {
+	readonly children: ReactNode;
+	/** The Radix viewport, which is the node that scrolls. See {@link ResultRows}. */
+	readonly viewportRef?: Ref<HTMLDivElement> | undefined;
+}) {
+	return (
+		<ScrollArea className="min-h-0 flex-1" type="auto" viewportRef={viewportRef}>
+			{children}
+		</ScrollArea>
+	);
+}
+
+/**
  * The height a row is assumed to be until it has been measured.
  *
  * Only the first paint and the scrollbar's early guess ride on it: every row
@@ -220,15 +247,12 @@ export function ResultRows<TRow>({
 
 	return (
 		/*
-		 * `w-full` on the list, because the Radix viewport wraps its children in a
-		 * `display: table` element that otherwise shrink-wraps to the widest row
-		 * and stops every `truncate` in the rows from having a width to truncate
-		 * against. `auto`, not the Radix default of `hover`: the rail is nearly
-		 * always longer than its panel, and a reader who cannot see a scrollbar
-		 * until they happen to move the pointer over the list has no sign there
-		 * are more rows.
+		 * `w-full` on the list, because each row is absolutely positioned and takes
+		 * its width from the list rather than from the viewport, so the list states
+		 * its own. The Radix `display: table` wrapper that once shrink-wrapped it to
+		 * the widest row is overridden in the shared primitive, not here.
 		 */
-		<ScrollArea className="min-h-0 flex-1" type="auto" viewportRef={setViewport}>
+		<RailScrollArea viewportRef={setViewport}>
 			<ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
 				{virtualRows.map((virtualRow) => {
 					const row = rows[virtualRow.index];
@@ -258,17 +282,20 @@ export function ResultRows<TRow>({
 					);
 				})}
 			</ul>
-		</ScrollArea>
+		</RailScrollArea>
 	);
 }
 
 /**
  * A caller-composed body, for a panel whose records are not a flat list.
  *
- * A plain scroll container rather than the rows' ScrollArea: a tree and a
- * day-grouped log bring their own headers, sections and sticky bits, and the
- * Radix viewport's `display: table` wrapper sizes those to their widest child.
+ * The same ScrollArea the rows and the loading skeleton arrive into, so the
+ * Regions tree and the Daily Work log draw the styled scrollbar every other
+ * rail draws, and it does not change shape when the body replaces the
+ * skeleton. This was a plain `overflow-y-auto` container citing the Radix
+ * viewport's `display: table` wrapper, which the shared primitive had already
+ * overridden with `[&>div]:!block` a week before (#1081).
  */
 export function ResultBody({ children }: { readonly children: ReactNode }) {
-	return <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>;
+	return <RailScrollArea>{children}</RailScrollArea>;
 }

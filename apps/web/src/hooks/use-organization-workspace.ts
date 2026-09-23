@@ -6,7 +6,7 @@ import { organizations } from '../lib/collections/organizations';
 import { canManageCatalogs, canManageOperationalCatalogs, readOrgRole } from '../lib/write-access';
 
 export function useOrganizationWorkspace(auth: AuthMe | null) {
-	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations() }), []);
+	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations() }));
 	// The throw is what makes the declared type true. A workspace with no
 	// Organization row is not a state any screen renders, so the hook refuses
 	// rather than handing every caller a null to narrow away (#898).

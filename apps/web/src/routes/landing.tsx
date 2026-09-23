@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { LandingPage } from './-components';
+import { LandingPage } from '../components/landing/landing-page';
 
 export const Route = createFileRoute('/landing')({
 	validateSearch: (

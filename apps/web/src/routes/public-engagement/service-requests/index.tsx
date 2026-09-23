@@ -28,6 +28,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -37,11 +38,6 @@ import {
 	MultiSelectFilter,
 	SegmentedFilter,
 	toggle,
-	useEntityTags,
-	useExplorerPanel,
-	useExplorerResource,
-	useRegionOptions,
-	useTagOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
@@ -53,30 +49,40 @@ import {
 	SERVICE_REQUEST_STATUS_COLORS,
 	type ServiceRequestTileFilters,
 } from '../../../components/map';
-import { TagBadge } from '../../../components/tag-badge';
-import type { Address } from '../../../hooks/queries/address-view';
-import type { ContactSummary } from '../../../hooks/queries/contact-view';
-import type { Tag } from '../../../hooks/queries/tag-view';
-import { useRequestParties } from '../../../hooks/queries/use-request-parties';
-import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	choiceParam,
-	type FilterCodecs,
-	idSetParam,
-	searchValidator,
-	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
-} from '../../../lib/search-filters';
 import {
 	contactDisplayName,
 	formatAddressLine,
 	isServiceRequestOpen,
 	serviceRequestTitle,
-} from '../-public-engagement-display';
-import { ServiceRequestMapCard } from '../-service-request-map-card';
-import type { StatusFilter } from './-legend';
-import { serviceRequestLegend } from './-legend';
+} from '../../../components/public-engagement/public-engagement-display';
+import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
+import type { StatusFilter } from '../../../components/public-engagement/service-requests/legend';
+import { serviceRequestLegend } from '../../../components/public-engagement/service-requests/legend';
+import { TagBadge } from '../../../components/tag-badge';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
+import type { Address } from '../../../hooks/queries/address-view';
+import type { ContactSummary } from '../../../hooks/queries/contact-view';
+import type { Tag } from '../../../hooks/queries/tag-view';
+import { useRequestParties } from '../../../hooks/queries/use-request-parties';
+import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
+import { todayInTimeZone } from '../../../lib/local-date';
+import { type RecordType, recordNoun } from '../../../lib/record-nouns';
+import {
+	choiceParam,
+	DATE_RANGE_COUNTING,
+	type FilterCodecs,
+	idSetParam,
+	openDateParam,
+	searchValidator,
+	textParam,
+} from '../../../lib/search-filters';
 
 /**
  * A service request as `/map/service-requests` lists it: what the row shows,
@@ -113,6 +119,14 @@ interface RequestFilterSet {
 	readonly search: string;
 	readonly tags: ReadonlySet<string>;
 	readonly regions: ReadonlySet<string>;
+	/**
+	 * A window over `request_date`, with no default: #920 decided a date
+	 * default here is not a substitute for the viewport, and an empty bound is
+	 * no bound. The period-in-review count links write both so they land on
+	 * the rows they counted.
+	 */
+	readonly from: string;
+	readonly to: string;
 }
 
 const REQUEST_FILTER_DEFAULTS: RequestFilterSet = {
@@ -120,6 +134,8 @@ const REQUEST_FILTER_DEFAULTS: RequestFilterSet = {
 	search: '',
 	tags: new Set(),
 	regions: new Set(),
+	from: '',
+	to: '',
 };
 
 const REQUEST_FILTER_CODECS: FilterCodecs<RequestFilterSet> = {
@@ -127,6 +143,8 @@ const REQUEST_FILTER_CODECS: FilterCodecs<RequestFilterSet> = {
 	search: textParam,
 	tags: idSetParam,
 	regions: idSetParam,
+	from: openDateParam,
+	to: openDateParam,
 };
 
 export const Route = createFileRoute('/public-engagement/service-requests/')({
@@ -145,7 +163,10 @@ function ServiceRequestsExplorerRoute() {
 		filters: query,
 		setFilters,
 		activeCount: activeFilterCount,
-	} = useSearchFilters(REQUEST_FILTER_DEFAULTS, REQUEST_FILTER_CODECS);
+	} = useSearchFilters(REQUEST_FILTER_DEFAULTS, REQUEST_FILTER_CODECS, DATE_RANGE_COUNTING);
+	const timeZone = useOrganizationTimeZone();
+	const today = todayInTimeZone(timeZone);
+	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
 	const status = query.status;
 	const selectedTagIds = query.tags;
 	const selectedRegionIds = query.regions;
@@ -170,7 +191,14 @@ function ServiceRequestsExplorerRoute() {
 	// the first.
 	const clearAll = () => {
 		setSearch('');
-		setFilters({ search: '', tags: new Set(), regions: new Set(), status: 'open' });
+		setFilters({
+			search: '',
+			tags: new Set(),
+			regions: new Set(),
+			status: 'open',
+			from: '',
+			to: '',
+		});
 	};
 	const regions = useRegionOptions();
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -219,6 +247,7 @@ function ServiceRequestsExplorerRoute() {
 				<RequestFilters
 					activeFilterCount={activeFilterCount}
 					availableTags={availableTags}
+					dateRange={dateRange}
 					onClearAll={clearAll}
 					onClearSearch={clearSearch}
 					regions={regions}
@@ -311,6 +340,8 @@ function requestTileFilters(query: RequestFilterSet): ServiceRequestTileFilters 
 		...whenText('search', query.search.trim()),
 		...whenAny('tagIds', query.tags),
 		...whenAny('regionIds', query.regions),
+		...whenText('dateFrom', query.from),
+		...whenText('dateTo', query.to),
 	};
 }
 
@@ -320,19 +351,24 @@ function requestQueryParams(filters: ServiceRequestTileFilters): {
 	readonly search: string | undefined;
 	readonly tagId: readonly string[] | undefined;
 	readonly regionId: readonly string[] | undefined;
+	readonly dateFrom: string | undefined;
+	readonly dateTo: string | undefined;
 } {
 	return {
 		status: filters.isOpen === undefined ? undefined : filters.isOpen ? 'open' : 'closed',
 		search: filters.search,
 		tagId: filters.tagIds,
 		regionId: filters.regionIds,
+		dateFrom: filters.dateFrom,
+		dateTo: filters.dateTo,
 	};
 }
 
-/** The filter card's contents: the four controls and the chips that undo them. */
+/** The filter card's contents: the five controls and the chips that undo them. */
 function RequestFilters({
 	activeFilterCount,
 	availableTags,
+	dateRange,
 	onClearAll,
 	onClearSearch,
 	regions,
@@ -347,6 +383,7 @@ function RequestFilters({
 }: {
 	readonly activeFilterCount: number;
 	readonly availableTags: readonly Tag[];
+	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
 	readonly onClearAll: () => void;
 	readonly onClearSearch: () => void;
 	readonly regions: ReturnType<typeof useRegionOptions>;
@@ -376,6 +413,8 @@ function RequestFilters({
 				options={STATUS_OPTIONS}
 				value={status}
 			/>
+
+			<DateRangeFilter {...dateRange} />
 
 			<FilterGrid>
 				{hasTagFilter ? (

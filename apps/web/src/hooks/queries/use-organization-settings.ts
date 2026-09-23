@@ -34,12 +34,10 @@ import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { organizations } from '../../lib/collections/organizations';
 
 export function useOrganizationSettings(): OrganizationSettings {
-	const result = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ organization: organizations() })
-				.select(({ organization }) => ({ settings: organization.settings })),
-		[],
+	const result = useLiveSuspenseQuery((query) =>
+		query
+			.from({ organization: organizations() })
+			.select(({ organization }) => ({ settings: organization.settings })),
 	);
 
 	const stored = result.data[0]?.settings;

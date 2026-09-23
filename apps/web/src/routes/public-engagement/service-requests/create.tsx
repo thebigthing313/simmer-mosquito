@@ -3,6 +3,15 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { createLabel } from '../../../components/app-shell/navigation';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { contactFieldsFromValues } from '../../../components/public-engagement/contact-fields';
+import {
+	ServiceRequestFormPage,
+	type ServiceRequestSaveInput,
+} from '../../../components/public-engagement/service-requests/service-request-form';
+import {
+	defaultServiceRequestFormValues,
+	serviceRequestFieldsFrom,
+} from '../../../components/public-engagement/service-requests/service-request-form-values';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
@@ -10,7 +19,6 @@ import { useContact } from '../../../hooks/queries/use-contact-record';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useServiceRequestRecord } from '../../../hooks/queries/use-service-request-record';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
@@ -19,13 +27,6 @@ import {
 	seededValues,
 } from '../../../lib/record-seed-search';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { contactFieldsFromValues } from '../-contact-fields';
-import {
-	defaultServiceRequestFormValues,
-	ServiceRequestFormPage,
-	type ServiceRequestSaveInput,
-	serviceRequestFieldsFrom,
-} from './-service-request-form';
 
 export const Route = createFileRoute('/public-engagement/service-requests/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
@@ -49,7 +50,6 @@ function CreateServiceRequestRoute() {
 	const search = Route.useSearch();
 	const initialGeometry = pointFromSearch(search);
 	const navigate = useNavigate();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const profiles = useProfileRoster();
 	const contactWrites = useContactMutations();
 	const requestWrites = useServiceRequestMutations();
@@ -124,7 +124,6 @@ function CreateServiceRequestRoute() {
 			}}
 			initialGeometry={initialGeometry}
 			onSave={onSave}
-			organizationId={organization.id}
 			profiles={profiles}
 		/>
 	);

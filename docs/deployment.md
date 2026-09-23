@@ -101,9 +101,16 @@ pnpm db:migrate
 pnpm --filter @simmer-mosquito/db seed:sync-baseline
 ```
 
-Use the `.env.example` values: Postgres on `localhost:55432`, Electric on
-`localhost:3001`, and `ELECTRIC_SECRET` **unset**, because the local Electric
-runs `ELECTRIC_INSECURE=true`. A `DATABASE_URL` or `ELECTRIC_URL` pointing at
+The compose file pins `name: simmer-mosquito`. Compose otherwise derives the
+project from the directory holding the file, so a `docker compose exec` from an
+agent worktree under `.claude/worktrees/` addressed a project that did not exist
+and answered `service "postgres" is not running` while the container was up
+(#1122). With the name pinned, every checkout addresses the one project.
+
+Use the `.env.example` values: Postgres on `127.0.0.1:55432`, Electric on
+`127.0.0.1:3001`, and `ELECTRIC_SECRET` **unset**, because the local Electric
+runs `ELECTRIC_INSECURE=true`. IPv4 and not `localhost`, because on Windows the
+server refuses to boot on that name for either URL; `docs/sync.md` says why. A `DATABASE_URL` or `ELECTRIC_URL` pointing at
 `*.proxy.rlwy.net` or a Railway domain is a mistake, not a mode.
 
 Two settings in `docker-compose.yml` are load-bearing and a hand-started
@@ -475,9 +482,10 @@ the intended shape and not a gap.
 
 Read as the exact string `true`, and **absent means settle**, so the variable
 going missing in production cannot silently turn identity off. Production must
-not set it. `WORKOS_SESSION_AND_READ_METHODS` in `packages/auth` is the
-allowlist, and `apps/server/src/workos-identity-interlock.ts` is what reads it
-and refuses everything else; both carry the ADR-adjacent reasoning. The decision
+not set it. `WorkOsAuth` in `packages/auth` is declared in two halves, `session`
+and `identity`, and `apps/server/src/workos-identity-interlock.ts` passes the
+first through and refuses every call on the second; both carry the ADR-adjacent
+reasoning. The decision
 is issue #376.
 
 Set these on the Railway web service (all `VITE_*` are baked in at build time, so

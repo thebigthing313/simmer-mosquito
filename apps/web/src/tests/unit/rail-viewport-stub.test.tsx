@@ -1,0 +1,129 @@
+/** @vitest-environment jsdom */
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ResultRows } from '../../components/explorer/result-list';
+import { STUB_ROW_HEIGHT, stubRailViewportHeight } from './rail-viewport-stub';
+import { stubPanelLayout } from './routes/explorer-route-harness';
+
+// Radix's ScrollArea constructs a ResizeObserver on mount and jsdom has none.
+// The stub is about height and leaves the observer to the suite, so this is the
+// same no-op `result-list.test.tsx` installs.
+class NoopResizeObserver {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+globalThis.ResizeObserver ??= NoopResizeObserver as unknown as typeof ResizeObserver;
+
+afterEach(cleanup);
+
+const ROWS = Array.from({ length: 8 }, (_, index) => ({ id: `row-${index}` }));
+
+function renderRail() {
+	return render(
+		<ResultRows rows={ROWS}>{(row) => <span data-testid="row">{row.id}</span>}</ResultRows>,
+	);
+}
+
+function mountedRows(): readonly (string | null)[] {
+	return screen.queryAllByTestId('row').map((row) => row.textContent);
+}
+
+/**
+ * Both halves of each case run under the same document, so what the stub
+ * lifts is measured rather than assumed, and the third render proves the
+ * restore: a stub that leaked past it would read eight there.
+ *
+ * The two describes are two environments. The second installs
+ * `stubPanelLayout` for its cases and restores it after, so either can run
+ * first.
+ */
+describe('stubRailViewportHeight under plain jsdom', () => {
+	// A zero-height viewport mounts nothing: the virtualiser's range is null
+	// while the outer size is zero, so the seven the nearby cases met is not
+	// this environment's.
+	it('mounts every row of a list the height holds, and none without it', () => {
+		renderRail();
+		expect(mountedRows()).toEqual([]);
+		cleanup();
+
+		const restore = stubRailViewportHeight(ROWS.length * STUB_ROW_HEIGHT);
+		try {
+			renderRail();
+			expect(mountedRows()).toEqual(ROWS.map((row) => row.id));
+		} finally {
+			restore();
+		}
+		cleanup();
+
+		renderRail();
+		expect(mountedRows()).toEqual([]);
+	});
+
+	it('leaves an element outside the rail measuring as it did', () => {
+		const restore = stubRailViewportHeight(480);
+		try {
+			const { container } = render(<div />);
+			expect((container.firstElementChild as HTMLElement).offsetHeight).toBe(0);
+		} finally {
+			restore();
+		}
+	});
+
+	// A suite driving a resize hands the stub a reader rather than a number, and
+	// the viewport answers whatever the reader says at the moment it is read.
+	// The number form is one read at install; this is one read per measurement.
+	it('reads a height handed as a function on every measurement', () => {
+		let height = STUB_ROW_HEIGHT;
+		const restore = stubRailViewportHeight(() => height);
+		try {
+			renderRail();
+			const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+			expect(viewport?.offsetHeight).toBe(STUB_ROW_HEIGHT);
+
+			height = ROWS.length * STUB_ROW_HEIGHT;
+			expect(viewport?.offsetHeight).toBe(ROWS.length * STUB_ROW_HEIGHT);
+		} finally {
+			restore();
+		}
+	});
+});
+
+describe('stubRailViewportHeight over stubPanelLayout', () => {
+	let restorePanel: () => void;
+	beforeAll(() => {
+		restorePanel = stubPanelLayout();
+	});
+	afterAll(() => restorePanel());
+
+	// One size for every element is a 700px viewport over 700px rows, which
+	// holds one row, and six of overscan make seven. This is the limit the
+	// nearby link-destinations cases rendered one kind per case to stay under.
+	it('lifts the seven-row limit and puts it back', () => {
+		renderRail();
+		expect(mountedRows()).toHaveLength(7);
+		cleanup();
+
+		const restore = stubRailViewportHeight(ROWS.length * STUB_ROW_HEIGHT);
+		try {
+			renderRail();
+			expect(mountedRows()).toEqual(ROWS.map((row) => row.id));
+		} finally {
+			restore();
+		}
+		cleanup();
+
+		renderRail();
+		expect(mountedRows()).toHaveLength(7);
+	});
+
+	it('leaves the panel stub answering for everything else', () => {
+		const restore = stubRailViewportHeight(480);
+		try {
+			const { container } = render(<div />);
+			expect((container.firstElementChild as HTMLElement).offsetHeight).toBe(700);
+		} finally {
+			restore();
+		}
+	});
+});

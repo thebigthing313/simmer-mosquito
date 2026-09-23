@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { AuthMe } from '../../../../auth';
 import {
 	shellDomainsForRole,
 	shellSearchCandidates,
@@ -9,6 +9,8 @@ import {
 	withDailyWorkGroup,
 } from '../../../../components/app-shell/navigation';
 import { writeSurfaceFloor } from '../../../../lib/write-surfaces';
+import { signedInSnapshotAs } from '../../routes/route-mock-stand-ins';
+import { shellItems, stubItems } from './stub-items';
 
 /**
  * The sidebar's half of the role ladder.
@@ -26,9 +28,7 @@ describe('shellDomainsForRole', () => {
 		// does not exist has no floor to be wrong. The route list is read off the
 		// generated route tree rather than written out here, since a hand-written
 		// one goes stale the same way the sidebar did.
-		const items = shellDomainsForRole(authWithRole('owner'))
-			.flatMap((domain) => domain.groups)
-			.flatMap((group) => group.items);
+		const items = shellItems(shellDomainsForRole(signedInSnapshotAs('owner')));
 		const paths = createRoutePaths();
 
 		// Without this the assertion below passes on an empty list, which is what a
@@ -97,7 +97,7 @@ describe('shellDomainsForRole', () => {
 		// A request is raised before anything is scheduled against it, so the
 		// sidebar reads requests → assignments → missions rather than alphabetically
 		// or by what happened to be built first.
-		const operations = shellDomainsForRole(authWithRole('owner')).find(
+		const operations = shellDomainsForRole(signedInSnapshotAs('owner')).find(
 			(domain) => domain.id === 'operations',
 		);
 
@@ -113,7 +113,9 @@ describe('shellDomainsForRole', () => {
 		// Addresses and weather each own a group because each has more than one
 		// screen. A flat list put "Address Book" and "Weather" beside "Data Map"
 		// and left nowhere for their second screens to go.
-		const gis = shellDomainsForRole(authWithRole('owner')).find((domain) => domain.id === 'gis');
+		const gis = shellDomainsForRole(signedInSnapshotAs('owner')).find(
+			(domain) => domain.id === 'gis',
+		);
 
 		expect(gis?.groups.map((group) => group.label)).toEqual([
 			undefined,
@@ -124,7 +126,7 @@ describe('shellDomainsForRole', () => {
 	});
 
 	it('labels the weather explorer the way every other explorer is labelled', () => {
-		const weather = shellDomainsForRole(authWithRole('owner'))
+		const weather = shellDomainsForRole(signedInSnapshotAs('owner'))
 			.flatMap((domain) => domain.groups)
 			.find((group) => group.id === 'gis-weather');
 
@@ -135,9 +137,41 @@ describe('shellDomainsForRole', () => {
 		]);
 	});
 
+	it('leads Overview with the Dashboard and carries no stub', () => {
+		// All four pages are built (#1216, #1217, #1218), so nothing in the group
+		// carries the stub mark that draws the badge and keeps an item out of the
+		// palette.
+		const overview = shellDomainsForRole(signedInSnapshotAs('owner')).find(
+			(domain) => domain.id === 'overview',
+		);
+
+		expect(overview?.groups[0]?.items.map((item) => [item.label, item.stub ?? false])).toEqual([
+			['Dashboard', false],
+			['Today', false],
+			['Monthly', false],
+			['Annual', false],
+		]);
+	});
+
+	it('offers the palette no stub', () => {
+		// A stub is a door onto nothing. The exclusion reads `stub` off the item
+		// rather than a list of paths, so the two new ones need no entry anywhere
+		// for this to hold, and the mark is what this pins.
+		const stubs = stubItems(shellDomainsForRole(signedInSnapshotAs('owner'))).map(
+			(item) => item.id,
+		);
+		const { routes, actions } = shellSearchCandidates(signedInSnapshotAs('owner'));
+		const offered = new Set([...routes, ...actions].map((candidate) => candidate.id));
+
+		expect(stubs).not.toContain('today');
+		expect(stubs).not.toContain('monthly');
+		expect(stubs).not.toContain('annual');
+		expect(stubs.filter((id) => offered.has(id))).toEqual([]);
+	});
+
 	it('drops no group or domain to an empty heading', () => {
 		for (const role of ['owner', 'manager', 'collector', 'viewer'] as const) {
-			for (const domain of shellDomainsForRole(authWithRole(role))) {
+			for (const domain of shellDomainsForRole(signedInSnapshotAs(role))) {
 				expect(domain.groups.length).toBeGreaterThan(0);
 				for (const group of domain.groups) {
 					expect(group.items.length).toBeGreaterThan(0);
@@ -216,7 +250,7 @@ describe('withDailyWorkGroup', () => {
 		// The palette reads the declared navigation, not the composed one. Global
 		// search already finds people, and a route row each would bury everything
 		// else.
-		const { routes, actions } = shellSearchCandidates(authWithRole('owner'));
+		const { routes, actions } = shellSearchCandidates(signedInSnapshotAs('owner'));
 
 		expect(
 			[...routes, ...actions].some((candidate) => candidate.id.startsWith('daily-work-')),
@@ -250,44 +284,16 @@ function createRoutePaths(): readonly string[] {
 	);
 }
 
-function formPathsFor(role: string): readonly string[] {
-	return formPaths(shellDomainsForRole(authWithRole(role)));
+function formPathsFor(role: SimmerRole): readonly string[] {
+	return formPaths(shellDomainsForRole(signedInSnapshotAs(role)));
 }
 
 function formPaths(domains: ReturnType<typeof shellDomainsForRole>): readonly string[] {
-	return domains
-		.flatMap((domain) => domain.groups)
-		.flatMap((group) => group.items)
+	return shellItems(domains)
 		.map((item) => String(item.to))
 		.filter((to) => writeSurfaceFloor(to) !== undefined);
 }
 
-function allPathsFor(role: string): readonly string[] {
-	return shellDomainsForRole(authWithRole(role))
-		.flatMap((domain) => domain.groups)
-		.flatMap((group) => group.items)
-		.map((item) => String(item.to));
-}
-
-function authWithRole(role: string): AuthMe {
-	return {
-		authenticated: true,
-		user: {
-			workosUserId: 'user_1',
-			email: 'crew@example.test',
-			firstName: null,
-			lastName: null,
-			displayName: 'Crew',
-			emailVerified: true,
-			profilePictureUrl: null,
-		},
-		workosOrganizationId: 'org_1',
-		localIdentity: {
-			userId: 'user_1',
-			organizationId: 'org_1',
-			profileId: 'profile_1',
-			membershipId: 'membership_1',
-			role,
-		},
-	};
+function allPathsFor(role: SimmerRole): readonly string[] {
+	return shellItems(shellDomainsForRole(signedInSnapshotAs(role))).map((item) => String(item.to));
 }

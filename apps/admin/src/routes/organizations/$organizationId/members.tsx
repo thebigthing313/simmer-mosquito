@@ -12,8 +12,9 @@ import {
 	inviteAdminUser,
 } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
+import { useInvalidateOrganizations } from '../../../hooks/queries/use-invalidate-organizations';
+import { useOrganizationMemberships } from '../../../hooks/queries/use-organization-memberships';
 import { membershipStatusTone, roleTone } from '../../../lib/tones';
-import { useInvalidateOrganizations, useOrganizationMemberships } from '../-organization-data';
 
 const ContactIcon = iconRegistry.entities.contact.icon;
 const SendIcon = iconRegistry.actions.send.icon;

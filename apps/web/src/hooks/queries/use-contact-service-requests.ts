@@ -26,23 +26,20 @@ export function useContactServiceRequests(contactId: string | null | undefined):
 } {
 	const id = contactId ?? unmatchableId;
 
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ request: service_requests() })
-					.where(({ request }) => eq(request.contact_id, id))
-					.orderBy(({ request }) => request.request_date, 'desc')
-					.select(({ request }) => ({
-						id: request.id,
-						displayName: request.display_name,
-						requestDate: request.request_date,
-						closedAt: request.closed_at,
-					})),
-		},
-		[id],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ request: service_requests() })
+				.where(({ request }) => eq(request.contact_id, id))
+				.orderBy(({ request }) => request.request_date, 'desc')
+				.select(({ request }) => ({
+					id: request.id,
+					displayName: request.display_name,
+					requestDate: request.request_date,
+					closedAt: request.closed_at,
+				})),
+	});
 
 	return { requests: result.data, isReady: result.isReady, isError: result.isError };
 }

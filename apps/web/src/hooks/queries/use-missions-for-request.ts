@@ -75,24 +75,21 @@ export function useMissionsForRequest(requestId: string | null): {
 	readonly missions: readonly MissionLink[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		{
-			gcTime: mapCardGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: mission_items() })
-					.where(({ item }) => eq(item.requested_control_action_id, requestId ?? unmatchableId))
-					.join(
-						{ mission: missions() },
-						({ item, mission }) => eq(item.mission_id, mission.id),
-						'left',
-					)
-					// The whole namespace rather than nine columns, so a stop whose mission
-					// has not arrived is one `undefined` to test rather than nine.
-					.select(({ item, mission }) => ({ stopId: item.id, mission })),
-		},
-		[requestId],
-	);
+	const result = useLiveQuery({
+		gcTime: mapCardGcTimeMs,
+		query: (query) =>
+			query
+				.from({ item: mission_items() })
+				.where(({ item }) => eq(item.requested_control_action_id, requestId ?? unmatchableId))
+				.join(
+					{ mission: missions() },
+					({ item, mission }) => eq(item.mission_id, mission.id),
+					'left',
+				)
+				// The whole namespace rather than nine columns, so a stop whose mission
+				// has not arrived is one `undefined` to test rather than nine.
+				.select(({ item, mission }) => ({ stopId: item.id, mission })),
+	});
 
 	// Not named `missions`: that is the collection this query reads from, and
 	// shadowing it here makes the query above compile against an empty namespace.

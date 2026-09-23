@@ -19,9 +19,10 @@ import { newRecordId } from '../../hooks/mutations/shared';
 import type { Contact } from '../../hooks/queries/contact-view';
 import { useContact } from '../../hooks/queries/use-contact-record';
 import type { RegistrationListing } from '../../hooks/queries/use-registration-directory';
+import { useRegistrationRoster } from '../../hooks/registrations/use-registration-roster';
+import { useAcknowledgedWrite } from '../../hooks/use-acknowledged-write';
 import { REGISTRATION_SAVE_REFUSALS } from '../../lib/acknowledgement-copy';
 import { recordNoun } from '../../lib/record-nouns';
-import { useAcknowledgedWrite } from '../acknowledged-write';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { ToggleFilter } from '../explorer';
@@ -29,7 +30,6 @@ import { MapCanvas } from '../map';
 import { WriteOnly } from '../write-only';
 import { coverageFeatures } from './coverage-features';
 import { RegistrationDraft } from './registration-draft';
-import { useRegistrationRoster } from './use-registration-roster';
 
 const RegistrationIcon = iconRegistry.entities.contact.icon;
 /** Which registration the panel is working on: a new one, or one already saved. */

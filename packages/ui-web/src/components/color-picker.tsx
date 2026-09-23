@@ -9,7 +9,7 @@ import {
 import { PlusIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { CSSProperties } from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 export interface ColorPickerProps {
 	readonly value: string | null;
@@ -28,15 +28,17 @@ export function ColorPicker({
 	value,
 }: ColorPickerProps) {
 	const [open, setOpen] = useState(false);
-	const [customHex, setCustomHex] = useState(normalizeHexColor(value) ?? fallbackColor);
 	const selectedColor = normalizeHexColor(value);
+	// The custom field's text is held beside the selected colour it was typed
+	// over, so a new selection reads as its own hex with no reset, and a
+	// cleared selection keeps whatever was typed.
+	const [held, setHeld] = useState({
+		selected: selectedColor,
+		hex: selectedColor ?? fallbackColor,
+	});
+	const customHex = held.selected === selectedColor ? held.hex : (selectedColor ?? held.hex);
+	const setCustomHex = (hex: string) => setHeld({ selected: selectedColor, hex });
 	const customColor = normalizeHexColor(customHex);
-
-	useEffect(() => {
-		if (selectedColor !== null) {
-			setCustomHex(selectedColor);
-		}
-	}, [selectedColor]);
 
 	function selectPreset(hex: string) {
 		onChange(hex);

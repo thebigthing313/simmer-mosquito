@@ -4,9 +4,10 @@ import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AuthMe } from '../../../../auth';
 import { shellDomainsForRole } from '../../../../components/app-shell/navigation';
 import { UpcomingPage } from '../../../../components/app-shell/upcoming-page';
+import { signedInSnapshotAs } from '../../routes/route-mock-stand-ins';
+import { stubItems } from './stub-items';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -27,8 +28,9 @@ afterEach(cleanup);
  *
  * Its copy is keyed by route path, and a key that does not match its route is
  * not an error: the page falls back to a generic line under whatever the
- * sidebar calls the item, and looks finished. So both tests here are about the
- * key matching, one for the Data Map and one for every stub at once.
+ * sidebar calls the item, and looks finished. So the copy tests here are about
+ * the key matching, one for the Data Map and one for every stub at once, and
+ * the link test is the register's own rule read back off the page.
  */
 describe('UpcomingPage', () => {
 	it('names what the Data Map will do and where to work meanwhile', () => {
@@ -58,9 +60,25 @@ describe('UpcomingPage', () => {
 		}
 	});
 
-	// One prop here is the measure of all fourteen stubs. The route-loading
-	// skeleton reserves the record measure and draws its heading at the frame's
-	// left edge, so a stub centred in the 1200 column arrived narrower than the
+	it('links every stub to built routes only', () => {
+		// Linking one unbuilt section to another is how a placeholder becomes a
+		// maze, and every `/stats` route is a stub too. The rule is written in the
+		// docblock over `CONTENT`; this is the rule read back off the rendered page.
+		const stubs = new Set(stubPaths());
+
+		for (const path of stubs) {
+			renderAt(path);
+			for (const href of hrefs()) {
+				expect(stubs.has(href), `${path} links ${href}`).toBe(false);
+				expect(href.endsWith('/stats'), `${path} links ${href}`).toBe(false);
+			}
+			cleanup();
+		}
+	});
+
+	// One prop here is the measure of every stub. The route-loading skeleton
+	// reserves the record measure and draws its heading at the frame's left
+	// edge, so a stub centred in the 1200 column arrived narrower than the
 	// skeleton with its heading 440px to the right of where the skeleton's sat
 	// (#1043, #1048). The prose keeps a measure of its own inside the frame.
 	it('draws in the record measure the route-loading skeleton reserves', () => {
@@ -121,34 +139,11 @@ function hrefs(): readonly string[] {
 }
 
 function stubPaths(): readonly string[] {
-	return domains()
-		.flatMap((domain) => domain.groups)
-		.flatMap((group) => group.items)
-		.filter((item) => item.stub === true)
-		.map((item) => String(item.to));
+	return stubItems(domains()).map((item) => String(item.to));
 }
 
 function domains() {
 	return shellDomainsForRole(OWNER);
 }
 
-const OWNER: AuthMe = {
-	authenticated: true,
-	user: {
-		workosUserId: 'user_1',
-		email: 'crew@example.test',
-		firstName: null,
-		lastName: null,
-		displayName: 'Crew',
-		emailVerified: true,
-		profilePictureUrl: null,
-	},
-	workosOrganizationId: 'org_1',
-	localIdentity: {
-		userId: 'user_1',
-		organizationId: 'org_1',
-		profileId: 'profile_1',
-		membershipId: 'membership_1',
-		role: 'owner',
-	},
-};
+const OWNER = signedInSnapshotAs('owner');

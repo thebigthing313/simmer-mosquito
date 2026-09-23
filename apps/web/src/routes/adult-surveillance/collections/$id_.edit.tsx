@@ -1,19 +1,29 @@
 import { isOwnedGeometry } from '@simmer-mosquito/domain';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
+import {
+	CollectionFormPage,
+	type CollectionSaveInput,
+} from '../../../components/adult-surveillance/collections/collection-form';
+import {
+	type CollectionFormValues,
+	collectionFieldsFrom,
+	noLureValue,
+	noUnitValue,
+} from '../../../components/adult-surveillance/collections/collection-form-values';
 import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
+import type {
+	CatalogListing,
+	SchemaCatalogListing,
+} from '../../../hooks/queries/catalog-roster-view';
 import {
 	type AdditionalPersonnelResult,
 	useAdditionalPersonnel,
 } from '../../../hooks/queries/use-additional-personnel';
-import {
-	type CatalogListing,
-	type SchemaCatalogListing,
-	useCollectionLureRoster,
-	useCollectionMethodRoster,
-} from '../../../hooks/queries/use-catalog-rosters';
+import { useCollectionLureRoster } from '../../../hooks/queries/use-collection-lure-roster';
+import { useCollectionMethodRoster } from '../../../hooks/queries/use-collection-method-roster';
 import {
 	type CollectionRecord,
 	useCollectionRecord,
@@ -25,14 +35,6 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	CollectionFormPage,
-	type CollectionFormValues,
-	type CollectionSaveInput,
-	collectionFieldsFrom,
-	noLureValue,
-	noUnitValue,
-} from './-collection-form';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -174,7 +176,6 @@ function EditCollectionLoader({
 			}
 			lockSourceMode
 			onSave={onSave}
-			organizationId={collection.organizationId}
 			profiles={profiles}
 			traps={traps}
 			units={units}

@@ -19,16 +19,29 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
-import {
-	MultiSelectFilter,
-	SegmentedFilter,
-	ToggleFilter,
-	useDateRangeFilters,
-} from '../../../components/explorer';
+import { MultiSelectFilter, SegmentedFilter, ToggleFilter } from '../../../components/explorer';
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
+import {
+	DensityFilter,
+	INSPECTION_TABLE_COUNTING,
+	type InspectionCatalogs,
+	type InspectionFilterBinding,
+	InspectionFilterChips,
+	inspectionTableFilters,
+	WETNESS_OPTIONS,
+} from '../../../components/larval-surveillance/inspection-filters';
+import { InspectionSurfaceSwitch } from '../../../components/larval-surveillance/inspection-surface-switch';
+import {
+	inspectionFilterCodecs,
+	sharedInspectionSearch,
+} from '../../../components/larval-surveillance/inspections-search';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useHeldRows } from '../../../hooks/larval-surveillance/use-held-rows';
+import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
+import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import {
 	type InspectionTableRow,
 	inspectionHabitatLabel,
@@ -45,27 +58,10 @@ import {
 	type SortDirection,
 	useInspectionTable,
 } from '../../../hooks/queries/use-inspection-table';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
-import {
-	choiceParam,
-	type FilterCodecs,
-	searchValidator,
-	useSearchFilters,
-} from '../../../lib/search-filters';
-import {
-	DensityFilter,
-	INSPECTION_TABLE_COUNTING,
-	type InspectionCatalogs,
-	type InspectionFilterBinding,
-	InspectionFilterChips,
-	inspectionTableFilters,
-	useInspectionCatalogs,
-	useInspectionFilterState,
-	WETNESS_OPTIONS,
-} from '../-inspection-filters';
-import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
-import { inspectionFilterCodecs, sharedInspectionSearch } from '../-inspections-search';
+import { choiceParam, type FilterCodecs, searchValidator } from '../../../lib/search-filters';
 
 /**
  * The sort lives in the URL, so a sorted table is a link somebody can send.
@@ -376,41 +372,6 @@ function LoadedRows({
 			{hasMore ? <LoadMore isLoading={isLoadingMore} onLoadMore={onLoadMore} /> : null}
 		</div>
 	);
-}
-
-/** One array rather than a new empty one per render, which would re-render the table. */
-const NO_ROWS: readonly InspectionTableRow[] = [];
-
-/**
- * The rows on screen, held through the first read of a wider window.
- *
- * The live query is rebuilt when the limit changes, so it starts empty and
- * reports not-ready until the collection has answered. Rendering that as it
- * comes would take the table away from under the reader at the moment they
- * asked for more of it. What is already shown stays correct: the wider window
- * is the same order with more of it on the end.
- *
- * A new sort or a new filter is the case where it is not. The same rows in the
- * old order under a header that now says something else reads as a sort that did
- * nothing, and rows that do not match the filter just set read as a filter that
- * did nothing. So what is held is kept against the window key it was read under
- * and only handed back while that still matches. Under a new one the reader
- * waits on a skeleton instead.
- */
-function useHeldRows(
-	rows: readonly InspectionTableRow[],
-	isReady: boolean,
-	windowKey: string,
-): readonly InspectionTableRow[] {
-	// no-memo-reason: a render-phase ref read is the cache, and no compiler release makes that compilable.
-	'use no memo';
-
-	const held = useRef({ rows, windowKey });
-	if (isReady) {
-		held.current = { rows, windowKey };
-		return rows;
-	}
-	return held.current.windowKey === windowKey ? held.current.rows : NO_ROWS;
 }
 
 function InspectionsTable({

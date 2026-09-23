@@ -2,8 +2,9 @@ import { createAddressCommand } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Loader2Icon, MapPinnedIcon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
-import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../forms/domain-validation';
 import { useAddressMutations } from '../../hooks/mutations/use-address-mutations';
+import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../lib/domain-validation';
+import { errorMessageForSave } from '../../lib/save-error';
 import type { AddressOption } from './address-picker';
 import {
 	GeocoderDialog,
@@ -16,13 +17,9 @@ import {
 } from './geocoder-dialog';
 
 /**
- * Create an address without leaving the form that needs it.
- *
- * Crews record work at places the address book has never seen, and making them
- * abandon a half-filled inspection to go add one loses the rest of the form. The
- * fields mirror the standalone address form, and both routes to a point are here:
- * geocode what was typed, or place it by hand when the caller has a map to draw
- * against.
+ * Create an address without leaving the form that needs it. The fields mirror
+ * the standalone address form, and both routes to a point are here: geocode
+ * what was typed, or place it by hand when the caller has a map.
  */
 
 /** The subform's public point type, and the one the geocoder helpers return. */
@@ -73,7 +70,7 @@ export function NewAddressForm({
 			setGeocoderResults(await searchGeocoder(query, country));
 			setGeocoderOpen(true);
 		} catch (error) {
-			setSaveError(error instanceof Error ? error.message : 'Unable to geocode address.');
+			setSaveError(errorMessageForSave(error, 'Unable to geocode address.'));
 		}
 		setIsGeocoding(false);
 	}
@@ -82,11 +79,8 @@ export function NewAddressForm({
 		if (requestMapPoint === undefined) {
 			return;
 		}
-		// Closed *before* the click is awaited. The geocoder dialog is modal, so
-		// leaving it up while waiting means its overlay swallows the map click the
-		// await is waiting for — the request never resolves and the dialog never
-		// closes, which is what "Use Manual Coordinates" looked like from the far
-		// side: a modal that would not go away over a map that would not respond.
+		// Closed before the click is awaited: the geocoder dialog is modal, and its
+		// overlay would swallow the map click the await is waiting for.
 		setGeocoderOpen(false);
 		try {
 			setGeometry(await requestMapPoint({ prompt: 'Click the map to place this address.' }));
@@ -94,7 +88,7 @@ export function NewAddressForm({
 			setSaveError(null);
 		} catch {
 			// Draw cancelled (Esc / another map request took over); keep the prior
-			// point and stay quiet — the user called it off.
+			// point and stay quiet, the user called it off.
 		}
 	}
 
@@ -136,9 +130,8 @@ export function NewAddressForm({
 				geocoderResponse,
 			};
 			const addressId = await mutations.create(fields, country.trim().toUpperCase(), geometry);
-			// The picker labels its selection from what it is handed rather than
-			// waiting for the row to stream back, so the new address reads as picked
-			// the moment it is made.
+			// The picker labels its selection from what it is handed rather than waiting
+			// for the row to stream back.
 			onCreated({
 				...fields,
 				id: addressId,
@@ -146,7 +139,7 @@ export function NewAddressForm({
 				lng: geometry.coordinates[0],
 			});
 		} catch (error) {
-			setSaveError(error instanceof Error ? error.message : 'Unable to create address.');
+			setSaveError(errorMessageForSave(error, 'Unable to create address.'));
 		}
 		setIsSaving(false);
 	}

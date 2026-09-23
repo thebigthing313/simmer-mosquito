@@ -1,7 +1,6 @@
 import { useBreadcrumbLabel } from '@simmer-mosquito/ui-web/components/app-shell';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { useOrganizations } from './-organization-data';
-
+import { useOrganizations } from '../../hooks/queries/use-organizations';
 /**
  * The layout every organization drill-down sits under.
  *

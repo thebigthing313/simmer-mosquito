@@ -46,30 +46,28 @@ export function useActiveTraps(): {
 	readonly traps: readonly TrapListing[];
 	readonly isReady: boolean;
 } {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ trap: traps() })
-				.where(({ trap }) => eq(trap.is_active, true))
-				// `left`: a method that has been retired out from under a trap should not
-				// take the trap off the screen with it.
-				.join(
-					{ method: collection_methods() },
-					({ trap, method }) => eq(trap.collection_method_id, method.id),
-					'left',
-				)
-				.orderBy(({ trap }) => coalesce(trap.trap_code, trap.trap_name), 'asc')
-				.orderBy(({ trap }) => trap.trap_name, 'asc')
-				.select(({ trap, method }) => ({
-					id: trap.id,
-					trapName: trap.trap_name,
-					trapCode: trap.trap_code,
-					methodId: trap.collection_method_id,
-					methodName: coalesce(method.name, 'Unknown method'),
-					description: trap.description,
-					isActive: trap.is_active,
-				})),
-		[],
+	const result = useLiveQuery((query) =>
+		query
+			.from({ trap: traps() })
+			.where(({ trap }) => eq(trap.is_active, true))
+			// `left`: a method that has been retired out from under a trap should not
+			// take the trap off the screen with it.
+			.join(
+				{ method: collection_methods() },
+				({ trap, method }) => eq(trap.collection_method_id, method.id),
+				'left',
+			)
+			.orderBy(({ trap }) => coalesce(trap.trap_code, trap.trap_name), 'asc')
+			.orderBy(({ trap }) => trap.trap_name, 'asc')
+			.select(({ trap, method }) => ({
+				id: trap.id,
+				trapName: trap.trap_name,
+				trapCode: trap.trap_code,
+				methodId: trap.collection_method_id,
+				methodName: coalesce(method.name, 'Unknown method'),
+				description: trap.description,
+				isActive: trap.is_active,
+			})),
 	);
 
 	return { traps: result.data, isReady: result.isReady };

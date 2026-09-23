@@ -59,13 +59,11 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 	// Both shapes are eager, so these resolve without a fetch; the auth snapshot
 	// covers whatever has not landed yet.
 	const profileNameById = useProfileNames();
-	const membershipResult = useLiveQuery(
-		(query) =>
-			query
-				.from({ membership: memberships() })
-				.where(({ membership }) => eq(membership.id, membershipId ?? ''))
-				.findOne(),
-		[membershipId],
+	const membershipResult = useLiveQuery((query) =>
+		query
+			.from({ membership: memberships() })
+			.where(({ membership }) => eq(membership.id, membershipId ?? ''))
+			.findOne(),
 	);
 	const membership = membershipResult.data;
 

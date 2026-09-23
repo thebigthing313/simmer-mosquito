@@ -24,16 +24,16 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type RefObject, useState } from 'react';
 import type { AuthMe } from '../../auth';
-import { SearchResultRow } from './search-result-row';
-import { seedNoun } from './search-seeds';
+import { useDeferredOpen } from '../../hooks/search/use-deferred-open';
 import {
 	type PaletteContent,
 	type PaletteDestination,
 	type PaletteSeed,
 	SEED_SKIP_VALUE,
 	usePaletteContent,
-} from './use-palette-content';
-import { useDeferredOpen } from './use-search-navigation';
+} from '../../hooks/search/use-palette-content';
+import { SearchResultRow } from './search-result-row';
+import { seedNoun } from './search-seeds';
 
 const BackIcon = iconRegistry.arrows.arrowLeft.icon;
 

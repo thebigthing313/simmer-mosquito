@@ -20,29 +20,25 @@ import { activityGcTimeMs, type ElectricQueue } from './shared';
 
 export function useDueMissionsQueue(today: string, timeZone: string): ElectricQueue {
 	const endOfToday = localDayStartAsInstant(addCalendarDays(today, 1), timeZone);
-	const endOfTodayMs = endOfToday.getTime();
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ mission: missions() })
-					.where(({ mission }) =>
-						and(
-							isNull(mission.started_at),
-							isNull(mission.completed_at),
-							isNull(mission.cancelled_at),
-							lt(mission.scheduled_start_at, endOfToday),
-						),
-					)
-					.select(({ mission }) => ({
-						total: count(mission.id),
-						oldestScheduledAt: min(mission.scheduled_start_at),
-					})),
-		},
-		[endOfTodayMs],
-	);
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ mission: missions() })
+				.where(({ mission }) =>
+					and(
+						isNull(mission.started_at),
+						isNull(mission.completed_at),
+						isNull(mission.cancelled_at),
+						lt(mission.scheduled_start_at, endOfToday),
+					),
+				)
+				.select(({ mission }) => ({
+					total: count(mission.id),
+					oldestScheduledAt: min(mission.scheduled_start_at),
+				})),
+	});
 
 	// An aggregate with no `groupBy` is one row, absent while nothing matches.
 	const row = result.data[0];

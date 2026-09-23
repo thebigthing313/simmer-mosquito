@@ -15,16 +15,16 @@ import {
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
-	useEntityTags,
-	useExplorerPanel,
-	useExplorerResource,
-	useHabitatTypeOptions,
-	useRegionOptions,
-	useTagOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
+import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
+import type {
+	AccessFilter,
+	StatusFilter,
+} from '../../../components/larval-surveillance/habitats/legend';
+import { habitatLegend } from '../../../components/larval-surveillance/habitats/legend';
 import {
 	HABITAT_STATUS_COLORS,
 	type HabitatTileFilters,
@@ -32,7 +32,15 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
 import type { Tag } from '../../../hooks/queries/tag-view';
+import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
@@ -41,12 +49,7 @@ import {
 	idSetParam,
 	searchValidator,
 	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { HabitatMapCard } from '../../-habitat-map-card';
-import type { AccessFilter, StatusFilter } from './-legend';
-import { habitatLegend } from './-legend';
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
 const ACCESS_VALUES: readonly AccessFilter[] = ['all', 'accessible', 'inaccessible'];

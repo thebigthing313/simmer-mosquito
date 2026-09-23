@@ -1,4 +1,4 @@
-import { WORKOS_SESSION_AND_READ_METHODS } from '@simmer-mosquito/auth';
+import type { WorkOsAuth } from '@simmer-mosquito/auth';
 import type { ErrorHandler } from 'hono';
 
 /**
@@ -11,47 +11,27 @@ import type { ErrorHandler } from 'hono';
  * `requestPasswordReset` mails a working reset link for a production account
  * from code that has not shipped. The rule that stops all three is stated at the
  * WorkOS boundary: nothing that changes durable identity state runs, and session
- * operations are carved out by name so signing in still works.
+ * operations still run so signing in works.
  *
  * The seam is the single `auth` object `main.ts` builds, which every route and
  * every command already receives, following the provider swap
  * `dev-impersonation.ts` makes at the same seam.
  *
- * It is an **allowlist**, and that is the load-bearing choice. A list of the
- * eight writes that exist today is one `packages/auth` addition away from
- * silently mailing production from staging; an allowlist refuses a method
- * nobody has thought about yet. See #376 for the decision and #386 for the
- * build.
+ * The classification is the shape of {@link WorkOsAuth}: `session` holds the
+ * calls that run here and `identity` holds the ones that do not, and a method
+ * is classified by which half `packages/auth` declares it on. There is no list
+ * of names to keep in step, which is what #619 found had drifted; the whole
+ * `identity` half refuses, so a ninth write added there is refused without
+ * anybody naming it here. See #376 for the decision and #386 for the build.
  */
-
-/**
- * The methods that still run with the interlock on.
- *
- * Read from `packages/auth`, where the line between a session and durable
- * identity state is drawn beside the methods it sorts and `tsc` holds the two
- * halves to `keyof WorkOsAuth`. Restated here as thirteen strings until #619,
- * and the thirteenth was `listUsers`, which is a WorkOS SDK call rather than a
- * method of this object: it allowed nothing, because nothing ever asked for it.
- *
- * Everything the classification does not name refuses, on purpose: the
- * allowlist is still the whole declaration, so a ninth write added later is
- * refused whether or not anybody remembered to classify it. What the imported
- * list changes is when the omission is found. It is a `tsc` error in
- * `packages/auth` rather than a 403 on staging, on a surface somebody was using.
- */
-const SESSION_AND_READ_METHODS: ReadonlySet<string> = new Set<string>(
-	WORKOS_SESSION_AND_READ_METHODS,
-);
 
 /** The one code every refused surface answers with. */
 export const WORKOS_IDENTITY_WRITES_DISABLED = 'workos_identity_writes_disabled';
 
 /**
- * The one message every refused surface answers with.
- *
- * One message rather than five, so somebody who meets it on the People page and
- * again on the password reset form recognises it as the same rule. #380's
- * environment banner repeats it word for word, so it is read before it is met.
+ * The one message every refused surface answers with, so somebody who meets it
+ * on the People page and again on the password reset form recognises the same
+ * rule. #380's environment banner repeats it word for word.
  */
 export const WORKOS_IDENTITY_WRITES_DISABLED_MESSAGE =
 	'Staging does not allow changes to sign-in accounts, Memberships, roles, Organizations, or invitations.';
@@ -68,11 +48,9 @@ export function workOsIdentityWritesDisabledBody(): {
 }
 
 /**
- * A refused WorkOS identity write.
- *
- * Carries the method name for the log and not for the browser: which WorkOS
- * call a request would have made is a detail of this server, and #220 keeps
- * those out of a response.
+ * A refused WorkOS identity write. Carries the method name for the log and not
+ * for the browser: which WorkOS call a request would have made is a detail of
+ * this server, and #220 keeps those out of a response.
  */
 export class WorkOsIdentityWritesDisabledError extends Error {
 	constructor(readonly method: string) {
@@ -81,32 +59,34 @@ export class WorkOsIdentityWritesDisabledError extends Error {
 	}
 }
 
-/** Set on the wrapped object so callers can ask without being handed the flag. */
+/** Set on the wrapped halves so callers can ask without being handed the flag. */
 const INTERLOCKED = Symbol('workosIdentityWritesDisabled');
 
 /**
- * Wrap the `auth` object so every identity write refuses.
+ * The `auth` object with every identity write refusing and the session half
+ * untouched.
  *
- * A `Proxy` rather than an object literal of the allowed methods, because the
- * literal would have to be edited every time `packages/auth` grows a method,
- * and the one that got forgotten would be a real WorkOS write running on
- * staging. Non-function properties and symbol keys pass straight through; a
- * string-keyed method outside the allowlist becomes a throw.
+ * The identity half is a `Proxy` that refuses every string-keyed method rather
+ * than an object literal of the methods to refuse, so `packages/auth` growing a
+ * write changes nothing here. Non-function properties and symbol keys pass
+ * through, because `then` is read on any awaited value and a wrapper answering
+ * every key with a function would look thenable.
  */
-export function withoutWorkOsIdentityWrites<TAuth extends object>(auth: TAuth): TAuth {
-	return new Proxy(auth, {
+export function withoutWorkOsIdentityWrites<
+	TAuth extends {
+		readonly session: object;
+		readonly identity: object;
+	},
+>(auth: TAuth): TAuth {
+	const identity = new Proxy(auth.identity, {
 		get(target, property, receiver): unknown {
 			if (property === INTERLOCKED) {
 				return true;
 			}
 
 			const value = Reflect.get(target, property, receiver);
-			if (typeof value !== 'function') {
+			if (typeof value !== 'function' || typeof property !== 'string') {
 				return value;
-			}
-
-			if (typeof property !== 'string' || SESSION_AND_READ_METHODS.has(property)) {
-				return value.bind(target);
 			}
 
 			return () => {
@@ -114,13 +94,17 @@ export function withoutWorkOsIdentityWrites<TAuth extends object>(auth: TAuth): 
 			};
 		},
 	});
+
+	return { ...auth, identity, [INTERLOCKED]: true };
 }
 
 /**
- * Whether this `auth` object refuses identity writes.
+ * Whether this object refuses identity writes. Answers for the whole `auth`
+ * object and for its `identity` half alike, since a command that holds only
+ * the half asks it before writing Postgres.
  *
  * The wrapper is the one source of truth, so a caller that needs to refuse
- * *before* it starts work asks the object rather than reading the environment a
+ * before it starts work asks the object rather than reading the environment a
  * second time. Two readings of one variable is how a guard clause and the thing
  * it guards drift apart.
  */
@@ -159,7 +143,7 @@ export function workOsIdentityWriteErrorHandler(): ErrorHandler {
 		}
 
 		console.warn(
-			`[workos-interlock] refused ${error.method} — WORKOS_IDENTITY_WRITES_DISABLED is set.`,
+			`[workos-interlock] refused ${error.method}: WORKOS_IDENTITY_WRITES_DISABLED is set.`,
 		);
 
 		return context.json(workOsIdentityWritesDisabledBody(), 403);

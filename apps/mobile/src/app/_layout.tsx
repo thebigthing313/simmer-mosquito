@@ -2,7 +2,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from '../auth/auth-context';
+import { AuthProvider } from '../auth/auth-context';
+import { useAuth } from '../hooks/use-auth';
 import { theme } from '../theme/theme';
 
 /**

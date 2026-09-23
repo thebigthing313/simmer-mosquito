@@ -212,12 +212,17 @@ names neither half.
 These notes cover the fully-local Docker mode, which is the only local mode.
 See `docs/deployment.md`, "Local development".
 
-- Docker Compose exposes Postgres on `localhost:55432`, not `localhost:5432`,
-  so local `.env` files for this repo should use
-  `postgres://postgres:postgres@localhost:55432/simmer_mosquito?sslmode=disable`.
+- Docker Compose exposes Postgres on host port `55432`, not `5432`, so local
+  `.env` files for this repo should use
+  `postgres://postgres:postgres@127.0.0.1:55432/simmer_mosquito?sslmode=disable`.
   The nonstandard host port avoids colliding with a developer's separately
-  installed Postgres on `5432`.
-- Electric is exposed at `http://localhost:3001/v1/shape`. The compose service
+  installed Postgres on `5432`. `127.0.0.1` rather than `localhost`, because on
+  Windows `readServerEnv` refuses a `DATABASE_URL` or `ELECTRIC_URL` over
+  `localhost`: that name is IPv6 loopback there, and Docker Desktop's IPv6 port
+  proxy resets connections under the burst a dashboard read or a page of shape
+  long-polls opens, which arrives as `read ECONNRESET` while both containers
+  are healthy (#926).
+- Electric is exposed at `http://127.0.0.1:3001/v1/shape`. The compose service
   still connects to Postgres through the Docker network at
   `postgres://postgres:postgres@postgres:5432/simmer_mosquito?sslmode=disable`.
 - Direct `Invoke-WebRequest`/curl probes against Electric must include an

@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { ControlOperationsSettings } from '../../components/my-organization/control';
+import { DomainSection } from '../../components/my-organization/layout/domain-section';
+import { OrganizationWorkspaceShell } from '../../components/my-organization/layout/organization-workspace-shell';
 import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { ControlOperationsSettings } from './-components/control';
-import { DomainSection } from './-components/layout/layout';
-import { OrganizationWorkspaceShell } from './-components/layout/organization-workspace-shell';
 
 export const Route = createFileRoute('/my-organization/control-methods')({
 	component: MyOrganizationControlMethodsRoute,

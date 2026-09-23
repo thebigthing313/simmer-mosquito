@@ -1,6 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	Card,
 	CardContent,
@@ -12,13 +11,12 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import { useControlMethodNames } from '../../../components/explorer';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
+import { MissionStatusBadge } from '../../../components/operations/operations-display';
 import {
 	DetailPageShell,
 	type RecordDetailLayout,
@@ -26,23 +24,26 @@ import {
 } from '../../../components/record';
 import { RequestStatusBadge } from '../../../components/request-status-badge';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
+import { useCommandRunner } from '../../../hooks/operations/use-command-runner';
+import { useLinkedHabitatName } from '../../../hooks/operations/use-linked-habitat-name';
+import { useProfileName } from '../../../hooks/operations/use-profile-name';
+import { useRecommendedMethodName } from '../../../hooks/operations/use-recommended-method-name';
 import {
 	controlTypeLabel,
 	formatScheduledStart,
 	missionDisplayName,
 	requestDisplayName,
 } from '../../../hooks/queries/operations-view';
-import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import {
 	type MissionLink,
 	useMissionsForRequest,
 } from '../../../hooks/queries/use-missions-for-request';
-import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import {
 	type RequestRecord,
 	useRequestedControlAction,
 } from '../../../hooks/queries/use-requested-control-action';
-import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
+import { useHabitatLocationContext } from '../../../hooks/use-habitat-location-context';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
@@ -50,8 +51,6 @@ import {
 } from '../../../hooks/use-owned-geometry';
 import { CONTROL_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { recordNoun } from '../../../lib/record-nouns';
-import { useCommandRunner } from '../-command-runner';
-import { MissionStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
 const ResolveIcon = iconRegistry.actions.select.icon;
@@ -107,7 +106,7 @@ function RequestDetailContent({
 }) {
 	const habitatName = useLinkedHabitatName(request.habitatId);
 	const requestWrites = useRequestedControlActionMutations();
-	const { busy, error, run } = useCommandRunner();
+	const { busy, run } = useCommandRunner();
 	const timeZone = useOrganizationTimeZone();
 	const isOpen = request.status === 'open';
 
@@ -169,21 +168,9 @@ function RequestDetailContent({
 				</div>
 			}
 		>
-			{error === null ? null : (
-				<Alert variant="destructive">
-					<AlertDescription>{error}</AlertDescription>
-				</Alert>
-			)}
 			<RequestMissionsCard requestId={request.id} />
 		</DetailPageShell>
 	);
-}
-
-/** Habitats are an on-demand collection, so the linked one resolves as a subset. */
-function useLinkedHabitatName(habitatId: string | null): string | null {
-	const habitatIds = habitatId === null ? [] : [habitatId];
-	const habitatNameById = useHabitatNames(habitatIds);
-	return habitatId === null ? null : (habitatNameById.get(habitatId) ?? null);
 }
 
 /**
@@ -380,23 +367,4 @@ function RequestLinkRows({
 			</DetailRow>
 		</>
 	);
-}
-
-/**
- * The recommended method's name.
- *
- * The id is polymorphic by control type — it points at a different catalog for
- * each — so all four are searched rather than the one the type names, which
- * keeps the row honest if the type is edited afterwards.
- */
-function useRecommendedMethodName(methodId: string | null): string | null {
-	const methodNameById = useControlMethodNames();
-	return methodId === null ? null : (methodNameById.get(methodId) ?? 'Unknown method');
-}
-
-function useProfileName(profileId: string | null): string | null {
-	const profiles = useProfileRoster();
-	return profileId === null
-		? null
-		: (profiles.find((profile) => profile.id === profileId)?.displayName ?? 'Unknown profile');
 }

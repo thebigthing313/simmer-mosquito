@@ -23,8 +23,8 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { TrapPicker } from '../../../../components/adult-surveillance/adult-pickers';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
-import type { RouteStopFeature } from '../../../../components/map';
 import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
 import { RouteMap } from '../../../../components/route-planning';
 import {
@@ -32,19 +32,24 @@ import {
 	type MovePlan,
 	OrdinalBadge,
 	StopReorderControls,
-	useStopOrder,
 } from '../../../../components/stop-order';
+import {
+	type TrapRouteStopView,
+	useTrapRouteStops,
+} from '../../../../hooks/adult-surveillance/use-trap-route-stops';
+import { useTrapRoutes } from '../../../../hooks/adult-surveillance/use-trap-routes';
+import type { RouteStopFeature } from '../../../../hooks/map/use-route-layer';
 import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-item-mutations';
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import { type TrapListing, useActiveTraps } from '../../../../hooks/queries/use-active-traps';
+import { useStopOrder } from '../../../../hooks/stop-order/use-stop-order';
+import { errorMessageForSave } from '../../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
-import { TrapPicker } from '../../-adult-pickers';
-import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
 
 const RouteIcon = iconRegistry.entities.route.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
-const stopKey = (stop: RouteStopView) => stop.routeItemId;
+const stopKey = (stop: TrapRouteStopView) => stop.routeItemId;
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -63,7 +68,7 @@ function EditTrapRouteRoute() {
 	const { id } = Route.useParams();
 	const { routes, isReady, isError } = useTrapRoutes();
 	const route = routes.find((candidate) => candidate.id === id) ?? null;
-	const { stops, itemCount, isLoading } = useRouteStops(id);
+	const { stops, itemCount, isLoading } = useTrapRouteStops(id);
 	const { traps } = useActiveTraps();
 	const navigate = useNavigate();
 
@@ -118,7 +123,7 @@ function EditTrapRouteRoute() {
 				position: stops.reduce((max, stop) => Math.max(max, stop.position), 0) + 1,
 			});
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to add the stop.');
+			setError(errorMessageForSave(cause, 'Unable to add the stop.'));
 		}
 	};
 
@@ -127,7 +132,7 @@ function EditTrapRouteRoute() {
 		try {
 			await moveStop(index, action);
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to reorder the route.');
+			setError(errorMessageForSave(cause, 'Unable to reorder the route.'));
 		}
 	};
 
@@ -137,7 +142,7 @@ function EditTrapRouteRoute() {
 			await removeRoute(id);
 			await navigate({ to: '/adult-surveillance/traps/routes' });
 		} catch (cause) {
-			setError(cause instanceof Error ? cause.message : 'Unable to delete the route.');
+			setError(errorMessageForSave(cause, 'Unable to delete the route.'));
 		}
 	};
 
@@ -323,7 +328,7 @@ function StopEditor({
 	onRemove,
 	onSetDirections,
 }: {
-	readonly stops: readonly RouteStopView[];
+	readonly stops: readonly TrapRouteStopView[];
 	readonly canSubmit: boolean;
 	readonly isLoading: boolean;
 	readonly onMove: (index: number, action: MoveAction) => void;

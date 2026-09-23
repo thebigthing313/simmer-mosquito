@@ -149,12 +149,23 @@ export function jsonObject(
 }
 
 /**
+ * The earliest date any command may carry. A floor and never a ceiling,
+ * because the same rule reads scheduled dates on missions and forecasts, and
+ * a ceiling there is wrong. Nothing this software records happened before it,
+ * and the one row that said otherwise was a collection dated 1826 by a
+ * mistyped year (#1214), which put two hundred empty years into the Annual
+ * page's picker. No CHECK constraint, since the domain is the validation
+ * boundary and that row would block the migration until fixed.
+ */
+export const LOCAL_DATE_FLOOR = '1900-01-01';
+
+/**
  * A calendar date the command may carry, in any direction.
  *
- * Shape and calendar validity only — an assignment is due in the future and a
- * forecast describes one, so nothing here rejects a date for being ahead of
- * today. Operational dates that record something already observed want
- * `validateNotFutureLocalDate` instead.
+ * Shape and calendar validity only, plus the floor above: an assignment is
+ * due in the future and a forecast describes one, so nothing here rejects a
+ * date for being ahead of today. Operational dates that record something
+ * already observed want `validateNotFutureLocalDate` instead.
  */
 export function validateLocalDate(
 	value: LocalDateString | undefined,
@@ -168,6 +179,10 @@ export function validateLocalDate(
 	const parsed = new Date(`${value}T00:00:00.000Z`);
 	if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
 		issues.push({ path, message: `${path} must be a valid calendar date.` });
+		return;
+	}
+	if (value < LOCAL_DATE_FLOOR) {
+		issues.push({ path, message: `${path} cannot be before ${LOCAL_DATE_FLOOR}.` });
 	}
 }
 

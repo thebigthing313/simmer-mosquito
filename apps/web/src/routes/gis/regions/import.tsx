@@ -28,6 +28,12 @@ import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-ro
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { RegionFolderDialog } from '../../../components/gis/regions/folder-dialog';
+import {
+	MAX_REGIONS,
+	parseRegionsFromFile,
+	type RegionBoundary,
+} from '../../../components/gis/regions/import-parse';
 import { MapCanvas } from '../../../components/map';
 import {
 	ImportNotes,
@@ -40,9 +46,8 @@ import { useRegionMutations } from '../../../hooks/mutations/use-region-mutation
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { regions } from '../../../lib/collections/regions';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { RegionFolderDialog } from './-folder-dialog';
-import { MAX_REGIONS, parseRegionsFromFile, type RegionBoundary } from './-import-parse';
 
 export const Route = createFileRoute('/gis/regions/import')({
 	beforeLoad: async ({ context }) => {
@@ -100,7 +105,7 @@ function ImportRegionsRoute() {
 	// connects, forcing a deterministic per-row confirmation timeout. Subscribing
 	// here guarantees the stream is connected and up-to-date before the first insert.
 	// The rows themselves are unused; we only need the subscription.
-	useLiveQuery({ query: (query) => query.from({ region: regions() }) }, []);
+	useLiveQuery({ query: (query) => query.from({ region: regions() }) });
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
@@ -157,7 +162,7 @@ function ImportRegionsRoute() {
 			setItems(parsed);
 			fitToItems(parsed);
 		} catch (error) {
-			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
+			setParseError(errorMessageForSave(error, 'That file could not be read.'));
 			setItems([]);
 		}
 	};
@@ -243,7 +248,7 @@ function ImportRegionsRoute() {
 						(error) =>
 							isTxIdConfirmationTimeout(error)
 								? ('pending' as const)
-								: { error: error instanceof Error ? error.message : 'failed to import' },
+								: { error: errorMessageForSave(error, 'failed to import') },
 					);
 				const outcome = await Promise.race([
 					settled,
@@ -255,7 +260,7 @@ function ImportRegionsRoute() {
 					errors.push(`${item.name}: ${outcome.error}`);
 				}
 			} catch (error) {
-				errors.push(`${item.name}: ${error instanceof Error ? error.message : 'failed to import'}`);
+				errors.push(`${item.name}: ${errorMessageForSave(error, 'failed to import')}`);
 			}
 			done += 1;
 			setProgress({ done, total });

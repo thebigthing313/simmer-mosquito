@@ -88,7 +88,6 @@ export function useCollectionsOverThreshold(
 	readonly isError: boolean;
 } {
 	const sinceInstant = localDayStartAsInstant(sinceDate, timeZone);
-	const sinceMs = sinceInstant.getTime();
 
 	// Eager, so this reads rows the app already holds. A retired method is left in:
 	// it stops being offered on new collections, and the ones already made by it
@@ -100,58 +99,49 @@ export function useCollectionsOverThreshold(
 			.select(({ method }) => ({ id: method.id })),
 	);
 
-	const methodIds = methodsWithThresholds.data.map((method) => method.id).sort();
-	// A dependency has to be comparable by value, and an array is not.
-	const methodIdsKey = methodIds.join(',');
+	const methodIds = methodsWithThresholds.data.map((method) => method.id);
 
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: collections() })
-					.where(({ collection }) =>
-						and(
-							inArray(collection.collection_method_id, methodIds),
-							or(
-								gte(collection.collected_at, sinceInstant),
-								gte(collection.collection_date, sinceDate),
-							),
+	const result = useLiveQuery({
+		gcTime: activityGcTimeMs,
+		query: (query) =>
+			query
+				.from({ collection: collections() })
+				.where(({ collection }) =>
+					and(
+						inArray(collection.collection_method_id, methodIds),
+						or(
+							gte(collection.collected_at, sinceInstant),
+							gte(collection.collection_date, sinceDate),
 						),
-					)
-					// `left`, not `inner`: an ad-hoc collection names no trap, and an
-					// `inner` join would hide every one of them.
-					.join(
-						{ trap: traps() },
-						({ collection, trap }) => eq(collection.trap_id, trap.id),
-						'left',
-					)
-					.join(
-						{ method: collection_methods() },
-						({ collection, method }) => eq(collection.collection_method_id, method.id),
-						'left',
-					)
-					.select(({ collection, trap, method }) => ({
-						id: collection.id,
-						trapId: collection.trap_id,
-						trapName: coalesce(trap.trap_name, null),
-						trapCode: coalesce(trap.trap_code, null),
-						// `coalesce` because an unmatched join yields `undefined` for every
-						// field of the missing side, and the fold reads null.
-						methodName: coalesce(method.name, 'Unknown method'),
-						actionThreshold: coalesce(method.action_threshold, null),
-						collectedAt: collection.collected_at,
-						collectionDate: collection.collection_date,
-						species: toArray(
-							query
-								.from({ identification: collection_species() })
-								.where(({ identification }) => eq(identification.collection_id, collection.id))
-								.select(({ identification }) => ({ count: identification.count })),
-						),
-					})),
-		},
-		[sinceDate, sinceMs, methodIdsKey],
-	);
+					),
+				)
+				// `left`, not `inner`: an ad-hoc collection names no trap, and an
+				// `inner` join would hide every one of them.
+				.join({ trap: traps() }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
+				.join(
+					{ method: collection_methods() },
+					({ collection, method }) => eq(collection.collection_method_id, method.id),
+					'left',
+				)
+				.select(({ collection, trap, method }) => ({
+					id: collection.id,
+					trapId: collection.trap_id,
+					trapName: coalesce(trap.trap_name, null),
+					trapCode: coalesce(trap.trap_code, null),
+					// `coalesce` because an unmatched join yields `undefined` for every
+					// field of the missing side, and the fold reads null.
+					methodName: coalesce(method.name, 'Unknown method'),
+					actionThreshold: coalesce(method.action_threshold, null),
+					collectedAt: collection.collected_at,
+					collectionDate: collection.collection_date,
+					species: toArray(
+						query
+							.from({ identification: collection_species() })
+							.where(({ identification }) => eq(identification.collection_id, collection.id))
+							.select(({ identification }) => ({ count: identification.count })),
+					),
+				})),
+	});
 
 	const rows = result.data;
 

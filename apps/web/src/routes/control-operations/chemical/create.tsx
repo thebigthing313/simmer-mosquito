@@ -3,40 +3,41 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	ApplicationFormPage,
+	type DrawGeometry,
+} from '../../../components/control-operations/chemical/application-form';
+import {
+	type ApplicationFormValues,
+	defaultApplicationFormValues,
+	noSelectionValue,
+} from '../../../components/control-operations/chemical/application-form-values';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useMissionStopExecution } from '../../../components/mission-stop-execution';
-import { useRecordExtras } from '../../../forms/record-extras';
+import { useRecordExtras } from '../../../hooks/forms/use-record-extras';
 import { canAttributeWrite, newRecordId } from '../../../hooks/mutations/shared';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
-import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
-import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
-import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import type {
 	FormulationComponentListing,
 	FormulationListing,
-} from '../../../hooks/queries/use-chemical-rosters';
-import {
-	useEquipmentRoster,
-	useFormulationComponentRoster,
-	useFormulationRoster,
-	useInsecticideRoster,
-	useVehicleRoster,
-} from '../../../hooks/queries/use-chemical-rosters';
+} from '../../../hooks/queries/chemical-roster-view';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
+import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
+import { useApplicationMethodRoster } from '../../../hooks/queries/use-application-method-roster';
+import { useEquipmentRoster } from '../../../hooks/queries/use-equipment-roster';
+import { useFormulationComponentRoster } from '../../../hooks/queries/use-formulation-component-roster';
+import { useFormulationRoster } from '../../../hooks/queries/use-formulation-roster';
+import { useInsecticideRoster } from '../../../hooks/queries/use-insecticide-roster';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useVehicleRoster } from '../../../hooks/queries/use-vehicle-roster';
+import { useMissionStopExecution } from '../../../hooks/use-mission-stop-execution';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { recordCount, recordNoun } from '../../../lib/record-nouns';
 import { habitatSeedSearchSchema, seededValues } from '../../../lib/record-seed-search';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import {
-	ApplicationFormPage,
-	type ApplicationFormValues,
-	type DrawGeometry,
-	defaultApplicationFormValues,
-	noSelectionValue,
-} from './-application-form';
 
 export const Route = createFileRoute('/control-operations/chemical/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
@@ -174,9 +175,10 @@ function CreateApplicationRoute() {
 						throw error;
 					}
 					throw new Error(
-						`Recorded ${saved.length} of ${recordCount('application', products.length)} before failing: ${
-							error instanceof Error ? error.message : 'Unknown error.'
-						}`,
+						`Recorded ${saved.length} of ${recordCount('application', products.length)} before failing: ${errorMessageForSave(
+							error,
+							'Unknown error.',
+						)}`,
 					);
 				}
 				saved.push(product);

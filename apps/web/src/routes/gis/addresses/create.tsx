@@ -1,13 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { createLabel } from '../../../components/app-shell/navigation';
+import {
+	AddressFormPage,
+	type AddressFormSave,
+	defaultAddressFormValues,
+} from '../../../components/gis/addresses/address-form';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { seedAddressGeometryCache } from '../../../hooks/gis/use-address-geometry';
 import { canAttributeWrite } from '../../../hooks/mutations/shared';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowWriteFloor } from '../../../lib/write-surfaces';
-import { seedAddressGeometryCache } from './-address-data';
-import { AddressFormPage, type AddressFormSave, defaultAddressFormValues } from './-address-form';
 
 export const Route = createFileRoute('/gis/addresses/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard

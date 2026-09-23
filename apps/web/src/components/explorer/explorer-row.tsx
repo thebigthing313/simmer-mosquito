@@ -42,6 +42,7 @@ export function ExplorerRow({
 	tags,
 	badges,
 	stackBadges,
+	distance,
 	detailLink,
 	detailLabel,
 	isSelected,
@@ -73,6 +74,13 @@ export function ExplorerRow({
 	 * the row's dot is spent on the family rather than on the record's state.
 	 */
 	readonly stackBadges?: boolean;
+	/**
+	 * How far the record is from the thing the list is about, pre-formatted,
+	 * in a column of its own at the right edge. The same three states as `date`:
+	 * text draws it, `null` reserves the column for a row without one so the
+	 * chevrons line up, and leaving the prop out draws no column at all.
+	 */
+	readonly distance?: string | null;
 	/** Where the chevron goes: this record's detail page. */
 	readonly detailLink: LinkProps;
 	readonly detailLabel: string;
@@ -100,6 +108,12 @@ export function ExplorerRow({
 	 * Undated rows have the room, so they keep the pill, unless the caller says
 	 * otherwise: a list with no date rail can still put more beside a title than
 	 * one line holds.
+	 *
+	 * Each container names itself, `data-slot="explorer-row-stacked-badges"` and
+	 * `data-slot="explorer-row-inline-badges"`, the way `packages/ui-web` names
+	 * its parts. A suite asserting a row has no badge column queries that name
+	 * rather than "a div under the title", which a `span` to `div` change here
+	 * would have broken while nothing on screen moved (#1137).
 	 */
 	const isStacked = badges !== undefined && (stackBadges ?? date !== undefined);
 
@@ -124,6 +138,7 @@ export function ExplorerRow({
 					<RowTags tags={tags} />
 				</span>
 				<InlineBadges badges={badges} isStacked={isStacked} />
+				<DistanceColumn distance={distance} isStacked={isStacked} />
 				<Link
 					{...detailLink}
 					aria-label={detailLabel}
@@ -155,7 +170,14 @@ function StackedBadges({
 	if (!isStacked || badges === null) {
 		return null;
 	}
-	return <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">{badges}</div>;
+	return (
+		<div
+			className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
+			data-slot="explorer-row-stacked-badges"
+		>
+			{badges}
+		</div>
+	);
 }
 
 /** The badges as a right-aligned pill, on the undated rows that have the room. */
@@ -169,7 +191,11 @@ function InlineBadges({
 	if (badges === undefined || isStacked) {
 		return null;
 	}
-	return <div className="flex shrink-0 items-center gap-1.5">{badges}</div>;
+	return (
+		<div className="flex shrink-0 items-center gap-1.5" data-slot="explorer-row-inline-badges">
+			{badges}
+		</div>
+	);
 }
 
 function RowTags({ tags }: { readonly tags: readonly Tag[] | undefined }) {
@@ -281,6 +307,36 @@ function DateColumn({
 		>
 			<span className="block">{head}</span>
 			{year === null ? null : <span className="block">{year}</span>}
+		</span>
+	);
+}
+
+/**
+ * The distance column, at the right edge where the eye lands after the title.
+ *
+ * Right-aligned so the units stack under each other down the list. 56px is
+ * fixed rather than fitted, because a column that took the width of its
+ * longest value would move every chevron below it; the widest value the
+ * formatter writes is seven characters, `1.50 km`, at 12px text.
+ */
+function DistanceColumn({
+	distance,
+	isStacked,
+}: {
+	readonly distance: string | null | undefined;
+	readonly isStacked: boolean;
+}) {
+	if (distance === undefined) {
+		return null;
+	}
+	return (
+		<span
+			className={cn(
+				'w-14 shrink-0 text-right text-muted-foreground text-xs tabular-nums',
+				isStacked && 'pt-0.5',
+			)}
+		>
+			{distance}
 		</span>
 	);
 }

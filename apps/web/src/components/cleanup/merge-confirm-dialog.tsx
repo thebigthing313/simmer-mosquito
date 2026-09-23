@@ -11,10 +11,12 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
+import { useResetOnOpen } from '../../hooks/catalog/use-reset-on-open';
+import type { DuplicateRecord, MergeableRecordType } from '../../hooks/merge-candidate-view';
 import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
-import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
 import { recordNoun } from '../../lib/record-nouns';
+import { errorMessageForSave } from '../../lib/save-error';
 import {
 	defaultMergeFieldSelections,
 	mergeFieldProblems,
@@ -87,13 +89,11 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 
 	// A dialog that reopens holding the previous tick would let a second merge go
 	// through on a confirmation given for a different set of records.
-	useEffect(() => {
-		if (!props.open) {
-			setAcknowledged(false);
-			setFailure(null);
-			setIsMerging(false);
-		}
-	}, [props.open]);
+	useResetOnOpen(props.open, undefined, () => {
+		setAcknowledged(false);
+		setFailure(null);
+		setIsMerging(false);
+	});
 
 	const targetLabel = recordLabel(props.target, props.config);
 
@@ -313,6 +313,6 @@ function refusalMessage(error: unknown, config: RecordCleanupConfig): string {
 		case 'source_not_found':
 			return `One of these ${noun.many} is already gone. Refresh the page to see what is left.`;
 		default:
-			return error instanceof Error ? error.message : 'The merge could not be sent.';
+			return errorMessageForSave(error, 'The merge could not be sent.');
 	}
 }

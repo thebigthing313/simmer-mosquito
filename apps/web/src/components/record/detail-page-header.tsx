@@ -1,3 +1,4 @@
+import type { TagTargetType } from '@simmer-mosquito/domain';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -20,7 +21,6 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import { Fragment, type ReactNode, useState } from 'react';
-import { useRecordTags } from '../../hooks/queries/use-record-tags';
 import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
 import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
@@ -31,7 +31,7 @@ import {
 	type RecordDeleteProps,
 	type RecordDeleteTarget,
 } from '../record-delete-dialog';
-import { TagBadge } from '../tag-badge';
+import { RecordTags } from './record-tags';
 
 /**
  * The bar every record detail page opens with.
@@ -42,8 +42,9 @@ import { TagBadge } from '../tag-badge';
  * page was a table with no name over it.
  *
  * It is `sticky` rather than `fixed`, which is what lets it share the scroll
- * box with the content and therefore share the `record` container the layout is
- * measured against. A fixed bar would be positioned against the viewport, so it
+ * box with the content and therefore share the container the layout is
+ * measured against, the `record` measure on a page and the column on a panel
+ * (see {@link DetailHeaderFrame}). A fixed bar would be positioned against the viewport, so it
  * would sit over the rails and need its own copy of the measure to line its
  * title up with the first card. It follows DESIGN.md's Opaque Pin Rule: an
  * opaque surface, a one-pixel bottom border, `z-10`, and no blur, since nothing
@@ -74,6 +75,30 @@ import { TagBadge } from '../tag-badge';
  * that cost a row of the page was the one that could be wrong: it named a fixed
  * destination, so a habitat opened from Daily Work offered "Back to habitats".
  *
+ * ## A refused write from the menu is a toast
+ *
+ * A refusal of a write the person cannot correct in place is a toast, and an
+ * in-page `Alert` is for a refusal the page can act on. The first shape is a
+ * lifecycle change chosen from the `...`, a close, a reopen, a start or a
+ * cancel, and the delete. The server refuses one on its preconditions, "Some
+ * stops are still pending", and there is nothing on the page to change before
+ * asking again. The second is a form, where the person fixes the field the
+ * refusal names and resubmits, so the sentence belongs beside the fields.
+ *
+ * The toast is what the shape of the menu decides rather than a preference. A
+ * menu item unmounts on the click that chooses it, so by the time the answer
+ * arrives there is no control on the page to report against, and a line
+ * reserved for it would be a slot the bar holds open for a message that is
+ * nearly always absent. `RecordDeleteDialog` already reports its refusal that
+ * way and for the same reason. The message is the same on both, the server's
+ * sentence when the thrown error carries one and the page's own fallback when
+ * it does not. `ServiceRequestDetailHeader` is the pattern for a menu command
+ * written by hand, and `useCommandRunner` under `routes/operations` is the
+ * same gate for the request for control page's menu and for the two worklist
+ * pages, which draw their lifecycle controls as buttons rather than a menu and
+ * follow the rule anyway, since a refused start on a worklist is no more
+ * correctable in place than a refused close is here (#1100).
+ *
  * ## The eyebrow reads the register
  *
  * `recordType` is the register's key and the eyebrow is `recordNoun(...).title`,
@@ -87,9 +112,19 @@ import { TagBadge } from '../tag-badge';
  * no longer carries one of its own: see {@link DetailPageRecord}.
  */
 export function DetailPageHeader(props: DetailPageHeaderProps) {
-	const { icon: RecordIcon, recordType, title, subtitle, edit, actions, flags, tags } = props;
+	const {
+		icon: RecordIcon,
+		recordType,
+		title,
+		subtitle,
+		edit,
+		actions,
+		flags,
+		tags,
+		frame,
+	} = props;
 	return (
-		<DetailHeaderBar>
+		<DetailHeaderBar frame={frame ?? 'page'}>
 			<div className="flex min-w-0 flex-col gap-1.5">
 				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					<RecordIcon aria-hidden="true" className="size-3.5" />
@@ -110,7 +145,9 @@ export function DetailPageHeader(props: DetailPageHeaderProps) {
 			</div>
 			<div className="flex flex-wrap items-center justify-end gap-1.5">
 				{flags}
-				{tags === undefined ? null : <RecordTags recordId={tags.recordId} />}
+				{tags === undefined ? null : (
+					<RecordTags recordId={tags.recordId} recordType={tags.recordType} />
+				)}
 			</div>
 		</DetailHeaderBar>
 	);
@@ -131,9 +168,47 @@ interface DetailPageHeaderBase {
 	readonly actions?: readonly DetailAction[];
 	/** The record's state badges, drawn at the right end of the bar. */
 	readonly flags?: ReactNode;
-	/** The record's id, for the six record kinds `TAG_TARGET_TYPES` allows. */
-	readonly tags?: { readonly recordId: string };
+	/**
+	 * The record's id and type, for the six kinds `TAG_TARGET_TYPES` allows.
+	 *
+	 * The type is what the *write* needs: `tag_items.entity_id` is globally
+	 * unique so the read gets by without one, and `assignTag` names both columns.
+	 * It is also what the picker's `For habitats` heading reads off the register.
+	 */
+	readonly tags?: { readonly recordId: string; readonly recordType: TagTargetType };
+	/** The box the bar is measured in. Defaults to `page`. See {@link DetailHeaderFrame}. */
+	readonly frame?: DetailHeaderFrame;
 }
+
+/**
+ * What the bar sits in, which decides its measure and padding.
+ *
+ * `page` is the record container: the bar spans the stage and its padding is
+ * `pageContainer`'s `header`, so the title sits over the first card's edge.
+ * That is every page on `DetailPageShell`, and the skeleton, which draws at
+ * the page measure whatever frame the record will arrive in: the service
+ * request page loads there too, since its split needs the request's
+ * coordinates before it can draw the map.
+ *
+ * So on that page the bar draws at the page measure while the request loads
+ * and at the panel measure once it lands, and that jump is accepted (#1099).
+ * The alternative was a stand-in map column under the skeleton, and it is one
+ * of two things. A live Mapbox instance with nothing to draw is a second GL
+ * context, and one the Suspense swap then destroys, which is the `isMapLive`
+ * trap over again. A grey block that swaps for the map when the request
+ * arrives moves more of the screen than the bar does. A page beside a map
+ * that can draw its split before its record arrives is what reopens this.
+ *
+ * `panel` is a column that already has a measure of its own, the 40% the
+ * service request page keeps beside its map. The `record` measure would be no
+ * cap there, and the `header` padding steps up to 32px a side at `md`, which in
+ * a 500px column is a bar whose title and pencil wrap before the flags do. So
+ * the bar takes the column's own padding, the same `p-4` the body scrolling
+ * under it is padded with. One prop rather than a second header, because
+ * everything else about the bar, the eyebrow, the menu, the Tags and the rule
+ * they sit under, is the same bar.
+ */
+type DetailHeaderFrame = 'page' | 'panel';
 
 /**
  * Which record the bar names, and whether it can be deleted from here.
@@ -245,18 +320,32 @@ const DeleteIcon = iconRegistry.actions.delete.icon;
 /**
  * The bar's chrome and measure, shared with {@link DetailPageHeaderSkeleton} so
  * the pinned bar is the same height before the record arrives and the content
- * below it does not jump.
+ * below it does not jump. The same height and not the same width: the skeleton
+ * is always at `page`, and {@link DetailHeaderFrame} says what that costs on
+ * the one page whose bar arrives at `panel`. The bar names its frame in
+ * `data-frame`, so a suite can pin which one a page draws in without reading
+ * the padding classes back.
  */
-function DetailHeaderBar({ children }: { readonly children: ReactNode }) {
+function DetailHeaderBar({
+	children,
+	frame,
+}: {
+	readonly children: ReactNode;
+	readonly frame: DetailHeaderFrame;
+}) {
 	return (
-		<header className="sticky top-0 z-10 border-border border-b bg-background">
+		<header className="sticky top-0 z-10 border-border border-b bg-background" data-frame={frame}>
 			<div
-				className={pageContainer({
-					flow: 'block',
-					gap: 'none',
-					measure: 'record',
-					padding: 'header',
-				})}
+				className={
+					frame === 'panel'
+						? 'p-4'
+						: pageContainer({
+								flow: 'block',
+								gap: 'none',
+								measure: 'record',
+								padding: 'header',
+							})
+				}
 			>
 				<div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">{children}</div>
 			</div>
@@ -267,7 +356,7 @@ function DetailHeaderBar({ children }: { readonly children: ReactNode }) {
 /** The bar before the record, in the frame's skeleton. */
 export function DetailPageHeaderSkeleton() {
 	return (
-		<DetailHeaderBar>
+		<DetailHeaderBar frame="page">
 			<div className="flex min-w-0 flex-col gap-1.5">
 				<Skeleton className="h-4 w-24" />
 				<Skeleton className="h-8 w-64" />
@@ -385,30 +474,5 @@ function ActionItem({ action }: { readonly action: DetailAction }) {
 				{action.label}
 			</Link>
 		</DropdownMenuItem>
-	);
-}
-
-/**
- * The record's Tags, at the right end of the bar.
- *
- * A sibling query rather than something the page passes down: it is keyed on
- * the record id the header already has, and `tag_items.entity_id` is globally
- * unique, so it needs no entity type. See `use-record-tags.ts`.
- *
- * Nothing is drawn for a record with no Tags. An empty row of chips would be a
- * permanent blank at the top right of every untagged record, and "no tags" is
- * already said in words on the pages whose fact card lists them.
- */
-function RecordTags({ recordId }: { readonly recordId: string }) {
-	const tags = useRecordTags(recordId);
-	if (tags.length === 0) {
-		return null;
-	}
-	return (
-		<>
-			{tags.map((tag) => (
-				<TagBadge key={tag.id} tag={tag} />
-			))}
-		</>
 	);
 }

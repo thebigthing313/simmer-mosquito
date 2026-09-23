@@ -10,6 +10,7 @@ import {
 	moveMissionItemsCommand,
 	recordChemicalApplicationForMissionItemCommand,
 	recordOutreachActionForMissionItemCommand,
+	renameMissionItemCommand,
 	reopenMissionCommand,
 	skipMissionItemCommand,
 	updateMissionItemLocationAndLinkCommand,
@@ -263,6 +264,85 @@ describe('mission dispatch item commands', () => {
 				missionId,
 				geometry: pointGeometry,
 				locationSource: { kind: 'address', addressId },
+			}),
+		).toThrow(DomainValidationError);
+	});
+
+	it('normalizes a stop name on every path that writes one, and clears an empty one', () => {
+		expect(
+			addMissionItemCommand({
+				organizationId,
+				actorProfileId,
+				missionItemId,
+				missionId,
+				geometry: pointGeometry,
+				name: '  Third storm drain  ',
+			}).payload.name,
+		).toBe('Third storm drain');
+
+		expect(
+			addMissionItemFromRequestedControlActionCommand({
+				organizationId,
+				actorProfileId,
+				missionItemId,
+				missionId,
+				requestedControlActionId,
+				name: '   ',
+			}).payload.name,
+		).toBeNull();
+
+		// Absent and blank are the same absence, which is the rule the column
+		// stores: a stop nobody named reads as null whichever way it was added.
+		expect(
+			addMissionItemCommand({
+				organizationId,
+				actorProfileId,
+				missionItemId,
+				missionId,
+				geometry: pointGeometry,
+			}).payload.name,
+		).toBeNull();
+
+		expect(
+			createMissionCommand({
+				organizationId,
+				actorProfileId,
+				missionId,
+				controlType: 'application',
+				scheduledStartAt: new Date('2026-08-10T13:00:00.000Z'),
+				items: [
+					{ kind: 'explicit', missionItemId, geometry: pointGeometry, name: ' Ditch run ' },
+					{
+						kind: 'fromRequestedControlAction',
+						missionItemId: missionItemId2,
+						requestedControlActionId,
+					},
+				],
+			}).payload.items,
+		).toMatchObject([{ name: 'Ditch run' }, { name: null }]);
+	});
+
+	it('renames a stop, and takes null as the clear', () => {
+		expect(
+			renameMissionItemCommand({
+				organizationId,
+				actorProfileId,
+				missionItemId,
+				name: '  Back lot  ',
+			}).payload,
+		).toMatchObject({ missionItemId, name: 'Back lot' });
+
+		expect(
+			renameMissionItemCommand({ organizationId, actorProfileId, missionItemId, name: null })
+				.payload.name,
+		).toBeNull();
+
+		expect(() =>
+			renameMissionItemCommand({
+				organizationId,
+				actorProfileId,
+				missionItemId,
+				name: 'x'.repeat(201),
 			}),
 		).toThrow(DomainValidationError);
 	});

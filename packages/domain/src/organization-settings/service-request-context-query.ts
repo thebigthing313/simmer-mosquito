@@ -33,38 +33,66 @@ export function distanceToMeters(amount: number, unitCode: string): number {
 	return amount * factor;
 }
 
+/**
+ * What set a nearby window's `dateTo`, named in the response so the page can
+ * say it: the setting's `daysAfter`, the day the request closed, or today while
+ * it is open (#1085). A person reading a six-week range under a setting that
+ * says 14 is otherwise sent to the settings looking for a number that is not
+ * there. A `query` member stood for an override nothing sent (#1110).
+ */
+export type NearbyWindowEnd = 'setting' | 'close' | 'today';
+
 export interface ServiceRequestContextBounds {
 	readonly radiusMeters: number;
 	/** Inclusive lower bound, `YYYY-MM-DD`. */
 	readonly dateFrom: string;
 	/** Inclusive upper bound, `YYYY-MM-DD`. */
 	readonly dateTo: string;
+	/** Which of the two ends `dateTo` is. */
+	readonly dateToFrom: 'setting' | 'anchor';
 }
 
 /**
  * Resolve the concrete proximity + time-window bounds a nearby query needs from
  * the org's service-request context setting, anchored on a request's date:
- * radius → meters, and timeWindow → an inclusive
- * `[requestDate - daysBefore, requestDate + daysAfter]` date range. Date math is
- * UTC so it never drifts a day at a timezone boundary.
+ * radius → meters, and timeWindow → an inclusive date range starting at
+ * `requestDate - daysBefore`. Date math is UTC so it never drifts a day at a
+ * timezone boundary.
  *
- * Throws `DomainValidationError` when the request date is not a readable
- * calendar date, naming `requestDate` so the issue points at the field the
- * caller passed rather than at `addUtcDays`'s argument.
+ * The end is the later of `requestDate + daysAfter` and `endAnchor`, which is
+ * the day the request closed, or today while it is still open. `daysAfter` is
+ * a floor on the end rather than the end: a request open for six weeks used to
+ * show two weeks of what happened after it and nothing of the work that closed
+ * it (#1084). Which day the anchor is on is the caller's question, because it
+ * is a calendar day in the Organization's zone (#154, #156) and this function
+ * knows no zone, so the anchor arrives as a `YYYY-MM-DD` already read in it.
+ * For the same reason `dateToFrom` says `anchor` and not which anchor: a close
+ * and a today arrive as the same string, and the caller knows which it passed.
+ *
+ * Throws `DomainValidationError` when either date is not a readable calendar
+ * date, naming `requestDate` or `endAnchor` so the issue points at the field
+ * the caller passed rather than at `addUtcDays`'s argument.
  */
 export function serviceRequestContextBounds(
 	requestDate: string,
 	context: ServiceRequestContextSettings,
+	endAnchor: string,
 ): ServiceRequestContextBounds {
 	const datePart = validatedDatePart(
 		requestDate,
 		'requestDate',
 		'Service request date is invalid.',
 	);
+	const anchorPart = validatedDatePart(endAnchor, 'endAnchor', 'Window end anchor is invalid.');
+	const settingEnd = shiftUtcDays(datePart, context.timeWindow.daysAfter);
+	// `YYYY-MM-DD` orders as text the way it orders as a date. A tie is the
+	// setting's, because the setting alone would have ended the window there.
+	const anchorWins = anchorPart > settingEnd;
 	return {
 		radiusMeters: distanceToMeters(context.radius.amount, context.radius.unitCode),
 		dateFrom: shiftUtcDays(datePart, -context.timeWindow.daysBefore),
-		dateTo: shiftUtcDays(datePart, context.timeWindow.daysAfter),
+		dateTo: anchorWins ? anchorPart : settingEnd,
+		dateToFrom: anchorWins ? 'anchor' : 'setting',
 	};
 }
 

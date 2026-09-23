@@ -4,6 +4,11 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { createLabel } from '../../../components/app-shell/navigation';
+import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
+import {
+	controlContext,
+	formatAmount,
+} from '../../../components/control-operations/control-display';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
@@ -14,12 +19,6 @@ import {
 	MultiSelectFilter,
 	ToggleFilter,
 	toggle,
-	useBiocontrolMethodOptions,
-	useDateRangeFilters,
-	useExplorerPanel,
-	useExplorerResource,
-	usePersonnelOptions,
-	useRegionOptions,
 	whenAny,
 	whenOn,
 	whenText,
@@ -31,9 +30,17 @@ import {
 	MapCanvas,
 	type MapTileLayer,
 } from '../../../components/map';
+import { type RecordBadgeFacts, recordBadges } from '../../../components/record/record-badges';
+import { useBiocontrolMethodOptions } from '../../../hooks/explorer/use-biocontrol-method-options';
+import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { addDaysToDateString, formatListDate, todayInTimeZone } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
@@ -43,11 +50,7 @@ import {
 	flagParam,
 	idSetParam,
 	searchValidator,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { RecordBadges } from '../../-record-badges';
-import { BiocontrolMapCard } from '../-biocontrol-map-card';
-import { controlContext, formatAmount } from '../-control-display';
 
 interface BiocontrolRow {
 	readonly id: string;
@@ -331,14 +334,10 @@ function BiocontrolListItem({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
+	const facts: RecordBadgeFacts = { category: 'biocontrol', context: controlContext(row) };
 	return (
 		<ExplorerRow
-			badges={
-				<RecordBadges
-					facts={{ category: 'biocontrol', context: controlContext(row) }}
-					status="dot"
-				/>
-			}
+			badges={recordBadges(facts, 'dot')}
 			date={formatListDate(row.biocontrolDate)}
 			detailLabel={`View details for ${methodName}`}
 			detailLink={{ to: '/control-operations/biocontrol/$id', params: { id: row.id } }}

@@ -54,7 +54,7 @@ describe('signInWithPassword failure mapping (real WorkOS OauthException shape)'
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.signInWithPassword({ email: 'a@b.com', password: 'nope' });
+		const result = await auth.session.signInWithPassword({ email: 'a@b.com', password: 'nope' });
 
 		expect(result).toEqual({ status: 'invalid_credentials' });
 	});
@@ -69,7 +69,7 @@ describe('signInWithPassword failure mapping (real WorkOS OauthException shape)'
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.signInWithPassword({ email: 'a@b.com', password: 'nope' });
+		const result = await auth.session.signInWithPassword({ email: 'a@b.com', password: 'nope' });
 
 		expect(result).toEqual({ status: 'invalid_credentials' });
 	});
@@ -84,7 +84,7 @@ describe('signInWithPassword failure mapping (real WorkOS OauthException shape)'
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.signInWithPassword({ email: 'a@b.com', password: 'pw' });
+		const result = await auth.session.signInWithPassword({ email: 'a@b.com', password: 'pw' });
 
 		expect(result).toEqual({
 			status: 'verification_required',
@@ -106,7 +106,7 @@ describe('signInWithPassword failure mapping (real WorkOS OauthException shape)'
 		);
 
 		const auth = createWorkOsAuth(config);
-		const result = await auth.signInWithPassword({ email: 'a@b.com', password: 'pw' });
+		const result = await auth.session.signInWithPassword({ email: 'a@b.com', password: 'pw' });
 
 		expect(result).toEqual({
 			status: 'organization_selection_required',

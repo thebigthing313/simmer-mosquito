@@ -65,6 +65,7 @@ Mission item commands:
 - `missionDispatch.addMissionItem`
 - `missionDispatch.addMissionItemFromRequestedControlAction`
 - `missionDispatch.updateMissionItemLocationAndLink`
+- `missionDispatch.renameMissionItem`
 - `missionDispatch.removeMissionItem`
 - `missionDispatch.moveMissionItems`
 - `missionDispatch.completeMissionItem`
@@ -221,6 +222,21 @@ existing addresses only; mission dispatch does not create addresses inline.
 No mission item `instructions`, `description`, or parent mission `description`
 column is part of v1. Use mission comments for notes and planning context.
 
+## Mission Item name
+
+A stop may carry a name somebody typed. It is optional everywhere: the column is
+nullable, empty and whitespace-only input is stored as `null`, and the cap is 200
+characters, the same one a Mission's own name takes.
+
+`addMissionItem`, `addMissionItemFromRequestedControlAction` and the initial
+items on `createMission` each take an optional `name`.
+`missionDispatch.renameMissionItem` changes it on a stop that already exists and
+takes a required, nullable `name`, where `null` clears it. It sits at the Manager
+floor, beside `updateMissionItemLocationAndLink`, and is a separate command
+because a location or link edit carries the geometry snapshot rules and four
+acknowledgements while a name edit carries none. A stop with no name is named by
+the Requested Control Action it was drawn from, then by the Address it sits at.
+
 ## Mission Item sources
 
 Mission items may be ad hoc, sourced from field records, or linked to requested
@@ -229,13 +245,13 @@ control actions.
 Core command:
 
 - `addMissionItem`: explicit geometry or location source, optional address,
-  optional `requestedControlActionId`, optional placement.
+  optional `requestedControlActionId`, optional `name`, optional placement.
 
 Convenience command:
 
 - `addMissionItemFromRequestedControlAction`: mission item ID, mission ID,
-  requested action ID, and optional placement. It snapshots the requested
-  action's current geometry and address.
+  requested action ID, optional `name`, and optional placement. It snapshots the
+  requested action's current geometry and address.
 
 `createMission` may also accept optional initial items. Initial item inputs are
 discriminated:
@@ -245,6 +261,7 @@ items?: readonly (
   | {
       kind: 'explicit';
       missionItemId: DomainId;
+      name?: string | null;
       geometry?: SupportedGeoJsonGeometry;
       locationSource?: MissionItemLocationSource;
       addressId?: DomainId | null;
@@ -253,6 +270,7 @@ items?: readonly (
   | {
       kind: 'fromRequestedControlAction';
       missionItemId: DomainId;
+      name?: string | null;
       requestedControlActionId: DomainId;
     }
 )[]

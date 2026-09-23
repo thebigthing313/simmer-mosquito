@@ -1,52 +1,116 @@
 import { expect, it } from 'vitest';
-import { listNearbyRecords, sql } from '../../index.js';
+import type { DbExecutor, NearbyRecordsInput } from '../../index.js';
+import {
+	DEFAULT_NEARBY_FAMILIES,
+	getServiceRequestCenter,
+	listNearbyRecords,
+	sql,
+} from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
 import { createOrganization } from '../../test-support/row-fixtures.js';
 
+describeDbIntegration('service-request center', () => {
+	// The close is the end anchor of the nearby window, so it is a day in the
+	// Organization's zone the way every operational date is: 10:30pm on 20
+	// August in New York is 21 August in UTC, and the window must end on the
+	// day the person who closed it was on.
+	it("reads the close as a day in the Organization's zone", async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const id = await insertServiceRequest(db, organizationId, {
+				geom: point(-90.5, 35.5),
+				display_name: 1,
+				request_date: new Date('2026-08-02T12:00:00'),
+				closed_at: new Date('2026-08-21T02:30:00.000Z'),
+			});
+
+			const eastern = await getServiceRequestCenter(db, {
+				organizationId,
+				id,
+				timeZone: 'America/New_York',
+			});
+			expect(eastern).toEqual({
+				lat: 35.5,
+				lng: -90.5,
+				requestDate: '2026-08-02',
+				closedDate: '2026-08-20',
+			});
+
+			const utc = await getServiceRequestCenter(db, { organizationId, id, timeZone: 'UTC' });
+			expect(utc?.closedDate).toBe('2026-08-21');
+		});
+	});
+
+	it('reads no close day for an open request', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const id = await insertServiceRequest(db, organizationId, {
+				geom: point(-90.5, 35.5),
+				display_name: 1,
+				request_date: new Date('2026-08-02T12:00:00'),
+			});
+
+			const center = await getServiceRequestCenter(db, {
+				organizationId,
+				id,
+				timeZone: 'America/New_York',
+			});
+			expect(center?.requestDate).toBe('2026-08-02');
+			expect(center?.closedDate).toBeNull();
+		});
+	});
+});
+
+// The request every case is centred on. Nothing here reads it as a row: it is
+// the point the radius is drawn around and the id the public-engagement family
+// leaves out of its own result.
+const CENTER = {
+	id: 'c2a0e1d4-6b3f-4e8a-9d17-5f0b2c8a4e61',
+	lat: 35.5,
+	lng: -90.5,
+} as const;
+
+/** The question every case asks, with the window and zone the seeds sit inside. */
+function nearby(
+	organizationId: string,
+	overrides: Partial<NearbyRecordsInput> = {},
+): NearbyRecordsInput {
+	return {
+		organizationId,
+		request: CENTER,
+		radiusMeters: 500,
+		dateFrom: '2026-07-01',
+		dateTo: '2026-08-01',
+		timeZone: 'America/New_York',
+		families: DEFAULT_NEARBY_FAMILIES,
+		...overrides,
+	};
+}
+
+function point(lng: number, lat: number) {
+	return sql<string>`st_setsrid(st_makepoint(${lng}, ${lat}), 4326)`;
+}
+
+/** ~33 m north of the center, comfortably inside a 500 m radius. */
+const NEAR = point(-90.5, 35.5003);
+/** ~5 km north, outside the radius. */
+const FAR = point(-90.5, 35.545);
+
 describeDbIntegration('service-request nearby', () => {
-	// One call exercises the full seven-branch union, so this validates the SQL
+	// One call plans every branch of the union, so this validates the SQL
 	// (columns, geography casts, ST_DWithin, date window) end-to-end even though
 	// only habitats are seeded — Postgres plans every branch regardless of data.
 	it('returns records within the radius and excludes those outside it', async () => {
 		await withTestDb(async ({ db }) => {
 			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'Near Pond', NEAR);
+			await insertHabitat(db, organizationId, 'Far Pond', FAR);
 
-			// ~33 m north of the center — comfortably inside a 500 m radius.
-			await db
-				.insertInto('habitats')
-				.values({
-					organization_id: organizationId,
-					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5003), 4326)`,
-					habitat_name: 'Near Pond',
-					description: '',
-					metadata: null,
-				})
-				.execute();
-			// ~5 km north — outside the radius, must be excluded.
-			await db
-				.insertInto('habitats')
-				.values({
-					organization_id: organizationId,
-					geom: sql`st_setsrid(st_makepoint(-90.5, 35.545), 4326)`,
-					habitat_name: 'Far Pond',
-					description: '',
-					metadata: null,
-				})
-				.execute();
-
-			const rows = await listNearbyRecords(db, {
-				organizationId,
-				center: { lat: 35.5, lng: -90.5 },
-				radiusMeters: 500,
-				dateFrom: '2026-07-01',
-				dateTo: '2026-08-01',
-				timeZone: 'America/New_York',
-			});
+			const { items: rows } = await listNearbyRecords(db, nearby(organizationId));
 
 			const habitats = rows.filter((row) => row.category === 'habitat');
 			expect(habitats).toHaveLength(1);
 			expect(habitats[0]?.label).toBe('Near Pond');
-			expect(habitats[0]?.date).toBeNull();
 			expect(habitats[0]?.distanceMeters).toBeGreaterThan(0);
 			expect(habitats[0]?.distanceMeters).toBeLessThan(500);
 		});
@@ -69,7 +133,7 @@ describeDbIntegration('service-request nearby', () => {
 				.insertInto('collections')
 				.values({
 					organization_id: organizationId,
-					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5003), 4326)`,
+					geom: NEAR,
 					collection_method_id: method.id,
 					collection_timing_mode: 'exact_timestamps',
 					started_at: new Date('2026-03-14T14:00:00.000Z'),
@@ -79,15 +143,11 @@ describeDbIntegration('service-request nearby', () => {
 
 			const onTheFifteenth = async (timeZone: string) =>
 				(
-					await listNearbyRecords(db, {
-						organizationId,
-						center: { lat: 35.5, lng: -90.5 },
-						radiusMeters: 500,
-						dateFrom: '2026-03-15',
-						dateTo: '2026-03-15',
-						timeZone,
-					})
-				).filter((row) => row.category === 'collection');
+					await listNearbyRecords(
+						db,
+						nearby(organizationId, { dateFrom: '2026-03-15', dateTo: '2026-03-15', timeZone }),
+					)
+				).items.filter((row) => row.category === 'collection');
 
 			const eastern = await onTheFifteenth('America/New_York');
 			expect(eastern).toHaveLength(1);
@@ -96,4 +156,353 @@ describeDbIntegration('service-request nearby', () => {
 			expect(await onTheFifteenth('UTC')).toHaveLength(0);
 		});
 	});
+
+	// The row is the activity row for the same record. A nearby row used to
+	// carry one label, one ref and one status, so the service request page could
+	// not draw the list row Daily Work draws; this is what the wider row has to
+	// carry for the page to read it the same way.
+	it('carries every column the activity row carries, plus the distance', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const habitatType = await db
+				.insertInto('habitat_types')
+				.values({ organization_id: organizationId, name: 'Catch basin' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const habitat = await db
+				.insertInto('habitats')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					habitat_name: 'Culvert 12',
+					habitat_type_id: habitatType.id,
+					description: '',
+					metadata: null,
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.insertInto('inspections')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					habitat_id: habitat.id,
+					habitat_type_id: habitatType.id,
+					inspection_date: new Date('2026-07-10T12:00:00'),
+					is_wet: true,
+					density: 'light',
+					has_third_instar: true,
+				})
+				.execute();
+
+			const { items: rows } = await listNearbyRecords(db, nearby(organizationId));
+
+			const inspection = rows.find((row) => row.category === 'inspection');
+			expect(inspection).toMatchObject({
+				family: 'larval',
+				date: '2026-07-10',
+				occurredAt: null,
+				label: null,
+				// The habitat it was performed at, joined here because habitats do
+				// not stream to the client.
+				placeName: 'Culvert 12',
+				refId: habitatType.id,
+				methodRefId: null,
+				amount: null,
+				unitId: null,
+				detail: 'light',
+				stages: '3',
+				context: null,
+				hasBycatch: null,
+				tagIds: null,
+			});
+			expect(inspection?.distanceMeters).toBeGreaterThan(0);
+
+			// A place is dated by the day its record was created, which is the
+			// activity register's rule; a bare `null` here would be a second rule.
+			const place = rows.find((row) => row.category === 'habitat');
+			expect(place).toMatchObject({ family: 'larval', label: 'Culvert 12', detail: 'active' });
+			expect(place?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		});
+	});
+
+	// The other requests around this one, which the redesigned page draws. The
+	// request itself is the nearest request to its own centre, so it is left out
+	// by id rather than by distance.
+	it('returns other service requests in the window, and never the request itself', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const self = await insertServiceRequest(db, organizationId, {
+				id: CENTER.id,
+				geom: point(CENTER.lng, CENTER.lat),
+				display_name: 1,
+				request_date: new Date('2026-07-15T12:00:00'),
+			});
+			const other = await insertServiceRequest(db, organizationId, {
+				geom: NEAR,
+				display_name: 2,
+				request_date: new Date('2026-07-20T12:00:00'),
+				closed_at: new Date('2026-07-21T15:00:00.000Z'),
+			});
+			await insertServiceRequest(db, organizationId, {
+				geom: NEAR,
+				display_name: 3,
+				request_date: new Date('2026-09-01T12:00:00'),
+			});
+			await insertServiceRequest(db, organizationId, {
+				geom: FAR,
+				display_name: 4,
+				request_date: new Date('2026-07-20T12:00:00'),
+			});
+
+			const { items: rows } = await listNearbyRecords(
+				db,
+				nearby(organizationId, { families: ['publicEngagement'] }),
+			);
+
+			expect(rows.map((row) => row.id)).toEqual([other]);
+			expect(rows.map((row) => row.id)).not.toContain(self);
+			expect(rows[0]).toMatchObject({
+				category: 'serviceRequest',
+				family: 'publicEngagement',
+				date: '2026-07-20',
+				label: 'Request 2',
+				placeName: '100 Main St',
+				detail: 'closed',
+			});
+		});
+	});
+
+	// Which families come back is the caller's, and the default is the three
+	// operational ones, which is what the endpoint answered before it could
+	// return requests at all. Public engagement is outreach as well as requests,
+	// because the family is read off the register rather than a list of tables.
+	it('reads only the families asked for', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'Near Pond', NEAR);
+			await insertServiceRequest(db, organizationId, {
+				geom: NEAR,
+				display_name: 2,
+				request_date: new Date('2026-07-20T12:00:00'),
+			});
+			const outreachMethod = await db
+				.insertInto('outreach_methods')
+				.values({ organization_id: organizationId, name: 'Door hanger' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.insertInto('outreach_actions')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					outreach_method_id: outreachMethod.id,
+					outreach_date: new Date('2026-07-22T12:00:00'),
+					reach: 40,
+				})
+				.execute();
+
+			const categories = async (families: NearbyRecordsInput['families']) =>
+				(await listNearbyRecords(db, nearby(organizationId, { families }))).items.map(
+					(row) => row.category,
+				);
+
+			expect(await categories(DEFAULT_NEARBY_FAMILIES)).toEqual(['habitat']);
+			expect(await categories(['larval', 'publicEngagement'])).toEqual([
+				'habitat',
+				'outreach',
+				'serviceRequest',
+			]);
+			expect(await categories(['adult'])).toEqual([]);
+			expect(await categories([])).toEqual([]);
+		});
+	});
+
+	// The cap runs over the union, so a caller that drops a category after the
+	// read can lose a nearer row to it (#1114). `categories` narrows the read
+	// itself, inside the families: a category outside every family asked for
+	// reads nothing.
+	it('reads only the categories asked for, inside the families asked for', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'Near Pond', NEAR);
+			await insertServiceRequest(db, organizationId, {
+				geom: NEAR,
+				display_name: 2,
+				request_date: new Date('2026-07-20T12:00:00'),
+			});
+			const outreachMethod = await db
+				.insertInto('outreach_methods')
+				.values({ organization_id: organizationId, name: 'Door hanger' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.insertInto('outreach_actions')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					outreach_method_id: outreachMethod.id,
+					outreach_date: new Date('2026-07-22T12:00:00'),
+					reach: 40,
+				})
+				.execute();
+
+			const read = async (input: Partial<NearbyRecordsInput>) =>
+				(await listNearbyRecords(db, nearby(organizationId, input))).items.map(
+					(row) => row.category,
+				);
+
+			expect(
+				await read({ families: ['publicEngagement'], categories: ['serviceRequest'] }),
+			).toEqual(['serviceRequest']);
+			expect(
+				await read({ families: ['larval', 'publicEngagement'], categories: ['serviceRequest'] }),
+			).toEqual(['serviceRequest']);
+			expect(await read({ families: ['larval'], categories: ['serviceRequest'] })).toEqual([]);
+			expect(await read({ families: ['larval', 'publicEngagement'], categories: [] })).toEqual([]);
+		});
+	});
+
+	// The bug itself, at a cap of one: an outreach action nearer than the other
+	// request fills the cap when the family is read whole, and the request is
+	// cut. Naming the category is what makes the cap count only requests.
+	it('spends the cap on the categories asked for, not on the family', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			const request = await insertServiceRequest(db, organizationId, {
+				geom: point(-90.5, 35.501),
+				display_name: 2,
+				request_date: new Date('2026-07-20T12:00:00'),
+			});
+			const outreachMethod = await db
+				.insertInto('outreach_methods')
+				.values({ organization_id: organizationId, name: 'Door hanger' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			await db
+				.insertInto('outreach_actions')
+				.values({
+					organization_id: organizationId,
+					geom: NEAR,
+					outreach_method_id: outreachMethod.id,
+					outreach_date: new Date('2026-07-22T12:00:00'),
+					reach: 40,
+				})
+				.execute();
+
+			const read = async (input: Partial<NearbyRecordsInput>) =>
+				(
+					await listNearbyRecords(
+						db,
+						nearby(organizationId, { families: ['publicEngagement'], limit: 1, ...input }),
+					)
+				).items.map((row) => `${row.category}:${row.id}`);
+
+			expect(await read({})).toEqual([expect.stringMatching(/^outreach:/)]);
+			expect(await read({ categories: ['serviceRequest'] })).toEqual([`serviceRequest:${request}`]);
+		});
+	});
+
+	// The cap is a safety limit and not a page, so the page has to be told when
+	// it was hit: a radius denser than the cap otherwise draws a map that looks
+	// complete (#1141). The reader answers by reading one row past the limit
+	// and dropping it, so the rows are still the nearest `limit`.
+	it('says when the cap cut the result, and hands back the nearest rows under it', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'Third', point(-90.5, 35.5003));
+			await insertHabitat(db, organizationId, 'First', point(-90.5, 35.5001));
+			await insertHabitat(db, organizationId, 'Second', point(-90.5, 35.5002));
+
+			const capped = await listNearbyRecords(db, nearby(organizationId, { limit: 2 }));
+
+			expect(capped.truncated).toBe(true);
+			expect(capped.limit).toBe(2);
+			expect(capped.items.map((row) => row.label)).toEqual(['First', 'Second']);
+		});
+	});
+
+	it('says the cap was not hit when the rows fit under it, exactly or with room', async () => {
+		await withTestDb(async ({ db }) => {
+			const organizationId = await createOrganization(db);
+			await insertHabitat(db, organizationId, 'First', point(-90.5, 35.5001));
+			await insertHabitat(db, organizationId, 'Second', point(-90.5, 35.5002));
+
+			const exact = await listNearbyRecords(db, nearby(organizationId, { limit: 2 }));
+			expect(exact).toMatchObject({ truncated: false, limit: 2 });
+			expect(exact.items).toHaveLength(2);
+
+			const room = await listNearbyRecords(db, nearby(organizationId, { limit: 3 }));
+			expect(room).toMatchObject({ truncated: false, limit: 3 });
+			expect(room.items).toHaveLength(2);
+
+			// Nothing read is nothing cut, and the default cap is still named.
+			const nothing = await listNearbyRecords(db, nearby(organizationId, { families: [] }));
+			expect(nothing).toEqual({ items: [], truncated: false, limit: 2000 });
+		});
+	});
 });
+
+async function insertHabitat(
+	db: DbExecutor,
+	organizationId: string,
+	name: string,
+	geom: ReturnType<typeof point>,
+): Promise<string> {
+	const row = await db
+		.insertInto('habitats')
+		.values({
+			organization_id: organizationId,
+			geom,
+			habitat_name: name,
+			description: '',
+			metadata: null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+/**
+ * A request at `geom`, logged against an address at the same point named
+ * `100 Main St`, by a caller. Both are required columns on the row.
+ */
+async function insertServiceRequest(
+	db: DbExecutor,
+	organizationId: string,
+	values: {
+		readonly id?: string;
+		readonly geom: ReturnType<typeof point>;
+		readonly display_name: number;
+		readonly request_date: Date;
+		readonly closed_at?: Date;
+	},
+): Promise<string> {
+	const address = await db
+		.insertInto('addresses')
+		.values({
+			organization_id: organizationId,
+			geom: values.geom,
+			display_name: '100 Main St',
+			country: 'US',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const contact = await db
+		.insertInto('contacts')
+		.values({ organization_id: organizationId, contact_name: 'A. Caller' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const row = await db
+		.insertInto('service_requests')
+		.values({
+			organization_id: organizationId,
+			address_id: address.id,
+			contact_id: contact.id,
+			details: 'Standing water.',
+			...values,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}

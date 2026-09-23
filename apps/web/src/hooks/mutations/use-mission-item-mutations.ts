@@ -64,10 +64,14 @@ export interface MissionItemMutations {
 	readonly addAtGeometry: (input: {
 		readonly missionId: string;
 		readonly geometry: GeoJsonGeometry;
+		/** What to call the stop. Null leaves it named by whatever it links to. */
+		readonly name: string | null;
 		/** A label for the stop, not its location: the drawn shape is still what is stored. */
 		readonly addressId: string | null;
 		readonly position: number;
 	}) => Promise<void>;
+	/** Set or clear what a stop is called. Null clears it back to the derived name. */
+	readonly rename: (missionItemId: string, name: string | null) => Promise<void>;
 	readonly removeStop: (missionItemId: string) => Promise<void>;
 	readonly complete: (missionItemId: string) => Promise<void>;
 	readonly reopen: (missionItemId: string) => Promise<void>;
@@ -86,6 +90,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 
 	const newStopRow = (input: {
 		readonly missionId: string;
+		readonly name: string | null;
 		readonly lat: number;
 		readonly lng: number;
 		readonly geomType: string;
@@ -98,6 +103,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 			id: newRecordId(),
 			organization_id: organizationId ?? '',
 			mission_id: input.missionId,
+			name: input.name,
 			requested_control_action_id: input.requestedControlActionId,
 			lat: input.lat,
 			lng: input.lng,
@@ -138,6 +144,9 @@ export function useMissionItemMutations(): MissionItemMutations {
 				// centroid copied onto the row is only so the pin appears now.
 				row: newStopRow({
 					missionId,
+					// Nothing on the queue picker types a name, so a stop raised from a
+					// request is named by the request until somebody renames it.
+					name: null,
 					lat: request.lat,
 					lng: request.lng,
 					geomType: request.geomType,
@@ -152,11 +161,13 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const addAtGeometry = async ({
 		missionId,
 		geometry,
+		name,
 		addressId,
 		position,
 	}: {
 		readonly missionId: string;
 		readonly geometry: GeoJsonGeometry;
+		readonly name: string | null;
 		readonly addressId: string | null;
 		readonly position: number;
 	}) => {
@@ -175,6 +186,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 				intent: 'missionDispatch.addMissionItem',
 				row: newStopRow({
 					missionId,
+					name,
 					lat: centroid.lat,
 					lng: centroid.lng,
 					geomType: centroid.geomType,
@@ -183,6 +195,21 @@ export function useMissionItemMutations(): MissionItemMutations {
 					position,
 				}),
 				locationSource: { kind: 'geometry', geometry },
+			}),
+		);
+	};
+
+	const rename = async (missionItemId: string, name: string | null) => {
+		await settleWrite(
+			mutateCollection(mission_items(), {
+				operation: 'update',
+				intent: 'missionDispatch.renameMissionItem',
+				key: missionItemId,
+				changes: {
+					name,
+					updated_by_profile_id: actorProfileId,
+					updated_at: optimisticStamp(),
+				},
 			}),
 		);
 	};
@@ -276,6 +303,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	return {
 		addFromRequest,
 		addAtGeometry,
+		rename,
 		removeStop,
 		complete,
 		reopen,

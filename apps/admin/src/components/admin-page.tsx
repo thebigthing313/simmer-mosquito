@@ -113,7 +113,7 @@ function OperatorRequired() {
  * The server has no `SIMMER_OPERATOR_ORG_ID`, so it refuses everyone.
  *
  * The counterpart of the `VITE_SIMMER_OPERATOR_ORG_ID` refusal in
- * `routes/-auth.tsx`, and it names its variable for the same reason: the two are
+ * `components/auth.tsx`, and it names its variable for the same reason: the two are
  * set on different services and are easy to set only one of. Miss the server
  * one and sign-in works, so the operator is looking at a console that behaves
  * as though there is nothing on the platform.

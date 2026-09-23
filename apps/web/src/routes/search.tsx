@@ -1,5 +1,4 @@
 import {
-	SEARCH_MAX_OFFSET,
 	SEARCH_QUERY_MAX_LENGTH,
 	type SearchDocumentClass,
 	type SearchResult,
@@ -14,33 +13,24 @@ import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { AddressSurveillanceLinks } from '../components/address-surveillance';
-import { searchResultIcon } from '../components/search/search-destinations';
+import { SEARCH_RESULT_ICONS, searchResultIconKey } from '../components/search/search-destinations';
 import { RetiredMarker } from '../components/search/search-result-row';
-import {
-	SEARCH_QUERY_DEBOUNCE_MS,
-	SearchRequestError,
-	useGlobalSearch,
-} from '../components/search/use-global-search';
-import { useSearchResultOpen } from '../components/search/use-search-navigation';
 import {
 	type AddressSurveillance,
 	useAddressSurveillance,
 } from '../hooks/queries/use-address-surveillance';
-import { useDebouncedValue } from '../hooks/use-debounced-value';
+import { useEditableQuery } from '../hooks/search/use-editable-query';
+import { SearchRequestError } from '../hooks/search/use-global-search';
+import { useSearchResultList } from '../hooks/search/use-search-result-list';
+import { useSearchResultOpen } from '../hooks/search/use-search-result-open';
 import {
 	type FilterCodecs,
 	type SearchCodec,
 	searchValidator,
 	textParam,
 } from '../lib/search-filters';
-
-/**
- * How many rows one slice of the list holds. Infinite scroll fetches the next
- * `offset` at a sentinel, so the wire is unchanged and only the control differs.
- */
-const PAGE_SIZE = 25;
 
 /**
  * The `class` filter, which lives in the URL beside `q` or the page is only half
@@ -237,173 +227,6 @@ function EmptyState({
 }
 
 /**
- * The accumulated list, its counts, and the sentinel that grows it.
- *
- * Slices are accumulated in state rather than recomputed, because each one is
- * its own query key: without this the list would hold the first slice and the
- * current one, and every slice in between would vanish as the next arrived.
- *
- * Infinite scroll rather than page numbers. The cost is real and accepted:
- * there is no page to return to, so a result opened and backed out of lands at
- * the top of the list again.
- */
-function useSearchResultList(query: string, documentClass: SearchDocumentClass | undefined) {
-	const [slices, setSlices] = useState(1);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `query` and `documentClass` are this hook's parameters, not outer scope; dropping them keeps the previous query's slice count
-	useEffect(() => setSlices(1), [query, documentClass]);
-
-	const nextOffset = (slices - 1) * PAGE_SIZE;
-	const first = useGlobalSearch({
-		query,
-		limit: PAGE_SIZE,
-		offset: 0,
-		documentClass,
-		keepPrevious: false,
-	});
-	const next = useGlobalSearch({
-		query,
-		limit: PAGE_SIZE,
-		offset: nextOffset,
-		documentClass,
-		keepPrevious: false,
-	});
-
-	const pages = useAccumulatedPages(query, documentClass, [first, next], nextOffset);
-	const rows = pages.rows;
-	const total = first.data?.total ?? 0;
-
-	/*
-	 * Four conditions, and three of them are stops rather than the obvious one.
-	 *
-	 * `rows.length < total` alone is not enough, because the sentinel effect
-	 * re-registers every time `next.isFetching` drops and `observe` fires
-	 * immediately for an element already in view. So a slice that never lands — a
-	 * failed request, or an offset past the endpoint's own cap — leaves
-	 * `rows.length` short of `total` forever and the sentinel walks the offset
-	 * upward one request at a time with nothing to show for it.
-	 *
-	 * A short page is the honest end of the list even when `total` disagrees,
-	 * which it can: `total` is counted when the first slice ran, and a record can
-	 * be deleted underneath a scroll.
-	 */
-	const hasMore =
-		rows.length < total &&
-		!pages.reachedEnd &&
-		!next.isError &&
-		slices * PAGE_SIZE <= SEARCH_MAX_OFFSET;
-
-	const sentinel = useGrowOnVisible(hasMore && !next.isFetching, () =>
-		setSlices((count) => count + 1),
-	);
-
-	return {
-		counts: first.data?.counts ?? { records: 0, comments: 0 },
-		first,
-		hasMore,
-		next,
-		rows,
-		sentinel,
-		total,
-	};
-}
-
-/**
- * The slices loaded so far, accumulated rather than recomputed.
- *
- * Each slice is its own query key, so without this the list would hold the first
- * slice and the current one and every slice between them would vanish as the
- * next arrived. Both halves of the echo are checked, not just the query:
- * `offset` is on the wire for exactly this, and it is what tells the second
- * slice's answer apart from the first's.
- */
-function useAccumulatedPages(
-	query: string,
-	documentClass: SearchDocumentClass | undefined,
-	[first, next]: readonly [ReturnType<typeof useGlobalSearch>, ReturnType<typeof useGlobalSearch>],
-	nextOffset: number,
-): { readonly rows: readonly SearchResult[]; readonly reachedEnd: boolean } {
-	const [pages, setPages] = useState<Record<number, readonly SearchResult[]>>({});
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `query` and `documentClass` are this hook's parameters, not outer scope; dropping them leaves the previous query's rows in the list
-	useEffect(() => setPages({}), [query, documentClass]);
-
-	const firstResults =
-		first.data?.query === query && first.data.offset === 0 ? first.data.results : undefined;
-	const nextResults =
-		next.data?.query === query && next.data.offset === nextOffset ? next.data.results : undefined;
-
-	useEffect(() => {
-		if (firstResults !== undefined) {
-			setPages((current) => ({ ...current, 0: firstResults }));
-		}
-	}, [firstResults]);
-
-	useEffect(() => {
-		if (nextResults !== undefined) {
-			setPages((current) => ({ ...current, [nextOffset]: nextResults }));
-		}
-	}, [nextResults, nextOffset]);
-
-	const lastLoaded = pages[nextOffset];
-	return {
-		rows: Object.keys(pages)
-			.map(Number)
-			.sort((left, right) => left - right)
-			.flatMap((offset) => pages[offset] ?? []),
-		reachedEnd: lastLoaded !== undefined && lastLoaded.length < PAGE_SIZE,
-	};
-}
-
-/** Calls `grow` whenever the returned sentinel scrolls into view and `armed` is true. */
-function useGrowOnVisible(armed: boolean, grow: () => void): RefObject<HTMLDivElement | null> {
-	const sentinel = useRef<HTMLDivElement>(null);
-
-	// The call site passes an arrow that only calls a state setter, so the closure
-	// the observer holds cannot go stale in a way that is read. A reason that
-	// wraps onto a second line stops suppressing, so it stays on the ignore.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `grow` is a fresh closure every render and re-observing on it would loop
-	useEffect(() => {
-		const node = sentinel.current;
-		if (node === null || !armed) {
-			return;
-		}
-
-		const observer = new IntersectionObserver((entries) => {
-			if (entries.some((entry) => entry.isIntersecting)) {
-				grow();
-			}
-		});
-		observer.observe(node);
-		return () => observer.disconnect();
-	}, [armed]);
-
-	return sentinel;
-}
-
-/**
- * The field and the URL, kept in step through the debounce.
- *
- * The URL is the shareable state and the field is what is being typed, so a link
- * opened cold and a query typed here reach the same request. The navigation
- * replaces rather than pushes, or Back would walk one keystroke at a time.
- */
-function useEditableQuery(
-	urlQuery: string,
-	navigate: ReturnType<typeof useNavigate>,
-): [string, (value: string) => void] {
-	const [draft, setDraft] = useState(urlQuery);
-	useEffect(() => setDraft(urlQuery), [urlQuery]);
-	const { debounced: typed } = useDebouncedValue(draft, SEARCH_QUERY_DEBOUNCE_MS);
-
-	useEffect(() => {
-		if (typed !== urlQuery) {
-			navigate({ to: '/search', search: (previous) => ({ ...previous, q: typed }), replace: true });
-		}
-	}, [typed, urlQuery, navigate]);
-
-	return [draft, setDraft];
-}
-
-/**
  * Everything / Records / Comments, each with an exact count.
  *
  * The count is what makes the rail worth its width: it answers "is this query
@@ -537,7 +360,7 @@ function ResultRow({
 	readonly result: SearchResult;
 	readonly surveillance: AddressSurveillance;
 }) {
-	const Icon = searchResultIcon(result);
+	const Icon = SEARCH_RESULT_ICONS[searchResultIconKey(result)];
 	const addressId =
 		result.kind === 'record' && result.table === 'addresses' ? result.id : undefined;
 

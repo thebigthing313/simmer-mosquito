@@ -62,11 +62,14 @@ const HEAVY_DENSITIES = ['heavy', 'very_heavy'] as const;
  * week, so a heavy reading older than that has emerged and is no longer a
  * treatment this can prompt.
  *
- * A scalar subquery rather than a boolean because two readers want two things
- * from the one predicate: the map surface asks whether it is null, and the
- * Dashboard's banner takes its `min` for the age of the oldest. Today is
- * `now()` in the organization's zone, computed in SQL so the map filter and
- * the Dashboard cannot disagree about which day it is.
+ * A scalar subquery rather than a boolean: the map surface asks whether it is
+ * null, and the Dashboard's banner used to take its `min` for the age of the
+ * oldest. That banner is gone, because this runs once per live Habitat and
+ * took 4.7 seconds on the production clone; the shape to fix before a second
+ * reader takes it up is an index on `inspections (habitat_id, inspection_date
+ * desc, created_at desc)` and a set-based rewrite that starts from the
+ * inspections in the window. Today is `now()` in the organization's zone,
+ * computed in SQL.
  */
 export function untreatedInspectionDateSql(timeZone: string): RawBuilder<unknown> {
 	const today = sql.raw(localDateSql('now()', assertIanaTimeZone(timeZone)));

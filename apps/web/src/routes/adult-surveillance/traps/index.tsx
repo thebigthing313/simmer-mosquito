@@ -4,6 +4,9 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
+import type { StatusFilter } from '../../../components/adult-surveillance/traps/legend';
+import { trapLegend } from '../../../components/adult-surveillance/traps/legend';
 import { createLabel } from '../../../components/app-shell/navigation';
 import {
 	ActiveFilterBar,
@@ -14,10 +17,6 @@ import {
 	MultiSelectFilter,
 	SegmentedFilter,
 	toggle,
-	useCollectionMethodOptions,
-	useExplorerPanel,
-	useExplorerResource,
-	useRegionOptions,
 	whenAny,
 	whenText,
 } from '../../../components/explorer';
@@ -29,7 +28,13 @@ import {
 	TRAP_STATUS_COLORS,
 	type TrapTileFilters,
 } from '../../../components/map';
+import { useCollectionMethodOptions } from '../../../hooks/explorer/use-collection-method-options';
+import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
+import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
+import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
+import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import {
 	choiceParam,
@@ -37,12 +42,7 @@ import {
 	idSetParam,
 	searchValidator,
 	textParam,
-	useDebouncedTextFilter,
-	useSearchFilters,
 } from '../../../lib/search-filters';
-import { TrapMapCard } from '../-trap-map-card';
-import type { StatusFilter } from './-legend';
-import { trapLegend } from './-legend';
 
 interface TrapRow {
 	readonly id: string;

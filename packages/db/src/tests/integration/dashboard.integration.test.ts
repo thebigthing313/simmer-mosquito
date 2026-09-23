@@ -3,25 +3,14 @@ import type { DbExecutor } from '../../index.js';
 import { readDashboard, sql } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
 import {
-	createAddress,
-	createApplication,
-	createBiocontrolAction,
 	createCollection,
 	createCollectionMethod,
 	createCollectionSpecies,
-	createContact,
-	createHabitat,
-	createInsecticide,
 	createInspection,
 	createMission,
 	createMissionItem,
 	createOrganization,
-	createOutreachAction,
-	createProfile,
 	createRequestedControlAction,
-	createServiceRequest,
-	createSourceReduction,
-	createSourceReductionMethod,
 	createSpecies,
 	createTrap,
 	createUnit,
@@ -31,14 +20,13 @@ import {
 //
 // Every predicate here has a second table in it, which is why these are seeded
 // and read back rather than pinned as text: a sample is awaiting until a species
-// row names it, a request is unassigned until a stop on a live mission names it,
-// a habitat is untreated until an action dated after its reading names it. Each
-// case below is one row in one state the rule names, and the count is the sum
+// row names it, a request is unassigned until a stop on a live mission names it.
+// Each case below is one row in one state the rule names, and the count is the sum
 // of the states that qualify, so a predicate that stopped reading one table
 // moves the number.
 //
-// Dates are relative to today in the organization's zone, because the untreated
-// window and the activity strip both end on `now()` and nothing can move it.
+// Dates are relative to today in the organization's zone, because `today` in
+// the answer is `now()` and nothing can move it.
 
 /** A zone five hours behind UTC in September, so a UTC/local disagreement shows up. */
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
@@ -97,81 +85,6 @@ describeDbIntegration('dashboard', () => {
 		});
 	});
 
-	it('flags a habitat as untreated on the rule and nothing wider', async () => {
-		await withTestDb(async ({ db }) => {
-			const world = await seedUntreatedWorld(db);
-
-			const dashboard = await readDashboard(db, {
-				organizationId: world.organizationId,
-				timeZone: ORGANIZATION_TIME_ZONE,
-			});
-
-			// Four of twelve: the plain case, the inaccessible one, the one whose
-			// only action predates its reading, and the one whose request was
-			// resolved without an action. The oldest is the plain case's reading.
-			expect(dashboard.untreatedHabitats).toEqual({ count: 4, oldest: daysAgo(3) });
-		});
-	});
-
-	it('counts the strip on each type’s own date, and hides a type never recorded', async () => {
-		await withTestDb(async ({ db }) => {
-			const world = await seedActivityWorld(db);
-
-			const dashboard = await readDashboard(db, {
-				organizationId: world.organizationId,
-				timeZone: ORGANIZATION_TIME_ZONE,
-			});
-
-			expect(dashboard.activity.window).toEqual({ from: daysAgo(6), to: daysAgo(0) });
-			expect(dashboard.activity.priorWindow).toEqual({ from: daysAgo(13), to: daysAgo(7) });
-			expect(dashboard.activity.types).toEqual({
-				// Two in the window and one the week before; the deleted one, the one
-				// older than both windows, and the neighbour's are out.
-				inspections: { count: 2, prior: 1 },
-				// Counted on the parent inspection's date: one parent in the window.
-				samples: { count: 1, prior: 0 },
-				// One exact-timestamp collection emptied in the window, one
-				// date-plus-duration collection the week before.
-				collections: { count: 1, prior: 1 },
-				applications: { count: 1, prior: 0 },
-				// A type the organization has never recorded is not a cell.
-				sourceReductions: null,
-				// A type with records and none in the window is a cell at zero.
-				releases: { count: 0, prior: 1 },
-				// On `request_date`, not `created_at`: received a week ago, typed today.
-				serviceRequests: { count: 0, prior: 1 },
-				outreachActions: { count: 1, prior: 0 },
-			});
-		});
-	});
-
-	it('groups today’s field work by the person it is attributed to', async () => {
-		await withTestDb(async ({ db }) => {
-			const world = await seedPeopleWorld(db);
-
-			const dashboard = await readDashboard(db, {
-				organizationId: world.organizationId,
-				timeZone: ORGANIZATION_TIME_ZONE,
-			});
-
-			expect(dashboard.peopleToday.map((person) => [person.profileId, person.records])).toEqual([
-				// An inspection, an application and a source reduction assisted on.
-				// The inspection Dana only typed up counts for nobody, and the one
-				// nobody is named on counts for nobody either.
-				[world.danaProfileId, 3],
-				// The trap set today. The one emptied yesterday is yesterday's.
-				[world.caseyProfileId, 1],
-			]);
-			const casey = dashboard.peopleToday[1];
-			// The set visit carries its own moment, which is what "last record" reads.
-			expect(casey?.lastAt).toBe(`${daysAgo(0)}T14:00:00Z`);
-			const dana = dashboard.peopleToday[0];
-			// Dana's records carry a date and no time, so the latest is when the
-			// last of them was typed in, which was a moment ago.
-			expect(Date.now() - Date.parse(dana?.lastAt ?? '')).toBeLessThan(60_000);
-		});
-	});
-
 	it('reads nothing for an organization with nothing', async () => {
 		await withTestDb(async ({ db }) => {
 			const organizationId = await createOrganization(db);
@@ -184,9 +97,6 @@ describeDbIntegration('dashboard', () => {
 			expect(dashboard.queues.samplesAwaiting).toEqual({ count: 0, oldest: null });
 			expect(dashboard.queues.collectionsAwaiting).toEqual({ count: 0, oldest: null });
 			expect(dashboard.queues.requestsUnassigned).toEqual({ count: 0, oldest: null });
-			expect(dashboard.untreatedHabitats).toEqual({ count: 0, oldest: null });
-			expect(Object.values(dashboard.activity.types)).toEqual(Array(8).fill(null));
-			expect(dashboard.peopleToday).toEqual([]);
 		});
 	});
 
@@ -363,249 +273,4 @@ async function seedQueueWorld(db: DbExecutor): Promise<{ readonly organizationId
 	await createRequestedControlAction(db, neighbourId, { requested_at: noonOf(daysAgo(60)) });
 
 	return { organizationId };
-}
-
-/** The untreated flag, one habitat per clause of the rule. */
-async function seedUntreatedWorld(db: DbExecutor): Promise<{ readonly organizationId: string }> {
-	const organizationId = await createOrganization(db);
-	const unitId = await createUnit(db);
-	const insecticideId = await createInsecticide(db, organizationId, unitId);
-	const sourceReductionMethodId = await createSourceReductionMethod(db, organizationId);
-	const biocontrolMethod = await db
-		.insertInto('biocontrol_methods')
-		.values({ organization_id: organizationId, name: 'Gambusia' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const habitatWithReading = async (
-		readingDaysAgo: number,
-		density: 'heavy' | 'very_heavy' | 'light',
-		habitat: Parameters<typeof createHabitat>[2] = {},
-	) => {
-		const habitatId = await createHabitat(db, organizationId, habitat);
-		const inspectionId = await createInspection(db, organizationId, {
-			habitat_id: habitatId,
-			inspection_date: dateOf(daysAgo(readingDaysAgo)),
-			density,
-		});
-		return { habitatId, inspectionId };
-	};
-
-	// In: the plain case, and the one behind a locked gate.
-	await habitatWithReading(3, 'heavy');
-	await habitatWithReading(1, 'very_heavy', { is_inaccessible: true });
-
-	// Out: treated by an application dated after the reading, naming the habitat.
-	const treatedByApplication = await habitatWithReading(4, 'heavy');
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ habitat_id: treatedByApplication.habitatId, application_date: dateOf(daysAgo(2)) },
-	);
-	// Out: treated the same day, and named by the inspection rather than the habitat.
-	const treatedByInspectionLink = await habitatWithReading(4, 'heavy');
-	await createSourceReduction(
-		db,
-		organizationId,
-		{ methodId: sourceReductionMethodId, unitId },
-		{
-			inspection_id: treatedByInspectionLink.inspectionId,
-			source_reduction_date: dateOf(daysAgo(4)),
-		},
-	);
-	// Out: a release since the reading.
-	const treatedByRelease = await habitatWithReading(2, 'heavy');
-	await createBiocontrolAction(
-		db,
-		organizationId,
-		{ methodId: biocontrolMethod.id, unitId },
-		{ habitat_id: treatedByRelease.habitatId, biocontrol_date: dateOf(daysAgo(1)) },
-	);
-	// In: the only action predates the reading, so it treated an earlier one.
-	const actionBefore = await habitatWithReading(2, 'heavy');
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ habitat_id: actionBefore.habitatId, application_date: dateOf(daysAgo(5)) },
-	);
-	// Out: an open request already counts it on the requests queue.
-	const requested = await habitatWithReading(1, 'heavy');
-	await createRequestedControlAction(db, organizationId, { habitat_id: requested.habitatId });
-	// In: resolving the request treated nothing.
-	const requestResolved = await habitatWithReading(1, 'heavy');
-	await createRequestedControlAction(db, organizationId, {
-		habitat_id: requestResolved.habitatId,
-		resolved_at: sql`now()`,
-	});
-	// Out: older than the window.
-	await habitatWithReading(8, 'heavy');
-	// Out: the latest reading is light, whatever came before it.
-	const cleared = await habitatWithReading(3, 'heavy');
-	await createInspection(db, organizationId, {
-		habitat_id: cleared.habitatId,
-		inspection_date: dateOf(daysAgo(1)),
-		density: 'light',
-	});
-	// Out: inactive.
-	await habitatWithReading(1, 'heavy', { is_active: false });
-	// Out: the heavy reading was deleted and the live one before it is light.
-	const deletedReading = await habitatWithReading(3, 'light');
-	await createInspection(db, organizationId, {
-		habitat_id: deletedReading.habitatId,
-		inspection_date: dateOf(daysAgo(1)),
-		density: 'heavy',
-		deleted_at: sql`now()`,
-	});
-
-	return { organizationId };
-}
-
-/** The strip: a row in each window per type, and two types in two empty states. */
-async function seedActivityWorld(db: DbExecutor): Promise<{ readonly organizationId: string }> {
-	const organizationId = await createOrganization(db);
-	const neighbourId = await createOrganization(db);
-	const unitId = await createUnit(db);
-
-	// Inspections: two in the window, one the week before, one older, one deleted.
-	const inWindow = await createInspection(db, organizationId, {
-		inspection_date: dateOf(daysAgo(0)),
-	});
-	await createInspection(db, organizationId, { inspection_date: dateOf(daysAgo(6)) });
-	await createInspection(db, organizationId, { inspection_date: dateOf(daysAgo(7)) });
-	await createInspection(db, organizationId, { inspection_date: dateOf(daysAgo(14)) });
-	await createInspection(db, organizationId, {
-		inspection_date: dateOf(daysAgo(1)),
-		deleted_at: sql`now()`,
-	});
-	await createInspection(db, neighbourId, { inspection_date: dateOf(daysAgo(1)) });
-
-	// Samples: on the parent's date.
-	await db
-		.insertInto('samples')
-		.values({ organization_id: organizationId, inspection_id: inWindow })
-		.execute();
-
-	// Collections: one emptied in the window, one dated the week before.
-	const methodId = await createCollectionMethod(db, organizationId);
-	const trapId = await createTrap(db, organizationId, methodId);
-	const links = { trapId, collectionMethodId: methodId };
-	await createCollection(db, organizationId, links, {
-		started_at: noonOf(daysAgo(2)),
-		collected_at: noonOf(daysAgo(1)),
-	});
-	await createCollection(db, organizationId, links, {
-		collection_timing_mode: 'collection_date_duration',
-		started_at: null,
-		collection_date: dateOf(daysAgo(10)),
-		duration_amount: 1,
-		duration_unit_id: unitId,
-	});
-
-	// Applications: one in the window.
-	const insecticideId = await createInsecticide(db, organizationId, unitId);
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ application_date: dateOf(daysAgo(3)) },
-	);
-
-	// Source reductions: none ever, so the type is null. Releases: one the week
-	// before and none in the window, so the type is a zero.
-	const biocontrolMethod = await db
-		.insertInto('biocontrol_methods')
-		.values({ organization_id: organizationId, name: 'Gambusia' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	await createBiocontrolAction(
-		db,
-		organizationId,
-		{ methodId: biocontrolMethod.id, unitId },
-		{ biocontrol_date: dateOf(daysAgo(9)) },
-	);
-
-	// Service requests: received the week before, typed today.
-	const addressId = await createAddress(db, organizationId);
-	const contactId = await createContact(db, organizationId);
-	await createServiceRequest(
-		db,
-		organizationId,
-		{ addressId, contactId },
-		{ request_date: dateOf(daysAgo(8)) },
-	);
-
-	// Outreach: one in the window.
-	const outreachMethod = await db
-		.insertInto('outreach_methods')
-		.values({ organization_id: organizationId, name: 'Door knock' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	await createOutreachAction(db, organizationId, outreachMethod.id, {
-		outreach_date: dateOf(daysAgo(5)),
-	});
-
-	return { organizationId };
-}
-
-/** Today's field work, attributed the way the Activity Monitor attributes it. */
-async function seedPeopleWorld(db: DbExecutor): Promise<{
-	readonly organizationId: string;
-	readonly danaProfileId: string;
-	readonly caseyProfileId: string;
-}> {
-	const organizationId = await createOrganization(db);
-	const danaProfileId = await createProfile(db, organizationId, { display_name: 'Dana Reyes' });
-	const caseyProfileId = await createProfile(db, organizationId, { display_name: 'Casey Okafor' });
-	const unitId = await createUnit(db);
-	const today = daysAgo(0);
-
-	await createInspection(db, organizationId, {
-		inspection_date: dateOf(today),
-		inspected_by_profile_id: danaProfileId,
-	});
-	const insecticideId = await createInsecticide(db, organizationId, unitId);
-	await createApplication(
-		db,
-		organizationId,
-		{ insecticideId, unitId },
-		{ application_date: dateOf(today), applicator_profile_id: danaProfileId },
-	);
-	const methodId = await createSourceReductionMethod(db, organizationId);
-	const assisted = await createSourceReduction(
-		db,
-		organizationId,
-		{ methodId, unitId },
-		{ source_reduction_date: dateOf(today), technician_profile_id: null },
-	);
-	await db
-		.insertInto('additional_personnel')
-		.values({
-			organization_id: organizationId,
-			personnel_profile_id: danaProfileId,
-			entity_type: 'source_reduction',
-			entity_id: assisted,
-		})
-		.execute();
-	// Typed up by Dana, performed by nobody named: counts for nobody.
-	await createInspection(db, organizationId, {
-		inspection_date: dateOf(today),
-		created_by_profile_id: danaProfileId,
-	});
-
-	const collectionMethodId = await createCollectionMethod(db, organizationId);
-	const trapId = await createTrap(db, organizationId, collectionMethodId);
-	const links = { trapId, collectionMethodId };
-	await createCollection(db, organizationId, links, {
-		started_at: sql<Date>`${`${today} 14:00:00+00`}::timestamptz`,
-		set_by_profile_id: caseyProfileId,
-	});
-	await createCollection(db, organizationId, links, {
-		started_at: noonOf(daysAgo(2)),
-		collected_at: noonOf(daysAgo(1)),
-		collected_by_profile_id: caseyProfileId,
-	});
-
-	return { organizationId, danaProfileId, caseyProfileId };
 }

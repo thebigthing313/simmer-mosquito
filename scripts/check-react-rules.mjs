@@ -141,37 +141,22 @@ const fail = failure(GATE);
  * The measured backlog, keyed by file. See the header for what moves it and
  * what it cannot hold.
  *
- * 104 findings across 50 files: `refs` 56, `set-state-in-effect` 31,
- * `exhaustive-deps` 12, `immutability` 2, `static-components` 2 and
- * `incompatible-library` 1. #779 reads the `refs` half by code shape, and the
- * phase tickets under #649 are what take these down.
+ * It shipped at 104 findings across 50 files: `refs` 56, `set-state-in-effect`
+ * 31, `exhaustive-deps` 12, `immutability` 2, `static-components` 2 and
+ * `incompatible-library` 1. #779 read the `refs` half by code shape, the phase
+ * tickets under #649 took most of the rest, and #1181's four children cleared
+ * the 41 that were left, so one entry stands and it is the one no call site
+ * can move.
+ *
+ * `result-list.tsx` is `incompatible-library` on `useVirtualizer`. The
+ * compiler refuses any component that calls a hook it knows to return a
+ * mutable object, TanStack Virtual's among them, and nothing at the call site
+ * changes that: the finding names the library, and it stays at 1 for as long
+ * as TanStack Virtual draws the list. The component carries `"use no memo"`
+ * for the same reason, and `check:compiler-bailouts` counts it as the one
+ * opted-out function in the workspace.
  */
-const REACT_RULE_BACKLOG = new Map([
-	['apps/preview/src/useCssTokens.ts', 1],
-	['apps/web/src/components/cleanup/merge-confirm-dialog.tsx', 1],
-	['apps/web/src/components/explorer/result-list.tsx', 1],
-	['apps/web/src/components/explorer/use-map-bounds.ts', 1],
-	['apps/web/src/components/explorer/use-paged-map-resource.ts', 2],
-	['apps/web/src/components/map/map-readout.tsx', 1],
-	['apps/web/src/components/map/map-search.tsx', 3],
-	['apps/web/src/components/map/use-map-extent-fit.ts', 1],
-	['apps/web/src/components/map/use-map-padding.ts', 1],
-	['apps/web/src/components/search/search-result-row.tsx', 1],
-	['apps/web/src/components/search/use-palette-content.ts', 1],
-	['apps/web/src/components/search/use-search-navigation.ts', 2],
-	['apps/web/src/components/stop-order/inline-edit-field.tsx', 1],
-	['apps/web/src/components/stop-order/use-stop-order.ts', 1],
-	['apps/web/src/routes/-auth.tsx', 1],
-	['apps/web/src/routes/larval-surveillance/habitats/-route-address-dialog.tsx', 1],
-	['apps/web/src/routes/larval-surveillance/inspections/table.tsx', 3],
-	['apps/web/src/routes/larval-surveillance/samples/$id.tsx', 2],
-	['apps/web/src/routes/my-organization/-components/general.tsx', 1],
-	['apps/web/src/routes/public-engagement/contacts/index.tsx', 2],
-	['apps/web/src/routes/search.tsx', 7],
-	['apps/web/src/tests/unit/components/explorer/explorer-map-page.test.tsx', 4],
-	['packages/ui-web/src/components/color-picker.tsx', 1],
-	['packages/ui-web/src/hooks/use-mobile.ts', 1],
-]);
+const REACT_RULE_BACKLOG = new Map([['apps/web/src/components/explorer/result-list.tsx', 1]]);
 
 /**
  * How many modules each project must contribute, well under what it holds.
