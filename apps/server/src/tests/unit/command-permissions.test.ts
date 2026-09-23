@@ -142,6 +142,15 @@ describe('decideCommand', () => {
 		expect(decideAsRole('collector', readCommandPermission('missionDispatch.createMission'))).toBe(
 			'deny',
 		);
+		// Naming a stop is a plan edit, so it sits at the same floor as moving one,
+		// rather than with the progress commands a collector may send on their own
+		// mission.
+		expect(
+			decideAsRole('collector', readCommandPermission('missionDispatch.renameMissionItem')),
+		).toBe('deny');
+		expect(
+			decideAsRole('manager', readCommandPermission('missionDispatch.renameMissionItem')),
+		).toBe('allow');
 	});
 
 	it('defers a collector executing work to the ownership check', () => {

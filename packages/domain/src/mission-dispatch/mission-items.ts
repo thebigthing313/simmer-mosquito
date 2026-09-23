@@ -30,6 +30,7 @@ import {
 	type MissionItemPlacement,
 	type MissionItemStatus,
 	missionExecutionPayload,
+	normalizeMissionItemName,
 	validateMissionExecutionBase,
 	validateMissionItemLocationInput,
 	validateMissionItemPlacement,
@@ -40,6 +41,7 @@ export interface AddMissionItemCommandInput
 		MissionItemLocationInput {
 	readonly missionItemId: DomainId;
 	readonly missionId: DomainId;
+	readonly name?: string | null;
 	readonly placement?: MissionItemPlacement;
 	readonly acknowledgedDuplicateRequestedActionMissioning?: boolean;
 	readonly acknowledgedMethodMismatch?: boolean;
@@ -52,6 +54,7 @@ export type AddMissionItemCommand = MissionDispatchDomainCommand<
 	MissionDispatchCommandPayload & {
 		readonly missionItemId: DomainId;
 		readonly missionId: DomainId;
+		readonly name: string | null;
 		readonly geometry?: SupportedGeoJsonGeometry;
 		readonly locationSource?: import('../location-intent.js').MissionItemLocationSource;
 		readonly addressId: DomainId | null;
@@ -68,6 +71,7 @@ export interface AddMissionItemFromRequestedControlActionCommandInput
 	extends MissionDispatchCommandInput {
 	readonly missionItemId: DomainId;
 	readonly missionId: DomainId;
+	readonly name?: string | null;
 	readonly requestedControlActionId: DomainId;
 	readonly placement?: MissionItemPlacement;
 	readonly acknowledgedDuplicateRequestedActionMissioning?: boolean;
@@ -81,6 +85,7 @@ export type AddMissionItemFromRequestedControlActionCommand = MissionDispatchDom
 	MissionDispatchCommandPayload & {
 		readonly missionItemId: DomainId;
 		readonly missionId: DomainId;
+		readonly name: string | null;
 		readonly requestedControlActionId: DomainId;
 		readonly placement: MissionItemPlacement;
 		readonly acknowledgedDuplicateRequestedActionMissioning: boolean;
@@ -118,6 +123,30 @@ export type UpdateMissionItemLocationAndLinkCommand = MissionDispatchDomainComma
 		readonly acknowledgedProgressedItemLinkChange: boolean;
 		readonly acknowledgedMethodMismatch: boolean;
 		readonly acknowledgedDuplicateRequestedActionMissioning: boolean;
+	}
+>;
+
+/**
+ * What a stop is called, changed on a stop that already exists.
+ *
+ * Its own command rather than a field on
+ * {@link UpdateMissionItemLocationAndLinkCommand}: that one moves the ground a
+ * stop covers and the record it answers, so it carries the geometry snapshot
+ * rules and four acknowledgements. A name carries none of them.
+ *
+ * `name` is required and nullable, because clearing it is the other half of the
+ * command. An absent key would be a third state with nothing to write.
+ */
+export interface RenameMissionItemCommandInput extends MissionDispatchCommandInput {
+	readonly missionItemId: DomainId;
+	readonly name: string | null;
+}
+
+export type RenameMissionItemCommand = MissionDispatchDomainCommand<
+	'missionDispatch.renameMissionItem',
+	MissionDispatchCommandPayload & {
+		readonly missionItemId: DomainId;
+		readonly name: string | null;
 	}
 >;
 
@@ -341,6 +370,7 @@ export function addMissionItemCommand(input: AddMissionItemCommandInput): AddMis
 	const baseIssues = validateIdCommand(input, 'missionItemId');
 	issues.push(...baseIssues);
 	requireUuid(input.missionId, 'missionId', issues);
+	const name = normalizeMissionItemName(input.name, 'name', issues);
 	const location = validateMissionItemLocationInput(input, 'location', issues, true);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const requestedControlActionId = normalizeOptionalUuid(
@@ -360,6 +390,7 @@ export function addMissionItemCommand(input: AddMissionItemCommandInput): AddMis
 			...basePayload(input),
 			missionItemId: normalizeRequiredId(input.missionItemId),
 			missionId: normalizeRequiredId(input.missionId),
+			name,
 			...location,
 			addressId,
 			requestedControlActionId,
@@ -381,6 +412,7 @@ export function addMissionItemFromRequestedControlActionCommand(
 	issues.push(...baseIssues);
 	requireUuid(input.missionId, 'missionId', issues);
 	requireUuid(input.requestedControlActionId, 'requestedControlActionId', issues);
+	const name = normalizeMissionItemName(input.name, 'name', issues);
 	const placement = validateMissionItemPlacement(
 		input.placement ?? { kind: 'end' },
 		'placement',
@@ -393,6 +425,7 @@ export function addMissionItemFromRequestedControlActionCommand(
 			...basePayload(input),
 			missionItemId: normalizeRequiredId(input.missionItemId),
 			missionId: normalizeRequiredId(input.missionId),
+			name,
 			requestedControlActionId: normalizeRequiredId(input.requestedControlActionId),
 			placement,
 			acknowledgedDuplicateRequestedActionMissioning:
@@ -443,6 +476,22 @@ export function updateMissionItemLocationAndLinkCommand(
 			acknowledgedMethodMismatch: input.acknowledgedMethodMismatch ?? false,
 			acknowledgedDuplicateRequestedActionMissioning:
 				input.acknowledgedDuplicateRequestedActionMissioning ?? false,
+		},
+	};
+}
+
+export function renameMissionItemCommand(
+	input: RenameMissionItemCommandInput,
+): RenameMissionItemCommand {
+	const issues = validateIdCommand(input, 'missionItemId');
+	const name = normalizeMissionItemName(input.name, 'name', issues);
+	throwIfIssues('Rename mission item command is invalid.', issues);
+	return {
+		type: 'missionDispatch.renameMissionItem',
+		payload: {
+			...basePayload(input),
+			missionItemId: normalizeRequiredId(input.missionItemId),
+			name,
 		},
 	};
 }

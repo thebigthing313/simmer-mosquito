@@ -106,6 +106,7 @@ export async function writeMissionCommand(
 					missionItemId: item.missionItemId,
 					organizationId: command.payload.organizationId,
 					missionId: command.payload.missionId,
+					name: item.name,
 					geom: await resolveInitialItemGeom(trx, command.payload.organizationId, item),
 					addressId: item.kind === 'explicit' ? item.addressId : null,
 					requestedControlActionId:

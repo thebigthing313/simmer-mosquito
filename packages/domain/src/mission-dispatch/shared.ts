@@ -2,6 +2,7 @@ import {
 	createIssues,
 	isFutureBeyondClockSkew,
 	jsonObject as normalizeMetadata,
+	nullableText as normalizeNullableTextField,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
@@ -49,6 +50,7 @@ export type MissionDispatchCommandType =
 	| 'missionDispatch.addMissionItem'
 	| 'missionDispatch.addMissionItemFromRequestedControlAction'
 	| 'missionDispatch.updateMissionItemLocationAndLink'
+	| 'missionDispatch.renameMissionItem'
 	| 'missionDispatch.removeMissionItem'
 	| 'missionDispatch.moveMissionItems'
 	| 'missionDispatch.completeMissionItem'
@@ -85,6 +87,7 @@ export type MissionInitialItemInput =
 	| {
 			readonly kind: 'explicit';
 			readonly missionItemId: DomainId;
+			readonly name?: string | null;
 			readonly geometry?: unknown;
 			readonly locationSource?: MissionItemLocationSourceInput;
 			readonly addressId?: DomainId | null;
@@ -93,6 +96,7 @@ export type MissionInitialItemInput =
 	| {
 			readonly kind: 'fromRequestedControlAction';
 			readonly missionItemId: DomainId;
+			readonly name?: string | null;
 			readonly requestedControlActionId: DomainId;
 	  };
 
@@ -100,6 +104,7 @@ export type MissionInitialItem =
 	| {
 			readonly kind: 'explicit';
 			readonly missionItemId: DomainId;
+			readonly name: string | null;
 			readonly geometry?: SupportedGeoJsonGeometry;
 			readonly locationSource?: MissionItemLocationSource;
 			readonly addressId: DomainId | null;
@@ -108,6 +113,7 @@ export type MissionInitialItem =
 	| {
 			readonly kind: 'fromRequestedControlAction';
 			readonly missionItemId: DomainId;
+			readonly name: string | null;
 			readonly requestedControlActionId: DomainId;
 	  };
 
@@ -213,6 +219,28 @@ export function normalizeTimestamp(
 	return value;
 }
 
+/**
+ * How long a stop's name may be. The same 200 a Mission's own name takes: both
+ * are a line somebody types over a list, and a cap they share is one number.
+ */
+export const MISSION_ITEM_NAME_MAX_LENGTH = 200;
+
+/**
+ * What a stop is called, as the column stores it.
+ *
+ * Trimmed, and empty or whitespace-only becomes `null`, so a stop nobody named
+ * and a stop somebody named with spaces are the same absence. Every path that
+ * writes the column reads this, which is the whole of the rule: no content is
+ * refused past the length.
+ */
+export function normalizeMissionItemName(
+	value: string | null | undefined,
+	path: string,
+	issues: DomainValidationIssue[],
+): string | null {
+	return normalizeNullableTextField(value, path, issues, MISSION_ITEM_NAME_MAX_LENGTH);
+}
+
 export function validateMissionItemPlacement(
 	placement: MissionItemPlacement | undefined,
 	path: string,
@@ -301,6 +329,7 @@ export function validateInitialItems(
 			return {
 				kind: 'explicit',
 				missionItemId,
+				name: normalizeMissionItemName(item.name, `${path}.name`, issues),
 				...validateMissionItemLocationInput(item, `${path}.location`, issues, true),
 				addressId: normalizeOptionalUuid(item.addressId, `${path}.addressId`, issues),
 				requestedControlActionId: normalizeOptionalUuid(
@@ -324,6 +353,7 @@ export function validateInitialItems(
 			return {
 				kind: 'fromRequestedControlAction',
 				missionItemId,
+				name: normalizeMissionItemName(item.name, `${path}.name`, issues),
 				requestedControlActionId: normalizeRequiredId(item.requestedControlActionId),
 			};
 		}
@@ -331,6 +361,7 @@ export function validateInitialItems(
 		return {
 			kind: 'fromRequestedControlAction',
 			missionItemId: '',
+			name: null,
 			requestedControlActionId: '',
 		};
 	});

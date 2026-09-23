@@ -21,6 +21,7 @@ export function MissionStopList({
 	onAction,
 	onMove,
 	onRemove,
+	onRename,
 	onSelect,
 	onHover,
 }: {
@@ -40,6 +41,7 @@ export function MissionStopList({
 	readonly onAction: (stop: MissionStopView, action: MissionItemAction) => void;
 	readonly onMove: (index: number, action: MoveAction) => void;
 	readonly onRemove: (stop: MissionStopView) => void;
+	readonly onRename: (stop: MissionStopView) => void;
 	readonly onSelect: (id: string | null) => void;
 	readonly onHover: (id: string | null) => void;
 }) {
@@ -67,6 +69,7 @@ export function MissionStopList({
 					onHover={onHover}
 					onMove={onMove}
 					onRemove={onRemove}
+					onRename={onRename}
 					missionId={missionId}
 					onSelect={onSelect}
 					ordinal={index + 1}

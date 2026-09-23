@@ -11,6 +11,8 @@ export interface MissionSelection {
 	readonly setSkipTarget: (stop: MissionStopView | null) => void;
 	readonly removeTarget: MissionStopView | null;
 	readonly setRemoveTarget: (stop: MissionStopView | null) => void;
+	readonly renameTarget: MissionStopView | null;
+	readonly setRenameTarget: (stop: MissionStopView | null) => void;
 	readonly cancelOpen: boolean;
 	readonly setCancelOpen: (open: boolean) => void;
 	readonly reopenOpen: boolean;
@@ -26,6 +28,7 @@ export function useMissionSelection(): MissionSelection {
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const [skipTarget, setSkipTarget] = useState<MissionStopView | null>(null);
 	const [removeTarget, setRemoveTarget] = useState<MissionStopView | null>(null);
+	const [renameTarget, setRenameTarget] = useState<MissionStopView | null>(null);
 	const [cancelOpen, setCancelOpen] = useState(false);
 	const [reopenOpen, setReopenOpen] = useState(false);
 
@@ -38,6 +41,8 @@ export function useMissionSelection(): MissionSelection {
 		setSkipTarget,
 		removeTarget,
 		setRemoveTarget,
+		renameTarget,
+		setRenameTarget,
 		cancelOpen,
 		setCancelOpen,
 		reopenOpen,

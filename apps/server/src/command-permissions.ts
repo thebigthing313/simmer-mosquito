@@ -346,6 +346,7 @@ const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPe
 	'missionDispatch.addMissionItem': MANAGER,
 	'missionDispatch.addMissionItemFromRequestedControlAction': MANAGER,
 	'missionDispatch.updateMissionItemLocationAndLink': MANAGER,
+	'missionDispatch.renameMissionItem': MANAGER,
 	'missionDispatch.removeMissionItem': MANAGER,
 	'missionDispatch.moveMissionItems': MANAGER,
 

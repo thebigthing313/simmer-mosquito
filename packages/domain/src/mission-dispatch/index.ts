@@ -1,5 +1,4 @@
 export * from './mission-items.js';
-
 export * from './missions.js';
 export type {
 	MissionDispatchCommandType,
@@ -14,6 +13,7 @@ export type {
 	MissionItemStatus,
 	MissionLifecycleStatus,
 } from './shared.js';
+export { MISSION_ITEM_NAME_MAX_LENGTH } from './shared.js';
 
 import type {
 	AddMissionItemCommand,
@@ -25,6 +25,7 @@ import type {
 	RecordOutreachActionForMissionItemCommand,
 	RecordSourceReductionForMissionItemCommand,
 	RemoveMissionItemCommand,
+	RenameMissionItemCommand,
 	ReopenMissionItemCommand,
 	SkipMissionItemCommand,
 	UnskipMissionItemCommand,
@@ -59,6 +60,7 @@ export type MissionDispatchCommand =
 	| AddMissionItemCommand
 	| AddMissionItemFromRequestedControlActionCommand
 	| UpdateMissionItemLocationAndLinkCommand
+	| RenameMissionItemCommand
 	| RemoveMissionItemCommand
 	| MoveMissionItemsCommand
 	| CompleteMissionItemCommand

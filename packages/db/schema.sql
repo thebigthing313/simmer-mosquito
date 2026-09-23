@@ -1401,6 +1401,7 @@ CREATE TABLE public.mission_items (
     lng double precision,
     geojson jsonb GENERATED ALWAYS AS ((public.st_asgeojson(geom))::jsonb) STORED,
     geom_type text,
+    name text,
     CONSTRAINT mission_items_geom_type_check CHECK ((public.geometrytype(geom) = ANY (ARRAY['POINT'::text, 'LINESTRING'::text, 'POLYGON'::text, 'MULTIPOINT'::text, 'MULTILINESTRING'::text, 'MULTIPOLYGON'::text]))),
     CONSTRAINT mission_items_progress_exclusive CHECK (((completed_at IS NULL) OR (skipped_at IS NULL)))
 );
@@ -6728,4 +6729,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('202608260001'),
     ('202608300001'),
     ('202609030001'),
-    ('202609220001');
+    ('202609220001'),
+    ('202609230001');
