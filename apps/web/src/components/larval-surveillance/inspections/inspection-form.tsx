@@ -25,7 +25,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
@@ -41,7 +41,12 @@ import { LocationAddressField } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { checkOwnedGeometry } from '../../map/geojson-adapter';
 import { DrawToolbar, GeometryControl } from '../../map/geometry-control';
-import { LabeledControl, LifeStageSelector, WaterToggle } from './inspection-form-controls';
+import {
+	ConditionsField,
+	DryNote,
+	LabeledControl,
+	LifeStageSelector,
+} from './inspection-form-controls';
 import {
 	densityOptions,
 	emptyLifeStages,
@@ -142,7 +147,6 @@ export function InspectionFormPage({
 		startDraw,
 	} = location;
 
-	const conditionsErrorId = useId();
 	// Habitat and ad-hoc inspections are distinct commands with distinct rules,
 	// so the validator picks the same one the save will. Conditions not chosen
 	// reads as dry here, which asks nothing of the findings, and the field's own
@@ -401,30 +405,19 @@ export function InspectionFormPage({
 
 				<FormSection title="Findings" note={findingsRequirement(entryMode)}>
 					<form.AppField name="isWet">
-						{(field) => {
-							const error = errorMessagesFrom(field.state.meta.errors)[0]?.message;
-							return (
-								<LabeledControl
-									error={error}
-									errorId={conditionsErrorId}
-									label="Conditions"
-									required
-								>
-									<WaterToggle
-										describedBy={error === undefined ? undefined : conditionsErrorId}
-										invalid={error !== undefined}
-										onChange={(next) => {
-											if (next || !hasLarvalData(form.state.values)) {
-												field.handleChange(next);
-												return;
-											}
-											setPendingDry(true);
-										}}
-										value={field.state.value}
-									/>
-								</LabeledControl>
-							);
-						}}
+						{(field) => (
+							<ConditionsField
+								error={errorMessagesFrom(field.state.meta.errors)[0]?.message}
+								onChange={(next) => {
+									if (next || !hasLarvalData(form.state.values)) {
+										field.handleChange(next);
+										return;
+									}
+									setPendingDry(true);
+								}}
+								value={field.state.value}
+							/>
+						)}
 					</form.AppField>
 
 					<form.Subscribe selector={(state) => state.values.isWet}>
@@ -484,11 +477,9 @@ export function InspectionFormPage({
 										)}
 									</form.AppField>
 								</div>
-							) : isWet === false ? (
-								<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
-									Dry inspections record no abundance or life-stage detail.
-								</p>
-							) : null
+							) : (
+								<DryNote isWet={isWet} />
+							)
 						}
 					</form.Subscribe>
 				</FormSection>

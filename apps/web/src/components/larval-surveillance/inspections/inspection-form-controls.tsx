@@ -2,6 +2,7 @@ import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { FieldError } from '@simmer-mosquito/ui-web/components/ui/field';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { useId } from 'react';
 import type { LifeStageFlags } from '../../larval-display';
 
 const LIFE_STAGE_SEGMENTS: readonly {
@@ -50,10 +51,48 @@ export function LabeledControl({
 }
 
 /**
+ * The Conditions field: Wet or Dry, required, with its error drawn under the
+ * toggle and read with it. `null` is a new inspection nobody has looked at yet.
+ */
+export function ConditionsField({
+	value,
+	error,
+	onChange,
+}: {
+	readonly value: boolean | null;
+	readonly error: string | undefined;
+	readonly onChange: (value: boolean) => void;
+}) {
+	const errorId = useId();
+	return (
+		<LabeledControl error={error} errorId={errorId} label="Conditions" required>
+			<WaterToggle
+				describedBy={error === undefined ? undefined : errorId}
+				invalid={error !== undefined}
+				onChange={onChange}
+				value={value}
+			/>
+		</LabeledControl>
+	);
+}
+
+/** What a dry inspection's findings say in place of the fields. Nothing before a choice. */
+export function DryNote({ isWet }: { readonly isWet: boolean | null }) {
+	if (isWet !== false) {
+		return null;
+	}
+	return (
+		<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
+			Dry inspections record no abundance or life-stage detail.
+		</p>
+	);
+}
+
+/**
  * Wet or Dry. `null` presses neither, which is how a new inspection opens, and
  * the pressed segment cannot be pressed off again.
  */
-export function WaterToggle({
+function WaterToggle({
 	value,
 	onChange,
 	invalid = false,

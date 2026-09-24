@@ -201,10 +201,7 @@ function ServiceRequestsExplorerRoute() {
 			rowsKey: 'serviceRequests',
 			rowKey: 'serviceRequest',
 			recordType: RECORD_TYPE,
-			params: {
-				...requestQueryParams(filters),
-				oldest: railOrder.order === 'oldest' ? true : undefined,
-			},
+			params: requestPageParams(filters, railOrder.order),
 			layer,
 			map,
 			selectedId,
@@ -300,7 +297,7 @@ function ServiceRequestsExplorerRoute() {
 			}
 			results={{
 				rows,
-				revealIndex: rows.findIndex((request) => request.id === selectedId),
+				revealIndex: rowIndexOf(rows, selectedId),
 				isError,
 				onRetry: retry,
 				empty,
@@ -356,6 +353,22 @@ function requestQueryParams(filters: ServiceRequestTileFilters): {
 		dateFrom: filters.dateFrom,
 		dateTo: filters.dateTo,
 	};
+}
+
+/**
+ * The page request's params: the filters, plus the rail's order, which only
+ * the page reads. Newest first is the reader's default and goes unsent.
+ */
+function requestPageParams(
+	filters: ServiceRequestTileFilters,
+	order: ServiceRequestRailOrder,
+): Readonly<Record<string, string | boolean | readonly string[] | undefined>> {
+	return { ...requestQueryParams(filters), oldest: order === 'oldest' ? true : undefined };
+}
+
+/** Where the selected request sits on the page, or `-1` when it is not on it. */
+function rowIndexOf(rows: readonly RequestListing[], selectedId: string | null): number {
+	return selectedId === null ? -1 : rows.findIndex((request) => request.id === selectedId);
 }
 
 /** The filter card's contents: the five controls and the chips that undo them. */

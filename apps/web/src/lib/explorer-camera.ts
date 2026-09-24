@@ -56,32 +56,45 @@ export function watchExplorerCamera(map: MapboxMap, key: string): () => void {
 	};
 }
 
+/** The range each stored number has to fall in for a map to open on it. */
+const CAMERA_RANGES = {
+	lng: [-180, 180],
+	lat: [-90, 90],
+	zoom: [0, 24],
+	bearing: [-360, 360],
+	pitch: [0, 85],
+} as const;
+
 /**
  * A stored value as a camera, or `undefined`. It is input: a value written by
  * an older build or edited by hand must not put the map somewhere it cannot
  * draw.
  */
 function parseCamera(value: unknown): MapCamera | undefined {
-	if (typeof value !== 'object' || value === null) {
+	const raw = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>;
+	const center = Array.isArray(raw.center) && raw.center.length === 2 ? raw.center : [];
+	const read = {
+		lng: center[0],
+		lat: center[1],
+		zoom: raw.zoom,
+		bearing: raw.bearing,
+		pitch: raw.pitch,
+	};
+	const inRange = (Object.keys(CAMERA_RANGES) as (keyof typeof CAMERA_RANGES)[]).every((key) =>
+		isFiniteIn(read[key], CAMERA_RANGES[key]),
+	);
+	if (!inRange) {
 		return undefined;
 	}
-	const { center, zoom, bearing, pitch } = value as Record<string, unknown>;
-	if (!Array.isArray(center) || center.length !== 2) {
-		return undefined;
-	}
-	const [lng, lat] = center as unknown[];
-	if (
-		!isFiniteIn(lng, -180, 180) ||
-		!isFiniteIn(lat, -90, 90) ||
-		!isFiniteIn(zoom, 0, 24) ||
-		!isFiniteIn(bearing, -360, 360) ||
-		!isFiniteIn(pitch, 0, 85)
-	) {
-		return undefined;
-	}
-	return { center: [lng, lat], zoom, bearing, pitch };
+	const camera = read as Record<keyof typeof CAMERA_RANGES, number>;
+	return {
+		center: [camera.lng, camera.lat],
+		zoom: camera.zoom,
+		bearing: camera.bearing,
+		pitch: camera.pitch,
+	};
 }
 
-function isFiniteIn(value: unknown, min: number, max: number): value is number {
+function isFiniteIn(value: unknown, [min, max]: readonly [number, number]): boolean {
 	return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 }

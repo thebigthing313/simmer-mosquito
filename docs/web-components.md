@@ -320,6 +320,16 @@ me" said only that a default existed. The habitat picker passes
 `includeRetired`, because an inspection is also how a retired site gets looked
 at again; the control pickers exclude.
 
+Conditions opens with neither Wet nor Dry pressed on a new inspection. The
+form used to open on Wet, so an inspection saved by somebody who never looked
+at the toggle recorded standing water; the column's own default is `false`,
+so neither default was a finding anybody made. The domain builder takes a
+boolean and cannot say "not chosen", so `withConditionsChosen` lays the rule
+over the builder's answer and puts `Choose Wet or Dry.` on the field, and the
+findings stay hidden until a choice is made. An edit opens on the stored value.
+`ConditionsField` and `DryNote` sit in the controls module so the page does
+not carry the error wiring and a third branch of the findings ternary.
+
 #### Key entry dialogs
 
 The latest-value ref that kept the open-time rows out of the effect was written
