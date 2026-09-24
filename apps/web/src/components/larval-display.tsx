@@ -57,6 +57,11 @@ export function larvaePerDip(larvaeCount: number | null, dipCount: number | null
 /**
  * A fixed six-cell "E1234P" strip: each life stage is a stable cell, filled when
  * present and dimmed when absent, so rows line up regardless of what was recorded.
+ *
+ * The six flags are one complete observation, `CONTEXT.md`'s rule, so a dimmed
+ * cell says absent and never "not recorded". Each cell carries that as its own
+ * name, `Pupae absent` or `1st instar present`, inside a group named Life
+ * stages, so a screen reader walks the six the way the eye reads them.
  */
 export function LifeStageStrip({
 	stages,
@@ -65,26 +70,21 @@ export function LifeStageStrip({
 	readonly stages: LifeStageFlags;
 	readonly size?: 'default' | 'sm';
 }) {
-	const present = lifeStageSegments.filter((segment) => stages[segment.key]);
-	const ariaLabel =
-		present.length === 0
-			? 'No life stages recorded'
-			: `Life stages present: ${present.map((segment) => segment.label).join(', ')}`;
-
 	return (
 		<div
-			aria-label={ariaLabel}
+			aria-label="Life stages"
 			// `w-fit`, not `inline-flex` alone: the segments are fixed-size, and a
 			// grid or flex parent stretches an item to its track by default — which
 			// left a run of empty box trailing the P.
 			className="flex w-fit overflow-hidden rounded-md border border-border"
-			role="img"
+			role="group"
 		>
 			{lifeStageSegments.map((segment, index) => {
 				const isPresent = stages[segment.key];
+				const name = `${segment.label} ${isPresent ? 'present' : 'absent'}`;
 				return (
 					<span
-						aria-hidden="true"
+						aria-label={name}
 						className={cn(
 							'flex items-center justify-center font-semibold tabular-nums',
 							size === 'sm' ? 'size-5 text-[0.65rem]' : 'size-6 text-xs',
@@ -94,7 +94,10 @@ export function LifeStageStrip({
 								: 'bg-muted/40 text-muted-foreground/40',
 						)}
 						key={segment.key}
-						title={segment.label}
+						role="img"
+						// The name again, so the pointer reads what the screen reader hears
+						// and a description equal to the name is not announced twice.
+						title={name}
 					>
 						{segment.symbol}
 					</span>
