@@ -77,9 +77,8 @@ function CreateOutreachActionRoute() {
 			}
 
 			// The geometry is the action's authoritative location; the address (if any)
-			// is reference only. Off a mission stop it is required; on one it is an
-			// override the crew may not have drawn, and the server falls back to the
-			// stop's own ground.
+			// is reference only. On a mission stop the form opens on the stop's
+			// geometry, and an untouched one is left for the server to copy.
 			const location = mission.resolveLocation(geometry, {
 				missing: 'Place the outreach location on the map.',
 				unresolvable: 'Unable to determine the outreach location.',
@@ -140,7 +139,7 @@ function CreateOutreachActionRoute() {
 					backLabel: recordNoun('outreachAction').titleMany,
 				}}
 				initialGeometry={initialGeometry}
-				requireLocation={mission.requireLocation}
+				missionStop={mission.stopGeometry}
 				onSave={onSave}
 				organizationId={organization.id}
 				outreachMethods={methods}

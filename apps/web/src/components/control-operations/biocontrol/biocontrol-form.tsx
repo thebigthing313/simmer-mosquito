@@ -7,6 +7,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
+import type { MissionStopGeometry } from '../../../hooks/operations/use-mission-stop-geometry';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
@@ -44,17 +45,13 @@ const BIOCONTROL_FIELD_PATHS: Readonly<Record<string, string>> = {
  * The form's rules, straight from the domain builder: the method, the amount,
  * the unit and the date, each issue attributed to the field that holds it.
  */
-export function validateBiocontrol(
-	value: BiocontrolFormValues,
-	geometry: DrawGeometry | null,
-	requireLocation: boolean,
-) {
+export function validateBiocontrol(value: BiocontrolFormValues, geometry: DrawGeometry | null) {
 	return domainValidator(
 		() =>
 			recordBiocontrolActionCommand({
 				...FORM_VALIDATION_CONTEXT,
 				biocontrolActionId: FORM_VALIDATION_CONTEXT.organizationId,
-				locationSource: validationLocationSource(geometry, requireLocation),
+				locationSource: validationLocationSource(geometry),
 				biocontrolMethodId: value.biocontrolMethodId,
 				amountReleased: value.amountReleased as number,
 				releaseUnitId: value.releaseUnitId,
@@ -115,6 +112,12 @@ export interface BiocontrolFormPageProps {
 	 * optional so an action keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
+	/**
+	 * The mission stop the form was opened from, whose geometry is drawn when it
+	 * arrives. Null off a stop and on edit; required so a create route that
+	 * forgets the stop fails `tsc` rather than opening on an empty map.
+	 */
+	readonly missionStop: MissionStopGeometry | null;
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: BiocontrolFormHeader;
@@ -151,6 +154,7 @@ export function BiocontrolFormPage({
 	defaultValues,
 	initialGeometry = null,
 	requireLocation = true,
+	missionStop,
 	mode,
 	header,
 	onSave,
@@ -162,6 +166,7 @@ export function BiocontrolFormPage({
 		initialGeometry,
 		missingMessage: 'Map where the agents were released.',
 		required: requireLocation,
+		missionStop,
 	});
 	const { draw, geometry, geometryType, referenceGeometry } = location;
 
@@ -178,7 +183,12 @@ export function BiocontrolFormPage({
 		defaultValues,
 		validators: {
 			onSubmit: ({ value }: { readonly value: BiocontrolFormValues }) =>
-				validateBiocontrol(value, geometry, requireLocation),
+				validateBiocontrol(value, geometry),
+		},
+		// A save refused over the fields says the missing location in the same
+		// pass, rather than only once the fields are fixed.
+		onSubmitInvalid: () => {
+			location.requireGeometry();
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();

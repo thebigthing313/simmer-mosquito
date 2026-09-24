@@ -193,6 +193,7 @@ function EditOutreachActionLoader({
 			outreachMethods={outreachMethods}
 			profiles={profiles}
 			requireLocation={false}
+			missionStop={null}
 		/>
 	);
 }

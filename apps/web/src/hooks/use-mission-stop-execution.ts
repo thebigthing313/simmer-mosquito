@@ -2,9 +2,14 @@ import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { sameDrawGeometry } from '../components/map/draw-parts';
 import type { StopAcknowledgements } from '../lib/acknowledgements';
 import { mission_items } from '../lib/collections/mission_items';
-import { toDrawGeometry } from './map/use-map-draw';
+import { type DrawGeometry, toDrawGeometry } from './map/use-map-draw';
+import {
+	type MissionStopGeometry,
+	useMissionStopGeometry,
+} from './operations/use-mission-stop-geometry';
 import { unmatchableId } from './queries/shared';
 import { useAcknowledgedWrite } from './use-acknowledged-write';
 
@@ -15,9 +20,9 @@ const missionStopGcTimeMs = 30_000;
  * Where the action happened, in the two forms the write needs it.
  *
  * `locationSource` is what the server resolves the geometry from, and is absent
- * exactly when the stop's own geometry is to be used. The centroid is only ever
- * for the optimistic row, so the map and coordinates show something before sync
- * answers.
+ * exactly when the form still holds the stop's own geometry. The centroid is
+ * only ever for the optimistic row, so the map and coordinates show something
+ * before sync answers.
  */
 export interface ResolvedActionLocation {
 	readonly lat: number;
@@ -34,56 +39,36 @@ export interface LocationMessages {
 	readonly unresolvable: string;
 }
 
-/** The stop's own centroid, all this needs of a mission item. */
-interface StopCentroid {
-	readonly lat: number;
-	readonly lng: number;
-	readonly geomType: string;
-}
-
 /**
- * Where a control action happened, from what the form has and what the stop
- * names.
+ * Where a control action happened, from the geometry on the form.
  *
- * Pure and exported so the rule can be tested without rendering: this is the
- * seam where the four create pages used to throw "place the point" on a mission
- * stop whose form had not marked the point required, which made the server's
- * geometry default unreachable from the UI.
+ * A geometry is required on a mission stop as it is off one, since the form
+ * draws the stop's geometry when it opens and an empty map means the crew
+ * cleared it (#1233). A geometry still exactly the stop's is sent as none, and
+ * the server copies the stop's stored shape: the copy the form holds came
+ * through `st_asgeojson` at nine decimal places, and a rounded copy need not
+ * cover the stored shape, which would put the coverage question to a crew that
+ * changed nothing.
  */
 export function resolveActionLocation(input: {
 	readonly geometry: unknown;
-	readonly missionItemId: string | null;
-	readonly stop: StopCentroid | null;
+	readonly stopGeometry: DrawGeometry | null;
 	readonly messages: LocationMessages;
 }): ResolvedActionLocation {
-	if (input.geometry !== null && input.geometry !== undefined) {
-		// The four create pages hand this straight off their form state, so it
-		// arrives untyped. `toDrawGeometry` is the check; casting here would hand
-		// the centroid reader a shape nothing had looked at.
-		const drawn = toDrawGeometry(input.geometry);
-		if (drawn === null) {
-			throw new Error(input.messages.unresolvable);
-		}
-		return drawnLocation(drawn, input.messages);
-	}
-	// Off a mission the point is the only thing that says where the work
-	// happened, so its absence is the crew's to fix.
-	if (input.missionItemId === null) {
+	if (input.geometry === null || input.geometry === undefined) {
 		throw new Error(input.messages.missing);
 	}
-	// On one, the stop already names the ground and the server defaults the
-	// action's geometry from it — no location source is sent at all. The
-	// optimistic row still needs a centroid, and the stop's is the one the server
-	// is about to give it.
-	if (input.stop === null) {
-		throw new Error('The mission stop is still loading.');
+	// The four create pages hand this straight off their form state, so it
+	// arrives untyped. `toDrawGeometry` is the check; casting here would hand the
+	// centroid reader a shape nothing had looked at.
+	const drawn = toDrawGeometry(input.geometry);
+	if (drawn === null) {
+		throw new Error(input.messages.unresolvable);
 	}
-	return {
-		geomType: input.stop.geomType,
-		lat: input.stop.lat,
-		lng: input.stop.lng,
-		locationSource: undefined,
-	};
+	const location = drawnLocation(drawn, input.messages);
+	return sameDrawGeometry(drawn, input.stopGeometry)
+		? { ...location, locationSource: undefined }
+		: location;
 }
 
 function drawnLocation(geometry: GeoJsonGeometry, messages: LocationMessages) {
@@ -102,8 +87,8 @@ function drawnLocation(geometry: GeoJsonGeometry, messages: LocationMessages) {
 export interface MissionStopExecution {
 	/** The stop being executed, or null for an ordinary off-mission record. */
 	readonly missionItemId: string | null;
-	/** Whether the form must have a drawn location before it will submit. */
-	readonly requireLocation: boolean;
+	/** The stop's geometry for the form to draw, or null off a stop. */
+	readonly stopGeometry: MissionStopGeometry | null;
 	/** Run the save; `acknowledgements` is empty on the first attempt. */
 	readonly run: (write: (acknowledgements: StopAcknowledgements) => Promise<void>) => Promise<void>;
 	/** Render inside the page. Null until a write is refused with a question. */
@@ -118,8 +103,8 @@ export interface MissionStopExecution {
 
 /**
  * The mission half of a control action create page: the stop read out of
- * `search`, the relaxed location requirement, the acknowledged write, and the
- * return to the mission rather than to the new record.
+ * `search`, the stop's geometry for the form to draw, the acknowledged write,
+ * and the return to the mission rather than to the new record.
  */
 export function useMissionStopExecution(search: {
 	readonly missionItemId?: string | undefined;
@@ -133,25 +118,26 @@ export function useMissionStopExecution(search: {
 	// included; every id is minted up front, so a retry writes the same rows.
 	const { run, dialog } = useAcknowledgedWrite();
 
-	// The stop's own centroid, for the optimistic row when nothing was drawn.
-	// Subscribing also warms the on-demand stream this page is about to write
-	// against, which is what keeps the write's txid confirmation from timing out.
-	const stopResult = useLiveQuery({
+	// Nothing reads this row. Subscribing warms the on-demand stream this page is
+	// about to write against, which is what keeps the write's txid confirmation
+	// from timing out.
+	useLiveQuery({
 		gcTime: missionStopGcTimeMs,
 		query: (query) =>
 			query
 				.from({ item: mission_items() })
 				.where(({ item }) => eq(item.id, missionItemId ?? unmatchableId))
-				.select(({ item }) => ({
-					lat: item.lat,
-					lng: item.lng,
-					geomType: item.geom_type,
-				})),
+				.select(({ item }) => ({ id: item.id })),
 	});
-	const stop = stopResult.data[0] ?? null;
+
+	const stopGeometry = useMissionStopGeometry({ missionId, missionItemId });
 
 	const resolveLocation = (geometry: unknown, messages: LocationMessages): ResolvedActionLocation =>
-		resolveActionLocation({ geometry, messages, missionItemId, stop });
+		resolveActionLocation({
+			geometry,
+			messages,
+			stopGeometry: stopGeometry?.status === 'ready' ? stopGeometry.geometry : null,
+		});
 
 	const navigateAfterSave = async (toRecord: () => Promise<void>) => {
 		// Back to the worklist the stop came from; the crew's next move is the next
@@ -167,12 +153,8 @@ export function useMissionStopExecution(search: {
 		dialog,
 		missionItemId,
 		navigateAfterSave,
-		// A mission stop already names the ground. The server defaults the action's
-		// geometry from it, so requiring a draw here would make the crew re-trace
-		// the place they were sent — and, for a line or polygon stop, trace it
-		// wrongly enough to trip the coverage check.
-		requireLocation: missionItemId === null,
 		resolveLocation,
 		run,
+		stopGeometry,
 	};
 }

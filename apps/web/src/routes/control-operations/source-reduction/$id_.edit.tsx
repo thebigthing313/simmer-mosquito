@@ -190,6 +190,7 @@ function EditSourceReductionLoader({
 			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
+			missionStop={null}
 			units={units}
 		/>
 	);

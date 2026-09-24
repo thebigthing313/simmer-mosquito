@@ -256,6 +256,7 @@ function EditApplicationLoader({
 				organizationId={organizationId}
 				profiles={profiles}
 				requireLocation={false}
+				missionStop={null}
 				units={units}
 				vehicles={vehicles}
 			/>

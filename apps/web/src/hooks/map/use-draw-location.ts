@@ -8,9 +8,11 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
 import type { MapDrawController } from '../../components/map/draw-controller';
 import type { RequestMapPoint } from '../../components/pickers/new-address-form';
+import type { MissionStopGeometry } from '../operations/use-mission-stop-geometry';
 import { type DrawPoint, useAddressPoint } from './use-address-point';
 import { useFitToGeometry } from './use-fit-to-geometry';
 import { type DrawGeometry, type DrawGeometryType, useMapDraw } from './use-map-draw';
+import { useMissionStopSeed } from './use-mission-stop-seed';
 /** What a record form's location section holds. */
 export interface DrawLocation {
 	readonly geometry: DrawGeometry | null;
@@ -58,6 +60,10 @@ export interface DrawLocation {
 	readonly reportError: (message: string) => void;
 	/** Reports the missing shape on submit; returns false when there is nothing to save. */
 	readonly requireGeometry: () => boolean;
+	/** The mission stop the form was opened from, or null off a stop. */
+	readonly missionStop: MissionStopGeometry | null;
+	/** Put the stop's geometry back after an edit or a clear. Does nothing until it has loaded. */
+	readonly restoreStopGeometry: () => void;
 }
 
 export interface DrawLocationOptions {
@@ -91,6 +97,12 @@ export interface DrawLocationOptions {
 	 * no location command.
 	 */
 	readonly required?: boolean;
+	/**
+	 * The mission stop the form was opened from. Its geometry arrives after the
+	 * form opens, so it is drawn on the first render that has it, unless a shape
+	 * was placed first, and never again: a cleared geometry stays cleared.
+	 */
+	readonly missionStop?: MissionStopGeometry | null;
 }
 
 /**
@@ -121,6 +133,7 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 		map: externalMap,
 		missingMessage,
 		required = true,
+		missionStop = null,
 	} = options;
 
 	const [ownMap, setOwnMap] = useState<MapboxMap | null>(null);
@@ -136,6 +149,19 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 		initialReferenceGeometry,
 	);
 	const [locationError, setLocationError] = useState<string | null>(null);
+	const placeStopGeometry = (next: DrawGeometry) => {
+		setGeometry(next);
+		setGeometryType(getBaseGeometryType(next.type));
+	};
+	const stopGeometry = useMissionStopSeed(missionStop, geometry === null, placeStopGeometry);
+	const restoreStopGeometry = () => {
+		if (stopGeometry === null) {
+			return;
+		}
+		placeStopGeometry(stopGeometry);
+		setGeometryChanged(true);
+		setLocationError(null);
+	};
 
 	const handleGeometryChange = (next: DrawGeometry | null) => {
 		setGeometry(next);
@@ -237,5 +263,7 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 		clearError: () => setLocationError(null),
 		reportError: setLocationError,
 		requireGeometry,
+		missionStop,
+		restoreStopGeometry,
 	};
 }
