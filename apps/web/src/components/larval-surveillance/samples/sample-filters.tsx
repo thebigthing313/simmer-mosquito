@@ -76,12 +76,14 @@ export function SampleFilterFields({
 					options={regions.options}
 					selected={filters.regions}
 				/>
+			</FilterGrid>
+			<div>
 				<ToggleFilter
 					label="Non-mosquito material"
 					onChange={(nonMosquito) => setFilters({ nonMosquito })}
 					value={filters.nonMosquito}
 				/>
-			</FilterGrid>
+			</div>
 		</div>
 	);
 

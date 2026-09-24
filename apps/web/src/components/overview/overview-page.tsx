@@ -52,6 +52,13 @@ import { UpwardLine } from './overview-upward-line';
 
 const ChartIcon = iconRegistry.generic.chart.icon;
 
+/** Each page's header wears the icon its sidebar entry does. */
+const GRAIN_ICONS = {
+	day: iconRegistry.generic.today.icon,
+	month: iconRegistry.generic.calendar.icon,
+	year: iconRegistry.generic.chart.icon,
+} as const;
+
 export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
@@ -105,7 +112,7 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 				}
 				description={OVERVIEW_DESCRIPTIONS[grain]}
 				eyebrow="Organization"
-				icon={ChartIcon}
+				icon={GRAIN_ICONS[grain]}
 				title={OVERVIEW_TITLES[grain]}
 			/>
 			<UpwardLine grain={grain} period={period} />

@@ -224,7 +224,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						id: 'today',
 						label: 'Today',
 						to: '/today',
-						icon: iconRegistry.simmer.fieldWork.icon,
+						icon: iconRegistry.generic.today.icon,
 					},
 					{
 						id: 'monthly',

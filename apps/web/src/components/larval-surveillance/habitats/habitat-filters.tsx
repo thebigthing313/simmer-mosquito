@@ -76,35 +76,42 @@ export function HabitatFilterFields({
 		</>
 	);
 
+	// The toggle sits under the grid at its own width. In a grid cell it was
+	// stretched to the column and drew as a bordered box beside the popover
+	// triggers, which read as a text field.
 	const popovers = (
-		<FilterGrid>
-			<MultiSelectFilter
-				empty="No habitat types"
-				label="Habitat type"
-				onChange={(typeIds) => setFilters({ typeIds })}
-				options={habitatTypes}
-				selected={filters.typeIds}
-			/>
-			<MultiSelectFilter
-				empty="No tags"
-				label="Tags"
-				onChange={(tagIds) => setFilters({ tagIds })}
-				options={tags}
-				selected={filters.tagIds}
-			/>
-			<MultiSelectFilter
-				empty="No regions"
-				label="Region"
-				onChange={(regionIds) => setFilters({ regions: regionIds })}
-				options={regions.options}
-				selected={filters.regions}
-			/>
-			<ToggleFilter
-				label="Untreated"
-				onChange={(untreated) => setFilters({ untreated })}
-				value={filters.untreated}
-			/>
-		</FilterGrid>
+		<div className="grid gap-2">
+			<FilterGrid>
+				<MultiSelectFilter
+					empty="No habitat types"
+					label="Habitat type"
+					onChange={(typeIds) => setFilters({ typeIds })}
+					options={habitatTypes}
+					selected={filters.typeIds}
+				/>
+				<MultiSelectFilter
+					empty="No tags"
+					label="Tags"
+					onChange={(tagIds) => setFilters({ tagIds })}
+					options={tags}
+					selected={filters.tagIds}
+				/>
+				<MultiSelectFilter
+					empty="No regions"
+					label="Region"
+					onChange={(regionIds) => setFilters({ regions: regionIds })}
+					options={regions.options}
+					selected={filters.regions}
+				/>
+			</FilterGrid>
+			<div>
+				<ToggleFilter
+					label="Untreated"
+					onChange={(untreated) => setFilters({ untreated })}
+					value={filters.untreated}
+				/>
+			</div>
+		</div>
 	);
 
 	const chips =

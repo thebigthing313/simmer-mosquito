@@ -47,7 +47,10 @@ export function CatalogRowActions({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button size="icon" type="button" variant="ghost">
+				{/* Every catalog row is top-aligned, and a 36px button at the cell's top
+				    edge centred 8px below the first line of text beside it. The negative
+				    margin puts its centre on that line. */}
+				<Button className="-my-2" size="icon" type="button" variant="ghost">
 					<MoreIcon aria-hidden="true" />
 					<span className="sr-only">Actions for {name}</span>
 				</Button>
