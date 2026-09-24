@@ -7,6 +7,7 @@ import {
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import {
+	errorMessagesFrom,
 	FormSection,
 	LocationSection,
 	RecordFormPage,
@@ -24,7 +25,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
@@ -54,6 +55,7 @@ import {
 	profileOptions,
 	resultColumnsForMode,
 	unsetDensityValue,
+	withConditionsChosen,
 } from './inspection-form-values';
 import { HabitatPicker, SelectedHabitat } from './inspection-habitat-picker';
 import { SamplesSection } from './inspection-samples-section';
@@ -140,42 +142,47 @@ export function InspectionFormPage({
 		startDraw,
 	} = location;
 
+	const conditionsErrorId = useId();
+	// Habitat and ad-hoc inspections are distinct commands with distinct rules,
+	// so the validator picks the same one the save will. Conditions not chosen
+	// reads as dry here, which asks nothing of the findings, and the field's own
+	// rule below reports the missing choice.
+	const validateCommand = domainValidator(({ value }: { readonly value: InspectionFormValues }) => {
+		const result = {
+			...FORM_VALIDATION_CONTEXT,
+			inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
+			inspectionDate: value.inspectionDate,
+			inspectedByProfileId: value.inspectedByProfileId,
+			// The organization's own policy, so the form enforces the same
+			// abundance rules the server will rather than the built-in default.
+			policy,
+			isWet: value.isWet === true,
+			dipCount: value.dipCount,
+			density: value.density === unsetDensityValue ? null : (value.density as LarvalDensity),
+			larvaeCount: value.larvaeCount,
+			...value.lifeStages,
+		};
+		return value.locationMode === 'habitat'
+			? recordHabitatInspectionCommand({
+					...result,
+					habitatId: value.habitatId ?? '',
+				})
+			: recordAdHocInspectionCommand({
+					...result,
+					locationSource: {
+						kind: 'geometry',
+						geometry: (adhocGeometry ?? null) as never,
+					},
+					addressId: value.addressId,
+					habitatTypeId: value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
+				});
+	}, INSPECTION_FIELD_PATHS);
+
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			// Habitat and ad-hoc inspections are distinct commands with distinct
-			// rules, so the validator picks the same one the save will.
-			onSubmit: domainValidator(({ value }: { readonly value: InspectionFormValues }) => {
-				const result = {
-					...FORM_VALIDATION_CONTEXT,
-					inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
-					inspectionDate: value.inspectionDate,
-					inspectedByProfileId: value.inspectedByProfileId,
-					// The organization's own policy, so the form enforces the same
-					// abundance rules the server will rather than the built-in default.
-					policy,
-					isWet: value.isWet,
-					dipCount: value.dipCount,
-					density: value.density === unsetDensityValue ? null : (value.density as LarvalDensity),
-					larvaeCount: value.larvaeCount,
-					...value.lifeStages,
-				};
-				return value.locationMode === 'habitat'
-					? recordHabitatInspectionCommand({
-							...result,
-							habitatId: value.habitatId ?? '',
-						})
-					: recordAdHocInspectionCommand({
-							...result,
-							locationSource: {
-								kind: 'geometry',
-								geometry: (adhocGeometry ?? null) as never,
-							},
-							addressId: value.addressId,
-							habitatTypeId:
-								value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
-						});
-			}, INSPECTION_FIELD_PATHS),
+			onSubmit: (input: { readonly value: InspectionFormValues }) =>
+				withConditionsChosen(input.value, validateCommand(input)),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
@@ -394,24 +401,30 @@ export function InspectionFormPage({
 
 				<FormSection title="Findings" note={findingsRequirement(entryMode)}>
 					<form.AppField name="isWet">
-						{(field) => (
-							<LabeledControl
-								description="Larvae can only be present when standing water was found."
-								label="Conditions"
-								required
-							>
-								<WaterToggle
-									onChange={(next) => {
-										if (next || !hasLarvalData(form.state.values)) {
-											field.handleChange(next);
-											return;
-										}
-										setPendingDry(true);
-									}}
-									value={field.state.value}
-								/>
-							</LabeledControl>
-						)}
+						{(field) => {
+							const error = errorMessagesFrom(field.state.meta.errors)[0]?.message;
+							return (
+								<LabeledControl
+									error={error}
+									errorId={conditionsErrorId}
+									label="Conditions"
+									required
+								>
+									<WaterToggle
+										describedBy={error === undefined ? undefined : conditionsErrorId}
+										invalid={error !== undefined}
+										onChange={(next) => {
+											if (next || !hasLarvalData(form.state.values)) {
+												field.handleChange(next);
+												return;
+											}
+											setPendingDry(true);
+										}}
+										value={field.state.value}
+									/>
+								</LabeledControl>
+							);
+						}}
 					</form.AppField>
 
 					<form.Subscribe selector={(state) => state.values.isWet}>
@@ -471,11 +484,11 @@ export function InspectionFormPage({
 										)}
 									</form.AppField>
 								</div>
-							) : (
+							) : isWet === false ? (
 								<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
 									Dry inspections record no abundance or life-stage detail.
 								</p>
-							)
+							) : null
 						}
 					</form.Subscribe>
 				</FormSection>

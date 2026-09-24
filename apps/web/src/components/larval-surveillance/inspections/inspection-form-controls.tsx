@@ -1,4 +1,5 @@
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
+import { FieldError } from '@simmer-mosquito/ui-web/components/ui/field';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { LifeStageFlags } from '../../larval-display';
@@ -20,15 +21,21 @@ export function LabeledControl({
 	label,
 	description,
 	required = false,
+	error,
+	errorId,
 	children,
 }: {
 	readonly label: string;
 	readonly description?: string;
 	readonly required?: boolean;
+	/** The field's error, drawn under the control. */
+	readonly error?: string | undefined;
+	/** The id the error is drawn under, for the control's `aria-describedby`. */
+	readonly errorId?: string | undefined;
 	readonly children: React.ReactNode;
 }) {
 	return (
-		<div className="grid gap-1.5">
+		<div className="grid gap-1.5" data-invalid={error === undefined ? undefined : true}>
 			<span className="font-medium text-foreground text-sm">
 				{label}
 				{required ? <RequiredMark /> : null}
@@ -37,20 +44,31 @@ export function LabeledControl({
 			{description === undefined ? null : (
 				<span className="text-muted-foreground text-xs">{description}</span>
 			)}
+			{error === undefined ? null : <FieldError errors={[{ message: error }]} id={errorId} />}
 		</div>
 	);
 }
 
+/**
+ * Wet or Dry. `null` presses neither, which is how a new inspection opens, and
+ * the pressed segment cannot be pressed off again.
+ */
 export function WaterToggle({
 	value,
 	onChange,
+	invalid = false,
+	describedBy,
 }: {
-	readonly value: boolean;
+	readonly value: boolean | null;
 	readonly onChange: (value: boolean) => void;
+	readonly invalid?: boolean;
+	readonly describedBy?: string | undefined;
 }) {
 	return (
 		<ToggleGroup
-			aria-label="Water state"
+			aria-describedby={describedBy}
+			aria-invalid={invalid ? true : undefined}
+			aria-label="Conditions"
 			className="w-full sm:w-auto"
 			onValueChange={(next) => {
 				if (next === 'wet' || next === 'dry') {
@@ -59,7 +77,7 @@ export function WaterToggle({
 			}}
 			size="sm"
 			type="single"
-			value={value ? 'wet' : 'dry'}
+			value={value === null ? '' : value ? 'wet' : 'dry'}
 			variant="outline"
 		>
 			<ToggleGroupItem className="px-6" value="wet">
