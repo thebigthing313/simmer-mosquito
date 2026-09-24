@@ -1,10 +1,11 @@
+import { tagPalette } from '@simmer-mosquito/design-tokens';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
-import { hexWithAlpha, validHexColor } from '../../lib/hex-color';
+import { validHexColor } from '../../lib/hex-color';
 import { relevanceSummary } from '../../lib/tag-relevance';
+import { TagBadge } from '../tag-badge';
 import { EditIcon } from './constants';
 
 export function TagDisplayTableRow({
@@ -45,48 +46,27 @@ export function TagDisplayTableRow({
 	);
 }
 
-function TagBadge({ tag }: { readonly tag: TagRecord }) {
-	const color = validHexColor(tag.color);
-	const style =
-		color === null
-			? undefined
-			: ({
-					'--tag-color': color,
-					'--tag-bg': hexWithAlpha(color, 0.14),
-					'--tag-border': hexWithAlpha(color, 0.36),
-				} as React.CSSProperties);
-
-	return (
-		<Badge
-			variant={color === null ? 'secondary' : 'outline'}
-			className={
-				color === null ? undefined : 'border-(--tag-border) bg-(--tag-bg) text-(--tag-color)'
-			}
-			style={style}
-			title={tag.description ?? undefined}
-		>
-			{tag.name}
-		</Badge>
-	);
-}
-
+/**
+ * The Color column: a swatch of the picked colour, named by its palette label,
+ * with the hex in the tooltip. The bare hex it used to print named the colour
+ * in a form nobody reads, and the chip one column over already shows it drawn.
+ */
 function TagColorSwatch({ color }: { readonly color: string | null }) {
 	const normalized = validHexColor(color);
-	const style =
-		normalized === null ? undefined : ({ '--tag-color': normalized } as React.CSSProperties);
+	const label =
+		normalized === null
+			? 'Default'
+			: (tagPalette.find((entry) => entry.hex.toLowerCase() === normalized.toLowerCase())?.label ??
+				'Custom');
 
 	return (
-		<span className="inline-flex items-center gap-2">
+		<span className="inline-flex items-center gap-2" title={normalized ?? undefined}>
 			<span
 				aria-hidden="true"
-				className={
-					normalized === null
-						? 'size-3 rounded-sm border border-border bg-muted'
-						: 'size-3 rounded-sm border border-border bg-(--tag-color)'
-				}
-				style={style}
+				className="size-4 rounded-sm border border-border bg-muted"
+				style={normalized === null ? undefined : { backgroundColor: normalized }}
 			/>
-			<span className="font-mono text-xs text-muted-foreground">{normalized ?? 'Default'}</span>
+			<span className="text-muted-foreground text-xs">{label}</span>
 		</span>
 	);
 }

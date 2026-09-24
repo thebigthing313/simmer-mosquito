@@ -1,18 +1,17 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import type { CSSProperties } from 'react';
 import type { Tag } from '../hooks/queries/tag-view';
-import { hexWithAlpha } from '../lib/hex-color';
+import { tagChipStyle } from '../lib/hex-color';
 
 /**
  * A tag, tinted from the colour the organization chose for it.
  *
- * The colour is applied as a triple — border, a wash of background, and the
- * text — from one hex value, so an organization picking any colour still lands
- * on a chip that reads. A missing or malformed colour falls back to neutral
- * rather than rendering something unreadable.
+ * The colour is applied as a triple, border, a wash of background and the
+ * text, from one hex value through `tagChipStyle`, which darkens the text
+ * until it reads on the wash. A missing or malformed colour falls back to
+ * neutral.
  */
 function TagChip({ tag }: { readonly tag: Tag }) {
-	const style = tagColorStyle(tag.color);
+	const style = tagChipStyle(tag.color);
 	return (
 		<span
 			className={cn(
@@ -45,17 +44,4 @@ export function TagChipRow({
 			))}
 		</span>
 	);
-}
-
-/** A tinted chip style from a #RGB/#RRGGBB tag colour, or null for neutral. */
-function tagColorStyle(color: string | null): CSSProperties | null {
-	if (color === null || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color.trim())) {
-		return null;
-	}
-	const hex = color.trim();
-	return {
-		borderColor: hexWithAlpha(hex, 0.36),
-		backgroundColor: hexWithAlpha(hex, 0.14),
-		color: hex,
-	};
 }

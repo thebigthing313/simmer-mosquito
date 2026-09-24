@@ -16,4 +16,9 @@ export {
 	mapProgress,
 	mapStatus,
 } from './map-palette.js';
-export { type TagPaletteEntry, tagPalette } from './tag-palette.js';
+export {
+	type TagChipColors,
+	type TagPaletteEntry,
+	tagChipColors,
+	tagPalette,
+} from './tag-palette.js';
