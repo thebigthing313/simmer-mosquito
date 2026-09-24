@@ -174,7 +174,7 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 						rows.map((request) => (
 							<li key={request.id}>
 								<Link
-									className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 									params={{ id: request.id }}
 									to="/public-engagement/service-requests/$id"
 								>

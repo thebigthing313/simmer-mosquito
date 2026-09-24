@@ -151,7 +151,7 @@ export function GeocoderDialog({
 					) : (
 						results.map((result) => (
 							<button
-								className="grid gap-1 rounded-md border border-border/50 bg-background px-3 py-2 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
+								className="grid gap-1 rounded-md border border-border/50 bg-background px-3 py-2 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
 								key={geocoderResultKey(result)}
 								onClick={() => onSelect(result)}
 								type="button"

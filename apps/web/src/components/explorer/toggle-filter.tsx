@@ -21,7 +21,7 @@ export function ToggleFilter({
 		<button
 			aria-pressed={value}
 			className={cn(
-				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+				'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 				value
 					? 'border-primary bg-primary/10 text-foreground'
 					: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',

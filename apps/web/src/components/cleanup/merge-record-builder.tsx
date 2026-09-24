@@ -158,7 +158,7 @@ function FieldControl({
 				))}
 				{row.field.required === true || isEmpty ? null : (
 					<button
-						className="rounded-md border border-border border-dashed px-2 py-0.5 text-muted-foreground text-xs hover:text-foreground"
+						className="rounded-md border border-border border-dashed px-2 py-1 text-muted-foreground text-xs hover:text-foreground"
 						onClick={() => onChange(null)}
 						type="button"
 					>
@@ -188,7 +188,7 @@ function SuggestionButton({
 	return (
 		<button
 			aria-pressed={isSelected}
-			className={`rounded-md border px-2 py-0.5 text-xs ${
+			className={`rounded-md border px-2 py-1 text-xs ${
 				isSelected
 					? 'border-primary bg-primary/10 text-foreground'
 					: 'border-border text-muted-foreground hover:text-foreground'

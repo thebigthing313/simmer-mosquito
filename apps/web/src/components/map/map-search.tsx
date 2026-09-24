@@ -374,7 +374,7 @@ function SearchResults({
 				<div
 					aria-selected={index === activeIndex}
 					className={cn(
-						'grid min-h-11 w-full min-w-0 cursor-default gap-0.5 rounded-sm px-2.5 py-2 text-left text-sm outline-none',
+						'grid min-h-11 w-full min-w-0 cursor-default gap-0.5 rounded-sm px-2.5 py-2 text-left text-sm outline-hidden',
 						index === activeIndex && 'bg-accent/60 text-accent-foreground',
 						selectingId !== null && 'pointer-events-none opacity-60',
 					)}

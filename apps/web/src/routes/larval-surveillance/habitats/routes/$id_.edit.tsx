@@ -248,7 +248,7 @@ function RouteEditRoute() {
 					<div className="grid gap-3 border-border/50 border-b p-4">
 						<div className="flex items-center justify-between gap-3">
 							<Link
-								className="inline-flex items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className="inline-flex items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 								params={{ id }}
 								to="/larval-surveillance/habitats/routes/$id"
 							>
@@ -630,11 +630,15 @@ function EditStopRow({
 						) : null}
 					</div>
 
-					{/* The home icon is the label; consecutive matching addresses read dimmed. */}
+					{/*
+					 * The home icon is the label. A new address is set in medium weight
+					 * and a repeat of the one above in regular: dimming the repeat with
+					 * alpha put it at 2.6:1, and no lighter tier clears AA here.
+					 */}
 					<span
 						className={cn(
-							'mt-1 flex items-center gap-1.5 text-xs',
-							sameAddressAsPrev ? 'text-muted-foreground/60' : 'text-muted-foreground',
+							'mt-1 flex items-center gap-1.5 text-muted-foreground text-xs',
+							sameAddressAsPrev ? undefined : 'font-medium',
 						)}
 						title={stop.addressLabel ?? undefined}
 					>

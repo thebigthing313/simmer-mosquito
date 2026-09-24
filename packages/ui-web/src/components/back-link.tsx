@@ -18,7 +18,7 @@ export const backLink = cva(
 			as: {
 				link: '',
 				button:
-					'rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+					'rounded-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 			},
 		},
 		defaultVariants: {

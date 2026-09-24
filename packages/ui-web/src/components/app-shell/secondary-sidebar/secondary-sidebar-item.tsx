@@ -24,7 +24,7 @@ export function SecondarySidebarItem({
 		<button
 			aria-current={active ? 'page' : undefined}
 			className={cn(
-				'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sidebar-foreground text-sm outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
+				'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sidebar-foreground text-sm outline-hidden transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
 				'hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-ring',
 				'data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground',
 				'[&_svg]:size-4 [&_svg]:shrink-0',

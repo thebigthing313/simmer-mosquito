@@ -37,7 +37,7 @@ export function SecondarySidebarGroup({
 					aria-expanded={isOpen}
 					className={cn(
 						GROUP_LABEL,
-						'flex items-center justify-between gap-2 rounded-sm pb-0.5 text-left hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+						'flex items-center justify-between gap-2 rounded-sm pb-0.5 text-left hover:text-primary/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 					)}
 					onClick={() => setCollapsed(isOpen)}
 					type="button"

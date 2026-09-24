@@ -21,7 +21,7 @@ export function GeolocateControl({ map }: { readonly map: MapboxMap | null }) {
 			center: [coords.longitude, coords.latitude],
 			zoom: Math.max(map.getZoom(), 15),
 			duration: 1100,
-			essential: true,
+			// Not `essential`: under reduced motion Mapbox jumps instead of flying.
 		});
 
 		// This control only renders alongside a live map, so the runtime is

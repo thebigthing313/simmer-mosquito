@@ -63,7 +63,7 @@ export function DateRangeFilter({
 						<button
 							aria-pressed={isActive}
 							className={cn(
-								'rounded-full border px-2 py-0.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+								'rounded-full border px-2 py-1 text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 								isActive
 									? 'border-primary/50 bg-primary/10 text-foreground'
 									: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',

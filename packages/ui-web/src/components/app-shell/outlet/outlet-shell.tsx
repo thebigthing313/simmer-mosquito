@@ -69,7 +69,7 @@ export function OutletShell({
 				 * tab order.
 				 */}
 				<a
-					className="-translate-y-full focus:-translate-y-0 fixed top-0 left-0 z-50 rounded-br-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+					className="-translate-y-full focus:-translate-y-0 fixed top-0 left-0 z-50 rounded-br-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm transition-transform focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
 					href="#main-content"
 				>
 					Skip to content

@@ -182,7 +182,7 @@ function StatusChip({
 		<button
 			aria-pressed={isActive}
 			className={cn(
-				'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+				'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 				isActive
 					? 'border-primary/50 bg-primary/10 text-foreground'
 					: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -225,7 +225,7 @@ function SpeciesFilter({
 				<button
 					aria-label="Filter by species"
 					className={cn(
-						'inline-flex h-8 items-center gap-2 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+						'inline-flex h-8 items-center gap-2 rounded-md border px-2.5 font-medium text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 						count > 0
 							? 'border-primary bg-primary/10 text-foreground'
 							: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',

@@ -163,7 +163,7 @@ function AssignmentRunRoute() {
 				<div className="flex h-full min-h-0 flex-col">
 					<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 						<Link
-							className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 							to="/operations/assignments"
 						>
 							<ArrowLeftIcon aria-hidden="true" className="size-3.5" />

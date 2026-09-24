@@ -265,7 +265,7 @@ function ImportShapeList({
 				{parsed.shapes.map((shape) => (
 					<button
 						className={cn(
-							'flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground',
+							'flex min-h-11 w-full min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
 							shape.id === selectedId ? 'border-primary/50 bg-primary/5' : 'border-border/50',
 						)}
 						key={shape.id}

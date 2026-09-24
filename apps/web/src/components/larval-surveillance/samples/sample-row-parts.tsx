@@ -82,7 +82,7 @@ export function SampleContext({ sample }: { readonly sample: SampleListRow }) {
 				</span>
 			) : (
 				<Link
-					className="pointer-events-auto relative z-10 truncate rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					className="pointer-events-auto relative z-10 truncate rounded-sm hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 					params={{ id: sample.habitatId }}
 					to="/larval-surveillance/habitats/$id"
 				>

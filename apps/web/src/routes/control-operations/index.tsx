@@ -576,7 +576,7 @@ function CatalogTile({
 	return (
 		<li>
 			<Link
-				className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 				to={to}
 			>
 				<span className="shrink-0 text-muted-foreground">{icon}</span>

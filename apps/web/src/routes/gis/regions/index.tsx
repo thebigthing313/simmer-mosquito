@@ -499,7 +499,7 @@ export function FolderNode({
 					</Badge>
 					<button
 						aria-label={`Edit ${folder.name}`}
-						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
 						onClick={onEdit}
 						title="Edit Folder"
 						type="button"
@@ -695,7 +695,7 @@ function RegionTreeRow({
 					</button>
 					<button
 						aria-label={`Rename ${region.name}`}
-						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
 						onClick={() => rename.start(region.id)}
 						title="Rename Region"
 						type="button"
@@ -704,7 +704,7 @@ function RegionTreeRow({
 					</button>
 					<Link
 						aria-label={`View details for ${region.name}`}
-						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 						params={{ id: region.id }}
 						title="View Region Details"
 						to="/gis/regions/$id"

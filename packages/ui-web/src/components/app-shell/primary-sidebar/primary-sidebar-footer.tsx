@@ -47,7 +47,7 @@ export function PrimarySidebarFooter({ collapsed }: { readonly collapsed: boolea
 				<DropdownMenuTrigger
 					aria-label="Account and settings"
 					className={cn(
-						'flex items-center outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
+						'flex items-center outline-hidden transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
 						'focus-visible:ring-2 focus-visible:ring-ring-inverse focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
 						collapsed
 							? 'rounded-full data-[state=open]:ring-2 data-[state=open]:ring-ring/60'

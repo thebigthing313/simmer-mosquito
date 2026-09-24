@@ -33,7 +33,7 @@ export function BasemapSwitcher({
 						aria-pressed={active}
 						className={cn(
 							'inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold transition-colors',
-							'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+							'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 							active
 								? 'bg-primary text-primary-foreground shadow-sm'
 								: 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',

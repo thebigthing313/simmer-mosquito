@@ -223,7 +223,7 @@ export function MapCardLocation({
 		<MapCardDetail icon={LocateFixedIcon}>
 			<span className="font-medium text-foreground">{formatGeometryTypeLabel(geomType ?? '')}</span>{' '}
 			<span className="font-mono text-caption">{coordinates}</span>{' '}
-			<span className="text-muted-foreground/80">center</span>
+			<span className="text-muted-foreground">center</span>
 		</MapCardDetail>
 	);
 }

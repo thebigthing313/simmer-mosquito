@@ -32,7 +32,9 @@ export function RouteAnnouncer({ labels }: { readonly labels: readonly string[] 
 	const page = pageTitle(labels);
 
 	useEffect(() => {
-		shippedTitle ??= document.title;
+		if (shippedTitle === undefined) {
+			shippedTitle = document.title;
+		}
 		document.title = page === '' ? shippedTitle : `${page} · ${shippedTitle}`;
 	}, [page]);
 

@@ -40,7 +40,7 @@ function ScrollArea({
 				 * nothing here does. A future horizontal scroller re-enables it locally
 				 * rather than reverting this.
 				 */
-				className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 [&>div]:!block"
+				className="size-full rounded-[inherit] transition-[color,box-shadow] outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 [&>div]:!block"
 			>
 				{children}
 			</ScrollAreaPrimitive.Viewport>

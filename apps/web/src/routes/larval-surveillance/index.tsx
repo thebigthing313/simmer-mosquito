@@ -384,7 +384,7 @@ function HeavyInspectionsPanel({
 									 * habitat — the habitat is one hop further on from the inspection.
 									 */}
 									<Link
-										className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 										params={{ id: inspection.id }}
 										to="/larval-surveillance/inspections/$id"
 									>

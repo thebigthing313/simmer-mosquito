@@ -75,7 +75,7 @@ export function MeasureControl({
 						aria-pressed={tool === entry.id}
 						className={cn(
 							'inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md font-medium text-xs transition-colors',
-							'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+							'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 							tool === entry.id
 								? 'bg-primary text-primary-foreground shadow-sm'
 								: 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',

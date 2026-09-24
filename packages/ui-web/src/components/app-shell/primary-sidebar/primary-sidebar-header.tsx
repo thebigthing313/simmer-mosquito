@@ -50,7 +50,7 @@ export function PrimarySidebarHeader({ collapsed }: { readonly collapsed: boolea
 				<Link
 					className={cn(
 						'rounded-sm text-white/70 text-xs leading-none transition-colors',
-						'hover:text-white focus-visible:text-white focus-visible:outline-none',
+						'hover:text-white focus-visible:text-white focus-visible:outline-hidden',
 						// The rail's ring, spelled exactly as its three siblings spell it:
 						// solid and inverted, per DESIGN.md's Solid Indicator Rule.
 						'focus-visible:ring-2 focus-visible:ring-ring-inverse',
