@@ -395,8 +395,12 @@ created points at.
 
 #### TagSections
 
-`w-fit` on the block, because the shell draws the section at the `record`
-measure (#1045) and the create panel ran to the frame on its own (#1054).
+The block and the tables run the width of the card they sit in, so the Tags
+tables line up with the cards above them. #1054 had drawn them at the sum of
+their column widths, which kept the four columns from spreading across 1616px
+and left the tables narrower than everything else on the page. The Description
+column carries no width now, so `table-fixed` hands it all the slack and the
+other columns keep theirs; the column sum is the floor where the table scrolls.
 
 ### operations
 

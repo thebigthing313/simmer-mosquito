@@ -68,7 +68,7 @@ export function TagEditorTableRow({
 					/>
 				</Field>
 			</TableCell>
-			<TableCell className="w-(--tag-description-column) align-top whitespace-normal">
+			<TableCell className="align-top whitespace-normal">
 				<Field className="gap-1">
 					<FieldLabel>Description</FieldLabel>
 					<Textarea

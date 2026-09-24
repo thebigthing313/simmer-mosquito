@@ -22,7 +22,7 @@ export function TagDisplayTableRow({
 			<TableCell className="w-(--tag-preview-column)">
 				<TagBadge tag={tag} />
 			</TableCell>
-			<TableCell className="w-(--tag-description-column) whitespace-normal text-muted-foreground wrap-anywhere">
+			<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
 				{tag.description ?? <AbsentValue />}
 			</TableCell>
 			{/* Muted text rather than chips: a chip one cell over from the Tag
