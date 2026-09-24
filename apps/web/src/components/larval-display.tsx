@@ -71,6 +71,7 @@ export function LifeStageStrip({
 	readonly size?: 'default' | 'sm';
 }) {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: six labelled images in a row, not form controls, so a fieldset would claim a form that is not there.
 		<div
 			aria-label="Life stages"
 			// `w-fit`, not `inline-flex` alone: the segments are fixed-size, and a
