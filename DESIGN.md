@@ -625,6 +625,14 @@ record overlay, near-black on the service-request map. `pnpm check:map-palette`
 now refuses a hex literal anywhere under `apps/web/src/components/map`, so a
 fourth has to be written in the register, where a reader can see it (#618).
 
+**The Red Rule.** Red on a record's state means an error, a destructive
+action, or the Inaccessible lifecycle. An open service request is none of the
+three: it is waiting on somebody. So it paints in `mapStatus.attention`, Deep
+Pollen, with the same off-white casing every point wears for the satellite
+basemap, and its pill takes the warning tone, the attention family at a
+contrast 12px text can read. The density ramp's hot end is a magnitude rather
+than a state, and this rule does not reach it.
+
 **The Legend Truth Rule.** A map legend reads its swatches from the same
 constants the layers paint with. Never a literal. A hand-typed legend swatch
 drifted into describing a colour that was not on the map, and stayed wrong

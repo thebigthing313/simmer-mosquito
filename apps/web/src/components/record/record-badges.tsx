@@ -241,7 +241,8 @@ const STATE_BADGE: Readonly<
 	collected: { label: 'Collected', tone: 'neutral' },
 	zero_result: { label: 'Zero result', tone: 'neutral' },
 	problem: { label: 'Problem reported', tone: 'warning' },
-	open: { label: 'Open', tone: 'info' },
+	// The attention family, which is the map's colour for an open request.
+	open: { label: 'Open', tone: 'warning' },
 	closed: { label: 'Closed', tone: 'neutral' },
 };
 
