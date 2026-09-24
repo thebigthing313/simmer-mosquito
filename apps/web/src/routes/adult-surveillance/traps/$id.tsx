@@ -1,4 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
@@ -475,9 +476,7 @@ function TrapDetailsCard({
 				</DetailList>
 				{trap.description !== null && trap.description.trim().length > 0 ? (
 					<div className="grid gap-1">
-						<span className="font-semibold text-muted-foreground text-xs uppercase">
-							Description
-						</span>
+						<span className={eyebrow()}>Description</span>
 						<p className="m-0 text-foreground text-sm">{trap.description}</p>
 					</div>
 				) : null}

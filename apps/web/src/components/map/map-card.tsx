@@ -1,4 +1,5 @@
 import { formatGeometryTypeLabel, isPointGeomType } from '@simmer-mosquito/mapping';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	CalendarIcon,
@@ -137,7 +138,7 @@ export function MapCardDetail({
 	return (
 		<div className="flex items-start gap-1.5 text-muted-foreground text-sm">
 			<Icon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-			<span className={cn('min-w-0 leading-snug', mono && 'font-mono text-[0.8rem]')}>
+			<span className={cn('min-w-0 leading-snug', mono && 'font-mono text-caption')}>
 				{children}
 			</span>
 		</div>
@@ -221,7 +222,7 @@ export function MapCardLocation({
 	return (
 		<MapCardDetail icon={LocateFixedIcon}>
 			<span className="font-medium text-foreground">{formatGeometryTypeLabel(geomType ?? '')}</span>{' '}
-			<span className="font-mono text-[0.8rem]">{coordinates}</span>{' '}
+			<span className="font-mono text-caption">{coordinates}</span>{' '}
 			<span className="text-muted-foreground/80">center</span>
 		</MapCardDetail>
 	);
@@ -250,7 +251,7 @@ export function MapCardEyebrow({
 }) {
 	return (
 		<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-			<span className="font-semibold text-[0.68rem] text-foreground/75 uppercase tracking-wide">
+			<span className={eyebrow({ tone: 'inherit', className: 'text-foreground/75' })}>
 				{recordNoun(recordType).title}
 			</span>
 			{date === undefined ? null : (

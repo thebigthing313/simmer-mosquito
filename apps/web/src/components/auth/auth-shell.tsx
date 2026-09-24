@@ -24,7 +24,7 @@ export function AuthShell({
 				<section className="flex min-h-0 overflow-y-auto bg-(--app-stage) px-6 py-10 sm:px-10 lg:py-12">
 					<div className="landing-fade m-auto flex w-full max-w-[400px] flex-col gap-6">
 						<header className="grid gap-2">
-							<h1 className="m-0 text-balance font-bold text-[1.55rem] text-foreground leading-tight tracking-[-0.01em]">
+							<h1 className="m-0 text-balance font-bold text-heading text-foreground leading-tight tracking-[-0.01em]">
 								{title}
 							</h1>
 							{description ? (

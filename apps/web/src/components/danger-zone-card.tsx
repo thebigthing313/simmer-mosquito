@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -66,9 +67,7 @@ function DangerZone(props: DangerZoneCardProps) {
 	return (
 		<Card className="border-destructive/20" variant="panel">
 			<CardHeader className="gap-1 px-3 pt-3 pb-0">
-				<CardTitle className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Delete This {title}
-				</CardTitle>
+				<CardTitle className={eyebrow()}>Delete This {title}</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-2 px-3 pt-2 pb-3">
 				{impactQuery.isPending ? (

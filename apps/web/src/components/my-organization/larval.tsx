@@ -4,6 +4,7 @@ import type {
 	LarvalDensityRanges,
 	ResolvedLarvalInspectionEntryPolicy,
 } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
@@ -24,7 +25,7 @@ export function LarvalSurveillanceSettings({
 		<div className="grid gap-3">
 			<LarvalEntryPolicyGuide policy={policy} />
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
+				<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 				<HabitatTypeLookupList canManage={canManage} />
 			</div>
 		</div>

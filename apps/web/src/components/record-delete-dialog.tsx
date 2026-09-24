@@ -1,4 +1,5 @@
 import { settleWrite } from '@simmer-mosquito/sync';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -366,9 +367,7 @@ function EffectGroup({
 	}
 	return (
 		<div className="grid gap-1">
-			<span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-				{label}
-			</span>
+			<span className={eyebrow()}>{label}</span>
 			<ul className="m-0 grid list-none gap-0.5 p-0 text-foreground text-sm">
 				{entries.map((entry) => (
 					<li key={entry.key}>{impactCountLabel(entry)}</li>

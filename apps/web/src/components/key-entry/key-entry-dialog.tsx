@@ -1,4 +1,5 @@
 import { isBindableKey } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -472,9 +473,7 @@ function VariantGroup({
 }) {
 	return (
 		<div className="grid gap-1.5">
-			<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-				{label}
-			</span>
+			<span className={eyebrow()}>{label}</span>
 			<ToggleGroup
 				className="flex-wrap justify-start"
 				onValueChange={(next) => {
@@ -554,7 +553,7 @@ function PressSurface({
 				</>
 			) : (
 				<>
-					<span className="font-semibold text-[1.05rem] text-foreground italic">
+					<span className="font-semibold text-body text-foreground italic">
 						{nameFor(lastEntry.speciesId) ?? 'Unknown species'}
 					</span>
 					<span className="text-muted-foreground text-xs">
@@ -578,9 +577,7 @@ function BindingSheet({ bindings }: { readonly bindings: readonly ResolvedSpecie
 	return (
 		<div className="grid content-start gap-1.5">
 			<div className="flex items-baseline justify-between gap-2">
-				<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-					Keys
-				</span>
+				<span className={eyebrow()}>Keys</span>
 				<span className="text-muted-foreground text-xs">{bindings.length}</span>
 			</div>
 			{/* Two columns of 18 hold the full 36, so the cap is a backstop for short
@@ -622,9 +619,7 @@ function TallyList({
 	return (
 		<div className="grid content-start gap-1.5">
 			<div className="flex items-baseline justify-between gap-2">
-				<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-					This session
-				</span>
+				<span className={eyebrow()}>This session</span>
 				{total > 0 ? (
 					<span className="text-muted-foreground text-xs">
 						{total.toLocaleString('en-US')} {countLabel}

@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -158,7 +159,7 @@ function ProfileGroup({
 	return (
 		<div className="grid gap-2">
 			<div className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
-				<h3 className="eyebrow m-0">{title}</h3>
+				<h3 className={eyebrow({ tone: 'primary' })}>{title}</h3>
 				<Badge tone="neutral" variant="outline">
 					{rows.length}
 				</Badge>

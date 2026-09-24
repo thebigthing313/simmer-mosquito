@@ -3,6 +3,7 @@ import {
 	type OrganizationSettings,
 	type SpeciesKeyBinding,
 } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -296,9 +297,5 @@ function AssignRow({
 }
 
 function SectionLabel({ children }: { readonly children: React.ReactNode }) {
-	return (
-		<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-			{children}
-		</span>
-	);
+	return <span className={eyebrow()}>{children}</span>;
 }

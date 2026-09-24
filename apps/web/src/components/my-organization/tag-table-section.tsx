@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import {
 	Table,
 	TableBody,
@@ -28,7 +29,7 @@ export function TagTableSection({
 }) {
 	return (
 		<div className="grid gap-2">
-			<h3 className="eyebrow mt-0.5 mb-0">{title}</h3>
+			<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>{title}</h3>
 			{tags.length === 0 ? (
 				<p className="m-0 rounded-md border border-border/30 bg-muted/40 px-2.5 py-2 text-sm text-muted-foreground">
 					{emptyLabel}

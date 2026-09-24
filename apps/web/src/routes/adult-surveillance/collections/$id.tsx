@@ -1,6 +1,7 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -400,9 +401,7 @@ function ResultsCard({
 				</div>
 
 				<div className="grid gap-3">
-					<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-						Species
-					</span>
+					<span className={eyebrow()}>Species</span>
 					{/* Zero result goes through `instead` rather than through `empty`: it is
 					    the record answering for its own species, so it outranks the count
 					    and stands even while a species row that is on its way out is still

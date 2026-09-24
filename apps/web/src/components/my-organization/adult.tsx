@@ -1,4 +1,5 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
@@ -25,7 +26,7 @@ export function AdultSurveillanceSettings({
 		<div className="grid gap-3">
 			<CollectionTimingGuide mode={timingMode} />
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
+				<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 				<div className="grid gap-3">
 					<CollectionMethodLookupPointer />
 					<CollectionLureLookupList canManage={canManage} />

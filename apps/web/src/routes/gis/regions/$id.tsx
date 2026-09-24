@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import {
 	Card,
 	CardContent,
@@ -128,9 +129,7 @@ function RegionDetailsCard({
 				</DetailList>
 				{description !== null && description.trim().length > 0 ? (
 					<div className="grid gap-1">
-						<span className="font-semibold text-muted-foreground text-xs uppercase">
-							Description
-						</span>
+						<span className={eyebrow()}>Description</span>
 						<p className="m-0 text-foreground text-sm">{description}</p>
 					</div>
 				) : null}

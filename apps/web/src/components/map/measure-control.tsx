@@ -1,4 +1,5 @@
 import { formatArea, formatDistance, type MeasurementSystem } from '@simmer-mosquito/mapping';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	CircleIcon,
@@ -186,7 +187,7 @@ function MeasurementRow({
 				<span>
 					{index}. {TOOL_LABELS[measurement.tool]}
 				</span>
-				{isDraft ? <span className="text-[0.65rem] uppercase tracking-wide">Drawing</span> : null}
+				{isDraft ? <span className={eyebrow({ tone: 'inherit' })}>Drawing</span> : null}
 			</span>
 			{measurement.tool === 'distance' ? (
 				<span className="font-semibold text-foreground tabular-nums">

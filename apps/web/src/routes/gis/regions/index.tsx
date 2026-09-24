@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -595,9 +596,7 @@ function UnfiledGroup({
 			{...regionDropZoneProps(dnd, dropTarget)}
 		>
 			<div className="flex items-center gap-1.5 rounded-md px-1.5 py-1">
-				<span className="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Unfiled
-				</span>
+				<span className={eyebrow({ className: 'min-w-0 flex-1 truncate' })}>Unfiled</span>
 				<Badge className="shrink-0" tone="neutral" variant="outline">
 					{regions.length}
 				</Badge>

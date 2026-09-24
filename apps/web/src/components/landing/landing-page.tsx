@@ -52,9 +52,7 @@ function LandingEntry({
 		<section className="flex min-h-0 overflow-y-auto bg-(--app-stage) px-6 py-12 sm:px-10">
 			<div className="landing-fade m-auto flex w-full max-w-[420px] flex-col gap-7">
 				<div className="grid gap-2">
-					<h2 className="m-0 text-[1.5rem] font-bold leading-tight text-foreground">
-						Welcome Back
-					</h2>
+					<h2 className="m-0 text-heading font-bold leading-tight text-foreground">Welcome Back</h2>
 					<p className="m-0 leading-normal text-muted-foreground">
 						Sign in to your workspace, or create an account to get started.
 					</p>

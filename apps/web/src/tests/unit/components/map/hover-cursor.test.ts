@@ -14,9 +14,8 @@ import { registerHoverLayers } from '../../../../components/map/hover-cursor';
 function fakeMap(hitLayers: readonly string[]) {
 	const handlers = new Set<(event: MapMouseEvent) => void>();
 	const canvas = { style: { cursor: '' } };
-	const queryRenderedFeatures = vi.fn(
-		(_point: unknown, options: { layers: readonly string[] }) =>
-			options.layers.filter((layer) => hitLayers.includes(layer)).map((layer) => ({ layer })),
+	const queryRenderedFeatures = vi.fn((_point: unknown, options: { layers: readonly string[] }) =>
+		options.layers.filter((layer) => hitLayers.includes(layer)).map((layer) => ({ layer })),
 	);
 	const map = {
 		on: (_type: string, handler: (event: MapMouseEvent) => void) => handlers.add(handler),

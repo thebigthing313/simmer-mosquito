@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { usePersistentFlag } from '@simmer-mosquito/ui-web/hooks/use-persistent-flag';
 import { ChevronDownIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -11,8 +12,7 @@ import { SecondarySidebarItem } from './secondary-sidebar-item';
  * consuming app happens to define a class is a trap for the next app to mount
  * the shell.
  */
-const GROUP_LABEL =
-	'm-0 px-2.5 pt-1 text-[0.74rem] font-extrabold text-primary uppercase leading-[1.1] tracking-[0.06em]';
+const GROUP_LABEL = eyebrow({ tone: 'primary', className: 'px-2.5 pt-1' });
 
 /** A cluster of items, optionally introduced by a quiet section label. */
 export function SecondarySidebarGroup({

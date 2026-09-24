@@ -1,4 +1,5 @@
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -267,10 +268,7 @@ function RouteEditRoute() {
 						</div>
 
 						<div className="grid gap-1.5">
-							<label
-								className="font-medium text-[0.7rem] text-muted-foreground uppercase tracking-wide"
-								htmlFor="route-name"
-							>
+							<label className={eyebrow()} htmlFor="route-name">
 								Route name
 							</label>
 							<div className="flex items-center gap-2">

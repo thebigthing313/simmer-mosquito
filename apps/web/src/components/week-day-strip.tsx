@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 /**
  * The seven-day strip a daily panel is browsed by.
  *
@@ -72,7 +73,7 @@ export function WeekDayStrip({
 							onClick={() => onSelect(day)}
 							type="button"
 						>
-							<span className="text-[0.62rem] uppercase tracking-wide opacity-70">
+							<span className={eyebrow({ tone: 'inherit', className: 'opacity-80' })}>
 								{isToday ? 'Today' : weekdayLabel(day)}
 							</span>
 							<span className="font-semibold tabular-nums">{dayOfMonth(day)}</span>
