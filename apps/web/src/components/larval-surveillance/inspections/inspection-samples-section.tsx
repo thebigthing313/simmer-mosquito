@@ -4,21 +4,42 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { PlusIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { recordNoun } from '../../../lib/record-nouns';
+import { generateSampleLabel } from '../../../lib/sample-label';
 import type { InspectionSampleDraft } from './inspection-form-values';
 
 /**
  * The specimens collected on this inspection, drafted here and written once the
- * inspection lands. A blank label records an unlabeled sample.
+ * inspection lands. A blank label records an unlabeled sample. Each row takes a
+ * label typed off a prelabeled cup, or generates one from `inspectorName` and
+ * `inspectionDate` for the crew to write on the cup.
  */
 export function SamplesSection({
 	value,
 	isEditing,
+	inspectorName,
+	inspectionDate,
 	onChange,
 }: {
 	readonly value: readonly InspectionSampleDraft[];
 	readonly isEditing: boolean;
+	readonly inspectorName: string | null;
+	/** `YYYY-MM-DD`; Generate is disabled until the form has one. */
+	readonly inspectionDate: string;
 	readonly onChange: (next: readonly InspectionSampleDraft[]) => void;
 }) {
+	const setLabel = (id: string, label: string) =>
+		onChange(value.map((row) => (row.id === id ? { ...row, label } : row)));
+	const generateLabel = (id: string) => {
+		const label = generateSampleLabel(
+			inspectorName,
+			inspectionDate,
+			value.map((row) => row.label),
+		);
+		if (label !== null) {
+			setLabel(id, label);
+		}
+	};
+
 	return (
 		<FormSection
 			note={
@@ -41,16 +62,20 @@ export function SamplesSection({
 							<li className="flex items-center gap-2" key={sample.id}>
 								<Input
 									aria-label={`Sample ${index + 1} label`}
-									onChange={(event) =>
-										onChange(
-											value.map((row) =>
-												row.id === sample.id ? { ...row, label: event.target.value } : row,
-											),
-										)
-									}
+									onChange={(event) => setLabel(sample.id, event.target.value)}
 									placeholder={`Optional label for sample ${index + 1}`}
 									value={sample.label}
 								/>
+								<Button
+									aria-label={`Generate a label for sample ${index + 1}`}
+									disabled={inspectionDate === ''}
+									onClick={() => generateLabel(sample.id)}
+									size="sm"
+									type="button"
+									variant="outline"
+								>
+									Generate
+								</Button>
 								<Button
 									aria-label={`Remove sample ${index + 1}`}
 									onClick={() => onChange(value.filter((row) => row.id !== sample.id))}

@@ -483,15 +483,28 @@ export function InspectionFormPage({
 				<form.Subscribe selector={(state) => state.values.isWet}>
 					{(isWet) =>
 						isWet ? (
-							<form.AppField name="samples">
-								{(field) => (
-									<SamplesSection
-										isEditing={isEditing}
-										onChange={field.handleChange}
-										value={field.state.value as readonly InspectionSampleDraft[]}
-									/>
+							<form.Subscribe
+								selector={(state) =>
+									[state.values.inspectedByProfileId, state.values.inspectionDate] as const
+								}
+							>
+								{([inspectedByProfileId, inspectionDate]) => (
+									<form.AppField name="samples">
+										{(field) => (
+											<SamplesSection
+												inspectionDate={inspectionDate}
+												inspectorName={
+													profiles.find((profile) => profile.id === inspectedByProfileId)
+														?.displayName ?? null
+												}
+												isEditing={isEditing}
+												onChange={field.handleChange}
+												value={field.state.value as readonly InspectionSampleDraft[]}
+											/>
+										)}
+									</form.AppField>
 								)}
-							</form.AppField>
+							</form.Subscribe>
 						) : null
 					}
 				</form.Subscribe>
