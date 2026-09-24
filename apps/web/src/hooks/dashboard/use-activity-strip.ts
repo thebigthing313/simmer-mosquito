@@ -37,6 +37,8 @@ import { activityGcTimeMs } from '../queries/shared';
 const ACTIVITY_WINDOW_DAYS = 7;
 
 export interface ActivityStripRead {
+	/** How many days each window holds, which is what the strip's copy names. */
+	readonly windowDays: number;
 	readonly window: DateWindow;
 	readonly priorWindow: DateWindow;
 	readonly types: Readonly<Record<ActivityTypeKey, ActivityCount>>;
@@ -181,6 +183,7 @@ export function useActivityStrip(today: string, timeZone: string): ActivityStrip
 	}
 
 	return {
+		windowDays: ACTIVITY_WINDOW_DAYS,
 		window,
 		priorWindow,
 		types,

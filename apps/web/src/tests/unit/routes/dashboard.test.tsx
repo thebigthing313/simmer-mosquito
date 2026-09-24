@@ -264,22 +264,20 @@ describe('the Dashboard', () => {
 		expect(panel('Operations backlog').getByText('10')).toBeTruthy();
 
 		// The strip: every type a cell, counted off the synced rows on its own date.
-		expect(screen.getByText('Sep 9 to Sep 15, compared with the 7 days before')).toBeTruthy();
-		expect(stripCell('Inspections').textContent).toBe('32Inspections');
-		expect(stripCell('Inspections').spoken).toBe(
-			'3 inspections, up 2 compared with the 7 days before',
-		);
-		expect(stripCell('Samples').textContent).toBe('32Samples');
+		expect(screen.getByText('Sep 9 to Sep 15, change vs previous 7 days')).toBeTruthy();
+		expect(stripCell('Inspections').textContent).toBe('3+2Inspections');
+		expect(stripCell('Inspections').spoken).toBe('3 inspections, up 2 vs previous 7 days');
+		expect(stripCell('Samples').textContent).toBe('3+2Samples');
 		// One in each window, the exact-timestamp one placed by the Organization's zone.
 		expect(stripCell('Collections').textContent).toBe('10Collections');
 		expect(stripCell('Collections').spoken).toContain('no change');
-		expect(stripCell('Service Requests received').textContent).toBe('22Service Requests received');
+		expect(stripCell('Service Requests received').textContent).toBe('2+2Service Requests received');
 		// A type with no row is a cell at zero.
 		expect(stripCell('Biocontrol Actions').textContent).toBe('00Biocontrol Actions');
 
 		// The toggle restates every change as a percentage; a rise from nothing has no base.
 		fireEvent.click(screen.getByRole('radio', { name: 'Change as a percentage' }));
-		expect(stripCell('Inspections').textContent).toBe('3200%Inspections');
+		expect(stripCell('Inspections').textContent).toBe('3+200%Inspections');
 		expect(stripCell('Collections').textContent).toBe('10%Collections');
 		expect(stripCell('Service Requests received').textContent).toBe(
 			'2from 0Service Requests received',

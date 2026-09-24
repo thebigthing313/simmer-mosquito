@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeSentence } from '../../../../components/dashboard/dashboard-data';
+import { changeLabel, changeSentence } from '../../../../components/dashboard/dashboard-data';
 import { recordNoun } from '../../../../lib/record-nouns';
 
 /**
@@ -11,20 +11,37 @@ describe('changeSentence', () => {
 	const inspections = recordNoun('inspection');
 
 	it('names the count, the record and the comparison window', () => {
-		expect(changeSentence(622, 1535, 'count', inspections)).toBe(
-			'622 inspections, down 913 compared with the 7 days before',
+		expect(changeSentence(622, 1535, 'count', inspections, 7)).toBe(
+			'622 inspections, down 913 vs previous 7 days',
 		);
-		expect(changeSentence(1200, 1000, 'percent', inspections)).toBe(
-			'1,200 inspections, up 20% compared with the 7 days before',
+		expect(changeSentence(1200, 1000, 'percent', inspections, 7)).toBe(
+			'1,200 inspections, up 20% vs previous 7 days',
 		);
 	});
 
 	it('says no change, and a rise from nothing, in words', () => {
-		expect(changeSentence(1, 1, 'count', inspections)).toBe(
-			'1 inspection, no change from the 7 days before',
+		expect(changeSentence(1, 1, 'count', inspections, 7)).toBe(
+			'1 inspection, no change from the previous 7 days',
 		);
-		expect(changeSentence(4, 0, 'percent', inspections)).toBe(
-			'4 inspections, up from none in the 7 days before',
+		expect(changeSentence(4, 0, 'percent', inspections, 7)).toBe(
+			'4 inspections, up from none in the previous 7 days',
 		);
+	});
+
+	it('names the window the strip was given rather than a week', () => {
+		expect(changeSentence(3, 1, 'count', inspections, 14)).toBe(
+			'3 inspections, up 2 vs previous 14 days',
+		);
+	});
+});
+
+describe('changeLabel', () => {
+	it('signs the change, since one tone draws it either way', () => {
+		expect(changeLabel(622, 1535, 'count').text).toBe('-913');
+		expect(changeLabel(3, 1, 'count').text).toBe('+2');
+		expect(changeLabel(1200, 1000, 'percent').text).toBe('+20%');
+		expect(changeLabel(800, 1000, 'percent').text).toBe('-20%');
+		expect(changeLabel(5, 5, 'count').text).toBe('0');
+		expect(changeLabel(4, 0, 'percent').text).toBe('from 0');
 	});
 });

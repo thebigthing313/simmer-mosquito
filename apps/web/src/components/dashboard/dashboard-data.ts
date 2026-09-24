@@ -116,45 +116,25 @@ export function ageLabel(days: number): string {
 /** How the strip states a change against the 7 days before: as a count or as a percentage. */
 export type ChangeMode = 'count' | 'percent';
 
-/** A strip cell's change, as the chevron beside the count draws it. */
+/** A strip cell's change, as the figure beside the count draws it. */
 export interface ChangeLabel {
 	readonly direction: 'up' | 'down' | 'same';
-	/** `25`, `0`, `58%`, or `from 0` where a percentage has no base; the chevron carries the sign. */
+	/** `+25`, `-913`, `0`, `+58%`, or `from 0` where a percentage has no base. */
 	readonly text: string;
 }
 
-/**
- * The change from `prior` to `count`. The figure is unsigned, because the
- * chevron beside it is the sign. A count is the difference; a percentage is
- * the difference over `prior`, rounded to whole points, and over a prior of
- * zero it has no base, so a rise from nothing reads `from 0` rather than a
- * number.
- */
-/**
- * The cell as a screen reader should hear it: the count, what was counted, and
- * the change named against the window it is measured from. The visible cell
- * reads `622 ⌄ 913 Inspections`, and announced as it is drawn that was
- * "622 Down 913 Inspections", which says neither what went down nor against
- * what.
- */
-export function changeSentence(
-	count: number,
-	prior: number,
-	mode: ChangeMode,
-	noun: CountNoun,
-): string {
-	const counted = countPhrase(count, noun);
-	const change = changeLabel(count, prior, mode);
-	if (change.direction === 'same') {
-		return `${counted}, no change from the 7 days before`;
-	}
-	if (change.text === 'from 0') {
-		return `${counted}, up from none in the 7 days before`;
-	}
-	const amount = mode === 'count' ? formatCount(Math.abs(count - prior)) : change.text;
-	return `${counted}, ${change.direction} ${amount} compared with the 7 days before`;
-}
+/** A signed whole number, `+25` and `-913`, with zero unsigned. */
+const SIGNED = new Intl.NumberFormat('en-US', { signDisplay: 'exceptZero' });
 
+/**
+ * The change from `prior` to `count`, signed, because the figure is drawn in
+ * one neutral tone and the sign is the only thing saying which way it went. A
+ * rise is not good and a fall is not bad on this strip: fewer inspections in a
+ * dry week and more service requests after a storm are both just the week. A
+ * count is the difference; a percentage is the difference over `prior`,
+ * rounded to whole points, and over a prior of zero it has no base, so a rise
+ * from nothing reads `from 0` rather than a number.
+ */
 export function changeLabel(count: number, prior: number, mode: ChangeMode): ChangeLabel {
 	const delta = count - prior;
 	if (delta === 0) {
@@ -162,10 +142,44 @@ export function changeLabel(count: number, prior: number, mode: ChangeMode): Cha
 	}
 	const direction = delta > 0 ? 'up' : 'down';
 	if (mode === 'count') {
-		return { direction, text: `${Math.abs(delta)}` };
+		return { direction, text: SIGNED.format(delta) };
 	}
 	if (prior === 0) {
 		return { direction, text: 'from 0' };
 	}
-	return { direction, text: `${Math.abs(Math.round((delta / prior) * 100))}%` };
+	return { direction, text: `${SIGNED.format(Math.round((delta / prior) * 100))}%` };
+}
+
+/** `vs previous 7 days`, off the window the strip actually compares against. */
+export function comparisonPhrase(windowDays: number): string {
+	return `vs previous ${countPhrase(windowDays, DAY_NOUN)}`;
+}
+
+const DAY_NOUN = { one: 'day', many: 'days' } as const;
+
+/**
+ * The cell as a screen reader should hear it: the count, what was counted, and
+ * the change named against the window it is measured from. The drawn cell
+ * reads `622 -913 Inspections` under a heading that names the window, and
+ * announced as drawn that says neither what fell nor against what.
+ */
+export function changeSentence(
+	count: number,
+	prior: number,
+	mode: ChangeMode,
+	noun: CountNoun,
+	windowDays: number,
+): string {
+	const counted = countPhrase(count, noun);
+	const days = countPhrase(windowDays, DAY_NOUN);
+	const change = changeLabel(count, prior, mode);
+	if (change.direction === 'same') {
+		return `${counted}, no change from the previous ${days}`;
+	}
+	if (change.text === 'from 0') {
+		return `${counted}, up from none in the previous ${days}`;
+	}
+	const amount =
+		mode === 'count' ? formatCount(Math.abs(count - prior)) : change.text.replace(/^[+-]/, '');
+	return `${counted}, ${change.direction} ${amount} ${comparisonPhrase(windowDays)}`;
 }

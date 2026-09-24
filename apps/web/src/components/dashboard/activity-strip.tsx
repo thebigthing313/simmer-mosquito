@@ -1,7 +1,5 @@
 import { PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useState } from 'react';
 import { useActivityStrip } from '../../hooks/dashboard/use-activity-strip';
 import { type CountNoun, formatCount } from '../../lib/format-count';
@@ -13,10 +11,9 @@ import {
 	type ChangeMode,
 	changeLabel,
 	changeSentence,
+	comparisonPhrase,
 } from './dashboard-data';
 
-const UpIcon = iconRegistry.arrows.chevronUp.icon;
-const DownIcon = iconRegistry.arrows.chevronDown.icon;
 const ACTIVITY_UNAVAILABLE = 'Activity is unavailable right now.';
 
 /** What each strip cell is called, by the type the hook counts it as. */
@@ -75,10 +72,12 @@ export function ActivityStrip({
 	return (
 		<section className="grid gap-2">
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-				<h2 className="m-0 font-semibold text-foreground text-sm">Last 7 days</h2>
+				<h2 className="m-0 font-semibold text-foreground text-sm">
+					{`Last ${activity.windowDays} Days`}
+				</h2>
 				<div className="flex items-center gap-3">
 					<span className="text-muted-foreground text-xs">
-						{`${formatMonthDay(activity.window.from)} to ${formatMonthDay(activity.window.to)}, compared with the 7 days before`}
+						{`${formatMonthDay(activity.window.from)} to ${formatMonthDay(activity.window.to)}, change ${comparisonPhrase(activity.windowDays)}`}
 					</span>
 					<ToggleGroup
 						aria-label="Show the change as"
@@ -122,7 +121,13 @@ export function ActivityStrip({
 			) : (
 				<div className="grid grid-cols-2 divide-x divide-border/60 overflow-hidden rounded-md border border-border/60 sm:grid-cols-4 xl:grid-cols-8">
 					{ACTIVITY_TYPE_KEYS.map((key) => (
-						<ActivityCell cell={activity.types[key]} key={key} mode={mode} type={key} />
+						<ActivityCell
+							cell={activity.types[key]}
+							key={key}
+							mode={mode}
+							type={key}
+							windowDays={activity.windowDays}
+						/>
 					))}
 				</div>
 			)}
@@ -131,48 +136,36 @@ export function ActivityStrip({
 }
 
 /**
- * One cell: the count, the change beside it as a chevron and a figure, and
- * the type's label under both. Up draws in the info tone and down in the
- * warning tone, the way the queue chips already read; no change draws the
- * figure alone, muted, with no chevron.
+ * One cell: the count, the signed change beside it, and the type's label
+ * under both. The change is one neutral tone whichever way it went, because
+ * the strip reports the week and does not judge it; the heading's line names
+ * the window it is measured against.
  *
  * What is drawn is hidden from assistive technology and a sentence stands in
- * for it, because the drawn order announced as "622 Down 913 Inspections".
+ * for it, because the drawn order announced as "622 -913 Inspections".
  */
 function ActivityCell({
 	type,
 	cell,
 	mode,
+	windowDays,
 }: {
 	readonly type: ActivityTypeKey;
 	readonly cell: { readonly count: number; readonly prior: number };
 	readonly mode: ChangeMode;
+	readonly windowDays: number;
 }) {
 	const change = changeLabel(cell.count, cell.prior, mode);
 	return (
 		<div className="grid gap-0.5 px-3 py-2.5">
 			<span className="sr-only">
-				{changeSentence(cell.count, cell.prior, mode, ACTIVITY_NOUNS[type])}
+				{changeSentence(cell.count, cell.prior, mode, ACTIVITY_NOUNS[type], windowDays)}
 			</span>
 			<span aria-hidden="true" className="flex items-baseline gap-1.5">
 				<span className="font-semibold text-xl tabular-nums leading-none">
 					{formatCount(cell.count)}
 				</span>
-				<span
-					className={cn(
-						'inline-flex items-center gap-0.5 text-xs tabular-nums',
-						change.direction === 'up' && 'text-info',
-						change.direction === 'down' && 'text-warning',
-						change.direction === 'same' && 'text-muted-foreground',
-					)}
-				>
-					{change.direction === 'up' ? (
-						<UpIcon className="size-3.5" />
-					) : change.direction === 'down' ? (
-						<DownIcon className="size-3.5" />
-					) : null}
-					{change.text}
-				</span>
+				<span className="text-muted-foreground text-xs tabular-nums">{change.text}</span>
 			</span>
 			<span aria-hidden="true" className="truncate text-muted-foreground text-xs">
 				{ACTIVITY_LABELS[type]}
