@@ -155,6 +155,33 @@ describe('the Today page', () => {
 		expect(screen.queryByRole('heading', { name: 'Outreach Actions' })).toBeNull();
 	});
 
+	// A type the Organization has recorded, but not once this year, keeps its
+	// table row and draws no chart: a year of empty days is not a trend.
+	it('leaves out the chart of a measure the year so far holds none of', async () => {
+		const response = dayOverview();
+		answerWith({
+			...response,
+			types: response.types.map((row) =>
+				row.type === 'samples'
+					? { ...row, series: row.series.map((point) => ({ ...point, value: 0 })) }
+					: row,
+			),
+			ratios: response.ratios.map((ratio) =>
+				ratio.ratio === 'positiveInspections'
+					? { ...ratio, series: ratio.series.map((point) => ({ ...point, numerator: 0 })) }
+					: ratio,
+			),
+		});
+		renderToday();
+
+		await waitFor(() => screen.getByRole('table'));
+
+		expect(table().getByRole('row', { name: /^Samples/ })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Samples' })).toBeNull();
+		expect(screen.queryByRole('heading', { name: 'Positive inspections' })).toBeNull();
+		expect(screen.getByRole('heading', { name: 'Inspections' })).toBeTruthy();
+	});
+
 	it('draws the absence glyph over a zero denominator, with the count beside it', async () => {
 		renderToday();
 

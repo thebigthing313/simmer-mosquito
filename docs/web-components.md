@@ -528,8 +528,10 @@ the string `2026` as `%222026%22`, and `periodSearchCodec` reads either back.
 #### OverviewChart
 
 One component for the family, on `ChartContainer` and the Recharts
-primitives. Today's form is an area rather than a bar, because 365 slots at a
-600px plot width leave no bar the mark spec's 2px gap or 24px hit target.
+primitives. Today's form is one bar per day, weekends included, packed with no
+gap: 365 slots at a 600px plot width leave no room for the mark spec's 2px gap,
+and the area it replaced drew a line across quiet days. Today also leaves out a
+measure whose series totals zero, through `drawsTrend`.
 Monthly's is a grouped bar, twelve groups of two, the response's flat 24-point
 series split by the year in each point's `period`; a month the year has not
 reached is no bar, and every bar in the period series wears the role at full

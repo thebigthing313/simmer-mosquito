@@ -1,8 +1,8 @@
 /**
  * The one chart the period-in-review pages draw, one per shown row, on
  * `ChartContainer` over Recharts. The form is the grain's: Today plots the
- * year's days as an area, because 365 slots at a 600px plot width leave no
- * bar the mark spec's 2px gap or 24px hit target; Monthly plots twelve
+ * year's days as bars, one per day with the weekends in, packed with no gap
+ * because 365 slots at a 600px plot width leave no room for one; Monthly plots twelve
  * groups of two bars, the picked month's year in the period role beside the
  * year before in the comparison role; Annual plots one bar per year over
  * the whole history. Every form paints its roles through
@@ -12,8 +12,8 @@
  * choices.
  *
  * A ratio chart plots the ratio itself off the numerator and denominator the
- * series carries; a point whose denominator is zero is a gap, `null` with
- * `connectNulls` off, so a day with no inspections draws nothing rather
+ * series carries; a point whose denominator is zero is a gap, `null`, which
+ * draws no bar, so a day with no inspections draws nothing rather
  * than `0%`. Clicking the plot opens the period under the pointer at the
  * page's grain, through `periodDestination`; there is no `Link` inside an
  * SVG, so the destination is asserted on that function rather than by href.
@@ -33,16 +33,7 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from '@simmer-mosquito/ui-web/components/ui/chart';
-import {
-	Area,
-	AreaChart,
-	Bar,
-	BarChart,
-	CartesianGrid,
-	ReferenceLine,
-	XAxis,
-	YAxis,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import {
@@ -110,7 +101,7 @@ export function OverviewChart({
 		);
 	}
 	return (
-		<DaysArea
+		<DaysBars
 			format={format}
 			onOpenPeriod={onOpenPeriod}
 			period={period}
@@ -163,7 +154,14 @@ interface PlotClick {
 
 // --- Today: the year's days ---------------------------------------------------
 
-function DaysArea({
+/**
+ * One bar per day of the year so far, weekends included, so a quiet weekend
+ * reads as two short bars rather than a line drawn across it. The bars touch:
+ * at this density a gap would be wider than the bar. No corner radius either,
+ * since a bar two pixels wide has no corner to round. A ratio day whose
+ * denominator is zero is `null` and draws no bar.
+ */
+function DaysBars({
 	points,
 	period,
 	format,
@@ -180,7 +178,8 @@ function DaysArea({
 	return (
 		<div className={CHART_FRAME}>
 			<ChartContainer className={PLOT} config={PERIOD_CONFIG}>
-				<AreaChart
+				<BarChart
+					barCategoryGap={0}
 					className="cursor-pointer"
 					data={points as PlotPoint[]}
 					margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
@@ -214,26 +213,16 @@ function DaysArea({
 								labelFormatter={(label) => formatMonthDay(String(label))}
 							/>
 						}
-						cursor={{ stroke: 'var(--muted-foreground)', strokeDasharray: '3 3' }}
+						cursor={{ fill: 'var(--muted)', fillOpacity: 0.6 }}
 					/>
-					<Area
-						connectNulls={false}
-						dataKey="value"
-						fill="var(--color-period)"
-						fillOpacity={0.1}
-						isAnimationActive={false}
-						name="period"
-						stroke="var(--color-period)"
-						strokeWidth={2}
-						type="monotone"
-					/>
+					<Bar dataKey="value" fill="var(--color-period)" isAnimationActive={false} name="period" />
 					<ReferenceLine
 						stroke="var(--foreground)"
 						strokeDasharray="3 3"
 						strokeOpacity={0.7}
 						x={period}
 					/>
-				</AreaChart>
+				</BarChart>
 			</ChartContainer>
 		</div>
 	);

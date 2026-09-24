@@ -3,6 +3,7 @@ import {
 	columnHeader,
 	columnLink,
 	cutCaption,
+	drawsTrend,
 	formatCell,
 	formatRatio,
 	monthGroups,
@@ -178,5 +179,25 @@ describe('columnLink', () => {
 		expect(
 			columnLink('day', 'inspections', { key: 'average', years: { from: 2021, to: 2025 } }),
 		).toBeNull();
+	});
+});
+
+describe('drawsTrend', () => {
+	const empty = [{ period: '2026-09-14', value: 0 }];
+	const counted = [
+		{ period: '2026-09-14', value: 0 },
+		{ period: '2026-09-15', value: 3 },
+	];
+
+	it('leaves out a Today measure the window holds none of, by count or by numerator', () => {
+		expect(drawsTrend('day', empty)).toBe(false);
+		expect(drawsTrend('day', counted)).toBe(true);
+		expect(drawsTrend('day', [{ period: '2026-09-15', numerator: 0, denominator: 4 }])).toBe(false);
+		expect(drawsTrend('day', [{ period: '2026-09-15', numerator: 1, denominator: 4 }])).toBe(true);
+	});
+
+	it('draws every measure on Monthly and Annual', () => {
+		expect(drawsTrend('month', empty)).toBe(true);
+		expect(drawsTrend('year', empty)).toBe(true);
 	});
 });

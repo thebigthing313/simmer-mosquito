@@ -255,6 +255,22 @@ export function shownTypes(response: OverviewResponse): readonly OverviewTypeRow
 	return response.types.filter((row) => row.recordedEver);
 }
 
+/**
+ * Whether a trend chart is drawn. Today leaves out a measure the year so far
+ * holds none of, since twelve months of empty days say nothing a reader needs
+ * to scroll past; Monthly and Annual draw every shown row. A ratio counts by
+ * its numerator.
+ */
+export function drawsTrend(
+	grain: OverviewGrain,
+	points: readonly ({ readonly value: number } | { readonly numerator: number })[],
+): boolean {
+	return (
+		grain !== 'day' ||
+		points.some((point) => ('value' in point ? point.value : point.numerator) > 0)
+	);
+}
+
 /** A share or a rate, or null over a zero denominator, which draws the absence glyph. */
 export function ratioValue(numerator: number, denominator: number): number | null {
 	return denominator === 0 ? null : numerator / denominator;
