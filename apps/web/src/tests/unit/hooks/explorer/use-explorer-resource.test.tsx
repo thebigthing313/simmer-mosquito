@@ -815,7 +815,7 @@ describe('useExplorerResource: a filter change', () => {
 				: { rows: [], total: 0 };
 	}
 
-	function renderExplorer(fake: FakeMap) {
+	function renderExplorer(fake: FakeMap, keepOpeningCamera = false) {
 		return renderHook(
 			({ search }: { readonly search: string }) => {
 				const layer = layerFor(search);
@@ -830,7 +830,13 @@ describe('useExplorerResource: a filter change', () => {
 					selectedId: null,
 				});
 				// The canvas's half: the same extent, and the camera move it decides.
-				useMapExtentFit(fake.map, true, { url: tileLayerExtentUrl(layer) ?? '' });
+				useMapExtentFit(
+					fake.map,
+					true,
+					{ url: tileLayerExtentUrl(layer) ?? '' },
+					undefined,
+					keepOpeningCamera,
+				);
 				return rail;
 			},
 			{ wrapper, initialProps: { search: '' } },
@@ -887,6 +893,24 @@ describe('useExplorerResource: a filter change', () => {
 		// and the page that follows the move is the one the rail keeps.
 		await loadAndFrame(fake, result);
 		expect(fake.cameraCalls).toHaveLength(1);
+	});
+
+	// An explorer map opens on the camera the reader left the last one on, so
+	// the load-time extent is recorded and not framed. The next filter change is
+	// a new decision and refits by the usual rule.
+	it('leaves the opening camera alone when told to, and refits on the next change', async () => {
+		serveExtents({ '': OUTSIDE, pond: OUTSIDE });
+		const fake = createFakeMap();
+		const { rerender } = renderExplorer(fake, true);
+
+		await waitFor(() => expect(requestCounts('/map/habitats').extent).toBe(1));
+		await waitFor(() => expect(requestCounts('/map/habitats').page).toBe(1));
+		expect(fake.cameraCalls).toHaveLength(0);
+
+		rerender({ search: 'pond' });
+
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		expect(fake.cameraCalls[0]?.kind).toBe('fitBounds');
 	});
 
 	it('spends one page request, and no camera move, on a change whose extent is already in view', async () => {

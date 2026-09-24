@@ -326,6 +326,29 @@ the object in `useMemo` is not the way out, since `check:manual-memo` refuses
 one on a compiled path. So the effect takes the numbers and builds the object
 itself, and `useMapPadding` does the same.
 
+`keepOpeningCamera` is the explorers' switch, passed by `MapCanvas` under
+`rememberCamera`. The load-time fit is recorded and not made, so a map that
+opened on the camera the reader left it on stays there; the next filter change
+refits by the rule above.
+
+#### useExplorerCamera
+
+Every explorer opened on its own data's extent, so going from Habitats to
+Traps threw away the ground the reader had zoomed in on and framed the whole
+Organization again. One camera is now kept for all of them, per Organization,
+in browser storage: `lib/explorer-camera.ts` reads and writes it, every call
+guarded, and `MapCanvas` stores the camera on every `moveend`.
+
+It is read once, when the map mounts, and never re-read. The map writes as it
+moves, and the value it writes is for the next map to open on.
+
+With nothing stored the map opens on `DEFAULT_MAP_CAMERA` and frames the
+Organization's Regions, through the regions extent endpoint with no filters.
+An Organization with no Regions gets a null extent, nothing fits, and the
+default stands. Detail pages and forms pass no `rememberCamera` and frame
+their own record as before. No projection is set here: the Mapbox Studio style
+carries it.
+
 #### useMapExtent
 
 Two readers share it: the camera fit in `useMapExtentFit`, and the explorer

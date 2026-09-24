@@ -259,6 +259,7 @@ function CollectionsExplorerRoute() {
 						layers={layers}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						legend={legend}
 						onMapReady={handleMapReady}
 					/>

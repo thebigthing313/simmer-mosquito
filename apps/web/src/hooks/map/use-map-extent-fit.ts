@@ -28,12 +28,16 @@ const FIT_DURATION_MS = 600;
  * skipped when the whole extent already sits inside the visible part of the
  * canvas; the first fit and a local box are never skipped. `inset` widens
  * the fit margin by the chrome floating over the map.
+ *
+ * `keepOpeningCamera` leaves the first frame alone, so a map that opened on a
+ * camera somebody chose stays there; it still refits when the source changes.
  */
 export function useMapExtentFit(
 	map: MapboxMap | null,
 	isLoaded: boolean,
 	source: MapExtentFitSource | null,
 	inset?: MapInset,
+	keepOpeningCamera = false,
 ): void {
 	const url = source !== null && 'url' in source ? source.url : null;
 	const localBounds = source !== null && 'bounds' in source ? source.bounds : null;
@@ -58,8 +62,15 @@ export function useMapExtentFit(
 		if (!isMapLive(map) || !isLoaded || bounds === null || fitKey === null) {
 			return;
 		}
-		frameOnce(fitted.current, { map, bounds, fitKey, url, padding: { top, right, bottom, left } });
-	}, [map, isLoaded, bounds, fitKey, url, top, right, bottom, left]);
+		frameOnce(fitted.current, {
+			map,
+			bounds,
+			fitKey,
+			url,
+			padding: { top, right, bottom, left },
+			keepOpeningCamera,
+		});
+	}, [map, isLoaded, bounds, fitKey, url, top, right, bottom, left, keepOpeningCamera]);
 }
 
 /** What the camera was last framed on, so one key is fitted once per GL instance. */
@@ -75,6 +86,8 @@ interface FitRequest {
 	readonly fitKey: string;
 	readonly url: string | null;
 	readonly padding: ReturnType<typeof insetPadding>;
+	/** Record the first frame on a map without moving to it. */
+	readonly keepOpeningCamera: boolean;
 }
 
 /**
@@ -83,14 +96,17 @@ interface FitRequest {
  * a key it already fitted; a repeated key on the same instance is a pan the
  * reader made and is left alone.
  */
-function frameOnce(ledger: FitLedger, { map, bounds, fitKey, url, padding }: FitRequest): void {
+function frameOnce(
+	ledger: FitLedger,
+	{ map, bounds, fitKey, url, padding, keepOpeningCamera }: FitRequest,
+): void {
 	const isFirstFit = ledger.map !== map;
 	if (!isFirstFit && ledger.key === fitKey) {
 		return;
 	}
 	ledger.map = map;
 	ledger.key = fitKey;
-	if (isFirstFit || isRefitOwed(map, url, bounds)) {
+	if (isFirstFit ? !keepOpeningCamera : isRefitOwed(map, url, bounds)) {
 		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, padding);
 	}
 }

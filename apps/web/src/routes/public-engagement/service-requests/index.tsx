@@ -273,6 +273,7 @@ function ServiceRequestsExplorerRoute() {
 						}}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						inset={panel.inset}
 						layers={layers}
 						legend={legend}

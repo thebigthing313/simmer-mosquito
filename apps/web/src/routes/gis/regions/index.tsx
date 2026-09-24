@@ -131,6 +131,7 @@ function RegionsMap({
 				contextMenu={{}}
 				controls={{ measure: true, readout: true }}
 				fitToData={focusedId === null}
+				rememberCamera
 				inset={panel.inset}
 				layers={layers}
 				onMapReady={onMapReady}
