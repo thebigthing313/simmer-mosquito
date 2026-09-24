@@ -17,6 +17,7 @@ export {
 	mapStatus,
 } from './map-palette.js';
 export {
+	TAG_CHIP_SURFACE,
 	type TagChipColors,
 	type TagPaletteEntry,
 	tagChipColors,

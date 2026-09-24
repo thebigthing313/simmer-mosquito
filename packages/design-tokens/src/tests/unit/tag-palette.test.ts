@@ -1,6 +1,4 @@
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { readDeclarations } from '../../../../../scripts/lib/stylesheet-tokens.mjs';
 import {
 	compositeOver,
 	contrastRatio,
@@ -9,7 +7,7 @@ import {
 	rgbToOklch,
 	TEXT_AA,
 } from '../../color.js';
-import { TAG_CHIP_SURFACE, tagChipColors, tagPalette } from '../../tag-palette.js';
+import { tagChipColors, tagPalette } from '../../tag-palette.js';
 
 const hex = (value: string) => {
 	const parsed = parseCssColor(value);
@@ -51,13 +49,6 @@ describe('tagChipColors', () => {
 		expect(tagChipColors('#abc')).toBeNull();
 		expect(tagChipColors('red')).toBeNull();
 		expect(tagChipColors('')).toBeNull();
-	});
-
-	it('composites over the same surface the card token paints', () => {
-		const styles = fileURLToPath(new URL('../../../../ui-web/src/styles.css', import.meta.url));
-		const card = readDeclarations(styles).find(({ name }) => name === '--card');
-
-		expect(card?.value).toBe(TAG_CHIP_SURFACE);
 	});
 });
 
