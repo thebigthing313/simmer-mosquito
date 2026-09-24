@@ -47,6 +47,12 @@ export interface MapControlsConfig {
 	 */
 	readonly readout?: boolean;
 	readonly attribution?: boolean;
+	/**
+	 * A map inside a card: zoom in and out and the basemap toggle, and none of
+	 * the zoom-to-ends or north reset, which crowded a 400px well with five
+	 * buttons for a map nobody rotates.
+	 */
+	readonly minimal?: boolean;
 }
 
 /**
@@ -149,6 +155,7 @@ export function MapCanvas({
 		measure: controls?.measure ?? false,
 		attribution: controls?.attribution ?? true,
 		readout: controls?.readout ?? false,
+		minimal: controls?.minimal ?? false,
 	};
 
 	const { map, isLoaded, hasToken, error } = useMapboxMap({
@@ -322,8 +329,8 @@ export function MapCanvas({
 									{show.geolocate ? <GeolocateControl map={map} /> : null}
 									{show.zoom ? (
 										<>
-											<MapZoomControls map={map} />
-											<NorthControl map={map} />
+											<MapZoomControls map={map} steps={show.minimal} />
+											{show.minimal ? null : <NorthControl map={map} />}
 										</>
 									) : null}
 								</div>
