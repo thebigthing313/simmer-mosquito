@@ -36,6 +36,7 @@ import {
 	serviceRequestFilterCodecs,
 	sharedServiceRequestSearch,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
+import { ClampedTextCell, LinkedTableRow } from '../../../components/record/linked-table-row';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useHeldRows } from '../../../hooks/explorer/use-held-rows';
 import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
@@ -381,7 +382,15 @@ function RequestRow({ row }: { readonly row: ServiceRequestTableRow }) {
 	const address = addressCardLabel(resolveLinkedAddress(row.address));
 	const details = row.details.trim();
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button aria-label={`View ${title}`} asChild size="icon-sm" variant="ghost">
+					<Link params={{ id: row.id }} to="/public-engagement/service-requests/$id">
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="font-medium tabular-nums">{title}</TableCell>
 			<TableCell className="tabular-nums">{formatRequestDate(row.requestDate)}</TableCell>
 			<TableCell>
@@ -400,17 +409,8 @@ function RequestRow({ row }: { readonly row: ServiceRequestTableRow }) {
 			<TableCell className="text-muted-foreground">
 				{row.receivedByName ?? <AbsentValue />}
 			</TableCell>
-			<TableCell className="max-w-[22rem] truncate text-muted-foreground" title={details}>
-				{details === '' ? <AbsentValue /> : details}
-			</TableCell>
-			<TableCell className="text-right">
-				<Button aria-label={`View ${title}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/public-engagement/service-requests/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
+			<ClampedTextCell empty={<AbsentValue />} text={details} />
+		</LinkedTableRow>
 	);
 }
 

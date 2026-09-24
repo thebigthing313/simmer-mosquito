@@ -28,6 +28,7 @@ import {
 	habitatTileFilters,
 	sharedHabitatSearch,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
+import { ClampedTextCell, LinkedTableRow } from '../../../components/record/linked-table-row';
 import { TagBadge } from '../../../components/tag-badge';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
@@ -226,7 +227,15 @@ function HabitatRow({
 	const name = habitatName(row);
 	const description = row.description.trim();
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
+					<Link params={{ id: row.id }} to="/larval-surveillance/habitats/$id">
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="max-w-[20rem] truncate font-medium" title={name}>
 				{name}
 			</TableCell>
@@ -264,17 +273,8 @@ function HabitatRow({
 					</div>
 				)}
 			</TableCell>
-			<TableCell className="max-w-[22rem] truncate text-muted-foreground" title={description}>
-				{description === '' ? <AbsentValue /> : description}
-			</TableCell>
-			<TableCell className="text-right">
-				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/larval-surveillance/habitats/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
+			<ClampedTextCell empty={<AbsentValue />} text={description} />
+		</LinkedTableRow>
 	);
 }
 

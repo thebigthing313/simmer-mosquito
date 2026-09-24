@@ -28,6 +28,7 @@ import {
 	sampleTileFilters,
 	sharedSampleSearch,
 } from '../../../components/larval-surveillance/samples-search';
+import { LinkedTableRow } from '../../../components/record/linked-table-row';
 import {
 	mapQueryParams,
 	usePagedMapResource,
@@ -203,7 +204,15 @@ function SampleRow({
 	const swatch = sampleSwatch(row);
 	const isIdentified = row.status === 'identified';
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
+					<Link params={{ id: row.id }} to="/larval-surveillance/samples/$id">
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="max-w-[14rem] truncate font-medium" title={name}>
 				{name}
 			</TableCell>
@@ -231,14 +240,7 @@ function SampleRow({
 			<TableCell className="text-right tabular-nums">
 				{isIdentified ? row.larvaeTotal.toLocaleString('en-US') : <AbsentValue />}
 			</TableCell>
-			<TableCell className="text-right">
-				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/larval-surveillance/samples/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
+		</LinkedTableRow>
 	);
 }
 

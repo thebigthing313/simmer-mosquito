@@ -37,6 +37,7 @@ import {
 	inspectionFilterCodecs,
 	sharedInspectionSearch,
 } from '../../../components/larval-surveillance/inspections-search';
+import { LinkedTableRow } from '../../../components/record/linked-table-row';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useHeldRows } from '../../../hooks/explorer/use-held-rows';
 import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
@@ -421,7 +422,20 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 	const when = formatListDate(row.inspectionDate);
 	const label = inspectionHabitatLabel(row, row.address);
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button
+					aria-label={`View the ${when} inspection of ${label}`}
+					asChild
+					size="icon-sm"
+					variant="ghost"
+				>
+					<Link params={{ id: row.id }} to="/larval-surveillance/inspections/$id">
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="tabular-nums">{when}</TableCell>
 			<TableCell className="max-w-[22rem] truncate font-medium" title={label}>
 				{label}
@@ -445,19 +459,7 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 			<TableCell className="text-right tabular-nums">
 				{row.larvaeCount ?? <AbsentValue />}
 			</TableCell>
-			<TableCell className="text-right">
-				<Button
-					aria-label={`View the ${when} inspection of ${label}`}
-					asChild
-					size="icon-sm"
-					variant="ghost"
-				>
-					<Link params={{ id: row.id }} to="/larval-surveillance/inspections/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
+		</LinkedTableRow>
 	);
 }
 

@@ -653,6 +653,25 @@ gets no state pill because the log's verb already says it. Detail badges take
 a line of their own because an inspection's density plus its six-cell strip is
 175px, which in a 380px panel left the record no room for its name.
 
+#### LinkedTableRow
+
+The four table views opened a record from a 16px chevron and nothing else.
+The row is not made a link, because a `<tr>` cannot hold an anchor around its
+cells and a row with `role="link"` and a tab stop would sit beside the chevron
+as a second way in. The chevron stays the one focusable element and the row's
+click clicks it, so a router `Link` navigates the way it does from the
+keyboard. A stretched `::after` over the row was the other shape, and it needs
+`position: relative` on a `<tr>`, which browsers have not agreed on. A click on
+a control inside the row, a Tag chip link or a button, is that control's, and a
+click that ends a text selection is a selection, not a navigation.
+
+#### ClampedTextCell
+
+`max-w` on a `<td>` does nothing in an auto-layout table, so a Description
+column given `max-w-[22rem] truncate` ran 87 to 91 characters to a line. The
+measure goes on a block inside the cell, clamped to two lines, with the whole
+text in the tooltip and on the detail page.
+
 ### registrations
 
 #### RegistrationFields

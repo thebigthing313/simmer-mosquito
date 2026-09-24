@@ -258,7 +258,7 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 			<CardContent padding="compact" className="grid gap-4">
 				<div className="grid gap-1">
 					<span className="text-xs font-semibold text-muted-foreground uppercase">Description</span>
-					<p className="m-0 text-sm text-foreground">{habitatDescription(habitat)}</p>
+					<p className="m-0 max-w-[70ch] text-sm text-foreground">{habitatDescription(habitat)}</p>
 				</div>
 				<DetailList>
 					<DetailRow label="Habitat type">
