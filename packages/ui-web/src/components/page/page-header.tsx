@@ -3,8 +3,10 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 
 /** The page's subject: its icon on a tinted tile beside the title. */
+// The order the class list had under the old `cva`, so the markup it draws is
+// byte for byte what the admin console's changelog pins.
 const SUBJECT_TILE =
-	'mt-0.5 inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary';
+	'inline-flex shrink-0 items-center mt-0.5 size-9 justify-center rounded-md bg-primary/10 text-primary';
 
 /**
  * The heading a page opens with: its subject, its title, a measured
