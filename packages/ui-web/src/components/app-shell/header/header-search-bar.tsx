@@ -1,6 +1,7 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Kbd } from '@simmer-mosquito/ui-web/components/ui/kbd';
 import { SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { modifierKeyLabel } from '@simmer-mosquito/ui-web/lib/modifier-key';
 import { useEffect, useState } from 'react';
 import { useSearchTrigger, useSearchTriggerRef } from './search-trigger-context';
 
@@ -25,9 +26,7 @@ import { useSearchTrigger, useSearchTriggerRef } from './search-trigger-context'
 export function HeaderSearchBar() {
 	const trigger = useSearchTrigger();
 	const triggerRef = useSearchTriggerRef();
-	const [modKey] = useState(() =>
-		typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? '⌘' : 'Ctrl',
-	);
+	const [modKey] = useState(modifierKeyLabel);
 	const onOpen = trigger?.onOpen;
 
 	useEffect(() => {

@@ -20,6 +20,7 @@ import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { isApplePlatform } from '@simmer-mosquito/ui-web/lib/modifier-key';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type KeyboardEvent, useState } from 'react';
 import { useCommentMutations } from '../hooks/mutations/use-comment-mutations';
@@ -214,6 +215,8 @@ function CommentComposer({
 }) {
 	const [value, setValue] = useState('');
 	const [submitting, setSubmitting] = useState(false);
+	// Either modifier sends; the hint names the one on this keyboard.
+	const [apple] = useState(isApplePlatform);
 	const trimmed = value.trim();
 	const canSubmit = trimmed.length > 0 && !submitting;
 
@@ -264,8 +267,9 @@ function CommentComposer({
 				/>
 				<div className="flex items-center justify-end gap-3">
 					<span className="hidden text-xs text-muted-foreground sm:inline">
-						<kbd className="font-sans">⌘</kbd>
-						<kbd className="font-sans">↵</kbd> to send
+						<kbd className="font-sans">{apple ? '⌘' : 'Ctrl'}</kbd>
+						{apple ? null : '+'}
+						<kbd className="font-sans">{apple ? '↵' : 'Enter'}</kbd> to send
 					</span>
 					<Button disabled={!canSubmit} size="sm" type="submit">
 						{submitting ? (
