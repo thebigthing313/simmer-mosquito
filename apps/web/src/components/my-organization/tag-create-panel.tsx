@@ -3,7 +3,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { useTagMutations } from '../../hooks/mutations/use-tag-mutations';
 import { errorMessageForSave } from '../../lib/save-error';
@@ -13,6 +13,7 @@ import { tagFieldsFrom } from './tag-form-values';
 import type { TagFormValues } from './types';
 
 export function TagCreatePanel({ onCancel }: { readonly onCancel: () => void }) {
+	const id = useId();
 	const mutations = useTagMutations();
 	const [values, setValues] = useState<TagFormValues>({
 		tagName: '',
@@ -42,8 +43,9 @@ export function TagCreatePanel({ onCancel }: { readonly onCancel: () => void }) 
 		<div className="grid gap-2 rounded-md border border-dashed border-border/50 bg-background/50 p-2.5">
 			<div className="grid gap-2 md:grid-cols-[minmax(180px,1fr)_132px_auto]">
 				<Field className="gap-1">
-					<FieldLabel>Name</FieldLabel>
+					<FieldLabel htmlFor={`${id}-name`}>Name</FieldLabel>
 					<Input
+						id={`${id}-name`}
 						value={values.tagName}
 						placeholder="e.g. New tag"
 						onChange={(event) => setValues({ ...values, tagName: event.target.value })}
@@ -68,8 +70,9 @@ export function TagCreatePanel({ onCancel }: { readonly onCancel: () => void }) 
 				</div>
 			</div>
 			<Field className="gap-1">
-				<FieldLabel>Description</FieldLabel>
+				<FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
 				<Textarea
+					id={`${id}-description`}
 					value={values.description}
 					className="min-h-14"
 					onChange={(event) => setValues({ ...values, description: event.target.value })}

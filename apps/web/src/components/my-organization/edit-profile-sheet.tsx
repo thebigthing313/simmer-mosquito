@@ -2,6 +2,7 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import {
 	Sheet,
 	SheetClose,
@@ -13,7 +14,7 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { AuthMe } from '../../auth';
 import { useMembershipMutations } from '../../hooks/mutations/use-membership-mutations';
 import { profileSavePlan, useProfileMutations } from '../../hooks/mutations/use-profile-mutations';
@@ -34,6 +35,7 @@ export function EditProfileSheet({
 	readonly canEditRole: boolean;
 	readonly person: PersonListing;
 }) {
+	const id = useId();
 	const { save } = useProfileMutations();
 	const { changeRole } = useMembershipMutations();
 	const [open, setOpen] = useState(false);
@@ -96,8 +98,12 @@ export function EditProfileSheet({
 				<form className="grid gap-3.5" onSubmit={submit}>
 					<div className="grid gap-3 px-4">
 						<Field className="gap-1">
-							<FieldLabel>Display name</FieldLabel>
-							<Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+							<FieldLabel htmlFor={`${id}-display-name`}>Display name</FieldLabel>
+							<Input
+								id={`${id}-display-name`}
+								value={displayName}
+								onChange={(event) => setDisplayName(event.target.value)}
+							/>
 						</Field>
 						<div className="grid gap-1.5">
 							<span className="text-xs font-medium text-muted-foreground">Link state</span>
@@ -111,8 +117,8 @@ export function EditProfileSheet({
 							value={role}
 						/>
 						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 font-medium text-sm">
-							<span>Active</span>
-							<Switch checked={isActive} onCheckedChange={setIsActive} />
+							<Label htmlFor={`${id}-active`}>Active</Label>
+							<Switch id={`${id}-active`} checked={isActive} onCheckedChange={setIsActive} />
 						</div>
 						<SaveErrorNote message={error} />
 					</div>

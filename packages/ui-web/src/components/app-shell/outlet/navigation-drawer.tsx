@@ -13,9 +13,11 @@ import { SecondarySidebar } from '../secondary-sidebar/secondary-sidebar';
 export function NavigationDrawer({
 	open,
 	onOpenChange,
+	onCloseAutoFocus,
 }: {
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
+	readonly onCloseAutoFocus: (event: Event) => void;
 }) {
 	const wide = useMediaQuery('(min-width: 64rem)');
 	const phone = useMediaQuery('(max-width: 39.999rem)');
@@ -24,6 +26,7 @@ export function NavigationDrawer({
 		<Sheet onOpenChange={onOpenChange} open={open && !wide}>
 			<SheetContent
 				aria-describedby={undefined}
+				onCloseAutoFocus={onCloseAutoFocus}
 				className="w-auto max-w-[calc(100vw-3rem)] flex-row gap-0 overflow-hidden border-r-0 p-0 sm:max-w-none"
 				showCloseButton={false}
 				side="left"

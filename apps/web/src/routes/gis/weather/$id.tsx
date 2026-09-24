@@ -243,7 +243,11 @@ function StationLifecycleCard({
 					<DeleteIcon aria-hidden="true" />
 					Delete Station
 				</Button>
-				{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
+				{error === null ? null : (
+					<p className="m-0 text-destructive text-sm" role="alert">
+						{error}
+					</p>
+				)}
 			</CardContent>
 
 			<AlertDialog onOpenChange={setConfirmingDelete} open={confirmingDelete}>

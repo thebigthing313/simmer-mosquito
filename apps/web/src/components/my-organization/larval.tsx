@@ -7,6 +7,7 @@ import type {
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { useId } from 'react';
 import { densityRangeKeys } from './constants';
 import { HabitatTypeLookupList } from './habitat-type-lookup';
 import { densityKeyForSettings, densityLabel, formatDensityRange } from './helpers';
@@ -37,6 +38,7 @@ export function LarvalEntryPolicyGuide({
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly showDensityRanges?: boolean;
 }) {
+	const id = useId();
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="grid gap-1">
@@ -53,8 +55,8 @@ export function LarvalEntryPolicyGuide({
 					title="Density Only"
 				>
 					<Field className="gap-1">
-						<FieldLabel>Density</FieldLabel>
-						<Input disabled readOnly value="Medium" />
+						<FieldLabel htmlFor={`${id}-density`}>Density</FieldLabel>
+						<Input id={`${id}-density`} disabled readOnly value="Medium" />
 					</Field>
 				</SettingChoiceCard>
 				<SettingChoiceCard
@@ -64,12 +66,12 @@ export function LarvalEntryPolicyGuide({
 				>
 					<div className="grid grid-cols-2 gap-2">
 						<Field className="gap-1">
-							<FieldLabel>Larvae</FieldLabel>
-							<Input disabled readOnly value="12" />
+							<FieldLabel htmlFor={`${id}-larvae`}>Larvae</FieldLabel>
+							<Input id={`${id}-larvae`} disabled readOnly value="12" />
 						</Field>
 						<Field className="gap-1">
-							<FieldLabel>Dips</FieldLabel>
-							<Input disabled readOnly value="6" />
+							<FieldLabel htmlFor={`${id}-dips`}>Dips</FieldLabel>
+							<Input id={`${id}-dips`} disabled readOnly value="6" />
 						</Field>
 					</div>
 				</SettingChoiceCard>

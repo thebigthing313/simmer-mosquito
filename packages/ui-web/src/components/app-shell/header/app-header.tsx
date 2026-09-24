@@ -13,6 +13,7 @@ import { useBreadcrumbLabels, useBreadcrumbTrailOverride } from '../breadcrumb-l
 import { buildBreadcrumbs, firstDestination, navDestination } from '../resolve-nav';
 import { useResolutionDomains, useShell } from '../shell-context';
 import { HeaderSearchBar } from './header-search-bar';
+import { RouteAnnouncer } from './route-announcer';
 
 /**
  * The workspace header: a home affordance and a breadcrumb trail anchor "where
@@ -104,6 +105,7 @@ export function AppHeader({
 					})}
 				</BreadcrumbList>
 			</Breadcrumb>
+			<RouteAnnouncer labels={crumbs.map((crumb) => crumb.label)} />
 
 			<div className="flex shrink-0 items-center gap-4">
 				<HeaderSearchBar />

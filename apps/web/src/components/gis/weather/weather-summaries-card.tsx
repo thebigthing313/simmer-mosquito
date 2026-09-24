@@ -61,7 +61,9 @@ export function WeatherSummariesCard({
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
 				{removeError === null ? null : (
-					<p className="m-0 text-destructive text-sm">{removeError}</p>
+					<p className="m-0 text-destructive text-sm" role="alert">
+						{removeError}
+					</p>
 				)}
 				{tabYears.length < 2 ? null : (
 					<YearTabs onChange={chooseYear} value={activeYear} years={tabYears} />

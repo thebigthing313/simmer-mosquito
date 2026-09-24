@@ -637,34 +637,38 @@ function TallyList({
 				</p>
 			) : (
 				<ul className="grid max-h-64 gap-1 overflow-y-auto rounded-md border border-border/40 p-2">
-					{entries.map((entry) => (
-						<li
-							className="flex items-center gap-2 rounded-sm px-1 py-1 text-sm hover:bg-muted/40"
-							key={entry.entryKey}
-						>
-							<span className="min-w-0 flex-1 truncate italic">
-								{speciesNameFor(nameById, entry.speciesId) ?? 'Unknown species'}
-							</span>
-							{describeVariant === null ? null : (
-								<Badge className="shrink-0" tone="neutral" variant="outline">
-									{describeVariant(entry.variant)}
-								</Badge>
-							)}
-							<Button
-								aria-label="Remove one"
-								className="shrink-0"
-								onClick={() => onSetCount(entry.entryKey, entry.count - 1)}
-								size="icon-xs"
-								type="button"
-								variant="ghost"
+					{entries.map((entry) => {
+						const speciesName = speciesNameFor(nameById, entry.speciesId) ?? 'Unknown species';
+						const variantLabel = describeVariant === null ? null : describeVariant(entry.variant);
+						// One species can hold a row per variant, so the variant is part of the name.
+						const rowName = variantLabel === null ? speciesName : `${speciesName}, ${variantLabel}`;
+						return (
+							<li
+								className="flex items-center gap-2 rounded-sm px-1 py-1 text-sm hover:bg-muted/40"
+								key={entry.entryKey}
 							>
-								<XIcon aria-hidden="true" />
-							</Button>
-							<span className="w-10 shrink-0 text-right font-medium tabular-nums">
-								{entry.count}
-							</span>
-						</li>
-					))}
+								<span className="min-w-0 flex-1 truncate italic">{speciesName}</span>
+								{variantLabel === null ? null : (
+									<Badge className="shrink-0" tone="neutral" variant="outline">
+										{variantLabel}
+									</Badge>
+								)}
+								<Button
+									aria-label={`Remove one ${rowName}`}
+									className="shrink-0"
+									onClick={() => onSetCount(entry.entryKey, entry.count - 1)}
+									size="icon-xs"
+									type="button"
+									variant="ghost"
+								>
+									<XIcon aria-hidden="true" />
+								</Button>
+								<span className="w-10 shrink-0 text-right font-medium tabular-nums">
+									{entry.count}
+								</span>
+							</li>
+						);
+					})}
 				</ul>
 			)}
 		</div>

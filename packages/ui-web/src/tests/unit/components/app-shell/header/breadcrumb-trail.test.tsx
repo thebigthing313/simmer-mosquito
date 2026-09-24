@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	BreadcrumbLabelProvider,
@@ -58,13 +58,15 @@ afterEach(cleanup);
 describe('useBreadcrumbTrail', () => {
 	it('replaces the resolved trail while mounted and restores it after', async () => {
 		const { rerender } = render(<Harness shown={true} />);
+		// The trail, not the page-change announcement that repeats its words.
+		const trail = () => within(screen.getByRole('navigation', { name: 'breadcrumb' }));
 
-		expect(await screen.findByText('Page not found')).toBeTruthy();
-		expect(screen.queryByText('Overview')).toBeNull();
+		expect(await trail().findByText('Page not found')).toBeTruthy();
+		expect(trail().queryByText('Overview')).toBeNull();
 
 		act(() => rerender(<Harness shown={false} />));
 
-		expect(screen.queryByText('Page not found')).toBeNull();
-		expect(screen.getByText('Overview')).toBeTruthy();
+		expect(trail().queryByText('Page not found')).toBeNull();
+		expect(trail().getByText('Overview')).toBeTruthy();
 	});
 });

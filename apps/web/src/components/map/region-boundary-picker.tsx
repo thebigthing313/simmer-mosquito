@@ -115,7 +115,11 @@ export function RegionBoundaryPicker({
 					onSelect={(region) => void adoptRegion(region)}
 					search={deferredSearch}
 				/>
-				{error === null ? null : <p className="m-0 px-1 text-destructive text-xs">{error}</p>}
+				{error === null ? null : (
+					<p className="m-0 px-1 text-destructive text-xs" role="alert">
+						{error}
+					</p>
+				)}
 			</PopoverContent>
 		</Popover>
 	);

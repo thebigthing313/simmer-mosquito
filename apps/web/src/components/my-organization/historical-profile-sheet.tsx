@@ -1,6 +1,7 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import {
 	Sheet,
 	SheetClose,
@@ -11,7 +12,7 @@ import {
 	SheetTitle,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useProfileMutations } from '../../hooks/mutations/use-profile-mutations';
 import { errorMessageForSave } from '../../lib/save-error';
 import { CloseIcon, SaveIcon } from './constants';
@@ -25,6 +26,7 @@ export function HistoricalProfileSheet({
 	readonly open: boolean;
 }) {
 	const { createHistorical } = useProfileMutations();
+	const id = useId();
 	const [displayName, setDisplayName] = useState('');
 	const [isActive, setIsActive] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -64,16 +66,17 @@ export function HistoricalProfileSheet({
 				<form className="grid gap-3.5" onSubmit={submit}>
 					<div className="grid gap-3 px-4">
 						<Field className="gap-1">
-							<FieldLabel>Display name</FieldLabel>
+							<FieldLabel htmlFor={`${id}-display-name`}>Display name</FieldLabel>
 							<Input
+								id={`${id}-display-name`}
 								value={displayName}
 								onChange={(event) => setDisplayName(event.target.value)}
 								placeholder="Name used on historical records"
 							/>
 						</Field>
 						<div className="flex items-center justify-between gap-3 rounded-md border border-border/50 bg-muted/35 px-3 py-2 font-medium text-sm">
-							<span>Active for assignment</span>
-							<Switch checked={isActive} onCheckedChange={setIsActive} />
+							<Label htmlFor={`${id}-active`}>Active for assignment</Label>
+							<Switch id={`${id}-active`} checked={isActive} onCheckedChange={setIsActive} />
 						</div>
 						<SaveErrorNote message={error} />
 					</div>

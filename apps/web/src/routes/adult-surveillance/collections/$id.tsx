@@ -527,6 +527,8 @@ function EditableSpeciesRow({
 	readonly onChange: (entryId: string, changes: CollectionSpeciesChanges) => void;
 	readonly onRemove: (entryId: string) => void;
 }) {
+	const speciesName =
+		speciesOptions.find((option) => option.value === entry.speciesId)?.label ?? 'species';
 	return (
 		<TableRow>
 			<TableCell>
@@ -592,7 +594,7 @@ function EditableSpeciesRow({
 			</TableCell>
 			<TableCell className="text-right">
 				<Button
-					aria-label="Remove species"
+					aria-label={`Remove ${speciesName}`}
 					onClick={() => onRemove(entry.id)}
 					size="icon"
 					type="button"

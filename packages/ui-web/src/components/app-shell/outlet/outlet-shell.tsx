@@ -1,6 +1,6 @@
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppHeader } from '../header/app-header';
 import { PrimarySidebar } from '../primary-sidebar/primary-sidebar';
 import { SecondarySidebar } from '../secondary-sidebar/secondary-sidebar';
@@ -17,6 +17,13 @@ import { NavigationDrawer } from './navigation-drawer';
  * into `NavigationDrawer` and the header grows a button that opens it. The
  * drawer is open for the path it was opened on, so navigating from inside it
  * closes it without an effect watching the path.
+ *
+ * A route change moves focus to `main` when focus was outside it, which is the
+ * case for a sidebar link, a breadcrumb or the drawer: left alone, focus stays
+ * on the link in the rail and the next Tab walks the rest of the navigation
+ * before reaching the page that just opened. Focus already inside `main` is
+ * left where it is, so a list or a map that navigates as it is used keeps the
+ * operator's place.
  */
 export function OutletShell({
 	banner,
@@ -33,6 +40,20 @@ export function OutletShell({
 }) {
 	const { activePath } = useShell();
 	const [drawerPath, setDrawerPath] = useState<string | null>(null);
+	const mainRef = useRef<HTMLElement>(null);
+	const shownPath = useRef(activePath);
+
+	useEffect(() => {
+		if (shownPath.current === activePath) {
+			return;
+		}
+		shownPath.current = activePath;
+		const main = mainRef.current;
+		if (main === null || main.contains(document.activeElement)) {
+			return;
+		}
+		main.focus({ preventScroll: true });
+	}, [activePath]);
 
 	return (
 		<TooltipProvider delayDuration={300}>
@@ -58,6 +79,14 @@ export function OutletShell({
 					<PrimarySidebar className="max-lg:hidden" />
 					<SecondarySidebar className="max-lg:hidden" />
 					<NavigationDrawer
+						onCloseAutoFocus={(event) => {
+							// Closed by navigating: focus belongs to the page, not the
+							// button that opened the drawer.
+							if (drawerPath !== null && drawerPath !== activePath) {
+								event.preventDefault();
+								mainRef.current?.focus({ preventScroll: true });
+							}
+						}}
 						onOpenChange={(open) => setDrawerPath(open ? activePath : null)}
 						open={drawerPath === activePath}
 					/>
@@ -96,8 +125,9 @@ export function OutletShell({
 						 * in the stylesheet keyed on this element.
 						 */}
 						<main
-							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage) [scrollbar-gutter:stable]"
+							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage) outline-none [scrollbar-gutter:stable]"
 							id="main-content"
+							ref={mainRef}
 							tabIndex={-1}
 						>
 							{children}
