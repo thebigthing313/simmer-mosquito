@@ -60,7 +60,7 @@ export function InspectionMapCard({
 		},
 		{
 			addressName: addressCardLabel(resolveLinkedAddress(inspection.address)),
-			fallback: 'Ad-hoc inspection',
+			fallback: 'One-off inspection',
 		},
 	);
 	const typeName =

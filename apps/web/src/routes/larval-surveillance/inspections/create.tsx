@@ -204,7 +204,7 @@ function CreateInspectionRoute() {
 				mode="create"
 				header={{
 					title: createLabel('inspection'),
-					description: 'Log a larval inspection against a habitat or an ad-hoc field location.',
+					description: 'Log a larval inspection against a habitat or a one-off field location.',
 					backTo: '/larval-surveillance/inspections',
 					backLabel: recordNoun('inspection').titleMany,
 				}}

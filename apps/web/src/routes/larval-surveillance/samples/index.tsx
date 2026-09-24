@@ -58,7 +58,7 @@ import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useSpeciesOptions } from '../../../hooks/explorer/use-species-options';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { adhocLabel } from '../../../lib/coordinate-label';
+import { habitatLabel } from '../../../lib/coordinate-label';
 import {
 	addDaysToDateString,
 	dateRangeLabel,
@@ -102,6 +102,8 @@ interface SampleFeature {
 	readonly inspectionDate: string;
 	readonly habitatId: string | null;
 	readonly habitatName: string | null;
+	/** The parent inspection's Address, the rung below the Habitat name. */
+	readonly addressDisplayName: string | null;
 	readonly isZeroLarvae: boolean;
 	readonly hasNonMosquito: boolean;
 	readonly unidentifiableReason: string | null;
@@ -569,13 +571,25 @@ function sampleSwatch(sample: SampleFeature): { readonly color: string; readonly
 	};
 }
 
-/** Secondary line: the habitat (linked) or an ad-hoc marker, plus the non-mosquito flag. */
+/** Secondary line: the habitat (linked) or where else it was taken, plus the non-mosquito flag. */
 function SampleContext({ sample }: { readonly sample: SampleFeature }) {
 	return (
 		<span className="flex min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
 			{sample.habitatId === null ? (
 				<span className="truncate tabular-nums">
-					{adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')}
+					{/*
+					 * `habitatLabel` and not `adhocLabel`, although this arm has
+					 * already established there is no habitat: the rungs below the
+					 * habitat name are the address and then the coordinates, and
+					 * asking the one function is what keeps this from being a
+					 * private variant that omits the rung it happens not to need
+					 * (#1231). The other arm draws a link, which is why the two are
+					 * still branches rather than one call.
+					 */}
+					{habitatLabel(sample, {
+						addressName: sample.addressDisplayName,
+						fallback: 'One-off sample',
+					})}
 				</span>
 			) : (
 				<Link

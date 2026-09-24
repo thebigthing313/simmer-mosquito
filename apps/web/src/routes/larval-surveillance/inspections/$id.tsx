@@ -185,8 +185,14 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 	if (inspection.habitatId === null) {
 		return (
 			<p className="m-0 text-[0.95rem] text-muted-foreground">
+				{/*
+				 * `adhocLabel` rather than `habitatLabel` with the address: this
+				 * subtitle draws the address itself after the separator, and a
+				 * ladder here would put the same words in both halves of one line
+				 * (#1231).
+				 */}
 				<span className="tabular-nums">
-					{adhocLabel(inspection.lat, inspection.lng, 'Ad-hoc inspection')}
+					{adhocLabel(inspection.lat, inspection.lng, 'One-off inspection')}
 				</span>
 				{inspection.addressDisplayName === null ? null : ` · ${inspection.addressDisplayName}`}
 			</p>
@@ -203,7 +209,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 			>
 				{habitatLabel(inspection, {
 					addressName: inspection.addressDisplayName,
-					fallback: 'Ad-hoc inspection',
+					fallback: 'One-off inspection',
 				})}
 			</Link>
 			<span aria-hidden="true">·</span>
@@ -379,7 +385,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
 								{habitatLabel(inspection, {
 									addressName: inspection.addressDisplayName,
-									fallback: 'Ad-hoc inspection',
+									fallback: 'One-off inspection',
 								})}
 							</Link>
 						)}

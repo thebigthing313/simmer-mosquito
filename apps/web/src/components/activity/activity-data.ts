@@ -509,8 +509,11 @@ const DESCRIBE_BY_CATEGORY: Readonly<
 	habitat: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
 	trap: (parts) => ({ title: parts.own ?? parts.fallback, subtitle: parts.kind }),
 	inspection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
-	// A collection with no trap was recorded away from one.
-	collection: (parts) => ({ title: parts.place ?? 'Ad-hoc collection', subtitle: parts.kind }),
+	// A collection with no trap was recorded away from one, and `place` is the
+	// whole ladder for that: the trap, then the address, then the coordinates,
+	// then the word, resolved in `collectionEntries` where the columns are. The
+	// fallback below runs only for a row that carried no place at all (#1231).
+	collection: (parts) => ({ title: parts.place ?? parts.fallback, subtitle: parts.kind }),
 	application: (parts) => ({
 		title: parts.kind ?? parts.fallback,
 		subtitle: joinParts([parts.measured, parts.method, parts.place]),

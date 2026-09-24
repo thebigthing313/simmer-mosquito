@@ -16,7 +16,9 @@
  * a full uuid for the traps that have neither, which is worse than the helper.
  */
 
-import type { LinkedAddress } from './address-view';
+import { addressCardLabel } from '../../lib/address-format';
+import { adhocLabel } from '../../lib/coordinate-label';
+import { type LinkedAddress, resolveLinkedAddress } from './address-view';
 
 /**
  * A Trap, as the surfaces that show one whole want it.
@@ -90,4 +92,88 @@ export function trapDisplayName(trap: TrapName): string {
 		return `${code} - ${name}`;
 	}
 	return code || name || `Trap ${trap.id.slice(0, 8)}`;
+}
+
+/** What a Collection carries about where it was taken. */
+export interface CollectionLabelRow {
+	/** `null` on a collection recorded away from a Trap, which is what makes it one. */
+	readonly trapId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly lat: number | null;
+	readonly lng: number | null;
+}
+
+/**
+ * What to call a Collection by the place it came from.
+ *
+ * `habitatLabel` in `lib/coordinate-label.ts` with a Trap where the Habitat is,
+ * and it exists for the reason that one does. Five adult surfaces tested
+ * `trapId === null` and returned the words "Ad-hoc collection", which names the
+ * category every such row already belongs to and so tells one row from the next
+ * about as well as a blank does. The collection carries an Address and a
+ * centroid of its own, and both say something (#1231).
+ *
+ * Four rungs: the Trap's `Code - Name`, then the Address the collection was
+ * linked to, then its own coordinates, then the word.
+ *
+ * The Trap rung is `trapDisplayName`, so a collection whose Trap row has not
+ * streamed reads `Trap 4f3c1a2b` rather than falling through to coordinates
+ * that name the Trap's spot anyway. That is `habitatLabel`'s id arm, and it is
+ * why a surface wanting to draw a "still arriving" state of its own tests
+ * `resolvedTrapId` before calling this rather than inside it: only the map card
+ * does, and only it carries the column that answers.
+ *
+ * Both options are required, `fallback` for the reason it is required one module
+ * over and `addressName` for the same one a rung further up: the only default
+ * either could take is the answer that skips a rung, and #953 is what a surface
+ * silently skipping one looks like on screen. A surface with no Address to offer
+ * passes `null` and says so at the call.
+ */
+export function collectionLabel(
+	row: CollectionLabelRow,
+	options: {
+		/** What a collection with no Trap, no Address and no centroid is called. */
+		readonly fallback: string;
+		/** The Address the collection was linked to, or `null` where it carries none. */
+		readonly addressName: string | null | undefined;
+	},
+): string {
+	if (row.trapId !== null) {
+		return trapDisplayName({ id: row.trapId, trapName: row.trapName, trapCode: row.trapCode });
+	}
+	return options.addressName?.trim() || adhocLabel(row.lat, row.lng, options.fallback);
+}
+
+/**
+ * {@link collectionLabel} over a seam that joined the Address rather than
+ * resolving its label.
+ *
+ * Three of the five collection surfaces read a row of exactly this shape and
+ * wrote the same adapter out, so the mapping and the word live here once. The
+ * two that do not are the explorer, whose server row carries an address label
+ * and no joined object, and the daily activity log, which joins the Trap by
+ * name and never reads its id.
+ */
+export function collectionPlaceLabel(collection: {
+	readonly trapId: string | null;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly address: LinkedAddress;
+	readonly latitude: number;
+	readonly longitude: number;
+}): string {
+	return collectionLabel(
+		{
+			trapId: collection.trapId,
+			trapName: collection.trapName,
+			trapCode: collection.trapCode,
+			lat: collection.latitude,
+			lng: collection.longitude,
+		},
+		{
+			addressName: addressCardLabel(resolveLinkedAddress(collection.address)),
+			fallback: 'One-off collection',
+		},
+	);
 }

@@ -18,7 +18,7 @@ import {
 	type SpeciesWindow,
 	speciesWindowSince,
 } from '../../components/species-composition-panel';
-import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { collectionPlaceLabel } from '../../hooks/queries/trap-view';
 import { useAdultSpeciesComposition } from '../../hooks/queries/use-adult-species-composition';
 import { useCollectionsAwaitingIdentification } from '../../hooks/queries/use-collections-awaiting-identification';
 import { useCollectionsOverThreshold } from '../../hooks/queries/use-collections-over-threshold';
@@ -83,22 +83,6 @@ function AdultSurveillanceOverviewRoute() {
 			</div>
 		</div>
 	);
-}
-
-/** What a collection is called: the trap it came from, or that it had none. */
-function collectionPrimaryLabel(collection: {
-	readonly trapId: string | null;
-	readonly trapName: string | null;
-	readonly trapCode: string | null;
-}): string {
-	if (collection.trapId === null) {
-		return 'Ad-hoc collection';
-	}
-	return trapDisplayName({
-		id: collection.trapId,
-		trapName: collection.trapName,
-		trapCode: collection.trapCode,
-	});
 }
 
 /** A collection's date as `Wed, Aug 12` — an em dash while it is still pending. */
@@ -216,7 +200,7 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 						key={collection.id}
 					>
 						<div className="grid min-w-0 flex-1">
-							<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
+							<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 							<span className="truncate text-muted-foreground text-xs">
 								{collection.methodName}
 								{collection.collectedByProfileId === null
@@ -292,7 +276,7 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 						{rows.map((collection) => (
 							<li className="flex items-center gap-3 px-4 py-2.5" key={collection.id}>
 								<div className="grid min-w-0 flex-1">
-									<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
+									<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 									<span className="truncate text-muted-foreground text-xs">
 										{collection.methodName}
 									</span>
@@ -375,7 +359,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 									to="/adult-surveillance/collections/$id"
 								>
 									<span className="truncate font-medium text-foreground text-sm group-hover:text-primary">
-										{collectionPrimaryLabel(collection)}
+										{collectionPlaceLabel(collection)}
 									</span>
 									<span className="truncate text-muted-foreground text-xs">
 										{collection.methodName}
@@ -436,7 +420,7 @@ function AttentionPanel({ since }: { readonly since: string }) {
 							>
 								<TrapIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 								<div className="grid min-w-0 flex-1">
-									<CollectionLink id={collection.id} label={collectionPrimaryLabel(collection)} />
+									<CollectionLink id={collection.id} label={collectionPlaceLabel(collection)} />
 									<span className="truncate text-muted-foreground text-xs">
 										{collection.methodName}
 									</span>

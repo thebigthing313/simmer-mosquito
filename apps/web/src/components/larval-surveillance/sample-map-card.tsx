@@ -8,9 +8,11 @@ import {
 	MosquitoIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
+import { resolveLinkedAddress } from '../../hooks/queries/address-view';
 import type { SampleStatus } from '../../hooks/queries/sample-view';
 import { useSample } from '../../hooks/queries/use-sample';
 import { useSampleIdentifications } from '../../hooks/queries/use-sample-identifications';
+import { addressCardLabel } from '../../lib/address-format';
 import { habitatLabel } from '../../lib/coordinate-label';
 import { recordNoun } from '../../lib/record-nouns';
 import {
@@ -83,7 +85,10 @@ export function SampleMapCard({
 			lat: sample.latitude,
 			lng: sample.longitude,
 		},
-		{ fallback: 'Ad-hoc sample' },
+		{
+			addressName: addressCardLabel(resolveLinkedAddress(sample.address)),
+			fallback: 'One-off sample',
+		},
 	);
 
 	return (

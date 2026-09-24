@@ -435,7 +435,7 @@ function InspectionListItem({
 	const typeName = resolveTypeName(inspection, typeNameById);
 	const label = habitatLabel(inspection, {
 		addressName: inspection.addressDisplayName,
-		fallback: 'Ad-hoc inspection',
+		fallback: 'One-off inspection',
 	});
 	const when = formatListDate(inspection.inspectionDate);
 	/*

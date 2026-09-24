@@ -70,7 +70,7 @@ import {
 } from '../../../hooks/mutations/use-collection-species-mutations';
 import type { AdultCollection } from '../../../hooks/queries/collection-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { collectionPlaceLabel, trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
 import {
 	type CollectionIdentification,
@@ -221,7 +221,7 @@ function CollectionDetailContent({
 					recordId: collection.id,
 					returnTo: '/adult-surveillance/collections',
 				},
-				subtitle: `${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`,
+				subtitle: `${collectionPlaceLabel(collection)} · ${methodName}`,
 				title,
 			}}
 			layout={layout}
@@ -826,7 +826,18 @@ function DetailsCard({
 								to="/adult-surveillance/traps/$id"
 							>
 								<TrapIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{trapDisplayName(collection)}
+								{/*
+								 * The id is the trap's, not the collection's. This row is
+								 * inside the link to the trap, and `trapDisplayName` falls
+								 * back to the head of whatever id it is handed, so passing
+								 * the collection drew `Trap <collection id>` for a trap with
+								 * no code and no name.
+								 */}
+								{trapDisplayName({
+									id: collection.trapId,
+									trapName: collection.trapName,
+									trapCode: collection.trapCode,
+								})}
 							</Link>
 						)}
 					</DetailRow>

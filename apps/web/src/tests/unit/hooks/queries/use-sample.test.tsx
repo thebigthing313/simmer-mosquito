@@ -9,10 +9,17 @@
  * card's read gives, and the third one, `null` for a row that has not arrived,
  * is what lets the card title the habitat by its id rather than with the comma
  * it drew before #998.
+ *
+ * The Address is a third `left` join, added in #1231: it is the rung between
+ * the habitat name and the coordinates, and this was the one larval record seam
+ * that did not carry it.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import { resolveLinkedAddress } from '../../../../hooks/queries/address-view';
 import { useSample } from '../../../../hooks/queries/use-sample';
+import { addressCardLabel } from '../../../../lib/address-format';
+import { addresses } from '../../../../lib/collections/addresses';
 import { habitats } from '../../../../lib/collections/habitats';
 import { inspections } from '../../../../lib/collections/inspections';
 import { samples } from '../../../../lib/collections/samples';
@@ -26,6 +33,9 @@ beforeEach(() => {
 	seedRows(habitats, [
 		{ id: 'h1', habitat_name: 'Alder catch basin', lat: 34.1, lng: -118.2 },
 		{ id: 'h2', habitat_name: null, lat: 40.1, lng: -74.4 },
+	]);
+	seedRows(addresses, [
+		{ id: 'a1', display_name: null, address_line_1: '123 Main St', locality: 'Edison' },
 	]);
 	seedRows(samples, [sample('s1')]);
 });
@@ -46,7 +56,10 @@ function habitatLineOf(record: Awaited<ReturnType<typeof readSample>>): string {
 			lat: record.latitude,
 			lng: record.longitude,
 		},
-		{ fallback: 'Ad-hoc sample' },
+		{
+			addressName: addressCardLabel(resolveLinkedAddress(record.address)),
+			fallback: 'One-off sample',
+		},
 	);
 }
 
@@ -90,6 +103,26 @@ describe('useSample', () => {
 		expect(habitatLineOf(record)).toBe('34.05213, -118.24368');
 	});
 
+	// The rung the sample surfaces had no seam for until #1231: the Address is
+	// the parent inspection's, and it outranks the coordinates.
+	it('reads the address off the parent inspection, which outranks the centroid', async () => {
+		seedRows(inspections, [inspection('i1', { habitat_id: null, address_id: 'a1' })]);
+
+		const record = await readSample('s1');
+
+		expect(record.address.id).toBe('a1');
+		expect(habitatLineOf(record)).toBe('123 Main St, Edison');
+	});
+
+	it('reads an address that has not arrived as none, so the centroid runs', async () => {
+		seedRows(inspections, [inspection('i1', { habitat_id: null, address_id: 'a-unstreamed' })]);
+
+		const record = await readSample('s1');
+
+		expect(record.address.id).toBeUndefined();
+		expect(habitatLineOf(record)).toBe('34.05213, -118.24368');
+	});
+
 	it('reads an inspection that has not arrived as no habitat and no centroid', async () => {
 		// `inspection_id` is not nullable, so an unmatched inspection join only
 		// ever means the row is still streaming. There is no habitat to guard on
@@ -99,6 +132,6 @@ describe('useSample', () => {
 		expect(record.inspectionDate).toBeNull();
 		expect(record.habitatId).toBeNull();
 		expect(record.habitatName).toBeNull();
-		expect(habitatLineOf(record)).toBe('Ad-hoc sample');
+		expect(habitatLineOf(record)).toBe('One-off sample');
 	});
 });

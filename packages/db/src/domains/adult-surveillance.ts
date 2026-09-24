@@ -597,6 +597,11 @@ export interface SafeCollectionDisplayRow {
 	readonly id: string;
 	readonly organizationId: string;
 	readonly trapId: string | null;
+	/**
+	 * The Address the collection was linked to, the rung below the Trap name on
+	 * a collection recorded away from one (#1231).
+	 */
+	readonly addressDisplayName: string | null;
 	readonly lat: number;
 	readonly lng: number;
 	readonly geojson: GeoJsonGeometry;
@@ -688,10 +693,17 @@ export const collectionStatusValues: readonly CollectionStatus[] = [
 
 const collectionStatusExpression = sql.raw(collectionStatusSql('c'));
 
+// The one join the display reader takes: the address label a collection with no
+// trap names itself by.
+const collectionDisplayJoins = sql`
+	left join addresses a on a.id = c.address_id
+`;
+
 const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
 	id: sql`c.id`,
 	organizationId: sql`c.organization_id`,
 	trapId: sql`c.trap_id`,
+	addressDisplayName: sql`a.display_name`,
 	lat: sql`c.lat`,
 	lng: sql`c.lng`,
 	geojson: sql`c.geojson`,
@@ -755,6 +767,7 @@ export function collectionSurface(
 			filterWhere: (filters) => collectionFilterWhere(filters, effectiveDate),
 			display: {
 				columns: collectionDisplayColumns,
+				joins: collectionDisplayJoins,
 				orderBy: sql`${effectiveDate} desc nulls last, c.created_at desc, c.id`,
 			},
 		});

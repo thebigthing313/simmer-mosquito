@@ -5,7 +5,7 @@
  *
  * A sample with no habitat and no centroid has nothing to title it, so each of
  * these surfaces reaches `adhocLabel` and draws the words it falls back to.
- * That fallback used to be defaulted to `Ad-hoc inspection`, one record kind's
+ * That fallback used to be defaulted to `One-off inspection`, one record kind's
  * category name, and all three took the default: the samples explorer row, the
  * sample map card and the Awaiting Identification panel on the larval overview
  * named a sample after a different record (#953).
@@ -42,6 +42,18 @@ const AD_HOC = {
 	inspectionDate: '2026-09-01',
 	habitatId: null,
 	habitatName: null,
+	addressDisplayName: null,
+	// The joined Address as an unmatched `left` join yields it: every field
+	// `undefined`, which is what `resolveLinkedAddress` reads as no address.
+	address: {
+		id: undefined,
+		displayName: undefined,
+		addressLine1: undefined,
+		addressLine2: undefined,
+		locality: undefined,
+		region: undefined,
+		postalCode: undefined,
+	},
 	lat: null,
 	lng: null,
 	latitude: null,
@@ -222,8 +234,8 @@ describe('a sample at no habitat, with no centroid', () => {
 		const Component = await routeComponent(module);
 		render(<Component />);
 
-		expect(screen.getByText('Ad-hoc sample')).toBeDefined();
-		expect(screen.queryByText('Ad-hoc inspection')).toBeNull();
+		expect(screen.getByText('One-off sample')).toBeDefined();
+		expect(screen.queryByText('One-off inspection')).toBeNull();
 	}, 300_000);
 
 	it('is named a sample by the sample map card', async () => {
@@ -232,8 +244,8 @@ describe('a sample at no habitat, with no centroid', () => {
 		);
 		render(<SampleMapCard id={AD_HOC.id} onClose={() => undefined} />);
 
-		expect(screen.getByText('Ad-hoc sample')).toBeDefined();
-		expect(screen.queryByText('Ad-hoc inspection')).toBeNull();
+		expect(screen.getByText('One-off sample')).toBeDefined();
+		expect(screen.queryByText('One-off inspection')).toBeNull();
 	}, 300_000);
 
 	it('is named a sample by the larval overview', async () => {
@@ -241,8 +253,8 @@ describe('a sample at no habitat, with no centroid', () => {
 		const Component = await routeComponent(module);
 		render(<Component />);
 
-		expect(await screen.findByText('Ad-hoc sample')).toBeDefined();
-		expect(screen.queryByText('Ad-hoc inspection')).toBeNull();
+		expect(await screen.findByText('One-off sample')).toBeDefined();
+		expect(screen.queryByText('One-off inspection')).toBeNull();
 	}, 300_000);
 
 	it('leaves the inspection map card beside it naming an inspection', async () => {
@@ -251,7 +263,7 @@ describe('a sample at no habitat, with no centroid', () => {
 		);
 		render(<InspectionMapCard id={AD_HOC_INSPECTION.id} onClose={() => undefined} />);
 
-		expect(screen.getByText('Ad-hoc inspection')).toBeDefined();
-		expect(screen.queryByText('Ad-hoc sample')).toBeNull();
+		expect(screen.getByText('One-off inspection')).toBeDefined();
+		expect(screen.queryByText('One-off sample')).toBeNull();
 	}, 300_000);
 });
