@@ -116,7 +116,6 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 			errorTitle="Unable to Save Request"
 			header={{
 				title: `Edit ${recordNoun('requestedControlAction').title}`,
-				description: 'Change what is being asked for, where it is, or what it hangs off.',
 				backTo: '/operations/requests-for-control/$id',
 				backParams: { id: request.id },
 				backLabel: 'Back to request',

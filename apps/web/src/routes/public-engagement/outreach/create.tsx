@@ -133,8 +133,6 @@ function CreateOutreachActionRoute() {
 				defaultValues={defaultOutreachFormValues(timeZone)}
 				header={{
 					title: createLabel('outreachAction'),
-					description:
-						'Place where the outreach happened, then record the method, how many were reached, and the date.',
 					backTo: '/public-engagement/outreach',
 					backLabel: recordNoun('outreachAction').titleMany,
 				}}

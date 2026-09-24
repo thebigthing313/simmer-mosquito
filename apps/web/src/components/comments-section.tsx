@@ -46,8 +46,8 @@ export interface CommentsSectionProps {
 	readonly target: CommentTarget;
 	/** Card heading. Defaults to "Comments". */
 	readonly title?: string;
-	/** Supporting line under the heading. */
-	readonly description?: string;
+	/** Supporting line under the heading. Left out, the card has none. */
+	readonly description?: string | undefined;
 	/** Composer placeholder. */
 	readonly placeholder?: string;
 	/** Layout-only classes for the wrapping card (e.g. sticky-rail behavior). */
@@ -66,7 +66,7 @@ export interface CommentsSectionProps {
 export function CommentsSection({
 	target,
 	title = 'Comments',
-	description = 'Notes and field context for this record.',
+	description,
 	placeholder = 'Add a comment…',
 	className,
 }: CommentsSectionProps) {
@@ -149,7 +149,7 @@ export function CommentsSection({
 							<CommentIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							{title}
 						</CardTitle>
-						<CardDescription>{description}</CardDescription>
+						{description === undefined ? null : <CardDescription>{description}</CardDescription>}
 					</div>
 					{hasComments ? (
 						<Badge tone="neutral" variant="outline">

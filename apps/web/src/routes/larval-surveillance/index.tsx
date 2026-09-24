@@ -82,11 +82,7 @@ function LarvalSurveillanceOverviewRoute() {
 	// keep their twelve-column grid; the frame is what widened.
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
-			<PageHeader
-				description="Inspection activity across your habitats, the species your samples identified, and the habitats where larval density came back heavy."
-				icon={LarvalIcon}
-				title="Larval Surveillance"
-			/>
+			<PageHeader icon={LarvalIcon} title="Larval Surveillance" />
 
 			<Suspense fallback={<OverviewSkeleton />}>
 				<OverviewBody />

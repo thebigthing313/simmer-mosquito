@@ -34,7 +34,7 @@ export function LocationBand({
 	 * the record stores no area, and on the region form itself.
 	 */
 	readonly organizationId?: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	/** The band's heading. */
 	readonly title?: string;
 	/** The geometry control's own label, which is not always the word Geometry. */
@@ -49,7 +49,7 @@ export function LocationBand({
 }) {
 	return (
 		<LocationSection
-			description={description}
+			{...(description === undefined ? {} : { description })}
 			error={location.locationError ?? stopGeometryError(location.missionStop)}
 			title={title}
 		>

@@ -27,7 +27,6 @@ import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
-import { locationDescription } from '../../map/location-description';
 import { HabitatPicker } from '../control-pickers';
 
 /** Domain issue path → the form field holding it. */
@@ -96,7 +95,7 @@ export interface SourceReductionFormValues {
 
 export interface SourceReductionFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo:
 		| '/control-operations/source-reduction'
 		| '/control-operations/source-reduction/$id';
@@ -296,11 +295,6 @@ export function SourceReductionFormPage({
 							)}
 						</form.AppField>
 					}
-					description={locationDescription({
-						geometryKind: 'controlAction',
-						subject: 'The geometry is where the sources were eliminated.',
-						habitat: true,
-					})}
 					geometryKind="controlAction"
 					location={location}
 					organizationId={organizationId}
@@ -321,7 +315,6 @@ export function SourceReductionFormPage({
 					<form.AppField name="sourceReductionMethodId">
 						{(field) => (
 							<field.SelectField
-								description="How the crew physically eliminated the breeding sources."
 								label="Method"
 								required
 								options={methodOptions}

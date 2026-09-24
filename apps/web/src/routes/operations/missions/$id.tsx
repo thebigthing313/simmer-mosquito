@@ -147,7 +147,6 @@ function MissionPanel({
 			</div>
 
 			<WorklistTabs
-				commentsDescription="Cancellations, reopens, and field notes for this mission."
 				stopControls={run.canAddStops ? <AddStopControls missionId={missionId} run={run} /> : null}
 				stopCount={run.stops.length}
 				target={{ type: 'mission', id: missionId }}

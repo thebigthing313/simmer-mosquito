@@ -153,9 +153,8 @@ was the alternative and gives each year one vote regardless of its size.
 
 The frame is the overviews' and the Dashboard's: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, and a `PageHeader`
-with no eyebrow, the `generic.chart` icon, the title `Today`, the
-description "What was recorded on one day, against the day before, with the
-year so far under it." and the period picker in `actions`.
+with no eyebrow, the `generic.chart` icon, the title `Today`, no
+description, and the period picker in `actions`.
 
 Under the heading sits the **upward line**: the day's long name in the
 foreground weight, then each coarser period as a link, separated by a middle

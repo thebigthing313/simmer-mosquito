@@ -16,7 +16,6 @@ function MyOrganizationControlMethodsRoute() {
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
-				editDescription="Adjust control defaults and related operational setup lists."
 				fields={[]}
 				id="control"
 				meta="Chemical, source reduction, biological control, and resources"

@@ -173,7 +173,6 @@ function ServiceRequestsTableRoute() {
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={<ServiceRequestSurfaceSwitch current="table" search={carried} />}
-				description="Every service request received from the public."
 				icon={RequestIcon}
 				title={recordNoun('serviceRequest').titleMany}
 			/>

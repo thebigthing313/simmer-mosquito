@@ -42,7 +42,7 @@ export function validateContact(value: ContactFormValues) {
 
 export interface ContactFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/public-engagement/contacts' | '/public-engagement/contacts/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;

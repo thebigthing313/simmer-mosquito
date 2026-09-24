@@ -36,7 +36,6 @@ import { todayInTimeZone } from '../../lib/local-date';
 import { OverviewChart, type OverviewChartSeries } from './overview-chart';
 import {
 	drawsTrend,
-	OVERVIEW_DESCRIPTIONS,
 	OVERVIEW_LABELS,
 	OVERVIEW_RATIO_LABELS,
 	OVERVIEW_ROUTES,
@@ -111,7 +110,6 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 						period={period}
 					/>
 				}
-				description={OVERVIEW_DESCRIPTIONS[grain]}
 				icon={GRAIN_ICONS[grain]}
 				title={OVERVIEW_TITLES[grain]}
 			/>

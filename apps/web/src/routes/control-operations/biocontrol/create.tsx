@@ -129,8 +129,6 @@ function CreateBiocontrolActionRoute() {
 				}}
 				header={{
 					title: createLabel('biocontrolAction'),
-					description:
-						'Place the release point, then record the method, amount, and date of the release.',
 					backTo: '/control-operations/biocontrol',
 					backLabel: recordNoun('biocontrolAction').titleMany,
 				}}

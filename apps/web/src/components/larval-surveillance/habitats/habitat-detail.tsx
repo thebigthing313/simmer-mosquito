@@ -129,10 +129,7 @@ function HabitatDetailContent({
 			aside={
 				<>
 					<HabitatInspectionStats habitatId={habitat.id} />
-					<CommentsSection
-						description="Field notes, access details, and status updates for this habitat."
-						target={{ type: 'habitat', id: habitat.id }}
-					/>
+					<CommentsSection target={{ type: 'habitat', id: habitat.id }} />
 				</>
 			}
 			facts={<HabitatDetailsCard habitat={habitat} />}

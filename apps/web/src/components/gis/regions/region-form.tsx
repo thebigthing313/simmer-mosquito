@@ -36,7 +36,7 @@ export interface RegionFormValues {
 
 export interface RegionFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/gis/regions' | '/gis/regions/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -180,20 +180,11 @@ export function RegionFormPage({
 
 				<form.AppField name="description">
 					{(field) => (
-						<field.TextareaField
-							description="Optional. Say what this region covers and how crews use it."
-							label="Description"
-							placeholder="Describe the region…"
-							rows={3}
-						/>
+						<field.TextareaField label="Description" placeholder="Describe the region…" rows={3} />
 					)}
 				</form.AppField>
 
-				<CustomFieldsSection
-					description="Optional structured notes for region details of your own."
-					form={form}
-					framed={false}
-				/>
+				<CustomFieldsSection form={form} framed={false} />
 			</RecordFormPage>
 		</form.AppForm>
 	);

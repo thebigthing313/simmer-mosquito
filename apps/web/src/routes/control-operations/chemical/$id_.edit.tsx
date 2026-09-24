@@ -245,7 +245,6 @@ function EditApplicationLoader({
 				equipment={equipment}
 				header={{
 					title: `Edit ${recordNoun('application').title}`,
-					description: 'Update this application’s product, amount, work details, or location.',
 					backTo: '/control-operations/chemical/$id',
 					backParams: { id: application.id },
 					backLabel: 'Back to chemical application',

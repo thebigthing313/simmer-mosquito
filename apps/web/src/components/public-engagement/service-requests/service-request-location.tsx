@@ -35,10 +35,7 @@ export function RequestLocation({
 	readonly onClearPoint: () => void;
 }) {
 	return (
-		<LocationSection
-			description="The point is the request’s exact location. Use an address to frame the map, then refine the point to the precise spot."
-			error={locationError}
-		>
+		<LocationSection error={locationError}>
 			{/* One way in to a new address: the picker's own "Create Address", which
 			    geocodes the entry and can place its point on this form's map. */}
 			<form.AppField name="addressId">

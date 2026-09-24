@@ -7,7 +7,6 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -125,12 +124,7 @@ function InspectionDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Access notes, conditions, and follow-up for this inspection."
-					target={{ type: 'inspection', id: inspection.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'inspection', id: inspection.id }} />}
 			facts={<ContextCard inspection={inspection} />}
 			header={{
 				/*
@@ -427,9 +421,6 @@ function InspectionSamplesCard({
 							<SampleIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							{recordNoun('sample').titleMany}
 						</CardTitle>
-						<CardDescription>
-							Specimens collected during this inspection and the species identified in each.
-						</CardDescription>
 					</div>
 					{isReady && samples.length > 0 ? (
 						<Badge tone="neutral" variant="outline">
@@ -534,9 +525,6 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 							<ControlIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							Control actions
 						</CardTitle>
-						<CardDescription>
-							Interventions carried out or requested as a result of this inspection.
-						</CardDescription>
 					</div>
 					{isReady && actions.length > 0 ? (
 						<Badge tone="neutral" variant="outline">

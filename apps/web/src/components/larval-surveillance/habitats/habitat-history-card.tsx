@@ -3,7 +3,6 @@ import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-st
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -53,10 +52,6 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 		<Card variant="surface">
 			<CardHeader padding="compact">
 				<CardTitle>History</CardTitle>
-				<CardDescription>
-					Recent larval inspections, samples, applications, source reductions, and requests for
-					control at this habitat.
-				</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
 				<PanelRows

@@ -21,7 +21,6 @@ import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
-import { locationDescription } from '../../map/location-description';
 import { insecticideDisplayName } from '../control-display';
 import { HabitatPicker } from '../control-pickers';
 import {
@@ -39,7 +38,7 @@ import { InsecticideBatchOptions } from './insecticide-batch-options';
 
 export interface ApplicationFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/control-operations/chemical' | '/control-operations/chemical/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -275,11 +274,6 @@ export function ApplicationFormPage({
 							)}
 						</form.AppField>
 					}
-					description={locationDescription({
-						geometryKind: 'controlAction',
-						subject: 'The geometry is where the product was applied.',
-						habitat: true,
-					})}
 					geometryKind="controlAction"
 					location={location}
 					organizationId={organizationId}

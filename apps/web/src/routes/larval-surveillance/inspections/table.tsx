@@ -184,7 +184,6 @@ function InspectionsTableRoute() {
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={<InspectionSurfaceSwitch current="table" search={carried} />}
-				description="Every inspection your crews have recorded."
 				icon={InspectionIcon}
 				title={recordNoun('inspection').titleMany}
 			/>

@@ -20,7 +20,6 @@ export function InsecticideLookupPointer() {
 		<LookupListFrame
 			activeCount={activeCount}
 			inactiveCount={products.length - activeCount}
-			detail="Products used for chemical control, including active ingredient, registration, and default usage unit."
 			title="Insecticides"
 			action={
 				<Button asChild size="sm" variant="outline">
@@ -50,7 +49,6 @@ export function InsecticideBatchTrackingDrawer({
 
 	return (
 		<EditSettingsSheet
-			description="Choose whether treatment records should capture insecticide lot or batch details."
 			fields={[
 				{
 					kind: 'switch',

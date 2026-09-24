@@ -59,11 +59,7 @@ function AdultSurveillanceOverviewRoute() {
 	// keep their twelve-column grid; the frame is what widened.
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
-			<PageHeader
-				description="Collection activity across your traps, the species composition in what they caught, and the collections still awaiting identification or flagged with a problem."
-				icon={AdultIcon}
-				title="Adult Surveillance"
-			/>
+			<PageHeader icon={AdultIcon} title="Adult Surveillance" />
 
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="xl:col-span-7">

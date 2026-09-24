@@ -59,7 +59,6 @@ export interface PublicSettingsFormValues {
 export interface ControlMethodListConfig {
 	readonly addLabel: string;
 	readonly collectionKey: ControlMethodCollectionKey;
-	readonly detail: string;
 	readonly fieldLabel: string;
 	readonly lowercaseTitle: string;
 	readonly placeholder: string;
@@ -70,10 +69,8 @@ export interface ControlMethodListConfig {
 export interface ControlAssetListConfig {
 	readonly addLabel: string;
 	readonly collectionKey: ControlAssetCollectionKey;
-	readonly detail: string;
 	readonly fieldLabel: string;
 	readonly lowercaseTitle: string;
-	readonly metadataDescription: string;
 	readonly placeholder: string;
 	readonly singularLabel: string;
 	readonly title: string;

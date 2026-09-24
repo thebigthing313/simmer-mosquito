@@ -9,7 +9,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -111,29 +110,24 @@ const readOnlyRoles = new Set(['viewer']);
 interface StatusMeta {
 	readonly label: string;
 	readonly tone: 'success' | 'info' | 'neutral' | 'warning';
-	readonly description: string;
 }
 
 const STATUS_META: Record<SampleStatus, StatusMeta> = {
 	identified: {
 		label: 'Identified',
 		tone: 'success',
-		description: 'One or more species have been identified in this sample.',
 	},
 	awaiting: {
 		label: 'Awaiting ID',
 		tone: 'info',
-		description: 'This sample is collected but not yet identified.',
 	},
 	zero_larvae: {
 		label: 'No larvae',
 		tone: 'neutral',
-		description: 'The sample was examined and held no mosquito larvae.',
 	},
 	unidentifiable: {
 		label: 'Unidentifiable',
 		tone: 'warning',
-		description: 'The specimens could not be identified to species.',
 	},
 };
 
@@ -156,12 +150,7 @@ function SampleDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Lab notes, identification context, and follow-up for this sample."
-					target={{ type: 'sample', id: geo.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'sample', id: geo.id }} />}
 			facts={<ContextCard geo={geo} />}
 			header={{
 				flags: <AccessBadge canManage={canManage} />,
@@ -426,7 +415,6 @@ function IdentificationCard({
 							<SpeciesIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							Identification
 						</CardTitle>
-						<CardDescription>{meta.description}</CardDescription>
 					</div>
 					<div className="flex shrink-0 items-center gap-2">
 						<Badge tone={meta.tone} variant="outline">

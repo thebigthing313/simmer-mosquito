@@ -21,7 +21,7 @@ export function DomainSection({
 }: {
 	readonly canManage: boolean;
 	readonly children?: React.ReactNode;
-	readonly editDescription: string;
+	readonly editDescription?: string | undefined;
 	readonly editAction?: React.ReactNode;
 	readonly fields: readonly SettingField[];
 	readonly id: string;

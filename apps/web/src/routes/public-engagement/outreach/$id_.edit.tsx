@@ -182,7 +182,6 @@ function EditOutreachActionLoader({
 			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
 				title: `Edit ${recordNoun('outreachAction').title}`,
-				description: 'Update this action’s method, reach, date, or location.',
 				backTo: '/public-engagement/outreach/$id',
 				backParams: { id: action.id },
 				backLabel: 'Back to outreach action',

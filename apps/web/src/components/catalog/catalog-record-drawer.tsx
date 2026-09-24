@@ -56,7 +56,7 @@ export function CatalogRecordDrawer({
 	children,
 }: {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
 	readonly trigger: ReactNode;
@@ -86,7 +86,7 @@ export function CatalogRecordDrawer({
 			<DrawerContent className={DRAWER_WIDTHS[width]}>
 				<DrawerHeader className={stickyHeader({ padding: 'none' })}>
 					<DrawerTitle>{title}</DrawerTitle>
-					<DrawerDescription>{description}</DrawerDescription>
+					{description === undefined ? null : <DrawerDescription>{description}</DrawerDescription>}
 				</DrawerHeader>
 				<form
 					className="flex min-h-0 flex-1 flex-col"

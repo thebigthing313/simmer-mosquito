@@ -232,11 +232,7 @@ function AssignmentRunRoute() {
 						)}
 					</div>
 
-					<WorklistTabs
-						commentsDescription="Field notes and follow-up for this assignment."
-						stopCount={stops.length}
-						target={{ type: 'assignment', id }}
-					>
+					<WorklistTabs stopCount={stops.length} target={{ type: 'assignment', id }}>
 						<RunStopList
 							assignmentId={id}
 							enabled={itemsEnabled}

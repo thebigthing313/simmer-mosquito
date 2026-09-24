@@ -72,11 +72,7 @@ function PublicEngagementOverviewRoute() {
 	return (
 		<OutletSimpleLayout measure="record">
 			<div className="grid gap-6">
-				<PageHeader
-					description="Service requests reported by the public, the outreach your crews do, and the contacts behind both."
-					icon={PublicIcon}
-					title="Public Engagement"
-				/>
+				<PageHeader icon={PublicIcon} title="Public Engagement" />
 
 				{/*
 				 * `items-start` so a short panel keeps its own height rather than

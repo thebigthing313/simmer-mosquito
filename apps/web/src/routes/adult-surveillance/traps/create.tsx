@@ -102,8 +102,6 @@ function CreateTrapRoute() {
 				}}
 				header={{
 					title: createLabel('trap'),
-					description:
-						'Place the trap point, optionally reference an address, and set its method and lure.',
 					backTo: '/adult-surveillance/traps',
 					backLabel: recordNoun('trap').titleMany,
 				}}

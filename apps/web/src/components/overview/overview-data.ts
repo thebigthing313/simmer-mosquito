@@ -46,13 +46,6 @@ export const OVERVIEW_TITLES: Readonly<Record<OverviewGrain, string>> = {
 	year: 'Annual',
 };
 
-export const OVERVIEW_DESCRIPTIONS: Readonly<Record<OverviewGrain, string>> = {
-	day: 'What was recorded on one day, against the day before, with the year so far under it.',
-	month:
-		'What was recorded in one month, against the month before, the same month last year and the five years before.',
-	year: 'What was recorded in one year, against the year before and the five years before.',
-};
-
 /**
  * The period's search codec, of `dateParam`'s shape: a regex over the value,
  * anything else reads as no value, so `/today?date=` matches the Activity

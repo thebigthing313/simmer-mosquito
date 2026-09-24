@@ -134,7 +134,6 @@ export function PublicSettingsDrawer({
 
 	return (
 		<EditSettingsSheet
-			description="Set how much nearby activity is shown when staff review a resident service request."
 			fields={[
 				{
 					kind: 'text',
@@ -188,7 +187,6 @@ function NotificationTypeLookupList({ canManage }: { readonly canManage: boolean
 		<LookupListFrame
 			activeCount={activeTypes.length}
 			inactiveCount={inactiveTypes.length}
-			detail="Notification types classify resident communication such as phone calls, emails, letters, and door notices."
 			title="Notification Types"
 			action={
 				<NotificationTypeDrawer

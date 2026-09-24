@@ -178,7 +178,6 @@ function EditSourceReductionLoader({
 			defaultValues={defaultsFromSourceReduction(sourceReduction, personnel)}
 			header={{
 				title: `Edit ${recordNoun('sourceReduction').title}`,
-				description: 'Update what was eliminated, who did it, when, or where.',
 				backTo: '/control-operations/source-reduction/$id',
 				backParams: { id: sourceReduction.id },
 				backLabel: 'Back to source reduction',

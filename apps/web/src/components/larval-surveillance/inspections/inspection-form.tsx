@@ -62,7 +62,7 @@ import { SamplesSection } from './inspection-samples-section';
 
 export interface InspectionFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/larval-surveillance/inspections' | '/larval-surveillance/inspections/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -473,7 +473,7 @@ export function InspectionFormPage({
 									<form.AppField name="lifeStages">
 										{(field) => (
 											<LabeledControl
-												description="Mark every immature stage present. Required when larvae were found."
+												description="Required when larvae were found."
 												label="Life stages"
 											>
 												<LifeStageSelector

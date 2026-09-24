@@ -69,7 +69,7 @@ function ControlOperationsOverviewRoute() {
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
-				description={`The source reductions, biocontrol releases, and chemical applications your crews recorded over the last ${CONTROL_ACTIVITY_WINDOW_DAYS} days, and the catalogs behind them.`}
+				description={`Last ${CONTROL_ACTIVITY_WINDOW_DAYS} days`}
 				icon={ControlIcon}
 				title="Control Operations"
 			/>

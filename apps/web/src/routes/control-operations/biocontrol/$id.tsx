@@ -94,12 +94,7 @@ function BiocontrolDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Follow-up, agent survival, and restocking notes for this release."
-					target={{ type: 'biocontrolAction', id: action.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'biocontrolAction', id: action.id }} />}
 			facts={
 				<>
 					<BiocontrolDetailsCard

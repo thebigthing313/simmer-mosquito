@@ -37,7 +37,6 @@ export function CollectionLureLookupList({ canManage }: { readonly canManage: bo
 		<LookupListFrame
 			activeCount={activeLures.length}
 			inactiveCount={inactiveLures.length}
-			detail="Lures stay as lightweight labels with lifecycle state."
 			title="Collection Lures"
 			action={
 				<CollectionLureDrawer

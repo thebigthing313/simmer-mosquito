@@ -77,7 +77,6 @@ function HabitatTypesRoute() {
 		<CatalogPage
 			action={canManage ? addHabitatTypeDialog : undefined}
 			canEdit={canManage}
-			description="Habitat types classify the habitats your crews inspect: catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields you record against them."
 			emptyDescription={
 				<>
 					Habitat types are the classification labels crews pick when recording a larval habitat.
@@ -304,7 +303,6 @@ function HabitatTypeDialog({
 							<CatalogDialogCancel />
 						</form.FormActions>
 					}
-					description="Manage the label, lifecycle state, and optional custom fields."
 					onOpenChange={setOpen}
 					onSubmit={() => void form.handleSubmit()}
 					open={open}
@@ -330,12 +328,7 @@ function HabitatTypeDialog({
 						{(field) => <field.SwitchField label="Active" />}
 					</form.AppField>
 					<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-						{(field) => (
-							<field.JsonSchemaField
-								description="Optional fields crews fill in when recording this habitat type."
-								label="Custom fields"
-							/>
-						)}
+						{(field) => <field.JsonSchemaField label="Custom fields" />}
 					</form.AppField>
 				</CatalogRecordDialog>
 			</form.AppForm>

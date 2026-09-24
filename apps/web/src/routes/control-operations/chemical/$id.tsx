@@ -7,7 +7,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -143,12 +142,7 @@ function ApplicationDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Field notes, product observations, and follow-up for this application."
-					target={{ type: 'application', id: application.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'application', id: application.id }} />}
 			facts={
 				<>
 					<ApplicationDetailsCard
@@ -193,11 +187,7 @@ function ApplicationDetailContent({
 				</div>
 			}
 		>
-			<ApplicationBatchesCard
-				application={application}
-				canEdit={canEdit}
-				productName={productName}
-			/>
+			<ApplicationBatchesCard application={application} canEdit={canEdit} />
 		</DetailPageShell>
 	);
 }
@@ -249,11 +239,9 @@ function ApplicationLocationCard({
 function ApplicationBatchesCard({
 	application,
 	canEdit,
-	productName,
 }: {
 	readonly application: ChemicalApplication;
 	readonly canEdit: boolean;
-	readonly productName: string;
 }) {
 	const linkedResult = useApplicationBatches(application.id);
 	const entries = linkedResult.rows;
@@ -301,9 +289,6 @@ function ApplicationBatchesCard({
 							<InsecticideIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							Batches
 						</CardTitle>
-						<CardDescription>
-							The {productName} lots used on this application, for traceability.
-						</CardDescription>
 					</div>
 					{entries.length > 0 ? (
 						<Badge tone="neutral" variant="outline">

@@ -98,7 +98,6 @@ function RegionBoundaryCard({
 }) {
 	return (
 		<RecordLocationCard
-			description="The region's mapped area."
 			emptyDescription="This region has no boundary to display."
 			emptyTitle="No Boundary Recorded"
 			geojson={geojson}

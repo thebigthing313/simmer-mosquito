@@ -117,8 +117,6 @@ function CreateServiceRequestRoute() {
 			}}
 			header={{
 				title: createLabel('serviceRequest'),
-				description:
-					'Log a request from the public. Link or create a contact and address, then place its location.',
 				backTo: '/public-engagement/service-requests',
 				backLabel: recordNoun('serviceRequest').titleMany,
 			}}

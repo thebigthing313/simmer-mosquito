@@ -103,8 +103,6 @@ export const controlMethodListConfigs: Record<ControlMethodCollectionKey, Contro
 		applicationMethods: {
 			addLabel: 'Add method',
 			collectionKey: 'applicationMethods',
-			detail:
-				'Chemical application methods can define optional custom fields for treatment records.',
 			fieldLabel: 'Application method name',
 			lowercaseTitle: 'application methods',
 			placeholder: 'e.g. ULV truck spray',
@@ -114,8 +112,6 @@ export const controlMethodListConfigs: Record<ControlMethodCollectionKey, Contro
 		sourceReductionMethods: {
 			addLabel: 'Add method',
 			collectionKey: 'sourceReductionMethods',
-			detail:
-				'Source reduction methods can define optional custom fields for removal or mitigation work.',
 			fieldLabel: 'Source reduction method name',
 			lowercaseTitle: 'source reduction methods',
 			placeholder: 'e.g. Container removal',
@@ -125,8 +121,6 @@ export const controlMethodListConfigs: Record<ControlMethodCollectionKey, Contro
 		biocontrolMethods: {
 			addLabel: 'Add method',
 			collectionKey: 'biocontrolMethods',
-			detail:
-				'Biocontrol methods can define optional custom fields for biological treatment records.',
 			fieldLabel: 'Biocontrol method name',
 			lowercaseTitle: 'biocontrol methods',
 			placeholder: 'e.g. Mosquitofish release',
@@ -136,7 +130,6 @@ export const controlMethodListConfigs: Record<ControlMethodCollectionKey, Contro
 		outreachMethods: {
 			addLabel: 'Add method',
 			collectionKey: 'outreachMethods',
-			detail: 'Outreach methods define how public engagement actions are categorized.',
 			fieldLabel: 'Outreach method name',
 			lowercaseTitle: 'outreach methods',
 			placeholder: 'e.g. Door hanger',
@@ -148,11 +141,8 @@ export const controlAssetListConfigs: Record<ControlAssetCollectionKey, ControlA
 	vehicles: {
 		addLabel: 'Add vehicle',
 		collectionKey: 'vehicles',
-		detail:
-			'Vehicles are field resources that can carry extra metadata such as plate numbers or assigned zones.',
 		fieldLabel: 'Vehicle name',
 		lowercaseTitle: 'vehicles',
-		metadataDescription: 'Add any vehicle-specific details your team needs to track.',
 		placeholder: 'e.g. Truck 7',
 		singularLabel: 'vehicle',
 		title: 'Vehicles',
@@ -160,11 +150,8 @@ export const controlAssetListConfigs: Record<ControlAssetCollectionKey, ControlA
 	equipment: {
 		addLabel: 'Add equipment',
 		collectionKey: 'equipment',
-		detail: 'Equipment records can include serial numbers and metadata for operational tracking.',
 		fieldLabel: 'Equipment name',
 		lowercaseTitle: 'equipment',
-		metadataDescription:
-			'Add equipment-specific details such as calibration notes or storage location.',
 		placeholder: 'e.g. Backpack sprayer',
 		singularLabel: 'equipment',
 		title: 'Equipment',

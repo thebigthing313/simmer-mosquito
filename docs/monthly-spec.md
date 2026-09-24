@@ -16,9 +16,8 @@ today is an `UpcomingPage` stub mounted by #1082.
 ## The page
 
 The frame is Today's. The `PageHeader` carries no eyebrow, the
-`generic.chart` icon, the title `Monthly`, the description "What was recorded
-in one month, against the month before, the same month last year and the five
-years before." and the picker in `actions`. The upward line under it reads
+`generic.chart` icon, the title `Monthly`, no description, and the picker in
+`actions`. The upward line under it reads
 `September 2026 · 2026`, the month's long name in the foreground weight and the
 year as a link to `/annual?year=2026`. It is the only way from a month to its
 year.

@@ -33,7 +33,7 @@ export interface WeatherStationFormValues {
 
 export interface WeatherStationFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/gis/weather' | '/gis/weather/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -179,11 +179,7 @@ export function WeatherStationFormPage({
 					title="Station location"
 				/>
 
-				<CustomFieldsSection
-					description="Optional structured notes, like the gauge model or who maintains it."
-					form={form}
-					framed={false}
-				/>
+				<CustomFieldsSection form={form} framed={false} />
 			</RecordFormPage>
 		</form.AppForm>
 	);

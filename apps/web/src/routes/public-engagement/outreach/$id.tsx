@@ -81,12 +81,7 @@ function OutreachDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Follow-up, materials, and response notes for this outreach."
-					target={{ type: 'outreachAction', id: action.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'outreachAction', id: action.id }} />}
 			facts={
 				<>
 					<OutreachDetailsCard

@@ -16,11 +16,9 @@ export interface MethodDialogContext {
 	readonly mutations: CatalogMutations;
 	readonly singularLabel: string;
 	readonly namePlaceholder: string;
-	readonly customFieldsDescription: string;
 }
 
 export function ControlMethodDialog({
-	customFieldsDescription,
 	method,
 	mutations,
 	namePlaceholder,
@@ -82,7 +80,6 @@ export function ControlMethodDialog({
 							<CatalogDialogCancel />
 						</form.FormActions>
 					}
-					description="Manage the label, lifecycle state, and optional custom fields."
 					onOpenChange={setOpen}
 					onSubmit={() => void form.handleSubmit()}
 					open={open}
@@ -103,9 +100,7 @@ export function ControlMethodDialog({
 						{(field) => <field.SwitchField label="Active" />}
 					</form.AppField>
 					<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-						{(field) => (
-							<field.JsonSchemaField description={customFieldsDescription} label="Custom fields" />
-						)}
+						{(field) => <field.JsonSchemaField label="Custom fields" />}
 					</form.AppField>
 				</CatalogRecordDialog>
 			</form.AppForm>

@@ -19,7 +19,6 @@ function MyOrganizationInsecticidesRoute() {
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
-				editDescription="Adjust insecticide products, batches, and traceability settings."
 				editAction={
 					<InsecticideBatchTrackingDrawer
 						canManage={workspace.canManage}
