@@ -62,13 +62,7 @@ export function RecordUnavailable({
 	const { one, title, titleMany } = recordNoun(recordType);
 	const listPath = useUnavailableRecordTrail(reason === 'not-found' ? `Unknown ${one}` : title);
 	const body = (
-		<Empty
-			className={
-				layout === 'centered'
-					? 'max-w-md border border-border/40 bg-muted/30'
-					: 'min-h-[280px] border border-border/40 bg-muted/30'
-			}
-		>
+		<Empty className={layout === 'centered' ? 'max-w-md' : 'min-h-[280px]'} variant="framed">
 			<EmptyHeader>
 				<EmptyTitle>{`${title} Unavailable`}</EmptyTitle>
 				<EmptyDescription>{description ?? defaultDescription(one, reason)}</EmptyDescription>

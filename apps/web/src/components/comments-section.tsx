@@ -488,7 +488,7 @@ function CommentsEmpty({
 	readonly description: string;
 }) {
 	return (
-		<Empty className="min-h-[160px] flex-1 border border-border/40 bg-muted/30">
+		<Empty className="min-h-[160px] flex-1" variant="nested">
 			<EmptyHeader>
 				<EmptyMedia variant="icon">
 					<CommentIcon aria-hidden="true" />
