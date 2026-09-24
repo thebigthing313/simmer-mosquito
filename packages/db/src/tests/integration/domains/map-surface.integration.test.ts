@@ -581,6 +581,39 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
+	// The rail opens newest first and can be turned around to work the queue from
+	// the request that has waited longest. A second request thirty days older than
+	// the seeded one is enough to tell the two orders apart.
+	it('pages the service requests oldest first when asked to', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = mapSurfaceRowIds.serviceRequest;
+			const older = '00000000-0000-4000-8000-000000009903';
+			await sql`
+				insert into service_requests
+					(id, organization_id, geom, request_date, intake_type, details, contact_id, address_id)
+				select ${older}, organization_id, geom, request_date - 30, intake_type, details,
+					contact_id, address_id
+				from service_requests
+				where id = ${ids.inside}
+			`.execute(db);
+
+			const read = async (oldestFirst: boolean) =>
+				(
+					await MAP_SURFACES['service-requests'].listByBounds(db, {
+						organizationId: mapSurfaceOrganizationIds.own,
+						timeZone: mapSurfaceTimeZone,
+						bounds: mapSurfacePlace.bounds,
+						filters: oldestFirst ? { oldestFirst } : {},
+						...page,
+					})
+				).rows.map((row) => row.id);
+
+			expect(await read(false)).toEqual([ids.inside, older]);
+			expect(await read(true)).toEqual([older, ids.inside]);
+		});
+	});
+
 	// A `timestamptz` becomes a calendar date in whichever zone does the
 	// converting, and the database server's is not the organization's. This is
 	// worse than a mislabelled row: at the edge of a window the collection falls

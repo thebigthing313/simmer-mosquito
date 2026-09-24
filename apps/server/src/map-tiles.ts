@@ -1073,6 +1073,8 @@ export const parseServiceRequestMapFilters = defineFilters<ServiceRequestMapFilt
 		{ param: 'status', as: 'isOpen', kind: 'requestStatus' },
 		{ param: 'search', kind: 'text' },
 		{ param: 'tagId', as: 'tagIds', kind: 'uuidList' },
+		// The rail's order. The tiles and the extent take it and ignore it.
+		{ param: 'oldest', as: 'oldestFirst', kind: 'trueOnly' },
 		regionField,
 		...dateFields,
 	],
