@@ -127,7 +127,7 @@ read's cost first, an index on `inspections (habitat_id, inspection_date desc,
 created_at desc)` and a set-based rewrite of the fragment, and only then of
 the page.
 
-## Last 7 Days
+## Last 7 days
 
 One ruled strip, not a `Panel`: a section heading `Last 7 Days` on the left,
 and on the right the window's dates, the words "change vs previous 7 days" and
