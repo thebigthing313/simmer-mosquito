@@ -108,7 +108,7 @@ describe('the Monthly page', () => {
 				.map((cell) => cell.textContent),
 		).toEqual(['Record type', 'Sep 2026', 'Aug 2026', 'Sep 2025', '2021–2025 average']);
 		expect(table().getByRole('row', { name: /^Inspections/ }).textContent).toBe(
-			'Inspections2,1403,9802,3102,266.4',
+			'Inspections2,1403,9802,3102,266',
 		);
 	});
 

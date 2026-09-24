@@ -108,7 +108,7 @@ describe('the Annual page', () => {
 				.map((cell) => cell.textContent),
 		).toEqual(['Record type', '2026', '2025', '2021–2025 average']);
 		expect(table().getByRole('row', { name: /^Inspections/ }).textContent).toBe(
-			'Inspections24,11037,31431,200.4',
+			'Inspections24,11037,31431,200',
 		);
 		// No coarser grain, so no upward line and no legend.
 		expect(screen.queryByRole('link', { name: '2026' })).toBeNull();
