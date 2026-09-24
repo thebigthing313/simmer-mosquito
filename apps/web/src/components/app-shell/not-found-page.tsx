@@ -1,5 +1,4 @@
 import {
-	navDestination,
 	nearestAncestorItem,
 	type ShellCrumb,
 	useBreadcrumbTrail,
