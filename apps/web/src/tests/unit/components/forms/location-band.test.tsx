@@ -55,6 +55,41 @@ const { LocationAddressField, LocationBand } = await import(
 
 const MISSING = 'Place the trap point on the map.';
 
+const STOP_AREA = {
+	type: 'Polygon',
+	coordinates: [
+		[
+			[-74.41, 40.52],
+			[-74.41, 40.53],
+			[-74.4, 40.53],
+			[-74.41, 40.52],
+		],
+	],
+} as const;
+
+type MissionStop = NonNullable<Parameters<typeof useDrawLocation>[0]['missionStop']>;
+
+function StopHarness({ missionStop }: { readonly missionStop: MissionStop }) {
+	const location = useDrawLocation({
+		geometryKind: 'controlAction',
+		map: null,
+		missingMessage: MISSING,
+		missionStop,
+	});
+	return (
+		<>
+			<button onClick={() => location.requireGeometry()} type="button">
+				Save
+			</button>
+			<LocationBand
+				description="The geometry is where the product was applied."
+				geometryKind="controlAction"
+				location={location}
+			/>
+		</>
+	);
+}
+
 function BandHarness({
 	onChange = () => undefined,
 }: {
@@ -115,5 +150,66 @@ describe('LocationBand', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Pick address' }));
 
 		expect(onChange).toHaveBeenCalledWith(ADDRESS.id);
+	});
+
+	it('offers no stop geometry off a mission stop', () => {
+		render(<BandHarness />);
+
+		expect(screen.queryByRole('button', { name: 'Use stop geometry' })).toBeNull();
+	});
+});
+
+/**
+ * #1233: a form opened off a mission stop draws the stop's geometry, refuses a
+ * save once it has been cleared, and offers it back in the band's own button
+ * row, beside the refusal.
+ */
+describe('LocationBand on a mission stop', () => {
+	afterEach(cleanup);
+
+	it('draws the stop geometry when the form opens', () => {
+		render(<StopHarness missionStop={{ status: 'ready', geometry: STOP_AREA }} />);
+
+		expect(screen.getByText('Captured')).toBeDefined();
+	});
+
+	it('refuses a save once the geometry is cleared, and restores it from the band', () => {
+		render(<StopHarness missionStop={{ status: 'ready', geometry: STOP_AREA }} />);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(screen.getByText(MISSING)).toBeDefined();
+		expect(screen.queryByText('Captured')).toBeNull();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Use stop geometry' }));
+
+		expect(screen.getByText('Captured')).toBeDefined();
+		expect(screen.queryByText(MISSING)).toBeNull();
+	});
+
+	it('holds the button while the stop geometry loads', () => {
+		render(<StopHarness missionStop={{ status: 'loading' }} />);
+
+		const button = screen.getByRole('button', { name: 'Use stop geometry' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		expect(screen.queryByText('Captured')).toBeNull();
+	});
+
+	it('says the stop geometry failed to load, and retries from the button', () => {
+		const retry = vi.fn();
+		render(<StopHarness missionStop={{ status: 'error', retry }} />);
+
+		expect(screen.getByText("The mission stop's geometry could not be loaded.")).toBeDefined();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Use stop geometry' }));
+
+		expect(retry).toHaveBeenCalledOnce();
+	});
+
+	it('holds the button when asking again cannot change the answer', () => {
+		render(<StopHarness missionStop={{ status: 'error', retry: null }} />);
+
+		const button = screen.getByRole('button', { name: 'Use stop geometry' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
 	});
 });

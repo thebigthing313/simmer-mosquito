@@ -37,12 +37,12 @@ function values(overrides: Partial<BiocontrolFormValues> = {}): BiocontrolFormVa
 }
 
 function validate(overrides: Partial<BiocontrolFormValues>) {
-	return validateBiocontrol(values(overrides), POINT, true);
+	return validateBiocontrol(values(overrides), POINT);
 }
 
 describe('a biocontrol release the domain refuses', () => {
 	it('passes a complete record', () => {
-		expect(validateBiocontrol(values(), POINT, true)).toBeUndefined();
+		expect(validateBiocontrol(values(), POINT)).toBeUndefined();
 	});
 
 	it('names the method on the method field', () => {

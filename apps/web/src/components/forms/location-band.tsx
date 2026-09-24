@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { DrawLocation } from '../../hooks/map/use-draw-location';
 import { GeometryControl } from '../map/geometry-control';
 import { AddressPicker } from '../pickers/address-picker';
+import { StopGeometryButton, stopGeometryError } from './stop-geometry-button';
 
 /**
  * The location band, wired to a {@link DrawLocation} controller. `ui-web` owns
@@ -47,7 +48,11 @@ export function LocationBand({
 	readonly below?: ReactNode;
 }) {
 	return (
-		<LocationSection description={description} error={location.locationError} title={title}>
+		<LocationSection
+			description={description}
+			error={location.locationError ?? stopGeometryError(location.missionStop)}
+			title={title}
+		>
 			{children}
 
 			<GeometryControl
@@ -59,7 +64,12 @@ export function LocationBand({
 				onClear={location.clear}
 				onDraw={location.startDraw}
 				onTypeChange={location.changeType}
-				{...(extraActions === undefined ? {} : { extraActions })}
+				extraActions={
+					<>
+						<StopGeometryButton location={location} />
+						{extraActions}
+					</>
+				}
 				{...(organizationId === undefined ? {} : { organizationId })}
 				required={required}
 				{...(location.addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}

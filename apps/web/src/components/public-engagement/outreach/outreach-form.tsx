@@ -7,6 +7,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
+import type { MissionStopGeometry } from '../../../hooks/operations/use-mission-stop-geometry';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import {
@@ -41,17 +42,13 @@ const OUTREACH_FIELD_PATHS: Readonly<Record<string, string>> = {
  * The form's rules, straight from the domain builder: the method, the reach
  * and the date, each issue attributed to the field that holds it.
  */
-export function validateOutreach(
-	value: OutreachFormValues,
-	geometry: DrawGeometry | null,
-	requireLocation: boolean,
-) {
+export function validateOutreach(value: OutreachFormValues, geometry: DrawGeometry | null) {
 	return domainValidator(
 		() =>
 			recordOutreachActionCommand({
 				...FORM_VALIDATION_CONTEXT,
 				outreachActionId: FORM_VALIDATION_CONTEXT.organizationId,
-				locationSource: validationLocationSource(geometry, requireLocation),
+				locationSource: validationLocationSource(geometry),
 				outreachMethodId: value.outreachMethodId,
 				reach: value.reach as number,
 				reachDescription: value.reachDescription.trim() === '' ? null : value.reachDescription,
@@ -110,6 +107,12 @@ export interface OutreachFormPageProps {
 	 * optional so an action keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
+	/**
+	 * The mission stop the form was opened from, whose geometry is drawn when it
+	 * arrives. Null off a stop and on edit; required so a create route that
+	 * forgets the stop fails `tsc` rather than opening on an empty map.
+	 */
+	readonly missionStop: MissionStopGeometry | null;
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: OutreachFormHeader;
@@ -144,6 +147,7 @@ export function OutreachFormPage({
 	defaultValues,
 	initialGeometry = null,
 	requireLocation = true,
+	missionStop,
 	mode,
 	header,
 	onSave,
@@ -153,6 +157,7 @@ export function OutreachFormPage({
 		initialGeometry,
 		missingMessage: 'Map where the outreach happened.',
 		required: requireLocation,
+		missionStop,
 	});
 	const { draw, geometry, geometryType } = location;
 
@@ -166,7 +171,12 @@ export function OutreachFormPage({
 		defaultValues,
 		validators: {
 			onSubmit: ({ value }: { readonly value: OutreachFormValues }) =>
-				validateOutreach(value, geometry, requireLocation),
+				validateOutreach(value, geometry),
+		},
+		// A save refused over the fields says the missing location in the same
+		// pass, rather than only once the fields are fixed.
+		onSubmitInvalid: () => {
+			location.requireGeometry();
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();

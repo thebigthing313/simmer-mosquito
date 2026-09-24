@@ -466,6 +466,27 @@ Opening on the first shape the register lists put every work record on Point,
 so drawing the area a Habitat or an Application is about started with a tool
 change.
 
+A form opened off a mission stop takes the stop as `missionStop`, and the
+stop's geometry is drawn when it arrives, through `useMissionStopSeed` (#1233).
+`restoreStopGeometry` is what the band's "Use stop geometry" button calls to
+put it back after an edit or a clear.
+A save while the stop's geometry is still loading is refused with "The mission
+stop's geometry is still loading." rather than the form's own missing-location
+message, since drawing is not what fixes it.
+
+#### useMissionStopSeed
+
+The stop's geometry arrives over the network after the form opened, so
+`initialGeometry`, which is read once into state, cannot carry it. This draws
+it on the first render that has it, as a render-time adjustment rather than an
+effect, so the first paint after the geometry arrives already shows it and the
+React rules have no `setState` in an effect to object to. It seeds once: a
+shape placed before the stop's geometry arrived is kept, and a cleared geometry
+stays cleared, so the save is refused rather than quietly taking the stop's
+ground again. It sits apart from `useDrawLocation` because the rule added two
+branches to a hook that was already the longest in `hooks/map`, and
+`fallow:health` counted it.
+
 #### useGeoJsonLayer
 
 The overlay is what record detail maps use to draw one feature's geometry
@@ -763,12 +784,21 @@ mission concern is identical across them. Held in one hook so a change to how
 a stop is executed is one edit rather than four, and so the three commands
 that ship without a wire-body test cannot drift from the one that has one.
 
-A mission stop already names the ground. The server defaults the action's
-geometry from it, so requiring a draw would make the crew re-trace the place
-they were sent and, for a line or polygon stop, trace it wrongly enough to
-trip the coverage check. Subscribing to the stop's row also warms the
+A mission stop already names the ground, and the form shows it: the stop's
+geometry is fetched through `useMissionStopGeometry` and drawn when the form
+opens, so a crew never re-traces the place they were sent (#1233). Until then
+the form opened on an empty map, a location was optional on a stop, and a save
+with nothing drawn took the stop's geometry on the server, so the ground a
+record was saved at was one nobody had been shown. A location is required on
+a stop now, the same as off one.
+
+A geometry still exactly the stop's is sent as no geometry, and the server
+copies the stop's stored shape. The copy the form holds came through
+`st_asgeojson`, which keeps nine decimal places, and a rounded copy need not
+cover the stored shape, so sending it would put the coverage acknowledgement
+to a crew that changed nothing. Subscribing to the stop's row warms the
 on-demand stream the page is about to write against, which is what keeps the
-write's txid confirmation from timing out.
+write's txid confirmation from timing out; nothing reads the row itself.
 
 ### forms
 
@@ -1182,6 +1212,24 @@ the mission's own display endpoint instead, one request for the whole
 mission, because both surfaces that draw stops draw all of a mission's at
 once. The cache key carries every item's `updatedAt`, so redrawing a stop,
 adding one, or removing one refetches; nothing else does.
+
+#### useMissionStopGeometry
+
+One stop's geometry, for the control action form opened from it (#1233). It
+reads the same `/map/missions/:id/items` endpoint as `useMissionItemShapes`,
+through `lib/mission-item-geometry.ts`, and picks the stop out of the answer,
+because the endpoint answers per mission and a per-stop route would be a
+second reader for one row. It answers a status rather than a nullable
+geometry, since a form has to tell a stop still loading from one that failed:
+a failed read, a stop the mission does not name, and a stop link with no
+mission are all a failure the band says out loud, never an empty map.
+
+A retry reads as loading while it runs, rather than as the failure it is
+replacing. A stop link with no mission fails with no retry, since asking again
+cannot change that answer, and the band's button is disabled for it. The read
+takes React Query's default stale time rather than holding the answer for the
+session, so a stop redrawn on the mission while this tab was open is the shape
+the next form draws, and the shape an unedited save is compared against.
 
 #### useMissionStopViews
 

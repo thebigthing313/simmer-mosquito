@@ -37,12 +37,12 @@ function values(overrides: Partial<SourceReductionFormValues> = {}): SourceReduc
 }
 
 function validate(overrides: Partial<SourceReductionFormValues>) {
-	return validateSourceReduction(values(overrides), POINT, true);
+	return validateSourceReduction(values(overrides), POINT);
 }
 
 describe('a source reduction the domain refuses', () => {
 	it('passes a complete record', () => {
-		expect(validateSourceReduction(values(), POINT, true)).toBeUndefined();
+		expect(validateSourceReduction(values(), POINT)).toBeUndefined();
 	});
 
 	it('names the method on the method field', () => {

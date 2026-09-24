@@ -7,6 +7,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
+import type { MissionStopGeometry } from '../../../hooks/operations/use-mission-stop-geometry';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
@@ -47,14 +48,13 @@ const SOURCE_REDUCTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 export function validateSourceReduction(
 	value: SourceReductionFormValues,
 	geometry: DrawGeometry | null,
-	requireLocation: boolean,
 ) {
 	return domainValidator(
 		() =>
 			recordSourceReductionCommand({
 				...FORM_VALIDATION_CONTEXT,
 				sourceReductionId: FORM_VALIDATION_CONTEXT.organizationId,
-				locationSource: validationLocationSource(geometry, requireLocation),
+				locationSource: validationLocationSource(geometry),
 				sourceReductionMethodId: value.sourceReductionMethodId,
 				sourcesEliminatedAmount: value.sourcesEliminatedAmount as number,
 				sourcesEliminatedUnitId: value.sourcesEliminatedUnitId,
@@ -126,6 +126,12 @@ export interface SourceReductionFormPageProps {
 	 * optional so an action keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
+	/**
+	 * The mission stop the form was opened from, whose geometry is drawn when it
+	 * arrives. Null off a stop and on edit; required so a create route that
+	 * forgets the stop fails `tsc` rather than opening on an empty map.
+	 */
+	readonly missionStop: MissionStopGeometry | null;
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: SourceReductionFormHeader;
@@ -156,6 +162,7 @@ export function SourceReductionFormPage({
 	defaultValues,
 	initialGeometry = null,
 	requireLocation = true,
+	missionStop,
 	mode,
 	header,
 	onSave,
@@ -167,6 +174,7 @@ export function SourceReductionFormPage({
 		initialGeometry,
 		missingMessage: 'Map where the sources were eliminated.',
 		required: requireLocation,
+		missionStop,
 	});
 	const { draw, geometry, geometryType, referenceGeometry } = location;
 
@@ -182,7 +190,12 @@ export function SourceReductionFormPage({
 		defaultValues,
 		validators: {
 			onSubmit: ({ value }: { readonly value: SourceReductionFormValues }) =>
-				validateSourceReduction(value, geometry, requireLocation),
+				validateSourceReduction(value, geometry),
+		},
+		// A save refused over the fields says the missing location in the same
+		// pass, rather than only once the fields are fixed.
+		onSubmitInvalid: () => {
+			location.requireGeometry();
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();

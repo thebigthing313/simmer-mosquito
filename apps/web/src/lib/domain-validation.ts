@@ -33,17 +33,13 @@ export const FORM_VALIDATION_CONTEXT = {
 } as const;
 
 /**
- * The same stand-in, for a location the operator is not being asked to draw.
+ * The same stand-in, for a location the form has not got yet.
  *
- * A control action recorded off a mission stop takes its geometry from the stop
- * unless the crew draws an override, so the form does not require one — but the
- * ordinary command builder these validators run does, and a null geometry fails
- * it with "must be a GeoJSON geometry object" before any other rule is reached.
- * That is a complaint about a field the operator was never shown.
- *
- * Only ever passed when the form itself is not requiring a location; when it is,
- * the real absence is caught by the form's own guard and reported against the
- * map.
+ * The command builders these validators run require a geometry, and a null one
+ * fails with "must be a GeoJSON geometry object", which is a complaint about a
+ * field the operator was never shown and reads as a broken form. A missing
+ * location is the location band's to report, against the map, in the words the
+ * form chose (#1233); an edit that keeps its shape sends none at all.
  */
 export const FORM_VALIDATION_GEOMETRY = {
 	type: 'Point',
@@ -52,21 +48,14 @@ export const FORM_VALIDATION_GEOMETRY = {
 
 /**
  * The `locationSource` a form's validator passes to the ordinary command
- * builder, standing in for a location the operator was not asked to draw.
- *
- * The builders all take a location source even where the form does not require
- * one, so every location-bearing form needs this same substitution; holding it
- * here keeps the four control-action forms from each spelling out when a null
- * geometry is a real omission and when it is the mission's to fill in.
+ * builder: the drawn geometry, or {@link FORM_VALIDATION_GEOMETRY} standing in
+ * for one not drawn, so the builder's rules about the drawn shape still run.
  */
-export function validationLocationSource(
-	geometry: unknown,
-	requireLocation: boolean,
-): { readonly kind: 'geometry'; readonly geometry: never } {
-	return {
-		kind: 'geometry',
-		geometry: (geometry ?? (requireLocation ? null : FORM_VALIDATION_GEOMETRY)) as never,
-	};
+export function validationLocationSource(geometry: unknown): {
+	readonly kind: 'geometry';
+	readonly geometry: never;
+} {
+	return { kind: 'geometry', geometry: (geometry ?? FORM_VALIDATION_GEOMETRY) as never };
 }
 
 /** Issue paths that describe the session, not the form. */

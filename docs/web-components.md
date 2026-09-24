@@ -189,6 +189,22 @@ controller; those three statements were copied into eight forms and the
 habitat form's copy had lost the middle one, so picking an address there left
 the refusal on screen under a location the form now had.
 
+On a form opened off a mission stop the band draws `StopGeometryButton` in the
+geometry control's own button row, ahead of any `extraActions`, so it sits
+beside the refusal a cleared geometry earns (#1233). A failed read of the
+stop's geometry is said on the band's error line, and a refusal takes that
+line while it is up, since the refusal is the one the person has to act on
+first.
+
+#### StopGeometryButton
+
+"Use stop geometry". It reads everything off the `DrawLocation` controller,
+so a form wires the stop into `useDrawLocation` once and the band needs no
+second prop. It renders nothing off a stop, is disabled while the stop's
+geometry loads or a draw is running, and after a failed read it retries the
+read instead of restoring, because there is nothing to restore and a second
+button for the retry would be a second control for one question.
+
 ### gis
 
 #### RegionBoundary (import-parse)

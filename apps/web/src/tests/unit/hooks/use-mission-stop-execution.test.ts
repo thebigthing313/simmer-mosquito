@@ -1,69 +1,73 @@
 import { describe, expect, it } from 'vitest';
+import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import { resolveActionLocation } from '../../../hooks/use-mission-stop-execution';
 
 /**
- * A mission stop names the ground, so the crew does not have to draw it again.
+ * Where a control action happened, from the geometry on the form.
  *
- * The four create pages relaxed the *form's* location requirement on a mission
- * stop and then threw "place the point" in their own save path regardless — so
- * the server's geometry default, which the whole relaxation exists for, could
- * never be reached from the UI. The rule lives here now, and this is the test
- * that it stays reachable.
+ * A form opened off a mission stop draws the stop's shape before anyone touches
+ * the map (#1233), so a location is required on a stop the same as off one: an
+ * empty map on a stop is a cleared geometry, and saving it used to fall back to
+ * the stop's ground with nothing on screen saying so.
+ *
+ * What stays is the case the fallback was for. A geometry still exactly the
+ * stop's is sent as no geometry at all, and the server copies the stop's stored
+ * shape. Sending the copy instead would round-trip it through `st_asgeojson`,
+ * which keeps nine decimal places, and a copy rounded off the stored shape need
+ * not cover it, so an untouched save would ask the crew to confirm the coverage
+ * check for a treatment placed exactly where they were sent.
  */
 describe('resolveActionLocation', () => {
 	const messages = { missing: 'Place the point.', unresolvable: 'Unable to read that shape.' };
-	const point = { type: 'Point', coordinates: [-122.33, 47.61] };
-	const stop = { lat: 47.6, lng: -122.3, geomType: 'polygon' };
+	const point: DrawGeometry = { type: 'Point', coordinates: [-122.33, 47.61] };
+	const stopArea: DrawGeometry = {
+		type: 'Polygon',
+		coordinates: [
+			[
+				[-122.3, 47.6],
+				[-122.3, 47.62],
+				[-122.28, 47.62],
+				[-122.3, 47.6],
+			],
+		],
+	};
 
-	it('falls back to the stop when the crew drew nothing', () => {
-		// No location source at all: the server reads the geometry off the stop, and
-		// the optimistic row shows the stop's own centroid until sync answers.
+	it('sends no geometry when the form still holds the stop geometry', () => {
 		const location = resolveActionLocation({
-			geometry: null,
+			geometry: structuredClone(stopArea),
 			messages,
-			missionItemId: 'mission-item-1',
-			stop,
+			stopGeometry: stopArea,
 		});
 
-		expect(location).toEqual({
-			geomType: 'polygon',
-			lat: 47.6,
-			lng: -122.3,
-			locationSource: undefined,
-		});
+		expect(location.locationSource).toBeUndefined();
+		expect(location.geomType).toBe('st_polygon');
+		expect(location.lat).toBeCloseTo(47.613, 2);
+		expect(location.lng).toBeCloseTo(-122.293, 2);
 	});
 
-	it('still requires a point when there is no stop to fall back to', () => {
-		expect(() =>
-			resolveActionLocation({ geometry: null, messages, missionItemId: null, stop: null }),
-		).toThrow('Place the point.');
-	});
-
-	it('prefers a drawn override to the stop, and sends it as a location source', () => {
-		// Drawing on a mission stop is the treatment that ran wider or narrower than
-		// planned — the case the coverage check then has an opinion about.
-		const location = resolveActionLocation({
-			geometry: point,
-			messages,
-			missionItemId: 'mission-item-1',
-			stop,
-		});
+	it('sends an edited geometry as a location source', () => {
+		const location = resolveActionLocation({ geometry: point, messages, stopGeometry: stopArea });
 
 		expect(location.locationSource).toEqual({ geometry: point, kind: 'geometry' });
 		expect(location.lat).toBeCloseTo(47.61);
 	});
 
-	it('waits rather than inventing a centroid before the stop has arrived', () => {
-		// `mission_items` is an on-demand shape, so the row can be a moment behind
-		// the page. Guessing a point here would write a lie the crew never drew.
+	it('sends a drawn geometry as a location source off a stop', () => {
+		const location = resolveActionLocation({ geometry: point, messages, stopGeometry: null });
+
+		expect(location.locationSource).toEqual({ geometry: point, kind: 'geometry' });
+	});
+
+	it('requires a geometry on a stop whose geometry was cleared', () => {
 		expect(() =>
-			resolveActionLocation({
-				geometry: null,
-				messages,
-				missionItemId: 'mission-item-1',
-				stop: null,
-			}),
-		).toThrow('The mission stop is still loading.');
+			resolveActionLocation({ geometry: null, messages, stopGeometry: stopArea }),
+		).toThrow('Place the point.');
+	});
+
+	it('requires a geometry off a stop', () => {
+		expect(() => resolveActionLocation({ geometry: null, messages, stopGeometry: null })).toThrow(
+			'Place the point.',
+		);
 	});
 
 	it('reports an unreadable shape rather than dropping the location', () => {
@@ -71,8 +75,7 @@ describe('resolveActionLocation', () => {
 			resolveActionLocation({
 				geometry: { type: 'Nonsense', coordinates: [] },
 				messages,
-				missionItemId: null,
-				stop: null,
+				stopGeometry: null,
 			}),
 		).toThrow('Unable to read that shape.');
 	});
