@@ -136,7 +136,7 @@ describe('the Annual page', () => {
 		expect(harness.sent[0]?.search).toBe('?year=2023');
 		expect(screen.queryByText(/^Each period through/)).toBeNull();
 		expect(screen.getByRole('combobox', { name: 'Year shown' }).textContent).toBe('2023');
-		expect(screen.getByRole('button', { name: 'This year' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'This Year' })).toBeTruthy();
 		expect(harness.navigate).not.toHaveBeenCalled();
 	});
 
@@ -163,8 +163,8 @@ describe('the Annual page', () => {
 		await waitFor(() => screen.getByRole('table'));
 
 		expect(screen.getByRole('combobox', { name: 'Year shown' }).textContent).toBe('2005');
-		expect(screen.getByRole('button', { name: 'Previous year' })).toHaveProperty('disabled', true);
-		expect(screen.getByRole('button', { name: 'Next year' })).toHaveProperty('disabled', false);
+		expect(screen.getByRole('button', { name: 'Previous Year' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Next Year' })).toHaveProperty('disabled', false);
 	});
 
 	it('draws no trend section under three years, and the table stands alone', async () => {

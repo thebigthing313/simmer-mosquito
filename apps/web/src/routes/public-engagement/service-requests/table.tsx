@@ -286,12 +286,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="Nothing received matches what is set above."
 				icon={RequestIcon}
-				title="No service requests match"
+				title="No Service Requests Match"
 			/>
 		);
 	}
@@ -299,7 +299,7 @@ function NoRows({
 		<ListEmpty
 			description="Service requests received this year show here."
 			icon={RequestIcon}
-			title="No service requests this year"
+			title="No Service Requests This Year"
 		/>
 	);
 }

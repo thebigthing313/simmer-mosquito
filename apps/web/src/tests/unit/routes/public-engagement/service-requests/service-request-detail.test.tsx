@@ -269,7 +269,7 @@ async function renderPage(closedAt: Date | null = null) {
 
 async function openMenu(): Promise<readonly string[]> {
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More actions' }),
+		screen.getByRole('button', { name: 'More Actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	await screen.findAllByRole('menuitem');
@@ -382,7 +382,7 @@ describe('the service request detail page header', () => {
 		await renderPage();
 
 		expect(screen.queryByLabelText('Edit')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
 });
 
@@ -858,7 +858,7 @@ describe('the nearby list on a family tab', () => {
 		harness.search = { tab: 'control' };
 		await renderPage();
 
-		expect(await screen.findByText('Nothing nearby')).toBeTruthy();
+		expect(await screen.findByText('Nothing Nearby')).toBeTruthy();
 		expect(
 			screen.getByText('No control records fell within this radius and time window.'),
 		).toBeTruthy();
@@ -873,7 +873,7 @@ describe('the nearby list on a family tab', () => {
 
 		expect(await screen.findByRole('alert')).toBeTruthy();
 		expect(screen.getByText('Could not load results')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
-		expect(screen.queryByText('Nothing nearby')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+		expect(screen.queryByText('Nothing Nearby')).toBeNull();
 	});
 });

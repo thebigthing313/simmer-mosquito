@@ -29,7 +29,7 @@ describe('LifeStageStrip', () => {
 			/>,
 		);
 
-		const group = within(screen.getByRole('group', { name: 'Life stages' }));
+		const group = within(screen.getByRole('group', { name: 'Life Stages' }));
 		expect(group.getAllByRole('img').map((cell) => cell.getAttribute('aria-label'))).toEqual([
 			'Eggs absent',
 			'1st instar present',

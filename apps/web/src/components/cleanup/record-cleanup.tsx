@@ -289,7 +289,7 @@ function CleanupFailure({
 					size="sm"
 					variant="outline"
 				>
-					Try again
+					Try Again
 				</Button>
 			</AlertDescription>
 		</Alert>
@@ -321,10 +321,10 @@ function CleanupEmpty({
 				<Button asChild size="sm" variant="outline">
 					{isFiltered ? (
 						<button onClick={onClearMatchTypes} type="button">
-							Show all match types
+							Show All Match Types
 						</button>
 					) : (
-						<Link to={config.listTo}>Open the list</Link>
+						<Link to={config.listTo}>Open the List</Link>
 					)}
 				</Button>
 			}

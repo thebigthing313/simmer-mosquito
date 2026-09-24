@@ -66,7 +66,14 @@ first paint".
 - No inline-header lists where the bold label restates the line
   ("**Performance:** performance improved"). A bold lead-in that names an item
   and is followed by new detail is fine.
-- Sentence case headings.
+- Sentence case headings, in prose and in `docs/`.
+- Product UI is the exception, and it splits by what the words are. A title
+  takes Title Case: page headings, card and section titles, empty-state
+  titles, nav entries, buttons, tabs and column heads. Anything that is a
+  sentence takes sentence case: descriptions, an empty state's body, toasts,
+  errors and field hints. `Record Inspection` on the button, `No Samples
+  Recorded` over an empty list, and `Samples appear once an inspection
+  records them.` under it.
 - No decorative emoji.
 - Straight quotes.
 

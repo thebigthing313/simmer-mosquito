@@ -799,13 +799,13 @@ export function regionsEmptyState(input: {
 	if (input.hasDirectory) {
 		return {
 			isEmpty: !input.hasMatches,
-			emptyTitle: 'No matches',
+			emptyTitle: 'No Matches',
 			emptyDescription: `Nothing matches “${input.query}”.`,
 		};
 	}
 	return {
 		isEmpty: true,
-		emptyTitle: 'No regions yet',
+		emptyTitle: 'No Regions Yet',
 		emptyDescription: 'Create a region, or import boundaries from a KML, KMZ, or GeoJSON file.',
 	};
 }

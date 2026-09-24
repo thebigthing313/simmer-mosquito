@@ -230,7 +230,7 @@ export function GeometryControl({
 						variant="outline"
 					>
 						<SplineIcon aria-hidden="true" data-icon="inline-start" />
-						Edit vertices
+						Edit Vertices
 					</Button>
 				) : null}
 				{canAddPart ? (
@@ -242,7 +242,7 @@ export function GeometryControl({
 						variant="outline"
 					>
 						<AddIcon aria-hidden="true" data-icon="inline-start" />
-						Add piece
+						Add Piece
 					</Button>
 				) : null}
 				{/* A hole is a ring inside a ring, so only an area has anywhere to put one. */}
@@ -255,7 +255,7 @@ export function GeometryControl({
 						variant="outline"
 					>
 						<CircleIcon aria-hidden="true" data-icon="inline-start" />
-						Cut hole
+						Cut Hole
 					</Button>
 				) : null}
 				{canMoveToAddress ? (
@@ -463,7 +463,7 @@ export function DrawToolbar({
 							variant="ghost"
 						>
 							<DeleteIcon aria-hidden="true" data-icon="inline-start" />
-							Delete vertex
+							Delete Vertex
 						</Button>
 					)}
 					{canSketch && !isSketching ? (

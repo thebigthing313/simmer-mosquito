@@ -126,7 +126,7 @@ describe('the traps explorer with nothing on the page', () => {
 		renderTraps();
 
 		expect(await screen.findByText('No traps yet')).toBeTruthy();
-		expect(screen.getByText('Create Trap is in the More actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Trap is in the More Actions menu.')).toBeTruthy();
 	});
 
 	// The sidebar entry, the header's menu item and the pointer read one string
@@ -142,7 +142,7 @@ describe('the traps explorer with nothing on the page', () => {
 		expect(names).toEqual({
 			sidebar: 'Create Trap',
 			header: 'Create Trap',
-			pointer: 'Create Trap is in the More actions menu.',
+			pointer: 'Create Trap is in the More Actions menu.',
 		});
 	});
 
@@ -152,7 +152,7 @@ describe('the traps explorer with nothing on the page', () => {
 		renderTraps();
 
 		expect(await screen.findByText('No traps yet')).toBeTruthy();
-		expect(screen.queryByText('Create Trap is in the More actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Trap is in the More Actions menu.')).toBeNull();
 	});
 
 	// The route opens on active traps, and the extent it sends says so. A null
@@ -167,7 +167,7 @@ describe('the traps explorer with nothing on the page', () => {
 		);
 		expect(screen.queryByText('No traps yet')).toBeNull();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Show Filters' }));
 		expect(screen.getByText('Status')).toBeTruthy();
 	});
 
@@ -176,7 +176,7 @@ describe('the traps explorer with nothing on the page', () => {
 		renderTraps();
 
 		expect(await screen.findByText('No traps match these filters')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Reset filters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Reset Filters' })).toBeTruthy();
 	});
 
 	it('says to pan when the extent frames traps the viewport does not hold', async () => {

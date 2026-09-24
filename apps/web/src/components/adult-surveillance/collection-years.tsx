@@ -99,7 +99,7 @@ export function CollectionYears({
 						</div>
 						{onLoadEarlier === undefined ? null : (
 							<Button className="shrink-0" onClick={onLoadEarlier} size="sm" variant="ghost">
-								Earlier seasons
+								Earlier Seasons
 							</Button>
 						)}
 					</div>

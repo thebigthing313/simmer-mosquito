@@ -523,7 +523,7 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
 							<ControlIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Control actions
+							Control Actions
 						</CardTitle>
 					</div>
 					{isReady && actions.length > 0 ? (

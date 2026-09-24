@@ -176,7 +176,7 @@ export function WeatherStationFormPage({
 					geometryKind="weatherStation"
 					label="Location"
 					location={location}
-					title="Station location"
+					title="Station Location"
 				/>
 
 				<CustomFieldsSection form={form} framed={false} />

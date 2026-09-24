@@ -175,7 +175,7 @@ export function RegionFormPage({
 					geometryKind="region"
 					label="Boundary"
 					location={location}
-					title="Region boundary"
+					title="Region Boundary"
 				/>
 
 				<form.AppField name="description">

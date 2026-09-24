@@ -24,7 +24,7 @@ export function InsecticideLookupPointer() {
 			action={
 				<Button asChild size="sm" variant="outline">
 					<Link to="/control-operations/chemical/insecticides">
-						Manage insecticides
+						Manage Insecticides
 						<ArrowRightIcon aria-hidden="true" />
 					</Link>
 				</Button>

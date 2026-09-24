@@ -152,7 +152,7 @@ describe('the Dashboard', () => {
 		renderDashboard();
 
 		await waitFor(() => expect(harness.pending).toHaveLength(1));
-		expect(screen.getByRole('heading', { name: 'Surveillance backlog' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Surveillance Backlog' })).toBeTruthy();
 		expect(screen.queryByText(/awaiting identification/)).toBeNull();
 		// Every section that waits on the server holds a skeleton, and no count pill.
 		expect(document.querySelectorAll('[aria-hidden="true"] .animate-pulse').length).toBeGreaterThan(
@@ -251,7 +251,7 @@ describe('the Dashboard', () => {
 		expect(queueLine('Collections awaiting identification').textContent).toContain('12 days');
 		expect(queueLine('Collections with a problem').textContent).toContain('last 14 days');
 		expect(queueLine('Collections with a problem').textContent).toContain('9 days');
-		expect(panel('Surveillance backlog').getByText('65')).toBeTruthy();
+		expect(panel('Surveillance Backlog').getByText('65')).toBeTruthy();
 
 		// Operations backlog: the split, the unassigned count, an empty row, an overdue mission.
 		expect(queueLine('Open service requests').textContent).toContain('2 new · 1 in progress');
@@ -261,7 +261,7 @@ describe('the Dashboard', () => {
 			'text-muted-foreground',
 		);
 		expect(queueLine('Missions due today or overdue').textContent).toContain('1 day');
-		expect(panel('Operations backlog').getByText('10')).toBeTruthy();
+		expect(panel('Operations Backlog').getByText('10')).toBeTruthy();
 
 		// The strip: every type a cell, counted off the synced rows on its own date.
 		expect(screen.getByText('Sep 9 to Sep 15, change vs previous 7 days')).toBeTruthy();
@@ -286,7 +286,7 @@ describe('the Dashboard', () => {
 		// The people table: names off the profiles, most records first, the time
 		// in the Organization's zone. Miguel's collect is 10pm New York, which is
 		// tomorrow in UTC and today here.
-		const people = panel('In the field today');
+		const people = panel('In the Field Today');
 		const rows = people.getAllByRole('row').slice(1);
 		expect(rows.map((row) => row.textContent)).toEqual([
 			'Dana Okafor22:52 PM',

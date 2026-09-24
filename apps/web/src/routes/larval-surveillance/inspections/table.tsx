@@ -313,12 +313,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="Nothing recorded matches what is set above."
 				icon={InspectionIcon}
-				title="No inspections match"
+				title="No Inspections Match"
 			/>
 		);
 	}
@@ -326,7 +326,7 @@ function NoRows({
 		<ListEmpty
 			description="Inspections show here as crews record them."
 			icon={InspectionIcon}
-			title="No inspections yet"
+			title="No Inspections Yet"
 		/>
 	);
 }
@@ -389,7 +389,7 @@ function InspectionsTable({
 							Date
 						</SortableHead>
 						<TableHead>Habitat</TableHead>
-						<TableHead>Habitat type</TableHead>
+						<TableHead>Habitat Type</TableHead>
 						<TableHead>Inspector</TableHead>
 						<SortableHead onSort={onSort} sort={sort} sortKey="water">
 							Water
@@ -398,7 +398,7 @@ function InspectionsTable({
 						<SortableHead align="right" onSort={onSort} sort={sort} sortKey="dips">
 							Dips
 						</SortableHead>
-						<TableHead>Life stages</TableHead>
+						<TableHead>Life Stages</TableHead>
 						<SortableHead align="right" onSort={onSort} sort={sort} sortKey="larvae">
 							Larvae
 						</SortableHead>

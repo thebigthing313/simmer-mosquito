@@ -31,13 +31,13 @@ const CAPABILITIES: readonly LandingCapability[] = [
 	},
 	{
 		icon: ControlIcon,
-		title: 'Control operations',
+		title: 'Control Operations',
 		detail:
 			'Source reduction, biocontrol, and insecticide applications recorded with product, rate, and treated area.',
 	},
 	{
 		icon: EngagementIcon,
-		title: 'Community engagement',
+		title: 'Community Engagement',
 		detail:
 			'Service requests and the contacts behind them, kept alongside the field data they belong to.',
 	},

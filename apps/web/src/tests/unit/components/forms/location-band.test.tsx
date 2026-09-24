@@ -155,7 +155,7 @@ describe('LocationBand', () => {
 	it('offers no stop geometry off a mission stop', () => {
 		render(<BandHarness />);
 
-		expect(screen.queryByRole('button', { name: 'Use stop geometry' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Use Stop Geometry' })).toBeNull();
 	});
 });
 
@@ -181,7 +181,7 @@ describe('LocationBand on a mission stop', () => {
 		expect(screen.getByText(MISSING)).toBeDefined();
 		expect(screen.queryByText('Captured')).toBeNull();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Use stop geometry' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Use Stop Geometry' }));
 
 		expect(screen.getByText('Captured')).toBeDefined();
 		expect(screen.queryByText(MISSING)).toBeNull();
@@ -190,7 +190,7 @@ describe('LocationBand on a mission stop', () => {
 	it('holds the button while the stop geometry loads', () => {
 		render(<StopHarness missionStop={{ status: 'loading' }} />);
 
-		const button = screen.getByRole('button', { name: 'Use stop geometry' }) as HTMLButtonElement;
+		const button = screen.getByRole('button', { name: 'Use Stop Geometry' }) as HTMLButtonElement;
 		expect(button.disabled).toBe(true);
 		expect(screen.queryByText('Captured')).toBeNull();
 	});
@@ -201,7 +201,7 @@ describe('LocationBand on a mission stop', () => {
 
 		expect(screen.getByText("The mission stop's geometry could not be loaded.")).toBeDefined();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Use stop geometry' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Use Stop Geometry' }));
 
 		expect(retry).toHaveBeenCalledOnce();
 	});
@@ -209,7 +209,7 @@ describe('LocationBand on a mission stop', () => {
 	it('holds the button when asking again cannot change the answer', () => {
 		render(<StopHarness missionStop={{ status: 'error', retry: null }} />);
 
-		const button = screen.getByRole('button', { name: 'Use stop geometry' }) as HTMLButtonElement;
+		const button = screen.getByRole('button', { name: 'Use Stop Geometry' }) as HTMLButtonElement;
 		expect(button.disabled).toBe(true);
 	});
 });

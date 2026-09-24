@@ -89,7 +89,7 @@ export function ResultList({
 				</p>
 				{onRetry === undefined ? null : (
 					<Button className="mt-1" onClick={onRetry} size="sm" variant="outline">
-						Try again
+						Try Again
 					</Button>
 				)}
 			</div>
@@ -119,7 +119,7 @@ export function ResultList({
 							size="sm"
 							variant="ghost"
 						>
-							Try again
+							Try Again
 						</Button>
 					)}
 				</div>

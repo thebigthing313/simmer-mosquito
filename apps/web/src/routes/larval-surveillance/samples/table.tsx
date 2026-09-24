@@ -147,12 +147,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="No sample matches what is set above."
 				icon={SampleIcon}
-				title="No samples match"
+				title="No Samples Match"
 			/>
 		);
 	}
@@ -160,7 +160,7 @@ function NoRows({
 		<ListEmpty
 			description="Samples taken in the last 30 days show here."
 			icon={SampleIcon}
-			title="No samples in the last 30 days"
+			title="No Samples in the Last 30 Days"
 		/>
 	);
 }
@@ -255,7 +255,7 @@ function SamplesUnavailable({ onRetry }: { readonly onRetry: () => void }) {
 			<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
 				Samples could not be loaded.
 				<Button onClick={onRetry} size="sm" type="button" variant="outline">
-					Try again
+					Try Again
 				</Button>
 			</AlertDescription>
 		</Alert>

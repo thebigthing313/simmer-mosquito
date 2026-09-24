@@ -84,7 +84,7 @@ function Harness({
 				}
 			}}
 			open={open}
-			title="Key entry"
+			title="Key Entry"
 		/>
 	);
 }

@@ -858,7 +858,7 @@ describe('the nearby list', () => {
 	it('sends each kind to its own detail page', () => {
 		renderWithRouter(
 			<NearbyResultList
-				emptyTitle="Nothing nearby"
+				emptyTitle="Nothing Nearby"
 				families={new Set(['infrastructure', 'surveillance', 'control', 'publicEngagement'])}
 				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
 				nearby={{

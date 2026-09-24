@@ -97,7 +97,7 @@ export function SamplesSection({
 					variant="outline"
 				>
 					<PlusIcon aria-hidden="true" data-icon="inline-start" />
-					Add sample
+					Add Sample
 				</Button>
 			</div>
 		</FormSection>

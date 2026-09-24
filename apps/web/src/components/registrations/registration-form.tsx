@@ -257,7 +257,7 @@ function PurposeSection({
 	return (
 		<FormSection
 			note="A registration needs at least one of these: a warning flag, or a notification type."
-			title="What to warn about"
+			title="What to Warn About"
 		>
 			<div className="grid gap-3">
 				<form.AppField name="hasBees">

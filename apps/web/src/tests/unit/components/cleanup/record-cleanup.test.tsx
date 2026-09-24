@@ -225,7 +225,7 @@ describe('RecordCleanup', () => {
 	it('drops a record the user says is not a duplicate', () => {
 		renderPage();
 
-		const rows = screen.getAllByRole('button', { name: 'Not a duplicate' });
+		const rows = screen.getAllByRole('button', { name: 'Not a Duplicate' });
 		fireEvent.click(rows[2] as HTMLElement);
 
 		expect(screen.queryByText('412 Oak Street')).toBeNull();
@@ -251,7 +251,7 @@ describe('RecordCleanup', () => {
 		renderPage();
 
 		// The first group's copy of MIDDLE.
-		fireEvent.click(screen.getAllByRole('button', { name: 'Not a duplicate' })[1] as HTMLElement);
+		fireEvent.click(screen.getAllByRole('button', { name: 'Not a Duplicate' })[1] as HTMLElement);
 
 		// The name group loses it and drops to two records; the phone group keeps
 		// both of its own.
@@ -303,7 +303,7 @@ describe('RecordCleanup', () => {
 		fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Same coordinates/ }));
 
 		expect(screen.getByText('No duplicate addresses of this kind')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Show all match types' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Show All Match Types' })).toBeTruthy();
 	});
 
 	it('offers a value only a retired record holds, and sends it with the merge', async () => {
@@ -460,9 +460,9 @@ describe('RecordCleanup', () => {
 	it('stops proposing a group that excluding leaves with one record', () => {
 		renderPage();
 
-		const rows = screen.getAllByRole('button', { name: 'Not a duplicate' });
+		const rows = screen.getAllByRole('button', { name: 'Not a Duplicate' });
 		fireEvent.click(rows[2] as HTMLElement);
-		fireEvent.click(screen.getAllByRole('button', { name: 'Not a duplicate' })[1] as HTMLElement);
+		fireEvent.click(screen.getAllByRole('button', { name: 'Not a Duplicate' })[1] as HTMLElement);
 
 		// One record is not a duplicate set, and a group of one offers a merge with
 		// nothing to merge.
@@ -628,7 +628,7 @@ describe('RecordCleanup', () => {
 		expect(labelledValues(row)).toEqual([]);
 		expect(row.textContent).toMatch(/Added \w+ \d+, \d{4}/);
 		expect(within(row).getByText('Open')).toBeTruthy();
-		expect(within(row).getByRole('button', { name: 'Not a duplicate' })).toBeTruthy();
+		expect(within(row).getByRole('button', { name: 'Not a Duplicate' })).toBeTruthy();
 	});
 
 	it('dates a row by the Organization, not by whoever opened the page', () => {
@@ -664,6 +664,6 @@ describe('RecordCleanup', () => {
 		// An empty state here would say "no duplicates", which is a different claim
 		// from "we could not look".
 		expect(screen.getByText('Could not look for duplicates')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
 	});
 });

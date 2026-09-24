@@ -250,7 +250,7 @@ describe('the addresses explorer with nothing on the page', () => {
 		renderAddresses();
 
 		expect(await screen.findByText('No addresses yet')).toBeTruthy();
-		expect(screen.getByText('Create Address is in the More actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Address is in the More Actions menu.')).toBeTruthy();
 		// No default narrows this surface, so the extent it sends is unfiltered
 		// and a null answer is about the whole address book.
 		expect(harness.sent.find((url) => url.pathname.endsWith('/extent'))?.search).toBe('');
@@ -262,7 +262,7 @@ describe('the addresses explorer with nothing on the page', () => {
 		renderAddresses();
 
 		expect(await screen.findByText('No addresses yet')).toBeTruthy();
-		expect(screen.queryByText('Create Address is in the More actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Address is in the More Actions menu.')).toBeNull();
 	});
 
 	it('offers the reset when a search matches nothing anywhere', async () => {
@@ -270,7 +270,7 @@ describe('the addresses explorer with nothing on the page', () => {
 		renderAddresses();
 
 		expect(await screen.findByText('No addresses match these filters')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Reset filters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Reset Filters' })).toBeTruthy();
 		expect(screen.queryByText('No addresses yet')).toBeNull();
 	});
 

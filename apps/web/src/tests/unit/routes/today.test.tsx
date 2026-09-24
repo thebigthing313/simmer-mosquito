@@ -245,8 +245,8 @@ describe('the Today page', () => {
 
 		await waitFor(() => screen.getByRole('table'));
 
-		expect(screen.getByRole('button', { name: 'Next day' })).toHaveProperty('disabled', true);
-		expect(screen.getByRole('button', { name: 'Previous day' })).toHaveProperty('disabled', false);
+		expect(screen.getByRole('button', { name: 'Next Day' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Previous Day' })).toHaveProperty('disabled', false);
 		expect(screen.queryByRole('button', { name: 'Today' })).toBeNull();
 	});
 

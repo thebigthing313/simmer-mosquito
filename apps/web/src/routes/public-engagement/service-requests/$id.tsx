@@ -317,7 +317,7 @@ function NearbyFamilyTab({
 			</p>
 			<NearbyResultList
 				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
-				emptyTitle="Nothing nearby"
+				emptyTitle="Nothing Nearby"
 				families={families}
 				lookups={lookups}
 				nearby={nearby}

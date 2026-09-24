@@ -262,7 +262,7 @@ export function AddressFormPage({
 					geometryKind="address"
 					label="Location"
 					location={location}
-					title="Address location"
+					title="Address Location"
 				/>
 			</RecordFormPage>
 

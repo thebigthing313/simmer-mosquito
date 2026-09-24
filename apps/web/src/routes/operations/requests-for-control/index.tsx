@@ -188,7 +188,7 @@ function RequestsForControlRoute() {
 			panel={panel}
 			results={{
 				rows: visible,
-				emptyTitle: 'No requests in range',
+				emptyTitle: 'No Requests in Range',
 				emptyDescription:
 					'Widen the time window or loosen the filters to bring requests into range.',
 				skeletonClassName: 'h-[68px]',

@@ -159,12 +159,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="No habitat matches what is set above."
 				icon={HabitatIcon}
-				title="No habitats match"
+				title="No Habitats Match"
 			/>
 		);
 	}
@@ -172,7 +172,7 @@ function NoRows({
 		<ListEmpty
 			description="Active habitats show here as crews add them."
 			icon={HabitatIcon}
-			title="No active habitats"
+			title="No Active Habitats"
 		/>
 	);
 }
@@ -190,7 +190,7 @@ function HabitatsTable({ rows }: { readonly rows: readonly HabitatTableRow[] }) 
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
 						<TableHead>Name</TableHead>
-						<TableHead>Habitat type</TableHead>
+						<TableHead>Habitat Type</TableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Access</TableHead>
 						<TableHead>Tags</TableHead>
@@ -289,7 +289,7 @@ function HabitatsUnavailable({ onRetry }: { readonly onRetry: () => void }) {
 			<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
 				Habitats could not be loaded.
 				<Button onClick={onRetry} size="sm" type="button" variant="outline">
-					Try again
+					Try Again
 				</Button>
 			</AlertDescription>
 		</Alert>

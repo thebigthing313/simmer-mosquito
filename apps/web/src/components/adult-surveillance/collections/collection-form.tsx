@@ -210,7 +210,7 @@ export function CollectionFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection error={location.locationError} title="Source and location">
+				<LocationSection error={location.locationError} title="Source and Location">
 					<form.AppField name="sourceMode">
 						{(field) => (
 							<ToggleGroup

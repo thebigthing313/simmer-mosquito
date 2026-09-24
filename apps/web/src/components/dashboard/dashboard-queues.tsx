@@ -106,7 +106,7 @@ export function SurveillanceBacklog({
 			electric={[problems]}
 			rows={rows}
 			server={server}
-			title="Surveillance backlog"
+			title="Surveillance Backlog"
 			today={today}
 		/>
 	);
@@ -182,7 +182,7 @@ export function OperationsBacklog({
 			electric={[serviceRequests, assignments, missions]}
 			rows={rows}
 			server={server}
-			title="Operations backlog"
+			title="Operations Backlog"
 			today={today}
 		/>
 	);

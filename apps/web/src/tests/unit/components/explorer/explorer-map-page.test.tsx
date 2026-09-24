@@ -331,7 +331,7 @@ describe('ExplorerMapPage', () => {
 		signedInRole = 'collector';
 		const { rerender } = render(<Page create={{ to: '/x', label: 'Create Habitat' }} />);
 		fireEvent.pointerDown(
-			screen.getByRole('button', { name: 'More actions' }),
+			screen.getByRole('button', { name: 'More Actions' }),
 			new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 		);
 		expect(await screen.findByText('Create Habitat')).toBeTruthy();
@@ -344,7 +344,7 @@ describe('ExplorerMapPage', () => {
 	it('leaves the menu out when the surface has neither action', () => {
 		render(<Page hasCreate={false} hasReset={false} />);
 
-		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
 
 	// The pager states the count, so the header would be saying it twice. Without
@@ -401,7 +401,7 @@ describe('ExplorerMapPage', () => {
 			);
 
 			expect(screen.getByText('No habitats match these filters')).toBeTruthy();
-			fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+			fireEvent.click(screen.getByRole('button', { name: 'Reset Filters' }));
 			expect(onResetFilters).toHaveBeenCalledTimes(1);
 		});
 
@@ -411,10 +411,10 @@ describe('ExplorerMapPage', () => {
 			render(<Page activeFilterCount={0} emptyReason="filters" rows={[]} />);
 
 			expect(screen.getByText('No habitats match these filters')).toBeTruthy();
-			expect(screen.queryByRole('button', { name: 'Reset filters' })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Reset Filters' })).toBeNull();
 			expect(screen.queryByText('filter controls')).toBeNull();
 
-			fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
+			fireEvent.click(screen.getByRole('button', { name: 'Show Filters' }));
 			expect(screen.getByText('filter controls')).toBeTruthy();
 		});
 
@@ -422,7 +422,7 @@ describe('ExplorerMapPage', () => {
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
 			expect(screen.getByText('No habitats yet')).toBeTruthy();
-			expect(screen.getByText('Create Habitat is in the More actions menu.')).toBeTruthy();
+			expect(screen.getByText('Create Habitat is in the More Actions menu.')).toBeTruthy();
 		});
 
 		// The pointer sits behind the same floor the control does. A reader who
@@ -432,7 +432,7 @@ describe('ExplorerMapPage', () => {
 			render(<Page create={{ to: '/x', label: 'Create Habitat' }} emptyReason="none" rows={[]} />);
 
 			expect(screen.getByText('No habitats yet')).toBeTruthy();
-			expect(screen.queryByText('Create Habitat is in the More actions menu.')).toBeNull();
+			expect(screen.queryByText('Create Habitat is in the More Actions menu.')).toBeNull();
 		});
 
 		it('draws placeholders rather than a reason while the extent is still out', () => {

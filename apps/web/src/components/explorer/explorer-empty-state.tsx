@@ -107,7 +107,7 @@ function filterAction(
 	if (activeFilterCount > 0 && onResetFilters !== undefined) {
 		return (
 			<Button className="mt-1" onClick={onResetFilters} size="sm" variant="outline">
-				Reset filters
+				Reset Filters
 			</Button>
 		);
 	}
@@ -116,7 +116,7 @@ function filterAction(
 	}
 	return (
 		<Button className="mt-1" onClick={onShowFilters} size="sm" variant="outline">
-			Show filters
+			Show Filters
 		</Button>
 	);
 }
@@ -126,7 +126,7 @@ function CreatePointer({ create }: { readonly create: ExplorerCreateAction }) {
 	return (
 		<WriteOnly minimum={create.minimum ?? 'collector'}>
 			<p className="max-w-[34ch] text-muted-foreground text-sm">
-				{create.label} is in the More actions menu.
+				{create.label} is in the More Actions menu.
 			</p>
 		</WriteOnly>
 	);

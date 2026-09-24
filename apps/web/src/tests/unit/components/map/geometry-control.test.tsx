@@ -154,7 +154,7 @@ describe('GeometryControl', () => {
 	it('offers Add piece where the record can store a multi shape', () => {
 		const controller = renderControl({ parts: [square(-90)] });
 
-		fireEvent.click(screen.getByText('Add piece'));
+		fireEvent.click(screen.getByText('Add Piece'));
 
 		expect(controller.startPart).toHaveBeenCalled();
 	});
@@ -162,7 +162,7 @@ describe('GeometryControl', () => {
 	it('hides Add piece where the record cannot store one', () => {
 		renderControl({ parts: [square(-90)], geometryKind: 'notificationRegistration' });
 
-		expect(screen.queryByText('Add piece')).toBeNull();
+		expect(screen.queryByText('Add Piece')).toBeNull();
 	});
 
 	// The gate is what the record stores, not which tool is selected. A
@@ -194,14 +194,14 @@ describe('GeometryControl', () => {
 	it('hides Add piece before the first piece is drawn', () => {
 		renderControl({ parts: [] });
 
-		expect(screen.queryByText('Add piece')).toBeNull();
+		expect(screen.queryByText('Add Piece')).toBeNull();
 		expect(screen.getByText('No geometry drawn yet.')).toBeDefined();
 	});
 
 	it('cuts a hole into the only piece from the control', () => {
 		const controller = renderControl({ parts: [square(-90)] });
 
-		fireEvent.click(screen.getByText('Cut hole'));
+		fireEvent.click(screen.getByText('Cut Hole'));
 
 		expect(controller.startHole).toHaveBeenCalledWith(0);
 	});
@@ -211,7 +211,7 @@ describe('GeometryControl', () => {
 	it('moves Cut hole onto the rows at two pieces', () => {
 		const controller = renderControl({ parts: [square(-90), square(-80)] });
 
-		expect(screen.queryByText('Cut hole')).toBeNull();
+		expect(screen.queryByText('Cut Hole')).toBeNull();
 		fireEvent.click(screen.getByLabelText('Cut a hole in piece 2'));
 
 		expect(controller.startHole).toHaveBeenCalledWith(1);
@@ -229,7 +229,7 @@ describe('GeometryControl', () => {
 			/>,
 		);
 
-		expect(screen.queryByText('Cut hole')).toBeNull();
+		expect(screen.queryByText('Cut Hole')).toBeNull();
 	});
 
 	it('counts the holes in the line that describes a piece', () => {
@@ -540,7 +540,7 @@ describe('DrawToolbar', () => {
 
 		expect(screen.queryByText('Reshape')).toBeNull();
 		expect(screen.queryByText('Split')).toBeNull();
-		expect(screen.queryByText('Delete vertex')).toBeNull();
+		expect(screen.queryByText('Delete Vertex')).toBeNull();
 	});
 
 	// A point is one corner with no edge for a line to cross.

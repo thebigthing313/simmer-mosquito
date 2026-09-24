@@ -477,7 +477,7 @@ function UnavailableStrip({
 			</span>
 			{offline ? null : (
 				<Button onClick={onRetry} size="sm" variant="ghost">
-					Try again
+					Try Again
 				</Button>
 			)}
 		</div>

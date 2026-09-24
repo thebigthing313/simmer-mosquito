@@ -134,7 +134,7 @@ export function TagEditorTableRow({
 					</Button>
 					<Button type="button" variant="outline" size="icon" onClick={onCancel}>
 						<CloseIcon aria-hidden="true" />
-						<span className="sr-only">Cancel editing {tag.name}</span>
+						<span className="sr-only">Cancel Editing {tag.name}</span>
 					</Button>
 				</div>
 			</TableCell>

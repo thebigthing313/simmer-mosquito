@@ -410,7 +410,7 @@ describe('useMapMeasure', () => {
 		const before = sessionState(result);
 		expect(before.draft).not.toBeNull();
 
-		const seen = pressWatched(renderFocusedButton('Undo point'), 'Enter', fake.canvasContainer);
+		const seen = pressWatched(renderFocusedButton('Undo Point'), 'Enter', fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.defaultPrevented).toBe(false);
@@ -426,7 +426,7 @@ describe('useMapMeasure', () => {
 		const before = sessionState(result);
 		expect(before.draft).not.toBeNull();
 
-		const seen = pressWatched(renderFocusedButton('Undo point'), 'Escape', fake.canvasContainer);
+		const seen = pressWatched(renderFocusedButton('Undo Point'), 'Escape', fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.defaultPrevented).toBe(false);

@@ -218,7 +218,7 @@ function EmptyState({
 				<>
 					<p className="text-muted-foreground text-sm">Other types might still match.</p>
 					<Button onClick={onClearFilter} size="sm" variant="outline">
-						Show everything
+						Show Everything
 					</Button>
 				</>
 			)}
@@ -311,7 +311,7 @@ function ResultList({
 				<div className="mb-3 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-muted-foreground text-sm">
 					<span>Records and comments are unavailable.</span>
 					<Button onClick={onRetry} size="sm" variant="ghost">
-						Try again
+						Try Again
 					</Button>
 				</div>
 			) : null}

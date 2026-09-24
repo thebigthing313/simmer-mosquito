@@ -47,7 +47,7 @@ export function NotFoundPage() {
 					/>
 					<div className="grid gap-1">
 						<h1 className="m-0 font-semibold text-foreground text-lg leading-tight">
-							Page not found
+							Page Not Found
 						</h1>
 						<p className="m-0 max-w-[62ch] text-muted-foreground text-sm leading-normal">
 							Nothing in SIMMER lives at{' '}
@@ -63,7 +63,7 @@ export function NotFoundPage() {
 						</Button>
 					)}
 					<Button asChild size="sm" variant={parent === null ? 'default' : 'outline'}>
-						<Link to="/">Go to the dashboard</Link>
+						<Link to="/">Go to the Dashboard</Link>
 					</Button>
 					{search === null ? null : (
 						<Button onClick={search.onOpen} size="sm" type="button" variant="ghost">

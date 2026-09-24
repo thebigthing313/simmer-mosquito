@@ -183,10 +183,10 @@ function DayStepper({
 	return (
 		<div className="flex items-center gap-1">
 			<Button
-				aria-label="Previous day"
+				aria-label="Previous Day"
 				onClick={() => onChange(dailyWorkStep(value, -1, today))}
 				size="icon-sm"
-				title="Previous day"
+				title="Previous Day"
 				variant="ghost"
 			>
 				<ChevronLeftIcon aria-hidden="true" />
@@ -206,11 +206,11 @@ function DayStepper({
 				value={parseLocalDate(value)}
 			/>
 			<Button
-				aria-label="Next day"
+				aria-label="Next Day"
 				disabled={isToday}
 				onClick={() => onChange(dailyWorkStep(value, 1, today))}
 				size="icon-sm"
-				title="Next day"
+				title="Next Day"
 				variant="ghost"
 			>
 				<ChevronRightIcon aria-hidden="true" />
@@ -238,7 +238,7 @@ function ProfileNotFound() {
 					<Button asChild variant="outline">
 						<Link to="/my-organization/people">
 							<ArrowLeftIcon aria-hidden="true" />
-							Back to people
+							Back to People
 						</Link>
 					</Button>
 				</EmptyContent>

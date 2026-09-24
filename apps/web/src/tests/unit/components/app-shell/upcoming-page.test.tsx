@@ -55,7 +55,7 @@ describe('UpcomingPage', () => {
 		for (const path of paths) {
 			const { container } = renderAt(path);
 			expect(container.textContent).not.toContain(FALLBACK);
-			expect(screen.getByText('What will land here')).toBeTruthy();
+			expect(screen.getByText('What Will Land Here')).toBeTruthy();
 			cleanup();
 		}
 	});

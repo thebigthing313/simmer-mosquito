@@ -371,7 +371,7 @@ function ResultsCard({
 								variant="outline"
 							>
 								<KeyboardIcon aria-hidden="true" />
-								Key entry
+								Key Entry
 							</Button>
 						) : null}
 					</div>

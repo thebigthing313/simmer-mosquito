@@ -217,7 +217,7 @@ function AddStopControls({
 			<Button asChild size="sm" variant="ghost">
 				<Link params={{ id: missionId }} to="/operations/missions/$id/add-stop">
 					<MapPinnedIcon aria-hidden="true" />
-					Add a stop by map
+					Add a Stop by Map
 				</Link>
 			</Button>
 		</div>
@@ -431,7 +431,7 @@ function MissionNotFound() {
 					<Button asChild variant="outline">
 						<Link to="/operations/missions">
 							<ArrowLeftIcon aria-hidden="true" />
-							Back to missions
+							Back to Missions
 						</Link>
 					</Button>
 				</EmptyContent>
