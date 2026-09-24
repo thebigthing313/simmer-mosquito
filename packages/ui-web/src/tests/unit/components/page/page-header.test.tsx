@@ -1,12 +1,11 @@
 /**
- * One heading component, one size, and the two icon treatments behind one prop.
+ * One heading component, one size, and one icon treatment.
  *
  * The product had three page-heading treatments at three declared sizes and none
  * of them was the size `DESIGN.md`'s Headline row asked for, with a duplicate no
  * reader could see because `text-[1.5rem]` and `text-2xl` compute the same
  * (#647). These cases hold the survivor to the registered role rather than to
- * either literal, so a branch that writes an arbitrary value back, or drops the
- * eyebrow's icon treatment, fails here.
+ * either literal, so a branch that writes an arbitrary value back fails here.
  *
  * Rendered to a string rather than into a DOM, the trade `card.test.tsx` makes:
  * the component reads props and returns markup, so `react-dom/server` shows the
@@ -41,32 +40,14 @@ describe('the page heading', () => {
 		expect(classes.some((name) => name.includes('['))).toBe(false);
 	});
 
-	it('is one size whether the subject is a tile or an eyebrow', () => {
-		const tile = headingClasses(markupOf(<PageHeader icon={TestIcon} title="Habitats" />));
-		const eyebrow = headingClasses(
-			markupOf(<PageHeader eyebrow="Habitat" icon={TestIcon} title="Culvert 12" />),
-		);
-
-		expect(eyebrow).toEqual(tile);
-	});
-
-	it('tiles the icon when no eyebrow names the subject', () => {
+	// The uppercase label above a heading is a detail page's, where it names the
+	// record type, and `DetailPageHeader` draws it. This one draws none.
+	it('tiles the icon and draws no eyebrow', () => {
 		const markup = markupOf(<PageHeader icon={TestIcon} title="Habitats" />);
 
 		expect(markup).toContain('bg-primary/10');
 		expect(markup).toContain('size-5');
 		expect(markup).not.toContain('uppercase');
-	});
-
-	it('draws the icon inline beside the eyebrow instead of tiling it', () => {
-		const markup = markupOf(
-			<PageHeader eyebrow="Weather station" icon={TestIcon} title="Ridge Road" />,
-		);
-
-		expect(markup).toContain('uppercase');
-		expect(markup).toContain('size-3.5');
-		expect(markup).toContain('Weather station');
-		expect(markup).not.toContain('bg-primary/10');
 	});
 
 	it('draws no subject at all for the page that opens with a back link', () => {

@@ -1,6 +1,7 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { FilterOption } from '../../components/explorer/multi-select-filter';
 import { regions } from '../../lib/collections/regions';
+import { NATURAL_ORDER } from '../../lib/natural-order';
 import { unmatchableId } from '../queries/shared';
 import { useOrganizationIdentity } from '../queries/use-organization-identity';
 
@@ -23,7 +24,7 @@ export function useRegionOptions(): {
 			query
 				.from({ region: regions() })
 				.where(({ region }) => eq(region.organization_id, organizationId))
-				.orderBy(({ region }) => region.name, 'asc')
+				.orderBy(({ region }) => region.name, NATURAL_ORDER)
 				.select(({ region }) => ({ id: region.id, label: region.name })),
 	});
 

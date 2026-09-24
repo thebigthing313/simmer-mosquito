@@ -6,6 +6,7 @@
 
 import { Link } from '@tanstack/react-router';
 import { habitatLabel } from '../../../lib/coordinate-label';
+import { formatCount } from '../../../lib/format-count';
 import { SAMPLE_STATUS_COLORS } from '../../map';
 import { type SampleStatus, sampleStatusLabel } from './legend';
 
@@ -122,7 +123,9 @@ export function SpeciesResults({
 					<span className="max-w-[8rem] truncate italic">
 						{nameById.get(result.speciesId) ?? 'Unknown species'}
 					</span>
-					<span className="shrink-0 tabular-nums opacity-80">{result.larvaeCount}</span>
+					<span className="shrink-0 tabular-nums opacity-80">
+						{formatCount(result.larvaeCount)}
+					</span>
 				</span>
 			))}
 			{overflow > 0 ? (

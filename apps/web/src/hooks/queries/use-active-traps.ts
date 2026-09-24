@@ -13,7 +13,10 @@
  * same way it did. `@tanstack/db` defaults a collection's `stringSort` to
  * `locale`, `orderBy` inherits that when the clause does not set it, and the
  * ascending comparator calls `localeCompare` under it. So `a-1` sorts before
- * `Z-1`, case is folded, and a folded column would buy nothing here.
+ * `Z-1`, case is folded, and a folded column would buy nothing here. Both
+ * clauses pass `NATURAL_ORDER`, which adds numeric collation on top, so `T-2`
+ * sorts before `T-11`; the collection is eager, so no page is sorted anywhere
+ * but here.
  *
  * A trap with neither a code nor a name reads as its short id on screen, and
  * does not sort by it. `coalesce` yields no value for such a trap, `orderBy`
@@ -24,6 +27,7 @@
 import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { traps } from '../../lib/collections/traps';
+import { NATURAL_ORDER } from '../../lib/natural-order';
 
 /** A Trap as a list of them shows one: its label, and what it collects with. */
 export interface TrapListing {
@@ -57,8 +61,8 @@ export function useActiveTraps(): {
 				({ trap, method }) => eq(trap.collection_method_id, method.id),
 				'left',
 			)
-			.orderBy(({ trap }) => coalesce(trap.trap_code, trap.trap_name), 'asc')
-			.orderBy(({ trap }) => trap.trap_name, 'asc')
+			.orderBy(({ trap }) => coalesce(trap.trap_code, trap.trap_name), NATURAL_ORDER)
+			.orderBy(({ trap }) => trap.trap_name, NATURAL_ORDER)
 			.select(({ trap, method }) => ({
 				id: trap.id,
 				trapName: trap.trap_name,

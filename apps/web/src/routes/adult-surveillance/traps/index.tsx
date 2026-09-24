@@ -259,6 +259,7 @@ function TrapsExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						inset={panel.inset}
 						layers={layers}
 						legend={legend}

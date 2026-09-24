@@ -252,6 +252,7 @@ function SourceReductionExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						layers={layers}
 						onMapReady={handleMapReady}
 					/>

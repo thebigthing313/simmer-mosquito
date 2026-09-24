@@ -17,6 +17,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Cell, Pie, PieChart } from 'recharts';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
 import { inspections } from '../../../lib/collections/inspections';
+import { formatCount } from '../../../lib/format-count';
 import { recordNoun } from '../../../lib/record-nouns';
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
@@ -190,7 +191,7 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 							    keeps the slice tooltip reachable underneath. */}
 							<div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5">
 								<span className="text-2xl leading-none font-semibold text-foreground tabular-nums">
-									{total}
+									{formatCount(total)}
 								</span>
 								<span className="text-xs text-muted-foreground">
 									{total === 1 ? 'inspection' : 'inspections'}
@@ -208,8 +209,10 @@ export function HabitatInspectionStats({ habitatId }: { readonly habitatId: stri
 									/>
 									<dt className="text-foreground">{segment.label}</dt>
 									<dd className="m-0 ml-auto text-muted-foreground tabular-nums">
-										<span className="font-medium text-foreground">{segment.count}</span> ·{' '}
-										{segment.percent}%
+										<span className="font-medium text-foreground">
+											{formatCount(segment.count)}
+										</span>{' '}
+										· {segment.percent}%
 									</dd>
 								</div>
 							))}

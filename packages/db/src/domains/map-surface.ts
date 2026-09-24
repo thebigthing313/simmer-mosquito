@@ -149,13 +149,17 @@ export type MapDisplayColumns<TRow> = {
 };
 
 /** The projection the paged-list and by-id readers share. */
-export interface MapSurfaceDisplay<TRow> {
+export interface MapSurfaceDisplay<TRow, TFilters = unknown> {
 	/** The select list, keyed by alias, so the row type and the SQL cannot drift. */
 	readonly columns: MapDisplayColumns<TRow>;
 	/** Joins the projection needs beyond the surface's own from-clause. */
 	readonly joins?: RawBuilder<unknown>;
-	/** The order the explorer's result rail reads in. */
-	readonly orderBy: RawBuilder<unknown>;
+	/**
+	 * The order the explorer's result rail reads in, or a function of the
+	 * filters for a surface whose rail offers more than one. Only the paged read
+	 * asks it; the tile, the extent and the by-id read have no order.
+	 */
+	readonly orderBy: RawBuilder<unknown> | ((filters: TFilters | undefined) => RawBuilder<unknown>);
 }
 
 /**
@@ -248,7 +252,9 @@ export function mapSurface<TFilters>(
  * and a record the list shows are the same set by construction.
  */
 export function mapRecordSurface<TFilters, TRow>(
-	definition: MapSurfaceDefinition<TFilters> & { readonly display: MapSurfaceDisplay<TRow> },
+	definition: MapSurfaceDefinition<TFilters> & {
+		readonly display: MapSurfaceDisplay<TRow, TFilters>;
+	},
 ): MapRecordSurfaceReaders<TFilters, TRow> {
 	const { display } = definition;
 	const joins = display.joins ?? sql``;
@@ -263,6 +269,8 @@ export function mapRecordSurface<TFilters, TRow>(
 		// would put it in `TRow`, where the by-id read that never selects it
 		// would then claim it.
 		async listByBounds(db, input) {
+			const orderBy =
+				typeof display.orderBy === 'function' ? display.orderBy(input.filters) : display.orderBy;
 			const result = await sql<TRow & { readonly total: number }>`
 				with bounds as (
 					select st_makeenvelope(
@@ -283,7 +291,7 @@ export function mapRecordSurface<TFilters, TRow>(
 					[...surfaceWhere(definition, input, input.filters), ...envelopeWhere(definition.geom)],
 					sql` and `,
 				)}
-				order by ${display.orderBy}
+				order by ${orderBy}
 				limit ${input.limit}
 				offset ${input.offset}
 			`.execute(db);

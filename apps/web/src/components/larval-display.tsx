@@ -1,3 +1,4 @@
+import { mapDensity } from '@simmer-mosquito/design-tokens';
 import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -57,6 +58,11 @@ export function larvaePerDip(larvaeCount: number | null, dipCount: number | null
 /**
  * A fixed six-cell "E1234P" strip: each life stage is a stable cell, filled when
  * present and dimmed when absent, so rows line up regardless of what was recorded.
+ *
+ * The six flags are one complete observation, `CONTEXT.md`'s rule, so a dimmed
+ * cell says absent and never "not recorded". Each cell carries that as its own
+ * name, `Pupae absent` or `1st instar present`, inside a group named Life
+ * stages, so a screen reader walks the six the way the eye reads them.
  */
 export function LifeStageStrip({
 	stages,
@@ -65,26 +71,22 @@ export function LifeStageStrip({
 	readonly stages: LifeStageFlags;
 	readonly size?: 'default' | 'sm';
 }) {
-	const present = lifeStageSegments.filter((segment) => stages[segment.key]);
-	const ariaLabel =
-		present.length === 0
-			? 'No life stages recorded'
-			: `Life stages present: ${present.map((segment) => segment.label).join(', ')}`;
-
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: six labelled images in a row, not form controls, so a fieldset would claim a form that is not there.
 		<div
-			aria-label={ariaLabel}
+			aria-label="Life Stages"
 			// `w-fit`, not `inline-flex` alone: the segments are fixed-size, and a
 			// grid or flex parent stretches an item to its track by default — which
 			// left a run of empty box trailing the P.
 			className="flex w-fit overflow-hidden rounded-md border border-border"
-			role="img"
+			role="group"
 		>
 			{lifeStageSegments.map((segment, index) => {
 				const isPresent = stages[segment.key];
+				const name = `${segment.label} ${isPresent ? 'present' : 'absent'}`;
 				return (
 					<span
-						aria-hidden="true"
+						aria-label={name}
 						className={cn(
 							'flex items-center justify-center font-semibold tabular-nums',
 							size === 'sm' ? 'size-5 text-[0.65rem]' : 'size-6 text-xs',
@@ -94,7 +96,10 @@ export function LifeStageStrip({
 								: 'bg-muted/40 text-muted-foreground/40',
 						)}
 						key={segment.key}
-						title={segment.label}
+						role="img"
+						// The name again, so the pointer reads what the screen reader hears
+						// and a description equal to the name is not announced twice.
+						title={name}
 					>
 						{segment.symbol}
 					</span>
@@ -104,15 +109,17 @@ export function LifeStageStrip({
 	);
 }
 
-const densityBadges: Record<
-	LarvalDensity,
-	{ readonly label: string; readonly tone: 'neutral' | 'info' | 'warning' | 'danger' }
-> = {
-	none: { label: 'None', tone: 'neutral' },
-	light: { label: 'Light', tone: 'info' },
-	medium: { label: 'Medium', tone: 'warning' },
-	heavy: { label: 'Heavy', tone: 'danger' },
-	very_heavy: { label: 'Very heavy', tone: 'danger' },
+/**
+ * Density reads in neutral text beside a dot in the same colour the larval map
+ * paints the point, so a row and its mark agree. Red is kept for errors, deletes
+ * and Inaccessible; the ramp's hot end is a magnitude, and the dot carries it.
+ */
+const densityBadges: Record<LarvalDensity, { readonly label: string; readonly swatch: string }> = {
+	none: { label: 'None', swatch: mapDensity.none },
+	light: { label: 'Light', swatch: mapDensity.light },
+	medium: { label: 'Medium', swatch: mapDensity.medium },
+	heavy: { label: 'Heavy', swatch: mapDensity.heavy },
+	very_heavy: { label: 'Very heavy', swatch: mapDensity.veryHeavy },
 };
 
 export function densityLabel(density: LarvalDensity | null): string {
@@ -131,15 +138,14 @@ export function DensityBadge({ density }: { readonly density: LarvalDensity | nu
 		);
 	}
 
-	// very_heavy escalates to the solid destructive variant so it reads as more
-	// severe than heavy, which shares the same danger tone.
-	if (density === 'very_heavy') {
-		return <Badge variant="destructive">{densityBadges[density].label}</Badge>;
-	}
-
-	const { label, tone } = densityBadges[density];
+	const { label, swatch } = densityBadges[density];
 	return (
-		<Badge tone={tone} variant="outline">
+		<Badge tone="neutral" variant="outline">
+			<span
+				aria-hidden="true"
+				className="size-2 shrink-0 rounded-full ring-1 ring-foreground/15"
+				style={{ backgroundColor: swatch }}
+			/>
 			{label}
 		</Badge>
 	);

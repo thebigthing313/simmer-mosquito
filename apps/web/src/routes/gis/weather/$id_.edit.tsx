@@ -100,7 +100,6 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 				defaultValues={formValuesFrom(station)}
 				header={{
 					title: `Edit ${recordNoun('weatherStation').title}`,
-					description: "Update this station's name, code, or location.",
 					backTo: '/gis/weather/$id',
 					backParams: { id: station.id },
 					backLabel: 'Back to Station',

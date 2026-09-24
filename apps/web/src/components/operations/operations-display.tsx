@@ -24,7 +24,7 @@ const missionStatusTones = {
 	scheduled: 'neutral',
 	inProgress: 'info',
 	completed: 'success',
-	cancelled: 'danger',
+	cancelled: 'neutral',
 } as const;
 
 export function MissionStatusBadge({ status }: { readonly status: MissionStatus }) {

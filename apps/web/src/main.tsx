@@ -20,6 +20,7 @@ import '@fontsource/poppins/latin-800.css';
 import '@fontsource/poppins/latin-ext-800.css';
 import { RouteErrorPage } from '@simmer-mosquito/ui-web/components/error-report';
 import { appAuthController } from './app-auth';
+import { NotFoundPage } from './components/app-shell/not-found-page';
 import { WebOutletFallback } from './components/app-shell/outlet-fallback';
 import { installSyncCollections } from './lib/collections/sync-source';
 import { routeTree } from './routeTree.gen';
@@ -55,6 +56,9 @@ const router = createRouter({
 	// `<pre>` and offers nothing to act on. The root route keeps its own, because
 	// a failure there means the shell never mounted.
 	defaultErrorComponent: (props) => <RouteErrorPage {...props} version={__APP_VERSION__} />,
+	// A path no route matches. TanStack's built-in prints a bare "Not Found";
+	// this draws in the same frame as the error page, inside the shell.
+	defaultNotFoundComponent: NotFoundPage,
 });
 
 declare module '@tanstack/react-router' {

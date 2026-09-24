@@ -19,6 +19,7 @@ import type {
 	HabitatHistorySpecies,
 } from '../../../hooks/queries/use-habitat-history';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { formatCount } from '../../../lib/format-count';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { sampleName } from '../../../lib/sample-name';
@@ -425,7 +426,7 @@ function SampleSpeciesChip({ row }: { readonly row: HabitatHistorySpecies }) {
 	return (
 		<Badge variant="outline" tone="neutral">
 			{speciesName}
-			<span className="tabular-nums">{row.larvaeCount}</span>
+			<span className="tabular-nums">{formatCount(row.larvaeCount)}</span>
 		</Badge>
 	);
 }

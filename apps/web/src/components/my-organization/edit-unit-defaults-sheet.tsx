@@ -27,7 +27,7 @@ export function EditUnitDefaultsSheet({
 	units,
 }: {
 	readonly defaultValues: UnitDefaultsFormValues;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly title: string;
 	readonly units: readonly UnitLabel[];
 }) {
@@ -68,7 +68,7 @@ export function EditUnitDefaultsSheet({
 			<SheetContent className="w-[min(440px,100%)]">
 				<SheetHeader>
 					<SheetTitle>{title}</SheetTitle>
-					<SheetDescription>{description}</SheetDescription>
+					{description === undefined ? null : <SheetDescription>{description}</SheetDescription>}
 				</SheetHeader>
 				<form.AppForm>
 					<form

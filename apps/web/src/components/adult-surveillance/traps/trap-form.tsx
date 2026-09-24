@@ -73,7 +73,7 @@ export interface TrapFormValues {
 
 export interface TrapFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/adult-surveillance/traps' | '/adult-surveillance/traps/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -188,7 +188,6 @@ export function TrapFormPage({
 				<form.FormErrorAlert title="Unable to Save Trap" />
 
 				<LocationBand
-					description="The point is the trap’s exact location. An address is optional reference. Refine the point off it to the precise spot."
 					geometryKind="trap"
 					label="Point"
 					location={location}
@@ -242,7 +241,6 @@ export function TrapFormPage({
 					<form.AppField name="description">
 						{(field) => (
 							<field.TextareaField
-								description="Access notes, mounting details, or anything crews should know."
 								label="Description"
 								placeholder="Add a description for this trap…"
 								rows={3}
@@ -250,12 +248,7 @@ export function TrapFormPage({
 						)}
 					</form.AppField>
 					<form.AppField name="isActive">
-						{(field) => (
-							<field.SwitchField
-								description="Inactive traps stay on record but drop out of active surveillance."
-								label="Active"
-							/>
-						)}
+						{(field) => <field.SwitchField label="Active" />}
 					</form.AppField>
 				</FormSection>
 			</RecordFormPage>

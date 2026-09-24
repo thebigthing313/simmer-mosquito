@@ -9,6 +9,7 @@ import { useDueMissionsQueue } from '../../hooks/queries/use-due-missions-queue'
 import { useInProgressAssignmentsQueue } from '../../hooks/queries/use-in-progress-assignments-queue';
 import { useOpenServiceRequestsQueue } from '../../hooks/queries/use-open-service-requests-queue';
 import { useProblemCollectionsQueue } from '../../hooks/queries/use-problem-collections-queue';
+import { formatCount } from '../../lib/format-count';
 import { recordNoun } from '../../lib/record-nouns';
 import { ageInDays, ageLabel, type QueueCount } from './dashboard-data';
 
@@ -105,7 +106,7 @@ export function SurveillanceBacklog({
 			electric={[problems]}
 			rows={rows}
 			server={server}
-			title="Surveillance backlog"
+			title="Surveillance Backlog"
 			today={today}
 		/>
 	);
@@ -181,7 +182,7 @@ export function OperationsBacklog({
 			electric={[serviceRequests, assignments, missions]}
 			rows={rows}
 			server={server}
-			title="Operations backlog"
+			title="Operations Backlog"
 			today={today}
 		/>
 	);
@@ -262,7 +263,7 @@ function QueueLine({ row, today }: { readonly row: QueueRowModel; readonly today
 				{empty || row.oldest === null ? '' : ageLabel(ageInDays(row.oldest, today))}
 			</span>
 			<span className="w-10 shrink-0 text-right font-semibold text-base tabular-nums">
-				{row.count}
+				{formatCount(row.count)}
 			</span>
 		</li>
 	);

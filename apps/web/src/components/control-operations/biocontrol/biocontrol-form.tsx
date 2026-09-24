@@ -27,7 +27,6 @@ import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
-import { locationDescription } from '../../map/location-description';
 import { HabitatPicker } from '../control-pickers';
 
 /** Domain issue path → the form field holding it. */
@@ -92,7 +91,7 @@ export interface BiocontrolFormValues {
 
 export interface BiocontrolFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/control-operations/biocontrol' | '/control-operations/biocontrol/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -285,11 +284,6 @@ export function BiocontrolFormPage({
 							)}
 						</form.AppField>
 					}
-					description={locationDescription({
-						geometryKind: 'controlAction',
-						subject: 'The geometry is where the agents were released.',
-						habitat: true,
-					})}
 					geometryKind="controlAction"
 					location={location}
 					organizationId={organizationId}

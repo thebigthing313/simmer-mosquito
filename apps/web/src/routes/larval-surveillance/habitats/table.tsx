@@ -28,6 +28,7 @@ import {
 	habitatTileFilters,
 	sharedHabitatSearch,
 } from '../../../components/larval-surveillance/habitats/habitats-search';
+import { ClampedTextCell, LinkedTableRow } from '../../../components/record/linked-table-row';
 import { TagBadge } from '../../../components/tag-badge';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
 import { useHabitatTypeOptions } from '../../../hooks/explorer/use-habitat-type-options';
@@ -158,12 +159,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="No habitat matches what is set above."
 				icon={HabitatIcon}
-				title="No habitats match"
+				title="No Habitats Match"
 			/>
 		);
 	}
@@ -171,7 +172,7 @@ function NoRows({
 		<ListEmpty
 			description="Active habitats show here as crews add them."
 			icon={HabitatIcon}
-			title="No active habitats"
+			title="No Active Habitats"
 		/>
 	);
 }
@@ -189,7 +190,7 @@ function HabitatsTable({ rows }: { readonly rows: readonly HabitatTableRow[] }) 
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
 						<TableHead>Name</TableHead>
-						<TableHead>Habitat type</TableHead>
+						<TableHead>Habitat Type</TableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Access</TableHead>
 						<TableHead>Tags</TableHead>
@@ -226,7 +227,19 @@ function HabitatRow({
 	const name = habitatName(row);
 	const description = row.description.trim();
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/larval-surveillance/habitats/table' }}
+						to="/larval-surveillance/habitats/$id"
+					>
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="max-w-[20rem] truncate font-medium" title={name}>
 				{name}
 			</TableCell>
@@ -264,17 +277,8 @@ function HabitatRow({
 					</div>
 				)}
 			</TableCell>
-			<TableCell className="max-w-[22rem] truncate text-muted-foreground" title={description}>
-				{description === '' ? <AbsentValue /> : description}
-			</TableCell>
-			<TableCell className="text-right">
-				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/larval-surveillance/habitats/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
+			<ClampedTextCell empty={<AbsentValue />} text={description} />
+		</LinkedTableRow>
 	);
 }
 
@@ -285,7 +289,7 @@ function HabitatsUnavailable({ onRetry }: { readonly onRetry: () => void }) {
 			<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
 				Habitats could not be loaded.
 				<Button onClick={onRetry} size="sm" type="button" variant="outline">
-					Try again
+					Try Again
 				</Button>
 			</AlertDescription>
 		</Alert>

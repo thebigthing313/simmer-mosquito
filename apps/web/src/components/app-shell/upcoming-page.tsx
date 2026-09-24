@@ -349,7 +349,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 
 				{content === undefined ? null : (
 					<section className="grid max-w-[46rem] gap-3">
-						<h2 className="m-0 font-semibold text-foreground text-sm">What will land here</h2>
+						<h2 className="m-0 font-semibold text-foreground text-sm">What Will Land Here</h2>
 						<ul className="m-0 grid list-none gap-2.5 p-0">
 							{content.willLand.map((capability) => (
 								<li
@@ -370,7 +370,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 				{content === undefined || content.elsewhere.length === 0 ? null : (
 					<section className="grid gap-3">
 						<h2 className="m-0 font-semibold text-foreground text-sm">
-							Where to work in the meantime
+							Where to Work in the Meantime
 						</h2>
 						<ItemGroup className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-2">
 							{content.elsewhere.map((destination) => {

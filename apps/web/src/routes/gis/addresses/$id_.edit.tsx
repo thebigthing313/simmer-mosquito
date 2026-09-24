@@ -119,7 +119,6 @@ function EditAddressLoader({
 			defaultValues={defaultsFromAddress(address)}
 			header={{
 				title: `Edit ${recordNoun('address').title}`,
-				description: "Update this address's details or location.",
 				backTo: '/gis/addresses/$id',
 				backParams: { id: address.id },
 				backLabel: 'Back to Address',

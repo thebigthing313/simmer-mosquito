@@ -190,6 +190,7 @@ function AddressesExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						inset={panel.inset}
 						layers={layers}
 						onMapReady={setMap}

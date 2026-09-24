@@ -24,7 +24,7 @@ export function LocationSection({
 }: {
 	readonly title?: string;
 	/** What the geometry means on this record. */
-	readonly description: string;
+	readonly description?: string | undefined;
 	/** Shown under the fields and reddens the border. */
 	readonly error?: string | null;
 	readonly children: ReactNode;
@@ -42,7 +42,9 @@ export function LocationSection({
 				<span className="font-semibold text-foreground text-sm leading-none" id={labelId}>
 					{title}
 				</span>
-				<span className="text-muted-foreground text-xs">{description}</span>
+				{description === undefined ? null : (
+					<span className="text-muted-foreground text-xs">{description}</span>
+				)}
 			</div>
 
 			{children}

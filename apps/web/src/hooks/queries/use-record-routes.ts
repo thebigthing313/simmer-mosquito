@@ -18,6 +18,7 @@ import type { RouteType } from '@simmer-mosquito/domain';
 import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { route_items } from '../../lib/collections/route_items';
 import { routes } from '../../lib/collections/routes';
+import { NATURAL_ORDER } from '../../lib/natural-order';
 
 // Keep the record's stops warm briefly after unmount, so paging through a list of
 // habitats does not re-fetch the same subset on every card.
@@ -55,7 +56,7 @@ export function useRecordRoutes(target: {
 				// `use-record-tags.ts`: `routes` is eager, so it is never lazy-loaded,
 				// and every `route_items` subset carries the record's id (#1028).
 				.join({ route: routes() }, ({ item, route }) => eq(item.route_id, route.id), 'inner')
-				.orderBy(({ route }) => route.route_name, 'asc')
+				.orderBy(({ route }) => route.route_name, NATURAL_ORDER)
 				.select(({ item, route }) => ({
 					routeItemId: item.id,
 					// The stop's own column rather than the joined row's id. They are the

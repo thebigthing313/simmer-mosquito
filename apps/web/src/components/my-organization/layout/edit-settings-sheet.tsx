@@ -34,7 +34,8 @@ export function EditSettingsSheet({
 	onSave,
 	title,
 }: {
-	readonly description: string;
+	/** Left out, the sheet has no description and says so to Radix. */
+	readonly description?: string | undefined;
 	readonly fields: readonly SettingField[];
 	readonly onSave?: ((formData: FormData) => unknown) | undefined;
 	readonly title: string;
@@ -77,10 +78,13 @@ export function EditSettingsSheet({
 					Edit
 				</Button>
 			</SheetTrigger>
-			<SheetContent className="w-[min(440px,100%)]">
+			<SheetContent
+				className="w-[min(440px,100%)]"
+				{...(description === undefined ? { 'aria-describedby': undefined } : {})}
+			>
 				<SheetHeader>
 					<SheetTitle>{title}</SheetTitle>
-					<SheetDescription>{description}</SheetDescription>
+					{description === undefined ? null : <SheetDescription>{description}</SheetDescription>}
 				</SheetHeader>
 				<form className="grid gap-3.5" onSubmit={submit}>
 					<div className="grid gap-2.5 px-4">

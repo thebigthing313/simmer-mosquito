@@ -51,7 +51,8 @@ describe('a schema chosen by a method field', () => {
 
 		expect(screen.getByText('Custom Fields')).toBeTruthy();
 		expect(screen.getByText('Water Depth')).toBeTruthy();
-		expect(screen.getByText('Extra details you collect for this method.')).toBeTruthy();
+		// No subtitle of its own: the section heading and the fields say it.
+		expect(screen.queryByText('Extra details you collect for this method.')).toBeNull();
 	});
 
 	it('renders nothing when the method declares no fields', () => {

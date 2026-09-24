@@ -103,7 +103,6 @@ export function InsecticideDrawer({
 						<CatalogDrawerCancel />
 					</form.FormActions>
 				}
-				description="Manage product identity, label references, lifecycle state, and optional metadata."
 				destructiveAction={
 					insecticide === undefined ? undefined : (
 						<DeleteInsecticideDialog insecticide={insecticide} mutations={mutations} />
@@ -193,12 +192,7 @@ export function InsecticideDrawer({
 				</form.AppField>
 				<form.AppField name="metadata" validators={{ onSubmit: validateMetadataValue }}>
 					{(field) => (
-						<field.MetadataField
-							description="Add product-specific details such as signal word, storage notes, or restricted-use flags."
-							disabled={!canManage}
-							label="Metadata"
-							mode={{ kind: 'manual' }}
-						/>
+						<field.MetadataField disabled={!canManage} label="Metadata" mode={{ kind: 'manual' }} />
 					)}
 				</form.AppField>
 			</CatalogRecordDrawer>

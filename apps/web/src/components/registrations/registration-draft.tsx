@@ -324,7 +324,7 @@ function DraftForm({
 					void form.handleSubmit();
 				}}
 			>
-				<form.FormErrorAlert title="Unable to save registration" />
+				<form.FormErrorAlert title="Unable to Save Registration" />
 
 				{organizationId === null ? (
 					<DraftSkeleton />
@@ -425,7 +425,7 @@ function DraftError({
 			<AlertDescription className="grid gap-3">
 				<span>{message}</span>
 				<Button className="justify-self-start" onClick={onCancel} size="sm" variant="outline">
-					Back to the list
+					Back to the List
 				</Button>
 			</AlertDescription>
 		</Alert>

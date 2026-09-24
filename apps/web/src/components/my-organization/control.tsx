@@ -72,7 +72,6 @@ function ControlMethodLookupPointer({
 		<LookupListFrame
 			activeCount={records.activeRecords.length}
 			inactiveCount={records.inactiveRecords.length}
-			detail={config.detail}
 			title={config.title}
 			action={
 				<Button asChild size="sm" variant="outline">

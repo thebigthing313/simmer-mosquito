@@ -270,6 +270,7 @@ function InspectionMap({
 				contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
 				controls={{ measure: true, readout: true }}
 				fitToData
+				rememberCamera
 				inset={panel.inset}
 				layers={layers}
 				{...(legend === undefined ? {} : { legend })}

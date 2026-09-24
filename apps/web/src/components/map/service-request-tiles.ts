@@ -37,13 +37,14 @@ export const SERVICE_REQUEST_SOURCE_ID = 'service-requests';
 /**
  * What each service-request state paints, and the only place it is written down.
  *
- * A request is open or it is closed, and the two are the same pair every other
- * surface draws: red for the ones still asking for work, and the resolved tone
- * for the ones that are done. The key and the result rail import this rather
+ * A request is open or it is closed: the attention tone for the ones still
+ * asking for work, and the resolved tone for the ones that are done. Open was
+ * red until red was kept for errors, destructive actions and inaccessible
+ * sites, none of which an open request is. The key and the result rail import this rather
  * than restating the colours, which DESIGN.md calls the Legend Truth Rule.
  */
 export const SERVICE_REQUEST_STATUS_COLORS = {
-	open: mapStatus.problem,
+	open: mapStatus.attention,
 	closed: mapStatus.resolved,
 } as const;
 

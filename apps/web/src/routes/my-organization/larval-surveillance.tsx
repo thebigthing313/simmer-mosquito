@@ -17,7 +17,6 @@ function MyOrganizationLarvalSurveillanceRoute() {
 		<OrganizationWorkspaceShell canManage={workspace.canManage} role={workspace.role}>
 			<DomainSection
 				canManage={workspace.canManage}
-				editDescription="Adjust larval inspection entry rules and the setup lists used during habitat inspections."
 				editAction={
 					<LarvalSettingsDrawer canManage={workspace.canManage} settings={workspace.settings} />
 				}

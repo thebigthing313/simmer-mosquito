@@ -21,6 +21,7 @@
 import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { habitats } from '../../lib/collections/habitats';
 import { traps } from '../../lib/collections/traps';
+import { compareNames } from '../../lib/natural-order';
 import { habitatNameSelect } from './habitat-view';
 import { activityGcTimeMs, unmatchableId } from './shared';
 import { trapDisplayName } from './trap-view';
@@ -130,7 +131,7 @@ export function groupByAddress<TRow extends { readonly addressId: string | null 
 	}
 
 	for (const bucket of grouped.values()) {
-		bucket.sort((left, right) => left.name.localeCompare(right.name));
+		bucket.sort((left, right) => compareNames(left.name, right.name));
 	}
 
 	return grouped;

@@ -232,11 +232,7 @@ function AssignmentRunRoute() {
 						)}
 					</div>
 
-					<WorklistTabs
-						commentsDescription="Field notes and follow-up for this assignment."
-						stopCount={stops.length}
-						target={{ type: 'assignment', id }}
-					>
+					<WorklistTabs stopCount={stops.length} target={{ type: 'assignment', id }}>
 						<RunStopList
 							assignmentId={id}
 							enabled={itemsEnabled}
@@ -467,10 +463,10 @@ function RecordStopWorkButton({
 						search={{ ...search, habitatId: stop.entityId }}
 						to="/larval-surveillance/inspections/create"
 					>
-						Record inspection
+						Record Inspection
 					</Link>
 				) : (
-					<span>Record inspection</span>
+					<span>Record Inspection</span>
 				)}
 			</Button>
 		);
@@ -491,10 +487,10 @@ function RecordStopWorkButton({
 						search={{ ...search, trapId: stop.entityId }}
 						to="/adult-surveillance/collections/create"
 					>
-						Record collection
+						Record Collection
 					</Link>
 				) : (
-					<span>Record collection</span>
+					<span>Record Collection</span>
 				)}
 			</Button>
 		);
@@ -682,7 +678,7 @@ function AssignmentNotFound() {
 					<Button asChild variant="outline">
 						<Link to="/operations/assignments">
 							<ArrowLeftIcon aria-hidden="true" />
-							Back to assignments
+							Back to Assignments
 						</Link>
 					</Button>
 				</EmptyContent>

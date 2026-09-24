@@ -2047,7 +2047,7 @@ describe('useMapDraw', () => {
 			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
 		});
 
-		const seen = pressWatched(renderFocusedButton('Delete vertex'), key, fake.canvasContainer);
+		const seen = pressWatched(renderFocusedButton('Delete Vertex'), key, fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.role).toBeNull();

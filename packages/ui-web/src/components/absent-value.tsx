@@ -10,8 +10,8 @@
  * recorded" for the one idea.
  *
  * `role="img"` with `aria-label` is what names it for assistive technology, so
- * nothing announces the character. Four of the five other `role="img"` elements
- * in the workspace name themselves that way; the copy this replaced used
+ * nothing announces the character. The four other `role="img"` elements in the
+ * workspace name themselves that way too; the copy this replaced used
  * `title`, which paints a hover tooltip and is a weak source for an accessible
  * name. The label is "Not recorded", so the mark is silent on screen and says
  * the words aloud.

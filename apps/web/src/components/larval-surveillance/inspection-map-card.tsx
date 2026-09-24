@@ -13,7 +13,7 @@ import { useInspection } from '../../hooks/queries/use-inspection';
 import { addressCardLabel } from '../../lib/address-format';
 import { habitatLabel } from '../../lib/coordinate-label';
 import { recordNoun } from '../../lib/record-nouns';
-import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../larval-display';
+import { densityLabel, LifeStageStrip } from '../larval-display';
 import { MapCardAddress } from '../linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, MapCardLocation } from '../map/map-card';
 import type { MapInset } from '../map/map-inset';
@@ -104,12 +104,9 @@ export function InspectionMapCard({
 								? ''
 								: ` · ${inspection.larvaeCount.toLocaleString('en-US')} larvae`}
 						</MapCardDetail>
+						{/* All six, even with none present: an empty strip reads as all absent. */}
 						<MapCardDetail icon={StagesIcon}>
-							{hasAnyLifeStage(inspection) ? (
-								<LifeStageStrip size="sm" stages={inspection} />
-							) : (
-								<span className="italic">No stages recorded</span>
-							)}
+							<LifeStageStrip size="sm" stages={inspection} />
 						</MapCardDetail>
 					</>
 				) : null}

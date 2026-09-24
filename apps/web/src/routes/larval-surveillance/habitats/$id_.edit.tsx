@@ -168,7 +168,6 @@ function EditHabitatLoader({
 			initialGeometry={initialGeometry}
 			header={{
 				title: `Edit ${recordNoun('habitat').title}`,
-				description: 'Update the field details or redraw the mapped geometry for this habitat.',
 				backTo: '/larval-surveillance/habitats/$id',
 				backParams: { id: habitat.id },
 				backLabel: 'Back to habitat',

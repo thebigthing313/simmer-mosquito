@@ -153,9 +153,8 @@ was the alternative and gives each year one vote regardless of its size.
 
 The frame is the overviews' and the Dashboard's: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, and a `PageHeader`
-with eyebrow `Organization`, the `generic.chart` icon, the title `Today`, the
-description "What was recorded on one day, against the day before, with the
-year so far under it." and the period picker in `actions`.
+with no eyebrow, the `generic.chart` icon, the title `Today`, no
+description, and the period picker in `actions`.
 
 Under the heading sits the **upward line**: the day's long name in the
 foreground weight, then each coarser period as a link, separated by a middle
@@ -230,19 +229,23 @@ under `apps/web/src/components/overview/`. The chart owes its own padding,
 
 At the day grain the series is the picked day's calendar year, every day of it
 through today when that is the current year, which is 365 slots at a 600px
-plot width, 1.6px each. No bar can carry the mark spec's 2px gap or 24px hit
-target at that width, so **Today's chart is an area**: one series in the period
-role, a fill at about 10% opacity over a 2px line, `CartesianGrid` horizontal
-only, a month-per-tick x axis, one y axis at clean thousands-comma'd ticks, a
-crosshair tooltip that snaps to the nearest day and reads the date and the
-value, and no legend, because the panel title names the series. The picked day
+plot width, 1.6px each. The chart was an area for that reason, since no bar
+can carry the mark spec's 2px gap or 24px hit target at that width. It is
+**daily bars** now, weekends included, packed with no gap and no corner
+radius, because an area drew a line across the weekends and quiet days that
+read as work nobody did (the second design pass settled this). One series in
+the period role, `CartesianGrid` horizontal only, a month-per-tick x axis, one
+y axis at clean thousands-comma'd ticks, a tooltip that reads the date and the
+value, and no legend, because the panel title names the series. A measure
+whose series totals zero over the year so far, by count or by a ratio's
+numerator, draws no chart at all; its row stays in the table. The picked day
 is marked with a dashed `ReferenceLine` in the foreground colour at its date.
 Animation is off, the way the habitat donut has it.
 
 A ratio chart plots the ratio itself, the share or the rate, per day, off the
 numerator and denominator the series carries. A day whose denominator is zero
-is a gap: the point is `null` and `connectNulls` stays off, so a day with no
-inspections draws nothing rather than `0%`.
+is a gap: the point is `null` and draws no bar, so a day with no inspections
+draws nothing rather than `0%`.
 
 Two colour roles join `packages/ui-web/src/styles.css`, declared in `:root`
 and registered under `@theme inline`, the Registered Token Rule: `--chart-period:
@@ -261,7 +264,7 @@ committed with the pair.
 The tooltip passes a `formatter`, because `ChartTooltipContent`'s default calls
 `toLocaleString()` unpinned; the tick formatter pins `en-US` too.
 
-Clicking the area opens that day: the chart's `onClick` reads the active
+Clicking a day's bar opens that day: the chart's `onClick` reads the active
 label, a pure `periodDestination(grain, period)` in the family's module turns
 it into `{ to: '/today', search: { date } }`, and the handler passes that to
 the router's `navigate`. There is no `Link` inside an SVG, so

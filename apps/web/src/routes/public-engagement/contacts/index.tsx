@@ -114,7 +114,6 @@ function ContactsExplorerRoute() {
 							</Button>
 						</WriteOnly>
 					}
-					description="The people you engage with on service requests and notifications."
 					title={recordNoun('contact').titleMany}
 				/>
 

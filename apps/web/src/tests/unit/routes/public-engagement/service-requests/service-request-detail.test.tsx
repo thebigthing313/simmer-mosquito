@@ -269,7 +269,7 @@ async function renderPage(closedAt: Date | null = null) {
 
 async function openMenu(): Promise<readonly string[]> {
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More actions' }),
+		screen.getByRole('button', { name: 'More Actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	await screen.findAllByRole('menuitem');
@@ -382,7 +382,7 @@ describe('the service request detail page header', () => {
 		await renderPage();
 
 		expect(screen.queryByLabelText('Edit')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
 });
 
@@ -436,8 +436,11 @@ function mapPins(): readonly { readonly properties?: Record<string, unknown> | n
 		: data.features.filter((feature) => feature.properties?.role === 'nearby');
 }
 
-/** The thread's supporting line, which is what says the Comments tab is showing. */
-const COMMENTS_DESCRIPTION = 'Follow-up, resolution notes, and field context for this request.';
+/**
+ * The thread's composer, which is what says the Comments tab is showing. The
+ * card's supporting line did this until it went for explaining the tab back.
+ */
+const COMMENT_COMPOSER = 'Add a comment…';
 
 function tabNames(): readonly string[] {
 	return screen.getAllByRole('tab').map((tab) => tab.textContent ?? '');
@@ -481,7 +484,7 @@ describe('the tabs on the service request detail page', () => {
 		await waitFor(() =>
 			expect(harness.sent.some((url) => url.pathname.endsWith('/regions'))).toBe(true),
 		);
-		expect(screen.queryByText(COMMENTS_DESCRIPTION)).toBeNull();
+		expect(screen.queryByPlaceholderText(COMMENT_COMPOSER)).toBeNull();
 	});
 
 	it('writes the chosen tab to the search and reads it back', async () => {
@@ -490,7 +493,7 @@ describe('the tabs on the service request detail page', () => {
 		fireEvent.mouseDown(screen.getByRole('tab', { name: 'Comments' }));
 		await waitFor(() => expect(harness.search).toEqual({ tab: 'comments' }));
 		expect(activeTab()).toBe('Comments');
-		expect(await screen.findByText(COMMENTS_DESCRIPTION)).toBeTruthy();
+		expect(await screen.findByPlaceholderText(COMMENT_COMPOSER)).toBeTruthy();
 		expect(screen.queryByText('Standing water behind the garage.')).toBeNull();
 
 		// Back to the default, which stays out of the URL.
@@ -534,7 +537,7 @@ describe('the tabs on the service request detail page', () => {
 		expect(mapPinFamilies()).toEqual(['publicEngagement']);
 
 		fireEvent.mouseDown(screen.getByRole('tab', { name: 'Comments' }));
-		await screen.findByText(COMMENTS_DESCRIPTION);
+		await screen.findByPlaceholderText(COMMENT_COMPOSER);
 		expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']);
 	});
 
@@ -691,7 +694,7 @@ describe('the other requests on the map', () => {
 		await screen.findByRole('heading', { name: '#13' });
 
 		fireEvent.mouseDown(screen.getByRole('tab', { name: 'Comments' }));
-		await screen.findByText(COMMENTS_DESCRIPTION);
+		await screen.findByPlaceholderText(COMMENT_COMPOSER);
 		expect(harness.nearbyLayer?.selectedIds).toEqual(['serviceRequest:sr-2']);
 		expect(screen.getByRole('heading', { name: '#13' })).toBeTruthy();
 
@@ -855,7 +858,7 @@ describe('the nearby list on a family tab', () => {
 		harness.search = { tab: 'control' };
 		await renderPage();
 
-		expect(await screen.findByText('Nothing nearby')).toBeTruthy();
+		expect(await screen.findByText('Nothing Nearby')).toBeTruthy();
 		expect(
 			screen.getByText('No control records fell within this radius and time window.'),
 		).toBeTruthy();
@@ -870,7 +873,7 @@ describe('the nearby list on a family tab', () => {
 
 		expect(await screen.findByRole('alert')).toBeTruthy();
 		expect(screen.getByText('Could not load results')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
-		expect(screen.queryByText('Nothing nearby')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+		expect(screen.queryByText('Nothing Nearby')).toBeNull();
 	});
 });

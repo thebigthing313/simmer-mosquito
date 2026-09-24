@@ -230,7 +230,7 @@ describe('HabitatMerge', () => {
 		nearby = { target: target(), candidates: [] };
 		renderPage();
 
-		expect(screen.getByText('No other habitats nearby')).toBeTruthy();
+		expect(screen.getByText('No Other Habitats Nearby')).toBeTruthy();
 		expect(screen.getByText('Roadside ditch')).toBeTruthy();
 	});
 
@@ -248,7 +248,7 @@ describe('HabitatMerge', () => {
 		nearby = { target: target(), candidates: [] };
 		renderPage();
 
-		expect(screen.getByText('No other habitats nearby')).toBeTruthy();
+		expect(screen.getByText('No Other Habitats Nearby')).toBeTruthy();
 		expect(screen.getByText(/Widen the search/)).toBeTruthy();
 	});
 

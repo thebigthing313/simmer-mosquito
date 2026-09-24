@@ -223,8 +223,6 @@ function CreateApplicationRoute() {
 				formulations={formulations}
 				header={{
 					title: createLabel('application'),
-					description:
-						'Place the treated point, pick the product and amount, and note who applied it.',
 					backTo: '/control-operations/chemical',
 					backLabel: recordNoun('application').titleMany,
 				}}

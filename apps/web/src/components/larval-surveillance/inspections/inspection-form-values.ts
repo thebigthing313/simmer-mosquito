@@ -30,7 +30,13 @@ export interface InspectionFormValues {
 	readonly inspectedByProfileId: string | null;
 	/** Profile ids of everyone else who worked this inspection. */
 	readonly additionalPersonnelIds: readonly string[];
-	readonly isWet: boolean;
+	/**
+	 * Wet or dry, and `null` until somebody says which. A new inspection opens
+	 * with no choice made, because a default here was a finding nobody made:
+	 * the column stores `false` when nothing is sent, and the form used to send
+	 * `true`. An edit opens on the stored value.
+	 */
+	readonly isWet: boolean | null;
 	/** `unsetDensityValue` or a `LarvalDensity`. */
 	readonly density: string;
 	readonly dipCount: number | null;
@@ -64,6 +70,27 @@ export const INSPECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	larvaeCount: 'larvaeCount',
 };
 
+/** What the Conditions field says when Save is pressed with neither chosen. */
+export const CONDITIONS_REQUIRED = 'Choose Wet or Dry.';
+
+/**
+ * The submit validator's answer with the Conditions rule laid over it. The
+ * domain builder takes a boolean and has no way to say "not chosen", so the
+ * form checks that half itself and puts the message on the field, beside any
+ * the builder reported for the others.
+ */
+export function withConditionsChosen<
+	TResult extends { readonly form?: string; readonly fields?: Record<string, string> },
+>(
+	values: Pick<InspectionFormValues, 'isWet'>,
+	result: TResult | undefined,
+): TResult | { readonly form?: string; readonly fields: Record<string, string> } | undefined {
+	if (values.isWet !== null) {
+		return result;
+	}
+	return { ...result, fields: { ...result?.fields, isWet: CONDITIONS_REQUIRED } };
+}
+
 /**
  * `inspectedByProfileId` is seeded with the acting profile rather than left
  * null, so the field names the person the inspection will be attributed to.
@@ -80,7 +107,7 @@ export function defaultInspectionFormValues(
 		inspectionDate: today,
 		inspectedByProfileId,
 		additionalPersonnelIds: [],
-		isWet: true,
+		isWet: null,
 		density: unsetDensityValue,
 		dipCount: null,
 		larvaeCount: null,
@@ -195,7 +222,8 @@ export function profileOptions(profiles: readonly ProfileListing[]) {
  * reduced to a consistent result here.
  */
 export function inspectionResultOf(values: InspectionFormValues): InspectionResult {
-	const wet = values.isWet;
+	// The validator refuses a save with no choice, so `null` does not arrive here.
+	const wet = values.isWet === true;
 	return {
 		inspectionDate: values.inspectionDate,
 		inspectedByProfileId: values.inspectedByProfileId,

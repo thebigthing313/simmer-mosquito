@@ -113,7 +113,6 @@ function EditTrapLoader({
 				defaultValues={trapFormValuesFrom(trap)}
 				header={{
 					title: `Edit ${recordNoun('trap').title}`,
-					description: 'Update this trap’s details, method, lure, or location.',
 					backTo: '/adult-surveillance/traps/$id',
 					backParams: { id: trap.id },
 					backLabel: 'Back to trap',

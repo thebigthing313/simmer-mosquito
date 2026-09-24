@@ -69,12 +69,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Notes and follow-up for this contact."
-					target={{ type: 'contact', id: contact.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'contact', id: contact.id }} />}
 			facts={
 				<Card variant="surface">
 					<CardHeader padding="compact">

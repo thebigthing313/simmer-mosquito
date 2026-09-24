@@ -3,7 +3,6 @@ import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -122,12 +121,7 @@ function RequestDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Why this was raised, what was found, and how it was settled."
-					target={{ type: 'requestedControlAction', id: request.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'requestedControlAction', id: request.id }} />}
 			facts={<RequestDetailsCard habitatName={habitatName} request={request} />}
 			header={{
 				actions: [
@@ -226,7 +220,6 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 						<MissionIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 						{recordNoun('mission').titleMany}
 					</CardTitle>
-					<CardDescription>The missions carrying this request as a stop.</CardDescription>
 				</div>
 			</CardHeader>
 			<CardContent className="grid gap-2" padding="compact">

@@ -82,12 +82,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 						{initials(displayName)}
 					</AvatarFallback>
 				</Avatar>
-				<PageHeader
-					description={user.email}
-					eyebrow="Profile"
-					icon={ProfileIcon}
-					title={displayName}
-				/>
+				<PageHeader description={user.email} icon={ProfileIcon} title={displayName} />
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-2">

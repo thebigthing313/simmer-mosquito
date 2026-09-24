@@ -123,7 +123,6 @@ function CreateSourceReductionRoute() {
 				}}
 				header={{
 					title: createLabel('sourceReduction'),
-					description: 'Place the point, then record what the crew eliminated, how much, and when.',
 					backTo: '/control-operations/source-reduction',
 					backLabel: recordNoun('sourceReduction').titleMany,
 				}}

@@ -124,11 +124,7 @@ export function RecordCleanup({
 	// below are cards, and how they lay out in the wider frame is #1049's.
 	return (
 		<div className={pageContainer({ gap: 'detail', measure: 'record' })}>
-			<PageHeader
-				description={`Two records for one ${recordNoun(recordType).one} split its history in half. This proposes the sets that look like duplicates and folds them into whichever one you keep.`}
-				icon={MergeIcon}
-				title={`Cleanup ${recordNoun(recordType).titleMany}`}
-			/>
+			<PageHeader icon={MergeIcon} title={`Cleanup ${recordNoun(recordType).titleMany}`} />
 
 			{candidates.data === undefined || candidates.data.length === 0 ? null : (
 				<div className="flex justify-end">
@@ -293,7 +289,7 @@ function CleanupFailure({
 					size="sm"
 					variant="outline"
 				>
-					Try again
+					Try Again
 				</Button>
 			</AlertDescription>
 		</Alert>
@@ -325,10 +321,10 @@ function CleanupEmpty({
 				<Button asChild size="sm" variant="outline">
 					{isFiltered ? (
 						<button onClick={onClearMatchTypes} type="button">
-							Show all match types
+							Show All Match Types
 						</button>
 					) : (
-						<Link to={config.listTo}>Open the list</Link>
+						<Link to={config.listTo}>Open the List</Link>
 					)}
 				</Button>
 			}

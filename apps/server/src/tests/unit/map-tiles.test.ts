@@ -1366,6 +1366,7 @@ describe('map filter fields', () => {
 		expect(
 			filtersOf(parseServiceRequestMapFilters, 'dateFrom=2026-09-01&dateTo=2026-09-30'),
 		).toEqual({ dateFrom: '2026-09-01', dateTo: '2026-09-30' });
+		expect(filtersOf(parseServiceRequestMapFilters, 'oldest=true')).toEqual({ oldestFirst: true });
 		expect(filtersOf(parseServiceRequestMapFilters, '')).toEqual({});
 	});
 

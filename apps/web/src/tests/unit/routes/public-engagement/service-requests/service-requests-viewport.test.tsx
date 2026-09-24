@@ -283,6 +283,19 @@ describe('the service requests explorer paging the viewport', () => {
 				'&regionId=b1b2c3d4-0000-4000-8000-000000000009',
 		);
 	});
+
+	// The order is the rail's alone: the page asks for it and the extent, which
+	// frames the same filtered set whatever order it is read in, does not.
+	it('asks for the oldest request first when the rail is ordered that way', async () => {
+		harness.search = { ...ALL_TIME, order: 'oldest' };
+		harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		renderServiceRequests();
+
+		expect(await screen.findByText('#12')).toBeTruthy();
+		expect(pageRequest()?.searchParams.get('oldest')).toBe('true');
+		expect(extentRequest()?.searchParams.has('oldest')).toBe(false);
+	});
 });
 
 describe('the service requests explorer with nothing on the page', () => {
@@ -300,7 +313,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.getByText('Create Service Request is in the More actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Service Request is in the More Actions menu.')).toBeTruthy();
 	});
 
 	// The sidebar entry, the header's menu item and the pointer read one string
@@ -316,7 +329,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		expect(names).toEqual({
 			sidebar: 'Create Service Request',
 			header: 'Create Service Request',
-			pointer: 'Create Service Request is in the More actions menu.',
+			pointer: 'Create Service Request is in the More Actions menu.',
 		});
 	});
 
@@ -326,7 +339,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.queryByText('Create Service Request is in the More actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Service Request is in the More Actions menu.')).toBeNull();
 	});
 
 	// The route opens on this year, and the extent it sends says so. A null
@@ -339,8 +352,8 @@ describe('the service requests explorer with nothing on the page', () => {
 		expect(extentRequest()?.search).toBe('?dateFrom=2026-01-01&dateTo=2026-09-15');
 		expect(screen.queryByText('No service requests yet')).toBeNull();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
-		expect(screen.getByRole('button', { name: 'This year' })).toBeTruthy();
+		fireEvent.click(screen.getByRole('button', { name: 'Show Filters' }));
+		expect(screen.getByRole('button', { name: 'This Year' })).toBeTruthy();
 	});
 
 	it('offers the reset when a search matches nothing anywhere', async () => {
@@ -348,7 +361,7 @@ describe('the service requests explorer with nothing on the page', () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests match these filters')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Reset filters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Reset Filters' })).toBeTruthy();
 	});
 
 	it('says to pan when the extent frames requests the viewport does not hold', async () => {

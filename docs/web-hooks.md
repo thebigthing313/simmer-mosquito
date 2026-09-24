@@ -207,6 +207,15 @@ record; keying on the coordinates is the version that does not. Nothing in the
 hook says where on the canvas the record lands, because a page with chrome
 floating over its map declares that once as the canvas's viewport padding.
 
+A caller passing `holdRail` marks the flight with `RAIL_HOLDS_MOVE` in its
+event data, and `useMapBoundsParam` skips a move carrying it. The Service
+Requests explorer is the one caller: a reader working down the queue picks a
+request and the rail used to re-page for the viewport the map landed on, which
+dropped the rows around the pick and usually the pick's own place in the list.
+A flag on the event rather than a pause on the listener, because a pan the
+reader makes during or after the flight is a real change of viewport and must
+still re-page.
+
 #### useExplorerResource
 
 Nine explorer routes each ran the same four hooks in the same order and spent
@@ -226,6 +235,9 @@ whether a filter did it: the extent URL carries the surface's filters and
 nothing else, no `bbox`, no paging, so an empty query is a request for
 everything the Organization has. A failed request reads as the viewport, which
 is the copy the rail gave before it could tell.
+
+`holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
+default so the other explorers keep re-paging for the record they fly to.
 
 #### useMapBoundsParam
 
@@ -313,6 +325,29 @@ which is the `exhaustive-deps` finding the compiler refused (#1182). Wrapping
 the object in `useMemo` is not the way out, since `check:manual-memo` refuses
 one on a compiled path. So the effect takes the numbers and builds the object
 itself, and `useMapPadding` does the same.
+
+`keepOpeningCamera` is the explorers' switch, passed by `MapCanvas` under
+`rememberCamera`. The load-time fit is recorded and not made, so a map that
+opened on the camera the reader left it on stays there; the next filter change
+refits by the rule above.
+
+#### useExplorerCamera
+
+Every explorer opened on its own data's extent, so going from Habitats to
+Traps threw away the ground the reader had zoomed in on and framed the whole
+Organization again. One camera is now kept for all of them, per Organization,
+in browser storage: `lib/explorer-camera.ts` reads and writes it, every call
+guarded, and `MapCanvas` stores the camera on every `moveend`.
+
+It is read once, when the map mounts, and never re-read. The map writes as it
+moves, and the value it writes is for the next map to open on.
+
+With nothing stored the map opens on `DEFAULT_MAP_CAMERA` and frames the
+Organization's Regions, through the regions extent endpoint with no filters.
+An Organization with no Regions gets a null extent, nothing fits, and the
+default stands. Detail pages and forms pass no `rememberCamera` and frame
+their own record as before. No projection is set here: the Mapbox Studio style
+carries it.
 
 #### useMapExtent
 
@@ -695,6 +730,23 @@ A delete is optimistic, so the record leaves its collection the moment the
 button is pressed and the card holding the button unmounts before the refusal
 lands. The hook therefore lives in whatever survives that, and the button
 gets `AskAcknowledged`.
+
+#### useUnavailableRecordTrail
+
+`RecordUnavailable` was a dead end: a heading, a sentence, no way out, and a
+breadcrumb ending in `#00000000-0000-...` because nothing had registered a
+label for the id segment. The hook does both halves, since both are read off
+the same `$id`.
+
+The list path is the pathname cut at the id rather than a register keyed by
+record type. A register cannot say where a Route lives, because routes have
+two lists, `/larval-surveillance/habitats/routes` and
+`/adult-surveillance/traps/routes`, and every detail and edit route in the app
+sits directly under an `index.tsx` list, which is what the cut relies on.
+
+It reads the router, so a suite rendering `RecordUnavailable` mocks
+`useParams`, `useLocation` and `Link`, the way the record frame suites already
+mock `Link`.
 
 #### useResetOnOpen
 

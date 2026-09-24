@@ -374,7 +374,7 @@ function PanelMenu({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button aria-label="More actions" size="icon-sm" title="More actions" variant="ghost">
+				<Button aria-label="More Actions" size="icon-sm" title="More Actions" variant="ghost">
 					<MoreHorizontalIcon aria-hidden="true" />
 				</Button>
 			</DropdownMenuTrigger>

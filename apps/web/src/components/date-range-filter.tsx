@@ -13,12 +13,12 @@ export interface DatePreset {
 }
 
 const DATE_PRESETS: readonly DatePreset[] = [
-	{ id: '7d', label: 'Last 7 days', days: 7 },
-	{ id: '30d', label: 'Last 30 days', days: 30 },
-	{ id: '90d', label: 'Last 90 days', days: 90 },
-	{ id: 'year', label: 'This year', days: 'year' },
-	{ id: '12mo', label: 'Last 12 months', days: 365 },
-	{ id: 'all', label: 'All time', days: null },
+	{ id: '7d', label: 'Last 7 Days', days: 7 },
+	{ id: '30d', label: 'Last 30 Days', days: 30 },
+	{ id: '90d', label: 'Last 90 Days', days: 90 },
+	{ id: 'year', label: 'This Year', days: 'year' },
+	{ id: '12mo', label: 'Last 12 Months', days: 365 },
+	{ id: 'all', label: 'All Time', days: null },
 ];
 
 /** The `[from, to]` bounds a preset resolves to relative to `today`. */

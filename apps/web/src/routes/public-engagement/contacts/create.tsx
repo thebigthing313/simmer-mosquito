@@ -43,7 +43,6 @@ function CreateContactRoute() {
 			defaultValues={defaultContactFormValues()}
 			header={{
 				title: createLabel('contact'),
-				description: 'Add a person to the contact list.',
 				backTo: '/public-engagement/contacts',
 				backLabel: recordNoun('contact').titleMany,
 			}}

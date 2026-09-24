@@ -111,7 +111,6 @@ function EditRegionLoader({
 			defaultValues={formValuesFrom(region)}
 			header={{
 				title: `Edit ${recordNoun('region').title}`,
-				description: "Update this region's name, folder, boundary, or details.",
 				backTo: '/gis/regions/$id',
 				backParams: { id: region.id },
 				backLabel: 'Back to Region',

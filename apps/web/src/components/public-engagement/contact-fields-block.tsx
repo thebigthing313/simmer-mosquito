@@ -64,11 +64,7 @@ export function ContactFieldsBlock({
 				</form.AppField>
 			</ContactFieldGroup>
 
-			<ContactFieldGroup
-				level={headingLevel}
-				description="How this contact prefers to be reached for notifications and follow-up."
-				title="Notification Preferences"
-			>
+			<ContactFieldGroup level={headingLevel} title="Notification Preferences">
 				<form.AppField name={`${prefix}wantsEmail`}>
 					{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 					{(field: any) => (

@@ -10,7 +10,7 @@ describe('regionsEmptyState', () => {
 	it('asks for a first Region when the organization has none', () => {
 		expect(regionsEmptyState({ hasDirectory: false, hasMatches: false, query: '' })).toEqual({
 			isEmpty: true,
-			emptyTitle: 'No regions yet',
+			emptyTitle: 'No Regions Yet',
 			emptyDescription: 'Create a region, or import boundaries from a KML, KMZ, or GeoJSON file.',
 		});
 	});
@@ -20,13 +20,13 @@ describe('regionsEmptyState', () => {
 	it('keeps the first-Region reading even with a search typed', () => {
 		expect(
 			regionsEmptyState({ hasDirectory: false, hasMatches: false, query: 'north' }),
-		).toMatchObject({ emptyTitle: 'No regions yet' });
+		).toMatchObject({ emptyTitle: 'No Regions Yet' });
 	});
 
 	it('names the search that matched none of the Regions there are', () => {
 		expect(regionsEmptyState({ hasDirectory: true, hasMatches: false, query: 'north' })).toEqual({
 			isEmpty: true,
-			emptyTitle: 'No matches',
+			emptyTitle: 'No Matches',
 			emptyDescription: 'Nothing matches “north”.',
 		});
 	});

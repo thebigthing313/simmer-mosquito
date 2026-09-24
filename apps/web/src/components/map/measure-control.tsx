@@ -123,7 +123,7 @@ export function MeasureControl({
 					{tool === 'distance' && draftPointCount > 0 ? (
 						<>
 							<Button onClick={controller.undo} size="sm" type="button" variant="ghost">
-								Undo point
+								Undo Point
 							</Button>
 							{draftPointCount > 1 ? (
 								<Button onClick={controller.finish} size="sm" type="button" variant="ghost">

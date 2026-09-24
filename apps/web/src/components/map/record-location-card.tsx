@@ -105,16 +105,25 @@ export function RecordLocationCard({
 
 	// Framing runs both on map-ready and whenever the geometry changes, so a
 	// late-arriving fetch still lands framed rather than on the default camera.
+	// The effect keys on the bounds' four numbers rather than the object, which
+	// is rebuilt on every render and re-framed the map under a reader who had
+	// panned it whenever anything above re-rendered.
 	const mapRef = useRef<MapboxMap | null>(null);
 	const handleMapReady = (map: MapboxMap) => {
 		mapRef.current = map;
 		fitToBounds(map, bounds);
 	};
+	const boundsKey =
+		bounds === null ? null : `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
+	const latestBounds = useRef(bounds);
 	useEffect(() => {
-		if (mapRef.current !== null) {
-			fitToBounds(mapRef.current, bounds);
+		latestBounds.current = bounds;
+	});
+	useEffect(() => {
+		if (mapRef.current !== null && boundsKey !== null) {
+			fitToBounds(mapRef.current, latestBounds.current);
 		}
-	}, [bounds]);
+	}, [boundsKey]);
 
 	// Panning away is easy and there is no other landmark in a 320px well to
 	// navigate back by, so the header keeps a way to return to the geometry.
@@ -163,7 +172,7 @@ export function RecordLocationCard({
 						<div className={`overflow-hidden rounded-md border border-border/40 ${height}`}>
 							<MapCanvas
 								contextGeoJson={contextGeojson}
-								controls={{ search: false, geolocate: false }}
+								controls={{ search: false, geolocate: false, minimal: true }}
 								geoJson={geojson}
 								onMapReady={handleMapReady}
 								{...(camera === undefined ? {} : { camera })}

@@ -131,13 +131,20 @@ function queueLine(label: string): HTMLElement {
 	return line;
 }
 
-/** The strip cell whose label reads `label`: its count, its chip and the label, as one text. */
-function stripCell(label: string): HTMLElement {
+/**
+ * A strip cell's drawn text, found by its label. The cell also holds a
+ * screen-reader sentence in place of what it draws, which `spoken` reads.
+ */
+function stripCell(label: string): { readonly textContent: string; readonly spoken: string } {
 	const cell = screen.getByText(label).parentElement;
-	if (cell === null) {
+	if (cell === null || cell === undefined) {
 		throw new Error(`No strip cell labelled ${label}.`);
 	}
-	return cell;
+	const drawn = [...cell.children].filter((child) => !child.classList.contains('sr-only'));
+	return {
+		textContent: drawn.map((child) => child.textContent).join(''),
+		spoken: cell.querySelector('.sr-only')?.textContent ?? '',
+	};
 }
 
 describe('the Dashboard', () => {
@@ -145,7 +152,7 @@ describe('the Dashboard', () => {
 		renderDashboard();
 
 		await waitFor(() => expect(harness.pending).toHaveLength(1));
-		expect(screen.getByRole('heading', { name: 'Surveillance backlog' })).toBeTruthy();
+		expect(screen.getByRole('heading', { name: 'Surveillance Backlog' })).toBeTruthy();
 		expect(screen.queryByText(/awaiting identification/)).toBeNull();
 		// Every section that waits on the server holds a skeleton, and no count pill.
 		expect(document.querySelectorAll('[aria-hidden="true"] .animate-pulse').length).toBeGreaterThan(
@@ -244,7 +251,7 @@ describe('the Dashboard', () => {
 		expect(queueLine('Collections awaiting identification').textContent).toContain('12 days');
 		expect(queueLine('Collections with a problem').textContent).toContain('last 14 days');
 		expect(queueLine('Collections with a problem').textContent).toContain('9 days');
-		expect(panel('Surveillance backlog').getByText('65')).toBeTruthy();
+		expect(panel('Surveillance Backlog').getByText('65')).toBeTruthy();
 
 		// Operations backlog: the split, the unassigned count, an empty row, an overdue mission.
 		expect(queueLine('Open service requests').textContent).toContain('2 new · 1 in progress');
@@ -254,23 +261,23 @@ describe('the Dashboard', () => {
 			'text-muted-foreground',
 		);
 		expect(queueLine('Missions due today or overdue').textContent).toContain('1 day');
-		expect(panel('Operations backlog').getByText('10')).toBeTruthy();
+		expect(panel('Operations Backlog').getByText('10')).toBeTruthy();
 
 		// The strip: every type a cell, counted off the synced rows on its own date.
-		expect(screen.getByText('Sep 9 to Sep 15, compared with the 7 days before')).toBeTruthy();
-		expect(stripCell('Inspections').textContent).toBe('32Inspections');
-		expect(within(stripCell('Inspections')).getByLabelText('Up')).toBeTruthy();
-		expect(stripCell('Samples').textContent).toBe('32Samples');
+		expect(screen.getByText('Sep 9 to Sep 15, change vs previous 7 days')).toBeTruthy();
+		expect(stripCell('Inspections').textContent).toBe('3+2Inspections');
+		expect(stripCell('Inspections').spoken).toBe('3 inspections, up 2 vs previous 7 days');
+		expect(stripCell('Samples').textContent).toBe('3+2Samples');
 		// One in each window, the exact-timestamp one placed by the Organization's zone.
 		expect(stripCell('Collections').textContent).toBe('10Collections');
-		expect(within(stripCell('Collections')).queryByLabelText(/Up|Down/)).toBeNull();
-		expect(stripCell('Service Requests received').textContent).toBe('22Service Requests received');
+		expect(stripCell('Collections').spoken).toContain('no change');
+		expect(stripCell('Service Requests received').textContent).toBe('2+2Service Requests received');
 		// A type with no row is a cell at zero.
 		expect(stripCell('Biocontrol Actions').textContent).toBe('00Biocontrol Actions');
 
 		// The toggle restates every change as a percentage; a rise from nothing has no base.
 		fireEvent.click(screen.getByRole('radio', { name: 'Change as a percentage' }));
-		expect(stripCell('Inspections').textContent).toBe('3200%Inspections');
+		expect(stripCell('Inspections').textContent).toBe('3+200%Inspections');
 		expect(stripCell('Collections').textContent).toBe('10%Collections');
 		expect(stripCell('Service Requests received').textContent).toBe(
 			'2from 0Service Requests received',
@@ -279,7 +286,7 @@ describe('the Dashboard', () => {
 		// The people table: names off the profiles, most records first, the time
 		// in the Organization's zone. Miguel's collect is 10pm New York, which is
 		// tomorrow in UTC and today here.
-		const people = panel('In the field today');
+		const people = panel('In the Field Today');
 		const rows = people.getAllByRole('row').slice(1);
 		expect(rows.map((row) => row.textContent)).toEqual([
 			'Dana Okafor22:52 PM',

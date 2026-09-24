@@ -168,7 +168,6 @@ export function RequestFormPage({
 
 				<LocationBand
 					geometryKind="requestedControlAction"
-					description="A point for a single spot, a line or area for a stretch. An address is optional reference."
 					location={location}
 					organizationId={organizationId}
 				>
@@ -187,7 +186,6 @@ export function RequestFormPage({
 					<form.AppField name="controlType">
 						{(field) => (
 							<ControlTypeToggle
-								description="Which kind of control work is needed."
 								onChange={(next) => {
 									field.handleChange(next);
 									// The recommended method is polymorphic by control type, so

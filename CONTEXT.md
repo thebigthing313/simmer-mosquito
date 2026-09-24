@@ -77,6 +77,9 @@ calls `createLabel` and reads both rather than spelling either.
   larval doc's breeding rule and holds under every density policy. A dry
   inspection is a real inspection that found nothing, so it counts among
   inspections and never among positive ones.
+- The six **life stage** flags on a larval inspection, eggs, first through
+  fourth instar and pupae, are one complete observation. A flag that is false
+  says the stage was **absent**, never that it was not recorded.
 - A period, a day, a month or a year, is **partial** when today falls inside
   it, and only the current period ever is. A comparison against a partial
   period is cut like for like by calendar date, each earlier period through

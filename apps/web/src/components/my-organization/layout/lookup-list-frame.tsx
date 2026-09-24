@@ -12,7 +12,7 @@ export function LookupListFrame({
 	readonly action?: React.ReactNode;
 	readonly activeCount?: number;
 	readonly children: React.ReactNode;
-	readonly detail: string;
+	readonly detail?: string | undefined;
 	readonly inactiveCount?: number;
 	readonly title: string;
 }) {
@@ -21,7 +21,9 @@ export function LookupListFrame({
 			<div className="flex flex-wrap items-start justify-between gap-2">
 				<div className="grid min-w-0 gap-1">
 					<span className="font-medium wrap-anywhere text-sm text-foreground">{title}</span>
-					<p className="m-0 text-sm leading-snug text-muted-foreground">{detail}</p>
+					{detail === undefined ? null : (
+						<p className="m-0 text-sm leading-snug text-muted-foreground">{detail}</p>
+					)}
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					{activeCount === undefined ? null : (

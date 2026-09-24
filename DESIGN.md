@@ -509,7 +509,10 @@ arrives at render time. The shell puts the two back together in one place,
 `navDestination`, which is what matches the row against the current path, sends
 the click, and ends the breadcrumb trail on the record's own label instead of
 its id. A group built this way draws nothing at all when its list is empty,
-because a heading over no rows says less than no heading.
+because a heading over no rows says less than no heading. A group that runs
+long, Daily Work's one row per Profile, sets `collapsible`: its heading becomes
+a button that folds the rows away, open until somebody folds it, and the
+browser remembers which way it was left.
 
 **The Desktop Floor Rule.** SIMMER web is a desktop application. The two-rail
 shell spends 304px on fixed chrome, and both rails stay visible at every width.
@@ -624,6 +627,19 @@ own colours, and reached three: amber on the tile layers, dark green on the
 record overlay, near-black on the service-request map. `pnpm check:map-palette`
 now refuses a hex literal anywhere under `apps/web/src/components/map`, so a
 fourth has to be written in the register, where a reader can see it (#618).
+
+**The Red Rule.** Red on a record's state means an error, a destructive
+action, or the Inaccessible lifecycle. An open service request is none of the
+three: it is waiting on somebody. So it paints in `mapStatus.attention`, Deep
+Pollen, with the same off-white casing every point wears for the satellite
+basemap, and its pill takes the warning tone, the attention family at a
+contrast 12px text can read. The density ramp's hot end is a magnitude rather
+than a state, and this rule does not reach it. A finding in the data is not an error
+either: Bloodfed, Larvae found, Larvae present and a positive count take the
+warning tone, a cancelled mission or assignment is neutral, and a density badge
+is neutral text beside a dot from the same ramp the larval map paints. What stays
+red is what stops the work: Inaccessible, a reported trap or collection problem,
+a row that cannot be written, and a record with no geometry.
 
 **The Legend Truth Rule.** A map legend reads its swatches from the same
 constants the layers paint with. Never a literal. A hand-typed legend swatch

@@ -65,7 +65,7 @@ import type { ReactNode } from 'react';
  */
 export interface RecordFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: NonNullable<LinkProps['to']>;
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -110,7 +110,9 @@ export function RecordFormPage({
 			</Link>
 			<div className="grid gap-1">
 				<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">{header.title}</h1>
-				<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
+				{header.description === undefined ? null : (
+					<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
+				)}
 			</div>
 		</>
 	);

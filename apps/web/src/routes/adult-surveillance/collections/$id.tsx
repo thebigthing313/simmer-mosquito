@@ -10,7 +10,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -168,12 +167,7 @@ function CollectionDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Field notes, identification remarks, and follow-up for this collection."
-					target={{ type: 'collection', id: collection.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'collection', id: collection.id }} />}
 			facts={
 				<>
 					<DetailsCard
@@ -362,9 +356,6 @@ function ResultsCard({
 							<SpeciesIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							Identification
 						</CardTitle>
-						<CardDescription>
-							Collection flags and the specimens identified in this sample.
-						</CardDescription>
 					</div>
 					<div className="flex shrink-0 items-center gap-2">
 						{entries.length > 0 ? (
@@ -380,7 +371,7 @@ function ResultsCard({
 								variant="outline"
 							>
 								<KeyboardIcon aria-hidden="true" />
-								Key entry
+								Key Entry
 							</Button>
 						) : null}
 					</div>
@@ -390,21 +381,18 @@ function ResultsCard({
 				<div className="grid gap-3 rounded-md border border-border/40 bg-muted/20 p-3">
 					<FlagRow
 						checked={collection.isZeroResult}
-						description="No specimens were collected."
 						disabled={!canEdit}
 						label="Zero result"
 						onChange={handleZeroResultChange}
 					/>
 					<FlagRow
 						checked={collection.hasBycatch}
-						description="Non-target specimens were present."
 						disabled={!canEdit}
 						label="Bycatch"
 						onChange={(value) => void setBycatch(collection.id, value)}
 					/>
 					<FlagRow
 						checked={collection.hasProblem}
-						description="Trap failure, tampering, or a compromised sample."
 						disabled={!canEdit}
 						label="Problem"
 						onChange={(value) => void setProblem(collection.id, value)}
@@ -768,24 +756,19 @@ const STATUS_FIELD_OPTIONS = [
 
 function FlagRow({
 	label,
-	description,
 	checked,
 	onChange,
 	disabled,
 }: {
 	readonly label: string;
-	readonly description: string;
 	readonly checked: boolean;
 	readonly onChange: (value: boolean) => void;
 	readonly disabled?: boolean;
 }) {
 	return (
 		<div className="flex items-center justify-between gap-3">
-			<div className="grid gap-0.5">
-				<span className="font-medium text-foreground text-sm">{label}</span>
-				<span className="text-muted-foreground text-xs">{description}</span>
-			</div>
-			<Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+			<span className="font-medium text-foreground text-sm">{label}</span>
+			<Switch aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onChange} />
 		</div>
 	);
 }

@@ -320,6 +320,16 @@ me" said only that a default existed. The habitat picker passes
 `includeRetired`, because an inspection is also how a retired site gets looked
 at again; the control pickers exclude.
 
+Conditions opens with neither Wet nor Dry pressed on a new inspection. The
+form used to open on Wet, so an inspection saved by somebody who never looked
+at the toggle recorded standing water; the column's own default is `false`,
+so neither default was a finding anybody made. The domain builder takes a
+boolean and cannot say "not chosen", so `withConditionsChosen` lays the rule
+over the builder's answer and puts `Choose Wet or Dry.` on the field, and the
+findings stay hidden until a choice is made. An edit opens on the stored value.
+`ConditionsField` and `DryNote` sit in the controls module so the page does
+not carry the error wiring and a third branch of the findings ternary.
+
 #### Key entry dialogs
 
 The latest-value ref that kept the open-time rows out of the effect was written
@@ -395,8 +405,12 @@ created points at.
 
 #### TagSections
 
-`w-fit` on the block, because the shell draws the section at the `record`
-measure (#1045) and the create panel ran to the frame on its own (#1054).
+The block and the tables run the width of the card they sit in, so the Tags
+tables line up with the cards above them. #1054 had drawn them at the sum of
+their column widths, which kept the four columns from spreading across 1616px
+and left the tables narrower than everything else on the page. The Description
+column carries no width now, so `table-fixed` hands it all the slack and the
+other columns keep theirs; the column sum is the floor where the table scrolls.
 
 ### operations
 
@@ -524,8 +538,10 @@ the string `2026` as `%222026%22`, and `periodSearchCodec` reads either back.
 #### OverviewChart
 
 One component for the family, on `ChartContainer` and the Recharts
-primitives. Today's form is an area rather than a bar, because 365 slots at a
-600px plot width leave no bar the mark spec's 2px gap or 24px hit target.
+primitives. Today's form is one bar per day, weekends included, packed with no
+gap: 365 slots at a 600px plot width leave no room for the mark spec's 2px gap,
+and the area it replaced drew a line across quiet days. Today also leaves out a
+measure whose series totals zero, through `drawsTrend`.
 Monthly's is a grouped bar, twelve groups of two, the response's flat 24-point
 series split by the year in each point's `period`; a month the year has not
 reached is no bar, and every bar in the period series wears the role at full
@@ -648,6 +664,25 @@ element is there whatever it draws. A collected collection with no bycatch
 gets no state pill because the log's verb already says it. Detail badges take
 a line of their own because an inspection's density plus its six-cell strip is
 175px, which in a 380px panel left the record no room for its name.
+
+#### LinkedTableRow
+
+The four table views opened a record from a 16px chevron and nothing else.
+The row is not made a link, because a `<tr>` cannot hold an anchor around its
+cells and a row with `role="link"` and a tab stop would sit beside the chevron
+as a second way in. The chevron stays the one focusable element and the row's
+click clicks it, so a router `Link` navigates the way it does from the
+keyboard. A stretched `::after` over the row was the other shape, and it needs
+`position: relative` on a `<tr>`, which browsers have not agreed on. A click on
+a control inside the row, a Tag chip link or a button, is that control's, and a
+click that ends a text selection is a selection, not a navigation.
+
+#### ClampedTextCell
+
+`max-w` on a `<td>` does nothing in an auto-layout table, so a Description
+column given `max-w-[22rem] truncate` ran 87 to 91 characters to a line. The
+measure goes on a block inside the cell, clamped to two lines, with the whole
+text in the tooltip and on the detail page.
 
 ### registrations
 

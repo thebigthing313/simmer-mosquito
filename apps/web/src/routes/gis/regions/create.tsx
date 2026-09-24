@@ -64,7 +64,6 @@ function CreateRegionRoute() {
 			defaultValues={defaultRegionFormValues()}
 			header={{
 				title: createLabel('region'),
-				description: 'Draw a region boundary and name it for use across your organization.',
 				backTo: '/gis/regions',
 				backLabel: recordNoun('region').titleMany,
 			}}

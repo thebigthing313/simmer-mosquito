@@ -239,7 +239,7 @@ export function MissionFormPage({
 					<form.AppField name="controlType">
 						{(field) => (
 							<ControlTypeToggle
-								description="What the crew will be doing. It fixes which methods the mission can plan."
+								description="Sets which methods the mission can plan."
 								onChange={(next) => {
 									field.handleChange(next);
 									// The planned method is polymorphic by control type, so one
@@ -264,7 +264,6 @@ export function MissionFormPage({
 					<form.AppField name="plannedMethodId">
 						{(field) => (
 							<field.SelectField
-								description="Optional. What the crew is expected to use; the actual method is recorded on the work itself."
 								label="Planned method"
 								options={options.methods}
 								placeholder="No planned method"
@@ -330,7 +329,6 @@ export function MissionFormPage({
 						<form.AppField name="notificationTypeId">
 							{(field) => (
 								<field.SelectField
-									description="Which registrations get notice of this mission."
 									label="Notification type"
 									options={options.notificationTypes}
 									placeholder="No notifications"

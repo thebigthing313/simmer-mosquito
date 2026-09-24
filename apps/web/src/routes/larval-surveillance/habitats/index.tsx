@@ -140,6 +140,7 @@ function HabitatsExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						inset={panel.inset}
 						layers={layers}
 						legend={legend}

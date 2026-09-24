@@ -41,7 +41,7 @@ export function PeopleTodayPanel({
 		<Panel
 			count={!isReady || isError ? undefined : people.length}
 			icon={<PeopleIcon className="size-4" />}
-			title="In the field today"
+			title="In the Field Today"
 		>
 			<PanelRows
 				empty={{ description: 'Nothing logged yet today.' }}
@@ -57,7 +57,7 @@ export function PeopleTodayPanel({
 							<TableRow>
 								<TableHead>Person</TableHead>
 								<TableHead className="text-right">Records</TableHead>
-								<TableHead className="text-right">Last record</TableHead>
+								<TableHead className="text-right">Last Record</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>

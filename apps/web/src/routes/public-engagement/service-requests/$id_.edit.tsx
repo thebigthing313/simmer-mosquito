@@ -103,8 +103,8 @@ function EditServiceRequestLoader({
 				disableNewContact
 				header={{
 					title: `Edit ${recordNoun('serviceRequest').title}`,
-					description:
-						'Update the request details or its contact. Location and address stay as recorded.',
+					// The one header line kept: it says what this form cannot change.
+					description: 'Location and address stay as recorded.',
 					backTo: '/public-engagement/service-requests/$id',
 					backParams: { id: request.id },
 					backLabel: 'Back to Request',

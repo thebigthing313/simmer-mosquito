@@ -112,6 +112,7 @@ function SamplesExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						layers={layers}
 						legend={legend}
 						onMapReady={handleMapReady}

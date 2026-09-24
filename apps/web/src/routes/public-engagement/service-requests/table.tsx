@@ -24,8 +24,10 @@ import {
 } from '../../../components/explorer';
 import {
 	contactDisplayName,
+	formatRequestAge,
 	formatRequestDate,
 	intakeTypeLabel,
+	isServiceRequestOpen,
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { RequestStatusBadge } from '../../../components/public-engagement/public-engagement-ui';
@@ -36,6 +38,7 @@ import {
 	serviceRequestFilterCodecs,
 	sharedServiceRequestSearch,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
+import { ClampedTextCell, LinkedTableRow } from '../../../components/record/linked-table-row';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useHeldRows } from '../../../hooks/explorer/use-held-rows';
 import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
@@ -170,7 +173,6 @@ function ServiceRequestsTableRoute() {
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={<ServiceRequestSurfaceSwitch current="table" search={carried} />}
-				description="Every service request received from the public."
 				icon={RequestIcon}
 				title={recordNoun('serviceRequest').titleMany}
 			/>
@@ -198,6 +200,7 @@ function ServiceRequestsTableRoute() {
 					onSort={sortBy}
 					rows={shown}
 					sort={sort}
+					today={today}
 				/>
 			)}
 		</OutletSimpleLayout>
@@ -283,12 +286,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="Nothing received matches what is set above."
 				icon={RequestIcon}
-				title="No service requests match"
+				title="No Service Requests Match"
 			/>
 		);
 	}
@@ -296,7 +299,7 @@ function NoRows({
 		<ListEmpty
 			description="Service requests received this year show here."
 			icon={RequestIcon}
-			title="No service requests this year"
+			title="No Service Requests This Year"
 		/>
 	);
 }
@@ -314,6 +317,7 @@ function LoadedRows({
 	onSort,
 	rows,
 	sort,
+	today,
 }: {
 	readonly isError: boolean;
 	readonly isReady: boolean;
@@ -322,13 +326,14 @@ function LoadedRows({
 	readonly onSort: (key: ServiceRequestSortKey) => void;
 	readonly rows: readonly ServiceRequestTableRow[];
 	readonly sort: ServiceRequestSort;
+	readonly today: string;
 }) {
 	const isLoadingMore = !(isReady || isError);
 	const hasMore = isLoadingMore || rows.length >= limit;
 	return (
 		<div className="grid gap-3">
 			{isError ? <RequestsUnavailable /> : null}
-			<RequestsTable onSort={onSort} rows={rows} sort={sort} />
+			<RequestsTable onSort={onSort} rows={rows} sort={sort} today={today} />
 			{hasMore ? <LoadMore isLoading={isLoadingMore} onLoadMore={onLoadMore} /> : null}
 		</div>
 	);
@@ -338,10 +343,12 @@ function RequestsTable({
 	onSort,
 	rows,
 	sort,
+	today,
 }: {
 	readonly onSort: (key: ServiceRequestSortKey) => void;
 	readonly rows: readonly ServiceRequestTableRow[];
 	readonly sort: ServiceRequestSort;
+	readonly today: string;
 }) {
 	return (
 		<div className="rounded-md border border-border/50">
@@ -353,6 +360,9 @@ function RequestsTable({
 						</SortableHead>
 						<SortableHead onSort={onSort} sort={sort} sortKey="date">
 							Received
+						</SortableHead>
+						<SortableHead onSort={onSort} sort={sort} sortKey="age">
+							Age
 						</SortableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Contact</TableHead>
@@ -367,7 +377,7 @@ function RequestsTable({
 				</TableHeader>
 				<TableBody>
 					{rows.map((row) => (
-						<RequestRow key={row.id} row={row} />
+						<RequestRow key={row.id} row={row} today={today} />
 					))}
 				</TableBody>
 			</Table>
@@ -375,15 +385,37 @@ function RequestsTable({
 	);
 }
 
-function RequestRow({ row }: { readonly row: ServiceRequestTableRow }) {
+function RequestRow({
+	row,
+	today,
+}: {
+	readonly row: ServiceRequestTableRow;
+	readonly today: string;
+}) {
 	const title = serviceRequestTitle(row);
 	const contact = resolveLinkedContact(row.contact);
 	const address = addressCardLabel(resolveLinkedAddress(row.address));
 	const details = row.details.trim();
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button aria-label={`View ${title}`} asChild size="icon-sm" variant="ghost">
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/public-engagement/service-requests/table' }}
+						to="/public-engagement/service-requests/$id"
+					>
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="font-medium tabular-nums">{title}</TableCell>
 			<TableCell className="tabular-nums">{formatRequestDate(row.requestDate)}</TableCell>
+			{/* A closed request has stopped ageing, and Received already dates it. */}
+			<TableCell className="tabular-nums">
+				{isServiceRequestOpen(row) ? formatRequestAge(row.requestDate, today) : <AbsentValue />}
+			</TableCell>
 			<TableCell>
 				<RequestStatusBadge open={row.closedAt === null} />
 			</TableCell>
@@ -400,17 +432,8 @@ function RequestRow({ row }: { readonly row: ServiceRequestTableRow }) {
 			<TableCell className="text-muted-foreground">
 				{row.receivedByName ?? <AbsentValue />}
 			</TableCell>
-			<TableCell className="max-w-[22rem] truncate text-muted-foreground" title={details}>
-				{details === '' ? <AbsentValue /> : details}
-			</TableCell>
-			<TableCell className="text-right">
-				<Button aria-label={`View ${title}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/public-engagement/service-requests/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
+			<ClampedTextCell empty={<AbsentValue />} text={details} />
+		</LinkedTableRow>
 	);
 }
 

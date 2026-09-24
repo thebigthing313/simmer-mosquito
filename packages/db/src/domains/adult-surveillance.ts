@@ -539,8 +539,8 @@ export function trapSurface(
 		display: {
 			columns: trapDisplayColumns,
 			// Sorted by what the client shows first ("code - name"), so the list reads
-			// in the order it is drawn.
-			orderBy: sql`coalesce(t.trap_code, t.trap_name) asc nulls last, t.created_at desc, t.id`,
+			// in the order it is drawn, with `natural_sort` reading a number as one.
+			orderBy: sql`coalesce(t.trap_code, t.trap_name) collate natural_sort asc nulls last, t.created_at desc, t.id`,
 		},
 	});
 }

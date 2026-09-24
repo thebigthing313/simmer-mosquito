@@ -127,7 +127,7 @@ export function WorkspaceChromeError({
 					error={error}
 					info={info}
 					reset={reset}
-					title="The workspace did not finish loading"
+					title="The Workspace Did Not Finish Loading"
 					version={__APP_VERSION__}
 				/>
 			</Card>

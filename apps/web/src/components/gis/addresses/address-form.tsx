@@ -83,7 +83,7 @@ export function validateAddress(
 
 export interface AddressFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/gis/addresses' | '/gis/addresses/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -262,7 +262,7 @@ export function AddressFormPage({
 					geometryKind="address"
 					label="Location"
 					location={location}
-					title="Address location"
+					title="Address Location"
 				/>
 			</RecordFormPage>
 

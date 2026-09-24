@@ -165,7 +165,7 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 								onClick={() => setDraft({ kind: 'create', registrationId: newRecordId() })}
 								size="sm"
 							>
-								Add registration
+								Add Registration
 							</Button>
 						</div>
 					</WriteOnly>
@@ -192,7 +192,7 @@ function RegistrationList({
 			<ListEmpty
 				description="Add one to record a place this contact asked to be warned about before spraying."
 				icon={RegistrationIcon}
-				title="No registrations yet"
+				title="No Registrations Yet"
 			/>
 		);
 	}

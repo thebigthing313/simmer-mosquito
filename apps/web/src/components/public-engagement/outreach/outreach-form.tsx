@@ -25,7 +25,6 @@ import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
-import { locationDescription } from '../../map/location-description';
 
 /** Domain issue path → the form field holding it. */
 const OUTREACH_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -88,7 +87,7 @@ export interface OutreachFormValues {
 
 export interface OutreachFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/public-engagement/outreach' | '/public-engagement/outreach/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -254,10 +253,6 @@ export function OutreachFormPage({
 				</FormSection>
 
 				<LocationBand
-					description={locationDescription({
-						geometryKind: 'controlAction',
-						subject: 'The geometry is where the outreach happened.',
-					})}
 					geometryKind="controlAction"
 					location={location}
 					organizationId={organizationId}

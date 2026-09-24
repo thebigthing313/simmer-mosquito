@@ -18,9 +18,6 @@ const customFieldsTitle = 'Custom Fields';
 /** The field's own label, for the three forms that use no sections. */
 const metadataLabel = 'Metadata';
 
-/** What a method's custom fields are, said once for all five method forms. */
-const methodFieldsDescription = 'Extra details you collect for this method.';
-
 /**
  * The metadata editor every record form renders, in three shapes: a schema
  * chosen by a method field, which renders nothing when the method declares no
@@ -38,7 +35,7 @@ export function CustomFieldsSection({
 	schemaField,
 	allowExtra = false,
 	framed = true,
-	description = methodFieldsDescription,
+	description,
 	emptyDescription,
 }: {
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
@@ -55,7 +52,7 @@ export function CustomFieldsSection({
 	/** Render inside a `Custom Fields` section rather than as a labelled field. */
 	readonly framed?: boolean;
 	/** What the fields are, shown when the schema declares some. */
-	readonly description?: string;
+	readonly description?: string | undefined;
 	/** What they are when it declares none. Only reached under {@link allowExtra}. */
 	readonly emptyDescription?: string;
 }) {
@@ -109,7 +106,7 @@ function MetadataBox({
 }: {
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
 	readonly form: any;
-	readonly description: string;
+	readonly description: string | undefined;
 	readonly framed: boolean;
 	readonly mode: MetadataBoxMode;
 	readonly validate?: ReturnType<typeof validateSchemaMetadata>;
@@ -122,7 +119,7 @@ function MetadataBox({
 			{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 			{(bound: any) => (
 				<bound.MetadataField
-					description={description}
+					{...(description === undefined ? {} : { description })}
 					{...(framed ? {} : { label: metadataLabel })}
 					mode={mode}
 				/>

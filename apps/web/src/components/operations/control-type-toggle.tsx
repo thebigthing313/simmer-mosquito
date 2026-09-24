@@ -26,7 +26,7 @@ export function ControlTypeToggle({
 }: {
 	readonly value: ControlType;
 	readonly onChange: (next: ControlType) => void;
-	readonly description: string;
+	readonly description?: string | undefined;
 }) {
 	return (
 		<div className="grid gap-1.5">
@@ -53,7 +53,9 @@ export function ControlTypeToggle({
 					</ToggleGroupItem>
 				))}
 			</ToggleGroup>
-			<span className="text-muted-foreground text-xs">{description}</span>
+			{description === undefined ? null : (
+				<span className="text-muted-foreground text-xs">{description}</span>
+			)}
 		</div>
 	);
 }

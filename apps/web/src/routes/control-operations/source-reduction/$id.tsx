@@ -104,12 +104,7 @@ function SourceReductionDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Follow-up, access notes, and anything crews should know about this work."
-					target={{ type: 'sourceReduction', id: sourceReduction.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'sourceReduction', id: sourceReduction.id }} />}
 			facts={
 				<>
 					<SourceReductionDetailsCard

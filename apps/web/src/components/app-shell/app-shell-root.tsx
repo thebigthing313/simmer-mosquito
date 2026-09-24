@@ -15,6 +15,7 @@ import { type AuthMe, getServerUrl } from '../../auth';
 import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { breadcrumbPath } from '../../lib/breadcrumb-via';
 import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
 import { SearchPalette } from '../search/search-palette';
@@ -45,7 +46,10 @@ function formatRole(role: string | null | undefined): string {
  */
 export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const navigate = useNavigate();
-	const { pathname } = useLocation();
+	const { pathname, state } = useLocation();
+	// A record opened from a Table resolves its trail and sidebar under that
+	// Table rather than the Map both lists share a detail route with.
+	const shellPath = breadcrumbPath(pathname, state.breadcrumbVia);
 	// The palette is mounted here, beside the shell, because `AppHeader` takes no
 	// props and renders the trigger itself. `apps/admin` provides no such context,
 	// so its header simply loses the search field it never had a palette for.
@@ -114,7 +118,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				version={__APP_VERSION__}
 				getToday={getToday}
 				timeZone={timeZone}
-				activePath={pathname}
+				activePath={shellPath}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed
 					// `to` is satisfied by an assertion at this single adapter seam.

@@ -138,7 +138,7 @@ export function SampleKeyEntryDialog({
 			onCommit={commit}
 			onOpenChange={onOpenChange}
 			open={open}
-			title="Key entry"
+			title="Key Entry"
 		/>
 	);
 }

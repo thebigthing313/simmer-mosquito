@@ -88,7 +88,6 @@ function CollectionMethodLookupPointer() {
 		<LookupListFrame
 			activeCount={activeRecords.length}
 			inactiveCount={inactiveRecords.length}
-			detail="Methods can define optional custom fields and action thresholds."
 			title="Collection Methods"
 			action={
 				<Button asChild size="sm" variant="outline">

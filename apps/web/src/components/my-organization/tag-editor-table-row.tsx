@@ -68,7 +68,7 @@ export function TagEditorTableRow({
 					/>
 				</Field>
 			</TableCell>
-			<TableCell className="w-(--tag-description-column) align-top whitespace-normal">
+			<TableCell className="align-top whitespace-normal">
 				<Field className="gap-1">
 					<FieldLabel>Description</FieldLabel>
 					<Textarea
@@ -134,7 +134,7 @@ export function TagEditorTableRow({
 					</Button>
 					<Button type="button" variant="outline" size="icon" onClick={onCancel}>
 						<CloseIcon aria-hidden="true" />
-						<span className="sr-only">Cancel editing {tag.name}</span>
+						<span className="sr-only">Cancel Editing {tag.name}</span>
 					</Button>
 				</div>
 			</TableCell>

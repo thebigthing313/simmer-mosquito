@@ -198,7 +198,7 @@ describe.each(FORMS)('the $name form on a mission stop', (form) => {
 		expect(await screen.findByText(form.missing)).toBeDefined();
 		expect(onSave).not.toHaveBeenCalled();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Use stop geometry' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Use Stop Geometry' }));
 
 		expect(screen.getByText('Captured')).toBeDefined();
 		expect(screen.queryByText(form.missing)).toBeNull();

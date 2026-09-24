@@ -72,7 +72,7 @@ export function LoadMore({
 		<div className="flex justify-center">
 			<Button disabled={isLoading} onClick={onLoadMore} type="button" variant="outline">
 				{isLoading ? <Spinner /> : null}
-				Load more
+				Load More
 			</Button>
 		</div>
 	);

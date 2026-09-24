@@ -191,7 +191,7 @@ function CandidateRow({
 					</Link>
 				</Button>
 				<Button onClick={onExclude} size="sm" variant="ghost">
-					Not a duplicate
+					Not a Duplicate
 				</Button>
 			</ItemActions>
 		</Item>

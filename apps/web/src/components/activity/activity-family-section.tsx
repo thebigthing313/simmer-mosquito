@@ -7,6 +7,7 @@ import {
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { type ReactNode, useState } from 'react';
+import { formatCount } from '../../lib/format-count';
 import {
 	ACTIVITY_FAMILY_LABELS,
 	type ActivityFamilyGroup,
@@ -79,7 +80,7 @@ function CollapsibleSection({
 					)}
 				/>
 				<span className="flex-1 font-medium text-foreground text-sm">{title}</span>
-				<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
+				<span className="text-muted-foreground text-xs tabular-nums">{formatCount(count)}</span>
 			</CollapsibleTrigger>
 			<CollapsibleContent>{children}</CollapsibleContent>
 		</Collapsible>

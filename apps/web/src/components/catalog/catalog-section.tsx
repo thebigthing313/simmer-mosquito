@@ -7,6 +7,7 @@ import {
 	TableHeader,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import type { ReactNode } from 'react';
+import { formatCount } from '../../lib/format-count';
 import { CATALOG_GROUP_HEADING } from './catalog-page';
 
 /**
@@ -36,7 +37,7 @@ export function CatalogSection({
 		<section className="grid gap-2">
 			<div className="flex items-baseline justify-between gap-2">
 				<h2 className={CATALOG_GROUP_HEADING}>{title}</h2>
-				<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
+				<span className="text-muted-foreground text-xs tabular-nums">{formatCount(count)}</span>
 			</div>
 			{count === 0 ? (
 				<p className="rounded-md bg-muted/40 px-3 py-2.5 text-muted-foreground text-sm">

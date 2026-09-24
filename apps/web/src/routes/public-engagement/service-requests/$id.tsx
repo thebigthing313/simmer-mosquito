@@ -251,10 +251,7 @@ function ServiceRequestDetailContent({
 
 					<TabsContent className={TAB_CONTENT_CLASS} value="comments">
 						<TabBody>
-							<CommentsSection
-								description="Follow-up, resolution notes, and field context for this request."
-								target={{ type: 'serviceRequest', id: request.id }}
-							/>
+							<CommentsSection target={{ type: 'serviceRequest', id: request.id }} />
 						</TabBody>
 					</TabsContent>
 				</Tabs>
@@ -320,7 +317,7 @@ function NearbyFamilyTab({
 			</p>
 			<NearbyResultList
 				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
-				emptyTitle="Nothing nearby"
+				emptyTitle="Nothing Nearby"
 				families={families}
 				lookups={lookups}
 				nearby={nearby}

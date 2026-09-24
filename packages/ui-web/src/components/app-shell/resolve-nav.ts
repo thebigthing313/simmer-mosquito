@@ -177,3 +177,35 @@ export function buildBreadcrumbs(
 
 	return crumbs;
 }
+
+/**
+ * The navigation item closest above a path, for a page that has nowhere of its
+ * own to point back to, as the path to link and the words to link it with.
+ *
+ * Walks the path's ancestors from the longest down and returns the first one a
+ * navigation item names exactly. The path itself is skipped, since the page
+ * asking is the one that does not exist, and so is `/`, which every caller can
+ * link without asking. A path under no item answers null.
+ *
+ * The label puts the item's group, or its domain when it has none, in front of
+ * the item's own label, because an item label such as `Map` names nothing on
+ * its own: `Habitats Map`, `Larval Surveillance Overview`.
+ */
+export function nearestAncestorItem(
+	domains: readonly ShellDomain[],
+	activePath: string,
+): { readonly path: string; readonly label: string } | null {
+	const segments = activePath.split('/').filter(Boolean);
+	const items = flattenNavItems(domains);
+
+	for (let length = segments.length - 1; length >= 1; length -= 1) {
+		const ancestor = `/${segments.slice(0, length).join('/')}`;
+		const match = items.find((candidate) => navDestination(candidate.item) === ancestor);
+		if (match !== undefined) {
+			const context = match.group.label ?? match.domain.label;
+			return { path: ancestor, label: `${context} ${match.item.label}` };
+		}
+	}
+
+	return null;
+}

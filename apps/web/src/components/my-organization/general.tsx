@@ -49,11 +49,9 @@ export function GeneralOrganizationSection({
 		<>
 			<DomainSection
 				canManage={canManage}
-				editDescription="Update the organization details every member can see."
 				editAction={
 					<EditOrganizationDetailsSheet
 						defaultValues={organizationDetailsFormValues(organization, settings)}
-						description="Update the organization details every member can see."
 						title={`Edit ${organizationName}`}
 					/>
 				}
@@ -68,11 +66,9 @@ export function GeneralOrganizationSection({
 
 			<DomainSection
 				canManage={canManage}
-				editDescription="Set default units used across collection forms, summaries, and operational reports."
 				editAction={
 					<EditUnitDefaultsSheet
 						defaultValues={unitDefaultsFormValues(settings.unitDefaults)}
-						description="Set default units used across collection forms, summaries, and operational reports."
 						title="Edit Unit Defaults"
 						units={units}
 					/>
@@ -86,7 +82,6 @@ export function GeneralOrganizationSection({
 
 			<DomainSection
 				canManage={canManageTags}
-				editDescription="Manage shared labels, display colors, and tag lifecycle state."
 				editAction={
 					<Button
 						type="button"

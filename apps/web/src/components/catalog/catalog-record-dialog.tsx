@@ -33,7 +33,7 @@ export function CatalogRecordDialog({
 	children,
 }: {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
 	/** Uncontrolled mode: the element that opens the dialog. Omit for a row menu's edit. */
@@ -50,7 +50,7 @@ export function CatalogRecordDialog({
 			<DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
 				<DialogHeader className="border-border/60 border-b px-6 py-4 pr-10 text-left">
 					<DialogTitle>{title}</DialogTitle>
-					<DialogDescription>{description}</DialogDescription>
+					{description === undefined ? null : <DialogDescription>{description}</DialogDescription>}
 				</DialogHeader>
 				<form
 					className="flex min-h-0 flex-1 flex-col"

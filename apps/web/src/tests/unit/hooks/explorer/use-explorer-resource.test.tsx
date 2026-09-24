@@ -56,6 +56,7 @@ const { useExplorerResource } = await import('../../../../hooks/explorer/use-exp
 const { tileLayerExtentUrl } = await import('../../../../components/map/tile-layers');
 const { useMapExtent } = await import('../../../../hooks/map/use-map-extent');
 const { useMapExtentFit } = await import('../../../../hooks/map/use-map-extent-fit');
+const { RAIL_HOLDS_MOVE } = await import('../../../../hooks/explorer/use-map-bounds-param');
 
 /**
  * The tile layer each route hands the hook beside its params: the same entry
@@ -443,6 +444,33 @@ describe('useExplorerResource: the selected record', () => {
 		expect(result.current.selected).toBe(result.current.rows[0]);
 		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
 		expect(fake.cameraCalls[0]?.kind).toBe('flyTo');
+		// No `holdRailOnSelect`, so the flight is an ordinary move the rail follows.
+		expect(fake.cameraCalls[0]?.eventData).toBeUndefined();
+	});
+
+	it('marks the flight to a selection so the rail keeps its rows', async () => {
+		const onPage = { id: 'row-1', lat: 3, lng: 4 };
+		answer = () => ({ rows: [onPage], total: 1 });
+		const fake = createFakeMap();
+
+		renderHook(
+			() =>
+				useExplorerResource<Row>({
+					path: '/map/service-requests',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'serviceRequest',
+					params: {},
+					layer: bareLayer('service-requests'),
+					map: fake.map,
+					selectedId: 'row-1',
+					holdRailOnSelect: true,
+				}),
+			{ wrapper },
+		);
+
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		expect(fake.cameraCalls[0]?.eventData).toEqual({ [RAIL_HOLDS_MOVE]: true });
 	});
 
 	it('spends one request on a deep link whose row is on the page', async () => {
@@ -645,7 +673,7 @@ describe('useExplorerResource: why the rail is empty', () => {
 		filters: { search: 'pond' },
 	};
 
-	function renderRail(layer: MapTileLayer, map: MapboxMap) {
+	function renderRail(layer: MapTileLayer, map: MapboxMap | null) {
 		return renderHook(
 			() => ({
 				rail: useExplorerResource<Row>({
@@ -716,7 +744,7 @@ describe('useExplorerResource: why the rail is empty', () => {
 
 	// The rail cannot say which of the three it is until the extent has answered,
 	// so it reports loading and the placeholders stay up.
-	it('reports loading, and no reason, while the extent is in flight', async () => {
+	it('reports loading, and the loading reason, while the extent is in flight', async () => {
 		const extent = deferred<{ extent: null }>();
 		answer = (url) => (url.pathname.endsWith('/extent') ? extent.promise : { rows: [], total: 0 });
 		const fake = createFakeMap();
@@ -725,12 +753,26 @@ describe('useExplorerResource: why the rail is empty', () => {
 
 		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
 		expect(result.current.rail.isLoading).toBe(true);
-		expect(result.current.rail.empty.reason).toBeNull();
+		expect(result.current.rail.empty.reason).toBe('loading');
 
 		extent.resolve({ extent: null });
 
 		await waitFor(() => expect(result.current.rail.empty.reason).toBe('none'));
 		expect(result.current.rail.isLoading).toBe(false);
+	});
+
+	// The page query waits for the map's viewport, and a waiting query is not a
+	// loading one to React Query. A cold map read as an empty, settled page and
+	// the rail said "No habitats in view" for as long as the map took to load.
+	it('reports loading while the map has not reported a viewport', async () => {
+		withExtent(BOX);
+
+		const { result } = renderRail(UNFILTERED, null);
+
+		await waitFor(() => expect(requestCounts('/map/habitats').extent).toBe(1));
+		expect(result.current.rail.isLoading).toBe(true);
+		expect(result.current.rail.empty.reason).toBe('loading');
+		expect(requestCounts('/map/habitats').page).toBe(0);
 	});
 
 	// A failed extent settles nothing about the set, so the rail says what it
@@ -773,7 +815,7 @@ describe('useExplorerResource: a filter change', () => {
 				: { rows: [], total: 0 };
 	}
 
-	function renderExplorer(fake: FakeMap) {
+	function renderExplorer(fake: FakeMap, keepOpeningCamera = false) {
 		return renderHook(
 			({ search }: { readonly search: string }) => {
 				const layer = layerFor(search);
@@ -788,7 +830,13 @@ describe('useExplorerResource: a filter change', () => {
 					selectedId: null,
 				});
 				// The canvas's half: the same extent, and the camera move it decides.
-				useMapExtentFit(fake.map, true, { url: tileLayerExtentUrl(layer) ?? '' });
+				useMapExtentFit(
+					fake.map,
+					true,
+					{ url: tileLayerExtentUrl(layer) ?? '' },
+					undefined,
+					keepOpeningCamera,
+				);
 				return rail;
 			},
 			{ wrapper, initialProps: { search: '' } },
@@ -845,6 +893,24 @@ describe('useExplorerResource: a filter change', () => {
 		// and the page that follows the move is the one the rail keeps.
 		await loadAndFrame(fake, result);
 		expect(fake.cameraCalls).toHaveLength(1);
+	});
+
+	// An explorer map opens on the camera the reader left the last one on, so
+	// the load-time extent is recorded and not framed. The next filter change is
+	// a new decision and refits by the usual rule.
+	it('leaves the opening camera alone when told to, and refits on the next change', async () => {
+		serveExtents({ '': OUTSIDE, pond: OUTSIDE });
+		const fake = createFakeMap();
+		const { rerender } = renderExplorer(fake, true);
+
+		await waitFor(() => expect(requestCounts('/map/habitats').extent).toBe(1));
+		await waitFor(() => expect(requestCounts('/map/habitats').page).toBe(1));
+		expect(fake.cameraCalls).toHaveLength(0);
+
+		rerender({ search: 'pond' });
+
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		expect(fake.cameraCalls[0]?.kind).toBe('fitBounds');
 	});
 
 	it('spends one page request, and no camera move, on a change whose extent is already in view', async () => {

@@ -28,7 +28,7 @@ export interface ServiceRequestSaveInput {
 
 export interface ServiceRequestFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo:
 		| '/public-engagement/service-requests'
 		| '/public-engagement/service-requests/$id';
@@ -182,7 +182,6 @@ export function ServiceRequestFormPage({
 					<form.AppField name="details">
 						{(field) => (
 							<field.TextareaField
-								description="What the caller reported, such as location details, mosquito activity, or standing water."
 								label="Details"
 								required
 								placeholder="Describe the request…"

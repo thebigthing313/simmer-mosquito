@@ -12,8 +12,10 @@ import {
 	type OverviewColumn,
 	type OverviewGrain,
 	type OverviewRatio,
+	type OverviewRatioPoint,
 	type OverviewRecordType,
 	type OverviewResponse,
+	type OverviewSeriesPoint,
 	type OverviewTypeRow,
 	overviewPeriodMonth,
 	overviewPeriodSpan,
@@ -42,13 +44,6 @@ export const OVERVIEW_TITLES: Readonly<Record<OverviewGrain, string>> = {
 	day: 'Today',
 	month: 'Monthly',
 	year: 'Annual',
-};
-
-export const OVERVIEW_DESCRIPTIONS: Readonly<Record<OverviewGrain, string>> = {
-	day: 'What was recorded on one day, against the day before, with the year so far under it.',
-	month:
-		'What was recorded in one month, against the month before, the same month last year and the five years before.',
-	year: 'What was recorded in one year, against the year before and the five years before.',
 };
 
 /**
@@ -255,6 +250,22 @@ export function shownTypes(response: OverviewResponse): readonly OverviewTypeRow
 	return response.types.filter((row) => row.recordedEver);
 }
 
+/**
+ * Whether a trend chart is drawn. Today leaves out a measure the year so far
+ * holds none of, since twelve months of empty days say nothing a reader needs
+ * to scroll past; Monthly and Annual draw every shown row. A ratio counts by
+ * its numerator.
+ */
+export function drawsTrend(
+	grain: OverviewGrain,
+	points: readonly (OverviewSeriesPoint | OverviewRatioPoint)[],
+): boolean {
+	return (
+		grain !== 'day' ||
+		points.some((point) => ('value' in point ? point.value : point.numerator) > 0)
+	);
+}
+
 /** A share or a rate, or null over a zero denominator, which draws the absence glyph. */
 export function ratioValue(numerator: number, denominator: number): number | null {
 	return denominator === 0 ? null : numerator / denominator;
@@ -265,9 +276,13 @@ export function formatRatio(ratio: OverviewRatio, value: number): string {
 	return ratio === 'positiveInspections' ? `${Math.round(value * 100)}%` : formatCount(value, 1);
 }
 
-/** A count cell: whole numbers as they are, an average to one decimal. */
+/**
+ * A count cell, rounded to a whole number. A five-year average of a count is
+ * still a count of records, and `4,671.7 inspections` claims a precision the
+ * comparison does not have.
+ */
 export function formatCell(value: number): string {
-	return formatCount(value, Number.isInteger(value) ? 0 : 1);
+	return formatCount(Math.round(value));
 }
 
 /**

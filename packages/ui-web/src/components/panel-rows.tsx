@@ -166,7 +166,7 @@ function PanelRowsEmpty({
 	readonly message: PanelRowsMessage;
 }) {
 	const block = (
-		<Empty className="min-h-[140px] border border-border/40 bg-muted/30">
+		<Empty className="min-h-[140px]" variant="nested">
 			<EmptyHeader>
 				<EmptyMedia variant="icon">{icon}</EmptyMedia>
 				{message.title === undefined ? null : <EmptyTitle>{message.title}</EmptyTitle>}

@@ -29,11 +29,10 @@ export interface ControlMethodsPageProps {
 	readonly canEditMethods: boolean;
 	/** e.g. "Application methods" */
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	/** e.g. "application method", used in buttons, dialogs, and empty states. */
 	readonly singularLabel: string;
 	readonly namePlaceholder: string;
-	readonly customFieldsDescription: string;
 	readonly emptyDescription: string;
 	readonly icon: RegistryIcon;
 }
@@ -47,7 +46,6 @@ export function ControlMethodsPage({
 	description,
 	singularLabel,
 	namePlaceholder,
-	customFieldsDescription,
 	emptyDescription,
 	icon: MethodIcon,
 }: ControlMethodsPageProps) {
@@ -57,7 +55,6 @@ export function ControlMethodsPage({
 		mutations,
 		singularLabel,
 		namePlaceholder,
-		customFieldsDescription,
 	};
 
 	// The header and the empty state offer the same way in, so they mount the

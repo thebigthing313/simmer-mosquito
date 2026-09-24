@@ -93,7 +93,7 @@ function DensityRangesDisplay({ ranges }: { readonly ranges: LarvalDensityRanges
 				</Badge>
 			}
 			description="The app uses larvae per dip to infer density. Zero larvae is always None."
-			title="Density inference"
+			title="Density Inference"
 		>
 			<div className="grid gap-2 md:grid-cols-5">
 				<DensityRangeTile density="none" range={null} />

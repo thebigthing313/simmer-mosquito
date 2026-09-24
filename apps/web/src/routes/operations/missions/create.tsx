@@ -66,8 +66,6 @@ function CreateMissionRoute() {
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{
 				title: createLabel('mission'),
-				description:
-					'Schedule the work and say what kind. Stops are added to the mission afterwards.',
 				backTo: '/operations/missions',
 				backLabel: recordNoun('mission').titleMany,
 			}}

@@ -115,12 +115,7 @@ function TrapDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Access notes, maintenance, and follow-up for this trap."
-					target={{ type: 'trap', id: trap.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'trap', id: trap.id }} />}
 			facts={<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />}
 			header={{
 				actions: createItems('trapId', trap.id, ['/adult-surveillance/collections/create']),

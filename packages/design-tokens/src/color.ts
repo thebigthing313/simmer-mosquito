@@ -338,6 +338,63 @@ export function wcagLevel(ratio: number): WcagLevel {
 	return 'Low';
 }
 
+/**
+ * `top` at `alpha` over an opaque `bottom`, blended per sRGB channel the way a
+ * browser composites a translucent background.
+ */
+export function compositeOver(top: RgbColor, alpha: number, bottom: RgbColor): RgbColor {
+	const share = Math.min(1, Math.max(0, alpha));
+	const blend = (upper: number, lower: number) => Math.round(upper * share + lower * (1 - share));
+	return { r: blend(top.r, bottom.r), g: blend(top.g, bottom.g), b: blend(top.b, bottom.b) };
+}
+
+/** How many halvings the lightness search takes. 2^-20 is far below one sRGB step. */
+const LIGHTNESS_SEARCH_STEPS = 20;
+
+/**
+ * `color` moved along OKLCH lightness, hue and chroma kept, until it reaches
+ * `minimum` contrast against `background`. A colour that already does is
+ * returned unchanged.
+ *
+ * It darkens on a light background and lightens on a dark one, and takes the
+ * lightness closest to the original that passes, so the result is still
+ * recognisably the same hue. The search is a bisection over lightness, which
+ * holds because contrast against a fixed background rises monotonically as
+ * lightness moves away from it. Chroma the gamut cannot hold at the new
+ * lightness is clipped by `oklchToRgb`, and the clipped colour is what is
+ * measured. If even the end of the range falls short, which only a background
+ * near mid-grey can cause, black or white is returned, whichever contrasts more.
+ */
+export function readableOn(color: RgbColor, background: RgbColor, minimum: number): RgbColor {
+	if (contrastRatio(color, background) >= minimum) {
+		return color;
+	}
+
+	const black: RgbColor = { r: 0, g: 0, b: 0 };
+	const white: RgbColor = { r: 255, g: 255, b: 255 };
+	const darken = contrastRatio(black, background) >= contrastRatio(white, background);
+	const start = rgbToOklch(color);
+	const end = darken ? 0 : 1;
+	const at = (lightness: number) => oklchToRgb({ ...start, lightness });
+
+	if (contrastRatio(at(end), background) < minimum) {
+		return darken ? black : white;
+	}
+
+	// `near` fails and `far` passes throughout; the answer is `far` at the end.
+	let near = start.lightness;
+	let far = end;
+	for (let step = 0; step < LIGHTNESS_SEARCH_STEPS; step += 1) {
+		const middle = (near + far) / 2;
+		if (contrastRatio(at(middle), background) >= minimum) {
+			far = middle;
+		} else {
+			near = middle;
+		}
+	}
+	return at(far);
+}
+
 export function formatHex({ r, g, b }: RgbColor): string {
 	return `#${[r, g, b].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
 }

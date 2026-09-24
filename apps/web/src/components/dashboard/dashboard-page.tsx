@@ -27,12 +27,7 @@ export function DashboardPage() {
 
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
-			<PageHeader
-				description="The state of the Organization, for the person deciding what happens next."
-				eyebrow="Organization"
-				icon={HomeIcon}
-				title="Dashboard"
-			/>
+			<PageHeader icon={HomeIcon} title="Dashboard" />
 			<ActivityStrip timeZone={timeZone} today={today} />
 			<div className="grid gap-5 xl:grid-cols-2">
 				<SurveillanceBacklog server={server} timeZone={timeZone} today={today} />

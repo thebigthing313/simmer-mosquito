@@ -6,7 +6,7 @@ import {
 	startOfYear,
 } from '../../../components/date-range-filter';
 
-const THIS_YEAR: DatePreset = { id: 'year', label: 'This year', days: 'year' };
+const THIS_YEAR: DatePreset = { id: 'year', label: 'This Year', days: 'year' };
 
 describe('the This year preset', () => {
 	it('runs from the first of January through today', () => {

@@ -28,6 +28,7 @@ import {
 	sampleTileFilters,
 	sharedSampleSearch,
 } from '../../../components/larval-surveillance/samples-search';
+import { LinkedTableRow } from '../../../components/record/linked-table-row';
 import {
 	mapQueryParams,
 	usePagedMapResource,
@@ -146,12 +147,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="No sample matches what is set above."
 				icon={SampleIcon}
-				title="No samples match"
+				title="No Samples Match"
 			/>
 		);
 	}
@@ -159,7 +160,7 @@ function NoRows({
 		<ListEmpty
 			description="Samples taken in the last 30 days show here."
 			icon={SampleIcon}
-			title="No samples in the last 30 days"
+			title="No Samples in the Last 30 Days"
 		/>
 	);
 }
@@ -203,7 +204,19 @@ function SampleRow({
 	const swatch = sampleSwatch(row);
 	const isIdentified = row.status === 'identified';
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/larval-surveillance/samples/table' }}
+						to="/larval-surveillance/samples/$id"
+					>
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="max-w-[14rem] truncate font-medium" title={name}>
 				{name}
 			</TableCell>
@@ -231,14 +244,7 @@ function SampleRow({
 			<TableCell className="text-right tabular-nums">
 				{isIdentified ? row.larvaeTotal.toLocaleString('en-US') : <AbsentValue />}
 			</TableCell>
-			<TableCell className="text-right">
-				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/larval-surveillance/samples/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
+		</LinkedTableRow>
 	);
 }
 
@@ -249,7 +255,7 @@ function SamplesUnavailable({ onRetry }: { readonly onRetry: () => void }) {
 			<AlertDescription className="flex flex-wrap items-center justify-between gap-2">
 				Samples could not be loaded.
 				<Button onClick={onRetry} size="sm" type="button" variant="outline">
-					Try again
+					Try Again
 				</Button>
 			</AlertDescription>
 		</Alert>

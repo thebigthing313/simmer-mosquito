@@ -240,6 +240,7 @@ function OutreachExplorerRoute() {
 						}}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						layers={layers}
 						onMapReady={handleMapReady}
 					/>

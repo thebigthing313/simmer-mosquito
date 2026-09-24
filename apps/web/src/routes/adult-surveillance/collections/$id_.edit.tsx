@@ -164,7 +164,6 @@ function EditCollectionLoader({
 			defaultValues={formValuesFrom(collection, personnel, timeZone)}
 			header={{
 				title: `Edit ${recordNoun('collection').title}`,
-				description: 'Update this collection’s method, timing, personnel, location, or result.',
 				backTo: '/adult-surveillance/collections/$id',
 				backParams: { id: collection.id },
 				backLabel: 'Back to collection',
