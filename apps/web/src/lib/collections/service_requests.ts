@@ -7,6 +7,7 @@
  */
 
 import { createServiceRequestsCollection, type ServiceRequest } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -20,4 +21,20 @@ export const service_requests = declareCollection<ServiceRequest>({
 	syncMode: 'on-demand',
 	mutations: true,
 	create: createServiceRequestsCollection,
+
+	/*
+	 * One index per column the service requests table sorts on, for the reason
+	 * `inspections.ts` gives: without one built with the clause's compare
+	 * options, an `orderBy` with a `limit` loads every request the Organization
+	 * has. `SERVICE_REQUEST_SORT_KEYS` in `hooks/queries/use-service-request-table.ts`
+	 * is the other half of this list, and that hook's suite checks the two agree.
+	 */
+	index: (collection) => {
+		const sorted = {
+			indexType: BasicIndex,
+			options: { compareOptions: { ...collection.compareOptions, nulls: 'last' as const } },
+		};
+		collection.createIndex((row) => row.request_date, sorted);
+		collection.createIndex((row) => row.display_name, sorted);
+	},
 });

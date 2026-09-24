@@ -22,8 +22,6 @@ import {
 	type InspectionSort,
 	type InspectionTableFilters,
 	inspectionWindowKey,
-	nextSort,
-	SORT_DIRECTIONS,
 	useInspectionTable,
 } from '../../../../hooks/queries/use-inspection-table';
 import { addresses } from '../../../../lib/collections/addresses';
@@ -31,6 +29,7 @@ import { habitat_types } from '../../../../lib/collections/habitat_types';
 import { habitats } from '../../../../lib/collections/habitats';
 import { inspections } from '../../../../lib/collections/inspections';
 import { profiles } from '../../../../lib/collections/profiles';
+import { nextSort, SORT_DIRECTIONS } from '../../../../lib/table-sort';
 import {
 	installMemoryCollections,
 	seedRows,

@@ -5,14 +5,18 @@ import { addDaysToDateString, formatLocalDate, parseLocalDate } from '../lib/loc
 export interface DatePreset {
 	readonly id: string;
 	readonly label: string;
-	/** Days back from today the preset spans (inclusive), or null for no bound. */
-	readonly days: number | null;
+	/**
+	 * Days back from today the preset spans (inclusive), `year` for the first of
+	 * January through today, or null for no bound.
+	 */
+	readonly days: number | 'year' | null;
 }
 
 const DATE_PRESETS: readonly DatePreset[] = [
 	{ id: '7d', label: 'Last 7 days', days: 7 },
 	{ id: '30d', label: 'Last 30 days', days: 30 },
 	{ id: '90d', label: 'Last 90 days', days: 90 },
+	{ id: 'year', label: 'This year', days: 'year' },
 	{ id: '12mo', label: 'Last 12 months', days: 365 },
 	{ id: 'all', label: 'All time', days: null },
 ];
@@ -25,7 +29,15 @@ export function datePresetRange(
 	if (preset.days === null) {
 		return { from: '', to: '' };
 	}
+	if (preset.days === 'year') {
+		return { from: startOfYear(today), to: today };
+	}
 	return { from: addDaysToDateString(today, -(preset.days - 1)), to: today };
+}
+
+/** The first of January of the year `today` falls in, as `YYYY-MM-DD`. */
+export function startOfYear(today: string): string {
+	return `${today.slice(0, 4)}-01-01`;
 }
 
 /** Which preset (if any) the current range exactly matches — drives chip highlight. */
@@ -37,7 +49,7 @@ export function activeDatePresetId(from: string, to: string, today: string): str
 			}
 			continue;
 		}
-		if (to === today && from === addDaysToDateString(today, -(preset.days - 1))) {
+		if (to === today && from === datePresetRange(preset, today).from) {
 			return preset.id;
 		}
 	}

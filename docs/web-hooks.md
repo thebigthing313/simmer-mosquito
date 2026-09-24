@@ -235,6 +235,31 @@ GL instance reads as none. The effect used to clear it when the map went
 away, which is a `set-state-in-effect` finding (#1185) and one render drawing
 the old box against no map; `useMapReadout` holds its reading the same way.
 
+#### useHeldRows
+
+The Inspections Table and the Service Requests Table both read it. The live query is rebuilt when the limit changes, so it starts empty and
+reports not-ready until the collection has answered. Rendering that as it
+comes would take the table away from under the reader at the moment they
+asked for more of it. What is already shown stays correct: the wider window
+is the same order with more of it on the end.
+
+A new sort or a new filter is the case where it is not. The same rows in the
+old order under a header that now says something else reads as a sort that
+did nothing, and rows that do not match the filter just set read as a filter
+that did nothing. So what is held is kept against the window key it was read
+under and only handed back while that still matches. Under a new one the
+reader waits on a skeleton instead.
+
+The cache is state since #1184. It was a ref written and read during render,
+which the compiler refuses, and the hook carried `"use no memo"` to say so;
+the directive never removed the bail-out, it only changed what
+`check:compiler-bailouts` logged. The last ready rows are written into state
+in the render that reads them ready, which React re-renders before
+committing, and the not-ready read is a comparison against the held window
+key. The write compares the rows by identity, which is safe because the live
+query hands back the same array until the collection changes; a caller that
+rebuilt the array every render would loop.
+
 ### map
 
 #### useMapExtentFit
@@ -1124,31 +1149,6 @@ The id is minted up front so the samples, crew and comment can be written
 the moment the inspection lands, and so their streams are live before the
 save fires: a write against a cold stream times out waiting for its txid
 confirmation.
-
-#### useHeldRows
-
-The live query is rebuilt when the limit changes, so it starts empty and
-reports not-ready until the collection has answered. Rendering that as it
-comes would take the table away from under the reader at the moment they
-asked for more of it. What is already shown stays correct: the wider window
-is the same order with more of it on the end.
-
-A new sort or a new filter is the case where it is not. The same rows in the
-old order under a header that now says something else reads as a sort that
-did nothing, and rows that do not match the filter just set read as a filter
-that did nothing. So what is held is kept against the window key it was read
-under and only handed back while that still matches. Under a new one the
-reader waits on a skeleton instead.
-
-The cache is state since #1184. It was a ref written and read during render,
-which the compiler refuses, and the hook carried `"use no memo"` to say so;
-the directive never removed the bail-out, it only changed what
-`check:compiler-bailouts` logged. The last ready rows are written into state
-in the render that reads them ready, which React re-renders before
-committing, and the not-ready read is a comparison against the held window
-key. The write compares the rows by identity, which is safe because the live
-query hands back the same array until the collection changes; a caller that
-rebuilt the array every render would loop.
 
 #### useSampleGeoContext
 

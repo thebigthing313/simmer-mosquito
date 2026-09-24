@@ -55,6 +55,7 @@ import { habitat_types } from '../../lib/collections/habitat_types';
 import { habitats } from '../../lib/collections/habitats';
 import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
+import type { TableSort } from '../../lib/table-sort';
 import { joinedHabitatNameSelect } from './habitat-view';
 import type { InspectionTableRow } from './larval-activity-view';
 import { addressSelect } from './shared';
@@ -94,31 +95,10 @@ export const INSPECTION_SORT_KEYS = ['date', 'water', 'dips', 'larvae'] as const
 
 export type InspectionSortKey = (typeof INSPECTION_SORT_KEYS)[number];
 
-export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
-
-export type SortDirection = (typeof SORT_DIRECTIONS)[number];
-
-export interface InspectionSort {
-	readonly key: InspectionSortKey;
-	readonly direction: SortDirection;
-}
+export type InspectionSort = TableSort<InspectionSortKey>;
 
 /** What the table opens on, and what a reset returns it to. */
 export const DEFAULT_INSPECTION_SORT: InspectionSort = { key: 'date', direction: 'desc' };
-
-/**
- * Where a click on a column header leaves the sort.
- *
- * A column that is already sorted turns around. Any other column opens
- * descending, which is the end each of these is read from: the newest work, the
- * wet sites, the most dips, the most larvae.
- */
-export function nextSort(current: InspectionSort, key: InspectionSortKey): InspectionSort {
-	if (current.key !== key) {
-		return { key, direction: 'desc' };
-	}
-	return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
-}
 
 /**
  * What the reader has narrowed the table to.

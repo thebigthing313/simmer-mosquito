@@ -190,6 +190,7 @@ function OpenServiceRequestsPanel({
 				requests.openCount > preview.length ? (
 					<Link
 						className="font-medium text-primary hover:underline"
+						search={{ status: 'open', from: 'any', to: 'any' }}
 						to="/public-engagement/service-requests"
 					>
 						View all {requests.openCount} open requests

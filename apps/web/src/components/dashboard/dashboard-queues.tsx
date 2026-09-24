@@ -133,9 +133,12 @@ export function OperationsBacklog({
 						'service-requests-open',
 						`Open ${recordNoun('serviceRequest').many}`,
 						serviceRequests,
-						// No window: that explorer has no date filter, and `status=open`
-						// is already the whole count.
-						{ to: '/public-engagement/service-requests', search: { status: 'open' } },
+						// Every open request, whenever it was received: the explorer opens
+						// on this year, so the link spells out All time as well.
+						{
+							to: '/public-engagement/service-requests',
+							search: { status: 'open', from: 'any', to: 'any' },
+						},
 						{
 							split: `${serviceRequests.newCount} new · ${serviceRequests.inProgressCount} in progress`,
 						},
