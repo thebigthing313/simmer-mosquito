@@ -58,6 +58,12 @@ import {
 import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
 import type { StatusFilter } from '../../../components/public-engagement/service-requests/legend';
 import { serviceRequestLegend } from '../../../components/public-engagement/service-requests/legend';
+import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
+import {
+	type ServiceRequestFilters,
+	serviceRequestFilterCodecs,
+	sharedServiceRequestSearch,
+} from '../../../components/public-engagement/service-requests/service-requests-search';
 import { TagBadge } from '../../../components/tag-badge';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
 import { useEntityTags } from '../../../hooks/explorer/use-entity-tags';
@@ -65,24 +71,15 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
 import { useTagOptions } from '../../../hooks/explorer/use-tag-options';
+import { useServiceRequestFilterDefaults } from '../../../hooks/public-engagement/use-service-request-filter-defaults';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { useRequestParties } from '../../../hooks/queries/use-request-parties';
 import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
-import { todayInTimeZone } from '../../../lib/local-date';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
-import {
-	choiceParam,
-	DATE_RANGE_COUNTING,
-	type FilterCodecs,
-	idSetParam,
-	openDateParam,
-	searchValidator,
-	textParam,
-} from '../../../lib/search-filters';
+import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 
 /**
  * A service request as `/map/service-requests` lists it: what the row shows,
@@ -106,50 +103,15 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const RECORD_TYPE: RecordType = 'serviceRequest';
 const PATH = '/map/service-requests';
 const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
+	{ value: 'all', label: 'All' },
 	{ value: 'open', label: 'Open' },
 	{ value: 'closed', label: 'Closed' },
-	{ value: 'all', label: 'All' },
 ];
 const EMPTY_TAGS: readonly Tag[] = [];
 
-const STATUS_VALUES: readonly StatusFilter[] = ['all', 'open', 'closed'];
-
-interface RequestFilterSet {
-	readonly status: StatusFilter;
-	readonly search: string;
-	readonly tags: ReadonlySet<string>;
-	readonly regions: ReadonlySet<string>;
-	/**
-	 * A window over `request_date`, with no default: #920 decided a date
-	 * default here is not a substitute for the viewport, and an empty bound is
-	 * no bound. The period-in-review count links write both so they land on
-	 * the rows they counted.
-	 */
-	readonly from: string;
-	readonly to: string;
-}
-
-const REQUEST_FILTER_DEFAULTS: RequestFilterSet = {
-	status: 'open',
-	search: '',
-	tags: new Set(),
-	regions: new Set(),
-	from: '',
-	to: '',
-};
-
-const REQUEST_FILTER_CODECS: FilterCodecs<RequestFilterSet> = {
-	status: choiceParam(STATUS_VALUES, REQUEST_FILTER_DEFAULTS.status),
-	search: textParam,
-	tags: idSetParam,
-	regions: idSetParam,
-	from: openDateParam,
-	to: openDateParam,
-};
-
 export const Route = createFileRoute('/public-engagement/service-requests/')({
 	component: ServiceRequestsExplorerRoute,
-	validateSearch: searchValidator(REQUEST_FILTER_CODECS),
+	validateSearch: searchValidator(serviceRequestFilterCodecs),
 });
 
 function ServiceRequestsExplorerRoute() {
@@ -158,14 +120,15 @@ function ServiceRequestsExplorerRoute() {
 	const availableTags = [...tagById.values()];
 
 	// The filter state lives in the URL, so a shared link and Back out of a
-	// request both land on the list the operator had narrowed to.
+	// request both land on the list the operator had narrowed to. An address with
+	// no params opens on every request received this year, open or closed.
+	const { defaults, today } = useServiceRequestFilterDefaults();
 	const {
 		filters: query,
 		setFilters,
+		reset,
 		activeCount: activeFilterCount,
-	} = useSearchFilters(REQUEST_FILTER_DEFAULTS, REQUEST_FILTER_CODECS, DATE_RANGE_COUNTING);
-	const timeZone = useOrganizationTimeZone();
-	const today = todayInTimeZone(timeZone);
+	} = useSearchFilters(defaults, serviceRequestFilterCodecs, DATE_RANGE_COUNTING);
 	const dateRange = useDateRangeFilters({ from: query.from, to: query.to, today, setFilters });
 	const status = query.status;
 	const selectedTagIds = query.tags;
@@ -185,21 +148,15 @@ function ServiceRequestsExplorerRoute() {
 		clearSearchInput();
 		commitSearch('');
 	};
-	// Both halves: the field the operator is looking at, and the committed set on
-	// the URL that is actually cutting the list. One patch, one navigation, since
-	// two calls would each read the same prior search and the second would undo
-	// the first.
+	// Both halves: the field the operator is looking at, and the params on the
+	// URL that are actually cutting the list. `reset` drops every filter param in
+	// one navigation, which lands on the defaults rather than writing them out.
 	const clearAll = () => {
-		setSearch('');
-		setFilters({
-			search: '',
-			tags: new Set(),
-			regions: new Set(),
-			status: 'open',
-			from: '',
-			to: '',
-		});
+		clearSearchInput();
+		reset();
 	};
+	// What a move to the Table takes with it: status and the date window.
+	const carried = sharedServiceRequestSearch(Route.useSearch());
 	const regions = useRegionOptions();
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -242,6 +199,7 @@ function ServiceRequestsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			actions={<ServiceRequestSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
 			filters={
 				<RequestFilters
@@ -334,7 +292,7 @@ function ServiceRequestsExplorerRoute() {
  * `all` is no status filter at all rather than a third value, and an empty
  * search, tag set or region set drops out so the query names only what narrows.
  */
-function requestTileFilters(query: RequestFilterSet): ServiceRequestTileFilters {
+function requestTileFilters(query: ServiceRequestFilters): ServiceRequestTileFilters {
 	return {
 		...(query.status === 'all' ? {} : { isOpen: query.status === 'open' }),
 		...whenText('search', query.search.trim()),
@@ -484,7 +442,7 @@ function RequestFilterChips({
 	}
 	return (
 		<ActiveFilterBar onClearAll={onClearAll}>
-			<StatusChip onReset={() => setStatus('open')} status={status} />
+			<StatusChip onReset={() => setStatus('all')} status={status} />
 			<SearchChip onClear={() => setSearch('')} search={search} />
 			{availableTags
 				.filter((tag) => selectedTagIds.has(tag.id))
@@ -506,7 +464,7 @@ function RequestFilterChips({
 	);
 }
 
-/** Open is the default, so only Closed or All is worth a chip. */
+/** All is the default, so only Open or Closed is worth a chip. */
 function StatusChip({
 	onReset,
 	status,
@@ -514,10 +472,12 @@ function StatusChip({
 	readonly onReset: () => void;
 	readonly status: StatusFilter;
 }) {
-	if (status === 'open') {
+	if (status === 'all') {
 		return null;
 	}
-	return <FilterChip label={`Status: ${status === 'all' ? 'All' : 'Closed'}`} onRemove={onReset} />;
+	return (
+		<FilterChip label={`Status: ${status === 'open' ? 'Open' : 'Closed'}`} onRemove={onReset} />
+	);
 }
 
 function SearchChip({

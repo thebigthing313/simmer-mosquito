@@ -2,7 +2,6 @@ import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { ListEmpty, ListLoading, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import {
 	Table,
 	TableBody,
@@ -11,18 +10,18 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	ChevronDownIcon,
-	ChevronRightIcon,
-	ChevronUpIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { ChevronRightIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
-import { MultiSelectFilter, SegmentedFilter, ToggleFilter } from '../../../components/explorer';
+import {
+	LoadMore,
+	MultiSelectFilter,
+	SegmentedFilter,
+	SortableHead,
+	ToggleFilter,
+} from '../../../components/explorer';
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
 import {
 	DensityFilter,
@@ -39,7 +38,7 @@ import {
 	sharedInspectionSearch,
 } from '../../../components/larval-surveillance/inspections-search';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useHeldRows } from '../../../hooks/larval-surveillance/use-held-rows';
+import { useHeldRows } from '../../../hooks/explorer/use-held-rows';
 import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
 import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import {
@@ -53,15 +52,13 @@ import {
 	type InspectionSort,
 	type InspectionSortKey,
 	inspectionWindowKey,
-	nextSort,
-	SORT_DIRECTIONS,
-	type SortDirection,
 	useInspectionTable,
 } from '../../../hooks/queries/use-inspection-table';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { choiceParam, type FilterCodecs, searchValidator } from '../../../lib/search-filters';
+import { nextSort, SORT_DIRECTIONS, type SortDirection } from '../../../lib/table-sort';
 
 /**
  * The sort lives in the URL, so a sorted table is a link somebody can send.
@@ -420,55 +417,6 @@ function InspectionsTable({
 	);
 }
 
-/**
- * A column header that sorts, and says which way it is sorting.
- *
- * `aria-sort` on the cell is what a screen reader reads; the chevron is the same
- * fact for everyone else. An unsorted column keeps its chevron back until the
- * pointer or the focus ring is on it, so four headers do not all point
- * somewhere at once and only one of them is the answer.
- */
-function SortableHead({
-	align = 'left',
-	children,
-	onSort,
-	sort,
-	sortKey,
-}: {
-	readonly align?: 'left' | 'right';
-	readonly children: string;
-	readonly onSort: (key: InspectionSortKey) => void;
-	readonly sort: InspectionSort;
-	readonly sortKey: InspectionSortKey;
-}) {
-	const isSorted = sort.key === sortKey;
-	const direction = isSorted ? sort.direction : 'desc';
-	const DirectionIcon = direction === 'asc' ? ChevronUpIcon : ChevronDownIcon;
-	return (
-		<TableHead
-			aria-sort={isSorted ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-			className={align === 'right' ? 'text-right' : undefined}
-		>
-			<Button
-				className="group -mx-2 h-8 px-2 font-medium"
-				onClick={() => onSort(sortKey)}
-				size="sm"
-				type="button"
-				variant="ghost"
-			>
-				{children}
-				<DirectionIcon
-					aria-hidden="true"
-					className={cn(
-						'text-muted-foreground transition-opacity',
-						isSorted ? null : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
-					)}
-				/>
-			</Button>
-		</TableHead>
-	);
-}
-
 function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 	const when = formatListDate(row.inspectionDate);
 	const label = inspectionHabitatLabel(row, row.address);
@@ -510,23 +458,6 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 				</Button>
 			</TableCell>
 		</TableRow>
-	);
-}
-
-function LoadMore({
-	isLoading,
-	onLoadMore,
-}: {
-	readonly isLoading: boolean;
-	readonly onLoadMore: () => void;
-}) {
-	return (
-		<div className="flex justify-center">
-			<Button disabled={isLoading} onClick={onLoadMore} type="button" variant="outline">
-				{isLoading ? <Spinner /> : null}
-				Load more
-			</Button>
-		</div>
 	);
 }
 

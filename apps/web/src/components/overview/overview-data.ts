@@ -133,9 +133,9 @@ export const OVERVIEW_RATIO_LABELS: Readonly<Record<OverviewRatio, string>> = {
 
 /**
  * The explorer a count opens, with `from` and `to` at the period's first and
- * last day. The service requests explorer defaults to open requests and the
- * count is every request received, so that link writes `status=all` beside
- * the dates.
+ * last day. The count is every request received, so the service requests
+ * link writes `status=all` beside the dates, which is also that explorer's
+ * default and stays off the address bar.
  */
 function explorerLink(
 	type: OverviewRecordType,

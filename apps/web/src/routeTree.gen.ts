@@ -59,6 +59,7 @@ import { Route as ControlOperationsChemicalIndexRouteImport } from './routes/con
 import { Route as ControlOperationsBiocontrolIndexRouteImport } from './routes/control-operations/biocontrol/index'
 import { Route as AdultSurveillanceTrapsIndexRouteImport } from './routes/adult-surveillance/traps/index'
 import { Route as AdultSurveillanceCollectionsIndexRouteImport } from './routes/adult-surveillance/collections/index'
+import { Route as PublicEngagementServiceRequestsTableRouteImport } from './routes/public-engagement/service-requests/table'
 import { Route as PublicEngagementServiceRequestsCreateRouteImport } from './routes/public-engagement/service-requests/create'
 import { Route as PublicEngagementServiceRequestsIdRouteImport } from './routes/public-engagement/service-requests/$id'
 import { Route as PublicEngagementOutreachStatsRouteImport } from './routes/public-engagement/outreach/stats'
@@ -411,6 +412,12 @@ const AdultSurveillanceCollectionsIndexRoute =
   AdultSurveillanceCollectionsIndexRouteImport.update({
     id: '/adult-surveillance/collections/',
     path: '/adult-surveillance/collections/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PublicEngagementServiceRequestsTableRoute =
+  PublicEngagementServiceRequestsTableRouteImport.update({
+    id: '/public-engagement/service-requests/table',
+    path: '/public-engagement/service-requests/table',
     getParentRoute: () => rootRouteImport,
   } as any)
 const PublicEngagementServiceRequestsCreateRoute =
@@ -967,6 +974,7 @@ export interface FileRoutesByFullPath {
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
+  '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
   '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
   '/adult-surveillance/traps/': typeof AdultSurveillanceTrapsIndexRoute
   '/control-operations/biocontrol/': typeof ControlOperationsBiocontrolIndexRoute
@@ -1098,6 +1106,7 @@ export interface FileRoutesByTo {
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
+  '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
   '/adult-surveillance/collections': typeof AdultSurveillanceCollectionsIndexRoute
   '/adult-surveillance/traps': typeof AdultSurveillanceTrapsIndexRoute
   '/control-operations/biocontrol': typeof ControlOperationsBiocontrolIndexRoute
@@ -1231,6 +1240,7 @@ export interface FileRoutesById {
   '/public-engagement/outreach/stats': typeof PublicEngagementOutreachStatsRoute
   '/public-engagement/service-requests/$id': typeof PublicEngagementServiceRequestsIdRoute
   '/public-engagement/service-requests/create': typeof PublicEngagementServiceRequestsCreateRoute
+  '/public-engagement/service-requests/table': typeof PublicEngagementServiceRequestsTableRoute
   '/adult-surveillance/collections/': typeof AdultSurveillanceCollectionsIndexRoute
   '/adult-surveillance/traps/': typeof AdultSurveillanceTrapsIndexRoute
   '/control-operations/biocontrol/': typeof ControlOperationsBiocontrolIndexRoute
@@ -1365,6 +1375,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/stats'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
+    | '/public-engagement/service-requests/table'
     | '/adult-surveillance/collections/'
     | '/adult-surveillance/traps/'
     | '/control-operations/biocontrol/'
@@ -1496,6 +1507,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/stats'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
+    | '/public-engagement/service-requests/table'
     | '/adult-surveillance/collections'
     | '/adult-surveillance/traps'
     | '/control-operations/biocontrol'
@@ -1628,6 +1640,7 @@ export interface FileRouteTypes {
     | '/public-engagement/outreach/stats'
     | '/public-engagement/service-requests/$id'
     | '/public-engagement/service-requests/create'
+    | '/public-engagement/service-requests/table'
     | '/adult-surveillance/collections/'
     | '/adult-surveillance/traps/'
     | '/control-operations/biocontrol/'
@@ -1753,6 +1766,7 @@ export interface RootRouteChildren {
   PublicEngagementOutreachStatsRoute: typeof PublicEngagementOutreachStatsRoute
   PublicEngagementServiceRequestsIdRoute: typeof PublicEngagementServiceRequestsIdRoute
   PublicEngagementServiceRequestsCreateRoute: typeof PublicEngagementServiceRequestsCreateRoute
+  PublicEngagementServiceRequestsTableRoute: typeof PublicEngagementServiceRequestsTableRoute
   AdultSurveillanceCollectionsIndexRoute: typeof AdultSurveillanceCollectionsIndexRoute
   AdultSurveillanceTrapsIndexRoute: typeof AdultSurveillanceTrapsIndexRoute
   ControlOperationsBiocontrolIndexRoute: typeof ControlOperationsBiocontrolIndexRoute
@@ -2148,6 +2162,13 @@ declare module '@tanstack/react-router' {
       path: '/adult-surveillance/collections'
       fullPath: '/adult-surveillance/collections/'
       preLoaderRoute: typeof AdultSurveillanceCollectionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public-engagement/service-requests/table': {
+      id: '/public-engagement/service-requests/table'
+      path: '/public-engagement/service-requests/table'
+      fullPath: '/public-engagement/service-requests/table'
+      preLoaderRoute: typeof PublicEngagementServiceRequestsTableRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/public-engagement/service-requests/create': {
@@ -2838,6 +2859,8 @@ const rootRouteChildren: RootRouteChildren = {
     PublicEngagementServiceRequestsIdRoute,
   PublicEngagementServiceRequestsCreateRoute:
     PublicEngagementServiceRequestsCreateRoute,
+  PublicEngagementServiceRequestsTableRoute:
+    PublicEngagementServiceRequestsTableRoute,
   AdultSurveillanceCollectionsIndexRoute:
     AdultSurveillanceCollectionsIndexRoute,
   AdultSurveillanceTrapsIndexRoute: AdultSurveillanceTrapsIndexRoute,
