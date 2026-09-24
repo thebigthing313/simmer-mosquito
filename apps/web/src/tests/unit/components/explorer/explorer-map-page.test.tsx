@@ -165,7 +165,7 @@ function Page({
 	 * Hand over the paged shape instead of two sentences, which is what the nine
 	 * viewport-paged explorers do, and let the frame write the copy.
 	 */
-	readonly emptyReason?: ExplorerEmptyReason | null;
+	readonly emptyReason?: ExplorerEmptyReason;
 	readonly onResetFilters?: () => void;
 	readonly create?:
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
@@ -436,11 +436,21 @@ describe('ExplorerMapPage', () => {
 		});
 
 		it('draws placeholders rather than a reason while the extent is still out', () => {
-			render(<Page emptyReason={null} isLoading rows={[]} />);
+			render(<Page emptyReason="loading" isLoading rows={[]} />);
 
 			expect(skeletonCount()).toBeGreaterThan(0);
 			expect(screen.queryByText('No habitats in view')).toBeNull();
 			expect(screen.queryByText('No habitats yet')).toBeNull();
+		});
+
+		// The reason alone is enough, and the pager holds back: a count of none
+		// read as an answer while nothing had been asked yet.
+		it('holds the pager back and draws placeholders on the loading reason alone', () => {
+			render(<Page emptyReason="loading" hasPager rows={[]} />);
+
+			expect(skeletonCount()).toBeGreaterThan(0);
+			expect(screen.queryByText('pager')).toBeNull();
+			expect(screen.queryByText('Loading habitats')).toBeNull();
 		});
 	});
 

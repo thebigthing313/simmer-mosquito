@@ -645,7 +645,7 @@ describe('useExplorerResource: why the rail is empty', () => {
 		filters: { search: 'pond' },
 	};
 
-	function renderRail(layer: MapTileLayer, map: MapboxMap) {
+	function renderRail(layer: MapTileLayer, map: MapboxMap | null) {
 		return renderHook(
 			() => ({
 				rail: useExplorerResource<Row>({
@@ -716,7 +716,7 @@ describe('useExplorerResource: why the rail is empty', () => {
 
 	// The rail cannot say which of the three it is until the extent has answered,
 	// so it reports loading and the placeholders stay up.
-	it('reports loading, and no reason, while the extent is in flight', async () => {
+	it('reports loading, and the loading reason, while the extent is in flight', async () => {
 		const extent = deferred<{ extent: null }>();
 		answer = (url) => (url.pathname.endsWith('/extent') ? extent.promise : { rows: [], total: 0 });
 		const fake = createFakeMap();
@@ -725,12 +725,26 @@ describe('useExplorerResource: why the rail is empty', () => {
 
 		await waitFor(() => expect(result.current.rail.isSettled).toBe(true));
 		expect(result.current.rail.isLoading).toBe(true);
-		expect(result.current.rail.empty.reason).toBeNull();
+		expect(result.current.rail.empty.reason).toBe('loading');
 
 		extent.resolve({ extent: null });
 
 		await waitFor(() => expect(result.current.rail.empty.reason).toBe('none'));
 		expect(result.current.rail.isLoading).toBe(false);
+	});
+
+	// The page query waits for the map's viewport, and a waiting query is not a
+	// loading one to React Query. A cold map read as an empty, settled page and
+	// the rail said "No habitats in view" for as long as the map took to load.
+	it('reports loading while the map has not reported a viewport', async () => {
+		withExtent(BOX);
+
+		const { result } = renderRail(UNFILTERED, null);
+
+		await waitFor(() => expect(requestCounts('/map/habitats').extent).toBe(1));
+		expect(result.current.rail.isLoading).toBe(true);
+		expect(result.current.rail.empty.reason).toBe('loading');
+		expect(requestCounts('/map/habitats').page).toBe(0);
 	});
 
 	// A failed extent settles nothing about the set, so the rail says what it

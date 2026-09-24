@@ -7,6 +7,11 @@ import type { ExplorerCreateAction } from './explorer-header';
 /**
  * Why a paged rail is empty, read off state the explorer already holds.
  *
+ * - `loading`: the map has not reported a viewport yet, or the page or the
+ *   extent request is still out. Nothing is known, so the rail draws its
+ *   placeholders and the count and pager say nothing. Before this was its own
+ *   answer the rail read the wait as `viewport` and said "No habitats in
+ *   view" and "None" for the 10 to 20 seconds a cold map takes to load.
  * - `viewport`: the filtered set has an extent, so there are matches somewhere
  *   and the bounded page happens to hold none. Pan or zoom.
  * - `filters`: the extent is null and the request narrowed by something, a
@@ -25,16 +30,12 @@ import type { ExplorerCreateAction } from './explorer-header';
  * is reached by choosing All time or All status, which is when the sentence
  * "No habitats yet" is true.
  */
-export type ExplorerEmptyReason = 'viewport' | 'filters' | 'none';
+export type ExplorerEmptyReason = 'loading' | 'viewport' | 'filters' | 'none';
 
 /** What the rail draws when the page holds nothing, and what it is a page of. */
 export interface ExplorerEmptiness {
 	readonly recordType: RecordType;
-	/**
-	 * Null while the extent request is in flight. The resource reports loading
-	 * then, so the rail draws its placeholders and reads none of the three.
-	 */
-	readonly reason: ExplorerEmptyReason | null;
+	readonly reason: ExplorerEmptyReason;
 }
 
 /** The empty state, in the three pieces `ResultList` draws. */
@@ -76,6 +77,10 @@ export function emptyRailCopy({
 }): EmptyRailCopy {
 	const { many } = recordNoun(empty.recordType);
 	switch (empty.reason) {
+		// Drawn as placeholders by the frame, so this copy is only what a caller
+		// that ignores the reason would show.
+		case 'loading':
+			return { emptyTitle: `Loading ${many}` };
 		case 'filters':
 			return {
 				emptyTitle: `No ${many} match these filters`,

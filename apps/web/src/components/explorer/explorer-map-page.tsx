@@ -323,6 +323,11 @@ function ResultsPanel<TRow>({
 }) {
 	const { skeletonClassName, isError, onRetry } = results;
 	const { isEmpty, content } = resultContent(results);
+	// A paged caller's resource says `loading` until the map has a viewport and
+	// both requests have answered. Until then there is no count to page, so the
+	// pager is held back rather than reading "None".
+	const isLoading = heading.isLoading || results.empty?.reason === 'loading';
+	const showFooter = footer !== undefined && !(isLoading && isEmpty);
 	const empty = emptyCopy(results, {
 		create: heading.create,
 		activeFilterCount,
@@ -368,20 +373,20 @@ function ResultsPanel<TRow>({
 				{toolbar}
 			</ExplorerHeader>
 
-			{footer === undefined || isEmpty ? null : <SkipResults targetRef={footerRef} />}
+			{!showFooter || isEmpty ? null : <SkipResults targetRef={footerRef} />}
 
 			<ResultList
 				{...empty}
 				isEmpty={isEmpty}
 				isError={isError ?? false}
-				isLoading={heading.isLoading}
+				isLoading={isLoading}
 				onRetry={onRetry}
 				{...(skeletonClassName === undefined ? {} : { skeletonClassName })}
 			>
 				{content}
 			</ResultList>
 
-			{footer === undefined ? null : (
+			{!showFooter ? null : (
 				// `tabIndex={-1}`: the skip control focuses this, and the next Tab
 				// carries on into the pager's own buttons from here.
 				<div className="border-border/50 border-t p-3" ref={footerRef} tabIndex={-1}>
