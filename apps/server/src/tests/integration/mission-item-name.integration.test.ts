@@ -54,13 +54,13 @@ describeDbIntegration('mission stop names', () => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org);
 			const app = commandApp(db, org, actor);
-			const spaces = crypto.randomUUID();
-			const omitted = crypto.randomUUID();
+			const spacesId = crypto.randomUUID();
+			const omittedId = crypto.randomUUID();
 
 			const spacesResponse = await app.request(
 				'/commands/mission_items',
 				command('POST', ['missionDispatch.addMissionItem'], {
-					id: spaces,
+					id: spacesId,
 					mission_id: missionId,
 					name: '   ',
 					geometry: POINT,
@@ -69,7 +69,7 @@ describeDbIntegration('mission stop names', () => {
 			const omittedResponse = await app.request(
 				'/commands/mission_items',
 				command('POST', ['missionDispatch.addMissionItem'], {
-					id: omitted,
+					id: omittedId,
 					mission_id: missionId,
 					geometry: POINT,
 				}),
@@ -77,8 +77,8 @@ describeDbIntegration('mission stop names', () => {
 
 			expect(spacesResponse.status).toBe(201);
 			expect(omittedResponse.status).toBe(201);
-			expect(await readName(db, spaces)).toBeNull();
-			expect(await readName(db, omitted)).toBeNull();
+			expect(await readName(db, spacesId)).toBeNull();
+			expect(await readName(db, omittedId)).toBeNull();
 		});
 	});
 
@@ -113,13 +113,13 @@ describeDbIntegration('mission stop names', () => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org);
 			const app = commandApp(db, org, actor);
-			const spaces = crypto.randomUUID();
-			const omitted = crypto.randomUUID();
+			const spacesId = crypto.randomUUID();
+			const omittedId = crypto.randomUUID();
 
 			const spacesResponse = await app.request(
 				'/commands/mission_items',
 				command('POST', ['missionDispatch.addMissionItemFromRequestedControlAction'], {
-					id: spaces,
+					id: spacesId,
 					mission_id: missionId,
 					name: '  ',
 					requested_control_action_id: await createRequestedControlAction(db, org),
@@ -128,7 +128,7 @@ describeDbIntegration('mission stop names', () => {
 			const omittedResponse = await app.request(
 				'/commands/mission_items',
 				command('POST', ['missionDispatch.addMissionItemFromRequestedControlAction'], {
-					id: omitted,
+					id: omittedId,
 					mission_id: missionId,
 					requested_control_action_id: await createRequestedControlAction(db, org),
 				}),
@@ -136,8 +136,8 @@ describeDbIntegration('mission stop names', () => {
 
 			expect(spacesResponse.status).toBe(201);
 			expect(omittedResponse.status).toBe(201);
-			expect(await readName(db, spaces)).toBeNull();
-			expect(await readName(db, omitted)).toBeNull();
+			expect(await readName(db, spacesId)).toBeNull();
+			expect(await readName(db, omittedId)).toBeNull();
 		});
 	});
 
@@ -149,10 +149,10 @@ describeDbIntegration('mission stop names', () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = crypto.randomUUID();
-			const placed = crypto.randomUUID();
-			const drawn = crypto.randomUUID();
-			const spaces = crypto.randomUUID();
-			const omitted = crypto.randomUUID();
+			const placedId = crypto.randomUUID();
+			const drawnId = crypto.randomUUID();
+			const spacesId = crypto.randomUUID();
+			const omittedId = crypto.randomUUID();
 
 			const response = await commandApp(db, org, actor).request(
 				'/commands/missions',
@@ -163,25 +163,25 @@ describeDbIntegration('mission stop names', () => {
 					// The initial stops are read from `mission_items` and nowhere else, so
 					// a body naming them anything else creates a mission with none.
 					mission_items: [
-						{ id: placed, kind: 'explicit', name: ' South gate ', geometry: POINT },
+						{ id: placedId, kind: 'explicit', name: ' South gate ', geometry: POINT },
 						{
-							id: drawn,
+							id: drawnId,
 							kind: 'fromRequestedControlAction',
 							name: 'Levee ditch  ',
 							requested_control_action_id: await createRequestedControlAction(db, org),
 						},
-						{ id: spaces, kind: 'explicit', name: '    ', geometry: POINT },
-						{ id: omitted, kind: 'explicit', geometry: POINT },
+						{ id: spacesId, kind: 'explicit', name: '    ', geometry: POINT },
+						{ id: omittedId, kind: 'explicit', geometry: POINT },
 					],
 				}),
 			);
 
 			expect(response.status).toBe(201);
 			expect(await countStops(db, missionId)).toBe(4);
-			expect(await readName(db, placed)).toBe('South gate');
-			expect(await readName(db, drawn)).toBe('Levee ditch');
-			expect(await readName(db, spaces)).toBeNull();
-			expect(await readName(db, omitted)).toBeNull();
+			expect(await readName(db, placedId)).toBe('South gate');
+			expect(await readName(db, drawnId)).toBe('Levee ditch');
+			expect(await readName(db, spacesId)).toBeNull();
+			expect(await readName(db, omittedId)).toBeNull();
 		});
 	});
 
@@ -205,7 +205,15 @@ describeDbIntegration('mission stop names', () => {
 		});
 	});
 
-	it('clears a stored name on a rename to null, and leaves every other column', async () => {
+	// Once per kind of progress, because `mission_items_progress_exclusive` keeps a
+	// stop from being completed and skipped at once, and a column left null cannot
+	// show a rename that nulls it.
+	it.each([
+		{ progress: 'completed', skipped: false },
+		{ progress: 'skipped', skipped: true },
+	])('clears a stored name on a rename to null, and leaves every other column of a $progress stop', async ({
+		skipped,
+	}) => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId: org, actorProfileId: actor } = await createActingOrganization(db);
 			const missionId = await createMission(db, org);
@@ -216,8 +224,16 @@ describeDbIntegration('mission stop names', () => {
 				position: 3,
 				address_id: await createAddress(db, org),
 				requested_control_action_id: await createRequestedControlAction(db, org),
-				completed_at: sql`timestamptz '2026-08-10 09:30:00+00'`,
-				completed_by_profile_id: actor,
+				...(skipped
+					? {
+							skipped_at: sql`timestamptz '2026-08-10 09:00:00+00'`,
+							skipped_by_profile_id: actor,
+							skip_reason: 'Locked gate',
+						}
+					: {
+							completed_at: sql`timestamptz '2026-08-10 09:30:00+00'`,
+							completed_by_profile_id: actor,
+						}),
 			});
 			const before = await readStop(db, stopId);
 
@@ -267,9 +283,9 @@ function createMission(db: Db, organizationId: string): Promise<string> {
 }
 
 /**
- * A request the source reduction mission above can take a stop from: the same
- * control type and no recommended method, so no acknowledgement has a question
- * to ask and the add goes through.
+ * A request the source reduction mission above can take a stop from. It has the
+ * same control type and no recommended method, so no acknowledgement has a
+ * question to ask and the add goes through.
  */
 function createRequestedControlAction(db: Db, organizationId: string): Promise<string> {
 	return insertRequestedControlAction(db, organizationId, {
@@ -295,7 +311,6 @@ async function readStop(db: Db, missionItemId: string) {
 	return db
 		.selectFrom('mission_items')
 		.selectAll()
-		.select(sql<string>`st_astext(geom)`.as('geom_text'))
 		.where('id', '=', missionItemId)
 		.executeTakeFirstOrThrow();
 }
