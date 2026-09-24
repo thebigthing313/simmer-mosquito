@@ -4,6 +4,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useState } from 'react';
 import { useActivityStrip } from '../../hooks/dashboard/use-activity-strip';
+import { formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 import {
@@ -132,7 +133,9 @@ function ActivityCell({
 	return (
 		<div className="grid gap-0.5 px-3 py-2.5">
 			<span className="flex items-baseline gap-1.5">
-				<span className="font-semibold text-xl tabular-nums leading-none">{cell.count}</span>
+				<span className="font-semibold text-xl tabular-nums leading-none">
+					{formatCount(cell.count)}
+				</span>
 				<span
 					className={cn(
 						'inline-flex items-center gap-0.5 text-xs tabular-nums',

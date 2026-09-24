@@ -90,11 +90,12 @@ describe('the words on the page', () => {
 		expect(trendHeading('year', '2026')).toBe('By year');
 	});
 
-	it('formats a share to whole points, a rate to one decimal, and an average to one', () => {
+	it('formats a share to whole points, a rate to one decimal, and a count whole', () => {
 		expect(formatRatio('positiveInspections', 0.3417)).toBe('34%');
 		expect(formatRatio('mosquitoesPerCollection', 12.44)).toBe('12.4');
 		expect(formatCell(3210)).toBe('3,210');
-		expect(formatCell(104.44)).toBe('104.4');
+		expect(formatCell(104.44)).toBe('104');
+		expect(formatCell(4671.7)).toBe('4,672');
 	});
 });
 

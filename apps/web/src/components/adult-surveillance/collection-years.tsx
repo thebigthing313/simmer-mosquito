@@ -11,6 +11,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { type ReactNode, useState } from 'react';
+import { formatCount } from '../../lib/format-count';
 import { CollectionRow } from './collection-row';
 import type { CollectionYear } from './trap-directory-data';
 import { DirectoryTab, DirectoryTabsList } from './trap-directory-tabs';
@@ -90,7 +91,7 @@ export function CollectionYears({
 									<DirectoryTab key={year.key} value={year.key}>
 										{year.label}
 										<span className="text-muted-foreground text-xs tabular-nums">
-											{year.collections.length}
+											{formatCount(year.collections.length)}
 										</span>
 									</DirectoryTab>
 								))}

@@ -265,9 +265,13 @@ export function formatRatio(ratio: OverviewRatio, value: number): string {
 	return ratio === 'positiveInspections' ? `${Math.round(value * 100)}%` : formatCount(value, 1);
 }
 
-/** A count cell: whole numbers as they are, an average to one decimal. */
+/**
+ * A count cell, rounded to a whole number. A five-year average of a count is
+ * still a count of records, and `4,671.7 inspections` claims a precision the
+ * comparison does not have.
+ */
 export function formatCell(value: number): string {
-	return formatCount(value, Number.isInteger(value) ? 0 : 1);
+	return formatCount(Math.round(value));
 }
 
 /**

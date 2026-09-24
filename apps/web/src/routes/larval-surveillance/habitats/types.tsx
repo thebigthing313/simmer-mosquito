@@ -35,6 +35,7 @@ import type { SchemaCatalogRecord } from '../../../hooks/queries/catalog-record-
 import { useHabitatTypeRecords } from '../../../hooks/queries/use-habitat-type-records';
 import { useAcknowledgedWrite } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { formatCount } from '../../../lib/format-count';
 
 export const Route = createFileRoute('/larval-surveillance/habitats/types')({
 	component: HabitatTypesRoute,
@@ -196,7 +197,7 @@ function SitesCount({ count, isLoading }: { readonly count: number; readonly isL
 			)}
 		>
 			<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-			{count}
+			{formatCount(count)}
 		</span>
 	);
 }
