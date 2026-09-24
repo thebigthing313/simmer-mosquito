@@ -48,17 +48,38 @@ function contactMatches<
 	if (query.length === 0) {
 		return contacts;
 	}
-	return contacts.filter((contact) =>
-		[
-			contact.contactName,
-			contact.company,
-			contact.department,
-			contact.title,
-			contact.email,
-			contact.preferredPhone,
-			contact.alternatePhone,
-		].some((part) => (part ?? '').toLowerCase().includes(query)),
+	const digits = phoneDigits(query);
+	return contacts.filter(
+		(contact) =>
+			[
+				contact.contactName,
+				contact.company,
+				contact.department,
+				contact.title,
+				contact.email,
+				contact.preferredPhone,
+				contact.alternatePhone,
+			].some((part) => (part ?? '').toLowerCase().includes(query)) ||
+			(digits !== null &&
+				[contact.preferredPhone, contact.alternatePhone].some((phone) =>
+					(phone ?? '').replace(/\D/g, '').includes(digits),
+				)),
 	);
+}
+
+/**
+ * The digits of a search that reads as part of a phone number, or null.
+ *
+ * A number is drawn as `(555) 123-4567` whatever spelling it was stored under,
+ * so a person searching for what they see has to find `555.123.4567` too. A
+ * search of punctuation alone has no digits and would match every number.
+ */
+function phoneDigits(query: string): string | null {
+	if (!/^[\d\s().+-]+$/.test(query)) {
+		return null;
+	}
+	const digits = query.replace(/\D/g, '');
+	return digits.length === 0 ? null : digits;
 }
 
 function ContactsExplorerRoute() {

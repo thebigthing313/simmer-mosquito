@@ -308,6 +308,24 @@ describe('mergeFieldSummary', () => {
 		]);
 	});
 
+	it('draws two spellings of one number the same way', () => {
+		// The row is where two contacts are compared, and `555.214.8890` beside
+		// `(555) 214-8890` reads as two numbers when it is one.
+		expect(
+			mergeFieldSummary(
+				'contact',
+				record(KEPT, 'Maria Alvarez', {
+					contact_name: 'Maria Alvarez',
+					preferred_phone: '555.214.8890',
+					alternate_phone: '+1 555 900 4417 x3',
+				}),
+			),
+		).toEqual([
+			{ column: 'preferred_phone', label: 'Preferred phone', value: '(555) 214-8890' },
+			{ column: 'alternate_phone', label: 'Alternate phone', value: '(555) 900-4417 ext. 3' },
+		]);
+	});
+
 	it('reads an address back in the register order, without repeating the name', () => {
 		expect(
 			mergeFieldSummary(

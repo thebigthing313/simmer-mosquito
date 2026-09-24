@@ -69,16 +69,16 @@ describe('duplicateGroupHeading', () => {
 		expect(duplicateGroupHeading(emails)).toBe('Same email: a.reyes@example.org');
 	});
 
-	it('shows the compared digits for a phone, never the name of the contact', () => {
+	it('shows the compared number for a phone, never the name of the contact', () => {
 		// The trap: a contact's label is their name, so taking the heading off the
 		// first record would head a phone group with a person.
 		const phones = group({
 			reason: 'same_phone',
-			value: '5550100',
+			value: '7325550100',
 			records: [record('K Osei'), record('Kofi Osei')],
 		});
 
-		expect(duplicateGroupHeading(phones)).toBe('Same phone: 5550100');
+		expect(duplicateGroupHeading(phones)).toBe('Same phone: (732) 555-0100');
 	});
 
 	it('spells a shared street the way the records write it, off the column', () => {

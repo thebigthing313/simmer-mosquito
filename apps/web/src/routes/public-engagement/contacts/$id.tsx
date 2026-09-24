@@ -9,6 +9,7 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -81,8 +82,8 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					</CardHeader>
 					<CardContent className="grid gap-4" padding="compact">
 						<DetailList>
-							<DetailRow label="Preferred">{contact.preferredPhone}</DetailRow>
-							<DetailRow label="Alternate">{contact.alternatePhone}</DetailRow>
+							<DetailRow label="Preferred">{formatPhoneNumber(contact.preferredPhone)}</DetailRow>
+							<DetailRow label="Alternate">{formatPhoneNumber(contact.alternatePhone)}</DetailRow>
 							<DetailRow label="Email">{mailtoLink(contact.email)}</DetailRow>
 						</DetailList>
 						<div className="flex flex-wrap gap-1.5">

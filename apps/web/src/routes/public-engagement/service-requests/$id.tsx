@@ -10,6 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -544,8 +545,12 @@ function ContactParty({ contactId }: { readonly contactId: string }) {
 				<PartyRow label="Company" primary={primary} value={contact.company} />
 				<PartyRow label="Department" value={contact.department} />
 				<PartyRow label="Title" value={contact.title} />
-				<PartyRow label="Preferred" primary={primary} value={contact.preferredPhone} />
-				<PartyRow label="Alternate" value={contact.alternatePhone} />
+				<PartyRow
+					label="Preferred"
+					primary={primary}
+					value={formatPhoneNumber(contact.preferredPhone)}
+				/>
+				<PartyRow label="Alternate" value={formatPhoneNumber(contact.alternatePhone)} />
 				<PartyRow
 					href={mailtoHref(contact.email)}
 					label="Email"
