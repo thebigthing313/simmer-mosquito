@@ -1,11 +1,18 @@
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
+	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { useUnavailableRecordTrail } from '../../hooks/record/use-unavailable-record-trail';
 import { type RecordType, recordNoun } from '../../lib/record-nouns';
+
+const BackIcon = iconRegistry.arrows.arrowLeft.icon;
 
 /**
  * Why a record page has nothing to show.
@@ -34,6 +41,11 @@ export type RecordUnavailableReason = 'error' | 'not-found';
  * second way to say the same heading is a second place for it to drift, and a
  * free-text noun was exactly that: the same record read `Request Unavailable`
  * on one route and `Request For Control Unavailable` on the next.
+ *
+ * It links back to the list the record would have been opened from, named by
+ * the register's plural, and puts `Unknown <record>` in the breadcrumb in place
+ * of the raw id. A failed read names the record type alone there, since the
+ * record may well exist.
  */
 export function RecordUnavailable({
 	recordType,
@@ -47,7 +59,8 @@ export function RecordUnavailable({
 	readonly description?: ReactNode;
 	readonly layout?: 'inline' | 'centered';
 }) {
-	const { one, title } = recordNoun(recordType);
+	const { one, title, titleMany } = recordNoun(recordType);
+	const listPath = useUnavailableRecordTrail(reason === 'not-found' ? `Unknown ${one}` : title);
 	const body = (
 		<Empty
 			className={
@@ -60,6 +73,16 @@ export function RecordUnavailable({
 				<EmptyTitle>{`${title} Unavailable`}</EmptyTitle>
 				<EmptyDescription>{description ?? defaultDescription(one, reason)}</EmptyDescription>
 			</EmptyHeader>
+			{listPath === null ? null : (
+				<EmptyContent>
+					<Button asChild size="sm" variant="outline">
+						<Link to={listPath as never}>
+							<BackIcon aria-hidden="true" />
+							{`Back to ${titleMany}`}
+						</Link>
+					</Button>
+				</EmptyContent>
+			)}
 		</Empty>
 	);
 

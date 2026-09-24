@@ -696,6 +696,23 @@ button is pressed and the card holding the button unmounts before the refusal
 lands. The hook therefore lives in whatever survives that, and the button
 gets `AskAcknowledged`.
 
+#### useUnavailableRecordTrail
+
+`RecordUnavailable` was a dead end: a heading, a sentence, no way out, and a
+breadcrumb ending in `#00000000-0000-...` because nothing had registered a
+label for the id segment. The hook does both halves, since both are read off
+the same `$id`.
+
+The list path is the pathname cut at the id rather than a register keyed by
+record type. A register cannot say where a Route lives, because routes have
+two lists, `/larval-surveillance/habitats/routes` and
+`/adult-surveillance/traps/routes`, and every detail and edit route in the app
+sits directly under an `index.tsx` list, which is what the cut relies on.
+
+It reads the router, so a suite rendering `RecordUnavailable` mocks
+`useParams`, `useLocation` and `Link`, the way the record frame suites already
+mock `Link`.
+
 #### useResetOnOpen
 
 Opening is the only moment the defaults are right: a dialog mounted by a row
