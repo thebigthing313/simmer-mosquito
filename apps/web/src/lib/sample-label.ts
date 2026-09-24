@@ -1,14 +1,21 @@
 /**
- * A label for a sample cup the crew has not labeled yet: `WL-0924-7GQ4-X`.
+ * A label for a sample cup the crew has not labeled yet, `WL-0924-7G9X-T`.
  *
  * The inspector's initials and the inspection's month and day narrow a clash to
  * one inspector's samples on one day, so four random characters are enough to
  * separate them. The random characters and the check character are Crockford
  * base 32, which leaves out `I`, `L`, `O` and `U` so a handwritten label reads
  * back one way. The check character is Luhn mod 32 over the whole label, so a
- * single mistyped character or two adjacent characters swapped fail the check
- * when the label is typed back in. `taken` is every label already in the form,
- * compared the way the server compares them, trimmed and case folded.
+ * single mistyped character fails the check when the label is typed back in, and
+ * so does every swap of two adjacent characters except `0` with `Z`. Crockford's
+ * own mod 37 check catches that swap too, at the cost of `*`, `~`, `$`, `=` and
+ * `U` as check characters, which read badly on a cup. Nothing reads the check
+ * back yet.
+ *
+ * `taken` is every label already in the form, compared the way the server
+ * compares them, trimmed and case folded. The samples an inspection already
+ * holds are not in the form, so an edit leans on the four random characters
+ * alone against those.
  *
  * `inspectionDate` is `YYYY-MM-DD`; anything else returns null, since a label
  * without its day is a label the lab cannot place.
@@ -35,7 +42,7 @@ export function generateSampleLabel(
 			return label;
 		}
 	}
-	throw new Error('No unused sample label after 16 attempts.');
+	throw new Error(`No unused sample label after ${MAX_ATTEMPTS} attempts.`);
 }
 
 /** First and last name initials, ASCII letters only; none when the name has no letters. */

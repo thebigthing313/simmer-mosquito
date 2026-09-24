@@ -40,13 +40,23 @@ describe('SamplesSection', () => {
 	it('leaves the initials off when no inspector is picked', () => {
 		const onChange = renderSection(null);
 
-		fireEvent.click(screen.getByRole('button', { name: 'Generate a label for sample 1' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Generate a label for sample 2' }));
 
-		expect(onChange.mock.calls[0]?.[0]?.[0]?.label).toMatch(/^0924-[0-9A-HJKMNP-TV-Z]{4}-.$/);
+		expect(onChange.mock.calls[0]?.[0]?.[1]?.label).toMatch(/^0924-[0-9A-HJKMNP-TV-Z]{4}-.$/);
 	});
 
 	it('cannot generate before the inspection has a date', () => {
 		renderSection('William Lynch', '');
+
+		expect(screen.getByRole('button', { name: 'Generate a label for sample 2' })).toHaveProperty(
+			'disabled',
+			true,
+		);
+	});
+
+	// A typed label is the one already on the cup, so Generate never writes over it.
+	it('cannot generate over a label already typed', () => {
+		renderSection('William Lynch');
 
 		expect(screen.getByRole('button', { name: 'Generate a label for sample 1' })).toHaveProperty(
 			'disabled',

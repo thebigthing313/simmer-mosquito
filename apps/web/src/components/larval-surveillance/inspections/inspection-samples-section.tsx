@@ -23,7 +23,7 @@ export function SamplesSection({
 	readonly value: readonly InspectionSampleDraft[];
 	readonly isEditing: boolean;
 	readonly inspectorName: string | null;
-	/** `YYYY-MM-DD`; Generate is disabled until the form has one. */
+	/** `YYYY-MM-DD`; Generate is disabled until the form has one, and on a row already labeled. */
 	readonly inspectionDate: string;
 	readonly onChange: (next: readonly InspectionSampleDraft[]) => void;
 }) {
@@ -68,7 +68,7 @@ export function SamplesSection({
 								/>
 								<Button
 									aria-label={`Generate a label for sample ${index + 1}`}
-									disabled={inspectionDate === ''}
+									disabled={inspectionDate === '' || sample.label.trim() !== ''}
 									onClick={() => generateLabel(sample.id)}
 									size="sm"
 									type="button"

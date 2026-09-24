@@ -76,9 +76,28 @@ describe('generateSampleLabel', () => {
 	});
 
 	it('changes the check when two adjacent characters swap', () => {
-		const label = generateSampleLabel('William Lynch', DATE, [], sequence([3, 8, 5, 5]));
-		const swapped = generateSampleLabel('William Lynch', DATE, [], sequence([8, 3, 5, 5]));
-		expect(checkOf(label)).not.toBe(checkOf(swapped));
+		for (let left = 0; left < 32; left += 1) {
+			for (let right = 0; right < 32; right += 1) {
+				const label = generateSampleLabel('William Lynch', DATE, [], sequence([left, right, 5, 5]));
+				const swapped = generateSampleLabel(
+					'William Lynch',
+					DATE,
+					[],
+					sequence([right, left, 5, 5]),
+				);
+				// Luhn mod 32's one blind spot, 0 and 31, which the docblock names.
+				const blind = (left === 0 && right === 31) || (left === 31 && right === 0);
+				if (left !== right && !blind) {
+					expect(checkOf(swapped), `${label} and ${swapped}`).not.toBe(checkOf(label));
+				}
+			}
+		}
+	});
+
+	it('writes one initial for a one-word name', () => {
+		expect(generateSampleLabel('Cher', DATE, [], sequence([1, 2, 3, 4]))).toMatch(
+			/^C-0924-1234-.$/,
+		);
 	});
 
 	// The server refuses two labels on one inspection that match after trimming
