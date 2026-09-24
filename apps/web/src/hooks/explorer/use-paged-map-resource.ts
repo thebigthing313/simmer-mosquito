@@ -7,6 +7,16 @@ import { type RecordType, recordNoun } from '../../lib/record-nouns';
 /** Rows per page on every explorer. */
 const PAGE_SIZE = 50;
 
+/**
+ * The `bbox` a surface with no map sends, which is the whole of WGS 84.
+ *
+ * Every `/map/*` list read narrows to a box and requires one, since #920 took
+ * the box-less read out so a rail could not list a different set from the map
+ * beside it. A table over every record has no viewport, so it asks for the box
+ * every stored geometry sits in and gets the filtered set whole.
+ */
+export const WHOLE_WORLD_BBOX = '-180,-90,180,90';
+
 /** What a filter set contributes to a `/map/*` list request. */
 export type MapQueryValue = string | number | boolean | readonly string[] | null | undefined;
 

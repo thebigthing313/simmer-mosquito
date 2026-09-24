@@ -29,8 +29,12 @@ import { ActivityLog } from '../../components/activity/activity-log';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
+import { HabitatSurfaceSwitch } from '../../components/larval-surveillance/habitats/habitat-surface-switch';
+import { sharedHabitatSearch } from '../../components/larval-surveillance/habitats/habitats-search';
 import { InspectionSurfaceSwitch } from '../../components/larval-surveillance/inspection-surface-switch';
 import { sharedInspectionSearch } from '../../components/larval-surveillance/inspections-search';
+import { SampleSurfaceSwitch } from '../../components/larval-surveillance/samples/sample-surface-switch';
+import { sharedSampleSearch } from '../../components/larval-surveillance/samples-search';
 import { PeopleSection } from '../../components/my-organization/people';
 import { OverviewTable } from '../../components/overview/overview-table';
 import { UpwardLine } from '../../components/overview/overview-upward-line';
@@ -414,6 +418,67 @@ describe('the Service Requests Map/Table switch', () => {
 		);
 
 		expect(linkHref('Map')).toBe(`/public-engagement/service-requests?${CARRIED}`);
+	});
+});
+
+/**
+ * The Habitats Map/Table switch. Both surfaces read `/map/habitats`, so every
+ * filter applies on both and every filter is carried, Tags, Regions and
+ * Untreated included.
+ */
+describe('the Habitats Map/Table switch', () => {
+	const ADDRESS = {
+		search: 'ditch',
+		status: 'all',
+		tagIds: ['tag-1'],
+		regions: ['region-1'],
+		untreated: true,
+	};
+	const CARRIED =
+		'search=ditch&status=all&tagIds=%5B%22tag-1%22%5D&regions=%5B%22region-1%22%5D&untreated=true';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<HabitatSurfaceSwitch current="map" search={sharedHabitatSearch({ ...ADDRESS, page: 3 })} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/larval-surveillance/habitats/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<HabitatSurfaceSwitch current="table" search={sharedHabitatSearch(ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/larval-surveillance/habitats?${CARRIED}`);
+	});
+});
+
+/**
+ * The Samples Map/Table switch. Both surfaces read `/map/samples`, so every
+ * filter is carried, species and regions included.
+ */
+describe('the Samples Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-08-01',
+		to: '2026-08-31',
+		status: 'identified',
+		species: ['species-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-08-01&to=2026-08-31&status=identified&species=%5B%22species-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table', () => {
+		renderWithRouter(<SampleSurfaceSwitch current="map" search={sharedSampleSearch(ADDRESS)} />);
+
+		expect(linkHref('Table')).toBe(`/larval-surveillance/samples/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(<SampleSurfaceSwitch current="table" search={sharedSampleSearch(ADDRESS)} />);
+
+		expect(linkHref('Map')).toBe(`/larval-surveillance/samples?${CARRIED}`);
 	});
 });
 

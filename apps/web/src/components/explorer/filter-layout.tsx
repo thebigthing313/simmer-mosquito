@@ -38,3 +38,39 @@ export function FilterGrid({ children }: { readonly children: ReactNode }) {
 		</div>
 	);
 }
+
+/**
+ * One explorer's filters, in the stack a map panel draws or the two columns a
+ * table's filter bar draws: the `controls` over the `popovers` in a panel, the
+ * two side by side at page width, and the `chips` under both either way.
+ */
+export function FilterFieldsLayout({
+	chips,
+	controls,
+	popovers,
+	wide,
+}: {
+	readonly chips: ReactNode;
+	readonly controls: ReactNode;
+	readonly popovers: ReactNode;
+	readonly wide: boolean;
+}) {
+	if (!wide) {
+		return (
+			<>
+				{controls}
+				{popovers}
+				{chips}
+			</>
+		);
+	}
+	return (
+		<>
+			<div className="grid gap-4 lg:grid-cols-2">
+				<div className="grid content-start gap-3">{controls}</div>
+				<div className="grid content-start">{popovers}</div>
+			</div>
+			{chips}
+		</>
+	);
+}

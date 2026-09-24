@@ -270,6 +270,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'habitats-table',
+						label: 'Table',
+						to: '/larval-surveillance/habitats/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'habitats-create',
 						label: createLabel('habitat'),
 						to: '/larval-surveillance/habitats/create',
@@ -342,6 +348,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Map',
 						to: '/larval-surveillance/samples',
 						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'samples-table',
+						label: 'Table',
+						to: '/larval-surveillance/samples/table',
+						icon: iconRegistry.generic.table.icon,
 					},
 					{
 						id: 'samples-stats',

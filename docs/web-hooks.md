@@ -108,6 +108,17 @@ reductions`, beside five that read `titleMany` out of the register.
 `mapQueryParams` exists because every explorer wrote the presence rule out as
 a wall of `if (x !== undefined && x.length > 0)`.
 
+The Habitats Table and the Samples Table call this hook directly, with no map,
+and send `WHOLE_WORLD_BBOX` as the box. Both could have read their collections
+the way the Inspections Table does, and neither does, because the collection
+can only push down a filter or a sort that names a column of its own table.
+Three of the habitat filters are not columns (Tags, Region, Untreated), and a
+sample's date, status and species all live on other tables. The endpoint
+answers every filter the Map has, so the two surfaces agree on the set and the
+switch between them carries everything. What it costs is the column sort: the
+order is the surface's own, habitats by name and samples by newest
+inspection.
+
 #### useSelectedMapRecord
 
 A selection can come from the tiles, which draw every match rather than the
