@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	BreadcrumbLabelProvider,
@@ -35,11 +34,7 @@ function Replacer() {
 	return null;
 }
 
-let hide: () => void = () => {};
-
-function Harness() {
-	const [shown, setShown] = useState(true);
-	hide = () => setShown(false);
+function Harness({ shown }: { readonly shown: boolean }) {
 	return (
 		<ShellProvider
 			activePath="/nowhere/at-all"
@@ -62,12 +57,12 @@ afterEach(cleanup);
 
 describe('useBreadcrumbTrail', () => {
 	it('replaces the resolved trail while mounted and restores it after', async () => {
-		render(<Harness />);
+		const { rerender } = render(<Harness shown={true} />);
 
 		expect(await screen.findByText('Page not found')).toBeTruthy();
 		expect(screen.queryByText('Overview')).toBeNull();
 
-		act(() => hide());
+		act(() => rerender(<Harness shown={false} />));
 
 		expect(screen.queryByText('Page not found')).toBeNull();
 		expect(screen.getByText('Overview')).toBeTruthy();
