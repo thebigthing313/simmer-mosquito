@@ -12,8 +12,10 @@ import {
 	type OverviewColumn,
 	type OverviewGrain,
 	type OverviewRatio,
+	type OverviewRatioPoint,
 	type OverviewRecordType,
 	type OverviewResponse,
+	type OverviewSeriesPoint,
 	type OverviewTypeRow,
 	overviewPeriodMonth,
 	overviewPeriodSpan,
@@ -263,7 +265,7 @@ export function shownTypes(response: OverviewResponse): readonly OverviewTypeRow
  */
 export function drawsTrend(
 	grain: OverviewGrain,
-	points: readonly ({ readonly value: number } | { readonly numerator: number })[],
+	points: readonly (OverviewSeriesPoint | OverviewRatioPoint)[],
 ): boolean {
 	return (
 		grain !== 'day' ||
