@@ -430,7 +430,11 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 					size="icon-sm"
 					variant="ghost"
 				>
-					<Link params={{ id: row.id }} to="/larval-surveillance/inspections/$id">
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/larval-surveillance/inspections/table' }}
+						to="/larval-surveillance/inspections/$id"
+					>
 						<ChevronRightIcon aria-hidden="true" />
 					</Link>
 				</Button>

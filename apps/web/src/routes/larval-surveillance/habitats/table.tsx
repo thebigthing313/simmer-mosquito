@@ -230,7 +230,11 @@ function HabitatRow({
 		<LinkedTableRow
 			action={
 				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/larval-surveillance/habitats/$id">
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/larval-surveillance/habitats/table' }}
+						to="/larval-surveillance/habitats/$id"
+					>
 						<ChevronRightIcon aria-hidden="true" />
 					</Link>
 				</Button>

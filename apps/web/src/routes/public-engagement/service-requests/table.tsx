@@ -385,7 +385,11 @@ function RequestRow({ row }: { readonly row: ServiceRequestTableRow }) {
 		<LinkedTableRow
 			action={
 				<Button aria-label={`View ${title}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/public-engagement/service-requests/$id">
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/public-engagement/service-requests/table' }}
+						to="/public-engagement/service-requests/$id"
+					>
 						<ChevronRightIcon aria-hidden="true" />
 					</Link>
 				</Button>

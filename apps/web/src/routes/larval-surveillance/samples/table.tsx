@@ -207,7 +207,11 @@ function SampleRow({
 		<LinkedTableRow
 			action={
 				<Button aria-label={`View ${name}`} asChild size="icon-sm" variant="ghost">
-					<Link params={{ id: row.id }} to="/larval-surveillance/samples/$id">
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/larval-surveillance/samples/table' }}
+						to="/larval-surveillance/samples/$id"
+					>
 						<ChevronRightIcon aria-hidden="true" />
 					</Link>
 				</Button>
