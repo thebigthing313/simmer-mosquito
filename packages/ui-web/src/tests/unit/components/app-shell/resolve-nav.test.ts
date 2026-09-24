@@ -128,12 +128,14 @@ describe('firstDestination', () => {
 
 describe('nearestAncestorItem', () => {
 	it('names the item the closest ancestor of an unknown path lands on', () => {
-		expect(nearestAncestorItem([overview()], `/daily-work/${ADA}/nothing-here`)?.item.label).toBe(
-			'Ada Lovelace',
-		);
-		expect(nearestAncestorItem([overview()], '/dashboard/missing/deeper')?.item.id).toBe(
-			'dashboard',
-		);
+		expect(nearestAncestorItem([overview()], `/daily-work/${ADA}/nothing-here`)).toEqual({
+			path: `/daily-work/${ADA}`,
+			label: 'Daily Work Ada Lovelace',
+		});
+		expect(nearestAncestorItem([overview()], '/dashboard/missing/deeper')).toEqual({
+			path: '/dashboard',
+			label: 'Overview Dashboard',
+		});
 	});
 
 	it('skips the path itself and answers null under no item', () => {

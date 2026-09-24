@@ -323,11 +323,7 @@ function ResultsPanel<TRow>({
 }) {
 	const { skeletonClassName, isError, onRetry } = results;
 	const { isEmpty, content } = resultContent(results);
-	// A paged caller's resource says `loading` until the map has a viewport and
-	// both requests have answered. Until then there is no count to page, so the
-	// pager is held back rather than reading "None".
-	const isLoading = heading.isLoading || results.empty?.reason === 'loading';
-	const showFooter = footer !== undefined && !(isLoading && isEmpty);
+	const { isLoading, shownFooter } = railWait(heading, results, footer, isEmpty);
 	const empty = emptyCopy(results, {
 		create: heading.create,
 		activeFilterCount,
@@ -373,7 +369,7 @@ function ResultsPanel<TRow>({
 				{toolbar}
 			</ExplorerHeader>
 
-			{!showFooter || isEmpty ? null : <SkipResults targetRef={footerRef} />}
+			{shownFooter === undefined || isEmpty ? null : <SkipResults targetRef={footerRef} />}
 
 			<ResultList
 				{...empty}
@@ -386,7 +382,7 @@ function ResultsPanel<TRow>({
 				{content}
 			</ResultList>
 
-			{!showFooter ? null : (
+			{shownFooter === undefined ? null : (
 				// `tabIndex={-1}`: the skip control focuses this, and the next Tab
 				// carries on into the pager's own buttons from here.
 				<div className="border-border/50 border-t p-3" ref={footerRef} tabIndex={-1}>
@@ -418,6 +414,22 @@ function SkipResults({ targetRef }: { readonly targetRef: RefObject<HTMLDivEleme
 			Skip to paging
 		</button>
 	);
+}
+
+/**
+ * Whether the rail is still waiting. A paged caller's resource says `loading`
+ * until the map has a viewport and both requests have answered, and until then
+ * there is no count to page, so the frame holds the pager back rather than
+ * letting it read "None".
+ */
+function railWait<TRow>(
+	heading: ExplorerHeading,
+	results: ExplorerResults<TRow>,
+	footer: ReactNode,
+	isEmpty: boolean,
+): { readonly isLoading: boolean; readonly shownFooter: ReactNode } {
+	const isLoading = heading.isLoading || results.empty?.reason === 'loading';
+	return { isLoading, shownFooter: isLoading && isEmpty ? undefined : footer };
 }
 
 /**

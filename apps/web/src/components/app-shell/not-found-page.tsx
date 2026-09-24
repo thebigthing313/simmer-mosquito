@@ -35,11 +35,6 @@ export function NotFoundPage() {
 	const domains = useResolutionDomains();
 	const search = useSearchTrigger();
 	const parent = nearestAncestorItem(domains, activePath);
-	const parentPath = parent === null ? null : navDestination(parent.item);
-	// An item label such as `Map` names nothing alone, so the group or domain
-	// it sits under goes in front: `Habitats Map`, `Larval Surveillance Overview`.
-	const parentLabel =
-		parent === null ? null : `${parent.group.label ?? parent.domain.label} ${parent.item.label}`;
 
 	useBreadcrumbTrail(NOT_FOUND_TRAIL);
 
@@ -63,12 +58,12 @@ export function NotFoundPage() {
 					</div>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 px-6 py-5">
-					{parentPath === null || parentLabel === null ? null : (
+					{parent === null ? null : (
 						<Button asChild size="sm">
-							<Link to={parentPath as never}>Go to {parentLabel}</Link>
+							<Link to={parent.path as never}>Go to {parent.label}</Link>
 						</Button>
 					)}
-					<Button asChild size="sm" variant={parentPath === null ? 'default' : 'outline'}>
+					<Button asChild size="sm" variant={parent === null ? 'default' : 'outline'}>
 						<Link to="/">Go to the dashboard</Link>
 					</Button>
 					{search === null ? null : (
