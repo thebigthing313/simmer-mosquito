@@ -1,3 +1,4 @@
+import { startOfYear } from '../../../lib/date-presets';
 import {
 	choiceParam,
 	dateParam,
@@ -5,7 +6,6 @@ import {
 	idSetParam,
 	textParam,
 } from '../../../lib/search-filters';
-import { startOfYear } from '../../date-range-filter';
 import type { StatusFilter } from './legend';
 
 // The service requests explorer's URL filter contract, outside the route module

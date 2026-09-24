@@ -31,12 +31,7 @@ import {
 } from '../../../components/adult-surveillance/adult-display';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
-import {
-	activeDatePresetId,
-	type DatePreset,
-	DateRangeFilter,
-	datePresetRange,
-} from '../../../components/date-range-filter';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -61,6 +56,7 @@ import type { AskAcknowledged } from '../../../hooks/use-acknowledged-write';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { usePagedRows } from '../../../hooks/use-paged-rows';
 import { TRAP_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { activeDatePresetId, type DatePreset, datePresetRange } from '../../../lib/date-presets';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 

@@ -1,6 +1,7 @@
 import type { GeoJSONSource, LayerSpecification, Map as MapboxMap, MapMouseEvent } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
 import { type MapSourceGeoJson, toMapboxGeoJson } from '../../components/map/geojson-adapter';
+import { registerHoverLayers } from '../../components/map/hover-cursor';
 import { isMapLive } from './use-mapbox-map';
 
 /**
@@ -164,26 +165,18 @@ export function useGeoJsonSource({
 			onSelectRef.current?.(rawId === undefined || rawId === null ? null : String(rawId));
 		}
 
-		function handleMove(event: MapMouseEvent) {
-			const present = presentInteractiveLayers();
-			if (present.length === 0) {
-				return;
-			}
-			const hovering = activeMap.queryRenderedFeatures(event.point, { layers: present }).length > 0;
-			activeMap.getCanvas().style.cursor = hovering ? 'pointer' : '';
-		}
-
+		let releaseHover: (() => void) | null = null;
 		if (isInteractive) {
 			activeMap.on('click', handleClick);
-			activeMap.on('mousemove', handleMove);
+			releaseHover = registerHoverLayers(activeMap, presentInteractiveLayers);
 		}
 
 		return () => {
 			activeMap.off('style.load', ensureLayers);
 			if (isInteractive) {
 				activeMap.off('click', handleClick);
-				activeMap.off('mousemove', handleMove);
 			}
+			releaseHover?.();
 
 			try {
 				if (isInteractive) {

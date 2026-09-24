@@ -4,7 +4,7 @@ import {
 	type DatePreset,
 	datePresetRange,
 	startOfYear,
-} from '../../../components/date-range-filter';
+} from '../../../lib/date-presets';
 
 const THIS_YEAR: DatePreset = { id: 'year', label: 'This Year', days: 'year' };
 
