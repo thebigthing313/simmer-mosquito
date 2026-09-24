@@ -323,3 +323,5 @@ avoid.
   process in it, so there is nothing to fetch this from at runtime, and
   `package.json` is not in the document root. The version in the sidebar is
   inlined the same way, via `__APP_VERSION__` in each `vite.config.ts`.
+
+This line is a CI probe and is not merged.
