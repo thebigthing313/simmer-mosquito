@@ -1,3 +1,4 @@
+import { compareNames } from './natural-order';
 /**
  * Rows folded into named groups, with whatever nobody is named on last.
  *
@@ -65,6 +66,6 @@ export function groupRows<TRow>(
 			if (second.key === UNASSIGNED_GROUP_KEY) {
 				return -1;
 			}
-			return first.name.localeCompare(second.name);
+			return compareNames(first.name, second.name);
 		});
 }

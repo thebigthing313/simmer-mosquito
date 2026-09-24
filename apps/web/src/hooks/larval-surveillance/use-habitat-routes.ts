@@ -1,6 +1,7 @@
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { RouteSummary } from '../../components/route-planning/route-summary';
 import { routes } from '../../lib/collections/routes';
+import { NATURAL_ORDER } from '../../lib/natural-order';
 
 /**
  * All habitat-typed routes for the active organization, sorted by name in the
@@ -20,7 +21,7 @@ export function useHabitatRoutes(): {
 		query
 			.from({ route: routes() })
 			.where(({ route }) => eq(route.route_type, 'habitat'))
-			.orderBy(({ route }) => route.route_name, 'asc')
+			.orderBy(({ route }) => route.route_name, NATURAL_ORDER)
 			.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
 	);
 

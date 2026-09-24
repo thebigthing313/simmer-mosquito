@@ -55,6 +55,7 @@ import {
 } from '../../../hooks/queries/use-region-folders';
 import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
+import { compareNames } from '../../../lib/natural-order';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { type FilterCodecs, searchValidator, textParam } from '../../../lib/search-filters';
 
@@ -293,7 +294,7 @@ function RegionsExplorerRoute() {
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderListing | 'new' | null>(null);
 
-	const sortedFolders = [...folders].sort((a, b) => a.name.localeCompare(b.name));
+	const sortedFolders = [...folders].sort((a, b) => compareNames(a.name, b.name));
 	const regionsByFolder = groupByFolder(regions);
 
 	const query = search.trim().toLowerCase();

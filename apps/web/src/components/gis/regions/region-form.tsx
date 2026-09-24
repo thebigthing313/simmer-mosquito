@@ -7,6 +7,7 @@ import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
+import { compareNames } from '../../../lib/natural-order';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
@@ -97,7 +98,7 @@ export function RegionFormPage({
 	});
 	const { draw, geometry, geometryType } = location;
 
-	const activeFolders = [...regionFolders].sort((a, b) => a.name.localeCompare(b.name));
+	const activeFolders = [...regionFolders].sort((a, b) => compareNames(a.name, b.name));
 
 	const form = useAppForm({
 		defaultValues,

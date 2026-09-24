@@ -17,6 +17,7 @@ import {
 	localTimeOfDay,
 	parseLocalDate,
 } from '../../../lib/local-date';
+import { compareNames } from '../../../lib/natural-order';
 import { OptionRow, PickerFallback, PickerFrame } from '../../pickers/entity-picker';
 import type { RouteSummary } from '../../route-planning/route-summary';
 import { NO_ASSIGNEE } from './assignment-data';
@@ -264,7 +265,7 @@ function routeMatches(
 			? routes
 			: routes.filter((route) => route.routeName.toLowerCase().includes(normalized));
 	return [...filtered]
-		.sort((first, second) => first.routeName.localeCompare(second.routeName))
+		.sort((first, second) => compareNames(first.routeName, second.routeName))
 		.slice(0, 8);
 }
 
