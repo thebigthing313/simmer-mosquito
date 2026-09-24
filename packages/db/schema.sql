@@ -25,6 +25,13 @@ COMMENT ON SCHEMA public IS 'standard public schema';
 
 
 --
+-- Name: natural_sort; Type: COLLATION; Schema: public; Owner: -
+--
+
+CREATE COLLATION public.natural_sort (provider = icu, locale = 'en-u-kn');
+
+
+--
 -- Name: collection_timing_mode; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -6730,4 +6737,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('202608300001'),
     ('202609030001'),
     ('202609220001'),
-    ('202609230001');
+    ('202609230001'),
+    ('202609240001');

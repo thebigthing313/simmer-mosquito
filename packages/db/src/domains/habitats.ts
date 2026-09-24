@@ -180,7 +180,8 @@ export function habitatSurface(
 		filterWhere: habitatFilterWhere,
 		display: {
 			columns: habitatDisplayColumns,
-			orderBy: sql`coalesce(h.habitat_name, h.id::text), h.id`,
+			// `natural_sort` puts `Habitat 9` ahead of `Habitat 10`.
+			orderBy: sql`coalesce(h.habitat_name, h.id::text) collate natural_sort, h.id`,
 		},
 	});
 }
@@ -331,7 +332,7 @@ export async function searchHabitatSites(
 				position(lower(${search}) in lower(coalesce(h.habitat_name, ''))) > 0
 				or position(lower(${search}) in lower(coalesce(a.display_name, ''))) > 0
 			)
-		order by coalesce(h.habitat_name, h.id::text), h.id
+		order by coalesce(h.habitat_name, h.id::text) collate natural_sort, h.id
 		limit ${input.limit}
 	`.execute(db);
 

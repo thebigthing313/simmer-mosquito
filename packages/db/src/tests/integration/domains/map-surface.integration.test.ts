@@ -470,6 +470,35 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
+	// The Habitats rail pages its order out of Postgres, and under the default
+	// collation `Culvert 100` sorted between `Culvert 1` and `Culvert 2`.
+	// `natural_sort` reads the digits as a number, so the seeded `Culvert 12`
+	// lands between the two names written here rather than after both.
+	it('pages habitats with the numbers in their names read as numbers', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await sql`
+				insert into habitats (id, organization_id, geom, habitat_type_id, habitat_name, description)
+				select gen_random_uuid(), h.organization_id, h.geom, h.habitat_type_id, name, h.description
+				from habitats h, unnest(array['Culvert 100', 'Culvert 9']) as name
+				where h.id = ${mapSurfaceRowIds.habitat.inside}
+			`.execute(db);
+
+			const result = await MAP_SURFACES.habitats.listByBounds(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				bounds: mapSurfacePlace.bounds,
+				...page,
+			});
+
+			expect(result.rows.map((row) => row.habitatName)).toEqual([
+				'Culvert 9',
+				'Culvert 12',
+				'Culvert 100',
+			]);
+		});
+	});
+
 	// The three filters the service-request explorer used to apply in the browser
 	// over the whole Organization's rows, run against Postgres on one row (#963),
 	// and the date pair the period-in-review count links write over

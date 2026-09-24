@@ -354,8 +354,9 @@ export function addressSurface(
 		filterWhere: addressFilterWhere,
 		display: {
 			columns: addressDisplayColumns,
-			// Alphabetical, which is the order the address book always read in.
-			orderBy: sql`a.display_name asc, a.id`,
+			// Alphabetical, which is the order the address book always read in, with a
+			// house number read as a number.
+			orderBy: sql`a.display_name collate natural_sort asc, a.id`,
 		},
 	});
 }
