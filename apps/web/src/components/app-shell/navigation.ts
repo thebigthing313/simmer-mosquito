@@ -1072,6 +1072,9 @@ export function withDailyWorkGroup(
 	const group: WebShellNavGroup = {
 		id: 'overview-daily-work',
 		label: 'Daily Work',
+		// One row per active Profile runs long in a large Organization, so the
+		// heading folds the list away.
+		collapsible: true,
 		items: people.map((person) => ({
 			// The same id in both lists, so the open page's row reads as active even
 			// though only one of the two lists is drawn.

@@ -509,7 +509,10 @@ arrives at render time. The shell puts the two back together in one place,
 `navDestination`, which is what matches the row against the current path, sends
 the click, and ends the breadcrumb trail on the record's own label instead of
 its id. A group built this way draws nothing at all when its list is empty,
-because a heading over no rows says less than no heading.
+because a heading over no rows says less than no heading. A group that runs
+long, Daily Work's one row per Profile, sets `collapsible`: its heading becomes
+a button that folds the rows away, open until somebody folds it, and the
+browser remembers which way it was left.
 
 **The Desktop Floor Rule.** SIMMER web is a desktop application. The two-rail
 shell spends 304px on fixed chrome, and both rails stay visible at every width.
