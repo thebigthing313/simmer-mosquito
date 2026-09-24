@@ -220,7 +220,7 @@ function PositivityBadge({ inspection }: { readonly inspection: InspectionDetail
 		return null;
 	}
 	return hasAnyLifeStage(inspection) ? (
-		<Badge tone="danger" variant="outline">
+		<Badge tone="warning" variant="outline">
 			Larvae found
 		</Badge>
 	) : (
@@ -724,7 +724,7 @@ const sampleResultTones = {
 	zero: { label: 'Zero larvae', tone: 'neutral' },
 	unidentifiable: { label: 'Unidentifiable', tone: 'warning' },
 	nonMosquito: { label: 'Non-mosquito', tone: 'info' },
-	larvae: { label: 'Larvae present', tone: 'danger' },
+	larvae: { label: 'Larvae present', tone: 'warning' },
 } as const satisfies Record<
 	string,
 	{ readonly label: string; readonly tone: 'neutral' | 'info' | 'warning' | 'danger' }

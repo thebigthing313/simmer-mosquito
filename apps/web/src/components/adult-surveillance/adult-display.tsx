@@ -118,7 +118,7 @@ export function SpeciesSexBadge({ sex }: { readonly sex: SpeciesSex | null }) {
 
 const statusMeta: Record<SpeciesStatus, { readonly label: string; readonly tone: Tone }> = {
 	unfed: { label: 'Unfed', tone: 'neutral' },
-	bloodfed: { label: 'Bloodfed', tone: 'danger' },
+	bloodfed: { label: 'Bloodfed', tone: 'warning' },
 	gravid: { label: 'Gravid', tone: 'warning' },
 	damaged: { label: 'Damaged', tone: 'neutral' },
 };

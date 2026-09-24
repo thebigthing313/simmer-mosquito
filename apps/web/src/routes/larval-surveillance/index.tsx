@@ -207,7 +207,7 @@ function InspectorGroupBlock({ group }: { readonly group: RowGroup<LarvalActivit
 		<PersonGroupBlock
 			aside={
 				positiveCount > 0 ? (
-					<Badge tone="danger" variant="outline">
+					<Badge tone="warning" variant="outline">
 						{positiveCount} positive
 					</Badge>
 				) : null

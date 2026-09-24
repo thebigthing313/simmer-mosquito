@@ -1,3 +1,4 @@
+import { mapDensity } from '@simmer-mosquito/design-tokens';
 import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -108,15 +109,17 @@ export function LifeStageStrip({
 	);
 }
 
-const densityBadges: Record<
-	LarvalDensity,
-	{ readonly label: string; readonly tone: 'neutral' | 'info' | 'warning' | 'danger' }
-> = {
-	none: { label: 'None', tone: 'neutral' },
-	light: { label: 'Light', tone: 'info' },
-	medium: { label: 'Medium', tone: 'warning' },
-	heavy: { label: 'Heavy', tone: 'danger' },
-	very_heavy: { label: 'Very heavy', tone: 'danger' },
+/**
+ * Density reads in neutral text beside a dot in the same colour the larval map
+ * paints the point, so a row and its mark agree. Red is kept for errors, deletes
+ * and Inaccessible; the ramp's hot end is a magnitude, and the dot carries it.
+ */
+const densityBadges: Record<LarvalDensity, { readonly label: string; readonly swatch: string }> = {
+	none: { label: 'None', swatch: mapDensity.none },
+	light: { label: 'Light', swatch: mapDensity.light },
+	medium: { label: 'Medium', swatch: mapDensity.medium },
+	heavy: { label: 'Heavy', swatch: mapDensity.heavy },
+	very_heavy: { label: 'Very heavy', swatch: mapDensity.veryHeavy },
 };
 
 export function densityLabel(density: LarvalDensity | null): string {
@@ -135,15 +138,14 @@ export function DensityBadge({ density }: { readonly density: LarvalDensity | nu
 		);
 	}
 
-	// very_heavy escalates to the solid destructive variant so it reads as more
-	// severe than heavy, which shares the same danger tone.
-	if (density === 'very_heavy') {
-		return <Badge variant="destructive">{densityBadges[density].label}</Badge>;
-	}
-
-	const { label, tone } = densityBadges[density];
+	const { label, swatch } = densityBadges[density];
 	return (
-		<Badge tone={tone} variant="outline">
+		<Badge tone="neutral" variant="outline">
+			<span
+				aria-hidden="true"
+				className="size-2 shrink-0 rounded-full ring-1 ring-foreground/15"
+				style={{ backgroundColor: swatch }}
+			/>
 			{label}
 		</Badge>
 	);

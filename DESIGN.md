@@ -634,7 +634,12 @@ three: it is waiting on somebody. So it paints in `mapStatus.attention`, Deep
 Pollen, with the same off-white casing every point wears for the satellite
 basemap, and its pill takes the warning tone, the attention family at a
 contrast 12px text can read. The density ramp's hot end is a magnitude rather
-than a state, and this rule does not reach it.
+than a state, and this rule does not reach it. A finding in the data is not an error
+either: Bloodfed, Larvae found, Larvae present and a positive count take the
+warning tone, a cancelled mission or assignment is neutral, and a density badge
+is neutral text beside a dot from the same ramp the larval map paints. What stays
+red is what stops the work: Inaccessible, a reported trap or collection problem,
+a row that cannot be written, and a record with no geometry.
 
 **The Legend Truth Rule.** A map legend reads its swatches from the same
 constants the layers paint with. Never a literal. A hand-typed legend swatch
