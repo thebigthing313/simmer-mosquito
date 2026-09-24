@@ -283,6 +283,19 @@ describe('the service requests explorer paging the viewport', () => {
 				'&regionId=b1b2c3d4-0000-4000-8000-000000000009',
 		);
 	});
+
+	// The order is the rail's alone: the page asks for it and the extent, which
+	// frames the same filtered set whatever order it is read in, does not.
+	it('asks for the oldest request first when the rail is ordered that way', async () => {
+		harness.search = { ...ALL_TIME, order: 'oldest' };
+		harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		renderServiceRequests();
+
+		expect(await screen.findByText('#12')).toBeTruthy();
+		expect(pageRequest()?.searchParams.get('oldest')).toBe('true');
+		expect(extentRequest()?.searchParams.has('oldest')).toBe(false);
+	});
 });
 
 describe('the service requests explorer with nothing on the page', () => {

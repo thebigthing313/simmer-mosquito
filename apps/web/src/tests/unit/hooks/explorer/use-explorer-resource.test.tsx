@@ -56,6 +56,7 @@ const { useExplorerResource } = await import('../../../../hooks/explorer/use-exp
 const { tileLayerExtentUrl } = await import('../../../../components/map/tile-layers');
 const { useMapExtent } = await import('../../../../hooks/map/use-map-extent');
 const { useMapExtentFit } = await import('../../../../hooks/map/use-map-extent-fit');
+const { RAIL_HOLDS_MOVE } = await import('../../../../hooks/explorer/use-map-bounds-param');
 
 /**
  * The tile layer each route hands the hook beside its params: the same entry
@@ -443,6 +444,33 @@ describe('useExplorerResource: the selected record', () => {
 		expect(result.current.selected).toBe(result.current.rows[0]);
 		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
 		expect(fake.cameraCalls[0]?.kind).toBe('flyTo');
+		// No `holdRailOnSelect`, so the flight is an ordinary move the rail follows.
+		expect(fake.cameraCalls[0]?.eventData).toBeUndefined();
+	});
+
+	it('marks the flight to a selection so the rail keeps its rows', async () => {
+		const onPage = { id: 'row-1', lat: 3, lng: 4 };
+		answer = () => ({ rows: [onPage], total: 1 });
+		const fake = createFakeMap();
+
+		renderHook(
+			() =>
+				useExplorerResource<Row>({
+					path: '/map/service-requests',
+					rowsKey: 'rows',
+					rowKey: 'row',
+					recordType: 'serviceRequest',
+					params: {},
+					layer: bareLayer('service-requests'),
+					map: fake.map,
+					selectedId: 'row-1',
+					holdRailOnSelect: true,
+				}),
+			{ wrapper },
+		);
+
+		await waitFor(() => expect(fake.cameraCalls).toHaveLength(1));
+		expect(fake.cameraCalls[0]?.eventData).toEqual({ [RAIL_HOLDS_MOVE]: true });
 	});
 
 	it('spends one request on a deep link whose row is on the page', async () => {

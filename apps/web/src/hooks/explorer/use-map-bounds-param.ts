@@ -3,6 +3,13 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useState } from 'react';
 
 /**
+ * The key a camera move carries in its event data when the rail should not
+ * follow it. `useFlyToSelection` sets it on the flight to a record picked from
+ * a rail that keeps its rows, and the box below skips that move.
+ */
+export const RAIL_HOLDS_MOVE = 'simmerRailHoldsMove';
+
+/**
  * The current viewport as the `bbox` param the `/map/*` list endpoints read, or
  * `null` until the map has one.
  *
@@ -19,7 +26,10 @@ export function useMapBoundsParam(map: MapboxMap | null): string | null {
 		if (map === null) {
 			return;
 		}
-		const update = () => {
+		const update = (event?: object) => {
+			if (event !== undefined && RAIL_HOLDS_MOVE in event) {
+				return;
+			}
 			const next = readCanvasBounds(map);
 			if (next === null) {
 				return;

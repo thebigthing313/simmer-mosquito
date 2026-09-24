@@ -40,6 +40,22 @@ export const serviceRequestFilterCodecs: FilterCodecs<ServiceRequestFilters> = {
 	to: dateParam,
 };
 
+/** The order the Map's rail pages in. */
+export type ServiceRequestRailOrder = 'newest' | 'oldest';
+
+export interface ServiceRequestRailSearch {
+	readonly order: ServiceRequestRailOrder;
+}
+
+/**
+ * The rail's order, apart from the filters because it narrows nothing: it does
+ * not count as a filter, a reset leaves it alone, and it does not travel to the
+ * Table, which has its own sort. Newest first stays out of the URL.
+ */
+export const serviceRequestRailOrderCodecs: FilterCodecs<ServiceRequestRailSearch> = {
+	order: choiceParam(['newest', 'oldest'], 'newest'),
+};
+
 /**
  * What an address with no filter params means: every status, from the first of
  * January through the Organization's today.

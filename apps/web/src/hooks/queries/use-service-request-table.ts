@@ -42,11 +42,13 @@ import type { LinkedContact } from './contact-view';
 import { addressSelect } from './shared';
 
 /**
- * What the table sorts by. Both are columns of `service_requests`: `date` is
- * `request_date` and `number` is `display_name`, the `#` a request is known by.
- * The keys are the URL's vocabulary, so `?sort=number`, not `?sort=display_name`.
+ * What the table sorts by. All three are columns of `service_requests`: `date`
+ * is `request_date`, `number` is `display_name`, the `#` a request is known by,
+ * and `age` is `request_date` read the other way round, so the oldest request is
+ * the one with the greatest age. The keys are the URL's vocabulary, so
+ * `?sort=number`, not `?sort=display_name`.
  */
-export const SERVICE_REQUEST_SORT_KEYS = ['date', 'number'] as const;
+export const SERVICE_REQUEST_SORT_KEYS = ['date', 'number', 'age'] as const;
 
 export type ServiceRequestSortKey = (typeof SERVICE_REQUEST_SORT_KEYS)[number];
 
@@ -107,6 +109,14 @@ export function serviceRequestWindowKey(
 	].join('\u0000');
 }
 
+/** The direction the column is read in: an age runs the other way to its date. */
+function columnDirection(sort: ServiceRequestSort): ServiceRequestSort['direction'] {
+	if (sort.key !== 'age') {
+		return sort.direction;
+	}
+	return sort.direction === 'asc' ? 'desc' : 'asc';
+}
+
 export function useServiceRequestTable(
 	sort: ServiceRequestSort,
 	limit: number,
@@ -159,12 +169,13 @@ export function useServiceRequestTable(
 						const columns = {
 							date: request.request_date,
 							number: request.display_name,
+							age: request.request_date,
 						} satisfies Record<ServiceRequestSortKey, unknown>;
 						return columns[sort.key];
 					},
 					// `nulls` is part of what the collection's index is built with, so
 					// Postgres and the browser are told the same thing.
-					{ direction: sort.direction, nulls: 'last' },
+					{ direction: columnDirection(sort), nulls: 'last' },
 				)
 				// Breaks the tie within one date, so the rows do not move under the
 				// reader as the next window arrives.

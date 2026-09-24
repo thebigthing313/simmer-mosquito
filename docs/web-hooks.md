@@ -207,6 +207,15 @@ record; keying on the coordinates is the version that does not. Nothing in the
 hook says where on the canvas the record lands, because a page with chrome
 floating over its map declares that once as the canvas's viewport padding.
 
+A caller passing `holdRail` marks the flight with `RAIL_HOLDS_MOVE` in its
+event data, and `useMapBoundsParam` skips a move carrying it. The Service
+Requests explorer is the one caller: a reader working down the queue picks a
+request and the rail used to re-page for the viewport the map landed on, which
+dropped the rows around the pick and usually the pick's own place in the list.
+A flag on the event rather than a pause on the listener, because a pan the
+reader makes during or after the flight is a real change of viewport and must
+still re-page.
+
 #### useExplorerResource
 
 Nine explorer routes each ran the same four hooks in the same order and spent
@@ -226,6 +235,9 @@ whether a filter did it: the extent URL carries the surface's filters and
 nothing else, no `bbox`, no paging, so an empty query is a request for
 everything the Organization has. A failed request reads as the viewport, which
 is the copy the rail gave before it could tell.
+
+`holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
+default so the other explorers keep re-paging for the record they fly to.
 
 #### useMapBoundsParam
 

@@ -83,6 +83,12 @@ interface ExplorerRowResults<TRow> extends ExplorerResultsBase {
 	readonly isEmpty?: undefined;
 	readonly rows: readonly TRow[];
 	readonly renderRow: (row: TRow) => ReactNode;
+	/**
+	 * The row to bring into view, by index, when it changes. A surface whose
+	 * selection leaves the rail where it was passes the selected row here, so a
+	 * record picked on the map is found in the list rather than hunted for.
+	 */
+	readonly revealIndex?: number | undefined;
 }
 
 /**
@@ -447,7 +453,11 @@ function resultContent<TRow>(results: ExplorerResults<TRow>): {
 	if (results.isEmpty === undefined) {
 		return {
 			isEmpty: results.rows.length === 0,
-			content: <ResultRows rows={results.rows}>{results.renderRow}</ResultRows>,
+			content: (
+				<ResultRows revealIndex={results.revealIndex} rows={results.rows}>
+					{results.renderRow}
+				</ResultRows>
+			),
 		};
 	}
 	return { isEmpty: results.isEmpty, content: <ResultBody>{results.body}</ResultBody> };

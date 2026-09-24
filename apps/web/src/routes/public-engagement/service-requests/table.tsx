@@ -24,8 +24,10 @@ import {
 } from '../../../components/explorer';
 import {
 	contactDisplayName,
+	formatRequestAge,
 	formatRequestDate,
 	intakeTypeLabel,
+	isServiceRequestOpen,
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { RequestStatusBadge } from '../../../components/public-engagement/public-engagement-ui';
@@ -199,6 +201,7 @@ function ServiceRequestsTableRoute() {
 					onSort={sortBy}
 					rows={shown}
 					sort={sort}
+					today={today}
 				/>
 			)}
 		</OutletSimpleLayout>
@@ -315,6 +318,7 @@ function LoadedRows({
 	onSort,
 	rows,
 	sort,
+	today,
 }: {
 	readonly isError: boolean;
 	readonly isReady: boolean;
@@ -323,13 +327,14 @@ function LoadedRows({
 	readonly onSort: (key: ServiceRequestSortKey) => void;
 	readonly rows: readonly ServiceRequestTableRow[];
 	readonly sort: ServiceRequestSort;
+	readonly today: string;
 }) {
 	const isLoadingMore = !(isReady || isError);
 	const hasMore = isLoadingMore || rows.length >= limit;
 	return (
 		<div className="grid gap-3">
 			{isError ? <RequestsUnavailable /> : null}
-			<RequestsTable onSort={onSort} rows={rows} sort={sort} />
+			<RequestsTable onSort={onSort} rows={rows} sort={sort} today={today} />
 			{hasMore ? <LoadMore isLoading={isLoadingMore} onLoadMore={onLoadMore} /> : null}
 		</div>
 	);
@@ -339,10 +344,12 @@ function RequestsTable({
 	onSort,
 	rows,
 	sort,
+	today,
 }: {
 	readonly onSort: (key: ServiceRequestSortKey) => void;
 	readonly rows: readonly ServiceRequestTableRow[];
 	readonly sort: ServiceRequestSort;
+	readonly today: string;
 }) {
 	return (
 		<div className="rounded-md border border-border/50">
@@ -354,6 +361,9 @@ function RequestsTable({
 						</SortableHead>
 						<SortableHead onSort={onSort} sort={sort} sortKey="date">
 							Received
+						</SortableHead>
+						<SortableHead onSort={onSort} sort={sort} sortKey="age">
+							Age
 						</SortableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Contact</TableHead>
@@ -368,7 +378,7 @@ function RequestsTable({
 				</TableHeader>
 				<TableBody>
 					{rows.map((row) => (
-						<RequestRow key={row.id} row={row} />
+						<RequestRow key={row.id} row={row} today={today} />
 					))}
 				</TableBody>
 			</Table>
@@ -376,7 +386,13 @@ function RequestsTable({
 	);
 }
 
-function RequestRow({ row }: { readonly row: ServiceRequestTableRow }) {
+function RequestRow({
+	row,
+	today,
+}: {
+	readonly row: ServiceRequestTableRow;
+	readonly today: string;
+}) {
 	const title = serviceRequestTitle(row);
 	const contact = resolveLinkedContact(row.contact);
 	const address = addressCardLabel(resolveLinkedAddress(row.address));
@@ -397,6 +413,10 @@ function RequestRow({ row }: { readonly row: ServiceRequestTableRow }) {
 		>
 			<TableCell className="font-medium tabular-nums">{title}</TableCell>
 			<TableCell className="tabular-nums">{formatRequestDate(row.requestDate)}</TableCell>
+			{/* A closed request has stopped ageing, and Received already dates it. */}
+			<TableCell className="tabular-nums">
+				{isServiceRequestOpen(row) ? formatRequestAge(row.requestDate, today) : <AbsentValue />}
+			</TableCell>
 			<TableCell>
 				<RequestStatusBadge open={row.closedAt === null} />
 			</TableCell>

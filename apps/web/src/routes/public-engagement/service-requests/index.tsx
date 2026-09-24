@@ -53,6 +53,7 @@ import {
 	contactDisplayName,
 	formatAddressLine,
 	isServiceRequestOpen,
+	requestAgeOrDate,
 	serviceRequestTitle,
 } from '../../../components/public-engagement/public-engagement-display';
 import { ServiceRequestMapCard } from '../../../components/public-engagement/service-request-map-card';
@@ -61,7 +62,10 @@ import { serviceRequestLegend } from '../../../components/public-engagement/serv
 import { ServiceRequestSurfaceSwitch } from '../../../components/public-engagement/service-requests/service-request-surface-switch';
 import {
 	type ServiceRequestFilters,
+	type ServiceRequestRailOrder,
+	type ServiceRequestRailSearch,
 	serviceRequestFilterCodecs,
+	serviceRequestRailOrderCodecs,
 	sharedServiceRequestSearch,
 } from '../../../components/public-engagement/service-requests/service-requests-search';
 import { TagBadge } from '../../../components/tag-badge';
@@ -107,11 +111,22 @@ const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: s
 	{ value: 'open', label: 'Open' },
 	{ value: 'closed', label: 'Closed' },
 ];
+const ORDER_OPTIONS: readonly {
+	readonly value: ServiceRequestRailOrder;
+	readonly label: string;
+}[] = [
+	{ value: 'newest', label: 'Newest' },
+	{ value: 'oldest', label: 'Oldest' },
+];
+const ORDER_DEFAULTS: ServiceRequestRailSearch = { order: 'newest' };
 const EMPTY_TAGS: readonly Tag[] = [];
 
 export const Route = createFileRoute('/public-engagement/service-requests/')({
 	component: ServiceRequestsExplorerRoute,
-	validateSearch: searchValidator(serviceRequestFilterCodecs),
+	validateSearch: searchValidator({
+		...serviceRequestFilterCodecs,
+		...serviceRequestRailOrderCodecs,
+	}),
 });
 
 function ServiceRequestsExplorerRoute() {
@@ -123,6 +138,10 @@ function ServiceRequestsExplorerRoute() {
 	// request both land on the list the operator had narrowed to. An address with
 	// no params opens on every request received this year, open or closed.
 	const { defaults, today } = useServiceRequestFilterDefaults();
+	const { filters: railOrder, setFilters: setRailOrder } = useSearchFilters(
+		ORDER_DEFAULTS,
+		serviceRequestRailOrderCodecs,
+	);
 	const {
 		filters: query,
 		setFilters,
@@ -182,10 +201,16 @@ function ServiceRequestsExplorerRoute() {
 			rowsKey: 'serviceRequests',
 			rowKey: 'serviceRequest',
 			recordType: RECORD_TYPE,
-			params: requestQueryParams(filters),
+			params: {
+				...requestQueryParams(filters),
+				oldest: railOrder.order === 'oldest' ? true : undefined,
+			},
 			layer,
 			map,
 			selectedId,
+			// A pick moves the map to the record and leaves the list as it was, so
+			// the reader working down the queue does not lose their place.
+			holdRailOnSelect: true,
 		});
 
 	// Resolve the related on-demand rows for the page alone, a subset of at most
@@ -264,8 +289,17 @@ function ServiceRequestsExplorerRoute() {
 				</>
 			}
 			panel={panel}
+			toolbar={
+				<SegmentedFilter
+					label="Order"
+					onChange={(order: ServiceRequestRailOrder) => setRailOrder({ order })}
+					options={ORDER_OPTIONS}
+					value={railOrder.order}
+				/>
+			}
 			results={{
 				rows,
+				revealIndex: rows.findIndex((request) => request.id === selectedId),
 				isError,
 				onRetry: retry,
 				empty,
@@ -280,6 +314,7 @@ function ServiceRequestsExplorerRoute() {
 						onFocus={() => setSelectedId(request.id)}
 						request={request}
 						tags={tagsByRequestId.byId.get(request.id) ?? EMPTY_TAGS}
+						today={today}
 					/>
 				),
 			}}
@@ -586,6 +621,7 @@ function RequestRowItem({
 	detailsLoading,
 	isFocused,
 	onFocus,
+	today,
 }: {
 	readonly request: RequestListing;
 	readonly tags: readonly Tag[];
@@ -594,12 +630,16 @@ function RequestRowItem({
 	readonly detailsLoading: boolean;
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;
+	/** The Organization's today, which an open request's age is counted to. */
+	readonly today: string;
 }) {
 	const title = serviceRequestTitle(request);
 	const subtitle = rowSubtitle({ address, contact, detailsLoading });
 
 	return (
 		<ExplorerRow
+			// How long an open request has waited, or the day a closed one came in.
+			date={requestAgeOrDate(request, today)}
 			detailLabel={`View ${title}`}
 			detailLink={{
 				to: '/public-engagement/service-requests/$id',

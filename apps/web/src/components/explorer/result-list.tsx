@@ -4,7 +4,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon, OctagonXIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { type ReactNode, type Ref, useState } from 'react';
+import { type ReactNode, type Ref, useEffect, useState } from 'react';
 import { RESULT_SKELETON_KEYS } from './result-skeleton';
 
 /**
@@ -217,9 +217,12 @@ const ROW_OVERSCAN = 6;
  */
 export function ResultRows<TRow>({
 	rows,
+	revealIndex,
 	children,
 }: {
 	readonly rows: readonly TRow[];
+	/** Scroll this row into view when it changes. `-1` or absent scrolls nowhere. */
+	readonly revealIndex?: number | undefined;
 	readonly children: (row: TRow) => ReactNode;
 }) {
 	// no-memo-reason: @tanstack/react-virtual's useVirtualizer is not compilable, and the fix is the library's.
@@ -244,6 +247,14 @@ export function ResultRows<TRow>({
 	});
 
 	const virtualRows = virtualizer.getVirtualItems();
+
+	// `auto` leaves a row that is already in view where it is, so selecting one
+	// the reader just clicked does not jump the list under the pointer.
+	useEffect(() => {
+		if (revealIndex !== undefined && revealIndex >= 0 && revealIndex < rows.length) {
+			virtualizer.scrollToIndex(revealIndex, { align: 'auto' });
+		}
+	}, [revealIndex, rows.length, virtualizer]);
 
 	return (
 		/*

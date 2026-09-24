@@ -55,6 +55,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	map,
 	selectedId,
 	normalizeRow,
+	holdRailOnSelect = false,
 }: {
 	/** The list endpoint, e.g. `/map/source-reduction`. Also roots the query key. */
 	readonly path: string;
@@ -76,6 +77,11 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	readonly selectedId: string | null;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
 	readonly normalizeRow?: (row: TRow) => TRow;
+	/**
+	 * Keep the rail's rows when a record is selected. The map still flies to
+	 * the record; the page is not re-read for the viewport it lands on.
+	 */
+	readonly holdRailOnSelect?: boolean;
 }): ExplorerResource<TRow> {
 	const bbox = useMapBoundsParam(map);
 	// Spread rather than passed, because the workspace is on
@@ -103,7 +109,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		selectedId,
 		...shaping,
 	});
-	useFlyToSelection(map, selected);
+	useFlyToSelection(map, selected, holdRailOnSelect);
 
 	const extentUrl = tileLayerExtentUrl(layer);
 	const extent = useMapExtent(extentUrl);
