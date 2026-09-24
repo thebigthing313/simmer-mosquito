@@ -18,6 +18,7 @@ export {
 	BreadcrumbLabelProvider,
 	useBreadcrumbLabel,
 	useBreadcrumbLabels,
+	useBreadcrumbTrail,
 } from './breadcrumb-labels';
 export {
 	SearchTriggerProvider,
@@ -34,6 +35,7 @@ export {
 	firstDestination,
 	flattenNavItems,
 	navDestination,
+	nearestAncestorItem,
 	pathMatches,
 	resolveActive,
 } from './resolve-nav';

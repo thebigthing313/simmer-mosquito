@@ -177,3 +177,33 @@ export function buildBreadcrumbs(
 
 	return crumbs;
 }
+
+/**
+ * The navigation item closest above a path, for a page that has nowhere of its
+ * own to point back to.
+ *
+ * Walks the path's ancestors from the longest down and returns the first one a
+ * navigation item names exactly. The path itself is skipped, since the page
+ * asking is the one that does not exist, and so is `/`, which every caller can
+ * link without asking. `/larval-surveillance/habitats/xyz/extra` answers with
+ * the Habitats Map item; a path under no domain answers null. The domain and
+ * group come back beside the item, because an item label such as `Map` names
+ * nothing on its own.
+ */
+export function nearestAncestorItem(
+	domains: readonly ShellDomain[],
+	activePath: string,
+): ReturnType<typeof flattenNavItems>[number] | null {
+	const segments = activePath.split('/').filter(Boolean);
+	const items = flattenNavItems(domains);
+
+	for (let length = segments.length - 1; length >= 1; length -= 1) {
+		const ancestor = `/${segments.slice(0, length).join('/')}`;
+		const match = items.find((candidate) => navDestination(candidate.item) === ancestor);
+		if (match !== undefined) {
+			return match;
+		}
+	}
+
+	return null;
+}

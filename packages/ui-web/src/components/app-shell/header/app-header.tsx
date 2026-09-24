@@ -8,7 +8,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/breadcrumb';
 import { CalendarIcon, HomeIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Fragment } from 'react';
-import { useBreadcrumbLabels } from '../breadcrumb-labels';
+import { useBreadcrumbLabels, useBreadcrumbTrailOverride } from '../breadcrumb-labels';
 import { buildBreadcrumbs, firstDestination, navDestination } from '../resolve-nav';
 import { useResolutionDomains, useShell } from '../shell-context';
 import { HeaderSearchBar } from './header-search-bar';
@@ -23,10 +23,13 @@ export function AppHeader() {
 	const { activePath, domains, onNavigate, standalonePages, getToday, timeZone } = useShell();
 	const resolutionDomains = useResolutionDomains();
 	const breadcrumbLabels = useBreadcrumbLabels();
-	const crumbs = buildBreadcrumbs(resolutionDomains, activePath, {
-		...(standalonePages ? { standalonePages } : {}),
-		labels: breadcrumbLabels,
-	});
+	const trailOverride = useBreadcrumbTrailOverride();
+	const crumbs =
+		trailOverride ??
+		buildBreadcrumbs(resolutionDomains, activePath, {
+			...(standalonePages ? { standalonePages } : {}),
+			labels: breadcrumbLabels,
+		});
 	const [home] = domains;
 	const homeDestination = home ? firstDestination(home) : null;
 	// The header's date names the organization's operational day, so a supervisor
