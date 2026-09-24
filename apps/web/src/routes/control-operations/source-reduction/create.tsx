@@ -130,7 +130,7 @@ function CreateSourceReductionRoute() {
 				methods={methods}
 				mode="create"
 				initialGeometry={initialGeometry}
-				missionStop={mission.stopGeometry}
+				missionStop={mission.missionStop}
 				onSave={onSave}
 				organizationId={organization.id}
 				profiles={profiles}

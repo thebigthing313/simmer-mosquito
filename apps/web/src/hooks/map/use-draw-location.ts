@@ -105,6 +105,9 @@ export interface DrawLocationOptions {
 	readonly missionStop?: MissionStopGeometry | null;
 }
 
+/** The refusal while the stop's geometry is on its way, since drawing is not the fix. */
+const STOP_GEOMETRY_LOADING = "The mission stop's geometry is still loading.";
+
 /**
  * The tool a form opens on with nothing drawn yet.
  *
@@ -233,7 +236,7 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 
 	const requireGeometry = () => {
 		if (geometry === null && required) {
-			setLocationError(missingMessage);
+			setLocationError(missionStop?.status === 'loading' ? STOP_GEOMETRY_LOADING : missingMessage);
 			return false;
 		}
 		setLocationError(null);

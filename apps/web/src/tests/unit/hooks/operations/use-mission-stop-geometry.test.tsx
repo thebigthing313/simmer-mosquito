@@ -27,17 +27,20 @@ const STOP_LINE = {
 
 const sent: URL[] = [];
 let answer: () => { readonly status: number; readonly body?: unknown } = () => ({ status: 200 });
+/** Holds the next response back while a case looks at the read in flight. */
+let hold: Promise<void> = Promise.resolve();
 
 vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@simmer-mosquito/sync')>()),
-	sessionFetch: (input: URL) => {
+	sessionFetch: async (input: URL) => {
 		sent.push(input);
+		await hold;
 		const { status, body } = answer();
-		return Promise.resolve({
+		return {
 			ok: status >= 200 && status < 300,
 			status,
 			json: () => Promise.resolve(body),
-		} as Response);
+		} as Response;
 	},
 }));
 
@@ -56,6 +59,7 @@ function missionItems(rows: readonly { readonly id: string; readonly geojson: un
 
 afterEach(() => {
 	sent.length = 0;
+	hold = Promise.resolve();
 	answer = () => ({ status: 200 });
 });
 
@@ -110,13 +114,20 @@ describe('useMissionStopGeometry', () => {
 		await waitFor(() => expect(result.current?.status).toBe('error'));
 
 		answer = () => missionItems([{ id: STOP, geojson: STOP_LINE }]);
+		let release: () => void = () => undefined;
+		hold = new Promise<void>((resolve) => {
+			release = resolve;
+		});
 		const failed = result.current;
 		act(() => {
 			if (failed?.status === 'error') {
-				failed.retry();
+				failed.retry?.();
 			}
 		});
 
+		// Loading while the retry runs, rather than still reading as failed.
+		await waitFor(() => expect(result.current).toEqual({ status: 'loading' }));
+		release();
 		await waitFor(() => expect(result.current).toEqual({ status: 'ready', geometry: STOP_LINE }));
 		expect(sent).toHaveLength(2);
 	});
@@ -127,7 +138,7 @@ describe('useMissionStopGeometry', () => {
 			{ wrapper },
 		);
 
-		expect(result.current?.status).toBe('error');
+		expect(result.current).toEqual({ status: 'error', retry: null });
 		expect(sent).toHaveLength(0);
 	});
 });

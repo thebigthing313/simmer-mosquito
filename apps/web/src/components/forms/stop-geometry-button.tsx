@@ -15,7 +15,8 @@ export function stopGeometryError(missionStop: MissionStopGeometry | null): stri
 /**
  * "Use stop geometry": puts the geometry of the mission stop the form was
  * opened from back on the map. Disabled while it loads or while a draw is
- * running; after a failed read it asks again instead.
+ * running; after a failed read it asks again instead, where asking again can
+ * change the answer.
  */
 export function StopGeometryButton({ location }: { readonly location: DrawLocation }) {
 	const { missionStop, draw } = location;
@@ -24,8 +25,17 @@ export function StopGeometryButton({ location }: { readonly location: DrawLocati
 	}
 	return (
 		<Button
-			disabled={missionStop.status === 'loading' || draw.isDrawing || draw.isRequestingPoint}
-			onClick={missionStop.status === 'error' ? missionStop.retry : location.restoreStopGeometry}
+			disabled={
+				missionStop.status === 'loading' ||
+				(missionStop.status === 'error' && missionStop.retry === null) ||
+				draw.isDrawing ||
+				draw.isRequestingPoint
+			}
+			onClick={
+				missionStop.status === 'error'
+					? (missionStop.retry ?? undefined)
+					: location.restoreStopGeometry
+			}
 			size="sm"
 			type="button"
 			variant="outline"

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { toDrawGeometry } from '../../components/map/draw-parts';
 import { fetchMissionItemGeometry } from '../../lib/mission-item-geometry';
-import type { DrawGeometry } from '../map/use-map-draw';
+import { type DrawGeometry, toDrawGeometry } from '../map/use-map-draw';
 
 /**
  * The geometry of the mission stop a record form was opened from, as the form
@@ -10,12 +9,14 @@ import type { DrawGeometry } from '../map/use-map-draw';
 export type MissionStopGeometry =
 	| { readonly status: 'loading' }
 	| { readonly status: 'ready'; readonly geometry: DrawGeometry }
-	| { readonly status: 'error'; readonly retry: () => void };
+	| {
+			readonly status: 'error';
+			/** Ask again, or null where asking again cannot change the answer. */
+			readonly retry: (() => void) | null;
+	  };
 
 /** Nothing fetches this key; it only keeps the disabled query's key well-formed. */
 const NO_MISSION = 'none';
-
-const noRetry = () => undefined;
 
 /**
  * The stored geometry of one mission stop, from the mission's map read, or null
@@ -32,14 +33,17 @@ export function useMissionStopGeometry(search: {
 		queryFn: ({ signal }) =>
 			missionId === null ? Promise.resolve([]) : fetchMissionItemGeometry(missionId, signal),
 		enabled: missionId !== null && missionItemId !== null,
-		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 	if (missionItemId === null) {
 		return null;
 	}
 	if (missionId === null) {
-		return { status: 'error', retry: noRetry };
+		return { status: 'error', retry: null };
+	}
+	// Ahead of the failure, so a retry reads as loading while it runs.
+	if (query.data === undefined && query.isFetching) {
+		return { status: 'loading' };
 	}
 	if (query.isError) {
 		return { status: 'error', retry: () => void query.refetch() };

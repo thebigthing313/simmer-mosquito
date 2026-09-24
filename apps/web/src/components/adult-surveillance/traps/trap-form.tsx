@@ -146,6 +146,11 @@ export function TrapFormPage({
 		validators: {
 			onSubmit: ({ value }: { readonly value: TrapFormValues }) => validateTrap(value, geometry),
 		},
+		// A save refused over the fields says the missing location in the same
+		// pass, rather than only once the fields are fixed.
+		onSubmitInvalid: () => {
+			location.requireGeometry();
+		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
 			if (!location.requireGeometry()) {

@@ -259,6 +259,60 @@ describe('useDrawLocation', () => {
 			expect(result.current.locationError).toBeNull();
 		});
 
+		// A stop can hold any of the six shapes, and the tool follows the base type.
+		it.each([
+			[{ type: 'Point', coordinates: [-74.4, 40.6] }, 'Point'],
+			[
+				{
+					type: 'MultiPoint',
+					coordinates: [
+						[-74.4, 40.6],
+						[-74.3, 40.5],
+					],
+				},
+				'Point',
+			],
+			[
+				{
+					type: 'LineString',
+					coordinates: [
+						[-74.4, 40.6],
+						[-74.3, 40.5],
+					],
+				},
+				'LineString',
+			],
+			[
+				{
+					type: 'MultiLineString',
+					coordinates: [
+						[
+							[-74.4, 40.6],
+							[-74.3, 40.5],
+						],
+					],
+				},
+				'LineString',
+			],
+			[AREA, 'Polygon'],
+			[{ type: 'MultiPolygon', coordinates: [AREA.coordinates] }, 'Polygon'],
+		] as const)('draws a %j stop on the %s tool', (stop, tool) => {
+			const { result } = mountOnStop({ status: 'ready', geometry: stop as DrawGeometry });
+
+			expect(result.current.geometry).toEqual(stop);
+			expect(result.current.geometryType).toBe(tool);
+		});
+
+		it('refuses a save while the stop geometry loads, and says why', () => {
+			const { result } = mountOnStop(loading);
+
+			act(() => {
+				expect(result.current.requireGeometry()).toBe(false);
+			});
+
+			expect(result.current.locationError).toBe("The mission stop's geometry is still loading.");
+		});
+
 		it('carries no stop off a mission', () => {
 			const { result } = mount({ geometryKind: 'controlAction' });
 

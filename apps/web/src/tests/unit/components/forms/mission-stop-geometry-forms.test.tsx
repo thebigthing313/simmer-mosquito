@@ -13,6 +13,11 @@
  * rather than trusting the band's own suite for all four. The map and the two
  * pickers are stubbed, since they read Mapbox and live collections and neither
  * is the question.
+ *
+ * One file for four forms, grouped by the surface rather than mirroring a
+ * module, for the reason `hooks/mutations/` is: `vi.mock` hoists per file, so a
+ * suite per form would write the same stub block out four times, and the rule
+ * under test is one rule the four forms share.
  */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

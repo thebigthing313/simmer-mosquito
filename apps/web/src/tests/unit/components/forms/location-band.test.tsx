@@ -205,4 +205,11 @@ describe('LocationBand on a mission stop', () => {
 
 		expect(retry).toHaveBeenCalledOnce();
 	});
+
+	it('holds the button when asking again cannot change the answer', () => {
+		render(<StopHarness missionStop={{ status: 'error', retry: null }} />);
+
+		const button = screen.getByRole('button', { name: 'Use stop geometry' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+	});
 });

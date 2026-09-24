@@ -139,7 +139,7 @@ function CreateOutreachActionRoute() {
 					backLabel: recordNoun('outreachAction').titleMany,
 				}}
 				initialGeometry={initialGeometry}
-				missionStop={mission.stopGeometry}
+				missionStop={mission.missionStop}
 				onSave={onSave}
 				organizationId={organization.id}
 				outreachMethods={methods}

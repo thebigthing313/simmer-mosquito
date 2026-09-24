@@ -445,6 +445,9 @@ A form opened off a mission stop takes the stop as `missionStop`, and the
 stop's geometry is drawn when it arrives, through `useMissionStopSeed` (#1233).
 `restoreStopGeometry` is what the band's "Use stop geometry" button calls to
 put it back after an edit or a clear.
+A save while the stop's geometry is still loading is refused with "The mission
+stop's geometry is still loading." rather than the form's own missing-location
+message, since drawing is not what fixes it.
 
 #### useMissionStopSeed
 
@@ -1220,6 +1223,13 @@ second reader for one row. It answers a status rather than a nullable
 geometry, since a form has to tell a stop still loading from one that failed:
 a failed read, a stop the mission does not name, and a stop link with no
 mission are all a failure the band says out loud, never an empty map.
+
+A retry reads as loading while it runs, rather than as the failure it is
+replacing. A stop link with no mission fails with no retry, since asking again
+cannot change that answer, and the band's button is disabled for it. The read
+takes React Query's default stale time rather than holding the answer for the
+session, so a stop redrawn on the mission while this tab was open is the shape
+the next form draws, and the shape an unedited save is compared against.
 
 #### useMissionStopViews
 

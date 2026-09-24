@@ -40,15 +40,9 @@ export interface LocationMessages {
 }
 
 /**
- * Where a control action happened, from the geometry on the form.
- *
- * A geometry is required on a mission stop as it is off one, since the form
- * draws the stop's geometry when it opens and an empty map means the crew
- * cleared it (#1233). A geometry still exactly the stop's is sent as none, and
- * the server copies the stop's stored shape: the copy the form holds came
- * through `st_asgeojson` at nine decimal places, and a rounded copy need not
- * cover the stored shape, which would put the coverage question to a crew that
- * changed nothing.
+ * Where a control action happened, from the geometry on the form. A geometry is
+ * required on a mission stop as it is off one, and a geometry still exactly the
+ * stop's is sent as none, for the server to copy the stop's stored shape.
  */
 export function resolveActionLocation(input: {
 	readonly geometry: unknown;
@@ -88,7 +82,7 @@ export interface MissionStopExecution {
 	/** The stop being executed, or null for an ordinary off-mission record. */
 	readonly missionItemId: string | null;
 	/** The stop's geometry for the form to draw, or null off a stop. */
-	readonly stopGeometry: MissionStopGeometry | null;
+	readonly missionStop: MissionStopGeometry | null;
 	/** Run the save; `acknowledgements` is empty on the first attempt. */
 	readonly run: (write: (acknowledgements: StopAcknowledgements) => Promise<void>) => Promise<void>;
 	/** Render inside the page. Null until a write is refused with a question. */
@@ -130,13 +124,13 @@ export function useMissionStopExecution(search: {
 				.select(({ item }) => ({ id: item.id })),
 	});
 
-	const stopGeometry = useMissionStopGeometry({ missionId, missionItemId });
+	const missionStop = useMissionStopGeometry({ missionId, missionItemId });
 
 	const resolveLocation = (geometry: unknown, messages: LocationMessages): ResolvedActionLocation =>
 		resolveActionLocation({
 			geometry,
 			messages,
-			stopGeometry: stopGeometry?.status === 'ready' ? stopGeometry.geometry : null,
+			stopGeometry: missionStop?.status === 'ready' ? missionStop.geometry : null,
 		});
 
 	const navigateAfterSave = async (toRecord: () => Promise<void>) => {
@@ -155,6 +149,6 @@ export function useMissionStopExecution(search: {
 		navigateAfterSave,
 		resolveLocation,
 		run,
-		stopGeometry,
+		missionStop,
 	};
 }

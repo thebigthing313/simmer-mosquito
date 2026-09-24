@@ -136,7 +136,7 @@ function CreateBiocontrolActionRoute() {
 				}}
 				mode="create"
 				initialGeometry={initialGeometry}
-				missionStop={mission.stopGeometry}
+				missionStop={mission.missionStop}
 				onSave={onSave}
 				organizationId={organization.id}
 				profiles={profiles}
