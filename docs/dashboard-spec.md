@@ -38,7 +38,7 @@ Three sections, in this order, top to bottom:
 
 The frame is what the overviews use: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, so the page fills the
-stage up to the 112rem cap, and a `PageHeader` with eyebrow `Organization`,
+stage up to the 112rem cap, and a `PageHeader` with no eyebrow,
 title `Dashboard`, the `generic.home` icon and the description "The state of the
 Organization, for the person deciding what happens next." Below 1280px the two
 queue panels stack.

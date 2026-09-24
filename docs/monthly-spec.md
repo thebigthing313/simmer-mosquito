@@ -15,7 +15,7 @@ today is an `UpcomingPage` stub mounted by #1082.
 
 ## The page
 
-The frame is Today's. The `PageHeader` carries eyebrow `Organization`, the
+The frame is Today's. The `PageHeader` carries no eyebrow, the
 `generic.chart` icon, the title `Monthly`, the description "What was recorded
 in one month, against the month before, the same month last year and the five
 years before." and the picker in `actions`. The upward line under it reads

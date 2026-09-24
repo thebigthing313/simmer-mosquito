@@ -112,7 +112,6 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 					/>
 				}
 				description={OVERVIEW_DESCRIPTIONS[grain]}
-				eyebrow="Organization"
 				icon={GRAIN_ICONS[grain]}
 				title={OVERVIEW_TITLES[grain]}
 			/>

@@ -61,7 +61,6 @@ function AdultSurveillanceOverviewRoute() {
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="Collection activity across your traps, the species composition in what they caught, and the collections still awaiting identification or flagged with a problem."
-				eyebrow="Surveillance & mapping"
 				icon={AdultIcon}
 				title="Adult Surveillance"
 			/>

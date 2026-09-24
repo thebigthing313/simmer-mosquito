@@ -66,7 +66,6 @@ function OperationsOverviewRoute() {
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="Control work that has been requested, the worklists crews are running, and the missions dispatched against them."
-				eyebrow="Dispatch and crew work"
 				icon={OperationsIcon}
 				title="Operations"
 			/>

@@ -19,7 +19,7 @@ calendar year.
 
 ## The page
 
-The frame is Today's. The `PageHeader` carries eyebrow `Organization`, the
+The frame is Today's. The `PageHeader` carries no eyebrow, the
 `generic.chart` icon, the title `Annual`, the description "What was recorded
 in one year, against the year before and the five years before." and the
 picker in `actions`. There is no upward line, because there is no coarser

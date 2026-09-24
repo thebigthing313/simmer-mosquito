@@ -29,7 +29,6 @@ export function DashboardPage() {
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="The state of the Organization, for the person deciding what happens next."
-				eyebrow="Organization"
 				icon={HomeIcon}
 				title="Dashboard"
 			/>

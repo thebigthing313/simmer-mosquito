@@ -153,7 +153,7 @@ was the alternative and gives each year one vote regardless of its size.
 
 The frame is the overviews' and the Dashboard's: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, and a `PageHeader`
-with eyebrow `Organization`, the `generic.chart` icon, the title `Today`, the
+with no eyebrow, the `generic.chart` icon, the title `Today`, the
 description "What was recorded on one day, against the day before, with the
 year so far under it." and the period picker in `actions`.
 

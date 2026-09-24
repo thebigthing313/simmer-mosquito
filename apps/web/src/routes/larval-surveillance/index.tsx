@@ -84,7 +84,6 @@ function LarvalSurveillanceOverviewRoute() {
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
 				description="Inspection activity across your habitats, the species your samples identified, and the habitats where larval density came back heavy."
-				eyebrow="Surveillance & mapping"
 				icon={LarvalIcon}
 				title="Larval Surveillance"
 			/>

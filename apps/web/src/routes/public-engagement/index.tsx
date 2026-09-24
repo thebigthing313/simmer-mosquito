@@ -74,7 +74,6 @@ function PublicEngagementOverviewRoute() {
 			<div className="grid gap-6">
 				<PageHeader
 					description="Service requests reported by the public, the outreach your crews do, and the contacts behind both."
-					eyebrow="Community engagement"
 					icon={PublicIcon}
 					title="Public Engagement"
 				/>
