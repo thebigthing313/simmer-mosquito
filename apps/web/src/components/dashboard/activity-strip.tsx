@@ -4,7 +4,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useState } from 'react';
 import { useActivityStrip } from '../../hooks/dashboard/use-activity-strip';
-import { formatCount } from '../../lib/format-count';
+import { type CountNoun, formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
 import {
@@ -12,6 +12,7 @@ import {
 	type ActivityTypeKey,
 	type ChangeMode,
 	changeLabel,
+	changeSentence,
 } from './dashboard-data';
 
 const UpIcon = iconRegistry.arrows.chevronUp.icon;
@@ -28,6 +29,21 @@ const ACTIVITY_LABELS: Readonly<Record<ActivityTypeKey, string>> = {
 	releases: recordNoun('biocontrolAction').titleMany,
 	serviceRequests: `${recordNoun('serviceRequest').titleMany} received`,
 	outreachActions: recordNoun('outreachAction').titleMany,
+};
+
+/** What each cell counts, as the sentence a screen reader hears names it. */
+const ACTIVITY_NOUNS: Readonly<Record<ActivityTypeKey, CountNoun>> = {
+	inspections: recordNoun('inspection'),
+	samples: recordNoun('sample'),
+	collections: recordNoun('collection'),
+	applications: recordNoun('application'),
+	sourceReductions: recordNoun('sourceReduction'),
+	releases: recordNoun('biocontrolAction'),
+	serviceRequests: {
+		one: `${recordNoun('serviceRequest').one} received`,
+		many: `${recordNoun('serviceRequest').many} received`,
+	},
+	outreachActions: recordNoun('outreachAction'),
 };
 
 /** The two ways the strip states a change, as the toggle offers them. */
@@ -119,6 +135,9 @@ export function ActivityStrip({
  * the type's label under both. Up draws in the info tone and down in the
  * warning tone, the way the queue chips already read; no change draws the
  * figure alone, muted, with no chevron.
+ *
+ * What is drawn is hidden from assistive technology and a sentence stands in
+ * for it, because the drawn order announced as "622 Down 913 Inspections".
  */
 function ActivityCell({
 	type,
@@ -132,7 +151,10 @@ function ActivityCell({
 	const change = changeLabel(cell.count, cell.prior, mode);
 	return (
 		<div className="grid gap-0.5 px-3 py-2.5">
-			<span className="flex items-baseline gap-1.5">
+			<span className="sr-only">
+				{changeSentence(cell.count, cell.prior, mode, ACTIVITY_NOUNS[type])}
+			</span>
+			<span aria-hidden="true" className="flex items-baseline gap-1.5">
 				<span className="font-semibold text-xl tabular-nums leading-none">
 					{formatCount(cell.count)}
 				</span>
@@ -145,14 +167,16 @@ function ActivityCell({
 					)}
 				>
 					{change.direction === 'up' ? (
-						<UpIcon aria-label="Up" className="size-3.5" />
+						<UpIcon className="size-3.5" />
 					) : change.direction === 'down' ? (
-						<DownIcon aria-label="Down" className="size-3.5" />
+						<DownIcon className="size-3.5" />
 					) : null}
 					{change.text}
 				</span>
 			</span>
-			<span className="truncate text-muted-foreground text-xs">{ACTIVITY_LABELS[type]}</span>
+			<span aria-hidden="true" className="truncate text-muted-foreground text-xs">
+				{ACTIVITY_LABELS[type]}
+			</span>
 		</div>
 	);
 }

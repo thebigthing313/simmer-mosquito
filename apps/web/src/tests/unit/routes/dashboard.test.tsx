@@ -131,13 +131,20 @@ function queueLine(label: string): HTMLElement {
 	return line;
 }
 
-/** The strip cell whose label reads `label`: its count, its chip and the label, as one text. */
-function stripCell(label: string): HTMLElement {
+/**
+ * A strip cell's drawn text, found by its label. The cell also holds a
+ * screen-reader sentence in place of what it draws, which `spoken` reads.
+ */
+function stripCell(label: string): { readonly textContent: string; readonly spoken: string } {
 	const cell = screen.getByText(label).parentElement;
-	if (cell === null) {
+	if (cell === null || cell === undefined) {
 		throw new Error(`No strip cell labelled ${label}.`);
 	}
-	return cell;
+	const drawn = [...cell.children].filter((child) => !child.classList.contains('sr-only'));
+	return {
+		textContent: drawn.map((child) => child.textContent).join(''),
+		spoken: cell.querySelector('.sr-only')?.textContent ?? '',
+	};
 }
 
 describe('the Dashboard', () => {
@@ -259,11 +266,13 @@ describe('the Dashboard', () => {
 		// The strip: every type a cell, counted off the synced rows on its own date.
 		expect(screen.getByText('Sep 9 to Sep 15, compared with the 7 days before')).toBeTruthy();
 		expect(stripCell('Inspections').textContent).toBe('32Inspections');
-		expect(within(stripCell('Inspections')).getByLabelText('Up')).toBeTruthy();
+		expect(stripCell('Inspections').spoken).toBe(
+			'3 inspections, up 2 compared with the 7 days before',
+		);
 		expect(stripCell('Samples').textContent).toBe('32Samples');
 		// One in each window, the exact-timestamp one placed by the Organization's zone.
 		expect(stripCell('Collections').textContent).toBe('10Collections');
-		expect(within(stripCell('Collections')).queryByLabelText(/Up|Down/)).toBeNull();
+		expect(stripCell('Collections').spoken).toContain('no change');
 		expect(stripCell('Service Requests received').textContent).toBe('22Service Requests received');
 		// A type with no row is a cell at zero.
 		expect(stripCell('Biocontrol Actions').textContent).toBe('00Biocontrol Actions');

@@ -7,6 +7,7 @@
  * `packages/db/src/domains/dashboard.ts` is the other half.
  * `docs/dashboard-spec.md` is the rest.
  */
+import { type CountNoun, countPhrase, formatCount } from '../../lib/format-count';
 
 /** A pending queue: how many, and the date of the oldest. */
 export interface QueueCount {
@@ -129,6 +130,31 @@ export interface ChangeLabel {
  * zero it has no base, so a rise from nothing reads `from 0` rather than a
  * number.
  */
+/**
+ * The cell as a screen reader should hear it: the count, what was counted, and
+ * the change named against the window it is measured from. The visible cell
+ * reads `622 ⌄ 913 Inspections`, and announced as it is drawn that was
+ * "622 Down 913 Inspections", which says neither what went down nor against
+ * what.
+ */
+export function changeSentence(
+	count: number,
+	prior: number,
+	mode: ChangeMode,
+	noun: CountNoun,
+): string {
+	const counted = countPhrase(count, noun);
+	const change = changeLabel(count, prior, mode);
+	if (change.direction === 'same') {
+		return `${counted}, no change from the 7 days before`;
+	}
+	if (change.text === 'from 0') {
+		return `${counted}, up from none in the 7 days before`;
+	}
+	const amount = mode === 'count' ? formatCount(Math.abs(count - prior)) : change.text;
+	return `${counted}, ${change.direction} ${amount} compared with the 7 days before`;
+}
+
 export function changeLabel(count: number, prior: number, mode: ChangeMode): ChangeLabel {
 	const delta = count - prior;
 	if (delta === 0) {
