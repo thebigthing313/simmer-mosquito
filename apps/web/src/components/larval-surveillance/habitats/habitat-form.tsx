@@ -161,7 +161,7 @@ export function HabitatFormPage({
 			>
 				<form.FormErrorAlert title="Unable to Save Habitat" />
 
-				<div className="grid gap-5 sm:grid-cols-2">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
 					<form.AppField name="habitatName">
 						{(field) => (
 							<field.TextField label="Habitat name" placeholder="e.g. North basin catchment" />

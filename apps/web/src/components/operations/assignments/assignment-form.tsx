@@ -185,7 +185,7 @@ export function AssignmentDetailFields({
 				/>
 			</div>
 
-			<div className="grid gap-4 sm:grid-cols-2">
+			<div className="grid gap-4 @md/fields:grid-cols-2">
 				<div className="grid gap-1.5">
 					<span className="font-medium text-foreground text-sm">
 						Date

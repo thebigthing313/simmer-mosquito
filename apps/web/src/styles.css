@@ -17,22 +17,13 @@
 }
 
 /*
- * SIMMER web is a desktop application by decision, not by omission. The shell
- * spends 304px on fixed chrome before any content (64px rail + 240px nav), so a
- * 320px floor was a promise the layout could never keep — it left 16px for the
- * page. This floor is the width below which we would rather hand the operator a
- * horizontal scrollbar than a crushed table: the layout stays intact and
- * predictable instead of collapsing.
- *
- * Field work on phones is served by a separate surface, not by squeezing this
- * one. If that ever changes, the fix is not lowering this number — it is giving
- * the rails a collapse behaviour first (`ui-web`'s `sidebar.tsx` already has
- * one, currently unused).
+ * There is no width floor. The body used to hold `min-width: 1024px`, because
+ * the shell spent 480px on fixed rails and anything narrower crushed the page.
+ * The rails now move into a drawer under `lg` and `SplitPage` stacks under a
+ * 56rem stage, which is the collapse behaviour that floor was waiting on, so a
+ * tablet or a phone gets the page rather than a horizontal scrollbar. Field
+ * work on phones still has its own surface in `apps/mobile`.
  */
-body {
-	min-width: 1024px;
-}
-
 button,
 a,
 input,

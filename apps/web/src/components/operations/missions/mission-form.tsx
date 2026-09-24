@@ -273,7 +273,7 @@ export function MissionFormPage({
 				</FormSection>
 
 				<FormSection title="Schedule">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="startDate">
 							{(field) => (
 								<DateControl
@@ -288,7 +288,7 @@ export function MissionFormPage({
 							{(field) => <field.TextField label="Start time" required type="time" />}
 						</form.AppField>
 					</div>
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="endTime">
 							{(field) => (
 								<field.TextField
@@ -316,7 +316,7 @@ export function MissionFormPage({
 				</FormSection>
 
 				<FormSection title="Crew and Notice">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="assignedToProfileId">
 							{(field) => (
 								<field.SelectField

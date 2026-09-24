@@ -57,7 +57,7 @@ export function TimingSection({
 			>
 				{({ timingMode, pending }: { timingMode: AdultCollectionTimingMode; pending: boolean }) =>
 					timingMode === 'exact_timestamps' ? (
-						<div className="grid gap-5 sm:grid-cols-2">
+						<div className="grid gap-5 @md/fields:grid-cols-2">
 							<form.AppField name="startedAt">
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
@@ -83,7 +83,7 @@ export function TimingSection({
 							</form.AppField>
 						</div>
 					) : (
-						<div className="grid gap-5 sm:grid-cols-3">
+						<div className="grid gap-5 @xl/fields:grid-cols-3">
 							<form.AppField name="collectionDate">
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (

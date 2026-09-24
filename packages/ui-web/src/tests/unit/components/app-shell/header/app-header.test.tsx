@@ -28,7 +28,11 @@ const OVERVIEW: ShellDomain = {
 	groups: [{ id: 'overview-main', items: [{ id: 'dashboard', label: 'Dashboard', to: '/' }] }],
 };
 
-function renderHeader(getToday: () => Date, timeZone: string): string {
+function renderHeader(
+	getToday: () => Date,
+	timeZone: string,
+	onOpenNavigation?: () => void,
+): string {
 	return renderToStaticMarkup(
 		<ShellProvider
 			activePath="/"
@@ -41,7 +45,7 @@ function renderHeader(getToday: () => Date, timeZone: string): string {
 			timeZone={timeZone}
 			user={{ name: 'Ada', email: 'ada@example.test' }}
 		>
-			<AppHeader />
+			<AppHeader onOpenNavigation={onOpenNavigation} />
 		</ShellProvider>,
 	);
 }
@@ -52,5 +56,26 @@ describe('the header date line', () => {
 		const markup = renderHeader(() => new Date('2026-03-05T04:30:00Z'), 'America/Los_Angeles');
 
 		expect(markup).toContain('>Wed, Mar 4, 2026<');
+	});
+});
+
+/**
+ * Under `lg` the rails live in a drawer and this button is the only way to it,
+ * so it is drawn whenever the shell hands the header an opener, hidden from
+ * `lg` up by class rather than by a width the server cannot know.
+ */
+describe('the navigation drawer button', () => {
+	const today = () => new Date('2026-03-05T12:00:00Z');
+
+	it('is drawn with a name when the shell hands the header an opener', () => {
+		const button = renderHeader(today, 'UTC', () => {})
+			.match(/<button[^>]*>/g)
+			?.find((tag) => tag.includes('aria-label="Open navigation"'));
+
+		expect(button?.match(/class="([^"]*)"/)?.[1]?.split(' ')).toContain('lg:hidden');
+	});
+
+	it('is absent when nothing can open a drawer', () => {
+		expect(renderHeader(today, 'UTC')).not.toContain('Open navigation');
 	});
 });

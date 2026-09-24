@@ -14,6 +14,14 @@ import type React from 'react';
  * The ratio is a fixed 40/60 (content/companion). The right region is
  * `relative` so a caller can layer floating chrome — a detail card, a legend —
  * over whatever it holds.
+ *
+ * Under a 56rem stage the two columns stop fitting, so the split stacks: the
+ * companion draws first as a band capped at 22rem and the content column
+ * scrolls beneath it. The question is the stage's width rather than the
+ * window's, because the rails beside it take 480px the window query cannot
+ * see. The content column is also the `fields` container, which is what a
+ * record form's field grids query to decide whether two fields fit side by
+ * side.
  */
 export function SplitPage({
 	children,
@@ -26,11 +34,24 @@ export function SplitPage({
 	readonly aside: React.ReactNode;
 }) {
 	return (
-		<div
-			className={cn('grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden', className)}
-		>
-			<div className="min-h-0 min-w-0 overflow-y-auto">{children}</div>
-			<div className="relative min-h-0 min-w-0 border-border/40 border-l">{aside}</div>
+		<div className="@container/split h-full min-h-0 w-full">
+			<div
+				className={cn(
+					'flex h-full min-h-0 w-full flex-col overflow-hidden',
+					'@4xl/split:grid @4xl/split:grid-cols-[2fr_3fr]',
+					className,
+				)}
+			>
+				<div className="@container/fields min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
+				<div
+					className={cn(
+						'relative order-first h-[min(38svh,22rem)] min-h-0 min-w-0 shrink-0 border-border/40 border-b',
+						'@4xl/split:order-none @4xl/split:h-auto @4xl/split:border-b-0 @4xl/split:border-l',
+					)}
+				>
+					{aside}
+				</div>
+			</div>
 		</div>
 	);
 }

@@ -116,7 +116,16 @@ export function RecordFormPage({
 			</div>
 		</>
 	);
-	const fields = <div className={cn('grid', gap === 'tight' ? 'gap-5' : 'gap-6')}>{children}</div>;
+	/*
+	 * `fields` is the container a form's field grids query, so two fields sit
+	 * side by side when the column is wide enough for them rather than when
+	 * the window is. In a split the column is 40% of the stage.
+	 */
+	const fields = (
+		<div className={cn('@container/fields grid', gap === 'tight' ? 'gap-5' : 'gap-6')}>
+			{children}
+		</div>
+	);
 	/*
 	 * The frame each band's contents sit in. `header` padding on the two bars,
 	 * the pinned rhythm the record detail page's bar reads, and `page` on the

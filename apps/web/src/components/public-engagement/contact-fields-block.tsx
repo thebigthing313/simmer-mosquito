@@ -27,7 +27,7 @@ export function ContactFieldsBlock({
 					{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 					{(field: any) => <field.TextField label="Name" placeholder="e.g. Jordan Rivera" />}
 				</form.AppField>
-				<div className="grid gap-5 sm:grid-cols-2">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
 					<form.AppField name={`${prefix}company`}>
 						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 						{(field: any) => <field.TextField label="Company" placeholder="e.g. Riverside HOA" />}
@@ -44,7 +44,7 @@ export function ContactFieldsBlock({
 			</ContactFieldGroup>
 
 			<ContactFieldGroup level={headingLevel} title="Communication">
-				<div className="grid gap-5 sm:grid-cols-2">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
 					<form.AppField name={`${prefix}preferredPhone`}>
 						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 						{(field: any) => (

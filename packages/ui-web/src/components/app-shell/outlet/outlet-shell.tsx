@@ -1,14 +1,22 @@
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import type React from 'react';
+import { useState } from 'react';
 import { AppHeader } from '../header/app-header';
 import { PrimarySidebar } from '../primary-sidebar/primary-sidebar';
 import { SecondarySidebar } from '../secondary-sidebar/secondary-sidebar';
+import { useShell } from '../shell-context';
+import { NavigationDrawer } from './navigation-drawer';
 
 /**
  * The definitive authenticated shell. Composes the primary rail, the secondary
  * navigation panel, the header, and the scrolling region the router renders
  * into. Must be mounted inside a `ShellProvider`, which supplies organization,
  * user, navigation, and active-path state.
+ *
+ * Under `lg` the two rails would leave a phone no page at all, so they move
+ * into `NavigationDrawer` and the header grows a button that opens it. The
+ * drawer is open for the path it was opened on, so navigating from inside it
+ * closes it without an effect watching the path.
  */
 export function OutletShell({
 	banner,
@@ -23,6 +31,9 @@ export function OutletShell({
 	readonly banner?: React.ReactNode;
 	readonly children: React.ReactNode;
 }) {
+	const { activePath } = useShell();
+	const [drawerPath, setDrawerPath] = useState<string | null>(null);
+
 	return (
 		<TooltipProvider delayDuration={300}>
 			<div className="flex h-svh w-full flex-col overflow-hidden bg-background text-foreground">
@@ -44,10 +55,14 @@ export function OutletShell({
 				</a>
 				{banner}
 				<div className="flex min-h-0 w-full flex-1 overflow-hidden">
-					<PrimarySidebar />
-					<SecondarySidebar />
+					<PrimarySidebar className="max-lg:hidden" />
+					<SecondarySidebar className="max-lg:hidden" />
+					<NavigationDrawer
+						onOpenChange={(open) => setDrawerPath(open ? activePath : null)}
+						open={drawerPath === activePath}
+					/>
 					<div className="flex min-w-0 flex-1 flex-col">
-						<AppHeader />
+						<AppHeader onOpenNavigation={() => setDrawerPath(activePath)} />
 						{/*
 						 * `relative` is load-bearing, not decorative. An `overflow` ancestor
 						 * only clips an absolutely-positioned descendant when it is also in

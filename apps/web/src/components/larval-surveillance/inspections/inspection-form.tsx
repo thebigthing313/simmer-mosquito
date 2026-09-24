@@ -424,7 +424,7 @@ export function InspectionFormPage({
 						{(isWet) =>
 							isWet ? (
 								<div className="grid gap-5">
-									<div className="grid gap-5 sm:grid-cols-2">
+									<div className="grid gap-5 @md/fields:grid-cols-2">
 										{columns.density.show ? (
 											<form.AppField name="density">
 												{(field) => (

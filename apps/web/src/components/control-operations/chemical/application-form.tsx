@@ -357,7 +357,7 @@ export function ApplicationFormPage({
 											/>
 										)}
 									</form.AppField>
-									<div className="grid gap-5 sm:grid-cols-2">
+									<div className="grid gap-5 @md/fields:grid-cols-2">
 										<form.AppField name="amountApplied">
 											{(field) => (
 												<field.NumberField
@@ -455,7 +455,7 @@ export function ApplicationFormPage({
 											/>
 										)}
 									</form.AppField>
-									<div className="grid gap-5 sm:grid-cols-2">
+									<div className="grid gap-5 @md/fields:grid-cols-2">
 										<form.AppField name="amountApplied">
 											{(field) => (
 												<field.NumberField
@@ -511,7 +511,7 @@ export function ApplicationFormPage({
 				</FormSection>
 
 				<FormSection title="Work Performed">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="applicationMethodId">
 							{(field) => (
 								<field.SelectField
