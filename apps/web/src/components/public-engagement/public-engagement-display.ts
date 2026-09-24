@@ -2,6 +2,7 @@
 // parameter is structural rather than a row type, so both read paths satisfy
 // it.
 
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { calendarDateParts } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 
@@ -26,8 +27,12 @@ export function contactDisplayName(contact: {
 	readonly id: string;
 }): string {
 	return (
-		firstNonEmpty(contact.contactName, contact.company, contact.email, contact.preferredPhone) ??
-		`Contact ${contact.id.slice(0, 8)}`
+		firstNonEmpty(
+			contact.contactName,
+			contact.company,
+			contact.email,
+			formatPhoneNumber(contact.preferredPhone),
+		) ?? `Contact ${contact.id.slice(0, 8)}`
 	);
 }
 
@@ -40,7 +45,7 @@ export function contactSecondaryLine(contact: {
 	readonly preferredPhone: string | null;
 }): string | null {
 	const primary = contactDisplayName(contact);
-	const parts = [contact.company, contact.email, contact.preferredPhone].filter(
+	const parts = [contact.company, contact.email, formatPhoneNumber(contact.preferredPhone)].filter(
 		(part): part is string => part !== null && part.trim().length > 0 && part !== primary,
 	);
 	return parts.length === 0 ? null : parts.join(' · ');

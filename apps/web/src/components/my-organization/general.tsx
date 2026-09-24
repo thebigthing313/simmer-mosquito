@@ -2,6 +2,7 @@ import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { useState } from 'react';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
 import { AddIcon } from './constants';
@@ -139,7 +140,10 @@ function OrganizationDetailsSummary({
 			<div className="grid min-w-0 content-start gap-2">
 				<span className="text-xs leading-tight font-semibold text-muted-foreground">Contact</span>
 				<OrganizationDetailLine label="Email" value={organization.main_contact_email} />
-				<OrganizationDetailLine label="Phone" value={organization.phone_number} />
+				<OrganizationDetailLine
+					label="Phone"
+					value={formatPhoneNumber(organization.phone_number)}
+				/>
 				<OrganizationDetailLine label="Timezone" value={timezone} />
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
