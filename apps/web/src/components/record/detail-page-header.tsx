@@ -1,4 +1,5 @@
 import type { TagTargetType } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -126,7 +127,7 @@ export function DetailPageHeader(props: DetailPageHeaderProps) {
 	return (
 		<DetailHeaderBar frame={frame ?? 'page'}>
 			<div className="flex min-w-0 flex-col gap-1.5">
-				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+				<span className={eyebrow({ className: 'inline-flex items-center gap-1.5' })}>
 					<RecordIcon aria-hidden="true" className="size-3.5" />
 					{recordNoun(recordType).title}
 				</span>
@@ -421,12 +422,12 @@ function ActionsMenu({
 				<Tooltip>
 					<TooltipTrigger asChild>
 						<DropdownMenuTrigger asChild>
-							<Button aria-label="More actions" size="icon-sm" variant="ghost">
+							<Button aria-label="More Actions" size="icon-sm" variant="ghost">
 								<MoreHorizontalIcon aria-hidden="true" />
 							</Button>
 						</DropdownMenuTrigger>
 					</TooltipTrigger>
-					<TooltipContent>More actions</TooltipContent>
+					<TooltipContent>More Actions</TooltipContent>
 				</Tooltip>
 				<DropdownMenuContent align="start" className="min-w-52">
 					{visible.map((action, index) => (

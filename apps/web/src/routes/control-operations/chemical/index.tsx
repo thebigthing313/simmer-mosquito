@@ -270,6 +270,7 @@ function ApplicationsExplorerRoute() {
 						layers={layers}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (

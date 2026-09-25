@@ -53,6 +53,12 @@ export interface ShellNavGroup {
 	readonly id: string;
 	readonly label?: string;
 	readonly items: readonly ShellNavItem[];
+	/**
+	 * The label folds the items away and back, open by default, and this
+	 * browser remembers which way it was left. For a group built from data that
+	 * can run long, such as one row per Profile. Ignored on a group with no label.
+	 */
+	readonly collapsible?: boolean;
 }
 
 /**

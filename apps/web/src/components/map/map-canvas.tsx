@@ -5,6 +5,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
 import { type ActivityLayerConfig, useActivityLayer } from '../../hooks/map/use-activity-layer';
 import { useContextGeoJsonLayer } from '../../hooks/map/use-context-geojson-layer';
+import { useExplorerCamera } from '../../hooks/map/use-explorer-camera';
 import { type GeoJsonLayerInteraction, useGeoJsonLayer } from '../../hooks/map/use-geojson-layer';
 import { type MapExtentFitSource, useMapExtentFit } from '../../hooks/map/use-map-extent-fit';
 import { useMapMeasure } from '../../hooks/map/use-map-measure';
@@ -13,6 +14,7 @@ import { isMapLive, useMapboxMap } from '../../hooks/map/use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from '../../hooks/map/use-nearby-layer';
 import { type RouteLayerConfig, useRouteLayer } from '../../hooks/map/use-route-layer';
 import { useTileLayer } from '../../hooks/map/use-tile-layer';
+import { watchExplorerCamera } from '../../lib/explorer-camera';
 import { BasemapSwitcher } from './basemap-switcher';
 import type { MapSourceGeoJson } from './geojson-adapter';
 import { GeolocateControl } from './geolocate-control';
@@ -47,6 +49,12 @@ export interface MapControlsConfig {
 	 */
 	readonly readout?: boolean;
 	readonly attribution?: boolean;
+	/**
+	 * A map inside a card: zoom in and out and the basemap toggle, and none of
+	 * the zoom-to-ends or north reset, which crowded a 400px well with five
+	 * buttons for a map nobody rotates.
+	 */
+	readonly minimal?: boolean;
 }
 
 /**
@@ -72,6 +80,7 @@ export function MapCanvas({
 	geoJsonInteraction,
 	contextGeoJson,
 	fitToData,
+	rememberCamera = false,
 	onMapReady,
 }: {
 	readonly className?: string;
@@ -131,6 +140,13 @@ export function MapCanvas({
 	 * local rows. Panning and zooming afterwards are the user's to keep.
 	 */
 	readonly fitToData?: boolean | BoundingBox | null;
+	/**
+	 * Open on the camera the last explorer map was left on, and keep this one's
+	 * for the next. The explorers pass it; a detail page or a form frames its own
+	 * record and does not. With it on, `fitToData` refits after a filter change
+	 * and leaves the opening camera alone. `useExplorerCamera` has the rest.
+	 */
+	readonly rememberCamera?: boolean;
 	/** Called once with the GL instance after it loads, for camera/bounds reads. */
 	readonly onMapReady?: (map: MapboxMap) => void;
 }) {
@@ -149,13 +165,16 @@ export function MapCanvas({
 		measure: controls?.measure ?? false,
 		attribution: controls?.attribution ?? true,
 		readout: controls?.readout ?? false,
+		minimal: controls?.minimal ?? false,
 	};
 
+	const remembered = useExplorerCamera(rememberCamera);
+	const openingCamera = camera ?? remembered.initialCamera;
 	const { map, isLoaded, hasToken, error } = useMapboxMap({
 		container,
 		basemapId,
 		attribution: show.attribution,
-		...(camera === undefined ? {} : { camera }),
+		...(openingCamera === undefined ? {} : { camera: openingCamera }),
 	});
 
 	const measure = useMapMeasure({ map, isLoaded: isLoaded && show.measure });
@@ -172,7 +191,15 @@ export function MapCanvas({
 	useContextGeoJsonLayer(map, isLoaded, contextGeoJson ?? null);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
 	useMapPadding(map, isLoaded, clear);
-	useMapExtentFit(map, isLoaded, resolveExtentFitSource(fitToData, layers), clear);
+	useMapExtentFit(map, isLoaded, resolveExtentFitSource(fitToData, layers), clear, rememberCamera);
+	useMapExtentFit(map, isLoaded, remembered.firstVisitFit, clear);
+	const { storageKey } = remembered;
+	useEffect(() => {
+		if (storageKey === null || !isMapLive(map)) {
+			return;
+		}
+		return watchExplorerCamera(map, storageKey);
+	}, [map, storageKey]);
 
 	const onMapReadyRef = useRef(onMapReady);
 	// The writes are an effect rather than render-phase assignments, which is what
@@ -322,8 +349,8 @@ export function MapCanvas({
 									{show.geolocate ? <GeolocateControl map={map} /> : null}
 									{show.zoom ? (
 										<>
-											<MapZoomControls map={map} />
-											<NorthControl map={map} />
+											<MapZoomControls map={map} steps={show.minimal} />
+											{show.minimal ? null : <NorthControl map={map} />}
 										</>
 									) : null}
 								</div>

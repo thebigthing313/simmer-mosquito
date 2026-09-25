@@ -178,7 +178,6 @@ function EditBiocontrolActionLoader({
 			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
 				title: `Edit ${recordNoun('biocontrolAction').title}`,
-				description: 'Update this release’s method, amount, date, context, or location.',
 				backTo: '/control-operations/biocontrol/$id',
 				backParams: { id: action.id },
 				backLabel: 'Back to biocontrol action',
@@ -189,6 +188,7 @@ function EditBiocontrolActionLoader({
 			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
+			missionStop={null}
 			units={units}
 		/>
 	);

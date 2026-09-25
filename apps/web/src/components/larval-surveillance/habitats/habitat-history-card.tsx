@@ -3,7 +3,6 @@ import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-st
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -11,6 +10,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useHabitatHistory } from '../../../hooks/queries/use-habitat-history';
+import { formatCount } from '../../../lib/format-count';
 import { HISTORY_UNAVAILABLE } from './habitat-history-tab';
 import {
 	ApplicationHistory,
@@ -52,10 +52,6 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 		<Card variant="surface">
 			<CardHeader padding="compact">
 				<CardTitle>History</CardTitle>
-				<CardDescription>
-					Recent larval inspections, samples, applications, source reductions, and requests for
-					control at this habitat.
-				</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
 				<PanelRows
@@ -69,13 +65,19 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 							{/* Five tabs no longer fit a narrow main column, and the strip's
 						    default is to overflow the card rather than shrink. */}
 							<TabStrip>
-								<TabStripTab value="inspections">Inspections ({inspections.length})</TabStripTab>
-								<TabStripTab value="samples">Samples ({samples.length})</TabStripTab>
-								<TabStripTab value="applications">Applications ({applications.length})</TabStripTab>
-								<TabStripTab value="source-reductions">
-									Source Reductions ({sourceReductions.length})
+								<TabStripTab value="inspections">
+									Inspections ({formatCount(inspections.length)})
 								</TabStripTab>
-								<TabStripTab value="requests">Requests ({requests.length})</TabStripTab>
+								<TabStripTab value="samples">Samples ({formatCount(samples.length)})</TabStripTab>
+								<TabStripTab value="applications">
+									Applications ({formatCount(applications.length)})
+								</TabStripTab>
+								<TabStripTab value="source-reductions">
+									Source Reductions ({formatCount(sourceReductions.length)})
+								</TabStripTab>
+								<TabStripTab value="requests">
+									Requests ({formatCount(requests.length)})
+								</TabStripTab>
 							</TabStrip>
 							<TabsContent value="inspections" className="pt-4">
 								<InspectionHistory habitatId={habitatId} inspections={inspections} />

@@ -22,13 +22,15 @@
  */
 
 import { coalesce, eq, gte, or, useLiveQuery } from '@tanstack/react-db';
+import { addresses } from '../../lib/collections/addresses';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collections } from '../../lib/collections/collections';
 import { profiles } from '../../lib/collections/profiles';
 import { traps } from '../../lib/collections/traps';
 import { localDayStartAsInstant } from '../../lib/local-date';
+import type { LinkedAddress } from './address-view';
 import { compareByCollectionDateDesc } from './collection-view';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, addressSelect } from './shared';
 
 /** One collection as the overview lists it. */
 export interface ActivityCollection {
@@ -39,6 +41,13 @@ export interface ActivityCollection {
 	readonly methodId: string;
 	readonly methodName: string;
 	readonly addressId: string | null;
+	/**
+	 * Joined, not looked up. It is the rung below the Trap name on a collection
+	 * recorded away from one (#1231); `address-view.ts` says why it is nested.
+	 */
+	readonly address: LinkedAddress;
+	readonly latitude: number;
+	readonly longitude: number;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
 	readonly collectionTimingMode: string;
@@ -71,9 +80,14 @@ export function useRecentCollections(
 						gte(collection.collection_date, sinceDate),
 					),
 				)
-				// `left` throughout: an ad-hoc collection names no trap and nobody need
-				// have been recorded as collector.
+				// `left` throughout: a one-off collection names no trap, most name no
+				// address and nobody need have been recorded as collector.
 				.join({ trap: traps() }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
+				.join(
+					{ address: addresses() },
+					({ collection, address }) => eq(collection.address_id, address.id),
+					'left',
+				)
 				.join(
 					{ method: collection_methods() },
 					({ collection, method }) => eq(collection.collection_method_id, method.id),
@@ -84,14 +98,17 @@ export function useRecentCollections(
 					({ collection, collector }) => eq(collection.collected_by_profile_id, collector.id),
 					'left',
 				)
-				.select(({ collection, trap, method, collector }) => ({
+				.select(({ collection, trap, address, method, collector }) => ({
 					id: collection.id,
+					address: addressSelect(address),
 					trapId: collection.trap_id,
 					trapName: coalesce(trap.trap_name, null),
 					trapCode: coalesce(trap.trap_code, null),
 					methodId: collection.collection_method_id,
 					methodName: coalesce(method.name, 'Unknown method'),
 					addressId: collection.address_id,
+					latitude: collection.lat,
+					longitude: collection.lng,
 					collectedAt: collection.collected_at,
 					collectionDate: collection.collection_date,
 					collectionTimingMode: collection.collection_timing_mode,

@@ -33,11 +33,11 @@ function values(overrides: Partial<TrapFormValues> = {}): TrapFormValues {
 
 describe('a trap the domain refuses', () => {
 	it('passes a complete record', () => {
-		expect(validateTrap(values(), POINT, true)).toBeUndefined();
+		expect(validateTrap(values(), POINT)).toBeUndefined();
 	});
 
 	it('names the collection method on the method field', () => {
-		const result = validateTrap(values({ collectionMethodId: '' }), POINT, true);
+		const result = validateTrap(values({ collectionMethodId: '' }), POINT);
 
 		expect(result?.fields?.collectionMethodId).toBeDefined();
 		expect(result?.form).toBeUndefined();
@@ -46,6 +46,6 @@ describe('a trap the domain refuses', () => {
 	// An edit does not ask for a redraw, so an untouched trap must not be refused
 	// over a point the operator was never shown.
 	it('leaves an unredrawn trap alone on edit', () => {
-		expect(validateTrap(values(), null, false)).toBeUndefined();
+		expect(validateTrap(values(), null)).toBeUndefined();
 	});
 });

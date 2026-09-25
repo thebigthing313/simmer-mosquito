@@ -1,28 +1,12 @@
 import type { RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { cva } from 'class-variance-authority';
 import type { ReactNode } from 'react';
 
-/**
- * How the page's subject is drawn: as an uppercase eyebrow with the icon inline
- * beside its label, or as a tinted tile beside the title.
- *
- * Both are in use and both look deliberate, so this is a variant rather than a
- * choice one of them loses. The eyebrow prop is what picks it, because the two
- * go together: a label naming the record type wants its icon on the same line,
- * and a page with no label has nothing to put an inline icon beside.
- */
-const subject = cva('inline-flex shrink-0 items-center', {
-	variants: {
-		treatment: {
-			tile: 'mt-0.5 size-9 justify-center rounded-md bg-primary/10 text-primary',
-			eyebrow: 'gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide',
-		},
-	},
-});
-
-/** The glyph inside each treatment. A tile has room for more of it. */
-const SUBJECT_GLYPH = { tile: 'size-5', eyebrow: 'size-3.5' } as const;
+/** The page's subject: its icon on a tinted tile beside the title. */
+// The order the class list had under the old `cva`, so the markup it draws is
+// byte for byte what the admin console's changelog pins.
+const SUBJECT_TILE =
+	'inline-flex shrink-0 items-center mt-0.5 size-9 justify-center rounded-md bg-primary/10 text-primary';
 
 /**
  * The heading a page opens with: its subject, its title, a measured
@@ -38,11 +22,12 @@ const SUBJECT_GLYPH = { tile: 'size-5', eyebrow: 'size-3.5' } as const;
  * announcements, is what left five headings a size below the other seventeen,
  * and it is overruled.
  *
- * The eyebrow is the one axis those seventeen hand-built headings varied on, and
- * the reason they were hand-built: a short label naming the record type
- * (`Collection`, `Weather station`) or the domain area (`Surveillance &
- * mapping`). Sixteen of the seventeen carried one and this component could not
- * say it.
+ * It draws no eyebrow. The small uppercase label above a heading belongs to a
+ * record's detail page, where it names the record type, and `DetailPageHeader`
+ * in `apps/web` draws that one. List, explorer, overview, period and settings
+ * pages carried one too, naming a domain area (`Surveillance & mapping`) or
+ * the word `Organization`, which said nothing the sidebar had not, so the prop
+ * went in the second design pass.
  *
  * `icon` is optional for one site: the new-assignment page opens with a back
  * link where the others open with their subject.
@@ -54,7 +39,6 @@ const SUBJECT_GLYPH = { tile: 'size-5', eyebrow: 'size-3.5' } as const;
 export function PageHeader({
 	title,
 	description,
-	eyebrow,
 	icon: PageIcon,
 	actions,
 	className,
@@ -66,33 +50,21 @@ export function PageHeader({
 	 * address, whose postal lines are several of them.
 	 */
 	readonly description?: ReactNode | undefined;
-	/** The record type or domain area, sentence case: `Collection`, `Dispatch`. */
-	readonly eyebrow?: string | undefined;
-	/** The page's subject, drawn inline beside the eyebrow or tiled beside the title. */
+	/** The page's subject, tiled beside the title. */
 	readonly icon?: RegistryIcon | undefined;
 	/** Badges and the page's own controls, in reading order. */
 	readonly actions?: ReactNode | undefined;
 	readonly className?: string | undefined;
 }) {
-	const treatment = eyebrow === undefined ? 'tile' : 'eyebrow';
-	const glyph =
-		PageIcon === undefined ? null : (
-			<PageIcon aria-hidden="true" className={SUBJECT_GLYPH[treatment]} />
-		);
-
 	return (
 		<header className={cn('flex flex-wrap items-start justify-between gap-x-4 gap-y-3', className)}>
 			<div className="flex min-w-0 items-start gap-3">
-				{treatment === 'tile' && glyph !== null ? (
-					<span className={subject({ treatment })}>{glyph}</span>
-				) : null}
+				{PageIcon === undefined ? null : (
+					<span className={SUBJECT_TILE}>
+						<PageIcon aria-hidden="true" className="size-5" />
+					</span>
+				)}
 				<div className="grid min-w-0 gap-1.5">
-					{eyebrow === undefined ? null : (
-						<span className={subject({ treatment: 'eyebrow' })}>
-							{glyph}
-							{eyebrow}
-						</span>
-					)}
 					<h1 className="m-0 text-pretty font-semibold text-foreground text-heading leading-heading">
 						{title}
 					</h1>

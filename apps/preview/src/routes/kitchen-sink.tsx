@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { PanelRows, type PanelRowsReading } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { TabStrip, TabStripTab } from '@simmer-mosquito/ui-web/components/tab-strip';
@@ -175,6 +176,22 @@ function KitchenSinkPage() {
 							{tone}
 						</Badge>
 					))}
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
+						<p className="preview-eyebrow">Type</p>
+						<h2>Eyebrows</h2>
+					</div>
+				</div>
+				<div className="component-grid dense">
+					<p className={eyebrow({ tone: 'primary' })}>Requests for Control</p>
+					<p className={eyebrow()}>Identified Species</p>
+					<p className="rounded-md bg-primary px-2 py-1 text-primary-foreground">
+						<span className={eyebrow({ tone: 'inherit' })}>Today</span>
+					</p>
 				</div>
 			</section>
 

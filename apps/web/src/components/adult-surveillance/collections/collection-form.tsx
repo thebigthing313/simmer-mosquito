@@ -50,7 +50,7 @@ export interface CollectionSaveInput {
 
 export interface CollectionFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/adult-surveillance/collections' | '/adult-surveillance/collections/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -164,7 +164,7 @@ export function CollectionFormPage({
 				<TimingSection form={form} units={units} />
 
 				<FormSection title="Personnel">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="setByProfileId">
 							{(field) => (
 								<field.SelectField
@@ -210,11 +210,7 @@ export function CollectionFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<LocationSection
-					description="A trap collection sits where the trap sits. A one-off carries its own point; an address is optional reference, and the point can be refined off it."
-					error={location.locationError}
-					title="Source and location"
-				>
+				<LocationSection error={location.locationError} title="Source and Location">
 					<form.AppField name="sourceMode">
 						{(field) => (
 							<ToggleGroup
@@ -334,12 +330,7 @@ export function CollectionFormPage({
 					</form.AppField>
 
 					<form.AppField name="hasProblem">
-						{(field) => (
-							<field.SwitchField
-								description="Flag if the trap failed, was tampered with, or the sample is compromised."
-								label="Problem with this collection"
-							/>
-						)}
+						{(field) => <field.SwitchField label="Problem with this collection" />}
 					</form.AppField>
 				</FormSection>
 

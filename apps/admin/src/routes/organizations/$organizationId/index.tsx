@@ -4,6 +4,7 @@ import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { AdminOrganization } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
@@ -125,7 +126,7 @@ function OrganizationDetailRoute() {
 					<FactList
 						facts={[
 							{ label: 'Main contact email', value: organization.contact.mainContactEmail },
-							{ label: 'Phone', value: organization.contact.phoneNumber },
+							{ label: 'Phone', value: formatPhoneNumber(organization.contact.phoneNumber) },
 							{ label: 'Address', value: mailingAddress(organization) },
 						]}
 					/>

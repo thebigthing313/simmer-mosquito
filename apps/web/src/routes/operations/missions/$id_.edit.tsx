@@ -75,7 +75,6 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{
 				title: `Edit ${recordNoun('mission').title}`,
-				description: 'Change what the mission is for, when it runs, or who is on it.',
 				backTo: '/operations/missions/$id',
 				backParams: { id: mission.id },
 				backLabel: 'Back to mission',

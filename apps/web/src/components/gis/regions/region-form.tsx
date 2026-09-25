@@ -7,6 +7,7 @@ import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../lib/domain-validation';
+import { compareNames } from '../../../lib/natural-order';
 import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
@@ -35,7 +36,7 @@ export interface RegionFormValues {
 
 export interface RegionFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/gis/regions' | '/gis/regions/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -97,7 +98,7 @@ export function RegionFormPage({
 	});
 	const { draw, geometry, geometryType } = location;
 
-	const activeFolders = [...regionFolders].sort((a, b) => a.name.localeCompare(b.name));
+	const activeFolders = [...regionFolders].sort((a, b) => compareNames(a.name, b.name));
 
 	const form = useAppForm({
 		defaultValues,
@@ -148,7 +149,7 @@ export function RegionFormPage({
 			>
 				<form.FormErrorAlert title="Unable to Save Region" />
 
-				<div className="grid gap-5 sm:grid-cols-2">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
 					<form.AppField
 						name="name"
 						validators={{
@@ -174,25 +175,16 @@ export function RegionFormPage({
 					geometryKind="region"
 					label="Boundary"
 					location={location}
-					title="Region boundary"
+					title="Region Boundary"
 				/>
 
 				<form.AppField name="description">
 					{(field) => (
-						<field.TextareaField
-							description="Optional. Say what this region covers and how crews use it."
-							label="Description"
-							placeholder="Describe the region…"
-							rows={3}
-						/>
+						<field.TextareaField label="Description" placeholder="Describe the region…" rows={3} />
 					)}
 				</form.AppField>
 
-				<CustomFieldsSection
-					description="Optional structured notes for region details of your own."
-					form={form}
-					framed={false}
-				/>
+				<CustomFieldsSection form={form} framed={false} />
 			</RecordFormPage>
 		</form.AppForm>
 	);

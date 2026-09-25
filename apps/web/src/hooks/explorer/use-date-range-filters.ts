@@ -1,8 +1,4 @@
-import {
-	activeDatePresetId,
-	type DatePreset,
-	datePresetRange,
-} from '../../components/date-range-filter';
+import { activeDatePresetId, type DatePreset, datePresetRange } from '../../lib/date-presets';
 
 /** The only two keys this hook writes back through an explorer's `setFilters`. */
 export interface DateRangePatch {

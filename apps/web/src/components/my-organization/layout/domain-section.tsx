@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import type React from 'react';
 import { displayFieldValue } from '../helpers';
@@ -21,7 +22,7 @@ export function DomainSection({
 }: {
 	readonly canManage: boolean;
 	readonly children?: React.ReactNode;
-	readonly editDescription: string;
+	readonly editDescription?: string | undefined;
 	readonly editAction?: React.ReactNode;
 	readonly fields: readonly SettingField[];
 	readonly id: string;
@@ -60,7 +61,7 @@ function SetupList({ items }: { readonly items: readonly SetupCatalog[] }) {
 
 	return (
 		<div className="grid gap-1.5">
-			<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
+			<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 			<div className="grid gap-2">
 				{items.map((catalog) => (
 					<article

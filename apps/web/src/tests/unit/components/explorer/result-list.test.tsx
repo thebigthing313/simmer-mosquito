@@ -59,7 +59,7 @@ describe('ResultList', () => {
 		const onRetry = vi.fn();
 		renderList({ rows: [], isError: true, onRetry });
 
-		fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
 
 		expect(onRetry).toHaveBeenCalledTimes(1);
 	});

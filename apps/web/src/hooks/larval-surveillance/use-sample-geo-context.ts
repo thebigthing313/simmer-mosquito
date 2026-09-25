@@ -23,6 +23,8 @@ export interface SampleGeoRow {
 	readonly inspectionDate: string;
 	readonly habitatId: string | null;
 	readonly habitatName: string | null;
+	/** The parent inspection's Address, the rung below the Habitat name. */
+	readonly addressDisplayName: string | null;
 	readonly isZeroLarvae: boolean;
 	readonly hasNonMosquito: boolean;
 	readonly unidentifiableReason: string | null;

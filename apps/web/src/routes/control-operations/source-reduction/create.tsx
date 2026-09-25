@@ -76,9 +76,8 @@ function CreateSourceReductionRoute() {
 			}
 
 			// The point is the action's authoritative geometry; the address and habitat
-			// (if any) are reference only. Off a mission stop it is required; on one it
-			// is an override the crew may not have drawn, and the server falls back to
-			// the stop's own ground.
+			// (if any) are reference only. On a mission stop the form opens on the
+			// stop's geometry, and an untouched one is left for the server to copy.
 			const location = mission.resolveLocation(geometry, {
 				missing: 'Place the point where the sources were eliminated.',
 				unresolvable: 'Unable to determine the source reduction location.',
@@ -124,14 +123,13 @@ function CreateSourceReductionRoute() {
 				}}
 				header={{
 					title: createLabel('sourceReduction'),
-					description: 'Place the point, then record what the crew eliminated, how much, and when.',
 					backTo: '/control-operations/source-reduction',
 					backLabel: recordNoun('sourceReduction').titleMany,
 				}}
 				methods={methods}
 				mode="create"
 				initialGeometry={initialGeometry}
-				requireLocation={mission.requireLocation}
+				missionStop={mission.missionStop}
 				onSave={onSave}
 				organizationId={organization.id}
 				profiles={profiles}

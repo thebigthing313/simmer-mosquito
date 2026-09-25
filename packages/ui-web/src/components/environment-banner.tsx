@@ -52,7 +52,7 @@ function EnvironmentStrip({
 			<span className="font-semibold">Staging</span>
 			<span>{summary}</span>
 			<Popover>
-				<PopoverTrigger className="rounded-sm underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning">
+				<PopoverTrigger className="rounded-sm underline underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-warning">
 					What is different here
 				</PopoverTrigger>
 				<PopoverContent align="start" className="grid gap-2 text-sm">

@@ -38,9 +38,8 @@ Three sections, in this order, top to bottom:
 
 The frame is what the overviews use: `pageContainer` at
 `{ gap: 'overview', measure: 'record', padding: 'page' }`, so the page fills the
-stage up to the 112rem cap, and a `PageHeader` with eyebrow `Organization`,
-title `Dashboard`, the `generic.home` icon and the description "The state of the
-Organization, for the person deciding what happens next." Below 1280px the two
+stage up to the 112rem cap, and a `PageHeader` with no eyebrow,
+title `Dashboard`, the `generic.home` icon and no description. Below 1280px the two
 queue panels stack.
 
 Every name on the page is the one the prototype settled and is written here as
@@ -129,15 +128,18 @@ the page.
 
 ## Last 7 days
 
-One ruled strip, not a `Panel`: a section heading `Last 7 days` on the left,
-and on the right the window's dates, the words "compared with the 7 days
-before" and a two-segment toggle, `#` and `%`, then one bordered row of eight
-cells, eight across on a wide screen, four at `sm`, two below. Each cell is the
-count for the window, the change beside it and the type's label under both.
-The change is a chevron and an unsigned figure rather than a `Badge`: up in the
-`info` tone, down in the `warning` tone, and no chevron with a muted `0` when
-the two windows match. The chevron is the sign, so the figure never carries
-one. The toggle restates every cell as a count, the difference, or as a
+One ruled strip, not a `Panel`: a section heading `Last 7 Days` on the left,
+and on the right the window's dates, the words "change vs previous 7 days" and
+a two-segment toggle, `#` and `%`, then one bordered row of eight cells, eight
+across on a wide screen, four at `sm`, two below. Each cell is the count for
+the window, the change beside it and the type's label under both. The number
+of days in the copy is read off the hook's window rather than written in.
+
+The change is a signed figure, `+25` or `-913`, in the muted tone whichever way
+it went, and `0` when the two windows match. It was a chevron in the `info`
+tone for up and the `warning` tone for down, which read a rise as good and a
+fall as bad; neither is, since a dry week drops inspections and a storm raises
+service requests. The toggle restates every cell as a count, the difference, or as a
 percentage of the 7 days before, rounded to whole points; a rise from a prior
 of zero has no base and reads `from 0`. The toggle is page state and starts on
 the count.

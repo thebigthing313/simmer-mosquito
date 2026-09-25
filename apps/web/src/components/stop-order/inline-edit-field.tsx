@@ -101,14 +101,14 @@ export function InlineEditField({
 
 	return (
 		<button
-			className="-mx-1 pointer-events-auto block w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+			className="-mx-1 pointer-events-auto block w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 			onClick={edit}
 			type="button"
 		>
 			{value.trim().length > 0 ? (
 				renderValue(value)
 			) : (
-				<span className="text-muted-foreground/60 text-xs italic">{emptyLabel}</span>
+				<span className="text-muted-foreground text-xs italic">{emptyLabel}</span>
 			)}
 		</button>
 	);

@@ -62,7 +62,7 @@ function values(overrides: Partial<ApplicationFormValues> = {}): ApplicationForm
 }
 
 function validate(overrides: Partial<ApplicationFormValues>, mix: ApplicationMix = NO_MIX) {
-	return validateApplication(values(overrides), POINT, true, mix);
+	return validateApplication(values(overrides), POINT, mix);
 }
 
 describe('a single-product application the domain refuses', () => {

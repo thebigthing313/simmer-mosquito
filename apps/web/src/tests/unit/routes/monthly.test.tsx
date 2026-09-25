@@ -108,7 +108,7 @@ describe('the Monthly page', () => {
 				.map((cell) => cell.textContent),
 		).toEqual(['Record type', 'Sep 2026', 'Aug 2026', 'Sep 2025', '2021–2025 average']);
 		expect(table().getByRole('row', { name: /^Inspections/ }).textContent).toBe(
-			'Inspections2,1403,9802,3102,266.4',
+			'Inspections2,1403,9802,3102,266',
 		);
 	});
 
@@ -148,7 +148,7 @@ describe('the Monthly page', () => {
 
 		expect(screen.queryByText(/^Each period through/)).toBeNull();
 		expect(screen.getByRole('heading', { name: 'Jun 2026' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'This month' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'This Month' })).toBeTruthy();
 		expect(screen.getByRole('combobox', { name: 'Month shown' }).textContent).toBe('June 2026');
 		expect(harness.navigate).not.toHaveBeenCalled();
 	});
@@ -178,7 +178,7 @@ describe('the Monthly page', () => {
 		// The select draws nothing for a value it has no item for, so the trigger
 		// reading the month is the extra item at the bottom of the list.
 		expect(screen.getByRole('combobox', { name: 'Month shown' }).textContent).toBe('May 2009');
-		expect(screen.getByRole('button', { name: 'Previous month' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Previous Month' })).toHaveProperty('disabled', true);
 		expect(harness.navigate).not.toHaveBeenCalled();
 	});
 
@@ -187,11 +187,11 @@ describe('the Monthly page', () => {
 
 		await waitFor(() => screen.getByRole('table'));
 
-		expect(screen.getByRole('button', { name: 'Next month' })).toHaveProperty('disabled', true);
-		expect(screen.getByRole('button', { name: 'Previous month' })).toHaveProperty(
+		expect(screen.getByRole('button', { name: 'Next Month' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Previous Month' })).toHaveProperty(
 			'disabled',
 			false,
 		);
-		expect(screen.queryByRole('button', { name: 'This month' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'This Month' })).toBeNull();
 	});
 });

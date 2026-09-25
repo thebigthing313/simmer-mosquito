@@ -40,6 +40,7 @@ import { useExplorerPanel } from '../../../hooks/explorer/use-explorer-panel';
 import { useExplorerResource } from '../../../hooks/explorer/use-explorer-resource';
 import { usePersonnelOptions } from '../../../hooks/explorer/use-personnel-options';
 import { useRegionOptions } from '../../../hooks/explorer/use-region-options';
+import { collectionLabel } from '../../../hooks/queries/trap-view';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
@@ -57,6 +58,8 @@ import {
 interface CollectionRow {
 	readonly id: string;
 	readonly trapId: string | null;
+	/** The Address it was linked to: the rung below the trap name. */
+	readonly addressDisplayName: string | null;
 	readonly lat: number;
 	readonly lng: number;
 	readonly collectionMethodId: string;
@@ -256,6 +259,7 @@ function CollectionsExplorerRoute() {
 						layers={layers}
 						controls={{ measure: true, readout: true }}
 						fitToData
+						rememberCamera
 						legend={legend}
 						onMapReady={handleMapReady}
 					/>
@@ -357,7 +361,21 @@ function CollectionListItem({
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const label = trapName ?? 'Ad-hoc collection';
+	/*
+	 * The trap rung is already taken by the time this runs, and `trapId: null`
+	 * below says so rather than describing the row: the caller resolves
+	 * `trapName` from the trap name map and substitutes `Unknown trap` for a
+	 * trap it cannot name, so a row with a trap never reaches this call with a
+	 * null `trapName`. The server row carries no trap name columns of its own.
+	 * What is left is the ladder below the trap: the address, then the
+	 * coordinates, then the word (#1231).
+	 */
+	const label =
+		trapName ??
+		collectionLabel(
+			{ trapId: null, trapName: null, trapCode: null, lat: row.lat, lng: row.lng },
+			{ addressName: row.addressDisplayName, fallback: 'One-off collection' },
+		);
 	const timeZone = useOrganizationTimeZone();
 	const effectiveDate = collectionEffectiveDate(row, timeZone);
 	/*

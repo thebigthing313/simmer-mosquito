@@ -27,7 +27,7 @@ const statusTones = {
 	notStarted: 'neutral',
 	inProgress: 'info',
 	completed: 'success',
-	cancelled: 'danger',
+	cancelled: 'neutral',
 } as const;
 
 export function AssignmentStatusBadge({ status }: { readonly status: AssignmentStatus }) {

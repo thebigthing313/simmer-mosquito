@@ -83,7 +83,7 @@ export function validateAddress(
 
 export interface AddressFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/gis/addresses' | '/gis/addresses/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -216,7 +216,7 @@ export function AddressFormPage({
 				<form.FormErrorAlert title="Unable to Save Address" />
 
 				<FormSection title="Address">
-					<div className="grid gap-4 sm:grid-cols-2">
+					<div className="grid gap-4 @md/fields:grid-cols-2">
 						<form.AppField name="displayName">
 							{(field) => <field.TextField label="Display name" required />}
 						</form.AppField>
@@ -262,7 +262,7 @@ export function AddressFormPage({
 					geometryKind="address"
 					label="Location"
 					location={location}
-					title="Address location"
+					title="Address Location"
 				/>
 			</RecordFormPage>
 

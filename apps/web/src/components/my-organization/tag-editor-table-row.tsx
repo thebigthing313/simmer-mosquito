@@ -6,7 +6,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { TableCell, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { useTagMutations } from '../../hooks/mutations/use-tag-mutations';
 import type { TagRecord } from '../../hooks/queries/use-tag-catalog';
@@ -25,6 +25,7 @@ export function TagEditorTableRow({
 	readonly onCancel: () => void;
 	readonly tag: TagRecord;
 }) {
+	const id = useId();
 	const mutations = useTagMutations();
 	// The draft is held beside the row it was edited from. A row that changes
 	// under the editor (a sync) starts a fresh draft, with no reset and no
@@ -60,18 +61,20 @@ export function TagEditorTableRow({
 		<TableRow>
 			<TableCell className="w-(--tag-preview-column) align-top">
 				<Field className="gap-1">
-					<FieldLabel>Name</FieldLabel>
+					<FieldLabel htmlFor={`${id}-name`}>Name</FieldLabel>
 					<Input
+						id={`${id}-name`}
 						value={values.tagName}
 						className="min-w-0"
 						onChange={(event) => setValues({ ...values, tagName: event.target.value })}
 					/>
 				</Field>
 			</TableCell>
-			<TableCell className="w-(--tag-description-column) align-top whitespace-normal">
+			<TableCell className="align-top whitespace-normal">
 				<Field className="gap-1">
-					<FieldLabel>Description</FieldLabel>
+					<FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
 					<Textarea
+						id={`${id}-description`}
 						value={values.description}
 						className="min-h-14 min-w-0 max-w-full resize-y wrap-anywhere whitespace-pre-wrap"
 						onChange={(event) => setValues({ ...values, description: event.target.value })}
@@ -80,11 +83,12 @@ export function TagEditorTableRow({
 			</TableCell>
 			<TableCell className="w-(--tag-relevance-column) align-top">
 				<Field className="gap-1">
-					<FieldLabel>Suggested For</FieldLabel>
+					<FieldLabel htmlFor={`${id}-relevance`}>Suggested For</FieldLabel>
 					{/* Placeholdered rather than left blank, so the empty set states what
 					    it means instead of reading as unset. Ticking all six saves the
 					    empty set, which the `updateTag` validator does for every caller. */}
 					<MultiSelect
+						id={`${id}-relevance`}
 						options={TAG_RELEVANCE_OPTIONS}
 						placeholder="All records"
 						value={values.relevantEntityTypes}
@@ -101,8 +105,14 @@ export function TagEditorTableRow({
 					/>
 				</Field>
 				<Field className="mt-2 grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border/30 bg-muted/30 px-2.5 py-1">
-					<FieldLabel>{values.isActive ? 'Active' : 'Deactivated'}</FieldLabel>
+					<FieldLabel htmlFor={`${id}-active`}>
+						{values.isActive ? 'Active' : 'Deactivated'}
+					</FieldLabel>
+					{/* The visible text follows the value, so the switch is named for what it
+					    turns on and reads the same in either state. */}
 					<Switch
+						id={`${id}-active`}
+						aria-label="Active"
 						checked={values.isActive}
 						onCheckedChange={(isActive) => setValues({ ...values, isActive })}
 					/>
@@ -134,7 +144,7 @@ export function TagEditorTableRow({
 					</Button>
 					<Button type="button" variant="outline" size="icon" onClick={onCancel}>
 						<CloseIcon aria-hidden="true" />
-						<span className="sr-only">Cancel editing {tag.name}</span>
+						<span className="sr-only">Cancel Editing {tag.name}</span>
 					</Button>
 				</div>
 			</TableCell>

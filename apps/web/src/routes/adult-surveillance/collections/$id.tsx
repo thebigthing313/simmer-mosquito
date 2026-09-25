@@ -1,6 +1,7 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { PanelRows } from '@simmer-mosquito/ui-web/components/panel-rows';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -10,7 +11,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -70,7 +70,7 @@ import {
 } from '../../../hooks/mutations/use-collection-species-mutations';
 import type { AdultCollection } from '../../../hooks/queries/collection-view';
 import { activityGcTimeMs } from '../../../hooks/queries/shared';
-import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { collectionPlaceLabel, trapDisplayName } from '../../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
 import {
 	type CollectionIdentification,
@@ -168,12 +168,7 @@ function CollectionDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Field notes, identification remarks, and follow-up for this collection."
-					target={{ type: 'collection', id: collection.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'collection', id: collection.id }} />}
 			facts={
 				<>
 					<DetailsCard
@@ -221,7 +216,7 @@ function CollectionDetailContent({
 					recordId: collection.id,
 					returnTo: '/adult-surveillance/collections',
 				},
-				subtitle: `${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`,
+				subtitle: `${collectionPlaceLabel(collection)} · ${methodName}`,
 				title,
 			}}
 			layout={layout}
@@ -362,9 +357,6 @@ function ResultsCard({
 							<SpeciesIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							Identification
 						</CardTitle>
-						<CardDescription>
-							Collection flags and the specimens identified in this sample.
-						</CardDescription>
 					</div>
 					<div className="flex shrink-0 items-center gap-2">
 						{entries.length > 0 ? (
@@ -380,7 +372,7 @@ function ResultsCard({
 								variant="outline"
 							>
 								<KeyboardIcon aria-hidden="true" />
-								Key entry
+								Key Entry
 							</Button>
 						) : null}
 					</div>
@@ -390,21 +382,18 @@ function ResultsCard({
 				<div className="grid gap-3 rounded-md border border-border/40 bg-muted/20 p-3">
 					<FlagRow
 						checked={collection.isZeroResult}
-						description="No specimens were collected."
 						disabled={!canEdit}
 						label="Zero result"
 						onChange={handleZeroResultChange}
 					/>
 					<FlagRow
 						checked={collection.hasBycatch}
-						description="Non-target specimens were present."
 						disabled={!canEdit}
 						label="Bycatch"
 						onChange={(value) => void setBycatch(collection.id, value)}
 					/>
 					<FlagRow
 						checked={collection.hasProblem}
-						description="Trap failure, tampering, or a compromised sample."
 						disabled={!canEdit}
 						label="Problem"
 						onChange={(value) => void setProblem(collection.id, value)}
@@ -412,9 +401,7 @@ function ResultsCard({
 				</div>
 
 				<div className="grid gap-3">
-					<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-						Species
-					</span>
+					<span className={eyebrow()}>Species</span>
 					{/* Zero result goes through `instead` rather than through `empty`: it is
 					    the record answering for its own species, so it outranks the count
 					    and stands even while a species row that is on its way out is still
@@ -539,6 +526,8 @@ function EditableSpeciesRow({
 	readonly onChange: (entryId: string, changes: CollectionSpeciesChanges) => void;
 	readonly onRemove: (entryId: string) => void;
 }) {
+	const speciesName =
+		speciesOptions.find((option) => option.value === entry.speciesId)?.label ?? 'species';
 	return (
 		<TableRow>
 			<TableCell>
@@ -604,7 +593,7 @@ function EditableSpeciesRow({
 			</TableCell>
 			<TableCell className="text-right">
 				<Button
-					aria-label="Remove species"
+					aria-label={`Remove ${speciesName}`}
 					onClick={() => onRemove(entry.id)}
 					size="icon"
 					type="button"
@@ -768,24 +757,19 @@ const STATUS_FIELD_OPTIONS = [
 
 function FlagRow({
 	label,
-	description,
 	checked,
 	onChange,
 	disabled,
 }: {
 	readonly label: string;
-	readonly description: string;
 	readonly checked: boolean;
 	readonly onChange: (value: boolean) => void;
 	readonly disabled?: boolean;
 }) {
 	return (
 		<div className="flex items-center justify-between gap-3">
-			<div className="grid gap-0.5">
-				<span className="font-medium text-foreground text-sm">{label}</span>
-				<span className="text-muted-foreground text-xs">{description}</span>
-			</div>
-			<Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+			<span className="font-medium text-foreground text-sm">{label}</span>
+			<Switch aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onChange} />
 		</div>
 	);
 }
@@ -826,7 +810,18 @@ function DetailsCard({
 								to="/adult-surveillance/traps/$id"
 							>
 								<TrapIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{trapDisplayName(collection)}
+								{/*
+								 * The id is the trap's, not the collection's. This row is
+								 * inside the link to the trap, and `trapDisplayName` falls
+								 * back to the head of whatever id it is handed, so passing
+								 * the collection drew `Trap <collection id>` for a trap with
+								 * no code and no name.
+								 */}
+								{trapDisplayName({
+									id: collection.trapId,
+									trapName: collection.trapName,
+									trapCode: collection.trapCode,
+								})}
 							</Link>
 						)}
 					</DetailRow>

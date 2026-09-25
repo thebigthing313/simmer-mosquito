@@ -1,4 +1,4 @@
-import { brand } from './colors.js';
+import { brand, yellow } from './colors.js';
 
 /**
  * Map paint palette.
@@ -186,6 +186,17 @@ export const mapStatus = {
 	resolved: '#2f9e8f',
 	/** Queued, awaiting work. */
 	pending: '#e0a12e',
+	/**
+	 * Waiting on somebody, and not wrong: an open service request.
+	 *
+	 * Deep Pollen, the step of the yellow ramp the focus ring uses, because red
+	 * means an error, a destructive action or an inaccessible site and an open
+	 * request is none of the three. It is dark enough to hold 3:1 on the light
+	 * basemap on its own, and the off-white `pointStroke` casing every point
+	 * wears carries it on the satellite one. It sits well away from the
+	 * `selected` amber, which is lighter and warmer and draws a larger mark.
+	 */
+	attention: yellow[600],
 } as const;
 
 /**

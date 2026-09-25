@@ -138,11 +138,11 @@ function emptyState(isFiltered: boolean): {
 } {
 	return isFiltered
 		? {
-				emptyTitle: 'No stations match',
+				emptyTitle: 'No Stations Match',
 				emptyDescription: 'Loosen the filters, or search a different name or code.',
 			}
 		: {
-				emptyTitle: 'No weather stations',
+				emptyTitle: 'No Weather Stations',
 				emptyDescription: 'Add a station to start recording readings against it.',
 			};
 }

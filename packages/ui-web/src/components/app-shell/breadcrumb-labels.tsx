@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import type { ShellCrumb } from './types';
 
 /**
  * A small registry of human labels for path segments the breadcrumb trail would
@@ -12,6 +13,11 @@ import { createContext, useContext, useEffect, useState } from 'react';
  * route that only *registers* a label never re-renders when the map updates. That
  * keeps the publish path one-directional — registrars write, the header reads —
  * with no feedback loop between them.
+ *
+ * A page can also replace the whole trail with {@link useBreadcrumbTrail}. The
+ * not-found page is the one that needs to: a path no route matched resolves to
+ * no navigation item, and the trail built from it named whichever domain sorted
+ * first, which is a location the reader was never in.
  */
 
 /** Exported because {@link useBreadcrumbLabels} names it in its return type. */
@@ -20,15 +26,18 @@ export type BreadcrumbLabelMap = ReadonlyMap<string, string>;
 interface LabelApi {
 	readonly setLabel: (segment: string, label: string) => void;
 	readonly clearLabel: (segment: string) => void;
+	readonly setTrail: (trail: readonly ShellCrumb[] | null) => void;
 }
 
 const EMPTY_LABELS: BreadcrumbLabelMap = new Map();
 
 const BreadcrumbLabelsContext = createContext<BreadcrumbLabelMap>(EMPTY_LABELS);
+const BreadcrumbTrailContext = createContext<readonly ShellCrumb[] | null>(null);
 const BreadcrumbLabelApiContext = createContext<LabelApi | null>(null);
 
 export function BreadcrumbLabelProvider({ children }: { readonly children: React.ReactNode }) {
 	const [labels, setLabels] = useState<BreadcrumbLabelMap>(EMPTY_LABELS);
+	const [trail, setTrail] = useState<readonly ShellCrumb[] | null>(null);
 
 	// The setters close over the state updater, never over `labels`, so nothing
 	// here reads a value that changes between renders.
@@ -46,11 +55,14 @@ export function BreadcrumbLabelProvider({ children }: { readonly children: React
 				next.delete(segment);
 				return next;
 			}),
+		setTrail,
 	};
 
 	return (
 		<BreadcrumbLabelApiContext.Provider value={api}>
-			<BreadcrumbLabelsContext.Provider value={labels}>{children}</BreadcrumbLabelsContext.Provider>
+			<BreadcrumbLabelsContext.Provider value={labels}>
+				<BreadcrumbTrailContext.Provider value={trail}>{children}</BreadcrumbTrailContext.Provider>
+			</BreadcrumbLabelsContext.Provider>
 		</BreadcrumbLabelApiContext.Provider>
 	);
 }
@@ -58,6 +70,11 @@ export function BreadcrumbLabelProvider({ children }: { readonly children: React
 /** The current segment→label overrides, for {@link buildBreadcrumbs}. */
 export function useBreadcrumbLabels(): BreadcrumbLabelMap {
 	return useContext(BreadcrumbLabelsContext);
+}
+
+/** The trail a mounted page put in place of the resolved one, or null. */
+export function useBreadcrumbTrailOverride(): readonly ShellCrumb[] | null {
+	return useContext(BreadcrumbTrailContext);
 }
 
 /**
@@ -87,4 +104,23 @@ export function useBreadcrumbLabel(
 		api.setLabel(segment, label);
 		return () => api.clearLabel(segment);
 	}, [api, segment, label]);
+}
+
+/**
+ * Replace the whole breadcrumb trail while this component is mounted, and put
+ * the resolved one back on unmount. Pass a stable array, a module constant or a
+ * memoized value, because a new array on every render re-publishes on every
+ * render.
+ */
+export function useBreadcrumbTrail(trail: readonly ShellCrumb[]): void {
+	const api = useContext(BreadcrumbLabelApiContext);
+
+	useEffect(() => {
+		if (api === null) {
+			return;
+		}
+
+		api.setTrail(trail);
+		return () => api.setTrail(null);
+	}, [api, trail]);
 }

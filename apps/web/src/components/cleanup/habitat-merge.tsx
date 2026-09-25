@@ -214,7 +214,7 @@ function CandidateList({
 				<AlertDescription className="grid gap-3">
 					<span>Try again, or narrow the search.</span>
 					<Button className="justify-self-start" onClick={onRetry} size="sm" variant="outline">
-						Try again
+						Try Again
 					</Button>
 				</AlertDescription>
 			</Alert>
@@ -226,7 +226,7 @@ function CandidateList({
 			<ListEmpty
 				description={`Nothing else is recorded within ${proximityLabel(radius, unit)} of this habitat. Widen the search if the duplicate was filed from a different spot.`}
 				icon={config.icon}
-				title="No other habitats nearby"
+				title="No Other Habitats Nearby"
 			/>
 		);
 	}

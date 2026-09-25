@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
@@ -8,11 +9,11 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useStopMeta } from '../../../hooks/larval-surveillance/use-stop-meta';
 import type { Tag } from '../../../hooks/queries/tag-view';
-import { hexWithAlpha } from '../../../lib/hex-color';
 import { OrdinalBadge } from '../../stop-order';
+import { TagChipRow } from '../../tag-chip';
 import { type RouteStopCluster, type RouteStopView, stopTone } from './route-data';
 
 const NO_TAGS: readonly Tag[] = [];
@@ -73,9 +74,7 @@ function AddressCluster({
 				<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
 					{cluster.addressLabel ?? 'Same address'}
 				</span>
-				<span className="shrink-0 font-medium text-[0.7rem] text-muted-foreground uppercase tracking-wide">
-					{cluster.stops.length} stops
-				</span>
+				<span className={eyebrow({ className: 'shrink-0' })}>{cluster.stops.length} stops</span>
 			</div>
 			<ol className="grid gap-px">{cluster.stops.map((stop) => renderStop(stop, true))}</ol>
 		</li>
@@ -167,7 +166,7 @@ export function StopTypePill({ typeName }: { readonly typeName: string | null })
 		return null;
 	}
 	return (
-		<span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 font-medium text-[0.7rem] text-muted-foreground">
+		<span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 font-medium text-caption text-muted-foreground">
 			{typeName}
 		</span>
 	);
@@ -175,32 +174,7 @@ export function StopTypePill({ typeName }: { readonly typeName: string | null })
 
 /** A stop's tags as colored chips, or nothing when it has none. */
 export function StopTagChips({ tags }: { readonly tags: readonly Tag[] }) {
-	if (tags.length === 0) {
-		return null;
-	}
-	return (
-		<span className="mt-1 flex flex-wrap items-center gap-1">
-			{tags.map((tag) => (
-				<TagChip key={tag.id} tag={tag} />
-			))}
-		</span>
-	);
-}
-
-function TagChip({ tag }: { readonly tag: Tag }) {
-	const style = tagColorStyle(tag.color);
-	return (
-		<span
-			className={cn(
-				'inline-flex items-center rounded-full border px-2 py-0.5 font-medium text-[0.7rem]',
-				style === null ? 'border-border bg-muted text-muted-foreground' : undefined,
-			)}
-			style={style ?? undefined}
-			title={tag.description ?? undefined}
-		>
-			{tag.name}
-		</span>
-	);
+	return <TagChipRow className="mt-1" tags={tags} />;
 }
 
 export function StopStatus({ stop }: { readonly stop: RouteStopView }) {
@@ -221,17 +195,4 @@ export function StopStatus({ stop }: { readonly stop: RouteStopView }) {
 		);
 	}
 	return null;
-}
-
-/** A tinted chip style from a #RRGGBB tag color, or null to fall back to neutral. */
-function tagColorStyle(color: string | null): CSSProperties | null {
-	if (color === null || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color.trim())) {
-		return null;
-	}
-	const hex = color.trim();
-	return {
-		borderColor: hexWithAlpha(hex, 0.36),
-		backgroundColor: hexWithAlpha(hex, 0.14),
-		color: hex,
-	};
 }

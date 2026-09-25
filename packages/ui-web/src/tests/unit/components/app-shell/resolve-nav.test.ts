@@ -3,6 +3,7 @@ import {
 	buildBreadcrumbs,
 	firstDestination,
 	navDestination,
+	nearestAncestorItem,
 	resolveActive,
 } from '../../../../components/app-shell/resolve-nav';
 import type { ShellDomain } from '../../../../components/app-shell/types';
@@ -122,5 +123,23 @@ describe('firstDestination', () => {
 		};
 
 		expect(firstDestination(domain)).toBe(`/daily-work/${ADA}`);
+	});
+});
+
+describe('nearestAncestorItem', () => {
+	it('names the item the closest ancestor of an unknown path lands on', () => {
+		expect(nearestAncestorItem([overview()], `/daily-work/${ADA}/nothing-here`)).toEqual({
+			path: `/daily-work/${ADA}`,
+			label: 'Daily Work Ada Lovelace',
+		});
+		expect(nearestAncestorItem([overview()], '/dashboard/missing/deeper')).toEqual({
+			path: '/dashboard',
+			label: 'Overview Dashboard',
+		});
+	});
+
+	it('skips the path itself and answers null under no item', () => {
+		expect(nearestAncestorItem([overview()], '/dashboard')).toBeNull();
+		expect(nearestAncestorItem([overview()], '/larval-surveillance/habitat-types')).toBeNull();
 	});
 });

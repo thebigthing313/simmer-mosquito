@@ -53,7 +53,6 @@ function CreateWeatherStationRoute() {
 			defaultValues={defaultWeatherStationFormValues()}
 			header={{
 				title: createLabel('weatherStation'),
-				description: 'Place a station and name it, then record its readings against it.',
 				backTo: '/gis/weather',
 				backLabel: recordNoun('weatherStation').titleMany,
 			}}

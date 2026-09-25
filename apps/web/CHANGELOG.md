@@ -1,5 +1,39 @@
 # @simmer-mosquito/web
 
+## 0.10.0 — 2026-09-24
+
+### Minor Changes
+
+- Added: every map page opens where you left the last one in this browser. The first visit frames your Regions.
+
+- Changed: a chemical application, source reduction, biocontrol action or outreach action recorded from a mission stop opens with the stop's geometry drawn on the map, ready to adjust. Clearing the geometry blocks the save, and Use Stop Geometry puts it back.
+
+- Changed: an inspection, sample or collection not taken at a Habitat or Trap is named by its Address, or by its coordinates when it has no Address, instead of "Ad-hoc inspection". When it has neither, it reads "One-off".
+
+- Added: SIMMER works on a tablet or a phone. On a narrow screen the sidebar moves into a drawer opened from the button at the left of the header, and map pages and record forms stack the map above the list or form. Buttons are large enough to tap, and controls that used to appear only on hover are always shown on a touch screen. Each browser tab is named for the page it shows.
+
+- Added: a Generate button beside each sample on the inspection form fills in a label to write on the sample cup, such as `WL-0924-7G9X-T`: the inspector's initials, the inspection's month and day, four characters, and a check character that catches a mistyped label. Prelabeled cups are typed in as before.
+
+- Changed: the Service Requests Map opens on every request received this year, open and closed. Picking a request moves the map to it and highlights its row without reordering the list. Each open request shows how long it has waited, the Table has an Age column, and the Map can list the oldest request first. The Dashboard's open requests count still opens every open request, whenever it was received.
+
+- Added: Habitats, Samples and Service Requests each have a Table view beside the Map. Open it from the sidebar or from the Map/Table switch, which carries your filters across. Clicking anywhere on a row opens the record, and every date filter now offers a This year preset.
+
+### Patch Changes
+
+- Fixed: screen readers name every field in the organization settings, read out save errors, say which row a Remove button removes, read each life stage chip as present or absent, and announce the new page after you navigate. Keyboard focus moves to the page after you pick a sidebar link. With reduced motion turned on, dialogs, menus and the map stop animating. The app loads faster the first time you open it.
+
+- Changed: a new inspection starts with neither Wet nor Dry chosen, and will not save until you pick one.
+
+- Changed: the app reads more simply. Titles, buttons, tabs and column heads use Title Case, and page subtitles and sidebar lines that described your own records back to you are gone. Open service requests, larvae found and positive counts are drawn in dark yellow or amber, keeping red for errors, deletes and inaccessible sites, and cancelled missions and assignments are grey. Names with numbers sort in order, so Culvert 9 comes before Culvert 10. The Daily Work group in the sidebar folds away and stays the way you left it.
+
+- Fixed: a mistyped address opens a Page Not Found with a way back, and a deleted record says so with a link to its list. A map that is still loading no longer says nothing matched, and the trail names the Table when you opened a record from it.
+
+- Changed: Today draws a bar for every day, weekends included, and leaves out a measure with nothing recorded this year. The Last 7 Days strip shows each change as a signed number. Averages on Monthly and Annual are whole numbers with thousands grouped.
+
+- Changed: phone numbers read as (555) 123-4567 wherever they are shown, however they were typed, and extensions read as "ext. 12". A number that is not a US one shows as it was entered. Searching Contacts by a phone number finds it however it was stored.
+
+- Fixed: tag chips are readable on their own colour. The Trap row on a collection's page shows the same short id as the trap's own page when the trap has no code or name. The pointer changes over every clickable feature on a map.
+
 ## 0.9.0 — 2026-09-23
 
 ### Minor Changes

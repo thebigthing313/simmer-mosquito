@@ -72,7 +72,6 @@ function CreateAddressRoute() {
 			defaultValues={defaultAddressFormValues()}
 			header={{
 				title: createLabel('address'),
-				description: 'Add a geocoded address to the address book.',
 				backTo: '/gis/addresses',
 				// The surface's own name, not the register's `Addresses`: CONTEXT.md
 				// glosses an Address as an "address book entry", and the explorer this

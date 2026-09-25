@@ -20,7 +20,7 @@ export function WorklistTabs({
 }: {
 	/** The worklist the thread hangs off. */
 	readonly target: { readonly type: 'mission' | 'assignment'; readonly id: string };
-	readonly commentsDescription: string;
+	readonly commentsDescription?: string | undefined;
 	/** Shown beside the Stops label, so the count survives a switch to Comments. */
 	readonly stopCount: number;
 	/** Planning controls pinned above the stop list, if the worklist has any. */

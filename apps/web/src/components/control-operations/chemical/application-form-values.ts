@@ -100,12 +100,11 @@ export interface ApplicationMix {
 export function validateApplication(
 	value: ApplicationFormValues,
 	geometry: DrawGeometry | null,
-	requireLocation: boolean,
 	mix: ApplicationMix,
 ) {
 	const shared = {
 		...FORM_VALIDATION_CONTEXT,
-		locationSource: validationLocationSource(geometry, requireLocation),
+		locationSource: validationLocationSource(geometry),
 		applicationDate: value.applicationDate,
 		applicatorProfileId:
 			value.applicatorProfileId === noSelectionValue ? null : value.applicatorProfileId,

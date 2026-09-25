@@ -16,7 +16,6 @@ import { CustomFieldsSection } from '../../forms/custom-fields-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
-import { locationDescription } from '../../map/location-description';
 import { WriteOnly } from '../../write-only';
 
 export const noHabitatTypeValue = 'none';
@@ -31,7 +30,7 @@ export interface HabitatFormValues {
 
 export interface HabitatFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/larval-surveillance/habitats' | '/larval-surveillance/habitats/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -162,7 +161,7 @@ export function HabitatFormPage({
 			>
 				<form.FormErrorAlert title="Unable to Save Habitat" />
 
-				<div className="grid gap-5 sm:grid-cols-2">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
 					<form.AppField name="habitatName">
 						{(field) => (
 							<field.TextField label="Habitat name" placeholder="e.g. North basin catchment" />
@@ -194,15 +193,7 @@ export function HabitatFormPage({
 				{/* Address above geometry, in one section, the same Location block
 							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
-					<LocationBand
-						description={locationDescription({
-							geometryKind: 'habitat',
-							subject: 'The geometry is the habitat itself.',
-						})}
-						geometryKind="habitat"
-						location={location}
-						organizationId={organizationId}
-					>
+					<LocationBand geometryKind="habitat" location={location} organizationId={organizationId}>
 						<form.AppField name="addressId">
 							{(field) => (
 								<LocationAddressField
@@ -238,7 +229,6 @@ export function HabitatFormPage({
 				<CustomFieldsSection
 					allowExtra
 					catalog={habitatTypes}
-					description="Fields this habitat type collects, plus any notes of your own."
 					emptyDescription="Optional structured notes for habitat details of your own."
 					form={form}
 					framed={false}

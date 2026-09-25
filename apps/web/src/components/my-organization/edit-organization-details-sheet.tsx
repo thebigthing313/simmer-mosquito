@@ -24,7 +24,7 @@ export function EditOrganizationDetailsSheet({
 	title,
 }: {
 	readonly defaultValues: OrganizationDetailsFormValues;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly title: string;
 }) {
 	const [open, setOpen] = useState(false);
@@ -65,7 +65,7 @@ export function EditOrganizationDetailsSheet({
 			<SheetContent className="w-[min(440px,100%)]">
 				<SheetHeader>
 					<SheetTitle>{title}</SheetTitle>
-					<SheetDescription>{description}</SheetDescription>
+					{description === undefined ? null : <SheetDescription>{description}</SheetDescription>}
 				</SheetHeader>
 				<form.AppForm>
 					<form

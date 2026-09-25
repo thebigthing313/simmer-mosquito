@@ -381,7 +381,7 @@ would only run the install twice. This document used to name
 `pnpm install --frozen-lockfile` as a third command, which never matched the
 live config (#370).
 
-That filtered build is not the one CI's `verify` job runs. `pnpm build` is
+That filtered build is not what `pnpm build` runs. `pnpm build` is
 `nx run-many`, which orders projects from package.json dependencies;
 `pnpm --filter <app> build` is `tsc -b`, which orders them from tsconfig
 `references` alone. A dependency declared in only one of the two is green in CI

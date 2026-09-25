@@ -184,7 +184,7 @@ function AssignmentCreateRoute() {
 			</div>
 
 			<form
-				className="grid max-w-[46rem] gap-6"
+				className="@container/fields grid max-w-[46rem] gap-6"
 				onSubmit={(event) => {
 					event.preventDefault();
 					void submit();

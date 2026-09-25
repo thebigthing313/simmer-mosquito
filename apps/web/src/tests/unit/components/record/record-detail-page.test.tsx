@@ -13,6 +13,12 @@ import {
 } from '../../../../components/record';
 import type { AskAcknowledged } from '../../../../hooks/use-acknowledged-write';
 
+// The unavailable state reads the router for its back link and breadcrumb;
+// `record-unavailable.test.tsx` covers that, and no router is mounted here.
+vi.mock('../../../../hooks/record/use-unavailable-record-trail', () => ({
+	useUnavailableRecordTrail: () => null,
+}));
+
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
 	Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,

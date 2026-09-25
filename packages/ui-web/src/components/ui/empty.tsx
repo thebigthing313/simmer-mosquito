@@ -1,14 +1,37 @@
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-function Empty({ className, ...props }: React.ComponentProps<'div'>) {
+/**
+ * `framed` is an empty state standing on the page, drawn as a bordered block on
+ * a muted fill. `nested` is one inside a card or panel that already frames it,
+ * where a second border draws a box in a box.
+ */
+const emptyVariants = cva(
+	'flex min-w-0 flex-1 flex-col items-center justify-center gap-6 rounded-lg border-dashed p-6 text-center text-balance md:p-12',
+	{
+		variants: {
+			variant: {
+				default: '',
+				framed: 'border border-border/40 bg-muted/30',
+				nested: 'md:p-6',
+			},
+		},
+		defaultVariants: {
+			variant: 'default',
+		},
+	},
+);
+
+function Empty({
+	className,
+	variant = 'default',
+	...props
+}: React.ComponentProps<'div'> & VariantProps<typeof emptyVariants>) {
 	return (
 		<div
 			data-slot="empty"
-			className={cn(
-				'flex min-w-0 flex-1 flex-col items-center justify-center gap-6 rounded-lg border-dashed p-6 text-center text-balance md:p-12',
-				className,
-			)}
+			data-variant={variant}
+			className={cn(emptyVariants({ variant, className }))}
 			{...props}
 		/>
 	);

@@ -55,7 +55,6 @@ export function ControlMethodLookupList({
 		<LookupListFrame
 			activeCount={activeMethods.length}
 			inactiveCount={inactiveMethods.length}
-			detail={config.detail}
 			title={config.title}
 			action={
 				// Hidden rather than disabled, per `components/write-only.tsx`: a

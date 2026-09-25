@@ -2,6 +2,7 @@ import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { useState } from 'react';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
 import { AddIcon } from './constants';
@@ -48,11 +49,9 @@ export function GeneralOrganizationSection({
 		<>
 			<DomainSection
 				canManage={canManage}
-				editDescription="Update the organization details every member can see."
 				editAction={
 					<EditOrganizationDetailsSheet
 						defaultValues={organizationDetailsFormValues(organization, settings)}
-						description="Update the organization details every member can see."
 						title={`Edit ${organizationName}`}
 					/>
 				}
@@ -67,11 +66,9 @@ export function GeneralOrganizationSection({
 
 			<DomainSection
 				canManage={canManage}
-				editDescription="Set default units used across collection forms, summaries, and operational reports."
 				editAction={
 					<EditUnitDefaultsSheet
 						defaultValues={unitDefaultsFormValues(settings.unitDefaults)}
-						description="Set default units used across collection forms, summaries, and operational reports."
 						title="Edit Unit Defaults"
 						units={units}
 					/>
@@ -85,7 +82,6 @@ export function GeneralOrganizationSection({
 
 			<DomainSection
 				canManage={canManageTags}
-				editDescription="Manage shared labels, display colors, and tag lifecycle state."
 				editAction={
 					<Button
 						type="button"
@@ -139,7 +135,10 @@ function OrganizationDetailsSummary({
 			<div className="grid min-w-0 content-start gap-2">
 				<span className="text-xs leading-tight font-semibold text-muted-foreground">Contact</span>
 				<OrganizationDetailLine label="Email" value={organization.main_contact_email} />
-				<OrganizationDetailLine label="Phone" value={organization.phone_number} />
+				<OrganizationDetailLine
+					label="Phone"
+					value={formatPhoneNumber(organization.phone_number)}
+				/>
 				<OrganizationDetailLine label="Timezone" value={timezone} />
 			</div>
 			<div className="grid min-w-0 content-start gap-2">

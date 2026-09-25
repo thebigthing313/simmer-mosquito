@@ -35,7 +35,7 @@ import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone'
 import { todayInTimeZone } from '../../lib/local-date';
 import { OverviewChart, type OverviewChartSeries } from './overview-chart';
 import {
-	OVERVIEW_DESCRIPTIONS,
+	drawsTrend,
 	OVERVIEW_LABELS,
 	OVERVIEW_RATIO_LABELS,
 	OVERVIEW_ROUTES,
@@ -51,6 +51,13 @@ import { OverviewTable, type OverviewTableState } from './overview-table';
 import { UpwardLine } from './overview-upward-line';
 
 const ChartIcon = iconRegistry.generic.chart.icon;
+
+/** Each page's header wears the icon its sidebar entry does. */
+const GRAIN_ICONS = {
+	day: iconRegistry.generic.today.icon,
+	month: iconRegistry.generic.calendar.icon,
+	year: iconRegistry.generic.chart.icon,
+} as const;
 
 export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 	const timeZone = useOrganizationTimeZone();
@@ -103,9 +110,7 @@ export function OverviewPage({ grain }: { readonly grain: OverviewGrain }) {
 						period={period}
 					/>
 				}
-				description={OVERVIEW_DESCRIPTIONS[grain]}
-				eyebrow="Organization"
-				icon={ChartIcon}
+				icon={GRAIN_ICONS[grain]}
 				title={OVERVIEW_TITLES[grain]}
 			/>
 			<UpwardLine grain={grain} period={period} />
@@ -179,16 +184,20 @@ function TrendSection({
 		readonly title: string;
 		readonly series: OverviewChartSeries;
 	}[] = [
-		...shownTypes(response).map((row) => ({
-			key: row.type,
-			title: OVERVIEW_LABELS[row.type],
-			series: { kind: 'count', points: row.series } as const,
-		})),
-		...response.ratios.map((ratio) => ({
-			key: ratio.ratio,
-			title: OVERVIEW_RATIO_LABELS[ratio.ratio],
-			series: { kind: 'ratio', ratio: ratio.ratio, points: ratio.series } as const,
-		})),
+		...shownTypes(response)
+			.filter((row) => drawsTrend(grain, row.series))
+			.map((row) => ({
+				key: row.type,
+				title: OVERVIEW_LABELS[row.type],
+				series: { kind: 'count', points: row.series } as const,
+			})),
+		...response.ratios
+			.filter((ratio) => drawsTrend(grain, ratio.series))
+			.map((ratio) => ({
+				key: ratio.ratio,
+				title: OVERVIEW_RATIO_LABELS[ratio.ratio],
+				series: { kind: 'ratio', ratio: ratio.ratio, points: ratio.series } as const,
+			})),
 	];
 	return (
 		<section className={cn('grid gap-3', dimmed && 'opacity-60 transition-opacity')}>

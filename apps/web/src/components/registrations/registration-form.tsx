@@ -146,7 +146,7 @@ export function RegistrationFormFields({
 						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 						{(field: any) => (
 							<field.TextField
-								description="How far past the geometry the warning reaches. Leave empty to warn only for the geometry itself."
+								description="Leave empty to warn only for the geometry itself."
 								inputMode="decimal"
 								label="Distance"
 								placeholder="e.g. 500"
@@ -206,10 +206,7 @@ function RegistrationLocation({
 	readonly requestMapPoint: RequestMapPoint;
 }) {
 	return (
-		<LocationSection
-			description="The geometry is the place itself: a point for a house, a line for a verge, an area for a field. An address is optional reference."
-			error={locationError}
-		>
+		<LocationSection error={locationError}>
 			<form.AppField name="addressId">
 				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 				{(field: any) => (
@@ -260,7 +257,7 @@ function PurposeSection({
 	return (
 		<FormSection
 			note="A registration needs at least one of these: a warning flag, or a notification type."
-			title="What to warn about"
+			title="What to Warn About"
 		>
 			<div className="grid gap-3">
 				<form.AppField name="hasBees">

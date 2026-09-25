@@ -20,9 +20,9 @@
  * against a list the suite wrote out. What the real reader narrows by is
  * `map-surface.integration.test.ts`'s case against Postgres.
  *
- * Like traps, this surface opens narrowed, on open requests, so a null extent
- * at the defaults is the `filters` branch and the `none` branch needs
- * `status=all`. What is faked is what `traps-empty-state.test.tsx` fakes, for
+ * Like traps, this surface opens narrowed, on this year's requests, so a null
+ * extent at the defaults is the `filters` branch and the `none` branch needs
+ * All time spelled out. The clock is pinned so this year is one year. What is faked is what `traps-empty-state.test.tsx` fakes, for
  * the reasons its docblock gives, and the component is preloaded first for the
  * reason `write-attribution.test.tsx` gives.
  */
@@ -77,7 +77,7 @@ function request(
  * The fake map's canvas unprojects to the box `0,-0.8,1,0`. Two requests sit
  * inside it and one sits a degree east of it, which a rail listing the whole
  * Organization would show and a rail listing the viewport must not. One of the
- * two inside is closed, so the default status narrows it out.
+ * two inside is closed, so a Status of Open narrows it out.
  */
 const INSIDE_OPEN = request('d1b2c3d4-0000-4000-8000-000000000001', 12, 0.5, -0.4);
 const INSIDE_CLOSED = request(
@@ -88,6 +88,9 @@ const INSIDE_CLOSED = request(
 	'2026-08-10T15:00:00.000Z',
 );
 const OUTSIDE = request('d1b2c3d4-0000-4000-8000-000000000003', 99, 2, -0.4);
+
+/** Every request whenever received, which is the explorer's own `any`. */
+const ALL_TIME = { from: 'any', to: 'any' } as const;
 
 const harness = vi.hoisted(() => ({
 	/** The search params a match would carry: the route's filters. */
@@ -182,6 +185,9 @@ beforeAll(async () => {
 }, 300_000);
 
 beforeEach(() => {
+	// Only `Date`: the rest of the timers stay real so `waitFor` still polls.
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-09-15T12:00:00Z'));
 	installMemoryCollections();
 	seedRows(organizations, [{ id: 'org-1', name: 'Test Mosquito Control', settings: {} }]);
 	harness.search = {};
@@ -193,6 +199,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 });
 
 function renderServiceRequests() {
@@ -216,24 +223,26 @@ function extentRequest(): URL | undefined {
 }
 
 describe('the service requests explorer paging the viewport', () => {
-	it('sends the box ahead of the filters and lists only the open requests inside it', async () => {
+	it('sends the box ahead of this year and lists every request inside it', async () => {
 		harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
 		harness.extent = { west: 0, south: -1, east: 3, north: 0 };
 		renderServiceRequests();
 
 		expect(await screen.findByText('#12')).toBeTruthy();
-		// The closed request inside the box is off the default status, and the
-		// open one outside the box is this Organization's and off screen. The rail
-		// used to list the second; the map never drew it.
-		expect(screen.queryByText('#13')).toBeNull();
+		// The default status is All, so the closed request inside the box is
+		// listed too. The open one outside the box is this Organization's and off
+		// screen. The rail used to list it; the map never drew it.
+		expect(screen.getByText('#13')).toBeTruthy();
 		expect(screen.queryByText('#99')).toBeNull();
-		expect(pageRequest()?.search).toBe('?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&status=open');
+		expect(pageRequest()?.search).toBe(
+			'?limit=50&offset=0&bbox=0%2C-0.8%2C1%2C0&dateFrom=2026-01-01&dateTo=2026-09-15',
+		);
 		expect(requestCounts()).toEqual({ page: 1, extent: 1 });
 	});
 
 	it('counts what is in view once the panel is collapsed', async () => {
 		harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
-		harness.search = { status: 'all' };
+		harness.search = ALL_TIME;
 		harness.extent = { west: 0, south: -1, east: 3, north: 0 };
 		renderServiceRequests();
 
@@ -250,6 +259,7 @@ describe('the service requests explorer paging the viewport', () => {
 
 	it('carries the status, search, tag and region as query params the reader takes', async () => {
 		harness.search = {
+			...ALL_TIME,
 			status: 'closed',
 			search: '#13',
 			tags: 'e1b2c3d4-0000-4000-8000-000000000007',
@@ -273,11 +283,24 @@ describe('the service requests explorer paging the viewport', () => {
 				'&regionId=b1b2c3d4-0000-4000-8000-000000000009',
 		);
 	});
+
+	// The order is the rail's alone: the page asks for it and the extent, which
+	// frames the same filtered set whatever order it is read in, does not.
+	it('asks for the oldest request first when the rail is ordered that way', async () => {
+		harness.search = { ...ALL_TIME, order: 'oldest' };
+		harness.requests = [INSIDE_OPEN, INSIDE_CLOSED, OUTSIDE];
+		harness.extent = { west: 0, south: -1, east: 1, north: 0 };
+		renderServiceRequests();
+
+		expect(await screen.findByText('#12')).toBeTruthy();
+		expect(pageRequest()?.searchParams.get('oldest')).toBe('true');
+		expect(extentRequest()?.searchParams.has('oldest')).toBe(false);
+	});
 });
 
 describe('the service requests explorer with nothing on the page', () => {
 	it('spends one extent and one page, with the map and the rail reading the same extent', async () => {
-		harness.search = { status: 'all' };
+		harness.search = ALL_TIME;
 		renderServiceRequests();
 
 		await screen.findByText('No service requests yet');
@@ -286,18 +309,18 @@ describe('the service requests explorer with nothing on the page', () => {
 	});
 
 	it('says there are none yet, and where to add one, once every filter is off', async () => {
-		harness.search = { status: 'all' };
+		harness.search = ALL_TIME;
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.getByText('Create Service Request is in the More actions menu.')).toBeTruthy();
+		expect(screen.getByText('Create Service Request is in the More Actions menu.')).toBeTruthy();
 	});
 
 	// The sidebar entry, the header's menu item and the pointer read one string
 	// through `createLabel`, so a verb settled once in `CREATE_VERBS` moves all
 	// three (#949). Service request is a surface that said `New` on both.
 	it('names the create control the way the sidebar and the pointer do', async () => {
-		harness.search = { status: 'all' };
+		harness.search = ALL_TIME;
 		renderServiceRequests();
 		await screen.findByText('No service requests yet');
 
@@ -306,39 +329,39 @@ describe('the service requests explorer with nothing on the page', () => {
 		expect(names).toEqual({
 			sidebar: 'Create Service Request',
 			header: 'Create Service Request',
-			pointer: 'Create Service Request is in the More actions menu.',
+			pointer: 'Create Service Request is in the More Actions menu.',
 		});
 	});
 
 	it('keeps the pointer from a reader below the floor the control needs', async () => {
 		harness.role = 'collector';
-		harness.search = { status: 'all' };
+		harness.search = ALL_TIME;
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests yet')).toBeTruthy();
-		expect(screen.queryByText('Create Service Request is in the More actions menu.')).toBeNull();
+		expect(screen.queryByText('Create Service Request is in the More Actions menu.')).toBeNull();
 	});
 
-	// The route opens on open requests, and the extent it sends says so. A null
-	// answer there is about open requests, so the rail says the filters did it
-	// and opens the card that holds the status control.
-	it('reads the default status as a filter and opens the filter card', async () => {
+	// The route opens on this year, and the extent it sends says so. A null
+	// answer there is about this year, so the rail says the filters did it and
+	// opens the card that holds the date control.
+	it('reads the default window as a filter and opens the filter card', async () => {
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests match these filters')).toBeTruthy();
-		expect(extentRequest()?.search).toBe('?status=open');
+		expect(extentRequest()?.search).toBe('?dateFrom=2026-01-01&dateTo=2026-09-15');
 		expect(screen.queryByText('No service requests yet')).toBeNull();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Show filters' }));
-		expect(screen.getByText('Status')).toBeTruthy();
+		fireEvent.click(screen.getByRole('button', { name: 'Show Filters' }));
+		expect(screen.getByRole('button', { name: 'This Year' })).toBeTruthy();
 	});
 
 	it('offers the reset when a search matches nothing anywhere', async () => {
-		harness.search = { search: 'nowhere' };
+		harness.search = { ...ALL_TIME, search: 'nowhere' };
 		renderServiceRequests();
 
 		expect(await screen.findByText('No service requests match these filters')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Reset filters' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Reset Filters' })).toBeTruthy();
 	});
 
 	it('says to pan when the extent frames requests the viewport does not hold', async () => {

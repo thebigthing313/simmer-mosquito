@@ -23,7 +23,7 @@ describe('recordLink', () => {
 		]) {
 			const applied = classes(value);
 			expect(applied).toContain('rounded-sm');
-			expect(applied).toContain('focus-visible:outline-none');
+			expect(applied).toContain('focus-visible:outline-hidden');
 			expect(applied).toContain('focus-visible:ring-2');
 			expect(applied).toContain('focus-visible:ring-ring');
 		}

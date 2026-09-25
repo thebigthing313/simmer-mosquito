@@ -199,16 +199,14 @@ function listLabel(recordType: RecordType): string {
  * vocabulary. Each domain is one icon in the primary rail; its groups populate
  * the secondary sidebar. Paths point at the live route table.
  *
- * Each `summary` names what the domain covers in integrated mosquito management
- * vocabulary. Keep them descriptive: the reader is a mosquito control
- * professional, so a summary states what is here, never why it matters or how
- * the work should be done.
+ * No domain carries a `summary`: the heading is the domain's name and the
+ * groups under it say what is there, so a sentence restating them was cut in
+ * the 2026-09-24 design pass.
  */
 export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'overview',
 		label: 'Overview',
-		summary: 'Where the program stands today',
 		icon: iconRegistry.generic.component.icon,
 		groups: [
 			{
@@ -224,7 +222,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						id: 'today',
 						label: 'Today',
 						to: '/today',
-						icon: iconRegistry.simmer.fieldWork.icon,
+						icon: iconRegistry.generic.today.icon,
 					},
 					{
 						id: 'monthly',
@@ -245,7 +243,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'larval',
 		label: 'Larval Surveillance',
-		summary: 'Egg, larval, and pupal surveillance across your habitats',
 		icon: iconRegistry.domains.larvalSurveillance.icon,
 		groups: [
 			{
@@ -268,6 +265,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Map',
 						to: '/larval-surveillance/habitats',
 						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'habitats-table',
+						label: 'Table',
+						to: '/larval-surveillance/habitats/table',
+						icon: iconRegistry.generic.table.icon,
 					},
 					{
 						id: 'habitats-create',
@@ -344,6 +347,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'samples-table',
+						label: 'Table',
+						to: '/larval-surveillance/samples/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'samples-stats',
 						label: 'Statistics',
 						to: '/larval-surveillance/samples/stats',
@@ -357,7 +366,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'adult',
 		label: 'Adult Surveillance',
-		summary: 'Trap collections, species composition, and abundance',
 		icon: iconRegistry.domains.adultSurveillance.icon,
 		groups: [
 			{
@@ -462,7 +470,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'control',
 		label: 'Control Operations',
-		summary: 'Source reduction, biocontrol, and insecticide applications',
 		icon: iconRegistry.domains.controlOperations.icon,
 		groups: [
 			{
@@ -604,7 +611,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'public',
 		label: 'Public Engagement',
-		summary: 'Service requests, outreach, and the contacts behind them',
 		icon: iconRegistry.domains.publicEngagement.icon,
 		groups: [
 			{
@@ -627,6 +633,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Map',
 						to: '/public-engagement/service-requests',
 						icon: iconRegistry.generic.map.icon,
+					},
+					{
+						id: 'service-requests-table',
+						label: 'Table',
+						to: '/public-engagement/service-requests/table',
+						icon: iconRegistry.generic.table.icon,
 					},
 					{
 						id: 'service-requests-create',
@@ -704,7 +716,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		// home for the records that carry it. Regions, addresses, and weather
 		// stations are created here and referenced everywhere; the Data Map will
 		// draw an inspection or a trap, which still belongs to its own domain.
-		summary: 'Reference geography: regions, addresses, and weather stations',
 		icon: iconRegistry.domains.gis.icon,
 		groups: [
 			{
@@ -805,7 +816,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'operations',
 		label: 'Operations',
-		summary: 'Dispatch, crew assignments, and requested control work',
 		icon: iconRegistry.entities.vehicle.icon,
 		groups: [
 			{
@@ -889,7 +899,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'organization',
 		label: 'Organization',
-		summary: 'Setup, people, and the catalogs behind every record',
 		icon: iconRegistry.generic.settings.icon,
 		groups: [
 			{
@@ -1054,6 +1063,9 @@ export function withDailyWorkGroup(
 	const group: WebShellNavGroup = {
 		id: 'overview-daily-work',
 		label: 'Daily Work',
+		// One row per active Profile runs long in a large Organization, so the
+		// heading folds the list away.
+		collapsible: true,
 		items: people.map((person) => ({
 			// The same id in both lists, so the open page's row reads as active even
 			// though only one of the two lists is drawn.

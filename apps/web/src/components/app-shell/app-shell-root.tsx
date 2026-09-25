@@ -10,14 +10,14 @@ import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environmen
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense, useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { breadcrumbPath } from '../../lib/breadcrumb-via';
 import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
-import { SearchPalette } from '../search/search-palette';
 import {
 	shellDomainsForRole,
 	webAccountLinks,
@@ -26,6 +26,15 @@ import {
 	withDailyWorkGroup,
 } from './navigation';
 import { WebOutletFallback } from './outlet-fallback';
+
+/*
+ * The palette and `cmdk` under it are about 40KB that nobody needs until the
+ * first search, so they load then rather than at boot. Once opened it stays
+ * mounted, which keeps the close animation and the query between opens.
+ */
+const SearchPalette = lazy(() =>
+	import('../search/search-palette').then((module) => ({ default: module.SearchPalette })),
+);
 
 function formatRole(role: string | null | undefined): string {
 	if (role === null || role === undefined || role.trim() === '') {
@@ -45,11 +54,15 @@ function formatRole(role: string | null | undefined): string {
  */
 export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const navigate = useNavigate();
-	const { pathname } = useLocation();
+	const { pathname, state } = useLocation();
+	// A record opened from a Table resolves its trail and sidebar under that
+	// Table rather than the Map both lists share a detail route with.
+	const shellPath = breadcrumbPath(pathname, state.breadcrumbVia);
 	// The palette is mounted here, beside the shell, because `AppHeader` takes no
 	// props and renders the trigger itself. `apps/admin` provides no such context,
 	// so its header simply loses the search field it never had a palette for.
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [searchUsed, setSearchUsed] = useState(false);
 	const searchTriggerRef = useRef<HTMLButtonElement>(null);
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
@@ -96,7 +109,10 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 			triggerRef={searchTriggerRef}
 			value={{
 				isOpen: searchOpen,
-				onOpen: () => setSearchOpen(true),
+				onOpen: () => {
+					setSearchUsed(true);
+					setSearchOpen(true);
+				},
 			}}
 		>
 			<ShellProvider
@@ -114,7 +130,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				version={__APP_VERSION__}
 				getToday={getToday}
 				timeZone={timeZone}
-				activePath={pathname}
+				activePath={shellPath}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed
 					// `to` is satisfied by an assertion at this single adapter seam.
@@ -138,12 +154,16 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 					</OutletShell>
 				</BreadcrumbLabelProvider>
 			</ShellProvider>
-			<SearchPalette
-				auth={auth}
-				onOpenChange={setSearchOpen}
-				open={searchOpen}
-				triggerRef={searchTriggerRef}
-			/>
+			{searchUsed ? (
+				<Suspense fallback={null}>
+					<SearchPalette
+						auth={auth}
+						onOpenChange={setSearchOpen}
+						open={searchOpen}
+						triggerRef={searchTriggerRef}
+					/>
+				</Suspense>
+			) : null}
 			<Toaster richColors />
 		</SearchTriggerProvider>
 	);

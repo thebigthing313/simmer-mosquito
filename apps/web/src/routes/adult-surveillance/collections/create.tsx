@@ -186,7 +186,6 @@ function CreateCollectionRoute() {
 				)}
 				header={{
 					title: createLabel('collection'),
-					description: 'Log a collection from a trap or a one-off field location.',
 					backTo: '/adult-surveillance/collections',
 					backLabel: recordNoun('collection').titleMany,
 				}}

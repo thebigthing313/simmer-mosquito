@@ -11,13 +11,13 @@ import type { TagRecord } from '../../../../hooks/queries/use-tag-catalog';
  * The table declares all four column widths through CSS variables and used to
  * stretch anyway, because shadcn's `Table` is `w-full` and `table-fixed` hands
  * the slack to columns that already have widths, so at the `record` measure the
- * shell draws since #1045 the four columns spread across 1616px (#1054). Now the
- * table is as wide as its columns, the wrapper hugs it, and the add row sits in
- * the same wrapper so its box ends on the table's right edge.
+ * shell draws since #1045 the four columns spread across 1616px (#1054). #1054
+ * then drew the table at the sum of its columns, which left it narrower than the
+ * cards above it. It is full width now with the Description column left without
+ * a width, so `table-fixed` hands the slack to that one column, and the column
+ * sum is the floor where it starts to scroll.
  *
- * jsdom lays nothing out, so this asserts the classes and where the add row
- * sits. The width is the sum of the same four variables the columns read, so
- * there is no second number here to hold to them.
+ * jsdom lays nothing out, so this asserts the classes.
  */
 
 vi.mock('../../../../hooks/mutations/use-organization-settings-mutations', () => ({
@@ -70,8 +70,6 @@ const ORGANIZATION = {
 
 const SETTINGS = { unitDefaults: {} } as unknown as OrganizationSettings;
 
-const FIT = `.${CSS.escape('w-fit')}`;
-
 beforeAll(() => {
 	globalThis.ResizeObserver ??= class {
 		observe() {}
@@ -83,26 +81,33 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe('GeneralOrganizationSection', () => {
-	it('draws the Tags table at the sum of its column widths inside a wrapper that hugs it', () => {
+	it('draws the Tags table full width, floored at the sum of its column widths', () => {
 		renderSection();
 
 		const table = screen.getByRole('table');
-		const width = [...table.classList].find((cls) => cls.startsWith('w-'));
-		expect(width).toMatch(/^w-\[calc\(/);
-		expect(table.classList.contains('w-full')).toBe(false);
+		expect(table.classList.contains('w-full')).toBe(true);
+		const floor = [...table.classList].find((cls) => cls.startsWith('min-w-'));
 		for (const column of ['preview', 'description', 'color', 'actions']) {
-			expect(width).toContain(`var(--tag-${column}-column)`);
+			expect(floor).toContain(`var(--tag-${column}-column)`);
 		}
-		expect(table.closest(FIT)).not.toBeNull();
 	});
 
-	it('puts the add row in the wrapper the table sits in', () => {
+	it('gives the slack to the Description column alone', () => {
+		renderSection();
+
+		const headers = screen.getAllByRole('columnheader');
+		const description = headers.find((header) => header.textContent === 'Description');
+		expect([...(description?.classList ?? [])].some((cls) => cls.startsWith('w-'))).toBe(false);
+		for (const header of headers.filter((header) => header !== description)) {
+			expect([...header.classList].some((cls) => cls.startsWith('w-'))).toBe(true);
+		}
+	});
+
+	it('opens the add row above the table', () => {
 		renderSection();
 		fireEvent.click(screen.getByRole('button', { name: /add tag/i }));
 
-		const table = screen.getByRole('table');
-		const addRow = screen.getByPlaceholderText('e.g. New tag');
-		expect(addRow.closest(FIT)).toBe(table.closest(FIT));
+		expect(screen.getByPlaceholderText('e.g. New tag')).toBeTruthy();
 	});
 });
 

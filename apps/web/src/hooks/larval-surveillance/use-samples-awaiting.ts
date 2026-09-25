@@ -9,6 +9,8 @@ export interface AwaitingSample {
 	readonly inspectionDate: string;
 	readonly habitatId: string | null;
 	readonly habitatName: string | null;
+	/** The parent inspection's Address, the rung below the Habitat name. */
+	readonly addressDisplayName: string | null;
 	/** The parent inspection's centroid — what titles a sample with no habitat. */
 	readonly lat: number | null;
 	readonly lng: number | null;

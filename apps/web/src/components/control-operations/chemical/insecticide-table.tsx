@@ -45,7 +45,7 @@ export function InsecticideTable({
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
 						<TableHead className="w-10">
-							<span className="sr-only">Expand batches</span>
+							<span className="sr-only">Expand Batches</span>
 						</TableHead>
 						<TableHead>Trade Name</TableHead>
 						<TableHead>Active Ingredient</TableHead>

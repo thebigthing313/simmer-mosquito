@@ -72,12 +72,7 @@ function PublicEngagementOverviewRoute() {
 	return (
 		<OutletSimpleLayout measure="record">
 			<div className="grid gap-6">
-				<PageHeader
-					description="Service requests reported by the public, the outreach your crews do, and the contacts behind both."
-					eyebrow="Community engagement"
-					icon={PublicIcon}
-					title="Public Engagement"
-				/>
+				<PageHeader icon={PublicIcon} title="Public Engagement" />
 
 				{/*
 				 * `items-start` so a short panel keeps its own height rather than
@@ -190,6 +185,7 @@ function OpenServiceRequestsPanel({
 				requests.openCount > preview.length ? (
 					<Link
 						className="font-medium text-primary hover:underline"
+						search={{ status: 'open', from: 'any', to: 'any' }}
 						to="/public-engagement/service-requests"
 					>
 						View all {requests.openCount} open requests
@@ -372,7 +368,7 @@ function ActivityRow({
 			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}
 			secondary={
 				event.text === null ? (
-					<span className="text-muted-foreground/80">Service request</span>
+					<span className="text-muted-foreground">Service request</span>
 				) : (
 					<span className="line-clamp-2">{event.text}</span>
 				)

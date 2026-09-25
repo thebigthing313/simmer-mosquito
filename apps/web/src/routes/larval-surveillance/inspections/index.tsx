@@ -270,6 +270,7 @@ function InspectionMap({
 				contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
 				controls={{ measure: true, readout: true }}
 				fitToData
+				rememberCamera
 				inset={panel.inset}
 				layers={layers}
 				{...(legend === undefined ? {} : { legend })}
@@ -435,7 +436,7 @@ function InspectionListItem({
 	const typeName = resolveTypeName(inspection, typeNameById);
 	const label = habitatLabel(inspection, {
 		addressName: inspection.addressDisplayName,
-		fallback: 'Ad-hoc inspection',
+		fallback: 'One-off inspection',
 	});
 	const when = formatListDate(inspection.inspectionDate);
 	/*

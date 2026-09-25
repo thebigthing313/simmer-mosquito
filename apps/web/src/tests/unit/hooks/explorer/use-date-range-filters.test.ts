@@ -37,7 +37,7 @@ describe('useDateRangeFilters', () => {
 		expect(setFilters).toHaveBeenCalledWith({ from: '2026-07-10' });
 	});
 
-	// An unbounded side is "All time", not a date to be compared against.
+	// An unbounded side is "All Time", not a date to be compared against.
 	it('never drags an unbounded side', () => {
 		const { setFilters, result } = bind('', '');
 		act(() => result.current.onFromChange('2026-07-10'));
@@ -46,7 +46,7 @@ describe('useDateRangeFilters', () => {
 
 	it('resolves a preset to a range ending today', () => {
 		const { setFilters, result } = bind('2026-07-01', '2026-07-31');
-		act(() => result.current.onApplyPreset({ id: '7d', label: 'Last 7 days', days: 7 }));
+		act(() => result.current.onApplyPreset({ id: '7d', label: 'Last 7 Days', days: 7 }));
 		expect(setFilters).toHaveBeenCalledWith({ from: '2026-08-04', to: TODAY });
 	});
 

@@ -102,7 +102,6 @@ export function InsecticideBatchDrawer({
 						<CatalogDrawerCancel />
 					</form.FormActions>
 				}
-				description="Manage lot or batch labels for an active insecticide product."
 				onOpenChange={updateOpen}
 				onSubmit={() => void form.handleSubmit()}
 				open={open}

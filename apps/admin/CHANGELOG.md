@@ -1,5 +1,13 @@
 # @simmer-mosquito/admin
 
+## 0.7.2 — 2026-09-24
+
+### Patch Changes
+
+- Changed: buttons are large enough to tap on a touch screen, and with reduced motion turned on, dialogs and menus stop animating.
+
+- Changed: phone numbers read as (555) 123-4567 wherever they are shown, however they were typed, and extensions read as "ext. 12". A number that is not a US one shows as it was entered.
+
 ## 0.7.1 — 2026-09-23
 
 ### Patch Changes

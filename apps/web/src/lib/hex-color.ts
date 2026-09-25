@@ -1,12 +1,14 @@
+import { tagChipColors } from '@simmer-mosquito/design-tokens';
+import type { CSSProperties } from 'react';
+
 /**
  * Hex colour handling for the organization-defined colours that reach the UI as
  * free text — tag colours, mostly, which an admin types into a settings field.
  *
  * These lived in eight copies across components and route files before this
- * module existed, in three variants that disagreed about the edge cases. What
- * is here is the union of all three, so every previous caller gets the same
- * answer for the inputs it actually passes and a valid answer for the ones it
- * did not handle.
+ * module existed, in three variants that disagreed about the edge cases. The
+ * chip style had four copies of its own, two of which took three-digit hex the
+ * rest refused, and all of them read through `tagChipStyle` now.
  */
 
 /**
@@ -26,21 +28,18 @@ export function validHexColor(value: string | null): string | null {
 }
 
 /**
- * Append an alpha channel to a hex colour, as `#rrggbbaa`.
+ * The inline style a tag chip is drawn with, or null for the neutral chip.
  *
- * Shorthand (`#abc`) is expanded first: appending two digits to a four-character
- * string yields six, which reads as a valid `#rrggbb` and silently renders the
- * wrong colour rather than failing. Alpha is clamped, because a value outside
- * 0–1 rounds to more than two hex digits and produces a string no browser will
- * parse. Both cases are unreachable from today's call sites — every one passes a
- * `validHexColor` result with a literal 0.14 or 0.36 — and both are cheap enough
- * to keep the function total.
+ * Border, fill and text all come from `tagChipColors` in
+ * `@simmer-mosquito/design-tokens`, which keeps the tag's hue on the fill and
+ * the border and darkens the text until it clears 4.5:1 on that fill. The
+ * colours are opaque, so the ratio holds on any surface the chip sits on.
  */
-export function hexWithAlpha(hex: string, alpha: number): string {
-	const expanded =
-		hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
-	const alphaHex = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
-		.toString(16)
-		.padStart(2, '0');
-	return `${expanded}${alphaHex}`;
+export function tagChipStyle(value: string | null): CSSProperties | null {
+	const color = validHexColor(value);
+	const chip = color === null ? null : tagChipColors(color);
+	if (chip === null) {
+		return null;
+	}
+	return { backgroundColor: chip.background, borderColor: chip.border, color: chip.text };
 }

@@ -44,7 +44,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
         <button
           aria-checked="false"
           aria-label="Toggle all regions in North side"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -75,7 +75,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
         </span>
         <button
           aria-label="Edit North side"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -161,7 +161,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             <button
               aria-checked="false"
               aria-label="Show Elm St on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -169,7 +169,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -177,7 +177,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             </button>
             <button
               aria-label="Rename Elm St"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -204,7 +204,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             </button>
             <a
               aria-label="View details for Elm St"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000001"
               title="View Region Details"
             >
@@ -278,7 +278,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             <button
               aria-checked="false"
               aria-label="Show Oak Ave on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -286,7 +286,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -294,7 +294,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             </button>
             <button
               aria-label="Rename Oak Ave"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -321,7 +321,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
             </button>
             <a
               aria-label="View details for Oak Ave"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000002"
               title="View Region Details"
             >
@@ -355,7 +355,7 @@ exports[`the regions tree as rendered > keeps a whole folder whose name matches 
       class="flex items-center gap-1.5 rounded-md px-1.5 py-1"
     >
       <span
-        class="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs uppercase tracking-wide"
+        class="m-0 text-caption uppercase leading-tight font-semibold text-muted-foreground tracking-wide min-w-0 flex-1 truncate"
       >
         Unfiled
       </span>
@@ -425,7 +425,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         <button
           aria-checked="false"
           aria-label="Toggle all regions in North side"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -456,7 +456,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         </span>
         <button
           aria-label="Edit North side"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -531,7 +531,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         <button
           aria-checked="false"
           aria-label="Toggle all regions in South side"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -557,7 +557,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         </span>
         <button
           aria-label="Edit South side"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -633,7 +633,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         <button
           aria-checked="false"
           aria-label="Toggle all regions in Unused"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-disabled=""
           data-slot="checkbox"
           data-state="unchecked"
@@ -661,7 +661,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         </span>
         <button
           aria-label="Edit Unused"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -703,7 +703,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
       class="flex items-center gap-1.5 rounded-md px-1.5 py-1"
     >
       <span
-        class="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs uppercase tracking-wide"
+        class="m-0 text-caption uppercase leading-tight font-semibold text-muted-foreground tracking-wide min-w-0 flex-1 truncate"
       >
         Unfiled
       </span>
@@ -770,7 +770,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         <button
           aria-checked="false"
           aria-label="Show Elm Loop on the map"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -778,7 +778,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
           value="on"
         />
         <button
-          class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+          class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
           title="Show on the Map"
           type="button"
         >
@@ -786,7 +786,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         </button>
         <button
           aria-label="Rename Elm Loop"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Rename Region"
           type="button"
         >
@@ -813,7 +813,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         </button>
         <a
           aria-label="View details for Elm Loop"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000005"
           title="View Region Details"
         >
@@ -887,7 +887,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         <button
           aria-checked="false"
           aria-label="Show River walk on the map"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -895,7 +895,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
           value="on"
         />
         <button
-          class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+          class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
           title="Show on the Map"
           type="button"
         >
@@ -903,7 +903,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         </button>
         <button
           aria-label="Rename River walk"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Rename Region"
           type="button"
         >
@@ -930,7 +930,7 @@ exports[`the regions tree as rendered > lists every folder collapsed, then the u
         </button>
         <a
           aria-label="View details for River walk"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000006"
           title="View Region Details"
         >
@@ -1002,7 +1002,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         <button
           aria-checked="false"
           aria-label="Toggle all regions in North side"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -1033,7 +1033,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         </span>
         <button
           aria-label="Edit North side"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -1119,7 +1119,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             <button
               aria-checked="false"
               aria-label="Show Elm St on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -1127,7 +1127,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -1135,7 +1135,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             </button>
             <button
               aria-label="Rename Elm St"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -1162,7 +1162,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             </button>
             <a
               aria-label="View details for Elm St"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000001"
               title="View Region Details"
             >
@@ -1229,7 +1229,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         <button
           aria-checked="false"
           aria-label="Toggle all regions in South side"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -1255,7 +1255,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         </span>
         <button
           aria-label="Edit South side"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -1341,7 +1341,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             <button
               aria-checked="false"
               aria-label="Show Elmwood Park on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -1349,7 +1349,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -1357,7 +1357,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             </button>
             <button
               aria-label="Rename Elmwood Park"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -1384,7 +1384,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
             </button>
             <a
               aria-label="View details for Elmwood Park"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000003"
               title="View Region Details"
             >
@@ -1418,7 +1418,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
       class="flex items-center gap-1.5 rounded-md px-1.5 py-1"
     >
       <span
-        class="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs uppercase tracking-wide"
+        class="m-0 text-caption uppercase leading-tight font-semibold text-muted-foreground tracking-wide min-w-0 flex-1 truncate"
       >
         Unfiled
       </span>
@@ -1485,7 +1485,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         <button
           aria-checked="false"
           aria-label="Show Elm Loop on the map"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -1493,7 +1493,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
           value="on"
         />
         <button
-          class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+          class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
           title="Show on the Map"
           type="button"
         >
@@ -1501,7 +1501,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         </button>
         <button
           aria-label="Rename Elm Loop"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Rename Region"
           type="button"
         >
@@ -1528,7 +1528,7 @@ exports[`the regions tree as rendered > narrows to the matching regions and open
         </button>
         <a
           aria-label="View details for Elm Loop"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000005"
           title="View Region Details"
         >
@@ -1600,7 +1600,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         <button
           aria-checked="false"
           aria-label="Toggle all regions in North side"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -1631,7 +1631,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         </span>
         <button
           aria-label="Edit North side"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -1717,7 +1717,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <button
               aria-checked="false"
               aria-label="Show Elm St on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -1725,7 +1725,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -1733,7 +1733,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <button
               aria-label="Rename Elm St"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -1760,7 +1760,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <a
               aria-label="View details for Elm St"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000001"
               title="View Region Details"
             >
@@ -1834,7 +1834,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <button
               aria-checked="false"
               aria-label="Show Oak Ave on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -1842,7 +1842,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -1850,7 +1850,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <button
               aria-label="Rename Oak Ave"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -1877,7 +1877,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <a
               aria-label="View details for Oak Ave"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000002"
               title="View Region Details"
             >
@@ -1944,7 +1944,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         <button
           aria-checked="false"
           aria-label="Toggle all regions in South side"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -1970,7 +1970,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         </span>
         <button
           aria-label="Edit South side"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -2056,7 +2056,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <button
               aria-checked="false"
               aria-label="Show Elmwood Park on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -2064,7 +2064,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -2072,7 +2072,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <button
               aria-label="Rename Elmwood Park"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -2099,7 +2099,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <a
               aria-label="View details for Elmwood Park"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000003"
               title="View Region Details"
             >
@@ -2173,7 +2173,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             <button
               aria-checked="false"
               aria-label="Show Pine Ct on the map"
-              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+              class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
               data-slot="checkbox"
               data-state="unchecked"
               role="checkbox"
@@ -2181,7 +2181,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
               value="on"
             />
             <button
-              class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+              class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
               title="Show on the Map"
               type="button"
             >
@@ -2189,7 +2189,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <button
               aria-label="Rename Pine Ct"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
               title="Rename Region"
               type="button"
             >
@@ -2216,7 +2216,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
             </button>
             <a
               aria-label="View details for Pine Ct"
-              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000004"
               title="View Region Details"
             >
@@ -2284,7 +2284,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         <button
           aria-checked="false"
           aria-label="Toggle all regions in Unused"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-disabled=""
           data-slot="checkbox"
           data-state="unchecked"
@@ -2312,7 +2312,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         </span>
         <button
           aria-label="Edit Unused"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Edit Folder"
           type="button"
         >
@@ -2354,7 +2354,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
       class="flex items-center gap-1.5 rounded-md px-1.5 py-1"
     >
       <span
-        class="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs uppercase tracking-wide"
+        class="m-0 text-caption uppercase leading-tight font-semibold text-muted-foreground tracking-wide min-w-0 flex-1 truncate"
       >
         Unfiled
       </span>
@@ -2421,7 +2421,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         <button
           aria-checked="false"
           aria-label="Show Elm Loop on the map"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -2429,7 +2429,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
           value="on"
         />
         <button
-          class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+          class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
           title="Show on the Map"
           type="button"
         >
@@ -2437,7 +2437,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         </button>
         <button
           aria-label="Rename Elm Loop"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Rename Region"
           type="button"
         >
@@ -2464,7 +2464,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         </button>
         <a
           aria-label="View details for Elm Loop"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000005"
           title="View Region Details"
         >
@@ -2538,7 +2538,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         <button
           aria-checked="false"
           aria-label="Show River walk on the map"
-          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
+          class="peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary"
           data-slot="checkbox"
           data-state="unchecked"
           role="checkbox"
@@ -2546,7 +2546,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
           value="on"
         />
         <button
-          class="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
+          class="rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring text-foreground text-sm min-w-0 flex-1 truncate text-left"
           title="Show on the Map"
           type="button"
         >
@@ -2554,7 +2554,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         </button>
         <button
           aria-label="Rename River walk"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           title="Rename Region"
           type="button"
         >
@@ -2581,7 +2581,7 @@ exports[`the regions tree as rendered > shows the regions of a folder once it is
         </button>
         <a
           aria-label="View details for River walk"
-          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          class="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           href="/gis/regions/e1b2c3d4-0000-4000-8000-000000000006"
           title="View Region Details"
         >

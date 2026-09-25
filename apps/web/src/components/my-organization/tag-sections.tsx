@@ -17,14 +17,8 @@ export function TagSections({
 	const { activeTags, inactiveTags } = useTagCatalog();
 	const [editingTagId, setEditingTagId] = useState<string | null>(null);
 
-	/*
-	 * `w-fit`: the block is as wide as the table, so the add row above and the
-	 * empty-state box stretch to the table's right edge and no further.
-	 * `fit-content` is capped at the available width, so below `md:` the table
-	 * still scrolls inside its `overflow-x-auto` container.
-	 */
 	return (
-		<div className="grid w-fit gap-3">
+		<div className="grid gap-3">
 			{canManage && isCreating ? <TagCreatePanel onCancel={onCancelCreate} /> : null}
 			<TagTableSection
 				canManage={canManage}

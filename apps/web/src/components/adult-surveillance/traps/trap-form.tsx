@@ -33,21 +33,17 @@ const TRAP_FIELD_PATHS: Readonly<Record<string, string>> = {
 
 /**
  * The form's rules, straight from the domain builder, which requires the
- * collection method and holds the name-or-code rule. The edit page does not
- * require a redraw, so an untouched trap keeps its point and the builder is
- * handed a stand-in rather than a null.
+ * collection method and holds the name-or-code rule. An unplaced point reaches
+ * the builder as a stand-in rather than a null: on create the location band
+ * reports it, and an untouched trap on edit keeps its point.
  */
-export function validateTrap(
-	value: TrapFormValues,
-	geometry: DrawGeometry | null,
-	requireLocation: boolean,
-) {
+export function validateTrap(value: TrapFormValues, geometry: DrawGeometry | null) {
 	return domainValidator(
 		() =>
 			createTrapCommand({
 				...FORM_VALIDATION_CONTEXT,
 				trapId: FORM_VALIDATION_CONTEXT.organizationId,
-				locationSource: validationLocationSource(geometry, requireLocation),
+				locationSource: validationLocationSource(geometry),
 				collectionMethodId: value.collectionMethodId,
 				addressId: value.addressId,
 				collectionLureId: value.collectionLureId === noLureValue ? null : value.collectionLureId,
@@ -77,7 +73,7 @@ export interface TrapFormValues {
 
 export interface TrapFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/adult-surveillance/traps' | '/adult-surveillance/traps/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -148,8 +144,12 @@ export function TrapFormPage({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: ({ value }: { readonly value: TrapFormValues }) =>
-				validateTrap(value, geometry, requireLocation),
+			onSubmit: ({ value }: { readonly value: TrapFormValues }) => validateTrap(value, geometry),
+		},
+		// A save refused over the fields says the missing location in the same
+		// pass, rather than only once the fields are fixed.
+		onSubmitInvalid: () => {
+			location.requireGeometry();
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
@@ -188,7 +188,6 @@ export function TrapFormPage({
 				<form.FormErrorAlert title="Unable to Save Trap" />
 
 				<LocationBand
-					description="The point is the trap’s exact location. An address is optional reference. Refine the point off it to the precise spot."
 					geometryKind="trap"
 					label="Point"
 					location={location}
@@ -207,7 +206,7 @@ export function TrapFormPage({
 				</LocationBand>
 
 				<FormSection title="Configuration">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="collectionMethodId">
 							{(field) => (
 								<field.SelectField
@@ -231,7 +230,7 @@ export function TrapFormPage({
 				</FormSection>
 
 				<FormSection title="Identity">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="trapName">
 							{(field) => <field.TextField label="Trap name" placeholder="e.g. North Basin CDC" />}
 						</form.AppField>
@@ -242,7 +241,6 @@ export function TrapFormPage({
 					<form.AppField name="description">
 						{(field) => (
 							<field.TextareaField
-								description="Access notes, mounting details, or anything crews should know."
 								label="Description"
 								placeholder="Add a description for this trap…"
 								rows={3}
@@ -250,12 +248,7 @@ export function TrapFormPage({
 						)}
 					</form.AppField>
 					<form.AppField name="isActive">
-						{(field) => (
-							<field.SwitchField
-								description="Inactive traps stay on record but drop out of active surveillance."
-								label="Active"
-							/>
-						)}
+						{(field) => <field.SwitchField label="Active" />}
 					</form.AppField>
 				</FormSection>
 			</RecordFormPage>

@@ -133,7 +133,6 @@ export function AddMissionStopForm({
 
 			<LocationBand
 				geometryKind="missionItem"
-				description="A point for one spot, a line for a run, an area for a block. The stop stores the shape as drawn."
 				location={location}
 				organizationId={mission.organizationId}
 			>

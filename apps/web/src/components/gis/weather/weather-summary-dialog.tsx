@@ -64,9 +64,15 @@ export function WeatherSummaryDialog({
 
 					<MetricGrid onChange={metrics.set} values={metrics.values} />
 
-					{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
+					{error === null ? null : (
+						<p className="m-0 text-destructive text-sm" role="alert">
+							{error}
+						</p>
+					)}
 					{error !== null || issue === null ? null : (
-						<p className="m-0 text-destructive text-sm">{issue}</p>
+						<p className="m-0 text-destructive text-sm" role="status">
+							{issue}
+						</p>
 					)}
 				</div>
 

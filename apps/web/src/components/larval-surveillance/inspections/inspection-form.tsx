@@ -7,6 +7,7 @@ import {
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import {
+	errorMessagesFrom,
 	FormSection,
 	LocationSection,
 	RecordFormPage,
@@ -40,7 +41,12 @@ import { LocationAddressField } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { checkOwnedGeometry } from '../../map/geojson-adapter';
 import { DrawToolbar, GeometryControl } from '../../map/geometry-control';
-import { LabeledControl, LifeStageSelector, WaterToggle } from './inspection-form-controls';
+import {
+	ConditionsField,
+	DryNote,
+	LabeledControl,
+	LifeStageSelector,
+} from './inspection-form-controls';
 import {
 	densityOptions,
 	emptyLifeStages,
@@ -54,13 +60,14 @@ import {
 	profileOptions,
 	resultColumnsForMode,
 	unsetDensityValue,
+	withConditionsChosen,
 } from './inspection-form-values';
 import { HabitatPicker, SelectedHabitat } from './inspection-habitat-picker';
 import { SamplesSection } from './inspection-samples-section';
 
 export interface InspectionFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/larval-surveillance/inspections' | '/larval-surveillance/inspections/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -128,7 +135,7 @@ export function InspectionFormPage({
 		geometryKind: 'inspection',
 		initialGeometry: initialAdhocGeometry,
 		initialReferenceGeometry: initialPreviewGeometry,
-		missingMessage: 'Map the area this ad-hoc inspection covers.',
+		missingMessage: 'Map the area this one-off inspection covers.',
 	});
 	const {
 		addressCoord,
@@ -140,42 +147,46 @@ export function InspectionFormPage({
 		startDraw,
 	} = location;
 
+	// Habitat and ad-hoc inspections are distinct commands with distinct rules,
+	// so the validator picks the same one the save will. Conditions not chosen
+	// reads as dry here, which asks nothing of the findings, and the field's own
+	// rule below reports the missing choice.
+	const validateCommand = domainValidator(({ value }: { readonly value: InspectionFormValues }) => {
+		const result = {
+			...FORM_VALIDATION_CONTEXT,
+			inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
+			inspectionDate: value.inspectionDate,
+			inspectedByProfileId: value.inspectedByProfileId,
+			// The organization's own policy, so the form enforces the same
+			// abundance rules the server will rather than the built-in default.
+			policy,
+			isWet: value.isWet === true,
+			dipCount: value.dipCount,
+			density: value.density === unsetDensityValue ? null : (value.density as LarvalDensity),
+			larvaeCount: value.larvaeCount,
+			...value.lifeStages,
+		};
+		return value.locationMode === 'habitat'
+			? recordHabitatInspectionCommand({
+					...result,
+					habitatId: value.habitatId ?? '',
+				})
+			: recordAdHocInspectionCommand({
+					...result,
+					locationSource: {
+						kind: 'geometry',
+						geometry: (adhocGeometry ?? null) as never,
+					},
+					addressId: value.addressId,
+					habitatTypeId: value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
+				});
+	}, INSPECTION_FIELD_PATHS);
+
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			// Habitat and ad-hoc inspections are distinct commands with distinct
-			// rules, so the validator picks the same one the save will.
-			onSubmit: domainValidator(({ value }: { readonly value: InspectionFormValues }) => {
-				const result = {
-					...FORM_VALIDATION_CONTEXT,
-					inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
-					inspectionDate: value.inspectionDate,
-					inspectedByProfileId: value.inspectedByProfileId,
-					// The organization's own policy, so the form enforces the same
-					// abundance rules the server will rather than the built-in default.
-					policy,
-					isWet: value.isWet,
-					dipCount: value.dipCount,
-					density: value.density === unsetDensityValue ? null : (value.density as LarvalDensity),
-					larvaeCount: value.larvaeCount,
-					...value.lifeStages,
-				};
-				return value.locationMode === 'habitat'
-					? recordHabitatInspectionCommand({
-							...result,
-							habitatId: value.habitatId ?? '',
-						})
-					: recordAdHocInspectionCommand({
-							...result,
-							locationSource: {
-								kind: 'geometry',
-								geometry: (adhocGeometry ?? null) as never,
-							},
-							addressId: value.addressId,
-							habitatTypeId:
-								value.habitatTypeId === noHabitatTypeValue ? null : value.habitatTypeId,
-						});
-			}, INSPECTION_FIELD_PATHS),
+			onSubmit: (input: { readonly value: InspectionFormValues }) =>
+				withConditionsChosen(input.value, validateCommand(input)),
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
@@ -296,8 +307,8 @@ export function InspectionFormPage({
 				<LocationSection
 					description={
 						isEditing
-							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different habitat.'
-							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers. An address is optional reference.'
+							? 'The habitat or one-off choice is fixed. Record a new inspection to cover a different habitat.'
+							: 'Tie the inspection to a mapped habitat, or draw the one-off location it covers. An address is optional reference.'
 					}
 					error={habitatError ?? location.locationError}
 				>
@@ -321,7 +332,7 @@ export function InspectionFormPage({
 									Existing habitat
 								</ToggleGroupItem>
 								<ToggleGroupItem className="flex-1 text-xs" value="adhoc">
-									Ad-hoc location
+									One-off location
 								</ToggleGroupItem>
 							</ToggleGroup>
 						)}
@@ -395,22 +406,17 @@ export function InspectionFormPage({
 				<FormSection title="Findings" note={findingsRequirement(entryMode)}>
 					<form.AppField name="isWet">
 						{(field) => (
-							<LabeledControl
-								description="Larvae can only be present when standing water was found."
-								label="Conditions"
-								required
-							>
-								<WaterToggle
-									onChange={(next) => {
-										if (next || !hasLarvalData(form.state.values)) {
-											field.handleChange(next);
-											return;
-										}
-										setPendingDry(true);
-									}}
-									value={field.state.value}
-								/>
-							</LabeledControl>
+							<ConditionsField
+								error={errorMessagesFrom(field.state.meta.errors)[0]?.message}
+								onChange={(next) => {
+									if (next || !hasLarvalData(form.state.values)) {
+										field.handleChange(next);
+										return;
+									}
+									setPendingDry(true);
+								}}
+								value={field.state.value}
+							/>
 						)}
 					</form.AppField>
 
@@ -418,7 +424,7 @@ export function InspectionFormPage({
 						{(isWet) =>
 							isWet ? (
 								<div className="grid gap-5">
-									<div className="grid gap-5 sm:grid-cols-2">
+									<div className="grid gap-5 @md/fields:grid-cols-2">
 										{columns.density.show ? (
 											<form.AppField name="density">
 												{(field) => (
@@ -460,7 +466,7 @@ export function InspectionFormPage({
 									<form.AppField name="lifeStages">
 										{(field) => (
 											<LabeledControl
-												description="Mark every immature stage present. Required when larvae were found."
+												description="Required when larvae were found."
 												label="Life stages"
 											>
 												<LifeStageSelector
@@ -472,9 +478,7 @@ export function InspectionFormPage({
 									</form.AppField>
 								</div>
 							) : (
-								<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-3 text-muted-foreground text-sm">
-									Dry inspections record no abundance or life-stage detail.
-								</p>
+								<DryNote isWet={isWet} />
 							)
 						}
 					</form.Subscribe>
@@ -483,15 +487,28 @@ export function InspectionFormPage({
 				<form.Subscribe selector={(state) => state.values.isWet}>
 					{(isWet) =>
 						isWet ? (
-							<form.AppField name="samples">
-								{(field) => (
-									<SamplesSection
-										isEditing={isEditing}
-										onChange={field.handleChange}
-										value={field.state.value as readonly InspectionSampleDraft[]}
-									/>
+							<form.Subscribe
+								selector={(state) =>
+									[state.values.inspectedByProfileId, state.values.inspectionDate] as const
+								}
+							>
+								{([inspectedByProfileId, inspectionDate]) => (
+									<form.AppField name="samples">
+										{(field) => (
+											<SamplesSection
+												inspectionDate={inspectionDate}
+												inspectorName={
+													profiles.find((profile) => profile.id === inspectedByProfileId)
+														?.displayName ?? null
+												}
+												isEditing={isEditing}
+												onChange={field.handleChange}
+												value={field.state.value as readonly InspectionSampleDraft[]}
+											/>
+										)}
+									</form.AppField>
 								)}
-							</form.AppField>
+							</form.Subscribe>
 						) : null
 					}
 				</form.Subscribe>

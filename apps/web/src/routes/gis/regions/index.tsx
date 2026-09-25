@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -55,6 +56,7 @@ import {
 } from '../../../hooks/queries/use-region-folders';
 import { useDebouncedTextFilter } from '../../../hooks/use-debounced-text-filter';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
+import { compareNames } from '../../../lib/natural-order';
 import { type RecordType, recordNoun } from '../../../lib/record-nouns';
 import { type FilterCodecs, searchValidator, textParam } from '../../../lib/search-filters';
 
@@ -130,6 +132,7 @@ function RegionsMap({
 				contextMenu={{}}
 				controls={{ measure: true, readout: true }}
 				fitToData={focusedId === null}
+				rememberCamera
 				inset={panel.inset}
 				layers={layers}
 				onMapReady={onMapReady}
@@ -293,7 +296,7 @@ function RegionsExplorerRoute() {
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderListing | 'new' | null>(null);
 
-	const sortedFolders = [...folders].sort((a, b) => a.name.localeCompare(b.name));
+	const sortedFolders = [...folders].sort((a, b) => compareNames(a.name, b.name));
 	const regionsByFolder = groupByFolder(regions);
 
 	const query = search.trim().toLowerCase();
@@ -496,7 +499,7 @@ export function FolderNode({
 					</Badge>
 					<button
 						aria-label={`Edit ${folder.name}`}
-						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
 						onClick={onEdit}
 						title="Edit Folder"
 						type="button"
@@ -593,9 +596,7 @@ function UnfiledGroup({
 			{...regionDropZoneProps(dnd, dropTarget)}
 		>
 			<div className="flex items-center gap-1.5 rounded-md px-1.5 py-1">
-				<span className="min-w-0 flex-1 truncate font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					Unfiled
-				</span>
+				<span className={eyebrow({ className: 'min-w-0 flex-1 truncate' })}>Unfiled</span>
 				<Badge className="shrink-0" tone="neutral" variant="outline">
 					{regions.length}
 				</Badge>
@@ -694,7 +695,7 @@ function RegionTreeRow({
 					</button>
 					<button
 						aria-label={`Rename ${region.name}`}
-						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 [@media(hover:none)]:opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
 						onClick={() => rename.start(region.id)}
 						title="Rename Region"
 						type="button"
@@ -703,7 +704,7 @@ function RegionTreeRow({
 					</button>
 					<Link
 						aria-label={`View details for ${region.name}`}
-						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 						params={{ id: region.id }}
 						title="View Region Details"
 						to="/gis/regions/$id"
@@ -797,13 +798,13 @@ export function regionsEmptyState(input: {
 	if (input.hasDirectory) {
 		return {
 			isEmpty: !input.hasMatches,
-			emptyTitle: 'No matches',
+			emptyTitle: 'No Matches',
 			emptyDescription: `Nothing matches “${input.query}”.`,
 		};
 	}
 	return {
 		isEmpty: true,
-		emptyTitle: 'No regions yet',
+		emptyTitle: 'No Regions Yet',
 		emptyDescription: 'Create a region, or import boundaries from a KML, KMZ, or GeoJSON file.',
 	};
 }

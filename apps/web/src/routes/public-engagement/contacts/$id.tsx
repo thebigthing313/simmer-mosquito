@@ -9,6 +9,7 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -68,12 +69,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Notes and follow-up for this contact."
-					target={{ type: 'contact', id: contact.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'contact', id: contact.id }} />}
 			facts={
 				<Card variant="surface">
 					<CardHeader padding="compact">
@@ -81,8 +77,8 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					</CardHeader>
 					<CardContent className="grid gap-4" padding="compact">
 						<DetailList>
-							<DetailRow label="Preferred">{contact.preferredPhone}</DetailRow>
-							<DetailRow label="Alternate">{contact.alternatePhone}</DetailRow>
+							<DetailRow label="Preferred">{formatPhoneNumber(contact.preferredPhone)}</DetailRow>
+							<DetailRow label="Alternate">{formatPhoneNumber(contact.alternatePhone)}</DetailRow>
 							<DetailRow label="Email">{mailtoLink(contact.email)}</DetailRow>
 						</DetailList>
 						<div className="flex flex-wrap gap-1.5">
@@ -178,7 +174,7 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 						rows.map((request) => (
 							<li key={request.id}>
 								<Link
-									className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 									params={{ id: request.id }}
 									to="/public-engagement/service-requests/$id"
 								>

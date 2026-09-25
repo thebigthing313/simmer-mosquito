@@ -29,8 +29,12 @@ import { ActivityLog } from '../../components/activity/activity-log';
 import type { DashboardResponse } from '../../components/dashboard/dashboard-data';
 import { DashboardPage } from '../../components/dashboard/dashboard-page';
 import { HabitatHistoryCard } from '../../components/larval-surveillance/habitats/habitat-history-card';
+import { HabitatSurfaceSwitch } from '../../components/larval-surveillance/habitats/habitat-surface-switch';
+import { sharedHabitatSearch } from '../../components/larval-surveillance/habitats/habitats-search';
 import { InspectionSurfaceSwitch } from '../../components/larval-surveillance/inspection-surface-switch';
 import { sharedInspectionSearch } from '../../components/larval-surveillance/inspections-search';
+import { SampleSurfaceSwitch } from '../../components/larval-surveillance/samples/sample-surface-switch';
+import { sharedSampleSearch } from '../../components/larval-surveillance/samples-search';
 import { PeopleSection } from '../../components/my-organization/people';
 import { OverviewTable } from '../../components/overview/overview-table';
 import { UpwardLine } from '../../components/overview/overview-upward-line';
@@ -40,6 +44,8 @@ import type {
 	NearbyItem,
 } from '../../components/public-engagement/service-requests/service-request-nearby';
 import { NearbyResultList } from '../../components/public-engagement/service-requests/service-request-nearby-rows';
+import { ServiceRequestSurfaceSwitch } from '../../components/public-engagement/service-requests/service-request-surface-switch';
+import { sharedServiceRequestSearch } from '../../components/public-engagement/service-requests/service-requests-search';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
 import { memberships } from '../../lib/collections/memberships';
@@ -371,6 +377,112 @@ describe('the Inspections Map/Table switch', () => {
 });
 
 /**
+ * The Service Requests Map/Table switch. It carries status and the date window
+ * and nothing else: the Table cannot apply the Map's search, Tags or Regions,
+ * and carrying one would leave rows on the Table that the filter says are gone.
+ */
+describe('the Service Requests Map/Table switch', () => {
+	const CARRIED = 'status=open&from=2026-08-01&to=2026-08-31';
+
+	it('carries status and dates from the Map to the Table, and leaves the rest behind', () => {
+		const mapAddress = {
+			status: 'open',
+			search: 'standing water',
+			tags: ['tag-1'],
+			regions: ['region-1'],
+			from: '2026-08-01',
+			to: '2026-08-31',
+		};
+
+		renderWithRouter(
+			<ServiceRequestSurfaceSwitch current="map" search={sharedServiceRequestSearch(mapAddress)} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/public-engagement/service-requests/table?${CARRIED}`);
+	});
+
+	it('carries status and dates from the Table to the Map, and leaves the sort behind', () => {
+		const tableAddress = {
+			status: 'open',
+			from: '2026-08-01',
+			to: '2026-08-31',
+			sort: 'number',
+			direction: 'asc',
+		};
+
+		renderWithRouter(
+			<ServiceRequestSurfaceSwitch
+				current="table"
+				search={sharedServiceRequestSearch(tableAddress)}
+			/>,
+		);
+
+		expect(linkHref('Map')).toBe(`/public-engagement/service-requests?${CARRIED}`);
+	});
+});
+
+/**
+ * The Habitats Map/Table switch. Both surfaces read `/map/habitats`, so every
+ * filter applies on both and every filter is carried, Tags, Regions and
+ * Untreated included.
+ */
+describe('the Habitats Map/Table switch', () => {
+	const ADDRESS = {
+		search: 'ditch',
+		status: 'all',
+		tagIds: ['tag-1'],
+		regions: ['region-1'],
+		untreated: true,
+	};
+	const CARRIED =
+		'search=ditch&status=all&tagIds=%5B%22tag-1%22%5D&regions=%5B%22region-1%22%5D&untreated=true';
+
+	it('carries every filter from the Map to the Table, and drops what is not a filter', () => {
+		renderWithRouter(
+			<HabitatSurfaceSwitch current="map" search={sharedHabitatSearch({ ...ADDRESS, page: 3 })} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/larval-surveillance/habitats/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(
+			<HabitatSurfaceSwitch current="table" search={sharedHabitatSearch(ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/larval-surveillance/habitats?${CARRIED}`);
+	});
+});
+
+/**
+ * The Samples Map/Table switch. Both surfaces read `/map/samples`, so every
+ * filter is carried, species and regions included.
+ */
+describe('the Samples Map/Table switch', () => {
+	const ADDRESS = {
+		from: '2026-08-01',
+		to: '2026-08-31',
+		status: 'identified',
+		species: ['species-1'],
+		regions: ['region-1'],
+	};
+	const CARRIED =
+		'from=2026-08-01&to=2026-08-31&status=identified&species=%5B%22species-1%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries every filter from the Map to the Table', () => {
+		renderWithRouter(<SampleSurfaceSwitch current="map" search={sharedSampleSearch(ADDRESS)} />);
+
+		expect(linkHref('Table')).toBe(`/larval-surveillance/samples/table?${CARRIED}`);
+	});
+
+	it('carries every filter from the Table to the Map', () => {
+		renderWithRouter(<SampleSurfaceSwitch current="table" search={sharedSampleSearch(ADDRESS)} />);
+
+		expect(linkHref('Map')).toBe(`/larval-surveillance/samples?${CARRIED}`);
+	});
+});
+
+/**
  * The Dashboard, whose every queue links to an explorer with its filters set
  * so the explorer shows the rows the count counted (#1014).
  *
@@ -444,9 +556,10 @@ describe('the Dashboard', () => {
 		expect(linkHref('Requests for Control not yet assigned')).toBe(
 			'/operations/requests-for-control?status=open&unassigned=true&from=2026-09-11&to=2026-09-15',
 		);
-		// The service requests explorer takes no date, so the link carries none.
+		// The service requests explorer opens on this year, so the link spells out
+		// All time: an open request received last year is still open.
 		expect(linkHref('Open service requests')).toBe(
-			'/public-engagement/service-requests?status=open',
+			'/public-engagement/service-requests?status=open&from=any&to=any',
 		);
 	});
 
@@ -745,7 +858,7 @@ describe('the nearby list', () => {
 	it('sends each kind to its own detail page', () => {
 		renderWithRouter(
 			<NearbyResultList
-				emptyTitle="Nothing nearby"
+				emptyTitle="Nothing Nearby"
 				families={new Set(['infrastructure', 'surveillance', 'control', 'publicEngagement'])}
 				lookups={{ nameById: new Map(), formatQuantity: String, tagById: new Map() }}
 				nearby={{

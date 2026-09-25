@@ -81,8 +81,6 @@ function CreateRequestForControlRoute() {
 			errorTitle="Unable to Raise Request"
 			header={{
 				title: createLabel('requestedControlAction'),
-				description:
-					'Map where control work is needed and say what kind. Missions draw their stops from this queue.',
 				backTo: '/operations/requests-for-control',
 				backLabel: recordNoun('requestedControlAction').titleMany,
 			}}

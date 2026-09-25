@@ -80,6 +80,7 @@ import {
 	SprayCan,
 	Square,
 	Sun,
+	Sunrise,
 	Table,
 	Tag,
 	Target,
@@ -276,6 +277,7 @@ export const iconRegistry = {
 		success: icon('success', 'Success', 'generic', CircleCheck),
 		sun: icon('sun', 'Sun', 'generic', Sun),
 		table: icon('table', 'Table', 'generic', Table),
+		today: icon('today', 'Today', 'generic', Sunrise),
 	},
 } as const;
 

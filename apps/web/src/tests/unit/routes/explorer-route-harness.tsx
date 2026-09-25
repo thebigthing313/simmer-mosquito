@@ -181,10 +181,10 @@ export async function createSurfaceNames(to: string): Promise<{
 		throw new Error(`no sidebar entry lands on ${to}`);
 	}
 	fireEvent.pointerDown(
-		screen.getByRole('button', { name: 'More actions' }),
+		screen.getByRole('button', { name: 'More Actions' }),
 		new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
 	);
 	const header = (await screen.findByRole('menuitem', { name: entry.label })).textContent ?? '';
-	const pointer = screen.getByText(`${entry.label} is in the More actions menu.`).textContent ?? '';
+	const pointer = screen.getByText(`${entry.label} is in the More Actions menu.`).textContent ?? '';
 	return { sidebar: entry.label, header, pointer };
 }

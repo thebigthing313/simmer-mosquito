@@ -79,7 +79,6 @@ function ControlAssetLookupContent({
 		<LookupListFrame
 			activeCount={activeAssets.length}
 			inactiveCount={inactiveAssets.length}
-			detail={config.detail}
 			title={config.title}
 			action={
 				// Hidden rather than disabled, per `components/write-only.tsx`.
@@ -286,7 +285,6 @@ function ControlAssetDrawer({
 							<form.AppField name="metadata" validators={{ onSubmit: validateMetadataValue }}>
 								{(field) => (
 									<field.MetadataField
-										description={config.metadataDescription}
 										disabled={!canManage}
 										label="Metadata"
 										mode={{ kind: 'manual' }}

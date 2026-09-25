@@ -35,7 +35,7 @@ import {
 import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { adhocLabel } from '../../lib/coordinate-label';
+import { habitatLabel } from '../../lib/coordinate-label';
 import { addDaysToDateString, formatMonthDay, todayInTimeZone } from '../../lib/local-date';
 import { groupRows, type RowGroup } from '../../lib/row-groups';
 
@@ -82,12 +82,7 @@ function LarvalSurveillanceOverviewRoute() {
 	// keep their twelve-column grid; the frame is what widened.
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
-			<PageHeader
-				description="Inspection activity across your habitats, the species your samples identified, and the habitats where larval density came back heavy."
-				eyebrow="Surveillance & mapping"
-				icon={LarvalIcon}
-				title="Larval Surveillance"
-			/>
+			<PageHeader icon={LarvalIcon} title="Larval Surveillance" />
 
 			<Suspense fallback={<OverviewSkeleton />}>
 				<OverviewBody />
@@ -212,7 +207,7 @@ function InspectorGroupBlock({ group }: { readonly group: RowGroup<LarvalActivit
 		<PersonGroupBlock
 			aside={
 				positiveCount > 0 ? (
-					<Badge tone="danger" variant="outline">
+					<Badge tone="warning" variant="outline">
 						{positiveCount} positive
 					</Badge>
 				) : null
@@ -316,7 +311,10 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 									<span className="truncate text-muted-foreground text-xs tabular-nums">
 										{sample.habitatName ??
 											(sample.habitatId === null
-												? adhocLabel(sample.lat, sample.lng, 'Ad-hoc sample')
+												? habitatLabel(sample, {
+														addressName: sample.addressDisplayName,
+														fallback: 'One-off sample',
+													})
 												: 'Habitat')}
 									</span>
 								</div>
@@ -386,7 +384,7 @@ function HeavyInspectionsPanel({
 									 * habitat — the habitat is one hop further on from the inspection.
 									 */}
 									<Link
-										className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 										params={{ id: inspection.id }}
 										to="/larval-surveillance/inspections/$id"
 									>

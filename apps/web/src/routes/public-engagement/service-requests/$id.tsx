@@ -10,6 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -250,10 +251,7 @@ function ServiceRequestDetailContent({
 
 					<TabsContent className={TAB_CONTENT_CLASS} value="comments">
 						<TabBody>
-							<CommentsSection
-								description="Follow-up, resolution notes, and field context for this request."
-								target={{ type: 'serviceRequest', id: request.id }}
-							/>
+							<CommentsSection target={{ type: 'serviceRequest', id: request.id }} />
 						</TabBody>
 					</TabsContent>
 				</Tabs>
@@ -319,7 +317,7 @@ function NearbyFamilyTab({
 			</p>
 			<NearbyResultList
 				emptyDescription={`No ${label.toLowerCase()} records fell within this radius and time window.`}
-				emptyTitle="Nothing nearby"
+				emptyTitle="Nothing Nearby"
 				families={families}
 				lookups={lookups}
 				nearby={nearby}
@@ -449,7 +447,7 @@ function MapContextCaption({ response }: { readonly response: NearbyResponse }) 
 			<p className="m-0 font-medium text-foreground text-xs">
 				Within {formatRadiusLabel(response.radius.amount, response.radius.unitCode)}
 			</p>
-			<p className="m-0 text-[0.7rem] text-muted-foreground">{nearbyWindowLabel(response)}</p>
+			<p className="m-0 text-caption text-muted-foreground">{nearbyWindowLabel(response)}</p>
 		</div>
 	);
 }
@@ -544,8 +542,12 @@ function ContactParty({ contactId }: { readonly contactId: string }) {
 				<PartyRow label="Company" primary={primary} value={contact.company} />
 				<PartyRow label="Department" value={contact.department} />
 				<PartyRow label="Title" value={contact.title} />
-				<PartyRow label="Preferred" primary={primary} value={contact.preferredPhone} />
-				<PartyRow label="Alternate" value={contact.alternatePhone} />
+				<PartyRow
+					label="Preferred"
+					primary={primary}
+					value={formatPhoneNumber(contact.preferredPhone)}
+				/>
+				<PartyRow label="Alternate" value={formatPhoneNumber(contact.alternatePhone)} />
 				<PartyRow
 					href={mailtoHref(contact.email)}
 					label="Email"

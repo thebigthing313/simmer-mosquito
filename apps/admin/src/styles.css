@@ -17,11 +17,12 @@
 }
 
 /*
- * Same desktop floor as apps/web, for the same reason: the shell spends 304px on
- * fixed chrome (64px rail + 240px nav) before any content, so below this width
- * we would rather hand the operator a horizontal scrollbar than a crushed table.
- * The console is a desk tool by decision — nobody creates an agency or edits the
- * global species list from a phone.
+ * A desktop floor, which apps/web no longer has. The console is a desk tool by
+ * decision: nobody creates an agency or edits the global species list from a
+ * phone, so below this width the operator gets a horizontal scrollbar rather
+ * than a crushed table. The shared shell still moves its rails into a drawer
+ * under `lg`, because that reads the window, so a console narrower than 1024px
+ * draws a 1024px page with the drawer button in its header.
  */
 body {
 	min-width: 1024px;

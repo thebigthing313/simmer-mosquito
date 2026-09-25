@@ -1,4 +1,5 @@
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -7,8 +8,7 @@ import type { ReactNode } from 'react';
 import type { CatalogSearch } from '../../hooks/catalog/use-catalog-search';
 
 /** The uppercase label a catalog groups its rows under. */
-export const CATALOG_GROUP_HEADING =
-	'm-0 font-bold text-[0.78rem] text-muted-foreground uppercase tracking-wide';
+export const CATALOG_GROUP_HEADING = eyebrow();
 
 /**
  * The frame a lookup catalog opens with: the page heading, the access badge that
@@ -31,7 +31,7 @@ export function CatalogPage({
 	children,
 }: {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly icon: RegistryIcon;
 	/** Drives the access badge only. Whether `action` renders is the caller's call. */
 	readonly canEdit: boolean;
@@ -146,7 +146,7 @@ export function CatalogGroupHeader({
 	inactive,
 }: {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly active: number;
 	readonly inactive: number;
 }) {
@@ -154,7 +154,11 @@ export function CatalogGroupHeader({
 		<div className="flex flex-wrap items-center justify-between gap-2">
 			<div className="grid gap-1">
 				<h2 className={CATALOG_GROUP_HEADING}>{title}</h2>
-				<p className="m-0 max-w-[60ch] text-muted-foreground text-sm leading-snug">{description}</p>
+				{description === undefined ? null : (
+					<p className="m-0 max-w-[60ch] text-muted-foreground text-sm leading-snug">
+						{description}
+					</p>
+				)}
 			</div>
 			<CatalogCountBadges active={active} inactive={inactive} />
 		</div>

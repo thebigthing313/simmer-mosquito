@@ -2,7 +2,9 @@
 // parameter is structural rather than a row type, so both read paths satisfy
 // it.
 
-import { calendarDateParts } from '../../lib/local-date';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
+import { countPhrase } from '../../lib/format-count';
+import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 
 /**
@@ -26,8 +28,12 @@ export function contactDisplayName(contact: {
 	readonly id: string;
 }): string {
 	return (
-		firstNonEmpty(contact.contactName, contact.company, contact.email, contact.preferredPhone) ??
-		`Contact ${contact.id.slice(0, 8)}`
+		firstNonEmpty(
+			contact.contactName,
+			contact.company,
+			contact.email,
+			formatPhoneNumber(contact.preferredPhone),
+		) ?? `Contact ${contact.id.slice(0, 8)}`
 	);
 }
 
@@ -40,7 +46,7 @@ export function contactSecondaryLine(contact: {
 	readonly preferredPhone: string | null;
 }): string | null {
 	const primary = contactDisplayName(contact);
-	const parts = [contact.company, contact.email, contact.preferredPhone].filter(
+	const parts = [contact.company, contact.email, formatPhoneNumber(contact.preferredPhone)].filter(
 		(part): part is string => part !== null && part.trim().length > 0 && part !== primary,
 	);
 	return parts.length === 0 ? null : parts.join(' · ');
@@ -93,6 +99,44 @@ export function formatRequestDate(value: string): string {
 		month: 'short',
 		day: 'numeric',
 	}).format(date);
+}
+
+const DAY_MS = 86_400_000;
+const DAY_NOUN = { one: 'day', many: 'days' } as const;
+
+/**
+ * How long an open request has waited: `Today`, `1 day`, `12 days`.
+ *
+ * Whole calendar days from the request date to `today`, which the caller
+ * passes as the Organization's today so the count turns over on its calendar.
+ * A request dated after today reads `Today` rather than a negative age.
+ */
+export function formatRequestAge(requestDate: string, today: string): string {
+	const received = calendarDateParts(requestDate);
+	if (received === undefined) {
+		return unreadable('formatRequestAge', requestDate);
+	}
+	const now = calendarDateParts(today);
+	if (now === undefined) {
+		return unreadable('formatRequestAge', today);
+	}
+	const days = Math.round(
+		(utcCalendarDay(now).getTime() - utcCalendarDay(received).getTime()) / DAY_MS,
+	);
+	return days < 1 ? 'Today' : countPhrase(days, DAY_NOUN);
+}
+
+/**
+ * What the age slot on a request's row reads: how long an open request has
+ * waited, or the day a closed one was received.
+ */
+export function requestAgeOrDate(
+	request: { readonly requestDate: string; readonly closedAt: Date | string | null },
+	today: string,
+): string {
+	return isServiceRequestOpen(request)
+		? formatRequestAge(request.requestDate, today)
+		: formatRequestDate(request.requestDate);
 }
 
 function firstNonEmpty(...values: readonly (string | null)[]): string | null {

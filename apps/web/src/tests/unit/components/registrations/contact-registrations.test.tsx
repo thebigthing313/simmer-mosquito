@@ -167,7 +167,7 @@ describe('ContactRegistrations', () => {
 	it('keeps the contact on screen while a registration is being added', () => {
 		renderPage();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Add registration' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Add Registration' }));
 
 		expect(screen.getByText('Registration form')).toBeTruthy();
 		expect(screen.getByText('Ana Reyes')).toBeTruthy();
@@ -204,7 +204,7 @@ describe('ContactRegistrations', () => {
 		listings = [listing({ id: 'off', isActive: false })];
 		renderPage();
 
-		expect(screen.getByText('No registrations yet')).toBeTruthy();
+		expect(screen.getByText('No Registrations Yet')).toBeTruthy();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Include inactive' }));
 
@@ -215,13 +215,13 @@ describe('ContactRegistrations', () => {
 	it('swaps the list for the form when a registration is added, and back on cancel', () => {
 		renderPage();
 
-		fireEvent.click(screen.getByRole('button', { name: 'Add registration' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Add Registration' }));
 		expect(screen.getByText('Registration form')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'Add registration' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Add Registration' })).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 		expect(screen.queryByText('Registration form')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Add registration' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Add Registration' })).toBeTruthy();
 	});
 
 	it('opens the form on the registration whose Edit was pressed', () => {
@@ -236,7 +236,7 @@ describe('ContactRegistrations', () => {
 		signedInRole = 'collector';
 		renderPage();
 
-		expect(screen.queryByRole('button', { name: 'Add registration' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Add Registration' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
 	});
 });

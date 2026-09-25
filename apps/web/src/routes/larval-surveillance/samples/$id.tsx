@@ -9,7 +9,6 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -69,13 +68,19 @@ const layout: RecordDetailLayout = {
 };
 
 /**
- * What this page calls the habitat a sample was taken at.
+ * What this page calls the place a sample was taken at: the Habitat, then the
+ * Address the parent inspection was linked to, then the centroid, then the word.
  *
  * The fallback is the sample's own category, not the inspection's: this page
  * reached `adhocLabel` on its default and a sample carrying no centroid read
- * `Ad-hoc inspection`.
+ * the inspection's category name (#953).
  */
-const SAMPLE_LABEL = { fallback: 'Ad-hoc sample' } as const;
+function sampleHabitatLabel(geo: SampleGeoRow): string {
+	return habitatLabel(geo, {
+		addressName: geo.addressDisplayName,
+		fallback: 'One-off sample',
+	});
+}
 
 function RouteComponent() {
 	const { id } = Route.useParams();
@@ -105,29 +110,24 @@ const readOnlyRoles = new Set(['viewer']);
 interface StatusMeta {
 	readonly label: string;
 	readonly tone: 'success' | 'info' | 'neutral' | 'warning';
-	readonly description: string;
 }
 
 const STATUS_META: Record<SampleStatus, StatusMeta> = {
 	identified: {
 		label: 'Identified',
 		tone: 'success',
-		description: 'One or more species have been identified in this sample.',
 	},
 	awaiting: {
 		label: 'Awaiting ID',
 		tone: 'info',
-		description: 'This sample is collected but not yet identified.',
 	},
 	zero_larvae: {
 		label: 'No larvae',
 		tone: 'neutral',
-		description: 'The sample was examined and held no mosquito larvae.',
 	},
 	unidentifiable: {
 		label: 'Unidentifiable',
 		tone: 'warning',
-		description: 'The specimens could not be identified to species.',
 	},
 };
 
@@ -150,12 +150,7 @@ function SampleDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Lab notes, identification context, and follow-up for this sample."
-					target={{ type: 'sample', id: geo.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'sample', id: geo.id }} />}
 			facts={<ContextCard geo={geo} />}
 			header={{
 				flags: <AccessBadge canManage={canManage} />,
@@ -188,7 +183,7 @@ function SampleSubtitle({ geo }: { readonly geo: SampleGeoRow }) {
 			{geo.habitatId === null ? (
 				<>
 					<span aria-hidden="true">·</span>
-					<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
+					<span className="tabular-nums">{sampleHabitatLabel(geo)}</span>
 				</>
 			) : (
 				<>
@@ -199,7 +194,7 @@ function SampleSubtitle({ geo }: { readonly geo: SampleGeoRow }) {
 						params={{ id: geo.habitatId }}
 						to="/larval-surveillance/habitats/$id"
 					>
-						{habitatLabel(geo, SAMPLE_LABEL)}
+						{sampleHabitatLabel(geo)}
 					</Link>
 				</>
 			)}
@@ -420,7 +415,6 @@ function IdentificationCard({
 							<SpeciesIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							Identification
 						</CardTitle>
-						<CardDescription>{meta.description}</CardDescription>
 					</div>
 					<div className="flex shrink-0 items-center gap-2">
 						<Badge tone={meta.tone} variant="outline">
@@ -434,7 +428,7 @@ function IdentificationCard({
 								variant="outline"
 							>
 								<KeyboardIcon aria-hidden="true" />
-								Key entry
+								Key Entry
 							</Button>
 						) : null}
 					</div>
@@ -525,7 +519,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					</DetailRow>
 					<DetailRow label="Habitat">
 						{geo.habitatId === null ? (
-							<span className="tabular-nums">{habitatLabel(geo, SAMPLE_LABEL)}</span>
+							<span className="tabular-nums">{sampleHabitatLabel(geo)}</span>
 						) : (
 							<Link
 								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
@@ -533,7 +527,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 								to="/larval-surveillance/habitats/$id"
 							>
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{habitatLabel(geo, SAMPLE_LABEL)}
+								{sampleHabitatLabel(geo)}
 							</Link>
 						)}
 					</DetailRow>

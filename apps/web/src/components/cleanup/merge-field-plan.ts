@@ -1,4 +1,5 @@
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import type { DuplicateRecord, MergeableRecordType } from '../../hooks/merge-candidate-view';
 import type { MergeFieldUpdates } from '../../hooks/mutations/use-record-merge';
 /**
@@ -184,9 +185,13 @@ export function mergeFieldSummary(
 ): readonly MergeFieldValue[] {
 	return MERGE_FIELDS[recordType].flatMap((field) => {
 		const value = fieldValue(record, field.column);
-		return field.isRecordName === true || value === null
-			? []
-			: [{ column: field.column, label: field.label, value }];
+		if (field.isRecordName === true || value === null) {
+			return [];
+		}
+		// Read, not edited, so a number is shown the way the rest of the app shows
+		// one. The merge form keeps the spelling, because that is what it writes.
+		const shown = field.pool === 'phone' ? formatPhoneNumber(value) : value;
+		return [{ column: field.column, label: field.label, value: shown }];
 	});
 }
 

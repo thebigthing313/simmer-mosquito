@@ -148,9 +148,9 @@ export function createFakeMap() {
 			getSouth: () => origin.lat - 0.8,
 			getWest: () => origin.lng + 0.2,
 		}),
-		flyTo(options: CameraOptions) {
+		flyTo(options: CameraOptions, eventData?: object) {
 			assertLive();
-			cameraCalls.push({ kind: 'flyTo', ...readCamera(options) });
+			cameraCalls.push({ kind: 'flyTo', ...readCamera(options), eventData });
 		},
 		easeTo(options: CameraOptions) {
 			assertLive();
@@ -278,6 +278,8 @@ interface CameraCall {
 	readonly kind: 'flyTo' | 'easeTo' | 'fitBounds';
 	readonly padding: unknown;
 	readonly zoom: number | undefined;
+	/** What a `flyTo` hands its events, which is how a flight tells a listener to skip it. */
+	readonly eventData?: object | undefined;
 }
 
 function readCamera(options: CameraOptions | undefined): Omit<CameraCall, 'kind'> {

@@ -24,6 +24,9 @@ compilerPreset.rolldown.filter = {
 	id: { include: compilerIncludes() },
 };
 
+/** A `components/<surface>/index.ts` barrel, which holds re-exports and nothing else. */
+const BARREL = /[\\/]apps[\\/]web[\\/]src[\\/]components[\\/][^\\/]+[\\/]index\.ts$/;
+
 export default defineConfig({
 	envDir: '../..',
 	plugins: [
@@ -61,27 +64,33 @@ export default defineConfig({
 		outDir: 'dist',
 		emptyOutDir: true,
 		rolldownOptions: {
+			/*
+			 * The `components/*` barrels only re-export, so nothing is lost by
+			 * telling the bundler so. Without it, a route file that kept one name
+			 * from a barrel for its `validateSearch` after code splitting kept the
+			 * whole barrel at boot: every module behind `components/map` and
+			 * `components/explorer` has top-level reads the bundler cannot prove
+			 * pure, so all of them rode in the entry chunk, `MapCanvas` included.
+			 * That was 157 KB of the 1.28 MB entry. The rule is the file shape
+			 * `components/<surface>/index.ts`; a barrel that grows a statement of
+			 * its own has to move out of that shape first.
+			 */
+			treeshake: {
+				moduleSideEffects: (id: string) => !BARREL.test(id),
+			},
 			output: {
 				/*
-				 * Route splitting alone left a 2.7 MB entry chunk — 65% of all the
-				 * JS we ship — because a dependency shared by many lazy route
-				 * chunks gets hoisted into the common chunk that every route needs.
-				 * mapbox-gl is the extreme case: it is reachable only from map
-				 * routes, but enough of them import it that it was promoted into
-				 * the boot payload, so a operator opening a table or settings page
-				 * downloaded and parsed a map renderer to get there.
-				 *
-				 * Pulling it into its own group keeps it a static dependency of the
-				 * map route chunks and nothing else, so the browser fetches it when
-				 * a map route loads instead of at boot. Only two files import it as
-				 * a value (`use-mapbox-map`, `geolocate-control`); the other ~59
-				 * imports are `import type` and erase at compile time.
+				 * mapbox-gl stays out of the entry because `mapbox-gl-loader.ts`
+				 * imports it dynamically, and the ~60 other imports are
+				 * `import type`. The one group here is React itself, anchored on
+				 * the package directory so `lucide-react` and the other
+				 * `*-react` packages stay with whatever imports them.
 				 */
 				codeSplitting: {
 					groups: [
 						{
 							name: 'react-vendor',
-							test: /[\\/]node_modules[\\/].*(react|react-dom|scheduler)[\\/]/,
+							test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
 						},
 					],
 				},

@@ -109,9 +109,8 @@ function CreateApplicationRoute() {
 			}
 
 			// The point is the application's authoritative geometry; the address (if
-			// any) is reference only. Off a mission stop it is required; on one it is
-			// an override the crew may not have drawn, and the server falls back to
-			// the stop's own ground.
+			// any) is reference only. On a mission stop the form opens on the stop's
+			// geometry, and an untouched one is left for the server to copy.
 			const location = mission.resolveLocation(geometry, {
 				missing: 'Place the application point on the map.',
 				unresolvable: 'Unable to determine the application location.',
@@ -224,14 +223,12 @@ function CreateApplicationRoute() {
 				formulations={formulations}
 				header={{
 					title: createLabel('application'),
-					description:
-						'Place the treated point, pick the product and amount, and note who applied it.',
 					backTo: '/control-operations/chemical',
 					backLabel: recordNoun('application').titleMany,
 				}}
 				insecticides={insecticides}
 				initialGeometry={initialGeometry}
-				requireLocation={mission.requireLocation}
+				missionStop={mission.missionStop}
 				onSave={onSave}
 				organizationId={organization.id}
 				profiles={profiles}

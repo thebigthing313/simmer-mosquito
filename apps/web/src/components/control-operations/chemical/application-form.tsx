@@ -2,6 +2,7 @@ import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { useDrawLocation } from '../../../hooks/map/use-draw-location';
 import type { DrawGeometry } from '../../../hooks/map/use-map-draw';
+import type { MissionStopGeometry } from '../../../hooks/operations/use-mission-stop-geometry';
 import type { SchemaCatalogListing } from '../../../hooks/queries/catalog-roster-view';
 import type {
 	FormulationComponentListing,
@@ -20,7 +21,6 @@ import { FirstCommentSection } from '../../forms/first-comment-section';
 import { LocationAddressField, LocationBand } from '../../forms/location-band';
 import { MapCanvas } from '../../map';
 import { DrawToolbar } from '../../map/geometry-control';
-import { locationDescription } from '../../map/location-description';
 import { insecticideDisplayName } from '../control-display';
 import { HabitatPicker } from '../control-pickers';
 import {
@@ -38,7 +38,7 @@ import { InsecticideBatchOptions } from './insecticide-batch-options';
 
 export interface ApplicationFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: '/control-operations/chemical' | '/control-operations/chemical/$id';
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -68,6 +68,12 @@ export interface ApplicationFormPageProps {
 	 * optional so the record keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
+	/**
+	 * The mission stop the form was opened from, whose geometry is drawn when it
+	 * arrives. Null off a stop and on edit; required so a create route that
+	 * forgets the stop fails `tsc` rather than opening on an empty map.
+	 */
+	readonly missionStop: MissionStopGeometry | null;
 	/** Create shows the first-comment box; edit does not (the thread owns it). */
 	readonly mode: 'create' | 'edit';
 	readonly header: ApplicationFormHeader;
@@ -94,6 +100,7 @@ export function ApplicationFormPage({
 	defaultValues,
 	initialGeometry = null,
 	requireLocation = true,
+	missionStop,
 	mode,
 	header,
 	onSave,
@@ -103,6 +110,7 @@ export function ApplicationFormPage({
 		initialGeometry,
 		missingMessage: 'Map where the product was applied.',
 		required: requireLocation,
+		missionStop,
 	});
 	const { draw, geometry, geometryType } = location;
 
@@ -167,10 +175,15 @@ export function ApplicationFormPage({
 		defaultValues,
 		validators: {
 			onSubmit: ({ value }: { readonly value: ApplicationFormValues }) =>
-				validateApplication(value, geometry, requireLocation, {
+				validateApplication(value, geometry, {
 					batchSize: formulationFor(value.formulationId)?.batchSize ?? Number.NaN,
 					components: componentsFor(value.formulationId),
 				}),
+		},
+		// A save refused over the fields says the missing location in the same
+		// pass, rather than only once the fields are fixed.
+		onSubmitInvalid: () => {
+			location.requireGeometry();
 		},
 		onSubmit: async ({ value }) => {
 			location.clearError();
@@ -261,11 +274,6 @@ export function ApplicationFormPage({
 							)}
 						</form.AppField>
 					}
-					description={locationDescription({
-						geometryKind: 'controlAction',
-						subject: 'The geometry is where the product was applied.',
-						habitat: true,
-					})}
 					geometryKind="controlAction"
 					location={location}
 					organizationId={organizationId}
@@ -349,7 +357,7 @@ export function ApplicationFormPage({
 											/>
 										)}
 									</form.AppField>
-									<div className="grid gap-5 sm:grid-cols-2">
+									<div className="grid gap-5 @md/fields:grid-cols-2">
 										<form.AppField name="amountApplied">
 											{(field) => (
 												<field.NumberField
@@ -447,7 +455,7 @@ export function ApplicationFormPage({
 											/>
 										)}
 									</form.AppField>
-									<div className="grid gap-5 sm:grid-cols-2">
+									<div className="grid gap-5 @md/fields:grid-cols-2">
 										<form.AppField name="amountApplied">
 											{(field) => (
 												<field.NumberField
@@ -503,7 +511,7 @@ export function ApplicationFormPage({
 				</FormSection>
 
 				<FormSection title="Work Performed">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="applicationMethodId">
 							{(field) => (
 								<field.SelectField

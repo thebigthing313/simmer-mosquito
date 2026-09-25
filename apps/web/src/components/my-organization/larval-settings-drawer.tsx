@@ -6,6 +6,7 @@ import type {
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import {
 	Select,
 	SelectContent,
@@ -25,7 +26,7 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useOrganizationSettingsMutations } from '../../hooks/mutations/use-organization-settings-mutations';
 import { errorMessageForSave } from '../../lib/save-error';
 import {
@@ -52,6 +53,7 @@ export function LarvalSettingsDrawer({
 	readonly canManage: boolean;
 	readonly settings: OrganizationSettings;
 }) {
+	const id = useId();
 	const { canWrite, setLarvalInspectionEntryPolicy } = useOrganizationSettingsMutations();
 	const policy = settings.larvalSurveillance.inspectionEntryPolicy;
 	const [open, setOpen] = useState(false);
@@ -107,13 +109,13 @@ export function LarvalSettingsDrawer({
 				</SheetHeader>
 				<form className="grid gap-3.5 px-4" onSubmit={submit}>
 					<Field className="min-w-0 gap-1">
-						<FieldLabel>Entry mode</FieldLabel>
+						<FieldLabel htmlFor={`${id}-entry-mode`}>Entry mode</FieldLabel>
 						<Select
 							value={mode}
 							disabled={!canManage}
 							onValueChange={(value) => setMode(value as LarvalInspectionEntryMode)}
 						>
-							<SelectTrigger size="sm" className="w-full">
+							<SelectTrigger id={`${id}-entry-mode`} size="sm" className="w-full">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
@@ -134,14 +136,19 @@ export function LarvalSettingsDrawer({
 					<div className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 						<div className="flex items-center justify-between gap-3">
 							<div>
-								<span className="font-medium text-sm text-foreground">
+								<Label htmlFor={`${id}-density`} className="text-foreground">
 									Density inference ranges
-								</span>
-								<p className="m-0 text-xs leading-snug text-muted-foreground">
+								</Label>
+								<p
+									id={`${id}-density-description`}
+									className="m-0 text-xs leading-snug text-muted-foreground"
+								>
 									Configure larvae per dip ranges for inferred densities.
 								</p>
 							</div>
 							<Switch
+								id={`${id}-density`}
+								aria-describedby={`${id}-density-description`}
 								checked={densityEnabled}
 								disabled={!canManage}
 								onCheckedChange={setDensityEnabled}
@@ -160,7 +167,9 @@ export function LarvalSettingsDrawer({
 						</div>
 					</div>
 					{error === null ? null : (
-						<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
+						<p role="alert" className="m-0 text-sm leading-snug text-destructive">
+							{error}
+						</p>
 					)}
 					<SheetFooter className="px-0">
 						<Button type="submit" disabled={!canManage || !canWrite}>
@@ -191,13 +200,20 @@ function DensityRangeEditor({
 	readonly onChange: (value: DensityRangeFormValue) => void;
 	readonly value: DensityRangeFormValue;
 }) {
+	const id = useId();
+	// Four editors draw the same two field labels, so each is a fieldset named for
+	// its density band. The legend floats so it lays out as a grid item rather than
+	// sitting on the fieldset border.
 	return (
-		<div className="grid gap-2 rounded-md border border-border/30 bg-background p-2.5">
-			<span className="font-medium text-sm text-foreground">{densityLabel(density)}</span>
+		<fieldset className="grid min-w-0 gap-2 rounded-md border border-border/30 bg-background p-2.5">
+			<legend className="float-left font-medium text-sm text-foreground">
+				{densityLabel(density)}
+			</legend>
 			<div className="grid grid-cols-2 gap-2">
 				<Field className="gap-1">
-					<FieldLabel>Greater than</FieldLabel>
+					<FieldLabel htmlFor={`${id}-min`}>Greater than</FieldLabel>
 					<Input
+						id={`${id}-min`}
 						disabled={disabled || density === 'light'}
 						min={0}
 						onChange={(event) => onChange({ ...value, minInclusive: event.target.value })}
@@ -206,8 +222,9 @@ function DensityRangeEditor({
 					/>
 				</Field>
 				<Field className="gap-1">
-					<FieldLabel>Up to and including</FieldLabel>
+					<FieldLabel htmlFor={`${id}-max`}>Up to and including</FieldLabel>
 					<Input
+						id={`${id}-max`}
 						disabled={disabled || density === 'very_heavy'}
 						min={0}
 						onChange={(event) => onChange({ ...value, maxExclusive: event.target.value })}
@@ -217,6 +234,6 @@ function DensityRangeEditor({
 					/>
 				</Field>
 			</div>
-		</div>
+		</fieldset>
 	);
 }

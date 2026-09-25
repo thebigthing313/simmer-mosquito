@@ -1,4 +1,5 @@
 import type { Contact } from '@simmer-mosquito/sync';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useDeferredValue, useRef, useState } from 'react';
 import { useSelectedRowLabel } from '../../hooks/pickers/use-selected-row-label';
@@ -171,13 +172,17 @@ function contactLabelParts(row: Contact): ContactOption {
 /** Self-contained label (kept off the routes layer so the picker stays reusable). */
 function contactLabel(contact: ContactOption): string {
 	return (
-		firstNonEmpty(contact.contactName, contact.company, contact.email, contact.preferredPhone) ??
-		`Contact ${contact.id.slice(0, 8)}`
+		firstNonEmpty(
+			contact.contactName,
+			contact.company,
+			contact.email,
+			formatPhoneNumber(contact.preferredPhone),
+		) ?? `Contact ${contact.id.slice(0, 8)}`
 	);
 }
 
 function contactChannel(contact: ContactOption): string | null {
-	return firstNonEmpty(contact.email, contact.preferredPhone, contact.company);
+	return firstNonEmpty(contact.email, formatPhoneNumber(contact.preferredPhone), contact.company);
 }
 
 function firstNonEmpty(...values: readonly (string | null)[]): string | null {

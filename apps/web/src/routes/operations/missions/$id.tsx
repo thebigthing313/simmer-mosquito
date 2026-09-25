@@ -129,7 +129,7 @@ function MissionPanel({
 		<div className="flex h-full min-h-0 flex-col">
 			<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 				<Link
-					className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 					to="/operations/missions"
 				>
 					<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
@@ -147,7 +147,6 @@ function MissionPanel({
 			</div>
 
 			<WorklistTabs
-				commentsDescription="Cancellations, reopens, and field notes for this mission."
 				stopControls={run.canAddStops ? <AddStopControls missionId={missionId} run={run} /> : null}
 				stopCount={run.stops.length}
 				target={{ type: 'mission', id: missionId }}
@@ -218,7 +217,7 @@ function AddStopControls({
 			<Button asChild size="sm" variant="ghost">
 				<Link params={{ id: missionId }} to="/operations/missions/$id/add-stop">
 					<MapPinnedIcon aria-hidden="true" />
-					Add a stop by map
+					Add a Stop by Map
 				</Link>
 			</Button>
 		</div>
@@ -432,7 +431,7 @@ function MissionNotFound() {
 					<Button asChild variant="outline">
 						<Link to="/operations/missions">
 							<ArrowLeftIcon aria-hidden="true" />
-							Back to missions
+							Back to Missions
 						</Link>
 					</Button>
 				</EmptyContent>

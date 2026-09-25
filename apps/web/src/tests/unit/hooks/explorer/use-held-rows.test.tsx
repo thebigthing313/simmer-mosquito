@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useHeldRows } from '../../../../hooks/larval-surveillance/use-held-rows';
+import { useHeldRows } from '../../../../hooks/explorer/use-held-rows';
 import type { InspectionTableRow } from '../../../../hooks/queries/larval-activity-view';
 
 /**

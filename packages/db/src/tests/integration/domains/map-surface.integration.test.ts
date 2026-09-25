@@ -470,6 +470,35 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
+	// The Habitats rail pages its order out of Postgres, and under the default
+	// collation `Culvert 100` sorted between `Culvert 1` and `Culvert 2`.
+	// `natural_sort` reads the digits as a number, so the seeded `Culvert 12`
+	// lands between the two names written here rather than after both.
+	it('pages habitats with the numbers in their names read as numbers', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await sql`
+				insert into habitats (id, organization_id, geom, habitat_type_id, habitat_name, description)
+				select gen_random_uuid(), h.organization_id, h.geom, h.habitat_type_id, name, h.description
+				from habitats h, unnest(array['Culvert 100', 'Culvert 9']) as name
+				where h.id = ${mapSurfaceRowIds.habitat.inside}
+			`.execute(db);
+
+			const result = await MAP_SURFACES.habitats.listByBounds(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				bounds: mapSurfacePlace.bounds,
+				...page,
+			});
+
+			expect(result.rows.map((row) => row.habitatName)).toEqual([
+				'Culvert 9',
+				'Culvert 12',
+				'Culvert 100',
+			]);
+		});
+	});
+
 	// The three filters the service-request explorer used to apply in the browser
 	// over the whole Organization's rows, run against Postgres on one row (#963),
 	// and the date pair the period-in-review count links write over
@@ -549,6 +578,39 @@ describeDbIntegration('map surfaces against Postgres', () => {
 
 			expect(await read({ isOpen: true })).toEqual(nothing);
 			expect(await read({ isOpen: false })).toEqual(found);
+		});
+	});
+
+	// The rail opens newest first and can be turned around to work the queue from
+	// the request that has waited longest. A second request thirty days older than
+	// the seeded one is enough to tell the two orders apart.
+	it('pages the service requests oldest first when asked to', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			const ids = mapSurfaceRowIds.serviceRequest;
+			const older = '00000000-0000-4000-8000-000000009903';
+			await sql`
+				insert into service_requests
+					(id, organization_id, geom, request_date, intake_type, details, contact_id, address_id)
+				select ${older}, organization_id, geom, request_date - 30, intake_type, details,
+					contact_id, address_id
+				from service_requests
+				where id = ${ids.inside}
+			`.execute(db);
+
+			const read = async (oldestFirst: boolean) =>
+				(
+					await MAP_SURFACES['service-requests'].listByBounds(db, {
+						organizationId: mapSurfaceOrganizationIds.own,
+						timeZone: mapSurfaceTimeZone,
+						bounds: mapSurfacePlace.bounds,
+						filters: oldestFirst ? { oldestFirst } : {},
+						...page,
+					})
+				).rows.map((row) => row.id);
+
+			expect(await read(false)).toEqual([ids.inside, older]);
+			expect(await read(true)).toEqual([older, ids.inside]);
 		});
 	});
 

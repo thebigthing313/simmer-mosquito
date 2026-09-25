@@ -7,6 +7,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@simmer-mosquito/ui-web/components/ui/select';
+import { useId } from 'react';
 import { ORG_ROLE_OPTIONS } from './constants';
 import { formatRole } from './helpers';
 import type { SimmerRole } from './types';
@@ -21,15 +22,16 @@ export function RoleField({
 	readonly onChange: (role: SimmerRole) => void;
 	readonly value: SimmerRole;
 }) {
+	const id = useId();
 	if (!editable) {
 		return null;
 	}
 
 	return (
 		<Field className="gap-1">
-			<FieldLabel>Role</FieldLabel>
+			<FieldLabel htmlFor={id}>Role</FieldLabel>
 			<Select value={value} onValueChange={(next) => onChange(next as SimmerRole)}>
-				<SelectTrigger size="sm" className="w-full">
+				<SelectTrigger id={id} size="sm" className="w-full">
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>

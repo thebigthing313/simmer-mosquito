@@ -1,11 +1,17 @@
 /** @vitest-environment jsdom */
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	EditFormSkeleton,
 	RecordEditFrame,
 	type RecordReading,
 } from '../../../../components/record';
+
+// The unavailable state reads the router for its back link and breadcrumb;
+// `record-unavailable.test.tsx` covers that, and no router is mounted here.
+vi.mock('../../../../hooks/record/use-unavailable-record-trail', () => ({
+	useUnavailableRecordTrail: () => null,
+}));
 
 afterEach(cleanup);
 

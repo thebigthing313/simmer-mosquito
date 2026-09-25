@@ -1,4 +1,5 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import type { LinkProps } from '@tanstack/react-router';
 import type {
 	DuplicateGroup,
@@ -150,8 +151,9 @@ export const DUPLICATE_REASON_LABELS: Record<DuplicateReason, string> = {
  * The rest keep the compared value, because for them it is the shared thing
  * itself rather than a flattened spelling of it: an email is written in lower
  * case anyway, a phone key is the digits with the punctuation taken out, which
- * is what makes two spellings of one number match, and a coordinate pair is
- * already exact.
+ * is what makes two spellings of one number match and is drawn through
+ * `formatPhoneNumber` so it reads as a number, and a coordinate pair is already
+ * exact.
  */
 export function duplicateGroupHeading(group: DuplicateGroup): string {
 	const reason = DUPLICATE_REASON_LABELS[group.reason];
@@ -160,8 +162,9 @@ export function duplicateGroupHeading(group: DuplicateGroup): string {
 			return `${reason}: ${asWritten(group, group.records[0]?.label)}`;
 		case 'same_street':
 			return `${reason}: ${asWritten(group, group.records[0]?.fields.address_line_1)}`;
-		case 'same_email':
 		case 'same_phone':
+			return `${reason}: ${formatPhoneNumber(group.value ?? '')}`;
+		case 'same_email':
 		case 'same_coordinates':
 			return `${reason}: ${group.value ?? ''}`;
 	}

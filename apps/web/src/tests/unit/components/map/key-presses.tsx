@@ -81,7 +81,7 @@ export function pressInEveryField(key: string): void {
 export function renderSelect(): void {
 	render(
 		<Select>
-			<SelectTrigger aria-label="Habitat type">
+			<SelectTrigger aria-label="Habitat Type">
 				<SelectValue placeholder="Pick one" />
 			</SelectTrigger>
 			<SelectContent>
@@ -94,7 +94,7 @@ export function renderSelect(): void {
 
 /** Open it the way a pointer does, and hand back the option it focused. */
 export async function openSelect(): Promise<HTMLElement> {
-	fireEvent.pointerDown(screen.getByLabelText('Habitat type'), {
+	fireEvent.pointerDown(screen.getByLabelText('Habitat Type'), {
 		button: 0,
 		ctrlKey: false,
 		pointerType: 'mouse',
@@ -109,7 +109,7 @@ export async function openSelect(): Promise<HTMLElement> {
 
 /** The select's trigger, for the press that opens it rather than the one that picks. */
 export function selectTrigger(): HTMLElement {
-	return screen.getByLabelText('Habitat type');
+	return screen.getByLabelText('Habitat Type');
 }
 
 /** A row-actions menu, the other overlay the panel beside the map puts up. */

@@ -21,9 +21,20 @@ export const PRIMARY_SIDEBAR_COLLAPSED_KEY = 'simmer.shell.primary-sidebar-colla
  * and reads better once the domain icons are learned, but nobody arrives knowing
  * them — an unlabelled rail is legible only to someone who has already used it.
  * Collapsing is therefore opt-in, and the choice is remembered per browser.
+ *
+ * `collapsed` pins the width and drops the toggle, which is how the navigation
+ * drawer draws it: there the width follows the window, not the operator's
+ * choice, and the remembered choice is left alone for the inline rail.
  */
-export function PrimarySidebar() {
-	const [collapsed, setCollapsed] = usePersistentFlag(PRIMARY_SIDEBAR_COLLAPSED_KEY, false);
+export function PrimarySidebar({
+	collapsed: pinned,
+	className,
+}: {
+	readonly collapsed?: boolean | undefined;
+	readonly className?: string | undefined;
+} = {}) {
+	const [remembered, setCollapsed] = usePersistentFlag(PRIMARY_SIDEBAR_COLLAPSED_KEY, false);
+	const collapsed = pinned ?? remembered;
 
 	return (
 		<aside
@@ -32,11 +43,14 @@ export function PrimarySidebar() {
 				'flex h-full shrink-0 flex-col border-white/10 border-r bg-simmer-green-900',
 				'transition-[width] duration-(--simmer-motion-standard) ease-(--simmer-ease-out) motion-reduce:transition-none',
 				collapsed ? 'w-16' : 'w-60',
+				className,
 			)}
 		>
 			<PrimarySidebarHeader collapsed={collapsed} />
 			<PrimarySidebarContent collapsed={collapsed} />
-			<PrimarySidebarToggle collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+			{pinned === undefined ? (
+				<PrimarySidebarToggle collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+			) : null}
 			<PrimarySidebarFooter collapsed={collapsed} />
 		</aside>
 	);

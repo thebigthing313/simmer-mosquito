@@ -39,6 +39,7 @@ import type {
 	SourceReduction,
 	Trap,
 } from '@simmer-mosquito/sync';
+import { collectionLabel } from '../../hooks/queries/trap-view';
 import { localCalendarDay } from '../../lib/local-date';
 import type { ActivityEntry } from './activity-data';
 
@@ -387,6 +388,7 @@ export function collectionEntries(
 		| 'id'
 		| 'lat'
 		| 'lng'
+		| 'trap_id'
 		| 'collection_method_id'
 		| 'collected_at'
 		| 'collected_by_profile_id'
@@ -401,6 +403,7 @@ export function collectionEntries(
 	> & {
 		readonly trapCode: string | null | undefined;
 		readonly trapName: string | null | undefined;
+		readonly addressName: string | null | undefined;
 		readonly assisting: readonly AssistingLink[];
 	},
 	scope: DayScope,
@@ -411,10 +414,24 @@ export function collectionEntries(
 		id: collection.id,
 		lat: collection.lat,
 		lng: collection.lng,
-		placeName: trapLabel({
-			trap_code: collection.trapCode ?? null,
-			trap_name: collection.trapName ?? null,
-		}),
+		// The trap, then the address, then the coordinates, then the word. A
+		// collection recorded away from a trap used to hand over nothing here, and
+		// the row drew the words "Ad-hoc collection" while the place it was taken
+		// sat one join away (#1231). The same ladder the other four collection
+		// surfaces read, so the log and the explorer name one collection alike.
+		placeName: collectionLabel(
+			{
+				trapId: collection.trap_id,
+				trapName: collection.trapName ?? null,
+				trapCode: collection.trapCode ?? null,
+				lat: collection.lat,
+				lng: collection.lng,
+			},
+			{
+				addressName: collection.addressName ?? null,
+				fallback: 'One-off collection',
+			},
+		),
 		refId: collection.collection_method_id,
 		detail: collectionStatus(collection),
 		hasBycatch: collection.has_bycatch,

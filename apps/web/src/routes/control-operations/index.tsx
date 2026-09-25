@@ -69,8 +69,7 @@ function ControlOperationsOverviewRoute() {
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
 			<PageHeader
-				description={`The source reductions, biocontrol releases, and chemical applications your crews recorded over the last ${CONTROL_ACTIVITY_WINDOW_DAYS} days, and the catalogs behind them.`}
-				eyebrow="Larval & adult management"
+				description={`Last ${CONTROL_ACTIVITY_WINDOW_DAYS} days`}
 				icon={ControlIcon}
 				title="Control Operations"
 			/>
@@ -577,7 +576,7 @@ function CatalogTile({
 	return (
 		<li>
 			<Link
-				className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-muted/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 				to={to}
 			>
 				<span className="shrink-0 text-muted-foreground">{icon}</span>

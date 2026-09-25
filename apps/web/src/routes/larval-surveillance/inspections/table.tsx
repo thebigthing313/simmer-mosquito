@@ -2,7 +2,6 @@ import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { ListEmpty, ListLoading, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import {
 	Table,
 	TableBody,
@@ -11,18 +10,18 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import {
-	ChevronDownIcon,
-	ChevronRightIcon,
-	ChevronUpIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { ChevronRightIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
-import { MultiSelectFilter, SegmentedFilter, ToggleFilter } from '../../../components/explorer';
+import {
+	LoadMore,
+	MultiSelectFilter,
+	SegmentedFilter,
+	SortableHead,
+	ToggleFilter,
+} from '../../../components/explorer';
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
 import {
 	DensityFilter,
@@ -38,8 +37,9 @@ import {
 	inspectionFilterCodecs,
 	sharedInspectionSearch,
 } from '../../../components/larval-surveillance/inspections-search';
+import { LinkedTableRow } from '../../../components/record/linked-table-row';
 import { useDateRangeFilters } from '../../../hooks/explorer/use-date-range-filters';
-import { useHeldRows } from '../../../hooks/larval-surveillance/use-held-rows';
+import { useHeldRows } from '../../../hooks/explorer/use-held-rows';
 import { useInspectionCatalogs } from '../../../hooks/larval-surveillance/use-inspection-catalogs';
 import { useInspectionFilterState } from '../../../hooks/larval-surveillance/use-inspection-filter-state';
 import {
@@ -53,15 +53,13 @@ import {
 	type InspectionSort,
 	type InspectionSortKey,
 	inspectionWindowKey,
-	nextSort,
-	SORT_DIRECTIONS,
-	type SortDirection,
 	useInspectionTable,
 } from '../../../hooks/queries/use-inspection-table';
 import { useSearchFilters } from '../../../hooks/use-search-filters';
 import { formatListDate } from '../../../lib/local-date';
 import { recordNoun } from '../../../lib/record-nouns';
 import { choiceParam, type FilterCodecs, searchValidator } from '../../../lib/search-filters';
+import { nextSort, SORT_DIRECTIONS, type SortDirection } from '../../../lib/table-sort';
 
 /**
  * The sort lives in the URL, so a sorted table is a link somebody can send.
@@ -186,7 +184,6 @@ function InspectionsTableRoute() {
 		<OutletSimpleLayout className="grid content-start gap-5" measure="record">
 			<PageHeader
 				actions={<InspectionSurfaceSwitch current="table" search={carried} />}
-				description="Every inspection your crews have recorded."
 				icon={InspectionIcon}
 				title={recordNoun('inspection').titleMany}
 			/>
@@ -316,12 +313,12 @@ function NoRows({
 			<ListEmpty
 				action={
 					<Button onClick={onClearFilters} type="button" variant="outline">
-						Clear filters
+						Clear Filters
 					</Button>
 				}
 				description="Nothing recorded matches what is set above."
 				icon={InspectionIcon}
-				title="No inspections match"
+				title="No Inspections Match"
 			/>
 		);
 	}
@@ -329,7 +326,7 @@ function NoRows({
 		<ListEmpty
 			description="Inspections show here as crews record them."
 			icon={InspectionIcon}
-			title="No inspections yet"
+			title="No Inspections Yet"
 		/>
 	);
 }
@@ -392,7 +389,7 @@ function InspectionsTable({
 							Date
 						</SortableHead>
 						<TableHead>Habitat</TableHead>
-						<TableHead>Habitat type</TableHead>
+						<TableHead>Habitat Type</TableHead>
 						<TableHead>Inspector</TableHead>
 						<SortableHead onSort={onSort} sort={sort} sortKey="water">
 							Water
@@ -401,7 +398,7 @@ function InspectionsTable({
 						<SortableHead align="right" onSort={onSort} sort={sort} sortKey="dips">
 							Dips
 						</SortableHead>
-						<TableHead>Life stages</TableHead>
+						<TableHead>Life Stages</TableHead>
 						<SortableHead align="right" onSort={onSort} sort={sort} sortKey="larvae">
 							Larvae
 						</SortableHead>
@@ -420,60 +417,28 @@ function InspectionsTable({
 	);
 }
 
-/**
- * A column header that sorts, and says which way it is sorting.
- *
- * `aria-sort` on the cell is what a screen reader reads; the chevron is the same
- * fact for everyone else. An unsorted column keeps its chevron back until the
- * pointer or the focus ring is on it, so four headers do not all point
- * somewhere at once and only one of them is the answer.
- */
-function SortableHead({
-	align = 'left',
-	children,
-	onSort,
-	sort,
-	sortKey,
-}: {
-	readonly align?: 'left' | 'right';
-	readonly children: string;
-	readonly onSort: (key: InspectionSortKey) => void;
-	readonly sort: InspectionSort;
-	readonly sortKey: InspectionSortKey;
-}) {
-	const isSorted = sort.key === sortKey;
-	const direction = isSorted ? sort.direction : 'desc';
-	const DirectionIcon = direction === 'asc' ? ChevronUpIcon : ChevronDownIcon;
-	return (
-		<TableHead
-			aria-sort={isSorted ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-			className={align === 'right' ? 'text-right' : undefined}
-		>
-			<Button
-				className="group -mx-2 h-8 px-2 font-medium"
-				onClick={() => onSort(sortKey)}
-				size="sm"
-				type="button"
-				variant="ghost"
-			>
-				{children}
-				<DirectionIcon
-					aria-hidden="true"
-					className={cn(
-						'text-muted-foreground transition-opacity',
-						isSorted ? null : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
-					)}
-				/>
-			</Button>
-		</TableHead>
-	);
-}
-
 function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 	const when = formatListDate(row.inspectionDate);
 	const label = inspectionHabitatLabel(row, row.address);
 	return (
-		<TableRow>
+		<LinkedTableRow
+			action={
+				<Button
+					aria-label={`View the ${when} inspection of ${label}`}
+					asChild
+					size="icon-sm"
+					variant="ghost"
+				>
+					<Link
+						params={{ id: row.id }}
+						state={{ breadcrumbVia: '/larval-surveillance/inspections/table' }}
+						to="/larval-surveillance/inspections/$id"
+					>
+						<ChevronRightIcon aria-hidden="true" />
+					</Link>
+				</Button>
+			}
+		>
 			<TableCell className="tabular-nums">{when}</TableCell>
 			<TableCell className="max-w-[22rem] truncate font-medium" title={label}>
 				{label}
@@ -497,36 +462,7 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 			<TableCell className="text-right tabular-nums">
 				{row.larvaeCount ?? <AbsentValue />}
 			</TableCell>
-			<TableCell className="text-right">
-				<Button
-					aria-label={`View the ${when} inspection of ${label}`}
-					asChild
-					size="icon-sm"
-					variant="ghost"
-				>
-					<Link params={{ id: row.id }} to="/larval-surveillance/inspections/$id">
-						<ChevronRightIcon aria-hidden="true" />
-					</Link>
-				</Button>
-			</TableCell>
-		</TableRow>
-	);
-}
-
-function LoadMore({
-	isLoading,
-	onLoadMore,
-}: {
-	readonly isLoading: boolean;
-	readonly onLoadMore: () => void;
-}) {
-	return (
-		<div className="flex justify-center">
-			<Button disabled={isLoading} onClick={onLoadMore} type="button" variant="outline">
-				{isLoading ? <Spinner /> : null}
-				Load more
-			</Button>
-		</div>
+		</LinkedTableRow>
 	);
 }
 

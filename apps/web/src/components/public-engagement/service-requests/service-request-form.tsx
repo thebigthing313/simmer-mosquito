@@ -28,7 +28,7 @@ export interface ServiceRequestSaveInput {
 
 export interface ServiceRequestFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo:
 		| '/public-engagement/service-requests'
 		| '/public-engagement/service-requests/$id';
@@ -147,7 +147,7 @@ export function ServiceRequestFormPage({
 				)}
 
 				<FormSection title="Request">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="intakeType">
 							{(field) => (
 								<field.SelectField
@@ -182,7 +182,6 @@ export function ServiceRequestFormPage({
 					<form.AppField name="details">
 						{(field) => (
 							<field.TextareaField
-								description="What the caller reported, such as location details, mosquito activity, or standing water."
 								label="Details"
 								required
 								placeholder="Describe the request…"

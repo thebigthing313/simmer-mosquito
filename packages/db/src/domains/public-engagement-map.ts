@@ -84,6 +84,11 @@ export interface ServiceRequestMapFilters {
 	readonly dateFrom?: string;
 	/** Inclusive upper bound on `request_date` (`YYYY-MM-DD`). */
 	readonly dateTo?: string;
+	/**
+	 * Page the oldest request first rather than the newest. An order, not a
+	 * filter: it narrows nothing, and only the paged read looks at it.
+	 */
+	readonly oldestFirst?: boolean;
 }
 
 /**
@@ -168,8 +173,13 @@ export function serviceRequestSurface(
 		display: {
 			columns: serviceRequestDisplayColumns,
 			// Newest first, which is the order the explorer always read in, and the
-			// order `service_requests_organization_date_idx` holds.
-			orderBy: sql`sr.request_date desc, sr.created_at desc, sr.id`,
+			// order `service_requests_organization_date_idx` holds. Oldest first is
+			// the same index read backwards, for a reader working the queue from
+			// the request that has waited longest.
+			orderBy: (filters) =>
+				filters?.oldestFirst === true
+					? sql`sr.request_date asc, sr.created_at asc, sr.id`
+					: sql`sr.request_date desc, sr.created_at desc, sr.id`,
 		},
 	});
 }

@@ -3,6 +3,7 @@ import {
 	columnHeader,
 	columnLink,
 	cutCaption,
+	drawsTrend,
 	formatCell,
 	formatRatio,
 	monthGroups,
@@ -90,11 +91,12 @@ describe('the words on the page', () => {
 		expect(trendHeading('year', '2026')).toBe('By year');
 	});
 
-	it('formats a share to whole points, a rate to one decimal, and an average to one', () => {
+	it('formats a share to whole points, a rate to one decimal, and a count whole', () => {
 		expect(formatRatio('positiveInspections', 0.3417)).toBe('34%');
 		expect(formatRatio('mosquitoesPerCollection', 12.44)).toBe('12.4');
 		expect(formatCell(3210)).toBe('3,210');
-		expect(formatCell(104.44)).toBe('104.4');
+		expect(formatCell(104.44)).toBe('104');
+		expect(formatCell(4671.7)).toBe('4,672');
 	});
 });
 
@@ -177,5 +179,25 @@ describe('columnLink', () => {
 		expect(
 			columnLink('day', 'inspections', { key: 'average', years: { from: 2021, to: 2025 } }),
 		).toBeNull();
+	});
+});
+
+describe('drawsTrend', () => {
+	const empty = [{ period: '2026-09-14', value: 0 }];
+	const counted = [
+		{ period: '2026-09-14', value: 0 },
+		{ period: '2026-09-15', value: 3 },
+	];
+
+	it('leaves out a Today measure the window holds none of, by count or by numerator', () => {
+		expect(drawsTrend('day', empty)).toBe(false);
+		expect(drawsTrend('day', counted)).toBe(true);
+		expect(drawsTrend('day', [{ period: '2026-09-15', numerator: 0, denominator: 4 }])).toBe(false);
+		expect(drawsTrend('day', [{ period: '2026-09-15', numerator: 1, denominator: 4 }])).toBe(true);
+	});
+
+	it('draws every measure on Monthly and Annual', () => {
+		expect(drawsTrend('month', empty)).toBe(true);
+		expect(drawsTrend('year', empty)).toBe(true);
 	});
 });

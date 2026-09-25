@@ -64,12 +64,7 @@ function OperationsOverviewRoute() {
 	// keep their twelve-column grid; the frame is what widened.
 	return (
 		<div className={pageContainer({ gap: 'overview', measure: 'record', padding: 'page' })}>
-			<PageHeader
-				description="Control work that has been requested, the worklists crews are running, and the missions dispatched against them."
-				eyebrow="Dispatch and crew work"
-				icon={OperationsIcon}
-				title="Operations"
-			/>
+			<PageHeader icon={OperationsIcon} title="Operations" />
 
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="grid content-start gap-5 xl:col-span-6">

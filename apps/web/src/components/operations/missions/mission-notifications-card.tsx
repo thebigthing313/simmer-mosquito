@@ -90,7 +90,9 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 				{standing === null ? null : <StandingAlert message={standing} />}
 
 				{isError ? (
-					<p className="text-destructive text-sm">Notifications could not be loaded.</p>
+					<p className="text-destructive text-sm" role="alert">
+						Notifications could not be loaded.
+					</p>
 				) : !isReady ? (
 					<Skeleton className="h-16 w-full" />
 				) : notifications.length === 0 ? (

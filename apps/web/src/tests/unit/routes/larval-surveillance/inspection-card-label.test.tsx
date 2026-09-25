@@ -4,7 +4,7 @@
  * What the inspection map card puts in its title, arm by arm.
  *
  * The card kept a private label that answered the habitat's name, then the
- * address, then the centroid, then the words `Ad-hoc inspection`. It is
+ * address, then the centroid, then the words `One-off inspection`. It is
  * `habitatLabel` now (#954), and these cases are what holds the fold to the
  * strings the card drew before it.
  *
@@ -199,6 +199,6 @@ describe('the inspection map card title', () => {
 				latitude: null,
 				longitude: null,
 			}),
-		).toBe('Ad-hoc inspection');
+		).toBe('One-off inspection');
 	}, 300_000);
 });

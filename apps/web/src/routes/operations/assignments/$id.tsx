@@ -163,7 +163,7 @@ function AssignmentRunRoute() {
 				<div className="flex h-full min-h-0 flex-col">
 					<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 						<Link
-							className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 							to="/operations/assignments"
 						>
 							<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
@@ -232,11 +232,7 @@ function AssignmentRunRoute() {
 						)}
 					</div>
 
-					<WorklistTabs
-						commentsDescription="Field notes and follow-up for this assignment."
-						stopCount={stops.length}
-						target={{ type: 'assignment', id }}
-					>
+					<WorklistTabs stopCount={stops.length} target={{ type: 'assignment', id }}>
 						<RunStopList
 							assignmentId={id}
 							enabled={itemsEnabled}
@@ -467,10 +463,10 @@ function RecordStopWorkButton({
 						search={{ ...search, habitatId: stop.entityId }}
 						to="/larval-surveillance/inspections/create"
 					>
-						Record inspection
+						Record Inspection
 					</Link>
 				) : (
-					<span>Record inspection</span>
+					<span>Record Inspection</span>
 				)}
 			</Button>
 		);
@@ -491,10 +487,10 @@ function RecordStopWorkButton({
 						search={{ ...search, trapId: stop.entityId }}
 						to="/adult-surveillance/collections/create"
 					>
-						Record collection
+						Record Collection
 					</Link>
 				) : (
-					<span>Record collection</span>
+					<span>Record Collection</span>
 				)}
 			</Button>
 		);
@@ -682,7 +678,7 @@ function AssignmentNotFound() {
 					<Button asChild variant="outline">
 						<Link to="/operations/assignments">
 							<ArrowLeftIcon aria-hidden="true" />
-							Back to assignments
+							Back to Assignments
 						</Link>
 					</Button>
 				</EmptyContent>

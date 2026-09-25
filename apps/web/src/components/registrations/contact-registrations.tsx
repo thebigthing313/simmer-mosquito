@@ -11,6 +11,7 @@ import {
 	ItemTitle,
 } from '@simmer-mosquito/ui-web/components/ui/item';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { formatPhoneNumber } from '@simmer-mosquito/ui-web/lib/phone-number';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useState } from 'react';
@@ -164,7 +165,7 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 								onClick={() => setDraft({ kind: 'create', registrationId: newRecordId() })}
 								size="sm"
 							>
-								Add registration
+								Add Registration
 							</Button>
 						</div>
 					</WriteOnly>
@@ -191,7 +192,7 @@ function RegistrationList({
 			<ListEmpty
 				description="Add one to record a place this contact asked to be warned about before spraying."
 				icon={RegistrationIcon}
-				title="No registrations yet"
+				title="No Registrations Yet"
 			/>
 		);
 	}
@@ -232,7 +233,11 @@ function ContactBrief({ contact }: { readonly contact: Contact | undefined }) {
 	}
 
 	const role = [contact.title, contact.company, contact.department].filter(Boolean).join(' · ');
-	const reach = [contact.preferredPhone, contact.alternatePhone, contact.email].filter(Boolean);
+	const reach = [
+		formatPhoneNumber(contact.preferredPhone),
+		formatPhoneNumber(contact.alternatePhone),
+		contact.email,
+	].filter(Boolean);
 
 	return (
 		<div className="grid gap-1 rounded-md border border-border bg-muted/40 p-2.5">

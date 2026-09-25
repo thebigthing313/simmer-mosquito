@@ -1,4 +1,5 @@
 import { formatArea, formatDistance, type MeasurementSystem } from '@simmer-mosquito/mapping';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	CircleIcon,
@@ -74,7 +75,7 @@ export function MeasureControl({
 						aria-pressed={tool === entry.id}
 						className={cn(
 							'inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md font-medium text-xs transition-colors',
-							'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+							'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 							tool === entry.id
 								? 'bg-primary text-primary-foreground shadow-sm'
 								: 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
@@ -123,7 +124,7 @@ export function MeasureControl({
 					{tool === 'distance' && draftPointCount > 0 ? (
 						<>
 							<Button onClick={controller.undo} size="sm" type="button" variant="ghost">
-								Undo point
+								Undo Point
 							</Button>
 							{draftPointCount > 1 ? (
 								<Button onClick={controller.finish} size="sm" type="button" variant="ghost">
@@ -186,7 +187,7 @@ function MeasurementRow({
 				<span>
 					{index}. {TOOL_LABELS[measurement.tool]}
 				</span>
-				{isDraft ? <span className="text-[0.65rem] uppercase tracking-wide">Drawing</span> : null}
+				{isDraft ? <span className={eyebrow({ tone: 'inherit' })}>Drawing</span> : null}
 			</span>
 			{measurement.tool === 'distance' ? (
 				<span className="font-semibold text-foreground tabular-nums">

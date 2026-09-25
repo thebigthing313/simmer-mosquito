@@ -7,7 +7,6 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
@@ -125,12 +124,7 @@ function InspectionDetailContent({
 
 	return (
 		<DetailPageShell
-			aside={
-				<CommentsSection
-					description="Access notes, conditions, and follow-up for this inspection."
-					target={{ type: 'inspection', id: inspection.id }}
-				/>
-			}
+			aside={<CommentsSection target={{ type: 'inspection', id: inspection.id }} />}
 			facts={<ContextCard inspection={inspection} />}
 			header={{
 				/*
@@ -184,9 +178,15 @@ function InspectionDetailContent({
 function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDetailRow }) {
 	if (inspection.habitatId === null) {
 		return (
-			<p className="m-0 text-[0.95rem] text-muted-foreground">
+			<p className="m-0 text-small text-muted-foreground">
+				{/*
+				 * `adhocLabel` rather than `habitatLabel` with the address: this
+				 * subtitle draws the address itself after the separator, and a
+				 * ladder here would put the same words in both halves of one line
+				 * (#1231).
+				 */}
 				<span className="tabular-nums">
-					{adhocLabel(inspection.lat, inspection.lng, 'Ad-hoc inspection')}
+					{adhocLabel(inspection.lat, inspection.lng, 'One-off inspection')}
 				</span>
 				{inspection.addressDisplayName === null ? null : ` · ${inspection.addressDisplayName}`}
 			</p>
@@ -194,7 +194,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 	}
 
 	return (
-		<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-[0.95rem] text-muted-foreground">
+		<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-small text-muted-foreground">
 			<span>at</span>
 			<Link
 				className={recordLink()}
@@ -203,7 +203,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 			>
 				{habitatLabel(inspection, {
 					addressName: inspection.addressDisplayName,
-					fallback: 'Ad-hoc inspection',
+					fallback: 'One-off inspection',
 				})}
 			</Link>
 			<span aria-hidden="true">·</span>
@@ -220,7 +220,7 @@ function PositivityBadge({ inspection }: { readonly inspection: InspectionDetail
 		return null;
 	}
 	return hasAnyLifeStage(inspection) ? (
-		<Badge tone="danger" variant="outline">
+		<Badge tone="warning" variant="outline">
 			Larvae found
 		</Badge>
 	) : (
@@ -379,7 +379,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 								<HabitatIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
 								{habitatLabel(inspection, {
 									addressName: inspection.addressDisplayName,
-									fallback: 'Ad-hoc inspection',
+									fallback: 'One-off inspection',
 								})}
 							</Link>
 						)}
@@ -421,9 +421,6 @@ function InspectionSamplesCard({
 							<SampleIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 							{recordNoun('sample').titleMany}
 						</CardTitle>
-						<CardDescription>
-							Specimens collected during this inspection and the species identified in each.
-						</CardDescription>
 					</div>
 					{isReady && samples.length > 0 ? (
 						<Badge tone="neutral" variant="outline">
@@ -526,11 +523,8 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
 							<ControlIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							Control actions
+							Control Actions
 						</CardTitle>
-						<CardDescription>
-							Interventions carried out or requested as a result of this inspection.
-						</CardDescription>
 					</div>
 					{isReady && actions.length > 0 ? (
 						<Badge tone="neutral" variant="outline">
@@ -730,7 +724,7 @@ const sampleResultTones = {
 	zero: { label: 'Zero larvae', tone: 'neutral' },
 	unidentifiable: { label: 'Unidentifiable', tone: 'warning' },
 	nonMosquito: { label: 'Non-mosquito', tone: 'info' },
-	larvae: { label: 'Larvae present', tone: 'danger' },
+	larvae: { label: 'Larvae present', tone: 'warning' },
 } as const satisfies Record<
 	string,
 	{ readonly label: string; readonly tone: 'neutral' | 'info' | 'warning' | 'danger' }

@@ -184,7 +184,11 @@ export function NewAddressForm({
 					</Button>
 				)}
 			</div>
-			{saveError === null ? null : <p className="m-0 text-destructive text-sm">{saveError}</p>}
+			{saveError === null ? null : (
+				<p className="m-0 text-destructive text-sm" role="alert">
+					{saveError}
+				</p>
+			)}
 			<div className="flex flex-wrap justify-end gap-2">
 				<Button onClick={onCancel} type="button" variant="ghost">
 					Cancel

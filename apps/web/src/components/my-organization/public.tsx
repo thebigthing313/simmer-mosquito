@@ -1,4 +1,5 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -57,7 +58,7 @@ export function PublicEngagementSettings({
 		<div className="grid gap-3">
 			<ServiceRequestContextGuide settings={settings} />
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
+				<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 				<div className="grid gap-3">
 					<ControlMethodLookupList
 						canEditMethods={canEditMethods}
@@ -134,7 +135,6 @@ export function PublicSettingsDrawer({
 
 	return (
 		<EditSettingsSheet
-			description="Set how much nearby activity is shown when staff review a resident service request."
 			fields={[
 				{
 					kind: 'text',
@@ -188,7 +188,6 @@ function NotificationTypeLookupList({ canManage }: { readonly canManage: boolean
 		<LookupListFrame
 			activeCount={activeTypes.length}
 			inactiveCount={inactiveTypes.length}
-			detail="Notification types classify resident communication such as phone calls, emails, letters, and door notices."
 			title="Notification Types"
 			action={
 				<NotificationTypeDrawer

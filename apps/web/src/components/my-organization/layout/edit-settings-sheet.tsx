@@ -22,7 +22,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import type React from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { EditIcon } from '../constants';
 import { collectionTimingModeFromFields } from '../helpers';
@@ -34,7 +34,8 @@ export function EditSettingsSheet({
 	onSave,
 	title,
 }: {
-	readonly description: string;
+	/** Left out, the sheet has no description and says so to Radix. */
+	readonly description?: string | undefined;
 	readonly fields: readonly SettingField[];
 	readonly onSave?: ((formData: FormData) => unknown) | undefined;
 	readonly title: string;
@@ -77,10 +78,13 @@ export function EditSettingsSheet({
 					Edit
 				</Button>
 			</SheetTrigger>
-			<SheetContent className="w-[min(440px,100%)]">
+			<SheetContent
+				className="w-[min(440px,100%)]"
+				{...(description === undefined ? { 'aria-describedby': undefined } : {})}
+			>
 				<SheetHeader>
 					<SheetTitle>{title}</SheetTitle>
-					<SheetDescription>{description}</SheetDescription>
+					{description === undefined ? null : <SheetDescription>{description}</SheetDescription>}
 				</SheetHeader>
 				<form className="grid gap-3.5" onSubmit={submit}>
 					<div className="grid gap-2.5 px-4">
@@ -94,7 +98,9 @@ export function EditSettingsSheet({
 						{showsCollectionTiming ? <CollectionTimingGuide mode={selectedTimingMode} /> : null}
 					</div>
 					{error === null ? null : (
-						<p className="m-0 px-4 text-sm leading-snug text-destructive">{error}</p>
+						<p role="alert" className="m-0 px-4 text-sm leading-snug text-destructive">
+							{error}
+						</p>
 					)}
 					<SheetFooter>
 						<Button type="submit" disabled={onSave === undefined}>
@@ -119,6 +125,7 @@ function SettingsEditor({
 	readonly field: SettingField;
 	readonly onCollectionTimingChange?: ((mode: AdultCollectionTimingMode) => void) | undefined;
 }) {
+	const id = useId();
 	if (field.kind === 'switch') {
 		return <SwitchEditor field={field} />;
 	}
@@ -126,7 +133,7 @@ function SettingsEditor({
 	if (field.kind === 'select') {
 		return (
 			<Field className="min-w-0 gap-1">
-				<FieldLabel>{field.label}</FieldLabel>
+				<FieldLabel htmlFor={id}>{field.label}</FieldLabel>
 				<Select
 					defaultValue={field.value}
 					disabled={!field.editable}
@@ -140,7 +147,7 @@ function SettingsEditor({
 						}
 					}}
 				>
-					<SelectTrigger size="sm" className="w-full">
+					<SelectTrigger id={id} size="sm" className="w-full">
 						<SelectValue placeholder="Not set" />
 					</SelectTrigger>
 					<SelectContent>
@@ -159,8 +166,9 @@ function SettingsEditor({
 
 	return (
 		<Field className="min-w-0 gap-1">
-			<FieldLabel>{field.label}</FieldLabel>
+			<FieldLabel htmlFor={id}>{field.label}</FieldLabel>
 			<Input
+				id={id}
 				defaultValue={field.value}
 				disabled={!field.editable}
 				name={field.label}
@@ -171,12 +179,13 @@ function SettingsEditor({
 }
 
 function SwitchEditor({ field }: { readonly field: SwitchSettingField }) {
+	const id = useId();
 	const [checked, setChecked] = useState(field.checked);
 
 	return (
 		<Field className="grid min-h-8 grid-cols-[minmax(0,1fr)_auto] items-center rounded-md border border-border/30 bg-muted/40 px-2.5 py-0">
-			<FieldLabel>{field.label}</FieldLabel>
-			<Switch checked={checked} disabled={!field.editable} onCheckedChange={setChecked} />
+			<FieldLabel htmlFor={id}>{field.label}</FieldLabel>
+			<Switch id={id} checked={checked} disabled={!field.editable} onCheckedChange={setChecked} />
 			<input
 				type="hidden"
 				name={field.label}

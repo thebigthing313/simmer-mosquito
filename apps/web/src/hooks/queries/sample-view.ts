@@ -16,11 +16,23 @@
  * identification" means), and a query returns rows — so they are their own hook.
  */
 
+import type { LinkedAddress } from './address-view';
+
 /** Where a Sample is in its life: what the badge on every Sample surface reads. */
 export type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
 
 export interface Sample {
 	readonly id: string;
+	/**
+	 * The parent Inspection's Address, joined rather than looked up.
+	 *
+	 * A Sample links no Address of its own, for the reason it carries no
+	 * geometry: both are facts about the Inspection that produced it. It is the
+	 * rung between the Habitat name and the coordinates on every surface that
+	 * titles a Sample by where it was taken. `address-view.ts` says why it is
+	 * nested here.
+	 */
+	readonly address: LinkedAddress;
 	/**
 	 * The organization's own name for the jar, or `null` when it named none.
 	 *
@@ -43,7 +55,7 @@ export interface Sample {
 	readonly habitatId: string | null;
 	/**
 	 * The Habitat's name, or its coordinates when it has none. `null` when the
-	 * parent Inspection was Ad Hoc and so has no Habitat to name, and `null`
+	 * parent Inspection was one-off and so has no Habitat to name, and `null`
 	 * while the Habitat's row is still arriving, which `habitatId` tells apart:
 	 * it is set in the second case, and `habitatLabel` names the row by it.
 	 * `habitat-view.ts` carries the rule.

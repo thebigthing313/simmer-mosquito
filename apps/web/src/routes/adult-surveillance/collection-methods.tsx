@@ -74,7 +74,6 @@ function CollectionMethodsRoute() {
 		<CatalogPage
 			action={canManage ? addMethodDialog : undefined}
 			canEdit={canManage}
-			description="Collection methods describe how your crews catch adult mosquitoes: light traps with and without attractant, gravid traps, resting traps, and emergence traps. Manage the labels, action thresholds, and any custom fields recorded against them."
 			emptyDescription={
 				<>
 					Every trap records the method that caught its mosquitoes, so you need at least one before
@@ -315,7 +314,6 @@ function CollectionMethodDialog({
 							<CatalogDialogCancel />
 						</form.FormActions>
 					}
-					description="Manage the label, action threshold, lifecycle state, and optional custom fields."
 					onOpenChange={setOpen}
 					onSubmit={() => void form.handleSubmit()}
 					open={open}
@@ -350,12 +348,7 @@ function CollectionMethodDialog({
 						{(field) => <field.SwitchField label="Active" />}
 					</form.AppField>
 					<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-						{(field) => (
-							<field.JsonSchemaField
-								description="Optional fields crews fill in when recording a collection with this method."
-								label="Custom fields"
-							/>
-						)}
+						{(field) => <field.JsonSchemaField label="Custom fields" />}
 					</form.AppField>
 				</CatalogRecordDialog>
 			</form.AppForm>

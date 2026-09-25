@@ -252,7 +252,6 @@ function EditInspectionLoader({
 			habitatTypes={habitatTypes}
 			header={{
 				title: `Edit ${recordNoun('inspection').title}`,
-				description: 'Revise what this inspection found, or who recorded it.',
 				backTo: '/larval-surveillance/inspections/$id',
 				backParams: { id: inspection.id },
 				backLabel: 'Back to inspection',

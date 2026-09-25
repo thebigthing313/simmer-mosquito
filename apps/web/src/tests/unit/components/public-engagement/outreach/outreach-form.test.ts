@@ -35,12 +35,12 @@ function values(overrides: Partial<OutreachFormValues> = {}): OutreachFormValues
 }
 
 function validate(overrides: Partial<OutreachFormValues>) {
-	return validateOutreach(values(overrides), POINT, true);
+	return validateOutreach(values(overrides), POINT);
 }
 
 describe('an outreach action the domain refuses', () => {
 	it('passes a complete record', () => {
-		expect(validateOutreach(values(), POINT, true)).toBeUndefined();
+		expect(validateOutreach(values(), POINT)).toBeUndefined();
 	});
 
 	it('names the method on the method field', () => {

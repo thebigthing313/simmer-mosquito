@@ -65,7 +65,7 @@ import type { ReactNode } from 'react';
  */
 export interface RecordFormHeader {
 	readonly title: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly backTo: NonNullable<LinkProps['to']>;
 	readonly backParams?: Readonly<Record<string, string>>;
 	readonly backLabel: string;
@@ -110,11 +110,22 @@ export function RecordFormPage({
 			</Link>
 			<div className="grid gap-1">
 				<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">{header.title}</h1>
-				<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
+				{header.description === undefined ? null : (
+					<p className="m-0 text-muted-foreground text-sm">{header.description}</p>
+				)}
 			</div>
 		</>
 	);
-	const fields = <div className={cn('grid', gap === 'tight' ? 'gap-5' : 'gap-6')}>{children}</div>;
+	/*
+	 * `fields` is the container a form's field grids query, so two fields sit
+	 * side by side when the column is wide enough for them rather than when
+	 * the window is. In a split the column is 40% of the stage.
+	 */
+	const fields = (
+		<div className={cn('@container/fields grid', gap === 'tight' ? 'gap-5' : 'gap-6')}>
+			{children}
+		</div>
+	);
 	/*
 	 * The frame each band's contents sit in. `header` padding on the two bars,
 	 * the pinned rhythm the record detail page's bar reads, and `page` on the

@@ -52,14 +52,12 @@ export function DispositionSection({
 
 			<SwitchRow
 				checked={isZeroLarvae}
-				description="Examined and held no mosquito larvae."
 				disabled={!canManage || hasSpecies}
 				label="No larvae found"
 				onCheckedChange={(next) => void disposition.setZeroLarvae(next)}
 			/>
 			<SwitchRow
 				checked={hasNonMosquito}
-				description="Contains non-mosquito organisms or debris."
 				disabled={!canManage}
 				label="Non-mosquito material"
 				onCheckedChange={(next) => void disposition.setNonMosquito(next)}
@@ -76,7 +74,6 @@ export function DispositionSection({
 
 			<TextPatchField
 				canManage={canManage}
-				description="An optional label to identify this sample in lists."
 				label="Sample label"
 				onCommit={(value) => disposition.rename(value)}
 				placeholder="e.g. North culvert, jar 3"
@@ -94,7 +91,7 @@ function SwitchRow({
 	onCheckedChange,
 }: {
 	readonly label: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly checked: boolean;
 	readonly disabled: boolean;
 	readonly onCheckedChange: (next: boolean) => void;
@@ -106,7 +103,9 @@ function SwitchRow({
 		<div className="flex items-start justify-between gap-3">
 			<span className="grid gap-0.5" id={labelId}>
 				<span className="font-medium text-foreground text-sm">{label}</span>
-				<span className="text-muted-foreground text-xs">{description}</span>
+				{description === undefined ? null : (
+					<span className="text-muted-foreground text-xs">{description}</span>
+				)}
 			</span>
 			<Switch
 				aria-labelledby={labelId}
@@ -128,7 +127,7 @@ function TextPatchField({
 	onCommit,
 }: {
 	readonly label: string;
-	readonly description: string;
+	readonly description?: string | undefined;
 	readonly value: string;
 	readonly placeholder: string;
 	readonly canManage: boolean;
@@ -181,7 +180,9 @@ function TextPatchField({
 				placeholder={placeholder}
 				value={draft}
 			/>
-			<span className="text-muted-foreground text-xs">{description}</span>
+			{description === undefined ? null : (
+				<span className="text-muted-foreground text-xs">{description}</span>
+			)}
 		</div>
 	);
 }

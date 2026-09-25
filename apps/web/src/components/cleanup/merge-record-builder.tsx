@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -61,9 +62,7 @@ export function MergeRecordBuilder(props: MergeRecordBuilderProps) {
 
 	return (
 		<div>
-			<h3 className="font-semibold text-muted-foreground text-xs uppercase">
-				{recordNoun(props.config.recordType).title} kept
-			</h3>
+			<h3 className={eyebrow()}>{recordNoun(props.config.recordType).title} kept</h3>
 			<p className="mt-1 text-muted-foreground">
 				{decisions.length === 0
 					? `These ${recordNoun(props.config.recordType).many} agree on everything, so nothing is lost by merging them.`
@@ -159,7 +158,7 @@ function FieldControl({
 				))}
 				{row.field.required === true || isEmpty ? null : (
 					<button
-						className="rounded-md border border-border border-dashed px-2 py-0.5 text-muted-foreground text-xs hover:text-foreground"
+						className="rounded-md border border-border border-dashed px-2 py-1 text-muted-foreground text-xs hover:text-foreground"
 						onClick={() => onChange(null)}
 						type="button"
 					>
@@ -189,7 +188,7 @@ function SuggestionButton({
 	return (
 		<button
 			aria-pressed={isSelected}
-			className={`rounded-md border px-2 py-0.5 text-xs ${
+			className={`rounded-md border px-2 py-1 text-xs ${
 				isSelected
 					? 'border-primary bg-primary/10 text-foreground'
 					: 'border-border text-muted-foreground hover:text-foreground'
@@ -198,7 +197,7 @@ function SuggestionButton({
 			type="button"
 		>
 			{suggestion.value}
-			<span className="ml-1.5 text-[0.6875rem] text-muted-foreground">
+			<span className="ml-1.5 text-caption text-muted-foreground">
 				{attribution(row, suggestion, labels, targetId)}
 			</span>
 		</button>

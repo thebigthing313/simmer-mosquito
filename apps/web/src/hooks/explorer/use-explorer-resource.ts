@@ -32,7 +32,7 @@ export interface ExplorerResource<TRow> extends PagedMapResource<TRow> {
 	/**
 	 * Why the page holds nothing, for the rail to say so. Read off the extent
 	 * the map fetched to frame the same filters, so it costs no request. See
-	 * `ExplorerEmptyReason` for the three answers.
+	 * `ExplorerEmptyReason` for the four answers.
 	 */
 	readonly empty: ExplorerEmptiness;
 }
@@ -55,6 +55,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	map,
 	selectedId,
 	normalizeRow,
+	holdRailOnSelect = false,
 }: {
 	/** The list endpoint, e.g. `/map/source-reduction`. Also roots the query key. */
 	readonly path: string;
@@ -76,6 +77,11 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 	readonly selectedId: string | null;
 	/** Defaults a row's newer fields, where a deployed server may not send them. */
 	readonly normalizeRow?: (row: TRow) => TRow;
+	/**
+	 * Keep the rail's rows when a record is selected. The map still flies to
+	 * the record; the page is not re-read for the viewport it lands on.
+	 */
+	readonly holdRailOnSelect?: boolean;
 }): ExplorerResource<TRow> {
 	const bbox = useMapBoundsParam(map);
 	// Spread rather than passed, because the workspace is on
@@ -103,18 +109,24 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 		selectedId,
 		...shaping,
 	});
-	useFlyToSelection(map, selected);
+	useFlyToSelection(map, selected, holdRailOnSelect);
 
 	const extentUrl = tileLayerExtentUrl(layer);
 	const extent = useMapExtent(extentUrl);
-	const empty: ExplorerEmptiness = { recordType, reason: emptyReason(extentUrl, extent) };
+	// Waiting on the map counts as loading. The page query is disabled until the
+	// map reports a viewport, and a disabled query is not `isLoading`, so a cold
+	// map used to read as a settled, empty page for as long as it took to load.
+	const isLoading = bbox === null || paged.isLoading || (extentUrl !== null && !extent.isSettled);
+	const empty: ExplorerEmptiness = {
+		recordType,
+		reason: isLoading ? 'loading' : emptyReason(extentUrl, extent),
+	};
 
 	return {
 		...paged,
 		// The rail cannot say why it is empty until the extent has answered, so
-		// the placeholders stay up until it has. The page's own first load is
-		// what `isLoading` meant before, and it still does.
-		isLoading: paged.isLoading || (extentUrl !== null && !extent.isSettled),
+		// the placeholders stay up until it has.
+		isLoading,
 		selected,
 		empty,
 	};
@@ -123,7 +135,7 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
 /**
  * Which of the three empty states the extent puts the rail in.
  *
- * Null while the request is out. A box means matches exist somewhere, so the
+ * Asked only once nothing is loading. A box means matches exist somewhere, so the
  * viewport is what to change. No box means nothing matched anywhere, and then
  * the query string says whether a filter did it: the extent URL carries the
  * surface's filters and nothing else, no `bbox`, no paging, so an empty query
@@ -131,14 +143,8 @@ export function useExplorerResource<TRow extends ExplorerRowShape>({
  * the viewport, which is the copy the rail gave before it could tell, and a
  * layer with no extent endpoint, which none of the nine is, reads the same.
  */
-function emptyReason(extentUrl: string | null, extent: MapExtent): ExplorerEmptyReason | null {
-	if (extentUrl === null || extent.isError) {
-		return 'viewport';
-	}
-	if (!extent.isSettled) {
-		return null;
-	}
-	if (extent.extent !== null) {
+function emptyReason(extentUrl: string | null, extent: MapExtent): ExplorerEmptyReason {
+	if (extentUrl === null || extent.isError || extent.extent !== null) {
 		return 'viewport';
 	}
 	return new URL(extentUrl).search.length > 0 ? 'filters' : 'none';

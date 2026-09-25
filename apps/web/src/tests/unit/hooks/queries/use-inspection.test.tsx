@@ -49,7 +49,7 @@ function titleOf(record: Awaited<ReturnType<typeof readInspection>>): string {
 			lat: record.latitude,
 			lng: record.longitude,
 		},
-		{ fallback: 'Ad-hoc inspection' },
+		{ fallback: 'One-off inspection' },
 	);
 }
 

@@ -12,8 +12,63 @@ permissions:
   contents: read
 
 jobs:
+  # Whether a pull request changes anything besides documentation. The jobs
+  # that build, typecheck or test skip on a PR that does not, and `docs` runs
+  # the three gates that read Markdown in their place.
+  #
+  # Documentation is a `.md` file anywhere or any file under `docs/`, with one
+  # exception: `apps/web/CHANGELOG.md` and `apps/admin/CHANGELOG.md` are
+  # imported by each app's `/changelog` route, so they count as code. A
+  # rename counts its old path too, so moving a `.ts` file to `.md` is code.
+  # A push always answers code, as does a PR over the 3,000 files the API
+  # lists, so the skip only ever happens on a PR whose whole file list was
+  # read.
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+
+    steps:
+      - name: Classify the changed files
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: |
+          if [ "$EVENT" != pull_request ] || [ "$CHANGED_FILES" -gt 3000 ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh api --paginate "repos/$REPO/pulls/$PR/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)' > changed.txt
+          cat changed.txt
+          if [ ! -s changed.txt ] \
+            || grep -qvE '^docs/|\.md$' changed.txt \
+            || grep -qE '^apps/[^/]+/CHANGELOG\.md$' changed.txt; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Documentation only: the build, typecheck and test jobs skip."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # The static half of what `Verify workspace` reports: Biome, every
+  # `check:*` gate, the React rules, the typecheck and the three `fallow` runs.
+  # The suites run in `test` beside it, so neither waits on the other.
+  #
+  # The job key stays `verify` because `scripts/check-all.mjs` reads the gate
+  # list out of the job with that key.
   verify:
-    name: Verify workspace
+    name: Static gates
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -445,42 +500,43 @@ jobs:
       - name: Complexity
         run: pnpm fallow:health
 
-      - name: Test
-        run: pnpm test
-
+      # Builds what no `Shipped build` runner builds: the packages, which the
+      # typecheck above has already built and Nx replays from its cache, and
+      # `preview`, `mobile` and `scripts`. The three apps that ship are left
+      # out because each gets a clean runner of its own below, and building
+      # them here as well was 40 seconds proving the same compile twice.
+      # `--exclude` rather than a list, so a new project is built here without
+      # anyone adding it.
       - name: Build
-        run: pnpm build
+        run: pnpm nx run-many -t build --exclude=@simmer-mosquito/web,@simmer-mosquito/admin,@simmer-mosquito/server
 
-  # Builds each deployable app the way its Dockerfile does, and nothing else.
+  # The unit suites, split over four runners. `apps/web` gets three of them:
+  # under one `pnpm test` it ran for three minutes after every other project
+  # had finished, most of that route suites importing the route tree. `--shard` splits it by file, and the fourth runner
+  # takes every other project.
   #
-  # `pnpm build` in `verify` is `nx run-many`, which is not the command that
-  # ships: every Dockerfile and the server's Railpack build run
-  # `pnpm --filter <app> build`, which is `tsc -b` and orders projects from
-  # tsconfig `references` alone. When the two graphs disagree the filtered build
-  # is the only one that fails, and it fails on the deploy — #175 broke all three
-  # services on a merge whose CI was green.
-  #
-  # One runner per app on purpose, rather than three commands in a row. A
-  # filtered build leaves the packages it built on disk, and a `dist` that is
-  # already there satisfies an import whose build order was never declared — so
-  # the second and third builds in a shared workspace would pass for the wrong
-  # reason. That is the same staleness that made #175 read as a local
-  # environment fault. Each app needs a tree nothing has built yet.
-  #
-  # For the same reason, never add a step that builds the workspace above this
-  # one.
-  #
-  # The `VITE_*` values the two SPAs inline are absent here. Nothing ships out of
-  # this job; it proves the compile resolves, and nothing more.
-  shipped-build:
-    name: Shipped build (${{ matrix.app }})
+  # Nx builds each project's dependencies first, because the `test` target
+  # declares `^build` in `nx.json`: a suite imports a workspace package through
+  # its `exports`, which point at `dist/`.
+  test:
+    name: Test (${{ matrix.name }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     strategy:
       fail-fast: false
       matrix:
-        app: [server, web, admin]
+        include:
+          - name: workspace
+            command: pnpm nx run-many -t test --exclude=@simmer-mosquito/web
+          - name: web 1/3
+            command: pnpm nx run @simmer-mosquito/web:test --shard=1/3
+          - name: web 2/3
+            command: pnpm nx run @simmer-mosquito/web:test --shard=2/3
+          - name: web 3/3
+            command: pnpm nx run @simmer-mosquito/web:test --shard=3/3
 
     steps:
       - name: Check out repository
@@ -500,16 +556,145 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Test
+        run: ${{ matrix.command }}
+
+  # The Markdown gates, for a PR that changes nothing else. `check:prose`
+  # reads every tracked `.md`, and `check:vocabulary` and `check:copy-dashes`
+  # read their registers out of `CONTEXT.md` and `docs/writing-style.md`. A PR
+  # that changes code runs all three in `verify` instead.
+  docs:
+    name: Docs gates
+    needs: changes
+    if: needs.changes.outputs.code != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prose
+        run: pnpm check:prose
+
+      - name: Vocabulary
+        run: pnpm check:vocabulary
+
+      - name: Copy dashes
+        run: pnpm check:copy-dashes
+
+  # The check the rulesets on `develop`, `staging` and `main` require by name.
+  # It was one job running the gates and the suites in turn; it is now the
+  # verdict over the two jobs that run them side by side, so the required
+  # check did not have to change. `always()` is what makes it report a failure
+  # rather than skip: a job whose `needs` failed is skipped by default, and a
+  # skipped required check reads as passing.
+  verify-workspace:
+    name: Verify workspace
+    needs: [changes, verify, test, docs]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Require the jobs this change needed
+        run: |
+          echo "Changed paths: ${{ needs.changes.result }}, code: ${{ needs.changes.outputs.code }}"
+          echo "Static gates: ${{ needs.verify.result }}"
+          echo "Tests: ${{ needs.test.result }}"
+          echo "Docs gates: ${{ needs.docs.result }}"
+          test "${{ needs.changes.result }}" = success
+          if [ "${{ needs.changes.outputs.code }}" = true ]; then
+            test "${{ needs.verify.result }}" = success
+            test "${{ needs.test.result }}" = success
+          else
+            test "${{ needs.docs.result }}" = success
+          fi
+
+  # Builds each deployable app the way its Dockerfile does, and nothing else.
+  #
+  # `nx run-many -t build` is not the command that ships: every Dockerfile and the server's Railpack build run
+  # `pnpm --filter <app> build`, which is `tsc -b` and orders projects from
+  # tsconfig `references` alone. When the two graphs disagree the filtered build
+  # is the only one that fails, and it fails on the deploy — #175 broke all three
+  # services on a merge whose CI was green.
+  #
+  # One runner per app on purpose, rather than three commands in a row. A
+  # filtered build leaves the packages it built on disk, and a `dist` that is
+  # already there satisfies an import whose build order was never declared — so
+  # the second and third builds in a shared workspace would pass for the wrong
+  # reason. That is the same staleness that made #175 read as a local
+  # environment fault. Each app needs a tree nothing has built yet.
+  #
+  # For the same reason, never add a step that builds the workspace above this
+  # one.
+  #
+  # On a documentation-only PR every step skips rather than the job. A matrix
+  # job skipped by a job-level `if` is never expanded, so it reports one check
+  # under the unexpanded name and the three names the rulesets require stay
+  # pending for good.
+  #
+  # The `VITE_*` values the two SPAs inline are absent here. Nothing ships out of
+  # this job; it proves the compile resolves, and nothing more.
+  shipped-build:
+    name: Shipped build (${{ matrix.app }})
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [server, web, admin]
+
+    steps:
+      - name: Check out repository
+        if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        if: needs.changes.outputs.code == 'true'
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        if: needs.changes.outputs.code == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        if: needs.changes.outputs.code == 'true'
+        run: pnpm install --frozen-lockfile
+
       # A fresh checkout has no build output, so this removes nothing here. It is
       # the same line the local reproduction needs — where a `dist` from any
       # earlier full build would hide the fault — and it is what keeps this job
       # honest if a build ever appears above it.
       - name: Clean build output
+        if: needs.changes.outputs.code == 'true'
         run: |
           find apps packages -name '*.tsbuildinfo' -not -path '*/node_modules/.pnpm/*' -delete
           rm -rf apps/*/dist packages/*/dist
 
       - name: Build as the deploy does
+        if: needs.changes.outputs.code == 'true'
         run: pnpm --filter @simmer-mosquito/${{ matrix.app }} build
 
   # A branch that changes what a user can do carries a changeset (docs/releases.md).
@@ -808,6 +993,8 @@ jobs:
   # the same signal as any other.
   database-integration:
     name: Database integration tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Superseded runs are cancelled for cost: three pushes in a minute would

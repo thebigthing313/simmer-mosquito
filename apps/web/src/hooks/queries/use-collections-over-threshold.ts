@@ -48,13 +48,15 @@ import {
 	toArray,
 	useLiveQuery,
 } from '@tanstack/react-db';
+import { addresses } from '../../lib/collections/addresses';
 import { collection_methods } from '../../lib/collections/collection_methods';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
 import { traps } from '../../lib/collections/traps';
 import { localDayStartAsInstant } from '../../lib/local-date';
+import type { LinkedAddress } from './address-view';
 import { compareByCollectionDateDesc } from './collection-view';
-import { activityGcTimeMs } from './shared';
+import { activityGcTimeMs, addressSelect } from './shared';
 
 /** One collection that reached its method's action threshold. */
 export interface OverThresholdCollection {
@@ -62,6 +64,13 @@ export interface OverThresholdCollection {
 	readonly trapId: string | null;
 	readonly trapName: string | null;
 	readonly trapCode: string | null;
+	/**
+	 * Joined, not looked up. It is the rung below the Trap name on a collection
+	 * recorded away from one (#1231); `address-view.ts` says why it is nested.
+	 */
+	readonly address: LinkedAddress;
+	readonly latitude: number;
+	readonly longitude: number;
 	readonly methodName: string;
 	/** The threshold it met or beat. Never null: a method without one is out. */
 	readonly actionThreshold: number;
@@ -115,16 +124,24 @@ export function useCollectionsOverThreshold(
 						),
 					),
 				)
-				// `left`, not `inner`: an ad-hoc collection names no trap, and an
-				// `inner` join would hide every one of them.
+				// `left`, not `inner`: a one-off collection names no trap, most name no
+				// address, and an `inner` join would hide every one of them.
 				.join({ trap: traps() }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
+				.join(
+					{ address: addresses() },
+					({ collection, address }) => eq(collection.address_id, address.id),
+					'left',
+				)
 				.join(
 					{ method: collection_methods() },
 					({ collection, method }) => eq(collection.collection_method_id, method.id),
 					'left',
 				)
-				.select(({ collection, trap, method }) => ({
+				.select(({ collection, trap, address, method }) => ({
 					id: collection.id,
+					address: addressSelect(address),
+					latitude: collection.lat,
+					longitude: collection.lng,
 					trapId: collection.trap_id,
 					trapName: coalesce(trap.trap_name, null),
 					trapCode: coalesce(trap.trap_code, null),
@@ -163,6 +180,9 @@ export function useCollectionsOverThreshold(
 			return [
 				{
 					id: row.id,
+					address: row.address,
+					latitude: row.latitude,
+					longitude: row.longitude,
 					trapId: row.trapId,
 					trapName: row.trapName,
 					trapCode: row.trapCode,

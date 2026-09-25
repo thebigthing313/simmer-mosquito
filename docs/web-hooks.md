@@ -108,6 +108,17 @@ reductions`, beside five that read `titleMany` out of the register.
 `mapQueryParams` exists because every explorer wrote the presence rule out as
 a wall of `if (x !== undefined && x.length > 0)`.
 
+The Habitats Table and the Samples Table call this hook directly, with no map,
+and send `WHOLE_WORLD_BBOX` as the box. Both could have read their collections
+the way the Inspections Table does, and neither does, because the collection
+can only push down a filter or a sort that names a column of its own table.
+Three of the habitat filters are not columns (Tags, Region, Untreated), and a
+sample's date, status and species all live on other tables. The endpoint
+answers every filter the Map has, so the two surfaces agree on the set and the
+switch between them carries everything. What it costs is the column sort: the
+order is the surface's own, habitats by name and samples by newest
+inspection.
+
 #### useSelectedMapRecord
 
 A selection can come from the tiles, which draw every match rather than the
@@ -196,6 +207,15 @@ record; keying on the coordinates is the version that does not. Nothing in the
 hook says where on the canvas the record lands, because a page with chrome
 floating over its map declares that once as the canvas's viewport padding.
 
+A caller passing `holdRail` marks the flight with `RAIL_HOLDS_MOVE` in its
+event data, and `useMapBoundsParam` skips a move carrying it. The Service
+Requests explorer is the one caller: a reader working down the queue picks a
+request and the rail used to re-page for the viewport the map landed on, which
+dropped the rows around the pick and usually the pick's own place in the list.
+A flag on the event rather than a pause on the listener, because a pan the
+reader makes during or after the flight is a real change of viewport and must
+still re-page.
+
 #### useExplorerResource
 
 Nine explorer routes each ran the same four hooks in the same order and spent
@@ -216,6 +236,9 @@ nothing else, no `bbox`, no paging, so an empty query is a request for
 everything the Organization has. A failed request reads as the viewport, which
 is the copy the rail gave before it could tell.
 
+`holdRailOnSelect` is the switch for `useFlyToSelection`'s `holdRail`, off by
+default so the other explorers keep re-paging for the record they fly to.
+
 #### useMapBoundsParam
 
 The three viewport-driven explorers each held a copy of this, its clamping,
@@ -234,6 +257,31 @@ The box is held beside the map it was read from, and a box read from another
 GL instance reads as none. The effect used to clear it when the map went
 away, which is a `set-state-in-effect` finding (#1185) and one render drawing
 the old box against no map; `useMapReadout` holds its reading the same way.
+
+#### useHeldRows
+
+The Inspections Table and the Service Requests Table both read it. The live query is rebuilt when the limit changes, so it starts empty and
+reports not-ready until the collection has answered. Rendering that as it
+comes would take the table away from under the reader at the moment they
+asked for more of it. What is already shown stays correct: the wider window
+is the same order with more of it on the end.
+
+A new sort or a new filter is the case where it is not. The same rows in the
+old order under a header that now says something else reads as a sort that
+did nothing, and rows that do not match the filter just set read as a filter
+that did nothing. So what is held is kept against the window key it was read
+under and only handed back while that still matches. Under a new one the
+reader waits on a skeleton instead.
+
+The cache is state since #1184. It was a ref written and read during render,
+which the compiler refuses, and the hook carried `"use no memo"` to say so;
+the directive never removed the bail-out, it only changed what
+`check:compiler-bailouts` logged. The last ready rows are written into state
+in the render that reads them ready, which React re-renders before
+committing, and the not-ready read is a comparison against the held window
+key. The write compares the rows by identity, which is safe because the live
+query hands back the same array until the collection changes; a caller that
+rebuilt the array every render would loop.
 
 ### map
 
@@ -277,6 +325,29 @@ which is the `exhaustive-deps` finding the compiler refused (#1182). Wrapping
 the object in `useMemo` is not the way out, since `check:manual-memo` refuses
 one on a compiled path. So the effect takes the numbers and builds the object
 itself, and `useMapPadding` does the same.
+
+`keepOpeningCamera` is the explorers' switch, passed by `MapCanvas` under
+`rememberCamera`. The load-time fit is recorded and not made, so a map that
+opened on the camera the reader left it on stays there; the next filter change
+refits by the rule above.
+
+#### useExplorerCamera
+
+Every explorer opened on its own data's extent, so going from Habitats to
+Traps threw away the ground the reader had zoomed in on and framed the whole
+Organization again. One camera is now kept for all of them, per Organization,
+in browser storage: `lib/explorer-camera.ts` reads and writes it, every call
+guarded, and `MapCanvas` stores the camera on every `moveend`.
+
+It is read once, when the map mounts, and never re-read. The map writes as it
+moves, and the value it writes is for the next map to open on.
+
+With nothing stored the map opens on `DEFAULT_MAP_CAMERA` and frames the
+Organization's Regions, through the regions extent endpoint with no filters.
+An Organization with no Regions gets a null extent, nothing fits, and the
+default stands. Detail pages and forms pass no `rememberCamera` and frame
+their own record as before. No projection is set here: the Mapbox Studio style
+carries it.
 
 #### useMapExtent
 
@@ -440,6 +511,27 @@ A form with nothing drawn opens on Polygon wherever the record can store one.
 Opening on the first shape the register lists put every work record on Point,
 so drawing the area a Habitat or an Application is about started with a tool
 change.
+
+A form opened off a mission stop takes the stop as `missionStop`, and the
+stop's geometry is drawn when it arrives, through `useMissionStopSeed` (#1233).
+`restoreStopGeometry` is what the band's "Use stop geometry" button calls to
+put it back after an edit or a clear.
+A save while the stop's geometry is still loading is refused with "The mission
+stop's geometry is still loading." rather than the form's own missing-location
+message, since drawing is not what fixes it.
+
+#### useMissionStopSeed
+
+The stop's geometry arrives over the network after the form opened, so
+`initialGeometry`, which is read once into state, cannot carry it. This draws
+it on the first render that has it, as a render-time adjustment rather than an
+effect, so the first paint after the geometry arrives already shows it and the
+React rules have no `setState` in an effect to object to. It seeds once: a
+shape placed before the stop's geometry arrived is kept, and a cleared geometry
+stays cleared, so the save is refused rather than quietly taking the stop's
+ground again. It sits apart from `useDrawLocation` because the rule added two
+branches to a hook that was already the longest in `hooks/map`, and
+`fallow:health` counted it.
 
 #### useGeoJsonLayer
 
@@ -639,6 +731,23 @@ button is pressed and the card holding the button unmounts before the refusal
 lands. The hook therefore lives in whatever survives that, and the button
 gets `AskAcknowledged`.
 
+#### useUnavailableRecordTrail
+
+`RecordUnavailable` was a dead end: a heading, a sentence, no way out, and a
+breadcrumb ending in `#00000000-0000-...` because nothing had registered a
+label for the id segment. The hook does both halves, since both are read off
+the same `$id`.
+
+The list path is the pathname cut at the id rather than a register keyed by
+record type. A register cannot say where a Route lives, because routes have
+two lists, `/larval-surveillance/habitats/routes` and
+`/adult-surveillance/traps/routes`, and every detail and edit route in the app
+sits directly under an `index.tsx` list, which is what the cut relies on.
+
+It reads the router, so a suite rendering `RecordUnavailable` mocks
+`useParams`, `useLocation` and `Link`, the way the record frame suites already
+mock `Link`.
+
 #### useResetOnOpen
 
 Opening is the only moment the defaults are right: a dialog mounted by a row
@@ -738,12 +847,21 @@ mission concern is identical across them. Held in one hook so a change to how
 a stop is executed is one edit rather than four, and so the three commands
 that ship without a wire-body test cannot drift from the one that has one.
 
-A mission stop already names the ground. The server defaults the action's
-geometry from it, so requiring a draw would make the crew re-trace the place
-they were sent and, for a line or polygon stop, trace it wrongly enough to
-trip the coverage check. Subscribing to the stop's row also warms the
+A mission stop already names the ground, and the form shows it: the stop's
+geometry is fetched through `useMissionStopGeometry` and drawn when the form
+opens, so a crew never re-traces the place they were sent (#1233). Until then
+the form opened on an empty map, a location was optional on a stop, and a save
+with nothing drawn took the stop's geometry on the server, so the ground a
+record was saved at was one nobody had been shown. A location is required on
+a stop now, the same as off one.
+
+A geometry still exactly the stop's is sent as no geometry, and the server
+copies the stop's stored shape. The copy the form holds came through
+`st_asgeojson`, which keeps nine decimal places, and a rounded copy need not
+cover the stored shape, so sending it would put the coverage acknowledgement
+to a crew that changed nothing. Subscribing to the stop's row warms the
 on-demand stream the page is about to write against, which is what keeps the
-write's txid confirmation from timing out.
+write's txid confirmation from timing out; nothing reads the row itself.
 
 ### forms
 
@@ -1125,31 +1243,6 @@ the moment the inspection lands, and so their streams are live before the
 save fires: a write against a cold stream times out waiting for its txid
 confirmation.
 
-#### useHeldRows
-
-The live query is rebuilt when the limit changes, so it starts empty and
-reports not-ready until the collection has answered. Rendering that as it
-comes would take the table away from under the reader at the moment they
-asked for more of it. What is already shown stays correct: the wider window
-is the same order with more of it on the end.
-
-A new sort or a new filter is the case where it is not. The same rows in the
-old order under a header that now says something else reads as a sort that
-did nothing, and rows that do not match the filter just set read as a filter
-that did nothing. So what is held is kept against the window key it was read
-under and only handed back while that still matches. Under a new one the
-reader waits on a skeleton instead.
-
-The cache is state since #1184. It was a ref written and read during render,
-which the compiler refuses, and the hook carried `"use no memo"` to say so;
-the directive never removed the bail-out, it only changed what
-`check:compiler-bailouts` logged. The last ready rows are written into state
-in the render that reads them ready, which React re-renders before
-committing, and the not-ready read is a comparison against the held window
-key. The write compares the rows by identity, which is safe because the live
-query hands back the same array until the collection changes; a caller that
-rebuilt the array every render would loop.
-
 #### useSampleGeoContext
 
 The `/map/samples/:id` projection is the single source for the sample
@@ -1182,6 +1275,24 @@ the mission's own display endpoint instead, one request for the whole
 mission, because both surfaces that draw stops draw all of a mission's at
 once. The cache key carries every item's `updatedAt`, so redrawing a stop,
 adding one, or removing one refetches; nothing else does.
+
+#### useMissionStopGeometry
+
+One stop's geometry, for the control action form opened from it (#1233). It
+reads the same `/map/missions/:id/items` endpoint as `useMissionItemShapes`,
+through `lib/mission-item-geometry.ts`, and picks the stop out of the answer,
+because the endpoint answers per mission and a per-stop route would be a
+second reader for one row. It answers a status rather than a nullable
+geometry, since a form has to tell a stop still loading from one that failed:
+a failed read, a stop the mission does not name, and a stop link with no
+mission are all a failure the band says out loud, never an empty map.
+
+A retry reads as loading while it runs, rather than as the failure it is
+replacing. A stop link with no mission fails with no retry, since asking again
+cannot change that answer, and the band's button is disabled for it. The read
+takes React Query's default stale time rather than holding the answer for the
+session, so a stop redrawn on the mission while this tab was open is the shape
+the next form draws, and the shape an unedited save is compared against.
 
 #### useMissionStopViews
 

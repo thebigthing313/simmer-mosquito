@@ -17,6 +17,7 @@ import {
 	localTimeOfDay,
 	parseLocalDate,
 } from '../../../lib/local-date';
+import { compareNames } from '../../../lib/natural-order';
 import { OptionRow, PickerFallback, PickerFrame } from '../../pickers/entity-picker';
 import type { RouteSummary } from '../../route-planning/route-summary';
 import { NO_ASSIGNEE } from './assignment-data';
@@ -184,7 +185,7 @@ export function AssignmentDetailFields({
 				/>
 			</div>
 
-			<div className="grid gap-4 sm:grid-cols-2">
+			<div className="grid gap-4 @md/fields:grid-cols-2">
 				<div className="grid gap-1.5">
 					<span className="font-medium text-foreground text-sm">
 						Date
@@ -232,13 +233,15 @@ export function AssignmentDetailFields({
 			</div>
 
 			<div className="grid gap-1.5">
-				<span className="font-medium text-foreground text-sm">Assigned to</span>
+				<label className="font-medium text-foreground text-sm" htmlFor="assignment-assignee">
+					Assigned to
+				</label>
 				<Select
 					disabled={disabled}
 					onValueChange={(next) => onChange({ ...values, assignedToProfileId: next })}
 					value={values.assignedToProfileId}
 				>
-					<SelectTrigger className="w-full">
+					<SelectTrigger className="w-full" id="assignment-assignee">
 						<SelectValue placeholder="Select a profile" />
 					</SelectTrigger>
 					<SelectContent>
@@ -264,7 +267,7 @@ function routeMatches(
 			? routes
 			: routes.filter((route) => route.routeName.toLowerCase().includes(normalized));
 	return [...filtered]
-		.sort((first, second) => first.routeName.localeCompare(second.routeName))
+		.sort((first, second) => compareNames(first.routeName, second.routeName))
 		.slice(0, 8);
 }
 

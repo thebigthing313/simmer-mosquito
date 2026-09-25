@@ -94,7 +94,6 @@ function CreateHabitatRoute() {
 			initialGeometry={initialGeometry}
 			header={{
 				title: createLabel('habitat'),
-				description: 'Add a mapped larval habitat with the core field details crews need.',
 				backTo: '/larval-surveillance/habitats',
 				backLabel: recordNoun('habitat').titleMany,
 			}}

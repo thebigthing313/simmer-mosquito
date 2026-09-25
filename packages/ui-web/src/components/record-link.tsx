@@ -40,7 +40,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
  * were right, and this is the shape they had.
  */
 export const recordLink = cva(
-	'rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+	'rounded-sm hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 	{
 		variants: {
 			tone: {

@@ -39,7 +39,6 @@ export function HabitatTypeLookupList({ canManage }: { readonly canManage: boole
 		<LookupListFrame
 			activeCount={activeHabitatTypes.length}
 			inactiveCount={inactiveHabitatTypes.length}
-			detail="Habitat types define larval habitat labels and optional custom fields."
 			title="Habitat Types"
 			action={
 				<HabitatTypeDrawer

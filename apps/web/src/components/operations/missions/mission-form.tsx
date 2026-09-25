@@ -239,7 +239,7 @@ export function MissionFormPage({
 					<form.AppField name="controlType">
 						{(field) => (
 							<ControlTypeToggle
-								description="What the crew will be doing. It fixes which methods the mission can plan."
+								description="Sets which methods the mission can plan."
 								onChange={(next) => {
 									field.handleChange(next);
 									// The planned method is polymorphic by control type, so one
@@ -264,7 +264,6 @@ export function MissionFormPage({
 					<form.AppField name="plannedMethodId">
 						{(field) => (
 							<field.SelectField
-								description="Optional. What the crew is expected to use; the actual method is recorded on the work itself."
 								label="Planned method"
 								options={options.methods}
 								placeholder="No planned method"
@@ -274,7 +273,7 @@ export function MissionFormPage({
 				</FormSection>
 
 				<FormSection title="Schedule">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="startDate">
 							{(field) => (
 								<DateControl
@@ -289,7 +288,7 @@ export function MissionFormPage({
 							{(field) => <field.TextField label="Start time" required type="time" />}
 						</form.AppField>
 					</div>
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="endTime">
 							{(field) => (
 								<field.TextField
@@ -317,7 +316,7 @@ export function MissionFormPage({
 				</FormSection>
 
 				<FormSection title="Crew and Notice">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="assignedToProfileId">
 							{(field) => (
 								<field.SelectField
@@ -330,7 +329,6 @@ export function MissionFormPage({
 						<form.AppField name="notificationTypeId">
 							{(field) => (
 								<field.SelectField
-									description="Which registrations get notice of this mission."
 									label="Notification type"
 									options={options.notificationTypes}
 									placeholder="No notifications"

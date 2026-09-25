@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Link } from '@tanstack/react-router';
 import type { CatalogRecords, ControlMethodRecord } from '../../hooks/queries/catalog-record-view';
@@ -25,7 +26,7 @@ export function ControlOperationsSettings({
 	return (
 		<div className="grid gap-3">
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
+				<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 				<div className="grid gap-3">
 					<ControlMethodLookupPointer
 						collectionKey="applicationMethods"
@@ -72,7 +73,6 @@ function ControlMethodLookupPointer({
 		<LookupListFrame
 			activeCount={records.activeRecords.length}
 			inactiveCount={records.inactiveRecords.length}
-			detail={config.detail}
 			title={config.title}
 			action={
 				<Button asChild size="sm" variant="outline">

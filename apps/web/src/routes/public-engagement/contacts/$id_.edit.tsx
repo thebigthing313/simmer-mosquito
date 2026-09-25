@@ -73,7 +73,6 @@ function EditContactLoader({ contact }: { readonly contact: Contact }) {
 			defaultValues={defaultsFromContact(contact)}
 			header={{
 				title: `Edit ${recordNoun('contact').title}`,
-				description: 'Update this contact’s identity, communication, or preferences.',
 				backTo: '/public-engagement/contacts/$id',
 				backParams: { id: contact.id },
 				backLabel: 'Back to Contact',

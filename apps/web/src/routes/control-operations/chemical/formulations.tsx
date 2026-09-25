@@ -137,7 +137,6 @@ function FormulationsRoute() {
 		<CatalogPage
 			action={canManage ? addFormulationDrawer : undefined}
 			canEdit={canManage}
-			description="Tank mixes your crews apply, with what one batch makes and how much of each product goes into it."
 			emptyDescription={
 				<>
 					A formulation records a mix once — 0.5 lb of product into 26 gallons of water — so an
@@ -202,11 +201,11 @@ function FormulationTable({
 				<TableHeader>
 					<TableRow className="bg-muted/40 hover:bg-muted/40">
 						<TableHead className="w-10">
-							<span className="sr-only">Expand products</span>
+							<span className="sr-only">Expand Products</span>
 						</TableHead>
 						<TableHead>Name</TableHead>
 						<TableHead>Products</TableHead>
-						<TableHead className="w-32">One batch makes</TableHead>
+						<TableHead className="w-32">One Batch Makes</TableHead>
 						<TableHead className="w-28">Status</TableHead>
 						{catalog.canManage ? (
 							<TableHead className="w-24 text-right">
@@ -562,7 +561,7 @@ function FormulationComponentPanel({
 						<TableHeader>
 							<TableRow>
 								<TableHead>Insecticide</TableHead>
-								<TableHead className="w-40">Per batch</TableHead>
+								<TableHead className="w-40">Per Batch</TableHead>
 								{catalog.canManage ? (
 									<TableHead className="w-24 text-right">Actions</TableHead>
 								) : null}

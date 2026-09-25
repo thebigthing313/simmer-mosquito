@@ -21,7 +21,10 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { useMapBoundsParam } from '../../../../hooks/explorer/use-map-bounds-param';
+import {
+	RAIL_HOLDS_MOVE,
+	useMapBoundsParam,
+} from '../../../../hooks/explorer/use-map-bounds-param';
 import {
 	cleanupRenderedHooks,
 	createFakeMap,
@@ -165,6 +168,25 @@ describe('useMapBoundsParam', () => {
 		unprojectAs(fake, ([x, y]) => ({ lng: 20 + x * 0.001, lat: -y * 0.001 }));
 		settle(fake, 'resize');
 		expect(result.current).toBe('20,-0.8,21,0');
+	});
+
+	// A flight to a record picked from a rail that keeps its rows carries the
+	// flag, and the box stays on the viewport the rail was read under. The next
+	// move without it, a pan the reader makes, is read as usual.
+	it('keeps the box through a move marked as held for the rail', () => {
+		const fake = createFakeMap();
+		const { result } = renderHook<MapboxMap | null, string | null>(useMapBoundsParam, fake.map);
+		const first = result.current;
+
+		unprojectAs(fake, ([x, y]) => ({ lng: 10 + x * 0.001, lat: -y * 0.001 }));
+		act(() => {
+			fake.emit('moveend', { [RAIL_HOLDS_MOVE]: true });
+			fake.emit('zoomend', { [RAIL_HOLDS_MOVE]: true });
+		});
+		expect(result.current).toBe(first);
+
+		settle(fake, 'moveend');
+		expect(result.current).toBe('10,-0.8,11,0');
 	});
 
 	it('takes its camera listeners back off the map', () => {
