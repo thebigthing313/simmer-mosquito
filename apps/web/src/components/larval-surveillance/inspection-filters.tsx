@@ -127,7 +127,7 @@ export function DensityFilter({
 						<button
 							aria-pressed={isSelected}
 							className={cn(
-								'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+								'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 								isSelected
 									? 'border-primary/50 bg-primary/10 text-foreground'
 									: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',

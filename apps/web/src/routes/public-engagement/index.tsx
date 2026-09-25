@@ -368,7 +368,7 @@ function ActivityRow({
 			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}
 			secondary={
 				event.text === null ? (
-					<span className="text-muted-foreground/80">Service request</span>
+					<span className="text-muted-foreground">Service request</span>
 				) : (
 					<span className="line-clamp-2">{event.text}</span>
 				)

@@ -263,7 +263,7 @@ function RouteHeader({
 	return (
 		<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
 			<button
-				className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="inline-flex w-fit items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onBack}
 				type="button"
 			>
@@ -368,6 +368,10 @@ function StopEditor({
 						<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
 							{stop.name}
 						</span>
+						{/* The badge's grey fill is hidden from assistive technology, so the word carries it. */}
+						{stop.isActive ? null : (
+							<span className="shrink-0 text-muted-foreground text-xs">Inactive</span>
+						)}
 						{canSubmit ? (
 							<StopReorderControls
 								extraActions={

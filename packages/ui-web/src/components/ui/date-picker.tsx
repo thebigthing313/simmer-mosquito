@@ -522,7 +522,7 @@ function CaptionButton({
 	return (
 		<button
 			aria-label={label}
-			className="flex items-center gap-1 rounded-md py-1 pr-1 pl-2 font-medium text-foreground text-sm tabular-nums transition-colors duration-150 ease-out hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+			className="flex items-center gap-1 rounded-md py-1 pr-1 pl-2 font-medium text-foreground text-sm tabular-nums transition-colors duration-150 ease-out hover:bg-accent hover:text-accent-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
 			onClick={onClick}
 			type="button"
 		>

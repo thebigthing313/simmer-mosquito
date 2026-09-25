@@ -1,4 +1,5 @@
 import type { TagTarget } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
@@ -164,7 +165,7 @@ function TagPickerSection({
 }) {
 	return (
 		<section className="grid gap-1.5">
-			<h3 className="eyebrow m-0">{heading}</h3>
+			<h3 className={eyebrow({ tone: 'primary' })}>{heading}</h3>
 			{tags.length === 0 ? (
 				<p className="m-0 text-muted-foreground text-sm">{emptyLine}</p>
 			) : (

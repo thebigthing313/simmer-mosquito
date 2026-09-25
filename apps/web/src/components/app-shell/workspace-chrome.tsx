@@ -27,7 +27,8 @@ const CONTENT_ROW_WIDTHS = ['w-full', 'w-full', 'w-full', 'w-full', 'w-full'] as
  * shell's own bands (rail, navigation column, header, content stage) so nothing
  * shifts when `AppShellRoot` commits over it. Widths restate `ui-web`'s chrome
  * rather than import it, because the real chrome needs the shell context this
- * surface is waiting on; the rail's collapse key is shared.
+ * surface is waiting on; the rail's collapse key is shared. Under `lg` both
+ * rails give way to the header's drawer button, as they do in `OutletShell`.
  */
 export function WorkspaceChromeFallback() {
 	const [railCollapsed] = usePersistentFlag(PRIMARY_SIDEBAR_COLLAPSED_KEY, false);
@@ -51,7 +52,7 @@ function FallbackRail({ collapsed }: { readonly collapsed: boolean }) {
 	return (
 		<div
 			className={cn(
-				'flex shrink-0 flex-col gap-5 border-white/10 border-r bg-simmer-green-900 py-3',
+				'flex shrink-0 flex-col gap-5 border-white/10 border-r bg-simmer-green-900 py-3 max-lg:hidden',
 				collapsed ? 'w-16 items-center' : 'w-60 px-4',
 			)}
 		>
@@ -72,7 +73,7 @@ function FallbackRail({ collapsed }: { readonly collapsed: boolean }) {
 /** The active domain's navigation column. */
 function FallbackNav() {
 	return (
-		<div className="flex w-60 shrink-0 flex-col gap-2.5 border-sidebar-border border-r bg-sidebar px-3 py-4">
+		<div className="flex w-60 shrink-0 flex-col gap-2.5 border-sidebar-border border-r bg-sidebar px-3 py-4 max-lg:hidden">
 			<Skeleton className="h-4 w-24 bg-sidebar-accent" />
 			<SkeletonRows
 				className="gap-2.5"
@@ -87,7 +88,8 @@ function FallbackNav() {
 function FallbackStage() {
 	return (
 		<div className="flex min-w-0 flex-1 flex-col">
-			<div className="flex h-16 shrink-0 items-center gap-3 border-border border-b bg-card px-5">
+			<div className="flex h-16 shrink-0 items-center gap-3 border-border border-b bg-card px-3 md:px-5">
+				<Skeleton className="size-10 lg:hidden" />
 				<Skeleton className="h-4 w-36" />
 				<Skeleton className="ml-auto h-4 w-24" />
 				<Skeleton className="size-8 rounded-full" />

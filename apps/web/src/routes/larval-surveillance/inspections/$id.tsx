@@ -178,7 +178,7 @@ function InspectionDetailContent({
 function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDetailRow }) {
 	if (inspection.habitatId === null) {
 		return (
-			<p className="m-0 text-[0.95rem] text-muted-foreground">
+			<p className="m-0 text-small text-muted-foreground">
 				{/*
 				 * `adhocLabel` rather than `habitatLabel` with the address: this
 				 * subtitle draws the address itself after the separator, and a
@@ -194,7 +194,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 	}
 
 	return (
-		<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-[0.95rem] text-muted-foreground">
+		<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-small text-muted-foreground">
 			<span>at</span>
 			<Link
 				className={recordLink()}

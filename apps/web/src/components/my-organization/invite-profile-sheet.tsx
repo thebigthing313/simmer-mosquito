@@ -17,7 +17,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import type { AuthMe } from '../../auth';
 import { useMembershipMutations } from '../../hooks/mutations/use-membership-mutations';
@@ -39,6 +39,7 @@ export function InviteProfileSheet({
 	/** The historical Profiles an invitation may attach a login to. */
 	readonly people: readonly PersonListing[];
 }) {
+	const id = useId();
 	const roleOptions = grantableRoles(auth);
 	const { invite } = useMembershipMutations();
 	const [displayName, setDisplayName] = useState('');
@@ -86,9 +87,9 @@ export function InviteProfileSheet({
 				<form className="grid gap-3.5" onSubmit={submit}>
 					<div className="grid gap-3 px-4">
 						<Field className="gap-1">
-							<FieldLabel>Historical profile</FieldLabel>
+							<FieldLabel htmlFor={`${id}-profile`}>Historical profile</FieldLabel>
 							<Select value={profileId} onValueChange={setProfileId}>
-								<SelectTrigger size="sm" className="w-full">
+								<SelectTrigger id={`${id}-profile`} size="sm" className="w-full">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
@@ -102,8 +103,9 @@ export function InviteProfileSheet({
 							</Select>
 						</Field>
 						<Field className="gap-1">
-							<FieldLabel>Email</FieldLabel>
+							<FieldLabel htmlFor={`${id}-email`}>Email</FieldLabel>
 							<Input
+								id={`${id}-email`}
 								type="email"
 								value={email}
 								onChange={(event) => setEmail(event.target.value)}
@@ -111,17 +113,18 @@ export function InviteProfileSheet({
 							/>
 						</Field>
 						<Field className="gap-1">
-							<FieldLabel>Display name</FieldLabel>
+							<FieldLabel htmlFor={`${id}-display-name`}>Display name</FieldLabel>
 							<Input
+								id={`${id}-display-name`}
 								value={displayName}
 								onChange={(event) => setDisplayName(event.target.value)}
 								placeholder="Optional, defaults to email"
 							/>
 						</Field>
 						<Field className="gap-1">
-							<FieldLabel>Role</FieldLabel>
+							<FieldLabel htmlFor={`${id}-role`}>Role</FieldLabel>
 							<Select value={role} onValueChange={(value) => setRole(value as SimmerRole)}>
-								<SelectTrigger size="sm" className="w-full">
+								<SelectTrigger id={`${id}-role`} size="sm" className="w-full">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>

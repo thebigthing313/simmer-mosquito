@@ -1,14 +1,29 @@
 import { TooltipProvider } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppHeader } from '../header/app-header';
 import { PrimarySidebar } from '../primary-sidebar/primary-sidebar';
 import { SecondarySidebar } from '../secondary-sidebar/secondary-sidebar';
+import { useShell } from '../shell-context';
+import { NavigationDrawer } from './navigation-drawer';
 
 /**
  * The definitive authenticated shell. Composes the primary rail, the secondary
  * navigation panel, the header, and the scrolling region the router renders
  * into. Must be mounted inside a `ShellProvider`, which supplies organization,
  * user, navigation, and active-path state.
+ *
+ * Under `lg` the two rails would leave a phone no page at all, so they move
+ * into `NavigationDrawer` and the header grows a button that opens it. The
+ * drawer is open for the path it was opened on, so navigating from inside it
+ * closes it without an effect watching the path.
+ *
+ * A route change moves focus to `main` when focus was outside it, which is the
+ * case for a sidebar link, a breadcrumb or the drawer: left alone, focus stays
+ * on the link in the rail and the next Tab walks the rest of the navigation
+ * before reaching the page that just opened. Focus already inside `main` is
+ * left where it is, so a list or a map that navigates as it is used keeps the
+ * operator's place.
  */
 export function OutletShell({
 	banner,
@@ -23,6 +38,23 @@ export function OutletShell({
 	readonly banner?: React.ReactNode;
 	readonly children: React.ReactNode;
 }) {
+	const { activePath } = useShell();
+	const [drawerPath, setDrawerPath] = useState<string | null>(null);
+	const mainRef = useRef<HTMLElement>(null);
+	const shownPath = useRef(activePath);
+
+	useEffect(() => {
+		if (shownPath.current === activePath) {
+			return;
+		}
+		shownPath.current = activePath;
+		const main = mainRef.current;
+		if (main === null || main.contains(document.activeElement)) {
+			return;
+		}
+		main.focus({ preventScroll: true });
+	}, [activePath]);
+
 	return (
 		<TooltipProvider delayDuration={300}>
 			<div className="flex h-svh w-full flex-col overflow-hidden bg-background text-foreground">
@@ -37,17 +69,29 @@ export function OutletShell({
 				 * tab order.
 				 */}
 				<a
-					className="-translate-y-full focus:-translate-y-0 fixed top-0 left-0 z-50 rounded-br-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+					className="-translate-y-full focus:-translate-y-0 fixed top-0 left-0 z-50 rounded-br-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm transition-transform focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
 					href="#main-content"
 				>
 					Skip to content
 				</a>
 				{banner}
 				<div className="flex min-h-0 w-full flex-1 overflow-hidden">
-					<PrimarySidebar />
-					<SecondarySidebar />
+					<PrimarySidebar className="max-lg:hidden" />
+					<SecondarySidebar className="max-lg:hidden" />
+					<NavigationDrawer
+						onCloseAutoFocus={(event) => {
+							// Closed by navigating: focus belongs to the page, not the
+							// button that opened the drawer.
+							if (drawerPath !== null && drawerPath !== activePath) {
+								event.preventDefault();
+								mainRef.current?.focus({ preventScroll: true });
+							}
+						}}
+						onOpenChange={(open) => setDrawerPath(open ? activePath : null)}
+						open={drawerPath === activePath}
+					/>
 					<div className="flex min-w-0 flex-1 flex-col">
-						<AppHeader />
+						<AppHeader onOpenNavigation={() => setDrawerPath(activePath)} />
 						{/*
 						 * `relative` is load-bearing, not decorative. An `overflow` ancestor
 						 * only clips an absolutely-positioned descendant when it is also in
@@ -81,8 +125,9 @@ export function OutletShell({
 						 * in the stylesheet keyed on this element.
 						 */}
 						<main
-							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage) [scrollbar-gutter:stable]"
+							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage) outline-none [scrollbar-gutter:stable]"
 							id="main-content"
+							ref={mainRef}
 							tabIndex={-1}
 						>
 							{children}

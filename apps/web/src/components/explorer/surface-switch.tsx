@@ -66,7 +66,7 @@ export function surfaceSwitchItem({
 	readonly isCurrent: boolean;
 }): string {
 	return cn(
-		'inline-flex items-center justify-center gap-1.5 rounded-sm font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+		'inline-flex items-center justify-center gap-1.5 rounded-sm font-medium text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 		compact ? 'size-7' : 'h-8 px-2.5',
 		isCurrent
 			? 'bg-background text-foreground shadow-sm'

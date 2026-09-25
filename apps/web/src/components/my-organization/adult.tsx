@@ -1,8 +1,10 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Link } from '@tanstack/react-router';
+import { useId } from 'react';
 import { useCollectionMethodRecords } from '../../hooks/queries/use-collection-method-records';
 import { CollectionLureLookupList } from './collection-lure-lookup';
 import { ArrowRightIcon } from './constants';
@@ -24,7 +26,7 @@ export function AdultSurveillanceSettings({
 		<div className="grid gap-3">
 			<CollectionTimingGuide mode={timingMode} />
 			<div className="grid gap-2">
-				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
+				<h3 className={eyebrow({ tone: 'primary', className: 'mt-0.5' })}>Setup Lists</h3>
 				<div className="grid gap-3">
 					<CollectionMethodLookupPointer />
 					<CollectionLureLookupList canManage={canManage} />
@@ -35,6 +37,7 @@ export function AdultSurveillanceSettings({
 }
 
 function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingMode }) {
+	const id = useId();
 	return (
 		<section className="grid gap-2 rounded-md border border-border/30 bg-muted/30 p-2.5">
 			<div className="grid gap-1">
@@ -50,12 +53,12 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 					title="Exact Timestamps"
 				>
 					<Field className="gap-1">
-						<FieldLabel>Set time</FieldLabel>
-						<Input disabled value="May 21, 2026 6:00 PM" readOnly />
+						<FieldLabel htmlFor={`${id}-set-time`}>Set time</FieldLabel>
+						<Input id={`${id}-set-time`} disabled value="May 21, 2026 6:00 PM" readOnly />
 					</Field>
 					<Field className="gap-1">
-						<FieldLabel>Pickup time</FieldLabel>
-						<Input disabled value="May 22, 2026 7:30 AM" readOnly />
+						<FieldLabel htmlFor={`${id}-pickup-time`}>Pickup time</FieldLabel>
+						<Input id={`${id}-pickup-time`} disabled value="May 22, 2026 7:30 AM" readOnly />
 					</Field>
 				</SettingChoiceCard>
 				<SettingChoiceCard
@@ -64,12 +67,12 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
 					title="Collection Date and Duration"
 				>
 					<Field className="gap-1">
-						<FieldLabel>Collection date</FieldLabel>
-						<Input disabled value="May 22, 2026" readOnly />
+						<FieldLabel htmlFor={`${id}-collection-date`}>Collection date</FieldLabel>
+						<Input id={`${id}-collection-date`} disabled value="May 22, 2026" readOnly />
 					</Field>
 					<Field className="gap-1">
-						<FieldLabel>Duration</FieldLabel>
-						<Input disabled value="13.5 hours" readOnly />
+						<FieldLabel htmlFor={`${id}-duration`}>Duration</FieldLabel>
+						<Input id={`${id}-duration`} disabled value="13.5 hours" readOnly />
 					</Field>
 				</SettingChoiceCard>
 			</div>

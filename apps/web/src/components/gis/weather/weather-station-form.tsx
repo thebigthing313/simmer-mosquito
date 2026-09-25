@@ -145,7 +145,7 @@ export function WeatherStationFormPage({
 			>
 				<form.FormErrorAlert title="Unable to Save Weather Station" />
 
-				<div className="grid gap-5 sm:grid-cols-2">
+				<div className="grid gap-5 @md/fields:grid-cols-2">
 					<form.AppField
 						name="name"
 						validators={{

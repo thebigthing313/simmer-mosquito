@@ -1,4 +1,5 @@
 import { OutletSimpleLayout } from '@simmer-mosquito/ui-web/components/app-shell';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { ListEmpty, ListNoMatches, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -7,8 +8,7 @@ import type { ReactNode } from 'react';
 import type { CatalogSearch } from '../../hooks/catalog/use-catalog-search';
 
 /** The uppercase label a catalog groups its rows under. */
-export const CATALOG_GROUP_HEADING =
-	'm-0 font-bold text-[0.78rem] text-muted-foreground uppercase tracking-wide';
+export const CATALOG_GROUP_HEADING = eyebrow();
 
 /**
  * The frame a lookup catalog opens with: the page heading, the access badge that

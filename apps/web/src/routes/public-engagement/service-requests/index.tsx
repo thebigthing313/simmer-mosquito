@@ -617,7 +617,7 @@ function RemovableTagChip({ tag, onRemove }: { readonly tag: Tag; readonly onRem
 			<TagBadge tag={tag} />
 			<button
 				aria-label={`Remove ${tag.name} filter`}
-				className="rounded-full p-0.5 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="relative rounded-full p-0.5 text-muted-foreground opacity-70 after:absolute after:-inset-1.5 transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onRemove}
 				type="button"
 			>

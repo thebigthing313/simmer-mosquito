@@ -19,7 +19,7 @@ export function ActiveFilterBar({
 		<div className="flex flex-wrap items-center gap-1.5">
 			{children}
 			<button
-				className="ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="relative ml-auto rounded-sm px-1.5 py-0.5 text-muted-foreground after:absolute after:-inset-y-1.5 after:inset-x-0 text-xs transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onClearAll}
 				type="button"
 			>
@@ -55,7 +55,7 @@ export function FilterChip({
 			<span className={italic ? 'italic' : undefined}>{label}</span>
 			<button
 				aria-label={`Remove ${label} filter`}
-				className="rounded-full p-0.5 opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="relative rounded-full p-0.5 opacity-70 transition-opacity after:absolute after:-inset-1.5 hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 				onClick={onRemove}
 				type="button"
 			>

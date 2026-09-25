@@ -10,7 +10,7 @@ import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environmen
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense, useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
@@ -18,7 +18,6 @@ import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone'
 import { breadcrumbPath } from '../../lib/breadcrumb-via';
 import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
-import { SearchPalette } from '../search/search-palette';
 import {
 	shellDomainsForRole,
 	webAccountLinks,
@@ -27,6 +26,15 @@ import {
 	withDailyWorkGroup,
 } from './navigation';
 import { WebOutletFallback } from './outlet-fallback';
+
+/*
+ * The palette and `cmdk` under it are about 40KB that nobody needs until the
+ * first search, so they load then rather than at boot. Once opened it stays
+ * mounted, which keeps the close animation and the query between opens.
+ */
+const SearchPalette = lazy(() =>
+	import('../search/search-palette').then((module) => ({ default: module.SearchPalette })),
+);
 
 function formatRole(role: string | null | undefined): string {
 	if (role === null || role === undefined || role.trim() === '') {
@@ -54,6 +62,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	// props and renders the trigger itself. `apps/admin` provides no such context,
 	// so its header simply loses the search field it never had a palette for.
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [searchUsed, setSearchUsed] = useState(false);
 	const searchTriggerRef = useRef<HTMLButtonElement>(null);
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
@@ -100,7 +109,10 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 			triggerRef={searchTriggerRef}
 			value={{
 				isOpen: searchOpen,
-				onOpen: () => setSearchOpen(true),
+				onOpen: () => {
+					setSearchUsed(true);
+					setSearchOpen(true);
+				},
 			}}
 		>
 			<ShellProvider
@@ -142,12 +154,16 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 					</OutletShell>
 				</BreadcrumbLabelProvider>
 			</ShellProvider>
-			<SearchPalette
-				auth={auth}
-				onOpenChange={setSearchOpen}
-				open={searchOpen}
-				triggerRef={searchTriggerRef}
-			/>
+			{searchUsed ? (
+				<Suspense fallback={null}>
+					<SearchPalette
+						auth={auth}
+						onOpenChange={setSearchOpen}
+						open={searchOpen}
+						triggerRef={searchTriggerRef}
+					/>
+				</Suspense>
+			) : null}
 			<Toaster richColors />
 		</SearchTriggerProvider>
 	);

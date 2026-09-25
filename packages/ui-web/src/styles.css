@@ -345,3 +345,30 @@
 		animation: simmer-sweep-hold 1800ms ease-in-out infinite;
 	}
 }
+
+/*
+ * Reduced motion keeps the fades and drops the travel. The dialogs, sheets,
+ * popovers and menus from the shadcn registry enter and leave through
+ * `tw-animate-css`, which slides and zooms them with no reduced-motion rule of
+ * its own, and regenerating a component would take any guard written into it
+ * back out. Zeroing the variables here reaches every one of them, and this rule
+ * is unlayered so it wins over the `slide-in-from-*` utilities that set them.
+ * The skeleton pulse stops for the same reader.
+ */
+@media (prefers-reduced-motion: reduce) {
+	.animate-in,
+	.animate-out {
+		--tw-enter-translate-x: 0;
+		--tw-enter-translate-y: 0;
+		--tw-enter-scale: 1;
+		--tw-enter-rotate: 0;
+		--tw-exit-translate-x: 0;
+		--tw-exit-translate-y: 0;
+		--tw-exit-scale: 1;
+		--tw-exit-rotate: 0;
+	}
+
+	.animate-pulse {
+		animation: none;
+	}
+}

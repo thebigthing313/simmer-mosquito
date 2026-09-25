@@ -1,5 +1,6 @@
 import type { Map as MapboxMap, MapMouseEvent, VectorTileSource } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { registerHoverLayers } from '../../components/map/hover-cursor';
 import {
 	type MapTileLayer,
 	tileLayerBinding,
@@ -77,21 +78,13 @@ export function useTileLayer(
 			const id = feature === undefined || feature.id === undefined ? null : String(feature.id);
 			layerRef.current?.onSelectFeature?.(id);
 		}
-		function handleMove(event: MapMouseEvent) {
-			const layers = presentInteractiveLayers();
-			if (layers.length === 0) {
-				return;
-			}
-			const hovering = activeMap.queryRenderedFeatures(event.point, { layers }).length > 0;
-			activeMap.getCanvas().style.cursor = hovering ? 'pointer' : '';
-		}
 		activeMap.on('click', handleClick);
-		activeMap.on('mousemove', handleMove);
+		const releaseHover = registerHoverLayers(activeMap, presentInteractiveLayers);
 
 		return () => {
 			activeMap.off('style.load', ensureLayers);
 			activeMap.off('click', handleClick);
-			activeMap.off('mousemove', handleMove);
+			releaseHover();
 			teardown(activeMap, sourceId, allLayerIds);
 		};
 	}, [map, isLoaded, enabled]);

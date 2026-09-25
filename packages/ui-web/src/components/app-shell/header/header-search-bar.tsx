@@ -18,6 +18,7 @@ import { useSearchTrigger, useSearchTriggerRef } from './search-trigger-context'
  *
  * The `⌘K` hint stays visible rather than moving into a tooltip, which is what
  * rules out a bare icon button: nobody discovers a shortcut from a magnifier.
+ * Under `sm` it goes, because a phone has no keyboard to press it on.
  *
  * Renders nothing where no app has mounted a palette. `SearchInput` is untouched
  * and still used by the map filters; the shell has simply stopped being one of
@@ -61,7 +62,7 @@ export function HeaderSearchBar() {
 			variant="outline"
 		>
 			<SearchIcon aria-hidden="true" className="size-4" />
-			<span className="flex items-center gap-1">
+			<span className="flex items-center gap-1 max-sm:hidden">
 				<Kbd>{modKey}</Kbd>
 				<Kbd>K</Kbd>
 			</span>

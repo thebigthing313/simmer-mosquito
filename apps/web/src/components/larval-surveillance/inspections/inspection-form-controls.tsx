@@ -145,7 +145,7 @@ export function LifeStageSelector({
 						aria-label={segment.label}
 						aria-pressed={isOn}
 						className={cn(
-							'flex size-9 items-center justify-center font-semibold text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+							'flex size-9 items-center justify-center font-semibold text-sm tabular-nums transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
 							index > 0 && 'border-border border-l',
 							isOn
 								? 'bg-primary text-primary-foreground'

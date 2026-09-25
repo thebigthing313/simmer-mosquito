@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
@@ -73,9 +74,7 @@ function AddressCluster({
 				<span className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
 					{cluster.addressLabel ?? 'Same address'}
 				</span>
-				<span className="shrink-0 font-medium text-[0.7rem] text-muted-foreground uppercase tracking-wide">
-					{cluster.stops.length} stops
-				</span>
+				<span className={eyebrow({ className: 'shrink-0' })}>{cluster.stops.length} stops</span>
 			</div>
 			<ol className="grid gap-px">{cluster.stops.map((stop) => renderStop(stop, true))}</ol>
 		</li>
@@ -167,7 +166,7 @@ export function StopTypePill({ typeName }: { readonly typeName: string | null })
 		return null;
 	}
 	return (
-		<span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 font-medium text-[0.7rem] text-muted-foreground">
+		<span className="inline-flex shrink-0 items-center rounded-full bg-muted px-2 py-0.5 font-medium text-caption text-muted-foreground">
 			{typeName}
 		</span>
 	);

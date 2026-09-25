@@ -243,7 +243,7 @@ function MissionLinkRow({ mission }: { readonly mission: MissionLink }) {
 		<Link
 			className={cn(
 				'grid gap-1 rounded-md border border-border/60 bg-card p-3 transition-colors',
-				'hover:border-border hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+				'hover:border-border hover:bg-muted/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 			)}
 			params={{ id: mission.id }}
 			to="/operations/missions/$id"

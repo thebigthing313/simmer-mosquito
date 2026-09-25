@@ -15,7 +15,7 @@ function TagChip({ tag }: { readonly tag: Tag }) {
 	return (
 		<span
 			className={cn(
-				'inline-flex items-center rounded-full border px-2 py-0.5 font-medium text-[0.7rem]',
+				'inline-flex items-center rounded-full border px-2 py-0.5 font-medium text-caption',
 				style === null ? 'border-border bg-muted text-muted-foreground' : undefined,
 			)}
 			style={style ?? undefined}

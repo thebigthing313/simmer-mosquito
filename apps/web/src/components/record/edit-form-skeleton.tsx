@@ -1,3 +1,4 @@
+import { SplitPage } from '@simmer-mosquito/ui-web/components/app-shell/outlet/split-page';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { keyedPlaceholders } from './skeleton-keys';
@@ -54,12 +55,9 @@ export function EditFormSkeleton({
 		);
 	}
 	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className={cn('grid content-start gap-5 overflow-y-auto px-5 py-5', className)}>
-				{column}
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
+		<SplitPage aside={<Skeleton className="h-full w-full rounded-none" />}>
+			<div className={cn('grid content-start gap-5 px-5 py-5', className)}>{column}</div>
+		</SplitPage>
 	);
 }
 

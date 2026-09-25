@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
@@ -181,9 +182,7 @@ function DayGroupBlock({ group }: { readonly group: DayGroup }) {
 					'mb-1',
 				)}
 			>
-				<span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					{formatMonthDay(group.day)}
-				</span>
+				<span className={eyebrow()}>{formatMonthDay(group.day)}</span>
 				<span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
 					{group.rows.length}
 				</span>
@@ -349,7 +348,7 @@ function OverThresholdPanel({ since }: { readonly since: string }) {
 								 * hot, so the row's body goes there rather than to the trap.
 								 */}
 								<Link
-									className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 									params={{ id: collection.id }}
 									to="/adult-surveillance/collections/$id"
 								>

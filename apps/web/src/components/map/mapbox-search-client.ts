@@ -108,7 +108,7 @@ export function moveMapToResult(map: MapboxMap, result: MapboxResolvedResult): v
 		center: result.center,
 		zoom: Math.max(map.getZoom(), 14),
 		duration: 700,
-		essential: true,
+		// Not `essential`: under reduced motion Mapbox jumps instead of flying.
 	});
 }
 

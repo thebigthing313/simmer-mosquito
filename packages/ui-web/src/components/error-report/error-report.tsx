@@ -133,7 +133,7 @@ function ErrorStack({ text }: { readonly text: string }) {
 
 	return (
 		<details className="group rounded-md border border-border bg-muted/30">
-			<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+			<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium text-foreground text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
 				<ChevronIcon
 					aria-hidden="true"
 					className="size-4 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"

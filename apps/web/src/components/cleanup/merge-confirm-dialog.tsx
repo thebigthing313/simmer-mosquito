@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -282,7 +283,7 @@ function RetiredList({
 }) {
 	return (
 		<div>
-			<h3 className="font-semibold text-muted-foreground text-xs uppercase">Retired</h3>
+			<h3 className={eyebrow()}>Retired</h3>
 			<ul className="mt-1 grid gap-0.5">
 				{sources.map((record) => (
 					<li className="truncate text-foreground" key={record.id}>

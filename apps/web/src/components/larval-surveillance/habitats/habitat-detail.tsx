@@ -1,5 +1,6 @@
 import { formatGeometryTypeLabel } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { customFieldEntries } from '@simmer-mosquito/ui-web/components/form';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -254,7 +255,7 @@ function HabitatDetailsCard({ habitat }: { readonly habitat: Habitat }) {
 			</CardHeader>
 			<CardContent padding="compact" className="grid gap-4">
 				<div className="grid gap-1">
-					<span className="text-xs font-semibold text-muted-foreground uppercase">Description</span>
+					<span className={eyebrow()}>Description</span>
 					<p className="m-0 max-w-[70ch] text-sm text-foreground">{habitatDescription(habitat)}</p>
 				</div>
 				<DetailList>
@@ -307,7 +308,7 @@ function HabitatMetadata({
 
 	return (
 		<div className="grid gap-1.5">
-			<span className="text-xs font-semibold text-muted-foreground uppercase">Metadata</span>
+			<span className={eyebrow()}>Metadata</span>
 			{/* The same list every other record's custom fields render through, so an
 			    organization-authored label wraps here too rather than being clipped
 			    by the curated-label column `DetailRow` above is sized for. */}

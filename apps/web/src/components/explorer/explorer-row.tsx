@@ -142,7 +142,7 @@ export function ExplorerRow({
 				<Link
 					{...detailLink}
 					aria-label={detailLabel}
-					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					className="pointer-events-auto relative z-10 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 					title={detailLabel}
 				>
 					<ChevronRightIcon aria-hidden="true" className="size-4" />
@@ -228,7 +228,7 @@ function SelectOverlay({
 				// ring would be clipped by the list that scrolls it. Without this the
 				// row fell back to the browser's own 1px outline while every other
 				// control in the panel drew the 2px ring.
-				'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+				'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
 				/*
 				 * The ring is opaque. At `ring-primary/40` it composited toward the row
 				 * behind it, the very surface it has to stand against, which is what

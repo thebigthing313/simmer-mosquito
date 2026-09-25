@@ -328,26 +328,27 @@ function ApplicationBatchesCard({
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{entries.map((entry) => (
-									<TableRow key={entry.id}>
-										<TableCell className="font-medium">
-											{batchNameById.get(entry.insecticideBatchId) ?? 'Unknown batch'}
-										</TableCell>
-										{canEdit ? (
-											<TableCell className="text-right">
-												<Button
-													aria-label="Remove batch"
-													onClick={() => onRemoveBatch(entry.id)}
-													size="icon"
-													type="button"
-													variant="ghost"
-												>
-													<DeleteIcon aria-hidden="true" className="size-4" />
-												</Button>
-											</TableCell>
-										) : null}
-									</TableRow>
-								))}
+								{entries.map((entry) => {
+									const batchName = batchNameById.get(entry.insecticideBatchId) ?? 'Unknown batch';
+									return (
+										<TableRow key={entry.id}>
+											<TableCell className="font-medium">{batchName}</TableCell>
+											{canEdit ? (
+												<TableCell className="text-right">
+													<Button
+														aria-label={`Remove batch ${batchName}`}
+														onClick={() => onRemoveBatch(entry.id)}
+														size="icon"
+														type="button"
+														variant="ghost"
+													>
+														<DeleteIcon aria-hidden="true" className="size-4" />
+													</Button>
+												</TableCell>
+											) : null}
+										</TableRow>
+									);
+								})}
 							</TableBody>
 						</Table>
 					</div>

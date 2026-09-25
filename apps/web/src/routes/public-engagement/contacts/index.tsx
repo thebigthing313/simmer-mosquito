@@ -158,7 +158,7 @@ function ContactRowItem({ contact }: { readonly contact: ContactListing }) {
 	return (
 		<li className="group">
 			<Link
-				className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 				params={{ id: contact.id }}
 				to="/public-engagement/contacts/$id"
 			>

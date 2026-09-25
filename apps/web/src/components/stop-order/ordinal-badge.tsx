@@ -36,7 +36,7 @@ export function OrdinalBadge({
 		<span
 			aria-hidden="true"
 			className={cn(
-				'mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full font-semibold text-[0.72rem] ring-2 ring-background',
+				'mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full font-semibold text-caption ring-2 ring-background',
 				toneClass[tone],
 			)}
 		>

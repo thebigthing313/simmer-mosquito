@@ -1,3 +1,4 @@
+import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -75,9 +76,7 @@ export function RouteStopAddressDialog({
 				<div className="flex items-center gap-2.5 rounded-md border border-border/60 bg-muted/40 px-3 py-2">
 					<HomeIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 					<span className="min-w-0">
-						<span className="block font-medium text-[0.7rem] text-muted-foreground uppercase tracking-wide">
-							Currently linked
-						</span>
+						<span className={eyebrow({ className: 'block' })}>Currently linked</span>
 						<span className="block truncate text-foreground text-sm">
 							{currentAddressLabel ?? 'No address linked'}
 						</span>

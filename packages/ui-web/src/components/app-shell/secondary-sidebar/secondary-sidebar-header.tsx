@@ -27,7 +27,7 @@ export function SecondarySidebarHeader() {
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					className={cn(
-						'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
+						'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-hidden transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
 						'hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring',
 						'data-[state=open]:bg-sidebar-accent',
 					)}

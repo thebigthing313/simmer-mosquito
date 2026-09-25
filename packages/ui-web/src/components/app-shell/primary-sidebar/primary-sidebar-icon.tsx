@@ -39,7 +39,7 @@ export function AppShellPrimarySidebarIcon({
 			aria-current={active ? 'page' : undefined}
 			aria-label={domain.label}
 			className={cn(
-				'flex h-11 shrink-0 items-center rounded-md text-simmer-green-100/70 outline-none transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
+				'flex h-11 shrink-0 items-center rounded-md text-simmer-green-100/70 outline-hidden transition-colors duration-(--simmer-motion-quick) ease-(--simmer-ease-out)',
 				'hover:bg-white/10 hover:text-white',
 				'focus-visible:ring-2 focus-visible:ring-ring-inverse focus-visible:ring-offset-2 focus-visible:ring-offset-simmer-green-900',
 				'data-[active=true]:bg-white/12 data-[active=true]:text-white',

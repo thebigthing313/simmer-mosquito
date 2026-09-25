@@ -206,7 +206,7 @@ export function TrapFormPage({
 				</LocationBand>
 
 				<FormSection title="Configuration">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="collectionMethodId">
 							{(field) => (
 								<field.SelectField
@@ -230,7 +230,7 @@ export function TrapFormPage({
 				</FormSection>
 
 				<FormSection title="Identity">
-					<div className="grid gap-5 sm:grid-cols-2">
+					<div className="grid gap-5 @md/fields:grid-cols-2">
 						<form.AppField name="trapName">
 							{(field) => <field.TextField label="Trap name" placeholder="e.g. North Basin CDC" />}
 						</form.AppField>

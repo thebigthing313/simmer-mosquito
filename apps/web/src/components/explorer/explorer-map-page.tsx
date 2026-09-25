@@ -413,7 +413,7 @@ function ResultsPanel<TRow>({
 function SkipResults({ targetRef }: { readonly targetRef: RefObject<HTMLDivElement | null> }) {
 	return (
 		<button
-			className="sr-only focus:not-sr-only focus:m-2 focus:rounded-md focus:bg-background focus:px-3 focus:py-1.5 focus:font-medium focus:text-foreground focus:text-xs focus:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			className="sr-only focus:not-sr-only focus:m-2 focus:rounded-md focus:bg-background focus:px-3 focus:py-1.5 focus:font-medium focus:text-foreground focus:text-xs focus:shadow-sm focus:outline-hidden focus:ring-2 focus:ring-ring"
 			onClick={() => targetRef.current?.focus()}
 			type="button"
 		>

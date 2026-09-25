@@ -1,3 +1,4 @@
+import { SplitPage } from '@simmer-mosquito/ui-web/components/app-shell/outlet/split-page';
 import {
 	Empty,
 	EmptyDescription,
@@ -58,13 +59,12 @@ function AddMissionStopRoute() {
 
 function AddStopSkeleton() {
 	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
+		<SplitPage aside={<Skeleton className="h-full w-full rounded-none" />}>
+			<div className="grid content-start gap-5 px-5 py-5">
 				<Skeleton className="h-6 w-40" />
 				<Skeleton className="h-32 w-full" />
 			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
+		</SplitPage>
 	);
 }
 

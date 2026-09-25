@@ -275,7 +275,7 @@ function AssignmentPlanRoute() {
 					<div className="grid gap-4 border-border/50 border-b p-4">
 						<div className="flex items-center justify-between gap-3">
 							<Link
-								className="inline-flex items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className="inline-flex items-center gap-1 rounded-sm text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
 								params={{ id }}
 								to="/operations/assignments/$id"
 							>

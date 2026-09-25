@@ -81,7 +81,7 @@ function AssignedTagChip({ tag }: { readonly tag: AssignedTag }) {
 			<TagBadge tag={tag} />
 			<WriteOnly>
 				<Button
-					className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+					className="opacity-0 [@media(hover:none)]:opacity-100 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
 					onClick={() => void unassign()}
 					size="icon"
 					type="button"
