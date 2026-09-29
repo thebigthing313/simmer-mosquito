@@ -1,7 +1,7 @@
 import { PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useState } from 'react';
 import { useActivityStrip } from '../../hooks/dashboard/use-activity-strip';
+import { useActivityStripChangeMode } from '../../hooks/dashboard/use-activity-strip-change-mode';
 import { type CountNoun, formatCount } from '../../lib/format-count';
 import { formatMonthDay } from '../../lib/local-date';
 import { recordNoun } from '../../lib/record-nouns';
@@ -55,7 +55,7 @@ const CHANGE_MODES: readonly {
 
 /**
  * One ruled strip: a heading, the window's dates and a count-or-percent
- * toggle, then a bordered row of eight cells, all eight across on a wide
+ * toggle this browser remembers, then a bordered row of eight cells, all eight across on a wide
  * screen, four at `sm`, two below. Every type is a cell, at `0` when the
  * Organization has recorded none. Reads the synced tables through
  * `useActivityStrip`, so a cell moves when a write syncs.
@@ -68,7 +68,7 @@ export function ActivityStrip({
 	readonly timeZone: string;
 }) {
 	const activity = useActivityStrip(today, timeZone);
-	const [mode, setMode] = useState<ChangeMode>('count');
+	const [mode, setMode] = useActivityStripChangeMode();
 	return (
 		<section className="grid gap-2">
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">

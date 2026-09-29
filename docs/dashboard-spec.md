@@ -144,8 +144,9 @@ tone for up and the `warning` tone for down, which read a rise as good and a
 fall as bad; neither is, since a dry week drops inspections and a storm raises
 service requests. The toggle restates every cell as a count, the difference, or as a
 percentage of the 7 days before, rounded to whole points; a rise from a prior
-of zero has no base and reads `from 0`. The toggle is page state and starts on
-the count.
+of zero has no base and reads `from 0`. The toggle is remembered per browser,
+so a person who reads percentages picks `%` once rather than on every visit; it
+starts on the count where nothing is stored or the browser blocks storage.
 
 The window is the 7 days ending today in the Organization's zone and the prior
 window is the 7 before it. The client computes both from the same `today` the
