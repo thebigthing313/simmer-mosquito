@@ -5,7 +5,7 @@
  * because 365 slots at a 600px plot width leave no room for one; Monthly plots twelve
  * groups of two bars, the picked month's year in the period role beside the
  * year before in the comparison role; Annual plots one bar per year over
- * the whole history. Every form paints its roles through
+ * at most ten years. Every form paints its roles through
  * the chart's own `ChartConfig` so the marks read `var(--color-period)` and
  * `check:map-palette` has no literal to refuse. `docs/today-spec.md` and
  * `docs/monthly-spec.md`, "The chart", and `docs/web-components.md` for the
@@ -355,9 +355,9 @@ function MonthsBars({
 // --- Annual: the years ---------------------------------------------------------
 
 /**
- * A single-series bar over every year from `earliest`'s to the current one,
- * the picked year marked with the dashed line when the series holds it, the
- * year per x tick thinned by Recharts as the width demands. A bar opens its
+ * A single-series bar over the years the response's series carries, at most
+ * `OVERVIEW_TREND_YEARS` and always holding the picked year, which the dashed
+ * line marks, the year per x tick thinned by Recharts as the width demands. A bar opens its
  * own year.
  */
 function YearsBars({

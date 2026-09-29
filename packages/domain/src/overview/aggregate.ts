@@ -38,6 +38,7 @@ import {
 	overviewPeriodMonth,
 	overviewPeriodSpan,
 	overviewPeriodYear,
+	overviewTrendYears,
 	pad2,
 	parseCalendarDate,
 } from './period.js';
@@ -288,8 +289,9 @@ function ratioRow(
  * The periods the chart plots, whole and never in the future: on `day` every
  * day of the picked day's year through today when that is the current year;
  * on `month` the twelve months of the picked month's year and the twelve of
- * the year before; on `year` every year from `earliest`'s year to the current
- * year, so the picked year sits inside it.
+ * the year before; on `year` the years `overviewTrendYears` names, starting
+ * no earlier than `earliest`'s year unless the picked year is earlier still,
+ * so the picked year always sits inside it.
  */
 function seriesPeriodsFor(
 	grain: OverviewGrain,
@@ -304,7 +306,7 @@ function seriesPeriodsFor(
 		case 'month':
 			return monthSeries(year, currentOverviewPeriod('month', today));
 		case 'year':
-			return yearSeries(year, earliest, Number(currentOverviewPeriod('year', today)));
+			return yearSeries(year, earliest, today);
 	}
 }
 
@@ -330,10 +332,11 @@ function monthSeries(year: number, currentMonth: string): readonly string[] {
 	return periods;
 }
 
-function yearSeries(year: number, earliest: string | null, currentYear: number): readonly string[] {
-	const start = Math.min(year, earliest === null ? year : overviewPeriodYear(earliest));
+function yearSeries(year: number, earliest: string | null, today: string): readonly string[] {
+	const trend = overviewTrendYears(year, today);
+	const history = Math.min(year, earliest === null ? year : overviewPeriodYear(earliest));
 	const periods: string[] = [];
-	for (let y = start; y <= currentYear; y += 1) {
+	for (let y = Math.max(trend.from, history); y <= trend.to; y += 1) {
 		periods.push(`${y}`);
 	}
 	return periods;

@@ -549,7 +549,7 @@ strength, the alternative of the picked bar at full strength and the rest a
 step down not being taken. The period bar draws left of the comparison bar,
 the order the legend reads in. A bar click reads the group back by the index
 Recharts hands the handler, since the rectangle it hands is not the row.
-Annual's is one bar per year over the whole history, the current year a
+Annual's is one bar per year over at most ten years, the current year a
 partial year drawn whole beside full years, which the reference line and the
 table's caption are what say; the series never carries the cut, because
 cutting every earlier period would turn Annual into a year-to-date chart.
