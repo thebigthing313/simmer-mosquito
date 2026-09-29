@@ -24,7 +24,7 @@ export interface HabitatTileFilters extends RegionScopedTileFilters {
 	readonly habitatTypeIds?: readonly string[];
 	readonly tagIds?: readonly string[];
 	readonly search?: string;
-	/** Only untreated habitats; see `untreatedInspectionDateSql`. */
+	/** Only untreated habitats; see `untreatedHabitatSql`. */
 	readonly untreatedOnly?: boolean;
 }
 
