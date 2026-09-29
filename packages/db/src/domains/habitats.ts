@@ -23,7 +23,7 @@ export interface HabitatMvtTileFilters {
 	readonly regionIds?: readonly string[];
 	/** Case-insensitive substring match across habitat name + description. */
 	readonly search?: string;
-	/** Only untreated habitats; see {@link untreatedInspectionDateSql}. */
+	/** Only untreated habitats; see {@link untreatedHabitatSql}. */
 	readonly untreatedOnly?: boolean;
 }
 
@@ -37,8 +37,7 @@ export const UNTREATED_WINDOW_DAYS = 7;
 const HEAVY_DENSITIES = ['heavy', 'very_heavy'] as const;
 
 /**
- * The date of the inspection that leaves `habitats h` untreated, as a scalar
- * subquery, or null when the Habitat is not.
+ * Whether `habitats h` is untreated, as a predicate over `h`.
  *
  * An active Habitat is untreated while its most recent live inspection is
  * dated in the rolling {@link UNTREATED_WINDOW_DAYS} ending today in the
@@ -62,55 +61,74 @@ const HEAVY_DENSITIES = ['heavy', 'very_heavy'] as const;
  * week, so a heavy reading older than that has emerged and is no longer a
  * treatment this can prompt.
  *
- * A scalar subquery rather than a boolean: the map surface asks whether it is
- * null, and the Dashboard's banner used to take its `min` for the age of the
- * oldest. That banner is gone, because this runs once per live Habitat and
- * took 4.7 seconds on the production clone; the shape to fix before a second
- * reader takes it up is an index on `inspections (habitat_id, inspection_date
- * desc, created_at desc)` and a set-based rewrite that starts from the
- * inspections in the window. Today is `now()` in the organization's zone,
- * computed in SQL.
+ * The read starts from the organization's live inspections dated after the
+ * window opens and keeps the latest per Habitat, then asks the rest of the rule
+ * of that small set, and `h.id` is tested against the answer. That is the
+ * latest live inspection the rule names: a Habitat's latest reading is dated
+ * after the window opens exactly when some reading of it is, so a Habitat the
+ * scan never sees has nothing in the window. A reading dated after today is
+ * still in the scan and still wins the latest, so it shadows a heavy one
+ * before it the same way it always did.
+ *
+ * Every table is read inside the organization, which is what lets each lookup
+ * seek on the `(organization_id, habitat_id)` and `(organization_id,
+ * inspection_id)` indexes those tables already carry. A record names only
+ * records of its own organization, so the scope narrows nothing the rule
+ * counts.
+ *
+ * It was a subquery correlated on `h.id` until #1212, run once per live
+ * Habitat. On the production clone that was 4.7 seconds for 15,321 habitats,
+ * each run walking an index that could not seek on `habitat_id` alone; reading
+ * the window first is the organization's inspections for one week off
+ * `inspections_organization_date_idx`, about 1.5 ms. Today is `now()` in the
+ * organization's zone, computed in SQL.
  */
-export function untreatedInspectionDateSql(timeZone: string): RawBuilder<unknown> {
-	const today = sql.raw(localDateSql('now()', assertIanaTimeZone(timeZone)));
-	return sql`(
-		select latest.inspection_date
-		from (
-			select i.id, i.inspection_date, i.density
-			from inspections i
-			where i.habitat_id = h.id
-				and i.deleted_at is null
-			order by i.inspection_date desc, i.created_at desc
-			limit 1
-		) latest
-		where h.is_active = true
-			and latest.inspection_date > ${today} - ${UNTREATED_WINDOW_DAYS}::int
-			and latest.inspection_date <= ${today}
-			and latest.density = any(${[...HEAVY_DENSITIES]}::larval_density[])
-			and not exists (
-				select 1 from applications a
-				where a.deleted_at is null
-					and a.application_date >= latest.inspection_date
-					and (a.habitat_id = h.id or a.inspection_id = latest.id)
-			)
-			and not exists (
-				select 1 from source_reductions sr
-				where sr.deleted_at is null
-					and sr.source_reduction_date >= latest.inspection_date
-					and (sr.habitat_id = h.id or sr.inspection_id = latest.id)
-			)
-			and not exists (
-				select 1 from biocontrol_actions b
-				where b.deleted_at is null
-					and b.biocontrol_date >= latest.inspection_date
-					and (b.habitat_id = h.id or b.inspection_id = latest.id)
-			)
-			and not exists (
-				select 1 from requested_control_actions rca
-				where rca.deleted_at is null
-					and rca.resolved_at is null
-					and rca.habitat_id = h.id
-			)
+export function untreatedHabitatSql(context: MapReadContext): RawBuilder<boolean> {
+	const today = sql.raw(localDateSql('now()', assertIanaTimeZone(context.timeZone)));
+	return sql<boolean>`(
+		h.is_active = true
+		and h.id in (
+			select latest.habitat_id
+			from (
+				select distinct on (i.habitat_id) i.id, i.habitat_id, i.inspection_date, i.density
+				from inspections i
+				where i.organization_id = ${context.organizationId}
+					and i.deleted_at is null
+					and i.habitat_id is not null
+					and i.inspection_date > ${today} - ${UNTREATED_WINDOW_DAYS}::int
+				order by i.habitat_id, i.inspection_date desc, i.created_at desc
+			) latest
+			where latest.inspection_date <= ${today}
+				and latest.density = any(${[...HEAVY_DENSITIES]}::larval_density[])
+				and not exists (
+					select 1 from applications a
+					where a.organization_id = ${context.organizationId}
+						and a.deleted_at is null
+						and a.application_date >= latest.inspection_date
+						and (a.habitat_id = latest.habitat_id or a.inspection_id = latest.id)
+				)
+				and not exists (
+					select 1 from source_reductions sr
+					where sr.organization_id = ${context.organizationId}
+						and sr.deleted_at is null
+						and sr.source_reduction_date >= latest.inspection_date
+						and (sr.habitat_id = latest.habitat_id or sr.inspection_id = latest.id)
+				)
+				and not exists (
+					select 1 from biocontrol_actions b
+					where b.organization_id = ${context.organizationId}
+						and b.deleted_at is null
+						and b.biocontrol_date >= latest.inspection_date
+						and (b.habitat_id = latest.habitat_id or b.inspection_id = latest.id)
+				)
+				and not exists (
+					select 1 from requested_control_actions rca
+					where rca.organization_id = ${context.organizationId}
+						and rca.deleted_at is null
+						and rca.resolved_at is null
+						and rca.habitat_id = latest.habitat_id
+				)
+		)
 	)`;
 }
 
@@ -346,7 +364,7 @@ function habitatFilterWhere(
 	const whereClauses: RawBuilder<boolean>[] = [];
 
 	if (filters?.untreatedOnly === true) {
-		whereClauses.push(sql<boolean>`${untreatedInspectionDateSql(context.timeZone)} is not null`);
+		whereClauses.push(untreatedHabitatSql(context));
 	}
 
 	if (filters?.isActive !== undefined) {
