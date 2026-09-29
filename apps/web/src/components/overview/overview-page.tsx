@@ -34,6 +34,7 @@ import { useOverview } from '../../hooks/overview/use-overview';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../lib/local-date';
 import { OverviewChart, type OverviewChartSeries } from './overview-chart';
+import { OverviewChartZoom } from './overview-chart-zoom';
 import {
 	drawsTrend,
 	OVERVIEW_LABELS,
@@ -208,6 +209,15 @@ function TrendSection({
 			<div className={TREND_GRID}>
 				{charts.map((chart) => (
 					<Panel
+						actions={
+							<OverviewChartZoom
+								grain={grain}
+								onOpenPeriod={onOpenPeriod}
+								period={period}
+								series={chart.series}
+								title={chart.title}
+							/>
+						}
 						icon={<ChartIcon aria-hidden="true" className="size-4" />}
 						key={chart.key}
 						title={chart.title}

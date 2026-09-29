@@ -153,6 +153,10 @@ describe('the Today page', () => {
 		expect(screen.getByRole('heading', { name: 'Mosquitoes per collection' })).toBeTruthy();
 		expect(screen.queryByRole('heading', { name: 'Biocontrol Actions' })).toBeNull();
 		expect(screen.queryByRole('heading', { name: 'Outreach Actions' })).toBeNull();
+		// Each chart panel carries its own zoom, named for the chart it opens.
+		expect(screen.getByRole('button', { name: 'Zoom Inspections' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Zoom Mosquitoes per collection' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Zoom Biocontrol Actions' })).toBeNull();
 	});
 
 	// A type the Organization has recorded, but not once this year, keeps its
