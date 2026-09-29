@@ -244,21 +244,18 @@ describe('the series', () => {
 		expect(series.at(-1)).toEqual({ period: '2026-09', value: 8 });
 	});
 
-	it('runs from the earliest year to the current year on the year grain', () => {
+	it('runs the ten years ending at the current year when the picked year is inside them', () => {
 		const response = read(
 			'year',
 			'2020',
 			'2026-09-21',
-			{ collections: [day('2014-08-01', 2, [40, 2]), day('2026-08-01', 1, [5, 1])] },
+			{ collections: [day('2014-08-01', 2, [40, 2]), day('2017-08-01', 3, [60, 3])] },
 			{ collections: '2014-08-01', inspections: '2019-04-01' },
 		);
 
 		expect(response.earliest).toBe('2014-08-01');
 		const series = row(response, 'collections').series;
 		expect(series.map((point) => point.period)).toEqual([
-			'2014',
-			'2015',
-			'2016',
 			'2017',
 			'2018',
 			'2019',
@@ -271,16 +268,71 @@ describe('the series', () => {
 			'2026',
 		]);
 		expect(response.ratios[1]?.series[0]).toEqual({
-			period: '2014',
-			numerator: 40,
-			denominator: 2,
+			period: '2017',
+			numerator: 60,
+			denominator: 3,
 		});
+	});
+
+	it('runs the ten years ending at the current year with the current year picked', () => {
+		const response = read('year', '2026', '2026-09-21', {}, { inspections: '1990-04-01' });
+
+		const series = row(response, 'inspections').series;
+		expect(series).toHaveLength(10);
+		expect(series[0]?.period).toBe('2017');
+		expect(series.at(-1)?.period).toBe('2026');
+	});
+
+	it('starts at the picked year and runs ten forward when it is more than nine years back', () => {
+		const response = read('year', '2010', '2026-09-21', {}, { inspections: '1990-04-01' });
+
+		const series = row(response, 'inspections').series;
+		expect(series.map((point) => point.period)).toEqual([
+			'2010',
+			'2011',
+			'2012',
+			'2013',
+			'2014',
+			'2015',
+			'2016',
+			'2017',
+			'2018',
+			'2019',
+		]);
+	});
+
+	it('starts at the earliest year when the history is shorter than ten years', () => {
+		const response = read('year', '2026', '2026-09-21', {}, { inspections: '2023-04-01' });
+
+		expect(row(response, 'inspections').series.map((point) => point.period)).toEqual([
+			'2023',
+			'2024',
+			'2025',
+			'2026',
+		]);
 	});
 
 	it('starts at the picked year when it is before the earliest record', () => {
 		const response = read('year', '2010', '2026-09-21', {}, { inspections: '2015-01-01' });
 
-		expect(row(response, 'inspections').series[0]?.period).toBe('2010');
+		const series = row(response, 'inspections').series;
+		expect(series[0]?.period).toBe('2010');
+		expect(series.at(-1)?.period).toBe('2019');
+	});
+
+	// The columns read the same whatever the chart draws: the average still
+	// reaches five years back from a year the chart window starts at.
+	it('keeps the columns when the chart window starts at the picked year', () => {
+		const response = read('year', '2010', '2026-09-21', {
+			inspections: [day('2005-03-01', 2), day('2009-03-01', 4), day('2010-03-01', 7)],
+		});
+
+		expect(windows(response.columns)).toEqual([
+			['2010-01-01', '2010-12-31'],
+			['2009-01-01', '2009-12-31'],
+			[2005, 2009],
+		]);
+		expect(row(response, 'inspections')).toMatchObject({ values: [7, 4, 3], averageYears: 2 });
 	});
 });
 

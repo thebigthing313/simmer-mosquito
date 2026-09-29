@@ -214,19 +214,40 @@ export function isPartialOverviewPeriod(
 export const OVERVIEW_AVERAGE_YEARS = 5;
 
 /**
+ * How many years an Annual trend chart draws at most. Production's history
+ * reaches back decades, and one bar per year over all of it leaves the recent
+ * years, the ones a person compares, a thin slice of the plot.
+ */
+export const OVERVIEW_TREND_YEARS = 10;
+
+/**
+ * The years an Annual trend chart spans, before the history clips its start:
+ * the ten ending at the current year, or, for a picked year older than that,
+ * the ten starting at it, so the picked year's marker is always on the chart.
+ */
+export function overviewTrendYears(
+	year: number,
+	today: string,
+): { readonly from: number; readonly to: number } {
+	const currentYear = overviewPeriodYear(today);
+	const from = Math.min(year, currentYear - OVERVIEW_TREND_YEARS + 1);
+	return { from, to: Math.min(from + OVERVIEW_TREND_YEARS - 1, currentYear) };
+}
+
+/**
  * The daily rows the reader has to fetch for one read: the qualifying-year
  * test, every column and the series in one pass. On `month` the lower bound
  * is Jan 1 five years before the picked month's year; on `day` it is Jan 1
  * of the picked day's year, because a day has no year-back columns and the
- * series is the year; on `year` there is none, because the series is the
- * whole history. The upper bound is the series' end, which never passes
- * today.
+ * series is the year; on `year` it is Jan 1 of whichever starts first, the
+ * trend chart's years or the average column's. The upper bound is the
+ * series' end, which never passes today.
  */
 export function overviewScanWindow(
 	grain: OverviewGrain,
 	period: string,
 	today: string,
-): { readonly from: string | null; readonly to: string } {
+): { readonly from: string; readonly to: string } {
 	const year = overviewPeriodYear(period);
 	switch (grain) {
 		case 'day':
@@ -236,8 +257,13 @@ export function overviewScanWindow(
 				from: `${year - OVERVIEW_AVERAGE_YEARS}-01-01`,
 				to: minDate(`${year}-12-31`, today),
 			};
-		case 'year':
-			return { from: null, to: today };
+		case 'year': {
+			const trend = overviewTrendYears(year, today);
+			return {
+				from: `${Math.min(trend.from, year - OVERVIEW_AVERAGE_YEARS)}-01-01`,
+				to: minDate(`${trend.to}-12-31`, today),
+			};
+		}
 	}
 }
 

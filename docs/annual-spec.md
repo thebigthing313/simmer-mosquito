@@ -69,9 +69,13 @@ off the response's `columns`.
 
 ## The chart
 
-A **single-series bar**, one hue, every year from `earliest`'s year to the
-current year, the whole history, so the picked year sits inside it and 37
-bars for service requests is fine at the mark spec's 24px cap. Marks as on
+A **single-series bar**, one hue, at most `OVERVIEW_TREND_YEARS` (10) years
+(#1253): the ten ending at the current year, or, for a picked year older than
+that, the picked year and the nine after it, so the picked year is always on
+the chart. The series starts no earlier than `earliest`'s year unless the
+picked year is earlier still. Production's history reaches back decades, and
+one bar per year over all of it left the recent years a thin slice of the
+plot. The year picker still offers every year back to `earliest`. Marks as on
 Monthly: `maxBarSize` 24, a 4px radius on the data end and a square baseline,
 a 2px gap, no stroke, one y axis at clean ticks, a `CartesianGrid` horizontal
 only, the year per x tick thinned by Recharts as the width demands. The

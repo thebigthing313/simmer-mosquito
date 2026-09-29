@@ -419,9 +419,10 @@ The series never holds a future period. Its span per grain: on `day`, every
 day of the picked day's calendar year, through today when that is the current
 year; on `month`, the twelve months of the picked month's year and the twelve
 of the year before, one flat ordered array of up to 24 points, the client
-splitting by year off the period string; on `year`, every year from
-`earliest`'s year to the current year, the whole history, so the picked year
-sits inside it.
+splitting by year off the period string; on `year`, the years
+`overviewTrendYears` names, at most `OVERVIEW_TREND_YEARS` (10) ending at the
+current year or starting at an older picked year, clipped to start no earlier
+than `earliest`'s year, so the picked year sits inside it (#1253).
 
 ### The reader
 
@@ -442,9 +443,11 @@ The scan's lower bound on `month` is Jan 1 five years before the picked
 month's year, and on `day` it is Jan 1 of the picked day's year, since a day
 has no year-back columns and the series is the year; the upper bound is the
 series' end, which covers the qualifying-year test, every column and the
-series in one pass, about 2,500 daily rows per type at most. On `year` there is no lower bound, because the
-series is the whole history, and 517k inspections group to about 5,800 daily
-rows. `earliest` and `recordedEver` come from a separate `min(date)` per type,
+series in one pass, about 2,500 daily rows per type at most. On `year` the
+lower bound is Jan 1 of whichever starts first, the chart's first year or the
+first year the average column reaches back to, and the upper bound is the
+chart's last year, through today; before #1253 there was no lower bound and
+517k inspections grouped to about 5,800 daily rows. `earliest` and `recordedEver` come from a separate `min(date)` per type,
 eight index reads in the same `Promise.all`: `recordedEver` is that type's min
 being non-null and `earliest` is the least of the eight. A union over the eight
 types was not taken, because each has its own predicate and join.
