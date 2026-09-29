@@ -564,6 +564,26 @@ point over a zero denominator is `null` with `connectNulls` off, so a day
 with no inspections is a gap and never `0%`. Clicking the plot opens the
 period under the pointer through `periodDestination` and `navigate`; there is
 no `Link` inside an SVG, so the destination is asserted on that function.
+The plot height is the caller's, `height="panel"` for the fixed `h-52` every
+trend panel draws at and `height="fill"` for the zoom overlay, which takes the
+parent's height and drops `ChartContainer`'s `aspect-video`, since with only a
+width set that class would size the plot off the overlay's width.
+
+#### OverviewChartZoom
+
+The zoom button in each trend panel's `actions` slot and the overlay it opens,
+one per panel, so the three pages get it through `TrendSection` with nothing
+per grain. It is the shadcn `Dialog` stretched to the viewport less a 1rem
+gutter (1.5rem from `sm`), and the gutter is deliberate: a dialog covering the
+whole viewport leaves no backdrop to click, and a click on the backdrop is one
+of the three ways out. Radix gives focus back to the trigger on every close,
+including the one a bar click causes. That bar click closes the overlay and
+then hands the period to the page's own `onOpenPeriod`, so the overlay and the
+panel open one destination. The open state is the component's and never the
+URL's, because a shared link should land on the page rather than on one chart
+of it. The axis is the panel's: Today keeps one tick per month in the overlay,
+drawn at `text-sm` rather than `text-xs`. Monthly's overlay carries its own
+`OverviewLegend`, because the one on the trend heading is behind the backdrop.
 
 #### OverviewTable
 
