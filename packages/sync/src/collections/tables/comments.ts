@@ -25,6 +25,9 @@ export const commentSchema = z.object({
 	updated_by_profile_id: z.uuid().nullable().default(null),
 	created_at: z.coerce.date().default(() => new Date()),
 	updated_at: z.coerce.date().default(() => new Date()),
+	// Set by `fieldWork.updateComment` alone, so a pin never reads as an edit.
+	edited_at: z.coerce.date().nullable().default(null),
+	edited_by_profile_id: z.uuid().nullable().default(null),
 });
 
 export type Comment = z.infer<typeof commentSchema>;

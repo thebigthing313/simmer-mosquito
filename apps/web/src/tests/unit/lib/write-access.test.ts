@@ -6,6 +6,7 @@ import {
 	canPlanWork,
 	canRemoveMember,
 	canWriteRecords,
+	commentControls,
 	hasAtLeastRole,
 	isBelowRole,
 	readOrgRole,
@@ -184,5 +185,69 @@ describe('canRemoveMember', () => {
 		expect(canRemoveMember(authWithRole('owner'), { id: 'membership-1', role: 'owner' })).toBe(
 			false,
 		);
+	});
+});
+
+describe('commentControls', () => {
+	// `authWithRole` is the shared snapshot's profile-1.
+	const now = new Date('2026-09-29T12:00:00.000Z');
+	const daysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+	const own = { commentedByProfileId: 'profile-1', commentedAt: daysAgo(2) };
+	const theirs = { commentedByProfileId: 'profile-2', commentedAt: daysAgo(2) };
+	const everything = { pin: true, edit: true, remove: true };
+	const correctOnly = { pin: false, edit: true, remove: true };
+	const nothing = { pin: false, edit: false, remove: false };
+
+	// The author rule on the server: Manager and above pass it outright, on
+	// anybody's comment and however old it is.
+	it('gives Manager and above every control on every comment', () => {
+		for (const role of ['owner', 'admin', 'manager'] as const) {
+			const auth = authWithRole(role);
+			expect(commentControls(auth, own, now)).toEqual(everything);
+			expect(commentControls(auth, theirs, now)).toEqual(everything);
+			expect(commentControls(auth, { ...theirs, commentedAt: daysAgo(400) }, now)).toEqual(
+				everything,
+			);
+		}
+	});
+
+	it('gives a Collector edit and delete on their own comment and never pin', () => {
+		const auth = authWithRole('collector');
+		expect(commentControls(auth, own, now)).toEqual(correctOnly);
+		expect(commentControls(auth, theirs, now)).toEqual(nothing);
+	});
+
+	// `isWithinCorrectionWindow` in `command-ownership.ts` counts elapsed days and
+	// admits exactly thirty.
+	it("closes a Collector's own comment when the 30-day window does", () => {
+		const auth = authWithRole('collector');
+		const atTheEdge = { ...own, commentedAt: daysAgo(30) };
+		const pastIt = { ...own, commentedAt: new Date(daysAgo(30).getTime() - 60_000) };
+		expect(commentControls(auth, atTheEdge, now)).toEqual(correctOnly);
+		expect(commentControls(auth, pastIt, now)).toEqual(nothing);
+	});
+
+	it('closes a comment whose time cannot be read, rather than opening it', () => {
+		const auth = authWithRole('collector');
+		expect(commentControls(auth, { ...own, commentedAt: new Date(Number.NaN) }, now)).toEqual(
+			nothing,
+		);
+	});
+
+	it("gives a Viewer nothing, on their own comment or anybody else's", () => {
+		const auth = authWithRole('viewer');
+		expect(commentControls(auth, own, now)).toEqual(nothing);
+		expect(commentControls(auth, theirs, now)).toEqual(nothing);
+	});
+
+	it('gives nothing while identity is unread', () => {
+		expect(commentControls(null, own, now)).toEqual(nothing);
+		const noProfile = signedInSnapshotWith({ localIdentity: { role: 'manager', profileId: null } });
+		expect(commentControls(noProfile, theirs, now)).toEqual(nothing);
+	});
+
+	it("does not read an unattributed comment as the signed-in Profile's own", () => {
+		const auth = authWithRole('collector');
+		expect(commentControls(auth, { ...own, commentedByProfileId: null }, now)).toEqual(nothing);
 	});
 });

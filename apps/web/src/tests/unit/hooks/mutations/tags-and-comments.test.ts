@@ -281,6 +281,15 @@ describe('a comment write', () => {
 		expect(Object.keys(lastChanges())).not.toContain('is_pinned');
 	});
 
+	it('marks the edit on the optimistic row, so the thread says so before the server answers', async () => {
+		const { result } = renderHook(() => useCommentMutations());
+
+		await result.current.edit(RECORD, 'Caller rang twice');
+
+		expect(lastChanges().edited_by_profile_id).toBe(PROFILE);
+		expect(lastChanges().edited_at).toBeInstanceOf(Date);
+	});
+
 	it('reads the pin for its direction rather than leaving the column to say it', async () => {
 		// A double toggle is then a refusal rather than a silent no-op, which is
 		// what the endpoint now requires.
@@ -293,6 +302,15 @@ describe('a comment write', () => {
 		await result.current.setPinned(RECORD, false);
 		expect(lastIntents()).toEqual(['fieldWork.unpinComment']);
 		expect(lastChanges().is_pinned).toBe(false);
+	});
+
+	it('does not mark a pin as an edit', async () => {
+		const { result } = renderHook(() => useCommentMutations());
+
+		await result.current.setPinned(RECORD, true);
+
+		expect(Object.keys(lastChanges())).not.toContain('edited_at');
+		expect(Object.keys(lastChanges())).not.toContain('edited_by_profile_id');
 	});
 
 	it('names the delete', async () => {

@@ -99,6 +99,10 @@ const CENTROID_FUNCTION = 'public.set_owned_centroid()';
  * - `created_by_profile_id` and `updated_by_profile_id` are who made the row and
  *   who last touched it, both resolved from the session. Every write that sets
  *   the second takes it from `actorProfileId`, never off a body.
+ * - `edited_at` and `edited_by_profile_id` are when a comment's text was last
+ *   corrected and by whom. `fieldWork.updateComment` stamps both from the
+ *   session, and a pin writes neither, which is the whole reason they are not
+ *   `updated_at` and `updated_by_profile_id` (#1251).
  * - `geom` is geometry, snapshotted from a domain location source. Geometry
  *   never syncs, so a body carries `locationSource` or `geometry` instead.
  *
@@ -130,6 +134,8 @@ const SERVER_OWNED = new Set([
 	'created_at',
 	'created_by_profile_id',
 	'deleted_at',
+	'edited_at',
+	'edited_by_profile_id',
 	'geom',
 	'organization_id',
 	'updated_at',

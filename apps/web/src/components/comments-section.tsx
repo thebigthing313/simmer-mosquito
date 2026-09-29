@@ -28,6 +28,7 @@ import { type CommentTarget, type RecordComment, useComments } from '../hooks/qu
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { errorMessageForSave } from '../lib/save-error';
+import { type CommentControls, commentControls } from '../lib/write-access';
 
 const CommentIcon = iconRegistry.actions.comment.icon;
 const PinIcon = iconRegistry.actions.pin.icon;
@@ -86,6 +87,9 @@ export function CommentsSection({
 	const { add, edit, setPinned, remove } = useCommentMutations();
 
 	const { pinned, unpinned } = partitionByPin(comments);
+	// One clock for the thread, read once, so every comment is judged against the
+	// same moment on the correction window.
+	const [now] = useState(() => new Date());
 
 	const [error, setError] = useState<string | null>(null);
 	// The id of the just-added comment, so only it plays the entrance animation
@@ -126,9 +130,8 @@ export function CommentsSection({
 		<CommentItem
 			key={comment.id}
 			authorName={authorName(comment.authorName)}
-			canPin={canComment}
 			comment={comment}
-			isAuthor={canComment && comment.commentedByProfileId === currentProfileId}
+			controls={commentControls(auth, comment, now)}
 			isEntering={comment.id === enteredId}
 			onDelete={handleDelete}
 			onEdit={handleEdit}
@@ -288,8 +291,7 @@ function CommentComposer({
 function CommentItem({
 	comment,
 	authorName,
-	isAuthor,
-	canPin,
+	controls,
 	isEntering,
 	onEdit,
 	onTogglePin,
@@ -298,8 +300,7 @@ function CommentItem({
 }: {
 	readonly comment: RecordComment;
 	readonly authorName: string;
-	readonly isAuthor: boolean;
-	readonly canPin: boolean;
+	readonly controls: CommentControls;
 	readonly isEntering: boolean;
 	readonly onEdit: (commentId: string, text: string) => Promise<void>;
 	readonly onTogglePin: (comment: RecordComment) => Promise<void>;
@@ -388,6 +389,14 @@ function CommentItem({
 					>
 						{relativeTime(comment.commentedAt, timeZone)}
 					</span>
+					{comment.editedAt === null ? null : (
+						<span
+							className="text-xs text-muted-foreground"
+							title={absoluteTime(comment.editedAt, timeZone)}
+						>
+							{editedLabel(comment)}
+						</span>
+					)}
 				</div>
 
 				{mode === 'edit' ? (
@@ -438,9 +447,9 @@ function CommentItem({
 				) : null}
 			</div>
 
-			{mode === 'view' && (canPin || isAuthor) ? (
+			{mode === 'view' && (controls.pin || controls.edit || controls.remove) ? (
 				<div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-md border border-border/60 bg-card opacity-0 transition-opacity duration-150 group-focus-within/comment:opacity-100 group-hover/comment:opacity-100 [@media(hover:none)]:opacity-100">
-					{canPin ? (
+					{controls.pin ? (
 						<Button
 							aria-label={comment.isPinned ? 'Unpin comment' : 'Pin comment'}
 							onClick={() => void onTogglePin(comment)}
@@ -451,28 +460,28 @@ function CommentItem({
 							{comment.isPinned ? <UnpinIcon aria-hidden="true" /> : <PinIcon aria-hidden="true" />}
 						</Button>
 					) : null}
-					{isAuthor ? (
-						<>
-							<Button
-								aria-label="Edit comment"
-								onClick={startEdit}
-								size="icon-xs"
-								title="Edit Comment"
-								variant="ghost"
-							>
-								<EditIcon aria-hidden="true" />
-							</Button>
-							<Button
-								aria-label="Delete comment"
-								className="text-muted-foreground hover:text-destructive"
-								onClick={() => setMode('confirm-delete')}
-								size="icon-xs"
-								title="Delete Comment"
-								variant="ghost"
-							>
-								<DeleteIcon aria-hidden="true" />
-							</Button>
-						</>
+					{controls.edit ? (
+						<Button
+							aria-label="Edit comment"
+							onClick={startEdit}
+							size="icon-xs"
+							title="Edit Comment"
+							variant="ghost"
+						>
+							<EditIcon aria-hidden="true" />
+						</Button>
+					) : null}
+					{controls.remove ? (
+						<Button
+							aria-label="Delete comment"
+							className="text-muted-foreground hover:text-destructive"
+							onClick={() => setMode('confirm-delete')}
+							size="icon-xs"
+							title="Delete Comment"
+							variant="ghost"
+						>
+							<DeleteIcon aria-hidden="true" />
+						</Button>
 					) : null}
 				</div>
 			) : null}
@@ -532,6 +541,22 @@ function partitionByPin(comments: readonly RecordComment[]): {
 function authorName(displayName: string | null): string {
 	const name = displayName?.trim();
 	return name && name.length > 0 ? name : 'Unknown';
+}
+
+/**
+ * The marker beside a corrected comment's time.
+ *
+ * `Edited` when the author corrected their own words, and the corrector's name
+ * when somebody else did, because a Manager can now change anybody's.
+ */
+function editedLabel(comment: RecordComment): string {
+	if (
+		comment.editedByProfileId === null ||
+		comment.editedByProfileId === comment.commentedByProfileId
+	) {
+		return 'Edited';
+	}
+	return `Edited by ${authorName(comment.editorName)}`;
 }
 
 function initialsFor(name: string | null): string {
