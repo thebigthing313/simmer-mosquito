@@ -998,6 +998,23 @@ a type the Organization had never recorded and the client hid the cell, which
 needed an existence check over the whole table, and a windowed read cannot
 answer "ever". Every type is a cell now, at `0` when there is nothing.
 
+#### useActivityStripChangeMode
+
+The strip's count-or-percent choice, kept in `localStorage` under
+`simmer.dashboard.activity-strip.change-mode`. It was `useState` inside
+`ActivityStrip` and started on the count on every visit, so a Manager who reads
+percentages picked `%` each time the page opened (#1213). Browser storage and
+nothing else: the choice is a convenience for the person at this screen, it does
+not belong in the Organization's settings, and a URL param would carry a display
+preference into every link that lands on the Dashboard. The key is named the
+way `explorer-camera.ts` and the key entry auto-save name theirs, a `simmer.`
+prefix and then the surface. The read runs in `useState`'s initializer, so the stored mode is there
+on first paint and the cells never flash the count first. Both the read and the
+write are guarded, because a private window or blocked site data throws on
+access; a failed read is the count and a failed write keeps the choice for the
+visit. Anything stored other than `percent` reads as the count, which is also
+what an older build or a hand edit gets.
+
 #### usePeopleToday
 
 `useDayActivity` for today, grouped by Profile through `peopleByRecords`. It
