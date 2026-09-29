@@ -73,6 +73,13 @@ values before a target's meaningful creation/date anchor when one exists.
 author, comment time, or pin state. Use `pinComment` and `unpinComment` for pin
 state changes.
 
+`updateComment` also stamps `edited_at` and `edited_by_profile_id` from the
+server clock and the acting Profile, and no other command writes them. They are
+what the thread's edited marker reads: `Edited` when the author corrected their
+own comment, `Edited by <name>` when a Manager or above corrected somebody
+else's. `updated_at` and `updated_by_profile_id` cannot carry this, because a pin
+or an unpin writes both (#1251).
+
 `deleteComment` soft-deletes comments. Comments are never hard-deleted by v1
 commands.
 
@@ -91,7 +98,7 @@ V1 comments are plain text only:
 V1 does not add:
 
 - system/generated comments
-- visible edit history
+- visible edit history beyond the last correction's time and author
 - edit reasons
 - delete reasons
 - attachments or photos
@@ -105,6 +112,10 @@ belongs to the actor's organization.
 
 Users may update or delete their own comments within a 30-day correction window.
 Manager-and-above may update or delete any comment in the organization.
+
+The web thread offers the same controls the server allows and no others:
+`commentControls` in `apps/web/src/lib/write-access.ts` is the one decision, and
+`CommentsSection` reads it for Pin, Edit and Delete on each comment.
 
 Pinning and unpinning comments is manager-and-above. Pinning changes the
 operational prominence of a note for everyone viewing the record, so it is

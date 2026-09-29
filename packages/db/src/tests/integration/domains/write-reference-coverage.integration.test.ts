@@ -200,7 +200,8 @@ async function columnsOf(db: Kysely<SimmerDatabase>, table: string): Promise<Rea
  *
  * - a parent with no `organization_id`, so there is no organization to check;
  * - a parent that is a catalog, gated by name at the writer with `is_active`;
- * - the three attribution columns, written from the session, never a payload;
+ * - the attribution columns, written from the session, never a payload, which
+ *   are the three every table carries and `comments.edited_by_profile_id`;
  * - the two weather tables, whose nullable `organization_id` this gate's
  *   predicate would read as "belongs to nobody, so refuse".
  */
@@ -215,6 +216,7 @@ describeDbIntegration('record reference registry coverage', () => {
 				'created_by_profile_id',
 				'updated_by_profile_id',
 				'deleted_by_profile_id',
+				'edited_by_profile_id',
 			]);
 			const nullableOrgParents = new Set(['weather_sources', 'weather_summaries']);
 

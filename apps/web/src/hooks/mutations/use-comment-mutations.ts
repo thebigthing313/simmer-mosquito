@@ -69,6 +69,8 @@ export function useCommentMutations(): CommentMutations {
 					// something this thread offers.
 					commented_at: now,
 					is_pinned: false,
+					edited_at: null,
+					edited_by_profile_id: null,
 					created_by_profile_id: actorProfileId,
 					updated_by_profile_id: actorProfileId,
 					created_at: now,
@@ -84,6 +86,7 @@ export function useCommentMutations(): CommentMutations {
 			throw new Error('Your profile is still loading.');
 		}
 
+		const now = optimisticStamp();
 		await settleWrite(
 			mutateCollection(comments(), {
 				operation: 'update',
@@ -92,7 +95,11 @@ export function useCommentMutations(): CommentMutations {
 				changes: {
 					comment_text: commentText,
 					updated_by_profile_id: actorProfileId,
-					updated_at: optimisticStamp(),
+					updated_at: now,
+					// The thread's edited marker, drawn before the server answers. Both are
+					// server-owned, so the request strips them and the server stamps its own.
+					edited_at: now,
+					edited_by_profile_id: actorProfileId,
 				},
 			}),
 		);

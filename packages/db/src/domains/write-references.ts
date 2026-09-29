@@ -114,9 +114,10 @@ export function referencedRecordTables(): readonly ReferencedRecordTable[] {
  * which `write-reference-coverage.integration.test.ts` asks Postgres to
  * confirm.
  *
- * The three attribution columns are deliberately absent. `created_by_profile_id`,
- * `updated_by_profile_id` and `deleted_by_profile_id` are written from the
- * session's `AuthContext`, never from a payload, so there is no id to doubt.
+ * The attribution columns are deliberately absent. `created_by_profile_id`,
+ * `updated_by_profile_id`, `deleted_by_profile_id` and the comment's
+ * `edited_by_profile_id` are written from the session's `AuthContext`, never
+ * from a payload, so there is no id to doubt.
  *
  * A column pointing at a catalog is absent too. Those are gated by name at the
  * writer, with the `is_active` rule #123 settled and the two documented
