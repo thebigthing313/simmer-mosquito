@@ -1,3 +1,4 @@
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { navDestination } from '../resolve-nav';
 import { useActiveShellLocation, useShell } from '../shell-context';
 import type { ShellNavItem } from '../types';
@@ -36,18 +37,19 @@ export function SecondarySidebarContent() {
 					<p className="mt-0.5 text-muted-foreground text-xs leading-snug">{domain.summary}</p>
 				) : null}
 			</div>
-			<nav
-				aria-label={domain.label}
-				className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 pt-1 pb-3"
-			>
-				{domain.groups.map((group) => (
-					<SecondarySidebarGroup
-						key={group.id}
-						group={group}
-						activeItemId={activeItemId}
-						onSelect={handleSelect}
-					/>
-				))}
+			<nav aria-label={domain.label} className="flex min-h-0 flex-1 flex-col">
+				<ScrollArea className="min-h-0 flex-1" type="auto">
+					<div className="flex flex-col gap-4 px-2 pt-1 pb-3">
+						{domain.groups.map((group) => (
+							<SecondarySidebarGroup
+								key={group.id}
+								group={group}
+								activeItemId={activeItemId}
+								onSelect={handleSelect}
+							/>
+						))}
+					</div>
+				</ScrollArea>
 			</nav>
 		</div>
 	);
