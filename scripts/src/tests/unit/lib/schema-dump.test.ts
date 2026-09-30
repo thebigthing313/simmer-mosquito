@@ -13,14 +13,348 @@ import { describe, expect, it } from 'vitest';
 import {
 	afterDbmate,
 	appliedVersions,
+	choosePgDump,
+	containerDumpArgs,
+	containerNameProblem,
+	containerNotice,
+	containerUrlProblem,
+	containerVersionProblem,
 	dumpedVersions,
+	dumpsCheckedInBytes,
 	findExecutable,
-	missingPgDumpMessage,
+	parseEnvFile,
+	pgDumpRefusal,
+	pgDumpVersion,
+	resolveDatabaseUrl,
 	rolledBackVersions,
 	staleDump,
 	staleDumpMessage,
+	urlArguments,
+	withPublicSearchPath,
 	writesDump,
 } from '../../../../lib/schema-dump.mjs';
+
+const COMPOSE_URL = 'postgres://postgres:postgres@127.0.0.1:55432/simmer_mosquito?sslmode=disable';
+
+describe('pgDumpVersion', () => {
+	it('reads the major and minor off what pg_dump --version prints', () => {
+		expect(pgDumpVersion('pg_dump (PostgreSQL) 17.5\n')).toEqual({ major: 17, minor: 5 });
+		expect(pgDumpVersion('pg_dump (PostgreSQL) 17.5 (Debian 17.5-1.pgdg110+1)\n')).toEqual({
+			major: 17,
+			minor: 5,
+		});
+		expect(pgDumpVersion('pg_dump (PostgreSQL) 18.0\r\n')).toEqual({ major: 18, minor: 0 });
+	});
+
+	it('reads no version out of a beta, an error or nothing', () => {
+		expect(pgDumpVersion('pg_dump (PostgreSQL) 18beta1\n')).toBeNull();
+		expect(
+			pgDumpVersion("'pg_dump' is not recognized as an internal or external command"),
+		).toBeNull();
+		expect(pgDumpVersion('')).toBeNull();
+	});
+});
+
+describe('dumpsCheckedInBytes', () => {
+	it('takes 17.0 to 17.5, the clients that wrote the checked-in dump', () => {
+		for (const minor of [0, 1, 4, 5]) {
+			expect(dumpsCheckedInBytes({ major: 17, minor })).toBe(true);
+		}
+	});
+
+	it('refuses 17.6 and later, which add the \\restrict lines, and 18', () => {
+		expect(dumpsCheckedInBytes({ major: 17, minor: 6 })).toBe(false);
+		expect(dumpsCheckedInBytes({ major: 17, minor: 11 })).toBe(false);
+		expect(dumpsCheckedInBytes({ major: 18, minor: 0 })).toBe(false);
+		expect(dumpsCheckedInBytes({ major: 18, minor: 6 })).toBe(false);
+	});
+
+	it('refuses 16, which aborts on a newer server, and a client with no version', () => {
+		expect(dumpsCheckedInBytes({ major: 16, minor: 15 })).toBe(false);
+		expect(dumpsCheckedInBytes(null)).toBe(false);
+	});
+});
+
+describe('withPublicSearchPath', () => {
+	it('adds search_path=public to a URL with a query', () => {
+		expect(withPublicSearchPath(COMPOSE_URL)).toBe(`${COMPOSE_URL}&search_path=public`);
+	});
+
+	it('adds it to a URL with no query', () => {
+		expect(withPublicSearchPath('postgres://u:p@127.0.0.1:55432/db')).toBe(
+			'postgres://u:p@127.0.0.1:55432/db?search_path=public',
+		);
+	});
+
+	it('leaves a URL that names its own search_path alone', () => {
+		const url = `${COMPOSE_URL}&search_path=public`;
+		expect(withPublicSearchPath(url)).toBe(url);
+		expect(withPublicSearchPath('postgres://h/db?search_path=app,public')).toBe(
+			'postgres://h/db?search_path=app,public',
+		);
+	});
+
+	it('keeps an escaped password as written', () => {
+		expect(withPublicSearchPath('postgres://u:p%40ss@h:1/db')).toBe(
+			'postgres://u:p%40ss@h:1/db?search_path=public',
+		);
+	});
+
+	it('leaves text that is not a URL alone rather than guessing', () => {
+		expect(withPublicSearchPath('not a url')).toBe('not a url');
+	});
+});
+
+describe('urlArguments', () => {
+	it('reads --url in both spellings and takes it out of the rest', () => {
+		expect(urlArguments(['--url', 'postgres://a', '--wait'])).toEqual({
+			url: 'postgres://a',
+			env: undefined,
+			envFiles: [],
+			rest: ['--wait'],
+		});
+		expect(urlArguments(['-u=postgres://a']).url).toBe('postgres://a');
+	});
+
+	it('reads --env and -e and takes them out of the rest', () => {
+		expect(urlArguments(['--env', 'DUMP_DATABASE_URL']).env).toBe('DUMP_DATABASE_URL');
+		expect(urlArguments(['-e', 'X', '--no-dump-schema'])).toEqual({
+			url: undefined,
+			env: 'X',
+			envFiles: [],
+			rest: ['--no-dump-schema'],
+		});
+	});
+
+	it('reads every --env-file and leaves them in the rest, since dbmate reads other variables there', () => {
+		expect(urlArguments(['--env-file', 'a.env', '--env-file=b.env'])).toEqual({
+			url: undefined,
+			env: undefined,
+			envFiles: ['a.env', 'b.env'],
+			rest: ['--env-file', 'a.env', '--env-file=b.env'],
+		});
+	});
+});
+
+describe('parseEnvFile', () => {
+	it('reads plain, exported, quoted and commented lines', () => {
+		expect(
+			parseEnvFile(
+				[
+					'# a comment',
+					'DATABASE_URL=postgres://a?x=1&y=2',
+					'export PORT=3000',
+					'QUOTED="a # not a comment"',
+					"SINGLE='b'",
+					'TRAILING=c # a comment',
+					'not a line',
+					'',
+				].join('\r\n'),
+			),
+		).toEqual({
+			DATABASE_URL: 'postgres://a?x=1&y=2',
+			PORT: '3000',
+			QUOTED: 'a # not a comment',
+			SINGLE: 'b',
+			TRAILING: 'c',
+		});
+	});
+});
+
+describe('resolveDatabaseUrl', () => {
+	const none = { url: undefined, env: undefined, processEnv: {}, files: [] };
+
+	it('takes --url first', () => {
+		expect(
+			resolveDatabaseUrl({ ...none, url: 'postgres://flag', processEnv: { DATABASE_URL: 'x' } }),
+		).toBe('postgres://flag');
+	});
+
+	it('reads DATABASE_URL from the process before any file, the way godotenv does', () => {
+		expect(
+			resolveDatabaseUrl({
+				...none,
+				processEnv: { DATABASE_URL: 'postgres://process' },
+				files: [{ DATABASE_URL: 'postgres://file' }],
+			}),
+		).toBe('postgres://process');
+	});
+
+	it('reads the variable --env names, from the first file that sets it', () => {
+		expect(
+			resolveDatabaseUrl({
+				...none,
+				env: 'DUMP_DATABASE_URL',
+				files: [{ DATABASE_URL: 'postgres://wrong' }, { DUMP_DATABASE_URL: 'postgres://second' }],
+			}),
+		).toBe('postgres://second');
+	});
+
+	it('finds nothing when nothing sets it', () => {
+		expect(resolveDatabaseUrl(none)).toBeNull();
+		expect(resolveDatabaseUrl({ ...none, processEnv: { DATABASE_URL: '' } })).toBeNull();
+	});
+});
+
+describe('containerUrlProblem', () => {
+	it('takes the compose URL on 127.0.0.1, localhost and ::1', () => {
+		expect(containerUrlProblem(COMPOSE_URL, 'win32')).toBeNull();
+		expect(containerUrlProblem('postgresql://u:p@localhost:55432/db', 'linux')).toBeNull();
+		expect(containerUrlProblem('postgres://u:p@[::1]:55432/db', 'linux')).toBeNull();
+	});
+
+	it('refuses a URL that reaches another server', () => {
+		expect(containerUrlProblem('postgres://u:p@db.example.com:5432/db', 'linux')).toContain(
+			'does not reach the compose Postgres',
+		);
+		expect(containerUrlProblem('postgres://u:p@127.0.0.1:5432/db', 'linux')).toContain(
+			'does not reach the compose Postgres',
+		);
+	});
+
+	it('refuses when there is no URL at all', () => {
+		expect(containerUrlProblem(null, 'linux')).toContain('no database URL');
+	});
+
+	it('refuses two query parameters besides search_path on Windows, where cmd.exe splits at &', () => {
+		const url = `${COMPOSE_URL}&application_name=x&search_path=public`;
+		expect(containerUrlProblem(url, 'win32')).toContain('sslmode, application_name');
+		expect(containerUrlProblem(url, 'linux')).toBeNull();
+		expect(containerUrlProblem(`${COMPOSE_URL}&search_path=public`, 'win32')).toBeNull();
+	});
+});
+
+describe('containerNameProblem', () => {
+	it('takes exactly one container', () => {
+		expect(containerNameProblem(['simmer-mosquito-postgres-1'])).toBeNull();
+	});
+
+	it('says why none or two are not one to use', () => {
+		expect(containerNameProblem(null)).toBe('docker did not answer');
+		expect(containerNameProblem([])).toContain('no running container publishes port 55432');
+		expect(containerNameProblem(['a', 'b'])).toContain(
+			'2 running containers publish port 55432, a, b',
+		);
+	});
+});
+
+describe('containerVersionProblem', () => {
+	it('takes the container at 17.5 and names any other version', () => {
+		expect(containerVersionProblem('pg', { major: 17, minor: 5 })).toBeNull();
+		expect(containerVersionProblem('pg', { major: 17, minor: 6 })).toBe('pg_dump in pg is 17.6');
+		expect(containerVersionProblem('pg', null)).toBe('pg_dump in pg names no version');
+	});
+});
+
+describe('containerDumpArgs', () => {
+	const flags = ['--format=plain', '--encoding=UTF8', '--schema-only', '--schema', 'public'];
+
+	it('points the URL dbmate passes at the server from inside the container', () => {
+		expect(containerDumpArgs([...flags, COMPOSE_URL])).toEqual([
+			...flags,
+			'postgres://postgres:postgres@127.0.0.1:5432/simmer_mosquito?sslmode=disable',
+		]);
+		expect(containerDumpArgs(['postgres://u@localhost:55432/db'])).toEqual([
+			'postgres://u@127.0.0.1:5432/db',
+		]);
+		expect(containerDumpArgs(['postgres://u:p@[::1]:55432/db'])).toEqual([
+			'postgres://u:p@127.0.0.1:5432/db',
+		]);
+	});
+
+	it('leaves --version, the flags and any other URL as dbmate wrote them', () => {
+		expect(containerDumpArgs(['--version'])).toEqual(['--version']);
+		expect(containerDumpArgs(['postgres://u@db.example.com:55432/db'])).toEqual([
+			'postgres://u@db.example.com:55432/db',
+		]);
+	});
+});
+
+describe('choosePgDump', () => {
+	const asked: string[] = [];
+	const base = {
+		command: 'up' as const,
+		local: null,
+		url: COMPOSE_URL,
+		platform: 'win32',
+		listContainers: () => {
+			asked.push('list');
+			return ['pg-1'];
+		},
+		containerVersion: (name: string) => {
+			asked.push(`version ${name}`);
+			return { major: 17, minor: 5 };
+		},
+	};
+	const tooNew = { path: '/usr/bin/pg_dump', version: { major: 17, minor: 6 } };
+
+	it('keeps a local 17.0 to 17.5 and asks docker nothing', () => {
+		asked.length = 0;
+		expect(
+			choosePgDump({
+				...base,
+				local: { path: '/usr/bin/pg_dump', version: { major: 17, minor: 2 } },
+			}),
+		).toEqual({ use: 'path' });
+		expect(asked).toEqual([]);
+	});
+
+	it('falls back to the container with no local pg_dump', () => {
+		asked.length = 0;
+		expect(choosePgDump(base)).toEqual({
+			use: 'container',
+			name: 'pg-1',
+			version: { major: 17, minor: 5 },
+			local: null,
+		});
+		expect(asked).toEqual(['list', 'version pg-1']);
+	});
+
+	it('falls back to the container over a local client that is too new', () => {
+		expect(choosePgDump({ ...base, local: tooNew })).toMatchObject({
+			use: 'container',
+			local: tooNew,
+		});
+	});
+
+	it('refuses a too-new client, naming its version, when the URL reaches another server', () => {
+		asked.length = 0;
+		const choice = choosePgDump({
+			...base,
+			local: tooNew,
+			url: 'postgres://u@db.example.com:5432/db',
+		});
+		expect(choice.refusal).toContain('pg_dump 17.6 at /usr/bin/pg_dump is not 17.0 to 17.5');
+		expect(choice.refusal).toContain('does not reach the compose Postgres');
+		expect(asked).toEqual([]);
+	});
+
+	it('refuses when no container publishes the port, or the one that does is too new', () => {
+		expect(choosePgDump({ ...base, listContainers: () => [] }).refusal).toContain(
+			'no running container publishes port 55432',
+		);
+		expect(
+			choosePgDump({ ...base, containerVersion: () => ({ major: 18, minor: 0 }) }).refusal,
+		).toContain('pg_dump in pg-1 is 18.0');
+	});
+});
+
+describe('containerNotice', () => {
+	it('names the container, its version and why the local client was passed over', () => {
+		expect(containerNotice({ name: 'pg-1', version: { major: 17, minor: 5 }, local: null })).toBe(
+			'Writing the dump with pg_dump 17.5 in pg-1, because no pg_dump is on the PATH.',
+		);
+		expect(
+			containerNotice({
+				name: 'pg-1',
+				version: { major: 17, minor: 5 },
+				local: { path: '/usr/bin/pg_dump', version: { major: 18, minor: 0 } },
+			}),
+		).toBe(
+			'Writing the dump with pg_dump 17.5 in pg-1, because pg_dump 18.0 at /usr/bin/pg_dump is not 17.0 to 17.5.',
+		);
+	});
+});
 
 const DUMP_TAIL = [
 	'--',
@@ -340,21 +674,53 @@ describe('findExecutable', () => {
 });
 
 describe('the refusals', () => {
+	const problem = 'no running container publishes port 55432';
+
 	it('names pg_dump, the file that would go stale, and how to get it', () => {
-		const message = missingPgDumpMessage('up');
-		expect(message).toContain('pg_dump');
+		const message = pgDumpRefusal({ command: 'up', local: null, problem });
+		expect(message).toContain('pg_dump is not on the PATH');
 		expect(message).toContain('packages/db/schema.sql');
 		expect(message).toContain('no migration was applied');
 		expect(message).toContain('`pnpm db:migrate`');
-		expect(message).toMatch(/PATH/);
+		expect(message).toContain(problem);
+		expect(message).toContain('docker compose up -d postgres');
 	});
 
 	it('says nothing was rolled back when the rollback is refused', () => {
-		const message = missingPgDumpMessage('rollback');
+		const message = pgDumpRefusal({ command: 'rollback', local: null, problem });
 		expect(message).toContain('nothing was rolled back');
 		expect(message).toContain('packages/db/schema.sql');
 		expect(message).toContain('`pnpm db:rollback`');
 		expect(message).not.toContain('no migration was applied');
+	});
+
+	it('names the version and the path of a pg_dump that is too new', () => {
+		const message = pgDumpRefusal({
+			command: 'up',
+			local: { path: 'C:\\pg\\18\\bin\\pg_dump.exe', version: { major: 18, minor: 6 } },
+			problem,
+		});
+		expect(message).toContain('pg_dump 18.6 at C:\\pg\\18\\bin\\pg_dump.exe is not 17.0 to 17.5');
+		expect(message).toContain('\\restrict');
+		expect(message).toContain('17.5 or older');
+		expect(message).not.toContain('not on the PATH');
+	});
+
+	it('says so when a pg_dump answers --version with no version', () => {
+		const message = pgDumpRefusal({
+			command: 'up',
+			local: { path: '/usr/bin/pg_dump', version: null },
+			problem,
+		});
+		expect(message).toContain(
+			'the pg_dump at /usr/bin/pg_dump, whose --version answer names no version,',
+		);
+	});
+
+	it('points the stale-dump fix at the wrapper, which adds search_path and picks the client', () => {
+		expect(staleDumpMessage({ rewritten: false, undumped: [], lingering: [] })).toContain(
+			'node scripts/db-migrate.mjs dump',
+		);
 	});
 
 	it('names each version the dump is missing', () => {

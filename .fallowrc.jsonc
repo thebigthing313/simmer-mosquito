@@ -54,7 +54,12 @@
 
 		// Loaded by path from `.changeset/config.json`, which is data rather than
 		// code, so nothing imports it and the graph cannot see the edge.
-		".changeset/changelog-simmer.mjs"
+		".changeset/changelog-simmer.mjs",
+
+		// The `pg_dump` shim dbmate runs when `db-migrate.mjs` falls back to the
+		// compose container's client. The wrapper names it in a `.cmd` it writes
+		// at run time, so no import or package script points at it.
+		"scripts/container-pg-dump.mjs"
 	],
 
 	// Vendored shadcn primitives: imported, but not ours to edit. Hidden rather
