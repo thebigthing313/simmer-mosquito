@@ -30,11 +30,16 @@
  *
  * The second half is the header itself: which items the `...` holds per state
  * and per role, that Start and Complete stay in it disabled when their
- * preconditions fail, that Delete is last and reaches the mission's write, and
- * that the back link, the button row and the danger-zone card are gone.
+ * preconditions fail, that Delete is last and leaves the page on Mission Not
+ * Found, and that the back link, the button row and the danger-zone card are
+ * gone. A
+ * delete the server answers with a question asks it from Mission Not Found,
+ * because the header that opened the delete has gone with the row (#1299).
  *
- * The last is the rail under the header (#1268): Stops, Comments and
- * Notifications, with the notifications inside their tab and nowhere below it.
+ * Then the rail under the header (#1268): Stops, Comments and Notifications,
+ * with the notifications inside their tab and nowhere below it. The last is
+ * Mission Not Found itself: its title, and the link back to the index, whose
+ * `href` the stand-in `Link` writes out.
  */
 
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -45,6 +50,7 @@ import type { MissionRecord } from '../../../../../hooks/queries/use-mission';
 import { recordNoun } from '../../../../../lib/record-nouns';
 import { preloadRouteComponent } from '../../explorer-route-harness';
 import {
+	acknowledgementRefusal,
 	choose,
 	chooseDelete,
 	chooseThroughDialog,
@@ -61,6 +67,10 @@ const page = vi.hoisted(() => ({
 	mission: null as MissionRecord | null,
 	/** Where the stops stand, which decides whether Start and Complete are enabled. */
 	counts: { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 } as MissionProgressCounts,
+	/** What redraws when the mission is taken away. */
+	listeners: new Set<() => void>(),
+	/** The flags each delete carried, in order. */
+	removals: [] as Readonly<Record<string, boolean>>[],
 }));
 
 vi.mock('sonner', async () => {
@@ -78,13 +88,22 @@ vi.mock('../../../../../hooks/use-auth-snapshot', async () => {
 	return authSnapshotStandIn();
 });
 
-vi.mock('../../../../../hooks/queries/use-mission', () => ({
-	useMission: () => ({
-		mission: page.mission ?? undefined,
-		isReady: true,
-		isError: false,
-	}),
-}));
+// Read through a store so a delete that takes the row away redraws the page,
+// the way the collection does for the real hook.
+vi.mock('../../../../../hooks/queries/use-mission', async () => {
+	const { useSyncExternalStore } = await import('react');
+	const subscribe = (listener: () => void) => {
+		page.listeners.add(listener);
+		return () => page.listeners.delete(listener);
+	};
+	return {
+		useMission: () => ({
+			mission: useSyncExternalStore(subscribe, () => page.mission) ?? undefined,
+			isReady: true,
+			isError: false,
+		}),
+	};
+});
 
 vi.mock('../../../../../hooks/operations/use-mission-stop-views', () => ({
 	useMissionStopViews: () => ({
@@ -96,13 +115,24 @@ vi.mock('../../../../../hooks/operations/use-mission-stop-views', () => ({
 
 vi.mock('../../../../../hooks/mutations/use-mission-mutations', async () => {
 	const { lifecycleWrite } = await import('../refusal-harness');
+	const recordRemove = lifecycleWrite('remove');
 	return {
 		useMissionMutations: () => ({
 			start: lifecycleWrite('start'),
 			complete: lifecycleWrite('complete'),
 			cancel: lifecycleWrite('cancel'),
 			reopen: lifecycleWrite('reopen'),
-			remove: lifecycleWrite('remove'),
+			// The real delete is optimistic, so the row leaves the collection the
+			// moment it is confirmed and before the server answers; the stand-in
+			// takes it off the page the same way, and leaves it off on a refusal.
+			remove: async (_id: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+				page.removals.push(acknowledgements);
+				page.mission = null;
+				for (const listener of page.listeners) {
+					listener();
+				}
+				await recordRemove();
+			},
 			moveStops: async () => {},
 			canWrite: true,
 		}),
@@ -142,6 +172,7 @@ beforeAll(async () => {
 beforeEach(() => {
 	resetRefusalHarness();
 	page.counts = { total: 0, completed: 0, skipped: 0, pending: 0, handled: 0 };
+	page.removals.length = 0;
 });
 
 afterEach(cleanup);
@@ -379,13 +410,58 @@ describe('the mission page header', () => {
 		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
 
-	it('deletes the mission from the last item', async () => {
+	it('deletes the mission from the last item and lands on Mission Not Found', async () => {
 		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
 		await renderPage(mission());
 
 		await chooseDelete('Delete mission', 'Delete Fog run?', 'Delete Mission');
 
 		await waitFor(() => expect(harness.writes).toEqual(['remove']));
+		expect(await screen.findByText('Mission Not Found')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Back to Missions' })).toBeTruthy();
+	});
+
+	// The route holds the delete's runner above the panel for this (#1267): the
+	// row goes the moment the delete is confirmed, the header and its dialog
+	// unmount with it, and the question the refusal asks has to be drawn from
+	// the page that is left.
+	it('asks the refusal question from Mission Not Found, and resends with the flag', async () => {
+		harness.refusal = acknowledgementRefusal('acknowledgedMissionItemDeletion');
+		page.counts = { total: 1, completed: 0, skipped: 0, pending: 1, handled: 0 };
+		await renderPage(mission());
+
+		await chooseDelete('Delete mission', 'Delete Fog run?', 'Delete Mission');
+
+		expect(await screen.findByRole('dialog', { name: 'Delete the stops?' })).toBeTruthy();
+		expect(screen.getByText('Mission Not Found')).toBeTruthy();
+		expect(harness.toastError).not.toHaveBeenCalled();
+
+		harness.refusal = null;
+		fireEvent.click(screen.getByRole('button', { name: 'Delete them' }));
+
+		await waitFor(() => expect(harness.writes).toEqual(['remove', 'remove']));
+		const withheld = {
+			acknowledgedActualActionDetach: false,
+			acknowledgedMissionItemDeletion: false,
+			acknowledgedNotificationDeletion: false,
+		};
+		expect(page.removals).toEqual([
+			withheld,
+			{ ...withheld, acknowledgedMissionItemDeletion: true },
+		]);
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(harness.toastError).not.toHaveBeenCalled();
+	});
+});
+
+describe('Mission Not Found', () => {
+	it('draws the title and a link back to the Missions index', async () => {
+		page.mission = null;
+		await renderRefusalPage(MissionDetail, { text: 'Mission Not Found' });
+
+		const back = screen.getByRole('link', { name: 'Back to Missions' });
+		expect(back.getAttribute('href')).toBe('/operations/missions');
+		expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull();
 	});
 });
 
