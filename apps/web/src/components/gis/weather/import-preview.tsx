@@ -1,4 +1,5 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -29,7 +30,11 @@ export function ImportPreview({ assessed }: { readonly assessed: readonly Assess
 
 	return (
 		<div className="grid gap-2">
-			<div className="overflow-x-auto rounded-md border border-border/40">
+			<ScrollArea
+				className="rounded-md border border-border/40"
+				orientation="horizontal"
+				type="auto"
+			>
 				<Table>
 					<TableHeader>
 						<TableRow className="hover:bg-transparent">
@@ -69,7 +74,7 @@ export function ImportPreview({ assessed }: { readonly assessed: readonly Assess
 						))}
 					</TableBody>
 				</Table>
-			</div>
+			</ScrollArea>
 			{assessed.length > shown.length ? (
 				<p className="m-0 text-muted-foreground text-xs">
 					Showing the first {shown.length} of {assessed.length.toLocaleString('en-US')} readings.

@@ -129,7 +129,7 @@ function ControlAssetTable({
 }) {
 	const config = controlAssetListConfigs[collectionKey];
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/40">
+		<ScrollArea className="rounded-md border border-border/40" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -169,7 +169,7 @@ function ControlAssetTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 

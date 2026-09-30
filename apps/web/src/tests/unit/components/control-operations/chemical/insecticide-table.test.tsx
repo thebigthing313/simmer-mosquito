@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { InsecticideCatalog } from '../../../../../components/control-operations/chemical/insecticide-catalog';
 import { InsecticideTable } from '../../../../../components/control-operations/chemical/insecticide-table';
 import type { InsecticideRecord } from '../../../../../hooks/queries/use-insecticide-records';
+import { expectSidewaysScroller } from '../../../sideways-scroller';
 
 // The drawer is stubbed so the test can read the product list it was handed
 // without opening a Radix sheet. The list is the whole point (#199).
@@ -91,5 +92,11 @@ describe('InsecticideTable', () => {
 		for (const list of drawerProducts) {
 			expect(list.map((item) => item.id)).toEqual(['a', 'r']);
 		}
+	});
+
+	it('scrolls sideways inside the styled scroll area', () => {
+		renderRetiredGroup();
+
+		expectSidewaysScroller(screen.getByRole('table'));
 	});
 });

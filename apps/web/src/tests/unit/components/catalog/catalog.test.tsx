@@ -14,6 +14,7 @@ import {
 } from '../../../../components/catalog';
 import { useCatalogDialogOpen } from '../../../../hooks/catalog/use-catalog-dialog-open';
 import { useCatalogSearch } from '../../../../hooks/catalog/use-catalog-search';
+import { expectSidewaysScroller } from '../../sideways-scroller';
 
 const Icon = iconRegistry.generic.component.icon;
 
@@ -109,7 +110,7 @@ describe('CatalogSection', () => {
 			</CatalogSection>,
 		);
 
-		expect(container.querySelector('.overflow-x-auto')).toBeTruthy();
+		expectSidewaysScroller(screen.getByRole('table'));
 		expect(container.querySelector('.overflow-hidden')).toBeNull();
 	});
 });

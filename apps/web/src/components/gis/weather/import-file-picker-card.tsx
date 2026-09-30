@@ -6,6 +6,7 @@ import {
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -63,7 +64,11 @@ function ColumnGuide() {
 				The first row names the columns. Case, spaces, punctuation and a bracketed unit are ignored,
 				so "Start Date" and "start_date" are the same heading.
 			</p>
-			<div className="overflow-x-auto rounded-md border border-border/40">
+			<ScrollArea
+				className="rounded-md border border-border/40"
+				orientation="horizontal"
+				type="auto"
+			>
 				<Table>
 					<TableHeader>
 						<TableRow className="hover:bg-transparent">
@@ -80,7 +85,7 @@ function ColumnGuide() {
 						))}
 					</TableBody>
 				</Table>
-			</div>
+			</ScrollArea>
 		</div>
 	);
 }

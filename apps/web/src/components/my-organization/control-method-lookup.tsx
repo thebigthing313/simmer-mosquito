@@ -111,7 +111,7 @@ function ControlMethodTable({
 }) {
 	const config = controlMethodListConfigs[collectionKey];
 	return (
-		<div className="overflow-x-auto rounded-md border border-border/40">
+		<ScrollArea className="rounded-md border border-border/40" orientation="horizontal" type="auto">
 			<Table>
 				<TableHeader>
 					<TableRow>
@@ -150,7 +150,7 @@ function ControlMethodTable({
 					))}
 				</TableBody>
 			</Table>
-		</div>
+		</ScrollArea>
 	);
 }
 
