@@ -32,10 +32,10 @@ export type DangerZoneCardProps = RecordDeleteProps;
  * spent a block at the foot of every record on an action wanted on almost no
  * visit, and repeated the impact list twice on the way to one decision.
  *
- * What is left are four surfaces with nowhere else to put it: the mission and
- * route detail pages and the assignment edit page, which are not on
- * `DetailPageShell`, and the notification registration panel, which is a drawer
- * beside a map rather than a page. Each keeps the card until it has a header
+ * What is left are three surfaces with nowhere else to put it: the route detail
+ * page and the assignment edit page, which are not on `DetailPageShell`, and
+ * the notification registration panel, which is a drawer beside a map rather
+ * than a page. The mission page moved its delete into the `...` in #1267. Each keeps the card until it has a header
  * that can hold the item.
  *
  * Hidden entirely for roles that cannot delete this kind of record, matching
