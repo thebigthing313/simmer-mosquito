@@ -31,8 +31,8 @@ import { formatRequestDate } from '../public-engagement-display';
 
 /**
  * The families this page asks the endpoint for: all four, since the endpoint's
- * default is the three operational ones and the Details and Comments tabs draw
- * the other requests around this one.
+ * default is the three operational ones and the page lists and draws the
+ * other requests around this one too.
  */
 const NEARBY_REQUEST_FAMILIES: readonly ActivityFamily[] = ACTIVITY_FAMILIES;
 
@@ -50,14 +50,10 @@ const NEARBY_REQUEST_CATEGORIES: readonly NearbyCategory[] = ACTIVITY_CATEGORIES
 );
 
 /**
- * The page's grouping of those kinds: three family tabs listing the
- * operational records, and the other service requests, which the map draws
- * under Details and Comments and no tab lists.
+ * The page's grouping of those kinds: three families of operational records
+ * and the other service requests, each listed on a tab of its own.
  */
-export type NearbyFamily = NearbyTabFamily | 'publicEngagement';
-
-/** The three families that are tabs on the page. */
-export type NearbyTabFamily = 'infrastructure' | 'surveillance' | 'control';
+export type NearbyFamily = 'infrastructure' | 'surveillance' | 'control' | 'publicEngagement';
 
 /**
  * One record near the request: the activity row for that record, less the two
@@ -110,15 +106,6 @@ export const NEARBY_FAMILY_LABEL: Readonly<Record<NearbyFamily, string>> = {
 	control: 'Control',
 	publicEngagement: recordNoun('serviceRequest').titleMany,
 };
-
-/** The three families in the order the tabs draw them. */
-export const NEARBY_FAMILIES: readonly {
-	readonly key: NearbyTabFamily;
-	readonly label: string;
-}[] = (['infrastructure', 'surveillance', 'control'] as const).map((key) => ({
-	key,
-	label: NEARBY_FAMILY_LABEL[key],
-}));
 
 /** How many nearby records fell in each family, for the count beside each tab. */
 export function countNearbyByFamily(
@@ -297,8 +284,8 @@ export function nearbyWindowLabel(
 
 /**
  * What the panel says it is showing, before and after the fetch lands. The
- * count is the three tab counts added up; the other requests in the response
- * are counted by no tab. The window runs on to the close, or to today while
+ * count is every record in the response, since each is listed on one tab. The
+ * window runs on to the close, or to today while
  * the request is open, so the sentence says which end won. A second sentence
  * says when the endpoint's nearest-first cap cut the read.
  */
@@ -307,7 +294,8 @@ export function nearbySummary(response: NearbyResponse | undefined): string {
 		return 'Records around this request, from your public-engagement settings.';
 	}
 	const counts = countNearbyByFamily(response.items);
-	const count = NEARBY_FAMILIES.reduce((sum, { key }) => sum + counts[key], 0);
+	const count =
+		counts.infrastructure + counts.surveillance + counts.control + counts.publicEngagement;
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
 	const window = nearbyWindowLabel(response);
 	const summary = `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;

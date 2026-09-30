@@ -478,11 +478,12 @@ describe('nearbySummary', () => {
 		);
 	});
 
-	// The other requests are in the response for the map, and no tab lists them.
-	it('leaves the other requests out of the count', () => {
+	// Every record in the response is listed by one tab since the other
+	// requests got theirs (#1264), so the count is all of them.
+	it('counts the other requests with the rest', () => {
 		expect(
 			nearbySummary(response({ items: [...ITEMS, item('request', 'serviceRequest', 60)] })),
-		).toBe('5 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.');
+		).toBe('6 records within 0.25 mi, Aug 1, 2026–Aug 29, 2026.');
 	});
 
 	it('counts one record in the singular and none as No', () => {

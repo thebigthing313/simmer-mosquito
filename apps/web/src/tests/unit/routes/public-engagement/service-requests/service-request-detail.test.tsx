@@ -12,7 +12,7 @@
  * dialog and hands the mutation the reason, that Delete is last and opens the
  * delete dialog, that the pencil and the menu hide below the manager floor, and
  * that none of the retired controls are drawn. The second half is the tabs
- * under it (#1089). Five sit in the product's strip, and the active one is
+ * under it (#1089). Six sit in the product's strip, and the active one is
  * read from and written to `?tab=`. Details holds the record and Comments the
  * thread. Each family tab lists its family's nearby records as the results
  * rail's own rows (#1087), with the distance in its slot. A row click hands
@@ -21,6 +21,7 @@
  * in for the bespoke ones the page drew. Details and Comments hand the map the
  * other service requests in the radius and window instead, and a pin click
  * there opens the service request map card, which is the third part (#1090).
+ * The Service Requests tab lists those same requests as rows (#1264).
  *
  * What is faked is what `write-attribution.test.tsx` fakes, for the reasons its
  * docblock gives: the route module's `Route` hands back the params a match
@@ -451,11 +452,12 @@ function activeTab(): string | undefined {
 }
 
 describe('the tabs on the service request detail page', () => {
-	it('draws the five tabs in the strip, with a count on each family that has records', async () => {
+	it('draws the six tabs in the strip, with a count on each nearby tab that has records', async () => {
 		harness.nearby = [
 			nearbyItem({ id: 'habitat-1', category: 'habitat', label: 'Elm St basin' }),
 			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' }),
 			nearbyItem({ id: 'inspection-2', placeName: 'Oak St basin' }),
+			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
 		];
 		await renderPage();
 
@@ -465,6 +467,7 @@ describe('the tabs on the service request detail page', () => {
 				'Infrastructure1',
 				'Surveillance2',
 				'Control',
+				'Service Requests1',
 				'Comments',
 			]),
 		);
@@ -509,6 +512,13 @@ describe('the tabs on the service request detail page', () => {
 		expect(activeTab()).toBe('Control');
 	});
 
+	it('lands on the Service Requests tab the URL names', async () => {
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		expect(activeTab()).toBe('Service Requests');
+	});
+
 	it('falls back to Details for a tab the URL misnames', async () => {
 		harness.search = { tab: 'nearby' };
 		await renderPage();
@@ -546,25 +556,6 @@ describe('the tabs on the service request detail page', () => {
 		await renderPage();
 
 		await waitFor(() => expect(mapRoles()).toEqual(['ring', 'center']));
-	});
-
-	// The requests are a map layer and not a list: the strip counts none of
-	// them and the column never names them.
-	it('lists the other requests nowhere and counts them on no tab', async () => {
-		harness.nearby = [
-			nearbyItem({ id: 'sr-2', category: 'serviceRequest', family: 'publicEngagement' }),
-		];
-		await renderPage();
-
-		await waitFor(() => expect(mapPinKeys()).toEqual(['serviceRequest:sr-2']));
-		expect(tabNames()).toEqual([
-			'Details',
-			'Infrastructure',
-			'Surveillance',
-			'Control',
-			'Comments',
-		]);
-		expect(screen.queryByRole('button', { name: /on the map$/ })).toBeNull();
 	});
 
 	// The outreach the same family carries is nobody's here: not a pin, not a row.
@@ -875,5 +866,114 @@ describe('the nearby list on a family tab', () => {
 		expect(screen.getByText('Could not load results')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
 		expect(screen.queryByText('Nothing Nearby')).toBeNull();
+	});
+});
+
+// The other requests in the radius and window, as a list of their own (#1264).
+describe('the nearby list on the Service Requests tab', () => {
+	function seedOtherRequests(): void {
+		seedRows(service_requests, [
+			{
+				id: 'sr-2',
+				organization_id: 'org-1',
+				display_name: 13,
+				intake_type: 'phone',
+				request_date: '2026-08-06',
+				details: 'Mosquitoes over the pool.',
+				contact_id: 'contact-1',
+				address_id: 'address-1',
+				received_by_profile_id: null,
+				closed_at: null,
+				lat: 30.001,
+				lng: -90.001,
+			},
+		]);
+	}
+
+	const OTHER_REQUESTS = [
+		nearbyItem({
+			id: 'sr-far',
+			category: 'serviceRequest',
+			family: 'publicEngagement',
+			label: '#14',
+			distanceMeters: 400,
+		}),
+		nearbyItem({
+			id: 'sr-2',
+			category: 'serviceRequest',
+			family: 'publicEngagement',
+			label: '#13',
+			distanceMeters: 40,
+		}),
+	];
+
+	it('lists the other requests nearest first, and no operational record', async () => {
+		harness.nearby = [
+			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin', distanceMeters: 10 }),
+			...OTHER_REQUESTS,
+		];
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		expect(await screen.findByRole('button', { name: 'Show #13 on the map' })).toBeTruthy();
+		expect(screen.getByLabelText('View details for #13')).toBeTruthy();
+		const distances = screen.getAllByText(/^\d+ m$/).map((node) => node.textContent);
+		expect(distances).toEqual(['40 m', '400 m']);
+		expect(
+			screen.getAllByRole('img', { name: recordNoun('serviceRequest').titleMany }),
+		).toHaveLength(2);
+		expect(screen.queryByRole('button', { name: 'Show Elm St basin on the map' })).toBeNull();
+	});
+
+	it('hands the map exactly the requests it lists', async () => {
+		harness.nearby = [
+			nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' }),
+			nearbyItem({ id: 'talk-1', category: 'outreach', family: 'publicEngagement' }),
+			...OTHER_REQUESTS,
+		];
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		await screen.findByRole('button', { name: 'Show #13 on the map' });
+		expect(mapPinKeys()).toEqual(['serviceRequest:sr-far', 'serviceRequest:sr-2']);
+		expect(mapPinFamilies()).toEqual(['publicEngagement', 'publicEngagement']);
+	});
+
+	it('selects the pin and opens the service request card from a row', async () => {
+		seedOtherRequests();
+		harness.nearby = OTHER_REQUESTS;
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		fireEvent.click(await screen.findByRole('button', { name: 'Show #13 on the map' }));
+		await waitFor(() => expect(harness.nearbyLayer?.selectedIds).toEqual(['serviceRequest:sr-2']));
+		expect(await screen.findByRole('heading', { name: '#13' })).toBeTruthy();
+		expect(screen.getByText('Mosquitoes over the pool.')).toBeTruthy();
+	});
+
+	it('selects the row the map click names', async () => {
+		harness.nearby = OTHER_REQUESTS;
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		await screen.findByRole('button', { name: 'Show #14 on the map' });
+		act(() => harness.nearbyLayer?.onSelectFeature?.('serviceRequest:sr-far'));
+
+		await waitFor(() =>
+			expect(
+				screen.getByRole('button', { name: 'Show #14 on the map' }).getAttribute('aria-pressed'),
+			).toBe('true'),
+		);
+	});
+
+	it("draws the rail's empty state, naming the requests, when none fell inside the radius", async () => {
+		harness.nearby = [nearbyItem({ id: 'inspection-1', placeName: 'Elm St basin' })];
+		harness.search = { tab: 'serviceRequests' };
+		await renderPage();
+
+		expect(await screen.findByText('Nothing Nearby')).toBeTruthy();
+		expect(
+			screen.getByText('No service requests fell within this radius and time window.'),
+		).toBeTruthy();
 	});
 });
