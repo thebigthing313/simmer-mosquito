@@ -1,6 +1,5 @@
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Avatar, AvatarFallback } from '@simmer-mosquito/ui-web/components/ui/avatar';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -30,6 +29,7 @@ import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { errorMessageForSave } from '../lib/save-error';
 import { type CommentControls, commentControls } from '../lib/write-access';
+import { LabelCount } from './label-count';
 
 const CommentIcon = iconRegistry.actions.comment.icon;
 const PinIcon = iconRegistry.actions.pin.icon;
@@ -147,19 +147,13 @@ export function CommentsSection({
 	return (
 		<Card className={cn('flex flex-col', className)} variant="surface">
 			<CardHeader padding="compact">
-				<div className="flex items-start justify-between gap-3">
-					<div className="grid gap-1">
-						<CardTitle className="flex items-center gap-2">
-							<CommentIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-							{title}
-						</CardTitle>
-						{description === undefined ? null : <CardDescription>{description}</CardDescription>}
-					</div>
-					{hasComments ? (
-						<Badge tone="neutral" variant="outline">
-							{comments.length}
-						</Badge>
-					) : null}
+				<div className="grid gap-1">
+					<CardTitle className="flex items-center gap-2">
+						<CommentIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+						{title}
+						<LabelCount count={comments.length} />
+					</CardTitle>
+					{description === undefined ? null : <CardDescription>{description}</CardDescription>}
 				</div>
 			</CardHeader>
 			<CardContent className="flex min-h-0 flex-1 flex-col gap-4" padding="compact">

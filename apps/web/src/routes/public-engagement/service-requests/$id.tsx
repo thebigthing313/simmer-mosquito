@@ -20,10 +20,12 @@ import { CollectionMapCard } from '../../../components/adult-surveillance/collec
 import { TrapMapCard } from '../../../components/adult-surveillance/trap-map-card';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { CommentCount } from '../../../components/comment-count';
 import { CommentsSection } from '../../../components/comments-section';
 import { ApplicationMapCard } from '../../../components/control-operations/application-map-card';
 import { BiocontrolMapCard } from '../../../components/control-operations/biocontrol-map-card';
 import { SourceReductionMapCard } from '../../../components/control-operations/source-reduction-map-card';
+import { LabelCount } from '../../../components/label-count';
 import { HabitatMapCard } from '../../../components/larval-surveillance/habitats/habitat-map-card';
 import { InspectionMapCard } from '../../../components/larval-surveillance/inspection-map-card';
 import { MapCanvas } from '../../../components/map';
@@ -184,6 +186,9 @@ function ServiceRequestDetailContent({
 		profiles.find((profile) => profile.id === request.receivedByProfileId)?.displayName ?? null;
 
 	const countsByFamily = countNearbyByFamily(nearby.data?.items ?? []);
+	// One target for the tab's count and the thread it opens, so the two read
+	// the same query.
+	const commentTarget = { type: 'serviceRequest', id: request.id } as const;
 
 	const selectTab = (value: string) => {
 		if (isServiceRequestTab(value)) {
@@ -214,7 +219,11 @@ function ServiceRequestDetailContent({
 								return (
 									<TabStripTab key={value} value={value}>
 										{SERVICE_REQUEST_TAB_LABEL[value]}
-										{family === null ? null : <TabCount count={countsByFamily[family]} />}
+										{family !== null ? (
+											<LabelCount count={countsByFamily[family]} />
+										) : value === 'comments' ? (
+											<CommentCount target={commentTarget} />
+										) : null}
 									</TabStripTab>
 								);
 							})}
@@ -251,7 +260,7 @@ function ServiceRequestDetailContent({
 
 					<TabsContent className={TAB_CONTENT_CLASS} value="comments">
 						<TabBody>
-							<CommentsSection target={{ type: 'serviceRequest', id: request.id }} />
+							<CommentsSection target={commentTarget} />
 						</TabBody>
 					</TabsContent>
 				</Tabs>
@@ -265,13 +274,6 @@ function ServiceRequestDetailContent({
  * the rail's or `TabBody`'s, is what scrolls rather than the tab.
  */
 const TAB_CONTENT_CLASS = 'flex min-h-0 flex-col';
-
-/** How many records a nearby tab lists, beside its label; nothing for none. */
-function TabCount({ count }: { readonly count: number }) {
-	return count === 0 ? null : (
-		<span className="text-muted-foreground text-xs tabular-nums">{count}</span>
-	);
-}
 
 /**
  * The scrolling body of a tab whose content is cards rather than a rail.

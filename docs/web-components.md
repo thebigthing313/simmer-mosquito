@@ -537,7 +537,10 @@ has to go on Source Reduction on Aug 4" inside a sentence (#676).
 #### WorklistTabs
 
 The stop list and the comment thread take turns in the one column beside the
-map rather than stacking two long scrolls in a narrow column.
+map rather than stacking two long scrolls in a narrow column. Each tab label
+carries its count, so the one that is closed still says how much is behind
+it; the Comments count is `useCommentCount`'s, for the reason that hook's
+heading gives.
 
 ### overview
 

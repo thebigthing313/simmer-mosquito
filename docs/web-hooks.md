@@ -1759,6 +1759,21 @@ One list with each Tag's lifecycle and relevance on it, rather than
 a question about both. `useLiveQuery` and not the suspense hook, so opening the
 dialog never suspends the header it opens from.
 
+#### useCommentCount
+
+A Comments tab on the service request page and on a worklist draws its count
+while the thread is closed, and Radix mounts only the open tab's content, so
+the count cannot come from `CommentsSection`. The hook runs `useComments`
+itself and returns the length, rather than a count-only query of its own: the
+label and the list it opens are then the same live query, so they agree on
+what counts (an unattributed comment, one whose author's Profile has not
+streamed) and move together on an add or a delete. The cost is the two
+`profiles` joins on a read that only needs a length, which is free because
+`profiles` is eager, and a second subscription to the same on-demand subset
+while the tab is open. `CommentCount` in `components/comment-count.tsx` is the
+label that reads it, and `LabelCount` beside it is the number every tab and
+the thread's heading draw, nothing at zero (#1265).
+
 ## apps/admin
 
 #### useInsideOrganization
