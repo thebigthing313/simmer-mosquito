@@ -12,6 +12,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { useId, useState } from 'react';
 import { useResetOnOpen } from '../../hooks/catalog/use-reset-on-open';
 import type { DuplicateRecord, MergeableRecordType } from '../../hooks/merge-candidate-view';
@@ -129,40 +130,43 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 				 * Scrolls on its own so the title and the acknowledgement stay put. A
 				 * set disagreeing about six fields is a tall dialog, and the control
 				 * that agrees to something irreversible must not be the part that
-				 * scrolls out of sight.
+				 * scrolls out of sight. The cap is on the viewport, because a capped
+				 * root would clip the body rather than scroll it.
 				 */}
-				<div className="grid max-h-[55vh] gap-4 overflow-y-auto pr-1 text-sm">
-					<RetiredList config={props.config} sources={props.sources} />
-					{rows.length === 0 ? null : (
-						<MergeRecordBuilder
+				<ScrollArea className="[&>[data-slot=scroll-area-viewport]]:max-h-[55vh]" type="auto">
+					<div className="grid gap-4 pr-3 text-sm">
+						<RetiredList config={props.config} sources={props.sources} />
+						{rows.length === 0 ? null : (
+							<MergeRecordBuilder
+								config={props.config}
+								onChange={(column, value) =>
+									setSelections((current) => ({ ...current, [column]: value }))
+								}
+								rows={rows}
+								selections={selections}
+								sources={props.sources}
+								target={props.target}
+							/>
+						)}
+						<EmptyFieldAlert config={props.config} problems={problems} />
+
+						{failure === null ? null : (
+							<Alert variant="destructive">
+								<AlertTitle>The merge did not run</AlertTitle>
+								<AlertDescription>{failure}</AlertDescription>
+							</Alert>
+						)}
+
+						<Acknowledgement
+							checked={acknowledged}
 							config={props.config}
-							onChange={(column, value) =>
-								setSelections((current) => ({ ...current, [column]: value }))
-							}
-							rows={rows}
-							selections={selections}
-							sources={props.sources}
-							target={props.target}
+							id={acknowledgementId}
+							onChange={setAcknowledged}
+							sourceCount={props.sources.length}
+							targetLabel={targetLabel}
 						/>
-					)}
-					<EmptyFieldAlert config={props.config} problems={problems} />
-
-					{failure === null ? null : (
-						<Alert variant="destructive">
-							<AlertTitle>The merge did not run</AlertTitle>
-							<AlertDescription>{failure}</AlertDescription>
-						</Alert>
-					)}
-
-					<Acknowledgement
-						checked={acknowledged}
-						config={props.config}
-						id={acknowledgementId}
-						onChange={setAcknowledged}
-						sourceCount={props.sources.length}
-						targetLabel={targetLabel}
-					/>
-				</div>
+					</div>
+				</ScrollArea>
 
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>

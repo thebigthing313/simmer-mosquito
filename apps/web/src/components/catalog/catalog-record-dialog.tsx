@@ -9,6 +9,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
 
@@ -59,7 +60,19 @@ export function CatalogRecordDialog({
 						onSubmit();
 					}}
 				>
-					<div className="grid min-h-0 flex-1 gap-3.5 overflow-y-auto px-6 py-4">{children}</div>
+					{/*
+					 * The dialog caps its height with `max-h` alone, so nothing above the
+					 * scroll area has a definite height for the viewport's `h-full` to
+					 * resolve against. The root and the viewport are flex items instead,
+					 * each free to shrink below its content, and the flex column hands the
+					 * viewport what the header and the actions leave.
+					 */}
+					<ScrollArea
+						className="flex min-h-0 flex-1 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
+						type="auto"
+					>
+						<div className="grid gap-3.5 px-6 py-4">{children}</div>
+					</ScrollArea>
 					<DialogFooter className="border-border/60 border-t px-6 py-4">{actions}</DialogFooter>
 				</form>
 			</DialogContent>

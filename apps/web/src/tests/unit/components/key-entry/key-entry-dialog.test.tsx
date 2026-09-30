@@ -353,3 +353,46 @@ describe('key entry dialog — presses', () => {
 		expect(onCommit).not.toHaveBeenCalled();
 	});
 });
+
+describe('key entry dialog — scrolling', () => {
+	it('scrolls the body, the key sheet and the tally each in a capped viewport', async () => {
+		setAutoSave(false);
+		renderDialog(vi.fn(async () => {}));
+		press('a');
+		await settle();
+
+		const body = viewportOf(screen.getByText('Keys'));
+		expect(capOf(body)).toBe('max-h-[calc(90vh-13rem)]');
+		expect(viewportOf(screen.getByRole('heading', { name: 'Key Entry' }))).toBeNull();
+		expect(viewportOf(screen.getByText('Undo last'))).toBeNull();
+
+		// The key sheet's row is the one drawing the key beside the species.
+		const sheetRow = screen
+			.getAllByText('Aedes aegypti', { selector: 'li span' })
+			.find((name) => name.closest('li')?.querySelector('kbd') !== null);
+		const sheet = sheetRow === undefined ? null : viewportOf(sheetRow);
+		expect(capOf(sheet)).toBe('max-h-96');
+		expect(body?.contains(sheet ?? null)).toBe(true);
+
+		const tally = viewportOf(screen.getByRole('button', { name: 'Remove one Aedes aegypti' }));
+		expect(capOf(tally)).toBe('max-h-64');
+		expect(body?.contains(tally ?? null)).toBe(true);
+	});
+});
+
+/** The Radix viewport a node scrolls inside, or null when it scrolls with the page. */
+function viewportOf(node: Element): Element | null {
+	return node.closest('[data-slot="scroll-area-viewport"]');
+}
+
+/**
+ * The max height a scroll area holds on its viewport. The cap sits on the root
+ * as a child selector, because a capped root would clip rather than scroll.
+ */
+function capOf(viewport: Element | null): string | undefined {
+	const prefix = '[&>[data-slot=scroll-area-viewport]]:';
+	return (viewport?.parentElement?.getAttribute('class') ?? '')
+		.split(/\s+/)
+		.find((name) => name.startsWith(`${prefix}max-h-`))
+		?.slice(prefix.length);
+}
