@@ -12,7 +12,8 @@ const INDICATOR_TOP = PRIMARY_LIST_PADDING_Y;
 /**
  * The bar on the rail's right edge marking the active domain. It is absolutely
  * positioned inside the icon list and slides on the Y axis as the active domain
- * changes; reduced-motion users get an instant move.
+ * changes; reduced-motion users get an instant move. The rail's scrollbar is
+ * inset by this bar's width, so a change to `w-[3px]` is a change there too.
  */
 export function PrimarySidebarActiveIndicator() {
 	const activeIndex = useActiveDomainIndex();
