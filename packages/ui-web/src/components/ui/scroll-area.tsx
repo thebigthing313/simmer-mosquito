@@ -6,6 +6,7 @@ function ScrollArea({
 	className,
 	children,
 	viewportRef,
+	orientation = 'vertical',
 	...props
 }: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
 	/**
@@ -18,11 +19,25 @@ function ScrollArea({
 	 * its rows sit still while the list moves under them.
 	 */
 	readonly viewportRef?: React.Ref<HTMLDivElement> | undefined;
+	/**
+	 * The axis the content scrolls along, and the one bar drawn for it.
+	 *
+	 * `horizontal` is for content wider than the viewport, such as a table with
+	 * more columns than fit. It keeps the table-sized content wrapper the
+	 * vertical default flattens, so the content can grow past the right edge
+	 * and the bar has something to scroll.
+	 */
+	readonly orientation?: 'vertical' | 'horizontal' | undefined;
 }) {
 	return (
 		<ScrollAreaPrimitive.Root
 			data-slot="scroll-area"
-			className={cn('relative', className)}
+			/*
+			 * `min-w-0` in the horizontal mode: a flex or grid item is otherwise as
+			 * wide as its content's min-content width, so content wider than the
+			 * column would widen the column rather than scroll inside it.
+			 */
+			className={cn('relative', orientation === 'horizontal' && 'min-w-0', className)}
 			{...props}
 		>
 			<ScrollAreaPrimitive.Viewport
@@ -36,15 +51,18 @@ function ScrollArea({
 				 * It was simply cut off: the result rails lost their status badge and
 				 * their detail chevron off the right edge, on every explorer.
 				 *
-				 * The table earns its keep only for a viewport that scrolls sideways, and
-				 * nothing here does. A future horizontal scroller re-enables it locally
-				 * rather than reverting this.
+				 * The table earns its keep only for a viewport that scrolls sideways, so
+				 * the horizontal mode leaves it alone: a block never grows wider than
+				 * the viewport, and the bar would have nothing to scroll (#1258).
 				 */
-				className="size-full rounded-[inherit] transition-[color,box-shadow] outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 [&>div]:!block"
+				className={cn(
+					'size-full rounded-[inherit] transition-[color,box-shadow] outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1',
+					orientation === 'vertical' && '[&>div]:!block',
+				)}
 			>
 				{children}
 			</ScrollAreaPrimitive.Viewport>
-			<ScrollBar />
+			<ScrollBar orientation={orientation} />
 			<ScrollAreaPrimitive.Corner />
 		</ScrollAreaPrimitive.Root>
 	);

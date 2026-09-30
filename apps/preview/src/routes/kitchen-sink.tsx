@@ -35,6 +35,7 @@ import {
 	NativeSelectOption,
 } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { Progress } from '@simmer-mosquito/ui-web/components/ui/progress';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
@@ -83,6 +84,11 @@ const buttonVariants = ['default', 'secondary', 'outline', 'ghost', 'destructive
 const badgeTones = ['success', 'warning', 'info', 'catalog', 'danger', 'neutral'] as const;
 /** Enough tabs to run past the column, which is the case the strip exists for. */
 const PREVIEW_SEASONS = ['2019', '2020', '2021', '2022', '2023', '2024', '2025', '2026'] as const;
+/** Enough traps to run past both a short list's height and a column's width. */
+const PREVIEW_TRAPS = Array.from(
+	{ length: 12 },
+	(_, index) => `BG Sentinel ${String(index + 1).padStart(2, '0')}`,
+);
 
 /**
  * The two series roles the period-in-review charts paint, named the way
@@ -378,6 +384,42 @@ function KitchenSinkPage() {
 					<Skeleton className="h-10 w-10 rounded-md" />
 					<Skeleton className="h-4 w-48" />
 					<Skeleton className="h-4 w-28" />
+				</div>
+			</section>
+
+			<section className="preview-section">
+				<div className="preview-section-header">
+					<div>
+						<p className="preview-eyebrow">Layout</p>
+						<h2>Scroll Area</h2>
+					</div>
+					<p>
+						Vertical by default, where a long row truncates instead of widening the list. Horizontal
+						for content wider than its column, which scrolls sideways under its own bar.
+					</p>
+				</div>
+				<div className="component-grid">
+					<ScrollArea className="h-40 rounded-md border">
+						<ul className="grid gap-1 p-3 text-sm">
+							{PREVIEW_TRAPS.map((trap) => (
+								<li className="flex min-w-0 items-center gap-2" key={trap}>
+									<span className="truncate">{trap}, checked weekly along the access road</span>
+									<Badge className="ml-auto shrink-0" tone="success" variant="outline">
+										Ready
+									</Badge>
+								</li>
+							))}
+						</ul>
+					</ScrollArea>
+					<ScrollArea className="rounded-md border" orientation="horizontal">
+						<div className="flex w-max gap-2 p-3">
+							{PREVIEW_TRAPS.map((trap) => (
+								<Badge key={trap} tone="neutral" variant="outline">
+									{trap}
+								</Badge>
+							))}
+						</div>
+					</ScrollArea>
 				</div>
 			</section>
 
