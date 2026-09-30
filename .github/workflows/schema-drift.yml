@@ -68,13 +68,15 @@ jobs:
     services:
       # The expected side. Matches Railway staging exactly (PostgreSQL 17.5,
       # PostGIS 3.5.2), so a version difference cannot be mistaken for drift.
+      # Pinned to the digest `docker-compose.yml` and `ci.yml` carry, PG_VERSION
+      # 17.5, so a rebuild of the `17-3.5` tag cannot move this side alone.
       #
       # Stock configuration, `max_locks_per_transaction` included. The migration
       # set is applied by dbmate, one file per transaction, so no single
       # transaction touches enough relations to need the lock table raised
       # (#312 is that problem, and it belongs to the parallel path).
       reference:
-        image: postgis/postgis:17-3.5
+        image: postgis/postgis:17-3.5@sha256:01a6a70e41e6c4467c8f55f6063555ed72db2d6662cd0d571040d42eadaeb6f6
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
