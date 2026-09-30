@@ -8,7 +8,9 @@
  * `data-slot`. That leaves two things to drift apart with nothing on screen to
  * say so: a regeneration that renames a slot, and a rule that stops naming one.
  * Each case below reads both, the slot off the component's source and the
- * selector off the stylesheet.
+ * selector off the stylesheet. `autocomplete.tsx` sits beside them and is the
+ * one exception: the registry has no autocomplete, so its slot is written by
+ * hand and the rule reaches it the same way.
  *
  * Read from source rather than rendered because the bar is a computed style,
  * and jsdom neither loads the stylesheet nor measures an overflow.
@@ -38,11 +40,10 @@ const SCROLLERS = [
 	{ module: 'context-menu.tsx', slot: 'context-menu-content' },
 	{ module: 'command.tsx', slot: 'command-list' },
 	{ module: 'combobox.tsx', slot: 'combobox-list' },
-	{
-		module: 'popover.tsx',
-		slot: 'popover-content',
-		selector: '[data-slot="popover-content"] > .overflow-y-auto',
-	},
+	// Hand-owned rather than generated: the registry has no autocomplete, so
+	// the slot is ours to add and the rule keys on it instead of on a class
+	// inside a popover (#1291).
+	{ module: 'autocomplete.tsx', slot: 'autocomplete-list' },
 	{ module: 'sheet.tsx', slot: 'sheet-content' },
 	{ module: 'drawer.tsx', slot: 'drawer-content' },
 	{ module: 'sidebar.tsx', slot: 'sidebar-content' },
@@ -81,4 +82,13 @@ describe('generated scrollers', () => {
 			expect(selectors).toContain(selector);
 		});
 	}
+
+	// A hand-written slot can be left behind on a wrapper when the scrolling
+	// moves, which the registry cannot do to a generated one. So the element
+	// carrying it has to be the one that scrolls.
+	it('autocomplete.tsx puts its list slot on the element that scrolls', () => {
+		const source = readFileSync(resolve(COMPONENTS_UI, 'autocomplete.tsx'), 'utf8');
+		const tag = source.match(/<div\b[^>]*data-slot="autocomplete-list"[^>]*>/)?.[0];
+		expect(tag).toMatch(/className="[^"]*\boverflow-y-auto\b[^"]*"/);
+	});
 });
