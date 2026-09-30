@@ -251,6 +251,26 @@ describe('ExplorerMapPage', () => {
 		expect(screen.getByText('Culvert 12')).toBeTruthy();
 	});
 
+	it('scrolls the filter controls inside the styled viewport, under a heading that stays put', () => {
+		render(<Page />);
+		fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+
+		const viewport = screen
+			.getByText('filter controls')
+			.closest('[data-slot="scroll-area-viewport"]');
+		expect(viewport).not.toBeNull();
+		// The card is capped with `max-h-full` alone, so the root and the viewport
+		// shrink as flex items rather than resolving a percentage height.
+		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toEqual(
+			expect.arrayContaining(['min-h-0', '[&>[data-slot=scroll-area-viewport]]:min-h-0']),
+		);
+		expect(
+			screen
+				.getByRole('button', { name: 'Hide filters' })
+				.closest('[data-slot="scroll-area-viewport"]'),
+		).toBeNull();
+	});
+
 	// Shut, the toggle is the only thing on screen that knows the list is cut
 	// down. Without the number a reader cannot tell a surface with nothing in
 	// range from one whose filters excluded everything.

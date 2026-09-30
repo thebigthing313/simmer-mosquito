@@ -7,6 +7,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -143,7 +144,9 @@ function HistoryFrame({
 				{header}
 				{tabs}
 			</div>
-			<div className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-6">{children}</div>
+			<ScrollArea className="min-h-0 flex-1" type="auto">
+				<div className="px-5 pt-3 pb-6">{children}</div>
+			</ScrollArea>
 		</div>
 	);
 }

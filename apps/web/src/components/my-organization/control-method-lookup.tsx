@@ -10,6 +10,7 @@ import {
 	DrawerTitle,
 	DrawerTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/drawer';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Table,
 	TableBody,
@@ -228,50 +229,60 @@ function ControlMethodDrawer({
 						</DrawerDescription>
 					</DrawerHeader>
 					<form.AppForm>
-						<form
-							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-							onSubmit={(event) => {
-								event.preventDefault();
-								void form.handleSubmit();
-							}}
+						{/* The same flex chain as `CatalogRecordDrawer`: the viewport shrinks as
+						    a flex item to the height the drawer header leaves. */}
+						<ScrollArea
+							className="flex min-h-0 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
+							type="auto"
 						>
-							<form.FormErrorAlert />
-							<form.AppField
-								name="name"
-								validators={{
-									onSubmit: ({ value }) =>
-										value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+							<form
+								className="grid gap-3.5 px-4"
+								onSubmit={(event) => {
+									event.preventDefault();
+									void form.handleSubmit();
 								}}
 							>
-								{(field) => (
-									<field.TextField
-										label={config.fieldLabel}
-										disabled={!canSubmit}
-										placeholder={config.placeholder}
-									/>
-								)}
-							</form.AppField>
-							{/* The lifecycle switch stays at the admin floor even inside an edit a
+								<form.FormErrorAlert />
+								<form.AppField
+									name="name"
+									validators={{
+										onSubmit: ({ value }) =>
+											value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+									}}
+								>
+									{(field) => (
+										<field.TextField
+											label={config.fieldLabel}
+											disabled={!canSubmit}
+											placeholder={config.placeholder}
+										/>
+									)}
+								</form.AppField>
+								{/* The lifecycle switch stays at the admin floor even inside an edit a
 							    manager may make: flipping it emits `deactivate*Method` /
 							    `reactivate*Method`, which the server holds at `ADMIN`. */}
-							<form.AppField name="isActive">
-								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-							</form.AppField>
-							<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-								{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canSubmit} />}
-							</form.AppField>
-							<DrawerFooter className="px-0">
-								<form.FormActions>
-									<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
-									<DrawerClose asChild>
-										<Button type="button" variant="outline">
-											<CloseIcon data-icon="inline-start" aria-hidden="true" />
-											Cancel
-										</Button>
-									</DrawerClose>
-								</form.FormActions>
-							</DrawerFooter>
-						</form>
+								<form.AppField name="isActive">
+									{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+								</form.AppField>
+								<form.AppField
+									name="customSchema"
+									validators={{ onSubmit: validateJsonSchemaValue }}
+								>
+									{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canSubmit} />}
+								</form.AppField>
+								<DrawerFooter className="px-0">
+									<form.FormActions>
+										<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
+										<DrawerClose asChild>
+											<Button type="button" variant="outline">
+												<CloseIcon data-icon="inline-start" aria-hidden="true" />
+												Cancel
+											</Button>
+										</DrawerClose>
+									</form.FormActions>
+								</DrawerFooter>
+							</form>
+						</ScrollArea>
 					</form.AppForm>
 				</DrawerContent>
 			</Drawer>

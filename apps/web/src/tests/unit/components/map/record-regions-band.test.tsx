@@ -72,6 +72,21 @@ describe('RecordRegionsBand', () => {
 		expect(screen.getByText('Pilot area')).toBeDefined();
 	});
 
+	it('scrolls the folders inside the styled viewport, capped there rather than on the root', async () => {
+		const { findByText } = renderBand({
+			found: true,
+			groups: [{ folderId: 'f1', folderName: 'Districts', regions: [{ id: 'r1', name: 'North' }] }],
+		});
+
+		const viewport = (await findByText('Districts')).closest('[data-slot="scroll-area-viewport"]');
+		expect(viewport).not.toBeNull();
+		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toContain(
+			'[&>[data-slot=scroll-area-viewport]]:max-h-52',
+		);
+		// The band's heading stays put above the folders.
+		expect(screen.getByText('Regions').closest('[data-slot="scroll-area-viewport"]')).toBeNull();
+	});
+
 	it('collapses a folder past six chips and expands on request', async () => {
 		// The region detail page is where this fires: measured on production, one
 		// municipality overlaps 38 sections.
