@@ -19,6 +19,7 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
@@ -170,7 +171,7 @@ function EditTrapRouteRoute() {
 						route={route}
 					/>
 
-					<div className="min-h-0 flex-1 overflow-y-auto">
+					<ScrollArea className="min-h-0 flex-1" type="auto">
 						<div className="grid gap-4 p-4">
 							{error !== null ? (
 								<Alert variant="destructive">
@@ -207,7 +208,7 @@ function EditTrapRouteRoute() {
 								</Button>
 							</div>
 						</div>
-					</div>
+					</ScrollArea>
 				</div>
 			</MapSplitPage>
 

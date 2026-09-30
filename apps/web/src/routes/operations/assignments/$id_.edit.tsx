@@ -439,7 +439,6 @@ function PlanStopList({
 }) {
 	return (
 		<StopList
-			className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3"
 			empty={{
 				title: 'No Stops Yet',
 				description:

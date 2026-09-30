@@ -19,6 +19,7 @@ import {
 	DropdownMenuSeparator,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	ArrowLeftIcon,
 	ChevronRightIcon,
@@ -412,7 +413,10 @@ function AddStopBar({
 			) : null}
 
 			{open ? (
-				<div className="max-h-64 overflow-y-auto rounded-lg border border-border/60 bg-card">
+				<ScrollArea
+					className="rounded-lg border border-border/60 bg-card [&>[data-slot=scroll-area-viewport]]:max-h-64"
+					type="auto"
+				>
 					{isFetching && results.length === 0 ? (
 						<p className="flex items-center gap-2 px-3 py-3 text-muted-foreground text-sm">
 							<Loader2Icon aria-hidden="true" className="size-3.5 animate-spin" />
@@ -451,7 +455,7 @@ function AddStopBar({
 							})}
 						</ul>
 					)}
-				</div>
+				</ScrollArea>
 			) : null}
 		</div>
 	);
@@ -490,7 +494,6 @@ function EditStopList({
 
 	return (
 		<StopList
-			className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3"
 			empty={{
 				title: 'No Stops Yet',
 				description: 'Search habitats above and add them in the order crews should visit.',

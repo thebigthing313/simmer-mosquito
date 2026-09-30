@@ -1,5 +1,6 @@
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -46,17 +47,19 @@ function TrapStopList({
 	readonly selection: StopSelection;
 }) {
 	return (
-		<ol className="min-h-0 flex-1 divide-y divide-border/40 overflow-y-auto">
-			{stops.map((stop) => (
-				<StopRow
-					isSelected={stop.routeItemId === selection.selectedStopId}
-					key={stop.routeItemId}
-					onHover={selection.onHover}
-					onSelect={selection.onSelect}
-					stop={stop}
-				/>
-			))}
-		</ol>
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ol className="divide-y divide-border/40">
+				{stops.map((stop) => (
+					<StopRow
+						isSelected={stop.routeItemId === selection.selectedStopId}
+						key={stop.routeItemId}
+						onHover={selection.onHover}
+						onSelect={selection.onSelect}
+						stop={stop}
+					/>
+				))}
+			</ol>
+		</ScrollArea>
 	);
 }
 

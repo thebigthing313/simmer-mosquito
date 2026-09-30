@@ -9,6 +9,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { Progress } from '@simmer-mosquito/ui-web/components/ui/progress';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	Select,
 	SelectContent,
@@ -308,8 +309,8 @@ function ImportRegionsRoute() {
 					</div>
 				</header>
 
-				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-					<div className="grid gap-5">
+				<ScrollArea className="min-h-0 flex-1" type="auto">
+					<div className="grid gap-5 px-5 py-5">
 						<div className="grid gap-2">
 							<input
 								accept={IMPORT_FILE_ACCEPT}
@@ -455,7 +456,7 @@ function ImportRegionsRoute() {
 							</>
 						)}
 					</div>
-				</div>
+				</ScrollArea>
 
 				{/* Outside the scroll area so a long polygon list never buries the actions. */}
 				{items.length === 0 ? null : (

@@ -1,6 +1,7 @@
 import { formatGeometryTypeLabel, isPointGeomType } from '@simmer-mosquito/mapping';
 import { eyebrow } from '@simmer-mosquito/ui-web/components/eyebrow';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import {
 	CalendarIcon,
 	ChevronRightIcon,
@@ -100,8 +101,18 @@ export function MapCard({
 				)}
 
 				{/* The one part that gives: squeezed against a sheet, the body scrolls
-				    and the title and the way through stay reachable. */}
-				{children == null ? null : <div className="mt-3 min-h-0 overflow-y-auto">{children}</div>}
+				    and the title and the way through stay reachable. The card is
+				    capped with `max-h-full` alone, so the root and the viewport shrink
+				    as flex items rather than resolving a percentage height, and with no
+				    `flex-1` a short body keeps the details link right under it. */}
+				{children == null ? null : (
+					<ScrollArea
+						className="mt-3 flex min-h-0 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
+						type="auto"
+					>
+						<div className="pr-3">{children}</div>
+					</ScrollArea>
+				)}
 
 				{viewDetailLink == null ? null : (
 					<div className="mt-4 flex shrink-0 justify-end">

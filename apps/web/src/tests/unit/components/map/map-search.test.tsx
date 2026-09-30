@@ -121,3 +121,36 @@ describe('the suggestions', () => {
 		expect(input().getAttribute('aria-expanded')).toBe('false');
 	});
 });
+
+describe('the results list', () => {
+	it('scrolls inside the styled viewport, capped there rather than on the root', async () => {
+		render(<MapSearch map={null} />);
+		await typeAndSettle('north', [place('a'), place('b')]);
+
+		const listbox = screen.getByRole('listbox', { name: 'Search results' });
+		const viewport = listbox.closest('[data-slot="scroll-area-viewport"]');
+		expect(viewport).not.toBeNull();
+		expect(viewport?.parentElement?.getAttribute('class')?.split(/\s+/)).toContain(
+			'[&>[data-slot=scroll-area-viewport]]:max-h-72',
+		);
+		expect(listbox.className).not.toContain('overflow-y-auto');
+	});
+
+	it('brings the highlighted option into view as the arrow keys move', async () => {
+		const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+		try {
+			render(<MapSearch map={null} />);
+			await typeAndSettle('north', [place('a'), place('b')]);
+
+			fireEvent.keyDown(input(), { key: 'ArrowDown' });
+			fireEvent.keyDown(input(), { key: 'ArrowDown' });
+
+			const option = selectedOption();
+			expect(option?.textContent).toContain('Place b');
+			expect(scrolled.mock.contexts.at(-1)).toBe(option);
+			expect(scrolled).toHaveBeenLastCalledWith({ block: 'nearest' });
+		} finally {
+			scrolled.mockRestore();
+		}
+	});
+});

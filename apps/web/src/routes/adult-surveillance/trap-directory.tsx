@@ -7,6 +7,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Tabs, TabsContent } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
@@ -196,17 +197,19 @@ function TrapList({
 	}
 
 	return (
-		<ul className="flex-1 divide-y divide-border/40 overflow-y-auto">
-			{traps.map((trap) => (
-				<TrapListRow
-					isSelected={trap.id === selectedId}
-					key={trap.id}
-					onSelect={onSelect}
-					showMethod={showMethod}
-					trap={trap}
-				/>
-			))}
-		</ul>
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ul className="divide-y divide-border/40">
+				{traps.map((trap) => (
+					<TrapListRow
+						isSelected={trap.id === selectedId}
+						key={trap.id}
+						onSelect={onSelect}
+						showMethod={showMethod}
+						trap={trap}
+					/>
+				))}
+			</ul>
+		</ScrollArea>
 	);
 }
 

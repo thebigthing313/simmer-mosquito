@@ -8,6 +8,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ArrowLeftIcon,
@@ -406,22 +407,24 @@ function RunStopList({
 	}
 
 	return (
-		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
-			{stops.map((stop) => (
-				<RunStopRow
-					assignmentId={assignmentId}
-					enabled={enabled}
-					recordEnabled={recordEnabled}
-					isHighlighted={stop.assignmentItemId === highlightId}
-					isSelected={stop.assignmentItemId === selectedStopId}
-					key={stop.assignmentItemId}
-					onAction={onAction}
-					onHover={onHover}
-					onSelect={onSelect}
-					stop={stop}
-				/>
-			))}
-		</ol>
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ol className="m-0 list-none space-y-2 p-3">
+				{stops.map((stop) => (
+					<RunStopRow
+						assignmentId={assignmentId}
+						enabled={enabled}
+						recordEnabled={recordEnabled}
+						isHighlighted={stop.assignmentItemId === highlightId}
+						isSelected={stop.assignmentItemId === selectedStopId}
+						key={stop.assignmentItemId}
+						onAction={onAction}
+						onHover={onHover}
+						onSelect={onSelect}
+						stop={stop}
+					/>
+				))}
+			</ol>
+		</ScrollArea>
 	);
 }
 

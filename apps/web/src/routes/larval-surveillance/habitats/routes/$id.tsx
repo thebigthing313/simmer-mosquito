@@ -1,3 +1,4 @@
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { createFileRoute } from '@tanstack/react-router';
 import { RouteStopList } from '../../../../components/larval-surveillance/habitats/route-stop-list';
 import { habitatRouteSurface } from '../../../../components/larval-surveillance/habitats/route-surface';
@@ -25,14 +26,14 @@ function RouteDetailRoute() {
 			stopList={({ selectedStopId, onSelect, onHover }) => (
 				// Habitats sharing a location collapse into one entry, so the list
 				// walks clusters rather than stops.
-				<div className="min-h-0 flex-1 overflow-y-auto">
+				<ScrollArea className="min-h-0 flex-1" type="auto">
 					<RouteStopList
 						clusters={clusters}
 						onHover={onHover}
 						onSelect={onSelect}
 						selectedId={selectedStopId}
 					/>
-				</div>
+				</ScrollArea>
 			)}
 			stops={stops}
 			surface={habitatRouteSurface}

@@ -16,6 +16,7 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Separator } from '@simmer-mosquito/ui-web/components/ui/separator';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
@@ -185,11 +186,24 @@ export function CommentsSection({
 				) : isLoading ? (
 					<CommentsLoading />
 				) : hasComments ? (
-					<div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
-						{pinned.map(renderComment)}
-						{pinned.length > 0 && unpinned.length > 0 ? <Separator className="my-1.5" /> : null}
-						{unpinned.map(renderComment)}
-					</div>
+					/*
+					 * A tab or an aside can hold the card to a height, and nothing above
+					 * the thread then has a definite one for the viewport's `h-full` to
+					 * resolve against. The root and the viewport are flex items that may
+					 * shrink below their content instead, so the column hands the
+					 * viewport what the composer leaves. On a page that lets the card
+					 * grow, nothing overflows and no bar draws.
+					 */
+					<ScrollArea
+						className="-mx-1 flex min-h-0 flex-1 flex-col [&>[data-slot=scroll-area-viewport]]:min-h-0 [&>[data-slot=scroll-area-viewport]]:flex-1"
+						type="auto"
+					>
+						<div className="flex flex-col pr-3 pl-1">
+							{pinned.map(renderComment)}
+							{pinned.length > 0 && unpinned.length > 0 ? <Separator className="my-1.5" /> : null}
+							{unpinned.map(renderComment)}
+						</div>
+					</ScrollArea>
 				) : (
 					<CommentsEmpty
 						description={
